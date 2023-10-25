@@ -1,0 +1,27 @@
+
+version: '3.8'
+services:
+  sam: 
+    build: 
+      context: .
+      dockerfile: ./dockerfiles/api.Dockerfile
+    environment: 
+        - TZ= Etc/GMT
+        - SAM_CLI_TELEMETRY=false
+        - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - $PWD:$PWD
+      - /var/run/docker.sock:/var/run/docker.sock # this is for the nested container
+      - ~/.aws/:/root/.aws:ro
+    working_dir: $PWD
+    command: ["/bin/bash", "./sam_cli_entrypoint.sh"]
+    ports: 
+      - "3001:3001"
+    networks:
+      - "backend"
+
+
+networks: 
+  backend:
+    name: aws_backend
+    driver: bridge
