@@ -7,17 +7,18 @@ WORKDIR /app
 
 # Install base Python deps
 RUN apt-get update \
-    && apt-get install -y \
-    --update python3 py3-pip 
+    && apt-get install -y python3.9 gcc 
 
+RUN apt-get install -y python3-distutils python3-pip python3-apt
+
+RUN pip3 install awscli aws-sam-cli==1.99.0 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 --version
 # awscli and sam from pip
-RUN python3 -m pip install --upgrade pip
+# RUN pip install pip 
+    # && pip install awscli aws-sam-cli=1.99.0 \ 
+    # && rm -rf /var/lib/apt/lists/*
 
-# RUN aws --version
-
-
-
-
-
-
+# CMD [ "make", "_run"]
 
