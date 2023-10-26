@@ -27,15 +27,6 @@ RUN pip3 install awscli aws-sam-cli==1.99.0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=app-build . .
-COPY ./template.yaml ./app
-COPY ./sam_cli_entrypoint.sh ./app
-COPY ./event.json ./app
 
-# run go app
-CMD [ "main" ]
-
-# error Error invoking remote method 'docker-start-container': Error: (HTTP code 400) unexpected - OCI runtime create failed: container_linux.go:380: starting container process caused: exec: "main": executable file not found in $PATH: unknown
-
-
-# CMD [ "sam", "local", "start-api", "--host"]
-
+# Below is running command to hold open while docker compose works
+CMD [ "sh", "-c", "while sleep 3600; do:; done" ]
