@@ -26,6 +26,7 @@ import (
 
 //     return resp, nil
 // }
+type Event map[string]interface{}
 
 func handler(ctx context.Context, event Event) (string, error) {
         log.Print("value1 = ", event["key1"] )
