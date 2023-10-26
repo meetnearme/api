@@ -29,6 +29,7 @@ RUN pip3 install awscli aws-sam-cli==1.99.0 \
 COPY --from=app-build . .
 COPY ./template.yaml ./app
 COPY ./sam_cli_entrypoint.sh ./app
+COPY ./event.json ./app
 
 # run go app
 CMD [ "main" ]
