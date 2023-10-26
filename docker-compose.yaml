@@ -19,15 +19,15 @@ services:
       - "3001:3001"
     networks:
       - "backend"
-  dynamodb-local:
-    command: "-jar DynamDBLocal.jar -sharedDB -dbPath ./data"
-    image: "amazon/dynamodb-local:latest"
-    container_name: dynamodb-local
-    ports: 
-      - "8000:8000"
-    volumes:
-      - "./docker/dynamodb:/home/dynamodblocal/data"
-    working_dir: /home/dynamodblocal
+  # dynamodb-local:
+  #   command: "-jar DynamDBLocal.jar -sharedDB -dbPath ./data"
+  #   image: "amazon/dynamodb-local:latest"
+  #   container_name: dynamodb-local
+  #   ports: 
+  #     - "8000:8000"
+  #   volumes:
+  #     - "./docker/dynamodb:/home/dynamodblocal/data"
+  #   working_dir: /home/dynamodblocal
 
 
 networks: 
