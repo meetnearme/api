@@ -19,7 +19,6 @@ Resources:
       Handler: main
       CodeUri: .
       Timeout: 30
-
       Events:
         HelloWorld:
           Type: Api
