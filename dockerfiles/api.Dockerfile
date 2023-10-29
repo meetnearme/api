@@ -1,18 +1,3 @@
-# Build Stage
-# FROM golang:1.20 AS builder
-
-# WORKDIR /build 
-
-# COPY go.mod go.mod
-# COPY go.sum .
-
-# RUN go mod download
-
-# COPY main.go .
-
-# RUN GOOS=linux go build -o main
-
-# use ubuntu:focal if need more features in future
 FROM ubuntu:focal
 
 WORKDIR /app
@@ -44,7 +29,5 @@ RUN mkdir -p ${GOROOT}/src ${GOTPATH}/bin
     
 RUN go version 
 
-# COPY --from=builder /build /app/build
-
 # Below is running command to hold open while docker compose works
-CMD [ "sh", "-c", "while sleep 3600; do:; done" ]
+# CMD [ "sh", "-c", "while sleep 3600; do:; done" ]

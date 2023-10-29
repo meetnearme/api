@@ -12,26 +12,12 @@ services:
     volumes:
       - $PWD:$PWD
       - /var/run/docker.sock:/var/run/docker.sock # this is for the nested container
-      # if we need to specificy mounting of .aws folder later, currently do not have
-      # - ~/.aws/:/root/.aws:ro
     working_dir: $PWD
     ports: 
       - "3001:3001"
     networks:
       - "backend"
     command: ["/bin/bash", "./sam_cli_entrypoint.sh"]
-    # links:
-    #   - "dynamodb-local"
-  # dynamodb-local:
-  #   command: "-jar DynamDBLocal.jar -sharedDB -dbPath ./data"
-  #   image: "amazon/dynamodb-local:latest"
-  #   container_name: dynamodb-local
-  #   ports: 
-  #     - "8000:8000"
-  #   volumes:
-  #     - "./docker/dynamodb:/home/dynamodblocal/data"
-  #   working_dir: /home/dynamodblocal
-
 
 networks: 
   backend:
