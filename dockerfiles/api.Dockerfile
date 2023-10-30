@@ -29,6 +29,3 @@ ENV PATH /go/bin:$PATH
 RUN mkdir -p ${GOROOT}/src ${GOTPATH}/bin
     
 RUN go version 
-
-# Below is running command to hold open while docker compose works
-# CMD [ "sh", "-c", "while sleep 3600; do:; done" ]
