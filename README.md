@@ -2,6 +2,7 @@
 
 ## Getting Started
 
-1. `$ docker compose build`
-1. `$ docker compose up`
-1.
+1. `$ git clone git@github.com:meetnearme/api.git`
+2. `$ docker compose build`
+3. `$ docker compose up`
+4. `$ curl localhost:3001` to verify the server response
