@@ -1,0 +1,18 @@
+{   "users": [
+    {
+        "PutRequest": {
+            "Item": {
+                "pk": {"S":"chrm#front"},
+                "sk": {"S":"chrm#front"},
+                "kind": {"S":"chatRoom"},
+                "channelName": {"S":"front"},
+                "ownerUserId": {"S":"0"},
+                "members": {"L":[]},
+                "isprivate": {"B": "false"},
+                "LogLength": {"N":"100"},
+                "LogDurationHours": {"N":"24"},
+                "chatLog": {"L":[]}
+            }
+        }
+    }]
+}
