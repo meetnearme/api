@@ -12,6 +12,26 @@ Globals:
     Runtime: go1.x
 
 Resources:
+  UserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 10
+      Handler: main 
+      Events:
+        GetUsers:
+          Type: Api
+          Properties: 
+            Path: /user
+            Method: GET
+        PutUsers:
+          Type: Api
+          Properties:
+            Path: /user
+            Method: POST
+      Policies:
+        - AWSLambdaExecute
+        - DynamoDBCrudPolicy:
+            TableName: !Ref User
   HelloWorld:
     Type: AWS::Serverless::Function
     Properties:
