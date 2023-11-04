@@ -1,4 +1,3 @@
-
 version: '3.8'
 services:
   sam: 
@@ -17,13 +16,19 @@ services:
     working_dir: $PWD
     ports: 
       - "3001:3001"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_SESSION_TOKEN=test
+      - REGION=us-east-1
     networks:
       - "backend"
-    command: ["/bin/bash", "./sam_cli_entrypoint.sh"]
+    command: ["/bin/bash", "./scripts/sam_cli_entrypoint.sh"]
     links:
       - "dynamodb-local"
   dynamodb-local:
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
+    command: "-jar DynamoDBLocal.jar -inMemory -sharedDb" 
+    user: root
     image: "amazon/dynamodb-local:latest"
     container_name: dynamodb-local
     ports: 
@@ -31,6 +36,27 @@ services:
     volumes:
       - "./docker/dynamodb:/home/dynamodblocal/data"
     working_dir: /home/dynamodblocal
+    networks: 
+      - backend
+  dynamo-seeder:
+    working_dir: /home/api/seeder/
+    volumes: 
+      - ./:/home/api/seeder
+    entrypoint: ["/bin/bash"]
+    command: -c "chmod +x ./scripts/init_database.sh && ./scripts/init_database.sh --forever"
+    image: amazon/aws-cli
+    links: 
+      - dynamodb-local
+    depends_on:
+      - dynamodb-local
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - REGION=us-east-1
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+    networks:
+      - backend
+
 
 
 networks: 
