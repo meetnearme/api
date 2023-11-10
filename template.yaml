@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  containerized-aws-sam
+
+  Hello World Go Api
+
+Globals:
+  Function:
+    Timeout: 3
+    Runtime: go1.x
+
+Resources:
+  HelloWorld:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: go1.x
+      Handler: main
+      CodeUri: .
+      Timeout: 30
+      Events:
+        HelloWorld:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /
