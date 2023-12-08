@@ -14,15 +14,18 @@ import (
 )
 
 
-const TableName = "Users"
+const TableName = "Events"
 
 var db *dynamodb.Client
 
-type User struct {
+type Event struct {
     Id string `json:"id" dynamodbav:"id"`
     Name string `json:"name" dynamodbav:"name"`
-    Kind string `json:"kind" dynamodbav:"kind"`
-    Region string `json:"region" dynamodbav:"region"`
+    Description string  `json:"description" dynamodbav:"description"`
+    Datetime string  `json:"datetime" dynamodbav:"datetime"`
+    Address string  `json:"address" dynamodbav:"address"`
+    ZipCode string  `json:"zip_code" dynamodbav:"zip_code"`
+    Country string  `json:"country" dynamodbav:"country"`
 } 
 
 func init() {
@@ -49,8 +52,8 @@ func CreateLocalClient() *dynamodb.Client {
     return dynamodb.NewFromConfig(sdkConfig)
 } 
 
-func listItems(ctx context.Context) ([]User, error) {
-    users := make([]User, 0)
+func listItems(ctx context.Context) ([]Event, error) {
+    events := make([]Event, 0)
     var token map[string]types.AttributeValue
 
     for {
@@ -64,30 +67,32 @@ func listItems(ctx context.Context) ([]User, error) {
             return nil, err
         } 
 
-        var fetchedUsers []User
-        err = attributevalue.UnmarshalListOfMaps(result.Items, &fetchedUsers)
+        var fetchedEvents []Event
+        err = attributevalue.UnmarshalListOfMaps(result.Items, &fetchedEvents)
         if err != nil {
             return nil, err
         } 
 
-        users = append(users, fetchedUsers...)
+        events = append(events , fetchedEvents...)
         token = result.LastEvaluatedKey
         if token == nil {
             break
         }
     }
-    return users, nil 
+    return events, nil 
 } 
 
-func insertItem( ctx context.Context, createUser CreateUser) (*User, error) {
-    user := User{
-        Name: createUser.Name,
-        Kind: createUser.Kind,
-        Region: createUser.Region,
+func insertItem( ctx context.Context, createEvent CreateEvent) (*Event, error) {
+    event := Event{
+        Name: createEvent.Name,
+        Description: createEvent.Description,
+        Datetime: createEvent.Datetime,
+        Address: createEvent.Address,
+        ZipCode: createEvent.ZipCode,
         Id: uuid.NewString(),
     }
 
-    item, err := attributevalue.MarshalMap(user)
+    item, err := attributevalue.MarshalMap(event)
     if err != nil {
         fmt.Println("Hitting after marshal map")
         return nil, err
@@ -105,9 +110,9 @@ func insertItem( ctx context.Context, createUser CreateUser) (*User, error) {
     }
 
 
-    err = attributevalue.UnmarshalMap(res.Attributes, &user)
+    err = attributevalue.UnmarshalMap(res.Attributes, &event)
     if err != nil {
         return nil, err
     }
-    return &user, nil 
+    return &event, nil 
 } 

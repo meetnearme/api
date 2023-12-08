@@ -13,18 +13,22 @@ import (
 
 var validate *validator.Validate = validator.New()
 
-type CreateUser struct {
+type CreateEvent struct {
     Name string `json:"name" validate:"required"`
-    Kind string  `json:"kind" validate:"required"`
-    Region string  `json:"region" validate:"required"`
+    Description string  `json:"description" validate:"required"`
+    Datetime string  `json:"datetime" validate:"required"`
+    Address string  `json:"address" validate:"required"`
+    ZipCode string  `json:"zip_code" validate:"required"`
+    Country string  `json:"country" validate:"required"`
 } 
+
 
 func router(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
     log.Printf("Received req %#v", req)
 
-    switch req. HTTPMethod {
+    switch req.HTTPMethod {
     case "GET":
-        return processGetUsers(ctx)
+        return processGetEvents(ctx)
     case "POST":
         return processPost(ctx, req)
     default:
@@ -32,15 +36,15 @@ func router(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIG
     } 
 }
 
-func processGetUsers(ctx context.Context) (events.APIGatewayProxyResponse, error) {
-    log.Print("Received GET Users request")
+func processGetEvents(ctx context.Context) (events.APIGatewayProxyResponse, error) {
+    log.Print("Received GET events request")
 
-    users, err := listItems(ctx)
+    eventList, err := listItems(ctx)
     if err != nil {
         return serverError(err)
     }
 
-    json, err := json.Marshal(users)
+    json, err := json.Marshal(eventList)
     if err != nil {
         return serverError(err)
     } 
@@ -53,21 +57,21 @@ func processGetUsers(ctx context.Context) (events.APIGatewayProxyResponse, error
 } 
 
 func processPost(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-    var createUser CreateUser
-    err := json.Unmarshal([]byte(req.Body), &createUser)
+    var createEvent CreateEvent 
+    err := json.Unmarshal([]byte(req.Body), &createEvent)
     if err != nil {
         log.Printf("Cannot unmarshal body: %v", err)
         return clientError(http.StatusUnprocessableEntity)
     } 
 
-    err = validate.Struct(&createUser)
+    err = validate.Struct(&createEvent)
     if err != nil {
         log.Printf("Invalid body: %v", err)
         return clientError(http.StatusBadRequest)
     }
-    log.Printf("Received POST request with item: %+v", createUser)
+    log.Printf("Received POST request with item: %+v", createEvent)
 
-    res, err := insertItem(ctx, createUser)
+    res, err := insertItem(ctx, createEvent)
     if err != nil {
         return serverError(err)
     }
