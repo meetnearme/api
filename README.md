@@ -7,11 +7,12 @@
 1.
 
 
-## Validating User Basic end Points 
-User below commands 
+## Validating Event Basic end Points 
+Event below commands 
 
-`curl localhost:3001/user` - list table Users
-`curl -X POST -H 'Content-Type: application/json' -d '{"name": "Brandon", "kind": "user", "region": "USA"}' http://0.0.0.0:3001/user` - insert new user
+`curl localhost:3001/user` - list table Events
+`curl -X POST -H 'Content-Type: application/json' -d '{"name": "Chess Tournament", "description": "Join the junior chess tournament to test your abilities", "datetime": "2024-03-13T15:07:00", "address": "15 Chess Street", "zip_code": "84322", "country": "USA"}' http://0.0.0.0:3001/event` - insert new event
+
 
 
 
