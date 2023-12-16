@@ -4,10 +4,6 @@ services:
     build: 
       context: .
       dockerfile: ./dockerfiles/api.Dockerfile
-    environment: 
-        - TZ= Etc/GMT
-        - SAM_CLI_TELEMETRY=false
-        - DOCKER_HOST=unix:///var/run/docker.sock
     volumes:
       - $PWD:$PWD
       - /var/run/docker.sock:/var/run/docker.sock # this is for the nested container
@@ -17,6 +13,9 @@ services:
     ports: 
       - "3001:3001"
     environment:
+      - TZ= Etc/GMT
+      - SAM_CLI_TELEMETRY=false
+      - DOCKER_HOST=unix:///var/run/docker.sock
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_SESSION_TOKEN=test
