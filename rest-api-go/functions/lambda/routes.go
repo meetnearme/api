@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -22,15 +23,21 @@ type CreateEvent struct {
     Country string  `json:"country" validate:"required"`
 } 
 
+func main() {
+    lambda.Start(Router)
+} 
 
-func router(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+
+func Router(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
     log.Printf("Received req %#v", req)
 
     switch req.HTTPMethod {
     case "GET":
-        return processGetEvents(ctx)
+        println("hit get")
+        return processGetEvents(req.Body)
     case "POST":
-        return processPost(ctx, req)
+        println("Hit process block")
+        // return processPost(req.Body, req)
     default:
         return clientError(http.StatusMethodNotAllowed)
     } 
@@ -57,36 +64,36 @@ func processGetEvents(ctx context.Context) (events.APIGatewayProxyResponse, erro
 } 
 
 func processPost(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-    var createEvent CreateEvent 
-    err := json.Unmarshal([]byte(req.Body), &createEvent)
-    if err != nil {
-        log.Printf("Cannot unmarshal body: %v", err)
-        return clientError(http.StatusUnprocessableEntity)
-    } 
+    // var createEvent CreateEvent 
+    // err := json.Unmarshal([]byte(req.Body), &createEvent)
+    // if err != nil {
+    //     log.Printf("Cannot unmarshal body: %v", err)
+    //     return clientError(http.StatusUnprocessableEntity)
+    // } 
 
-    err = validate.Struct(&createEvent)
-    if err != nil {
-        log.Printf("Invalid body: %v", err)
-        return clientError(http.StatusBadRequest)
-    }
-    log.Printf("Received POST request with item: %+v", createEvent)
+    // err = validate.Struct(&createEvent)
+    // if err != nil {
+    //     log.Printf("Invalid body: %v", err)
+    //     return clientError(http.StatusBadRequest)
+    // }
+    // log.Printf("Received POST request with item: %+v", createEvent)
 
-    res, err := insertItem(ctx, createEvent)
-    if err != nil {
-        return serverError(err)
-    }
-    log.Printf("Inserted new user: %+v", res)
+    // res, err := insertItem(ctx, createEvent)
+    // if err != nil {
+    //     return serverError(err)
+    // }
+    // log.Printf("Inserted new user: %+v", res)
 
-    json, err := json.Marshal(res)
-    if err != nil {
-        return serverError(err)
-    }
+    // json, err := json.Marshal(res)
+    // if err != nil {
+    //     return serverError(err)
+    // }
 
     return events.APIGatewayProxyResponse{
         StatusCode: http.StatusCreated,
-        Body: string(json),
+        Body: "hello from post",
         Headers: map[string]string{
-            "Location": fmt.Sprintf("/user/%s", res.Id),
+            "Location": fmt.Sprintf("/user/%s", "hello res"),
         },
     }, nil 
 } 
