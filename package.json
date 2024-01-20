@@ -1,8 +1,11 @@
 {
-  "name": "rest-api-go",
+  "name": "meetnearme-api",
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=21.6.0"
+  },
   "scripts": {
     "dev": "sst dev",
     "build": "sst build",

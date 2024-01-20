@@ -21,29 +21,39 @@ type CreateEvent struct {
     Address string  `json:"address" validate:"required"`
     ZipCode string  `json:"zip_code" validate:"required"`
     Country string  `json:"country" validate:"required"`
-} 
+}
 
 func main() {
     lambda.Start(Router)
-} 
+}
 
 
-func Router(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-    log.Printf("Received req %#v", req)
+func Router(req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+    log.Printf("Received req %#v", req.RequestContext)
 
-    switch req.HTTPMethod {
+    switch req.RequestContext.HTTP.Method {
     case "GET":
         println("hit get")
-        return processGetEvents(req.Body)
+        // return processGetEvents(req.Body)
+        return events.APIGatewayV2HTTPResponse{
+            Body:       "Hello from GET, time: " + req.RequestContext.Time + ".",
+            StatusCode: 200,
+        }, nil
+
+
     case "POST":
         println("Hit process block")
         // return processPost(req.Body, req)
+        return events.APIGatewayV2HTTPResponse{
+            Body:       "Hello from POST, time: " + req.RequestContext.Time + ".",
+            StatusCode: 200,
+        }, nil
     default:
         return clientError(http.StatusMethodNotAllowed)
-    } 
+    }
 }
 
-func processGetEvents(ctx context.Context) (events.APIGatewayProxyResponse, error) {
+func processGetEvents(ctx context.Context) (events.APIGatewayV2HTTPResponse, error) {
     log.Print("Received GET events request")
 
     eventList, err := listItems(ctx)
@@ -54,22 +64,22 @@ func processGetEvents(ctx context.Context) (events.APIGatewayProxyResponse, erro
     json, err := json.Marshal(eventList)
     if err != nil {
         return serverError(err)
-    } 
+    }
     log.Printf("Successfully fetched todos: %s", json)
 
-    return events.APIGatewayProxyResponse{
+    return events.APIGatewayV2HTTPResponse{
         StatusCode: http.StatusOK,
         Body: string(json),
     }, nil
-} 
+}
 
-func processPost(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-    // var createEvent CreateEvent 
+func processPost(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+    // var createEvent CreateEvent
     // err := json.Unmarshal([]byte(req.Body), &createEvent)
     // if err != nil {
     //     log.Printf("Cannot unmarshal body: %v", err)
     //     return clientError(http.StatusUnprocessableEntity)
-    // } 
+    // }
 
     // err = validate.Struct(&createEvent)
     // if err != nil {
@@ -89,28 +99,28 @@ func processPost(ctx context.Context, req events.APIGatewayProxyRequest) (events
     //     return serverError(err)
     // }
 
-    return events.APIGatewayProxyResponse{
+    return events.APIGatewayV2HTTPResponse{
         StatusCode: http.StatusCreated,
         Body: "hello from post",
         Headers: map[string]string{
             "Location": fmt.Sprintf("/user/%s", "hello res"),
         },
-    }, nil 
-} 
+    }, nil
+}
 
-func clientError(status int) (events.APIGatewayProxyResponse, error) {
+func clientError(status int) (events.APIGatewayV2HTTPResponse, error) {
 
-	return events.APIGatewayProxyResponse{
+	return events.APIGatewayV2HTTPResponse{
 		Body:       http.StatusText(status),
 		StatusCode: status,
 	}, nil
 }
 
-func serverError(err error) (events.APIGatewayProxyResponse, error) {
+func serverError(err error) (events.APIGatewayV2HTTPResponse, error) {
 	log.Println(err.Error())
     log.Println("Hitting server error in routes")
 
-	return events.APIGatewayProxyResponse{
+	return events.APIGatewayV2HTTPResponse{
 		Body:       http.StatusText(http.StatusInternalServerError),
 		StatusCode: http.StatusInternalServerError,
 	}, nil
