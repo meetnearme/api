@@ -29,12 +29,10 @@ func main() {
 
 
 func Router(req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-    log.Printf("Received req %#v", req.RequestContext)
+    // log.Printf("Received req %#v", req.RequestContext)
 
     switch req.RequestContext.HTTP.Method {
     case "GET":
-        println("hit get")
-        // return processGetEvents(req.Body)
         return events.APIGatewayV2HTTPResponse{
             Body:       "Hello from GET, time: " + req.RequestContext.Time + ".",
             StatusCode: 200,
@@ -42,8 +40,6 @@ func Router(req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse
 
 
     case "POST":
-        println("Hit process block")
-        // return processPost(req.Body, req)
         return events.APIGatewayV2HTTPResponse{
             Body:       "Hello from POST, time: " + req.RequestContext.Time + ".",
             StatusCode: 200,
