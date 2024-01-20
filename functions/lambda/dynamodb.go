@@ -26,7 +26,7 @@ type Event struct {
     Address string  `json:"address" dynamodbav:"address"`
     ZipCode string  `json:"zip_code" dynamodbav:"zip_code"`
     Country string  `json:"country" dynamodbav:"country"`
-} 
+}
 
 func init() {
     db = CreateLocalClient()
@@ -37,7 +37,7 @@ func CreateLocalClient() *dynamodb.Client {
         config.WithRegion("us-east-1"),
         config.WithEndpointResolver(aws.EndpointResolverFunc(
             func(service, region string) (aws.Endpoint, error) {
-                return aws.Endpoint{URL: "http://dynamodb-local:8000"}, nil 
+                return aws.Endpoint{URL: "http://localhost:8000"}, nil
             })),
         config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
             Value: aws.Credentials{
@@ -48,9 +48,9 @@ func CreateLocalClient() *dynamodb.Client {
     )
     if err != nil {
         panic(err)
-    } 
+    }
     return dynamodb.NewFromConfig(sdkConfig)
-} 
+}
 
 func listItems(ctx context.Context) ([]Event, error) {
     events := make([]Event, 0)
@@ -65,13 +65,13 @@ func listItems(ctx context.Context) ([]Event, error) {
         result, err := db.Scan(ctx, input)
         if err != nil {
             return nil, err
-        } 
+        }
 
         var fetchedEvents []Event
         err = attributevalue.UnmarshalListOfMaps(result.Items, &fetchedEvents)
         if err != nil {
             return nil, err
-        } 
+        }
 
         events = append(events , fetchedEvents...)
         token = result.LastEvaluatedKey
@@ -79,8 +79,8 @@ func listItems(ctx context.Context) ([]Event, error) {
             break
         }
     }
-    return events, nil 
-} 
+    return events, nil
+}
 
 func insertItem( ctx context.Context, createEvent CreateEvent) (*Event, error) {
     event := Event{
@@ -114,5 +114,5 @@ func insertItem( ctx context.Context, createEvent CreateEvent) (*Event, error) {
     if err != nil {
         return nil, err
     }
-    return &event, nil 
-} 
+    return &event, nil
+}

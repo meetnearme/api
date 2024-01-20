@@ -97,7 +97,6 @@ func processPost(ctx context.Context, req events.APIGatewayV2HTTPRequest) (event
 }
 
 func clientError(status int) (events.APIGatewayV2HTTPResponse, error) {
-
 	return events.APIGatewayV2HTTPResponse{
 		Body:       http.StatusText(status),
 		StatusCode: status,
