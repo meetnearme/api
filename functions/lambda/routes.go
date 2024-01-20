@@ -28,22 +28,14 @@ func main() {
 }
 
 
-func Router(req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
     // log.Printf("Received req %#v", req.RequestContext)
 
     switch req.RequestContext.HTTP.Method {
     case "GET":
-        return events.APIGatewayV2HTTPResponse{
-            Body:       "Hello from GET, time: " + req.RequestContext.Time + ".",
-            StatusCode: 200,
-        }, nil
-
-
+        return processGetEvents(ctx)
     case "POST":
-        return events.APIGatewayV2HTTPResponse{
-            Body:       "Hello from POST, time: " + req.RequestContext.Time + ".",
-            StatusCode: 200,
-        }, nil
+        return processPost(ctx, req)
     default:
         return clientError(http.StatusMethodNotAllowed)
     }
@@ -70,34 +62,34 @@ func processGetEvents(ctx context.Context) (events.APIGatewayV2HTTPResponse, err
 }
 
 func processPost(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-    // var createEvent CreateEvent
-    // err := json.Unmarshal([]byte(req.Body), &createEvent)
-    // if err != nil {
-    //     log.Printf("Cannot unmarshal body: %v", err)
-    //     return clientError(http.StatusUnprocessableEntity)
-    // }
+    var createEvent CreateEvent
+    err := json.Unmarshal([]byte(req.Body), &createEvent)
+    if err != nil {
+        log.Printf("Cannot unmarshal body: %v", err)
+        return clientError(http.StatusUnprocessableEntity)
+    }
 
-    // err = validate.Struct(&createEvent)
-    // if err != nil {
-    //     log.Printf("Invalid body: %v", err)
-    //     return clientError(http.StatusBadRequest)
-    // }
-    // log.Printf("Received POST request with item: %+v", createEvent)
+    err = validate.Struct(&createEvent)
+    if err != nil {
+        log.Printf("Invalid body: %v", err)
+        return clientError(http.StatusBadRequest)
+    }
+    log.Printf("Received POST request with item: %+v", createEvent)
 
-    // res, err := insertItem(ctx, createEvent)
-    // if err != nil {
-    //     return serverError(err)
-    // }
-    // log.Printf("Inserted new user: %+v", res)
+    res, err := insertItem(ctx, createEvent)
+    if err != nil {
+        return serverError(err)
+    }
+    log.Printf("Inserted new user: %+v", res)
 
-    // json, err := json.Marshal(res)
-    // if err != nil {
-    //     return serverError(err)
-    // }
+    json, err := json.Marshal(res)
+    if err != nil {
+        return serverError(err)
+    }
 
     return events.APIGatewayV2HTTPResponse{
         StatusCode: http.StatusCreated,
-        Body: "hello from post",
+        Body: string(json),
         Headers: map[string]string{
             "Location": fmt.Sprintf("/user/%s", "hello res"),
         },
