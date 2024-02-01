@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/go-playground/validator/v10"
+	"github.com/meetnearme/api/functions/lambda/shared"
 	"github.com/meetnearme/api/functions/lambda/views"
 )
 
@@ -25,19 +26,38 @@ type CreateEvent struct {
     Country string  `json:"country" validate:"required"`
 }
 
+
+var Pages = []shared.Page{
+	{
+		Name:     "My Account",
+		Desc:     "My Account page",
+		Slug:     "my-account",
+		// // Handlers: csrf.Handlers,
+	},
+	{
+		Name:     "My Events",
+		Desc:     "List of events I'm attending",
+		Slug:     "my-events",
+		// // Handlers: clicktoedit.Handlers,
+	},
+}
+
 func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
     switch req.RequestContext.HTTP.Method {
     case "GET":
-        component := views.Hello("World")
+        component := views.Home(Pages)
         var buf bytes.Buffer
         err := component.Render(ctx, &buf)
         if err != nil {
             return serverError(err)
         }
         return events.APIGatewayV2HTTPResponse{
+            Headers: map[string]string{"Content-Type": "text/html"},
             StatusCode: http.StatusOK,
+            IsBase64Encoded: false,
             Body: buf.String(),
         }, nil
+        // return processGetEvents(ctx)
     case "POST":
         return processPost(ctx, req)
     default:
