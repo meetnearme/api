@@ -74,32 +74,15 @@ func hello(name string) templ.Component {
 	})
 }
 
-type HelloWorldComponent struct{}
-func (h HelloWorldComponent) Render() string {
-    return `
-        <html>
-            <head>
-                <title>Hello World</title>
-            </head>
-            <body>
-                <h1>Hello, World!</h1>
-                <p>Welcome to AWS Lambda using Go and Templ.</p>
-            </body>
-        </html>
-    `
-}
-
-
 func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-    // log.Printf("Received req %#v", req.RequestContext)
-
     switch req.RequestContext.HTTP.Method {
     case "GET":
-        component := HelloWorldComponent{}
+        component := hello("World")
         var buf bytes.Buffer
-        buf.WriteString(component.Render())
-
-        // return processGetEvents(ctx)
+        err := component.Render(ctx, &buf)
+        if err != nil {
+            return serverError(err)
+        }
         return events.APIGatewayV2HTTPResponse{
             StatusCode: http.StatusOK,
             Body: buf.String(),
