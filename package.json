@@ -21,8 +21,5 @@
     "sst": "2.39.5",
     "typescript": "^5.3.3"
   },
-  "workspaces": [],
-  "volta": {
-    "node": "21.6.0"
-  }
+  "workspaces": []
 }
