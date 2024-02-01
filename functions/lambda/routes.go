@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/go-playground/validator/v10"
 	// import relative module for views handled by templ
+    "github.com/meetnearme/api/views"
 )
 
 var validate *validator.Validate = validator.New()
@@ -77,7 +78,7 @@ func hello(name string) templ.Component {
 func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
     switch req.RequestContext.HTTP.Method {
     case "GET":
-        component := hello("World")
+        component := Hello("World")
         var buf bytes.Buffer
         err := component.Render(ctx, &buf)
         if err != nil {
