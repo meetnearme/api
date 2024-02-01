@@ -10,7 +10,7 @@ export default {
   },
   stacks(app) {
     app.setDefaultFunctionProps({
-      runtime: "go1.x",
+      runtime: "go",
     });
     app.stack(function Stack({ stack }) {
       const api = new Api(stack, "api", {
