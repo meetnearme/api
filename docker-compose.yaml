@@ -15,8 +15,6 @@ services:
     volumes:
       - $PWD:$PWD
       - /var/run/docker.sock:/var/run/docker.sock # this is for the nested container
-      # if we need to specificy mounting of .aws folder later, currently do not have
-      # - ~/.aws/:/root/.aws:ro
     working_dir: $PWD
     ports:
       - "3001:3001"

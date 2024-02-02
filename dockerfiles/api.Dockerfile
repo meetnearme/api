@@ -12,14 +12,15 @@ RUN apt-get install -y python3-distutils python3-pip python3-apt sudo
 RUN pip3 install awscli aws-sam-cli==1.99.0 \
     && rm -rf /var/lib/apt/lists/*
 
-# install software commons 
-RUN sudo apt update \
-    && sudo apt install -y software-properties-common
+# install software commons and golang from apt-get 
+RUN sudo apt-get update \ 
+    && sudo apt-get install -y golang \
+    && sudo apt-get install -y software-properties-common
 
-# isntall golang
+# install golang backports and update to newest version
 RUN sudo add-apt-repository ppa:longsleep/golang-backports -y \
     && sudo apt update \ 
-    && sudo apt install -y golang-go
+    && sudo apt install -y golang-1.20
 
 ENV GOROOT /usr/lib/go
 ENV GOTPATH /go
