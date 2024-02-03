@@ -4,7 +4,7 @@ import { Api } from "sst/constructs";
 export default {
   config(_input) {
     return {
-      name: "rest-api-go",
+      name: "meetnearme-go-fullstack",
       region: "us-east-1",
     };
   },
