@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -29,27 +30,42 @@ type Event struct {
 }
 
 func init() {
-    db = CreateLocalClient()
+    db = CreateDbClient()
 }
 
-func CreateLocalClient() *dynamodb.Client {
-    sdkConfig, err := config.LoadDefaultConfig(context.TODO(),
-        config.WithRegion("us-east-1"),
-        config.WithEndpointResolver(aws.EndpointResolverFunc(
-            func(service, region string) (aws.Endpoint, error) {
-                return aws.Endpoint{URL: "http://localhost:8000"}, nil
-            })),
-        config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
-            Value: aws.Credentials{
-                AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test",
-                Source: "Hard-coded credentials; values are irrelevant for local dynamo",
-            },
-        }),
-    )
+func CreateDbClient() *dynamodb.Client {
+
+    fmt.Println("Creating local client ==>", os.Getenv("SST_STAGE"))
+
+    dbUrl := "http://localhost:8000"
+    if (os.Getenv("SST_STAGE") == "prod") {
+        dbUrl = "http://some-prod-url-from-secrets.com"
+    }
+
+    customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+        if service == dynamodb.ServiceID && region == "us-east-1" {
+            return aws.Endpoint{
+                PartitionID:   "aws",
+                URL:           dbUrl,
+                SigningRegion: "us-east-1",
+            }, nil
+        }
+        // returning EndpointNotFoundError will allow the service to fallback to it's default resolution
+        return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+    })
+
+    cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver),
+    config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
+        Value: aws.Credentials{
+            AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test",
+            Source: "Hard-coded credentials; values are irrelevant for local dynamo",
+        },
+    }))
+
     if err != nil {
         panic(err)
     }
-    return dynamodb.NewFromConfig(sdkConfig)
+    return dynamodb.NewFromConfig(cfg)
 }
 
 func listItems(ctx context.Context) ([]Event, error) {

@@ -12,7 +12,6 @@ export default {
     console.log('~TEST!!!', process.env);
     app.setDefaultFunctionProps({
       runtime: 'go',
-      environment: { MY_ENV_VAR: process.env.MY_ENV_VAR },
     });
     app.stack(function Stack({ stack }) {
       const api = new Api(stack, 'api', {

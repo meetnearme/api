@@ -1,9 +1,8 @@
 name: Deploy Prod (SST)
 on:
-  push
-  # push:
-  #     branches:
-  #         - main
+  push:
+    branches:
+      - main
 
 # Concurrency group name ensures concurrent workflow runs wait for any in-progress job to finish
 concurrency:
