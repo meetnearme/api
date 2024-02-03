@@ -5,22 +5,30 @@ Description: >
 
   Hello World Go Api
 
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 3
-    Runtime: go1.x
+    Runtime: go
 
 Resources:
-  HelloWorld:
+  EventFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Runtime: go1.x
-      Handler: main
-      CodeUri: .
-      Timeout: 30
+      Timeout: 10
+      Handler: main 
       Events:
-        HelloWorld:
+        GetEvents:
+          Type: Api
+          Properties: 
+            Path: /event
+            Method: GET
+        PutEvent:
           Type: Api
           Properties:
-            Method: get
-            Path: /
+            Path: /event
+            Method: POST
+      Policies:
+        - AWSLambdaExecute
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Events

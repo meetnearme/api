@@ -1,25 +1,62 @@
-
 version: '3.8'
 services:
-  sam: 
-    build: 
+  sam:
+    build:
       context: .
       dockerfile: ./dockerfiles/api.Dockerfile
-    environment: 
+    environment:
         - TZ= Etc/GMT
         - SAM_CLI_TELEMETRY=false
         - DOCKER_HOST=unix:///var/run/docker.sock
+        - AWS_ACCESS_KEY_ID=test
+        - AWS_SECRET_ACCESS_KEY=test
+        - AWS_SESSION_TOKEN=test
+        - REGION=us-east-1
     volumes:
       - $PWD:$PWD
       - /var/run/docker.sock:/var/run/docker.sock # this is for the nested container
     working_dir: $PWD
-    ports: 
+    ports:
       - "3001:3001"
     networks:
       - "backend"
-    command: ["/bin/bash", "./sam_cli_entrypoint.sh"]
+    command: ["/bin/bash", "./scripts/sam_cli_entrypoint.sh"]
+    links:
+      - "dynamodb-local"
+  dynamodb-local:
+    command: "-jar DynamoDBLocal.jar -inMemory -sharedDb"
+    user: root
+    image: "amazon/dynamodb-local:latest"
+    container_name: dynamodb-local
+    ports:
+      - "8000:8000"
+    volumes:
+      - "./docker/dynamodb:/home/dynamodblocal/data"
+    working_dir: /home/dynamodblocal
+    networks:
+      - backend
+  dynamo-seeder:
+    working_dir: /home/api/seeder/
+    volumes:
+      - ./:/home/api/seeder
+    entrypoint: ["/bin/bash"]
+    command: -c "chmod +x ./scripts/init_database.sh && ./scripts/init_database.sh --forever"
+    image: amazon/aws-cli
+    links:
+      - dynamodb-local
+    depends_on:
+      - dynamodb-local
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - REGION=us-east-1
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+    networks:
+      - backend
 
-networks: 
+
+
+networks:
   backend:
     name: aws_backend
     driver: bridge
