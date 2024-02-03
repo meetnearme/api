@@ -29,7 +29,7 @@ type CreateEvent struct {
 
 var Pages = []shared.Page{
 	{
-		Name:     "My Account",
+		Name:     "My Account (test)",
 		Desc:     "My Account page",
 		Slug:     "my-account",
 		// // Handlers: csrf.Handlers,
