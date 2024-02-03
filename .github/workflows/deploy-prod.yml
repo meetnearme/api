@@ -1,5 +1,8 @@
 name: Deploy Prod (SST)
 on: push
+    push:
+        branches:
+            - main
 
 # Concurrency group name ensures concurrent workflow runs wait for any in-progress job to finish
 concurrency:
@@ -10,7 +13,7 @@ permissions:
     contents: read # This is required for actions/checkout
 
 jobs:
-    DeployApp:
+    DeployProdSST:
         runs-on: ubuntu-latest
         steps:
             - name: Git clone the repository
