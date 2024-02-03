@@ -1,10 +1,7 @@
 name: Deploy Prod (SST)
-on:
-    push:
-        branches:
-            - main
+on: push
 
-    # Concurrency group name ensures concurrent workflow runs wait for any in-progress job to finish
+# Concurrency group name ensures concurrent workflow runs wait for any in-progress job to finish
 concurrency:
     group: merge-${{ github.ref }}
 
@@ -15,9 +12,6 @@ permissions:
 jobs:
     DeployApp:
         runs-on: ubuntu-latest
-        env:
-        #Define your envs needed for static generation:
-        # ENV_NAME: ${{ secrets.ENV_NAME }}
         steps:
             - name: Git clone the repository
               uses: actions/checkout@v3
