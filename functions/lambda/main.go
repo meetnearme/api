@@ -29,13 +29,13 @@ type CreateEvent struct {
 
 var Pages = []shared.Page{
 	{
-		Name:     "My Account",
+		Name:     "My Account (test)",
 		Desc:     "My Account page",
 		Slug:     "my-account",
 		// // Handlers: csrf.Handlers,
 	},
 	{
-		Name:     "My Events",
+		Name:     "My Events (test from non-main branch PR)",
 		Desc:     "List of events I'm attending",
 		Slug:     "my-events",
 		// // Handlers: clicktoedit.Handlers,

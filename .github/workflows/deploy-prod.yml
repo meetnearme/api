@@ -4,7 +4,7 @@ on:
         branches:
             - main
 
-    # Concurrency group name ensures concurrent workflow runs wait for any in-progress job to finish
+# Concurrency group name ensures concurrent workflow runs wait for any in-progress job to finish
 concurrency:
     group: merge-${{ github.ref }}
 
@@ -13,19 +13,16 @@ permissions:
     contents: read # This is required for actions/checkout
 
 jobs:
-    DeployApp:
+    DeployProdSST:
         runs-on: ubuntu-latest
-        env:
-        #Define your envs needed for static generation:
-        # ENV_NAME: ${{ secrets.ENV_NAME }}
         steps:
             - name: Git clone the repository
               uses: actions/checkout@v3
             - name: Configure AWS credentials
               uses: aws-actions/configure-aws-credentials@v2
               with:
-                  role-to-assume: arn:aws:iam::1234567890:role/GitHub
-                  role-duration-seconds: 14390 #adjust as needed for your build time
+                  role-to-assume: arn:aws:iam::626762246796:role/GitHub
+                  role-duration-seconds: 1200 #adjust as needed for your build time
                   aws-region: us-east-1
             - name: Deploy app
               run: |
