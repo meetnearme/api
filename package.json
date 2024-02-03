@@ -7,7 +7,7 @@
     "node": ">=21.6.0"
   },
   "scripts": {
-    "dev": "sst dev",
+    "dev": "MODE='dev' && sst dev",
     "build": "sst build",
     "deploy": "sst deploy",
     "deploy:prod": "sst deploy --stage prod",

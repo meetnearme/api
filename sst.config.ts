@@ -1,22 +1,24 @@
-import { SSTConfig } from "sst";
-import { Api } from "sst/constructs";
+import { SSTConfig } from 'sst';
+import { Api } from 'sst/constructs';
 
 export default {
   config(_input) {
     return {
-      name: "meetnearme-go-fullstack",
-      region: "us-east-1",
+      name: 'meetnearme-go-fullstack',
+      region: 'us-east-1',
     };
   },
   stacks(app) {
+    console.log('~TEST!!!', process.env);
     app.setDefaultFunctionProps({
-      runtime: "go",
+      runtime: 'go',
+      environment: { MY_ENV_VAR: process.env.MY_ENV_VAR },
     });
     app.stack(function Stack({ stack }) {
-      const api = new Api(stack, "api", {
+      const api = new Api(stack, 'api', {
         routes: {
-          "GET /": "functions/lambda",
-          "POST /": "functions/lambda", 
+          'GET /': 'functions/lambda',
+          'POST /': 'functions/lambda',
         },
       });
       stack.addOutputs({
