@@ -14,7 +14,27 @@ export default {
       runtime: 'go',
     });
     app.stack(function Stack({ stack }) {
+      // Create the `Events` table
+      const table = new Table(stack, 'Events', {
+        fields: {
+          Id: string,
+          Name: string,
+          Description: string,
+          Datetime: string,
+          Address: string,
+          ZipCode: string,
+          Country: string,
+        },
+        primaryIndex: { partitionKey: 'events' },
+      });
+
       const api = new Api(stack, 'api', {
+        defaults: {
+          function: {
+            // Bind the table name to our API
+            bind: [table],
+          },
+        },
         routes: {
           'GET /': 'functions/lambda',
           'POST /': 'functions/lambda',

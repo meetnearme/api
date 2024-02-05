@@ -110,7 +110,6 @@ func insertItem( ctx context.Context, createEvent CreateEvent) (*Event, error) {
 
     item, err := attributevalue.MarshalMap(event)
     if err != nil {
-        fmt.Println("Hitting after marshal map")
         return nil, err
     }
 
@@ -121,7 +120,6 @@ func insertItem( ctx context.Context, createEvent CreateEvent) (*Event, error) {
 
     res, err := db.PutItem(ctx, input)
     if err != nil {
-        fmt.Println("Hitting after put item")
         return nil, err
     }
 
