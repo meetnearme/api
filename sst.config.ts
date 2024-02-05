@@ -9,7 +9,7 @@ export default {
     };
   },
   stacks(app) {
-    console.log('~TEST!!!', process.env);
+    // console.log('~TEST!!!', process.env);
     app.setDefaultFunctionProps({
       runtime: 'go',
     });
