@@ -1,5 +1,5 @@
 import { SSTConfig } from 'sst';
-import { Api } from 'sst/constructs';
+import { Api, Table } from 'sst/constructs';
 
 export default {
   config(_input) {
