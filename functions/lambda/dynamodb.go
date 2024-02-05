@@ -39,7 +39,8 @@ func CreateDbClient() *dynamodb.Client {
 
     dbUrl := "http://localhost:8000"
     if (os.Getenv("SST_STAGE") == "prod") {
-        dbUrl = "http://some-prod-url-from-secrets.com"
+        // TODO: obfuscate this URL for security?
+        dbUrl = "https://dynamodb.us-west-2.amazonaws.com"
     }
 
     customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
