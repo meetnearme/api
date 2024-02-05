@@ -17,17 +17,15 @@ export default {
       // Create the `Events` table
       const table = new Table(stack, 'Events', {
         fields: {
-          Events: {
-            Id: 'string',
-            Name: 'string',
-            Description: 'string',
-            Datetime: 'string',
-            Address: 'string',
-            ZipCode: 'string',
-            Country: 'string',
-          },
+          Id: 'string',
+          Name: 'string',
+          Description: 'string',
+          Datetime: 'string',
+          Address: 'string',
+          ZipCode: 'string',
+          Country: 'string',
         },
-        primaryIndex: { partitionKey: 'events' },
+        primaryIndex: { partitionKey: 'Id' },
       });
 
       const api = new Api(stack, 'api', {
