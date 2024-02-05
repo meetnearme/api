@@ -17,13 +17,13 @@ export default {
       // Create the `Events` table
       const table = new Table(stack, 'Events', {
         fields: {
-          Id: string,
-          Name: string,
-          Description: string,
-          Datetime: string,
-          Address: string,
-          ZipCode: string,
-          Country: string,
+          Id: 'string',
+          Name: 'string',
+          Description: 'string',
+          Datetime: 'string',
+          Address: 'string',
+          ZipCode: 'string',
+          Country: 'string',
         },
         primaryIndex: { partitionKey: 'events' },
       });
