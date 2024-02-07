@@ -7,7 +7,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -37,31 +36,38 @@ func CreateDbClient() *dynamodb.Client {
 
     fmt.Println("Creating local client ==>", os.Getenv("SST_STAGE"))
 
-    dbUrl := "http://localhost:8000"
-    if (os.Getenv("SST_STAGE") == "prod") {
-        // TODO: obfuscate this URL for security?
-        dbUrl = "https://dynamodb.us-west-2.amazonaws.com"
-    }
+    // dbUrl := "http://localhost:8000"
+    // // TODO: revert this before committing
+    // if (os.Getenv("SST_STAGE") != "prod") {
+    //     // TODO: obfuscate this URL for security?
+    //     dbUrl = "https://dynamodb.us-east-1.amazonaws.com"
+    // }
 
-    customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-        if service == dynamodb.ServiceID && region == "us-east-1" {
-            return aws.Endpoint{
-                PartitionID:   "aws",
-                URL:           dbUrl,
-                SigningRegion: "us-east-1",
-            }, nil
-        }
-        // returning EndpointNotFoundError will allow the service to fallback to it's default resolution
-        return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-    })
+    // customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+    //     if service == dynamodb.ServiceID && region == "us-east-1" {
+    //         return aws.Endpoint{
+    //             PartitionID:   "aws",
+    //             URL:           dbUrl,
+    //             SigningRegion: "us-east-1",
+    //         }, nil
+    //     }
+    //     // returning EndpointNotFoundError will allow the service to fallback to it's default resolution
+    //     return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+    // })
 
-    cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver),
-    config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
-        Value: aws.Credentials{
-            AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test",
-            Source: "Hard-coded credentials; values are irrelevant for local dynamo",
-        },
-    }))
+    cfg, err :=  config.LoadDefaultConfig(context.TODO())
+
+    // if (os.Getenv("SST_STAGE") != "prod") {
+    //     optionalCredentials := config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
+    //         Value: aws.Credentials{
+    //             AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test",
+    //             Source: "Hard-coded credentials; values are irrelevant for local dynamo",
+    //         },
+    //     })
+    //     cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
+    // }
+
+    fmt.Println("cfg ==>", cfg)
 
     if err != nil {
         panic(err)

@@ -1,5 +1,8 @@
 import { SSTConfig } from 'sst';
-import { Api, Table } from 'sst/constructs';
+import { Api, use } from 'sst/constructs';
+
+import { StorageStack } from './stacks/StorageStack';
+import { ApiStack } from './stacks/ApiStack';
 
 export default {
   config(_input) {
@@ -13,36 +16,21 @@ export default {
     app.setDefaultFunctionProps({
       runtime: 'go',
     });
-    app.stack(function Stack({ stack }) {
-      // Create the `Events` table
-      const table = new Table(stack, 'Events', {
-        fields: {
-          Id: 'string',
-          Name: 'string',
-          Description: 'string',
-          Datetime: 'string',
-          Address: 'string',
-          ZipCode: 'string',
-          Country: 'string',
-        },
-        primaryIndex: { partitionKey: 'Id' },
-      });
+    // app.addDefaultFunctionPermissions({
+    //   // permissions: ['dynamodb:PutItem', 'dynamodb:GetItem', 'dynamodb:Scan'],
+    //   // attachPermissionsToPolicy: true,
+    //   // attachPermissionsToRole: ['dynamodb'],
+    // });
+    app.stack(StorageStack).stack(ApiStack);
 
-      const api = new Api(stack, 'api', {
-        defaults: {
-          function: {
-            // Bind the table name to our API
-            bind: [table],
-          },
-        },
-        routes: {
-          'GET /': 'functions/lambda',
-          'POST /': 'functions/lambda',
-        },
-      });
-      stack.addOutputs({
-        ApiEndpoint: api.url,
-      });
-    });
+    //   // tableName: 'Events',
+    //   // actions: ['dynamodb:PutItem', 'dynamodb:GetItem', 'dynamodb:Scan'],
+
+    //   // maybe needed?
+    //   // attachPermissionsToRole
+
+    //   // maybe needed?
+    //   // attachPermissionsToPolicy
+    // });
   },
 } satisfies SSTConfig;
