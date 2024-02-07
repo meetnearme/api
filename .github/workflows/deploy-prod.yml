@@ -1,6 +1,7 @@
 name: Deploy Prod (SST)
 on:
   push
+
   # push:
   #   branches:
   #     - main
