@@ -13,8 +13,15 @@ import (
 	"github.com/google/uuid"
 )
 
+func getDbTableName (tableName string) string {
+    sstStage := os.Getenv("SST_STAGE")
+    if (sstStage == "") {
+        sstStage = ""
+    }
+    return tableName + "-" + sstStage
+}
 
-const TableName = "Events"
+var TableName = getDbTableName("Events")
 
 var db *dynamodb.Client
 
