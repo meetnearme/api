@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -49,7 +50,8 @@ func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.API
         if eventsErr != nil {
             return serverError(eventsErr)
         }
-        component := views.Home(Pages, eventList)
+        meetNearMeTestSecret := os.Getenv("MEETNEARME_TEST_SECRET")
+        component := views.Home(Pages, eventList, meetNearMeTestSecret)
         var buf bytes.Buffer
         err := component.Render(ctx, &buf)
         if err != nil {
@@ -61,7 +63,6 @@ func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.API
             IsBase64Encoded: false,
             Body: buf.String(),
         }, nil
-        // return
     case "POST":
         return processPost(ctx, req)
     default:
@@ -134,7 +135,7 @@ func clientError(status int) (events.APIGatewayV2HTTPResponse, error) {
 
 func serverError(err error) (events.APIGatewayV2HTTPResponse, error) {
 	log.Println(err.Error())
-    log.Println("Hitting server error in routes")
+    log.Println("Hitting server error in main")
 
 	return events.APIGatewayV2HTTPResponse{
 		Body:       http.StatusText(http.StatusInternalServerError),

@@ -1,8 +1,9 @@
 name: Deploy Prod (SST)
 on:
-  push:
-    branches:
-      - main
+  push
+  # push:
+  #   branches:
+  #     - main
 
 # Concurrency group name ensures concurrent workflow runs wait for any in-progress job to finish
 concurrency:
@@ -15,7 +16,19 @@ permissions:
 jobs:
   DeployProdSST:
     runs-on: ubuntu-latest
+    env:
+      #Define your envs needed for static generation:
+      MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
     steps:
+      - name: 'Create env file'
+        env:
+          ALLMYSECRETS: ${{ toJSON(secrets) }}
+          ALLMYVARS: ${{ toJSON(vars) }}
+        run: |
+          echo "$ALLMYSECRETS" > .env
+          echo "$ALLMYVARS" > .env
+          echo "${{ secrets.MEETNEARME_TEST_SECRET }}" > .env
+        shell: bash
       - name: Git clone the repository
         uses: actions/checkout@v3
       - name: Configure AWS credentials
