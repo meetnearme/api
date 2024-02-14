@@ -16,8 +16,9 @@ export function ApiStack({ stack }: StackContext) {
       'POST /': 'functions/lambda',
     },
   });
+
   stack.addDefaultFunctionPermissions({
-    permissions: ['dynamodb:PutItem', 'dynamodb:GetItem', 'dynamodb:Scan'],
+    permissions: ['dynamodb:*'],
   });
 
   stack.addOutputs({

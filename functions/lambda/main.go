@@ -135,7 +135,6 @@ func clientError(status int) (events.APIGatewayV2HTTPResponse, error) {
 
 func serverError(err error) (events.APIGatewayV2HTTPResponse, error) {
 	log.Println(err.Error())
-    log.Println("Hitting server error in main")
 
 	return events.APIGatewayV2HTTPResponse{
 		Body:       http.StatusText(http.StatusInternalServerError),
@@ -144,5 +143,6 @@ func serverError(err error) (events.APIGatewayV2HTTPResponse, error) {
 }
 
 func main() {
+    log.Println(os.Getenv("MEETNEARME_TEST_SECRET"))
     lambda.Start(Router)
 }

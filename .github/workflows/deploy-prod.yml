@@ -20,13 +20,15 @@ jobs:
       #Define your envs needed for static generation:
       MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
     steps:
+      - name: 'print path'
+        run: |
+          echo "$(pwd)"
+          echo "$(ls -lah)"
       - name: 'Create env file'
         env:
           ALLMYSECRETS: ${{ toJSON(secrets) }}
           ALLMYVARS: ${{ toJSON(vars) }}
         run: |
-          echo "$ALLMYSECRETS" > .env
-          echo "$ALLMYVARS" > .env
           echo "${{ secrets.MEETNEARME_TEST_SECRET }}" > .env
         shell: bash
       - name: Git clone the repository
