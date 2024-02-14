@@ -20,6 +20,8 @@ jobs:
       #Define your envs needed for static generation:
       MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
     steps:
+      - name: Git clone the repository
+        uses: actions/checkout@v3
       - name: 'print path'
         run: |
           echo "$(pwd)"
@@ -29,10 +31,8 @@ jobs:
           ALLMYSECRETS: ${{ toJSON(secrets) }}
           ALLMYVARS: ${{ toJSON(vars) }}
         run: |
-          echo "${{ secrets.MEETNEARME_TEST_SECRET }}" > .env
+          echo "${{ secrets.MEETNEARME_TEST_SECRET }}" > ./.env
         shell: bash
-      - name: Git clone the repository
-        uses: actions/checkout@v3
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
