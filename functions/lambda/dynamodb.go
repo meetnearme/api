@@ -14,14 +14,13 @@ import (
 )
 
 func getDbTableName (tableName string) string {
-    sstStage := os.Getenv("SST_STAGE")
-    if (sstStage == "") {
-        sstStage = ""
-    }
-    return tableName + "-" + sstStage
+    var SST_Table_tableName_Events = os.Getenv("SST_Table_tableName_Events")
+    fmt.Println("getDbTableName() ==>", SST_Table_tableName_Events)
+    return SST_Table_tableName_Events
 }
 
-var TableName = getDbTableName("Events")
+const TablePrefix = "Events"
+var TableName = getDbTableName(TablePrefix)
 
 var db *dynamodb.Client
 
