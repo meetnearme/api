@@ -31,8 +31,6 @@ jobs:
         shell: bash
       - name: 'print path'
         run: |
-          echo "$(pwd)"
-          echo "$(ls -lah)"
           echo "$(cat .env)"
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
