@@ -2,37 +2,29 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
+	"github.com/meetnearme/api/functions/lambda/shared"
 )
 
 func getDbTableName (tableName string) string {
     var SST_Table_tableName_Events = os.Getenv("SST_Table_tableName_Events")
-    fmt.Println("getDbTableName() ==>", SST_Table_tableName_Events)
+    if (os.Getenv("SST_STAGE") != "prod") {
+        return tableName
+    }
     return SST_Table_tableName_Events
 }
 
-const TablePrefix = "Events"
-var TableName = getDbTableName(TablePrefix)
+var TableName = getDbTableName(shared.EventsTablePrefix)
 
 var db *dynamodb.Client
-
-type Event struct {
-    Id string `json:"id" dynamodbav:"id"`
-    Name string `json:"name" dynamodbav:"name"`
-    Description string  `json:"description" dynamodbav:"description"`
-    Datetime string  `json:"datetime" dynamodbav:"datetime"`
-    Address string  `json:"address" dynamodbav:"address"`
-    ZipCode string  `json:"zip_code" dynamodbav:"zip_code"`
-    Country string  `json:"country" dynamodbav:"country"`
-}
 
 func init() {
     db = CreateDbClient()
@@ -40,40 +32,32 @@ func init() {
 
 func CreateDbClient() *dynamodb.Client {
 
-    fmt.Println("Creating local client ==>", os.Getenv("SST_STAGE"))
+    // used for local dev via aws sam in docker container
+    dbUrl := "http://localhost:8000"
 
-    // dbUrl := "http://localhost:8000"
-    // // TODO: revert this before committing
-    // if (os.Getenv("SST_STAGE") != "prod") {
-    //     // TODO: obfuscate this URL for security?
-    //     dbUrl = "https://dynamodb.us-east-1.amazonaws.com"
-    // }
-
-    // customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-    //     if service == dynamodb.ServiceID && region == "us-east-1" {
-    //         return aws.Endpoint{
-    //             PartitionID:   "aws",
-    //             URL:           dbUrl,
-    //             SigningRegion: "us-east-1",
-    //         }, nil
-    //     }
-    //     // returning EndpointNotFoundError will allow the service to fallback to it's default resolution
-    //     return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-    // })
+    customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+        if service == dynamodb.ServiceID && region == "us-east-1" {
+            return aws.Endpoint{
+                PartitionID:   "aws",
+                URL:           dbUrl,
+                SigningRegion: "us-east-1",
+            }, nil
+        }
+        // returning EndpointNotFoundError will allow the service to fallback to it's default resolution
+        return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+    })
 
     cfg, err :=  config.LoadDefaultConfig(context.TODO())
 
-    // if (os.Getenv("SST_STAGE") != "prod") {
-    //     optionalCredentials := config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
-    //         Value: aws.Credentials{
-    //             AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test",
-    //             Source: "Hard-coded credentials; values are irrelevant for local dynamo",
-    //         },
-    //     })
-    //     cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
-    // }
-
-    fmt.Println("cfg ==>", cfg)
+    if (os.Getenv("SST_STAGE") != "prod") {
+        optionalCredentials := config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
+            Value: aws.Credentials{
+                AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test",
+                Source: "Hard-coded credentials; values are irrelevant for local dynamo",
+            },
+        })
+        cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
+    }
 
     if err != nil {
         panic(err)
@@ -81,8 +65,8 @@ func CreateDbClient() *dynamodb.Client {
     return dynamodb.NewFromConfig(cfg)
 }
 
-func listItems(ctx context.Context) ([]Event, error) {
-    events := make([]Event, 0)
+func listItems(ctx context.Context) ([]shared.Event, error) {
+    events := make([]shared.Event, 0)
     var token map[string]types.AttributeValue
 
     for {
@@ -96,7 +80,7 @@ func listItems(ctx context.Context) ([]Event, error) {
             return nil, err
         }
 
-        var fetchedEvents []Event
+        var fetchedEvents []shared.Event
         err = attributevalue.UnmarshalListOfMaps(result.Items, &fetchedEvents)
         if err != nil {
             return nil, err
@@ -111,8 +95,8 @@ func listItems(ctx context.Context) ([]Event, error) {
     return events, nil
 }
 
-func insertItem( ctx context.Context, createEvent CreateEvent) (*Event, error) {
-    event := Event{
+func insertItem( ctx context.Context, createEvent CreateEvent) (*shared.Event, error) {
+    event := shared.Event{
         Name: createEvent.Name,
         Description: createEvent.Description,
         Datetime: createEvent.Datetime,

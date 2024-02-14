@@ -45,7 +45,11 @@ var Pages = []shared.Page{
 func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
     switch req.RequestContext.HTTP.Method {
     case "GET":
-        component := views.Home(Pages)
+        eventList, eventsErr := listItems(ctx)
+        if eventsErr != nil {
+            return serverError(eventsErr)
+        }
+        component := views.Home(Pages, eventList)
         var buf bytes.Buffer
         err := component.Render(ctx, &buf)
         if err != nil {
@@ -57,7 +61,7 @@ func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.API
             IsBase64Encoded: false,
             Body: buf.String(),
         }, nil
-        // return processGetEvents(ctx)
+        // return
     case "POST":
         return processPost(ctx, req)
     default:
@@ -77,6 +81,7 @@ func processGetEvents(ctx context.Context) (events.APIGatewayV2HTTPResponse, err
     if err != nil {
         return serverError(err)
     }
+    // TODO: delete this?
     log.Printf("Successfully fetched todos: %s", json)
 
     return events.APIGatewayV2HTTPResponse{
