@@ -18,9 +18,6 @@ jobs:
   DeployProdSST:
     runs-on: ubuntu-latest
     steps:
-      - name: 'Create env file'
-        run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
       - name: Git clone the repository
         uses: actions/checkout@v3
       - name: Configure AWS credentials
