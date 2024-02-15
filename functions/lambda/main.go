@@ -18,14 +18,6 @@ import (
 
 var validate *validator.Validate = validator.New()
 
-type CreateEvent struct {
-    Name string `json:"name" validate:"required"`
-    Description string  `json:"description" validate:"required"`
-    Datetime string  `json:"datetime" validate:"required"`
-    Address string  `json:"address" validate:"required"`
-    ZipCode string  `json:"zip_code" validate:"required"`
-    Country string  `json:"country" validate:"required"`
-}
 
 
 var Pages = []shared.Page{
@@ -92,7 +84,7 @@ func processGetEvents(ctx context.Context) (events.APIGatewayV2HTTPResponse, err
 }
 
 func processPost(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-    var createEvent CreateEvent
+    var createEvent shared.CreateEvent
     err := json.Unmarshal([]byte(req.Body), &createEvent)
     if err != nil {
         log.Printf("Cannot unmarshal body: %v", err)

@@ -16,3 +16,13 @@ type Event struct {
 	ZipCode string  `json:"zip_code" dynamodbav:"zip_code"`
 	Country string  `json:"country" dynamodbav:"country"`
 }
+
+
+type CreateEvent struct {
+    Name string `json:"name" validate:"required"`
+    Description string  `json:"description" validate:"required"`
+    Datetime string  `json:"datetime" validate:"required"`
+    Address string  `json:"address" validate:"required"`
+    ZipCode string  `json:"zip_code" validate:"required"`
+    Country string  `json:"country" validate:"required"`
+}
