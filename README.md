@@ -43,3 +43,36 @@ insert new event
 ### Reference for interacting with dynamodb from aws cli v2
 
 https://awscli.amazonaws.com/v2/documentation/api/latest/reference/dynamodb/index.html
+
+
+## Testing
+
+### Go
+
+#### Check Test Coverage of Go Files
+
+1. Check Test Coverage
+```bash
+go test ./... -cover
+```
+
+2. Generate Coverage Report
+```bash
+go test ./... -coverprofile=coverage.out
+```
+2a. View Coverage Report 
+```bash
+go tool cover -html=coverage.out
+```
+
+3. Set Coverage Thresholds
+```bash
+go test ./... -covermode=count -coverpkg=./... -coverprofile=coverage.out
+```
+- The `-covermode=count` flag ensures that the coverage data includes the number of times each statement was executed.
+- The `-coverpkg=./...` flag specifies that you want to calculate coverage for all packages in your project.
+- After running the tests with these flags, you can view the coverage report and check if the coverage percentage meets your desired threshold.
+
+
+
+### Typescript/Javascript
