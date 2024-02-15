@@ -12,13 +12,14 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/go-playground/validator/v10"
+
 	"github.com/meetnearme/api/functions/lambda/shared"
 	"github.com/meetnearme/api/functions/lambda/views"
+	"github.com/meetnearme/api/functions/lambda/db"
+    
 )
 
 var validate *validator.Validate = validator.New()
-
-
 
 var Pages = []shared.Page{
 	{
@@ -35,10 +36,16 @@ var Pages = []shared.Page{
 	},
 }
 
+var dbClient db.DB
+
+func init() {
+    dbClient = db.NewDynamoDB()
+}
+
 func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
     switch req.RequestContext.HTTP.Method {
     case "GET":
-        eventList, eventsErr := listItems(ctx)
+        eventList, eventsErr := dbClient.ListItems(ctx)
         if eventsErr != nil {
             return serverError(eventsErr)
         }
@@ -65,7 +72,7 @@ func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.API
 func processGetEvents(ctx context.Context) (events.APIGatewayV2HTTPResponse, error) {
     log.Print("Received GET events request")
 
-    eventList, err := listItems(ctx)
+    eventList, err := dbClient.ListItems(ctx)
     if err != nil {
         return serverError(err)
     }
@@ -98,7 +105,7 @@ func processPost(ctx context.Context, req events.APIGatewayV2HTTPRequest) (event
     }
     log.Printf("Received POST request with item: %+v", createEvent)
 
-    res, err := insertItem(ctx, createEvent)
+    res, err := dbClient.InsertItem(ctx, createEvent)
     if err != nil {
         return serverError(err)
     }
