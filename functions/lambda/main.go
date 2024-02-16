@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -49,7 +50,10 @@ func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.API
         if eventsErr != nil {
             return serverError(eventsErr)
         }
-        component := views.Home(Pages, eventList)
+
+        meetNearMeTestSecret := os.Getenv("MEETNEARME_TEST_SECRET")
+        component := views.Home(Pages, eventList, meetNearMeTestSecret)
+
         var buf bytes.Buffer
         err := component.Render(ctx, &buf)
         if err != nil {

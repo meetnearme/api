@@ -2,7 +2,7 @@ package views
 
 import "github.com/meetnearme/api/functions/lambda/shared"
 
-templ Home(pages []shared.Page, events []shared.Event) {
+templ Home(pages []shared.Page, events []shared.Event, meetNearMeTestSecret string) {
 	@Layout("Home") {
 		<h2 class="title">Examples:</h2>
 		<table class="table is-fullwidth"><thead>
@@ -33,6 +33,8 @@ templ Home(pages []shared.Page, events []shared.Event) {
 		</tr>
 	}
 </tbody></table>
+	<h1>MEETNEARME_TEST_SECRET:</h1>
+	{ meetNearMeTestSecret }
 	}
 }
 
