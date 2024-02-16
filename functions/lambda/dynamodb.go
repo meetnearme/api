@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -48,6 +49,10 @@ func CreateDbClient() *dynamodb.Client {
     })
 
     cfg, err :=  config.LoadDefaultConfig(context.TODO())
+
+    if err != nil {
+        fmt.Println("Error loading default Dynamo client config", err)
+    }
 
     if (os.Getenv("SST_STAGE") != "prod") {
         optionalCredentials := config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
