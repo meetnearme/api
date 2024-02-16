@@ -12,25 +12,9 @@ export default {
     };
   },
   stacks(app) {
-    // console.log('~TEST!!!', process.env);
     app.setDefaultFunctionProps({
       runtime: 'go',
     });
-    // app.addDefaultFunctionPermissions({
-    //   // permissions: ['dynamodb:PutItem', 'dynamodb:GetItem', 'dynamodb:Scan'],
-    //   // attachPermissionsToPolicy: true,
-    //   // attachPermissionsToRole: ['dynamodb'],
-    // });
     app.stack(StorageStack).stack(ApiStack);
-
-    //   // tableName: 'Events',
-    //   // actions: ['dynamodb:PutItem', 'dynamodb:GetItem', 'dynamodb:Scan'],
-
-    //   // maybe needed?
-    //   // attachPermissionsToRole
-
-    //   // maybe needed?
-    //   // attachPermissionsToPolicy
-    // });
   },
 } satisfies SSTConfig;
