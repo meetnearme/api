@@ -26,7 +26,8 @@ jobs:
           ALLMYSECRETS: ${{ toJSON(secrets) }}
           ALLMYVARS: ${{ toJSON(vars) }}
         run: |
-          echo "MEETNEARME_TEST_SECRET=$(secrets.MEETNEARME_TEST_SECRET)" > .env
+          touch .env
+          echo "${{ secrets.ENV_FILE }}" > .env
         shell: bash
       - name: 'print path'
         run: |
