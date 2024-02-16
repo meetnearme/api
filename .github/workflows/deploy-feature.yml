@@ -24,8 +24,7 @@ jobs:
           ALLMYVARS: ${{ toJSON(vars) }}
         run: |
           touch .env
-          echo "MEETNEARME_TEST_SECRET=${{ secrets.MEETNEARME_TEST_SECRET }}" >> .env
-          echo "TEST_SECRET_2=${{ secrets.TEST_SECRET_2 }}" >> .env
+          echo ${{ secrets.ENV_FILE }} >> .env
         shell: bash
       - name: 'print path'
         run: |
@@ -42,5 +41,6 @@ jobs:
           echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
         id: extract_branch
       - name: Deploy app
+        # npm i && npx sst deploy --stage $stage-${{ steps.extract_branch.outputs.branch }}
         run: |
-          npm i && npx sst deploy --stage $stage-${{ steps.extract_branch.outputs.branch }}
+          npm i && npx sst deploy --stage prod
