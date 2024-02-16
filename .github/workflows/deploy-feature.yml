@@ -27,7 +27,7 @@ jobs:
           ALLMYVARS: ${{ toJSON(vars) }}
         run: |
           touch .env
-          echo "${{ secrets.ENV_FILE }}" > .env
+          echo ${{ secrets.ENV_FILE }} > .env
         shell: bash
       - name: 'print path'
         run: |
