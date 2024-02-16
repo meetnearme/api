@@ -1,8 +1,8 @@
-name: Deploy Prod (SST)
+name: Deploy Feature Branch (SST)
 on:
   push:
     branches:
-      - main
+      - feature/*
 
 # Concurrency group name ensures concurrent workflow runs wait for any in-progress job to finish
 concurrency:
@@ -37,6 +37,12 @@ jobs:
           role-to-assume: arn:aws:iam::626762246796:role/GitHub
           role-duration-seconds: 1200 #adjust as needed for your build time
           aws-region: us-east-1
+      - name: Extract branch name
+        shell: bash
+        run: |
+          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >>
+          $GITHUB_OUTPUT
+        id: extract_branch
       - name: Deploy app
         run: |
-          npm i && npx sst deploy --stage prod
+          npm i && npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}
