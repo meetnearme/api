@@ -13,11 +13,8 @@ permissions:
   contents: read # This is required for actions/checkout
 
 jobs:
-  DeployFeatureSST:
+  DeployFeature`SST:
     runs-on: ubuntu-latest
-    env:
-      #Define your envs needed for static generation:
-      MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
     steps:
       - name: Git clone the repository
         uses: actions/checkout@v3
@@ -27,7 +24,8 @@ jobs:
           ALLMYVARS: ${{ toJSON(vars) }}
         run: |
           touch .env
-          echo ${{ secrets.ENV_FILE }} > .env
+          echo "MEETNEARME_TEST_SECRET=${{ secrets.MEETNEARME_TEST_SECRET }}" >> .env
+          echo "TEST_SECRET_2=${{ secrets.TEST_SECRET_2 }}" >> .env
         shell: bash
       - name: 'print path'
         run: |
