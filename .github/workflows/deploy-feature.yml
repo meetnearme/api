@@ -18,17 +18,29 @@ jobs:
     steps:
       - name: Git clone the repository
         uses: actions/checkout@v3
-      - name: Create env.json
-        run: |
-          echo "${{ toJSON(secrets) }}" > env.json
-          echo "printing cat env.json below"
-          echo $(cat env.json)
-      - name: convert-env-json
-        uses: ricosandyca/convert-env-json@v1.0.1
+      - name: Make envfile
+        uses: SpicyPizza/create-envfile@v2.0
         with:
-          type: json-to-env
-          input_path: env.json
-          output_path: .env
+          # envkey_DEBUG: false
+          # envkey_SOME_API_KEY: "123456abcdef"
+          # envkey_SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          # envkey_VARIABLE: ${{ vars.SOME_ACTION_VARIABLE }}
+          # some_other_variable: foobar
+          # directory: <directory_name>
+          file_name: .env
+          fail_on_empty: false
+          sort_keys: true
+      # - name: Create env.json
+      #   run: |
+      #     echo "${{ toJSON(secrets) }}" > env.json
+      #     echo "printing cat env.json below"
+      #     echo $(cat env.json)
+      # - name: convert-env-json
+      #   uses: ricosandyca/convert-env-json@v1.0.1
+      #   with:
+      #     type: json-to-env
+      #     input_path: env.json
+      #     output_path: .env
       - name: 'print path'
         run: |
           echo "$(cat .env)"
