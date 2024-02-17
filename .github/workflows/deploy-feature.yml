@@ -41,8 +41,11 @@ jobs:
       #     type: json-to-env
       #     input_path: env.json
       #     output_path: .env
-      - name: 'print path'
+      - name: 'print debug'
         run: |
+          echo "printing ls -lah below"
+          echo "$(ls -lah)"
+          echo "printing cat .env below"
           echo "$(cat .env)"
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
