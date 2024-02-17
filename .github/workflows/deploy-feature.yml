@@ -18,14 +18,14 @@ jobs:
     steps:
       - name: Git clone the repository
         uses: actions/checkout@v3
-      - name: 'Create env file'
-        env:
-          ALLMYSECRETS: ${{ toJSON(secrets) }}
-          ALLMYVARS: ${{ toJSON(vars) }}
-        run: |
-          touch .env
-          echo "${{ secrets.ENV_FILE }}" > .env
-        shell: bash
+      - name: Create env.json
+        run: ${{ toJSON(secrets) }} > env.json
+      - name: convert-env-json
+        uses: ricosandyca/convert-env-json@v1.0.1
+        with:
+          type: json-to-env
+          input_path: env.json
+          output_path: .env
       - name: 'print path'
         run: |
           echo "$(cat .env)"
