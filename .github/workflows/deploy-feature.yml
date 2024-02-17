@@ -41,7 +41,7 @@ jobs:
       #     type: json-to-env
       #     input_path: env.json
       #     output_path: .env
-      - name: 'print debug'
+      - name: Print debug
         run: |
           echo "printing ls -lah below"
           echo "$(ls -lah)"
@@ -62,3 +62,7 @@ jobs:
         # npm i && npx sst deploy --stage $stage-${{ steps.extract_branch.outputs.branch }}
         run: |
           npm i && npx sst deploy --stage prod
+      - name: Second print debug
+        run: |
+          echo "printing cat .env below"
+          echo "$(cat .env)"
