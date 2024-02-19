@@ -2,7 +2,7 @@ package views
 
 import "github.com/meetnearme/api/functions/lambda/shared"
 
-templ Home(pages []shared.Page) {
+templ Home(pages []shared.Page, events []shared.Event) {
 	@Layout("Home") {
 		<h2 class="title">Examples:</h2>
 		<table class="table is-fullwidth"><thead>
@@ -15,6 +15,21 @@ templ Home(pages []shared.Page) {
 		<tr>
 			<td><a href={ templ.SafeURL("/"+e.Slug) }>{ e.Name }</a></td>
 			<td>{ e.Desc }</td>
+		</tr>
+	}
+</tbody></table>
+
+<h1>Events</h1>
+<table class="table is-fullwidth"><thead>
+	<tr>
+		<th>Event Name</th>
+		<th>Event Description</th>
+	</tr>
+</thead><tbody>
+	for _, ev := range events {
+		<tr>
+			<td>{ ev.Name}</td>
+			<td>{ ev.Description }</td>
 		</tr>
 	}
 </tbody></table>

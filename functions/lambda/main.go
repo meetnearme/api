@@ -26,7 +26,7 @@ type CreateEvent struct {
     Country string  `json:"country" validate:"required"`
 }
 
-
+// TODO: finish wiring this up as the site main nav and move to navbar
 var Pages = []shared.Page{
 	{
 		Name:     "My Account (test)",
@@ -45,7 +45,11 @@ var Pages = []shared.Page{
 func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
     switch req.RequestContext.HTTP.Method {
     case "GET":
-        component := views.Home(Pages)
+        eventList, eventsErr := listItems(ctx)
+        if eventsErr != nil {
+            return serverError(eventsErr)
+        }
+        component := views.Home(Pages, eventList)
         var buf bytes.Buffer
         err := component.Render(ctx, &buf)
         if err != nil {
@@ -57,7 +61,6 @@ func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.API
             IsBase64Encoded: false,
             Body: buf.String(),
         }, nil
-        // return processGetEvents(ctx)
     case "POST":
         return processPost(ctx, req)
     default:
@@ -77,7 +80,8 @@ func processGetEvents(ctx context.Context) (events.APIGatewayV2HTTPResponse, err
     if err != nil {
         return serverError(err)
     }
-    log.Printf("Successfully fetched todos: %s", json)
+    // TODO: delete this?
+    log.Printf("Successfully fetched events: %s", json)
 
     return events.APIGatewayV2HTTPResponse{
         StatusCode: http.StatusOK,
@@ -89,7 +93,7 @@ func processPost(ctx context.Context, req events.APIGatewayV2HTTPRequest) (event
     var createEvent CreateEvent
     err := json.Unmarshal([]byte(req.Body), &createEvent)
     if err != nil {
-        log.Printf("Cannot unmarshal body: %v", err)
+        log.Printf("Invalid JSON payload: %v", err)
         return clientError(http.StatusUnprocessableEntity)
     }
 
@@ -98,19 +102,19 @@ func processPost(ctx context.Context, req events.APIGatewayV2HTTPRequest) (event
         log.Printf("Invalid body: %v", err)
         return clientError(http.StatusBadRequest)
     }
-    log.Printf("Received POST request with item: %+v", createEvent)
 
     res, err := insertItem(ctx, createEvent)
     if err != nil {
         return serverError(err)
     }
-    log.Printf("Inserted new user: %+v", res)
 
     json, err := json.Marshal(res)
     if err != nil {
         return serverError(err)
     }
 
+    // TODO: consider log levels / log volume
+    log.Printf("Inserted new item: %+v", res)
     return events.APIGatewayV2HTTPResponse{
         StatusCode: http.StatusCreated,
         Body: string(json),
@@ -129,7 +133,6 @@ func clientError(status int) (events.APIGatewayV2HTTPResponse, error) {
 
 func serverError(err error) (events.APIGatewayV2HTTPResponse, error) {
 	log.Println(err.Error())
-    log.Println("Hitting server error in routes")
 
 	return events.APIGatewayV2HTTPResponse{
 		Body:       http.StatusText(http.StatusInternalServerError),

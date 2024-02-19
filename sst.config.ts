@@ -1,27 +1,20 @@
-import { SSTConfig } from "sst";
-import { Api } from "sst/constructs";
+import { SSTConfig } from 'sst';
+import { Api, use } from 'sst/constructs';
+
+import { StorageStack } from './stacks/StorageStack';
+import { ApiStack } from './stacks/ApiStack';
 
 export default {
   config(_input) {
     return {
-      name: "rest-api-go",
-      region: "us-east-1",
+      name: 'meetnearme-go-fullstack',
+      region: 'us-east-1',
     };
   },
   stacks(app) {
     app.setDefaultFunctionProps({
-      runtime: "go",
+      runtime: 'go',
     });
-    app.stack(function Stack({ stack }) {
-      const api = new Api(stack, "api", {
-        routes: {
-          "GET /": "functions/lambda",
-          "POST /": "functions/lambda", 
-        },
-      });
-      stack.addOutputs({
-        ApiEndpoint: api.url,
-      });
-    });
+    app.stack(StorageStack).stack(ApiStack);
   },
 } satisfies SSTConfig;
