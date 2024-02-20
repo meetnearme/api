@@ -10,6 +10,9 @@ export function ApiStack({ stack }: StackContext) {
         // Bind the table name to our API
         bind: [table],
       },
+      environment: {
+        MEETNEARME_TEST_SECRET: process.env.MEETNEARME_TEST_SECRET,
+      },
     },
     routes: {
       'GET /': 'functions/lambda',
