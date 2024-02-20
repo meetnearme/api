@@ -12,7 +12,6 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/go-playground/validator/v10"
-	"github.com/joho/godotenv"
 	"github.com/meetnearme/api/functions/lambda/shared"
 	"github.com/meetnearme/api/functions/lambda/views"
 )
@@ -146,9 +145,9 @@ func serverError(err error) (events.APIGatewayV2HTTPResponse, error) {
 }
 
 func main() {
-    err := godotenv.Load()
-    if err != nil {
-        log.Fatal("Error loading .env file")
-    }
+    // err := godotenv.Load("../../.env")
+    // if err != nil {
+    //     log.Fatal("Error loading .env file")
+    // }
     lambda.Start(Router)
 }
