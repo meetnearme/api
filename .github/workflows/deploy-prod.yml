@@ -15,9 +15,9 @@ permissions:
 jobs:
   DeployProdSST:
     runs-on: ubuntu-latest
-    env:
-      #Define your envs needed for static generation:
-      MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
+    # env:
+    #   #Define your envs needed for static generation:
+    #   MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
     steps:
       - name: Git clone the repository
         uses: actions/checkout@v4
