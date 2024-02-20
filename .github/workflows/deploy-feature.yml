@@ -19,6 +19,7 @@ jobs:
       - name: Git clone the repository
         uses: actions/checkout@v4
       - uses: actions/checkout@v4 # this line ensure the checkout is complete before making the `.env` file / ovewriting it
+      # See: https://github.com/SpicyPizza/create-envfile/issues/52#issuecomment-1518192378
       - name: Make envfile
         uses: SpicyPizza/create-envfile@v2.0
         with:
@@ -62,7 +63,7 @@ jobs:
       - name: Deploy app
         # npm i && npx sst deploy --stage $stage-${{ steps.extract_branch.outputs.branch }}
         run: |
-          npm i && npx sst deploy --stage prod
+          echo "ls -lah at deploy: $(ls -lah) && npm i && npx sst deploy --stage prod
       - name: Second print debug
         run: |
           echo "printing cat .env below"
