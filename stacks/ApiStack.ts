@@ -9,9 +9,9 @@ export function ApiStack({ stack }: StackContext) {
       function: {
         // Bind the table name to our API
         bind: [table],
-      },
-      environment: {
-        MEETNEARME_TEST_SECRET: process.env.MEETNEARME_TEST_SECRET,
+        environment: {
+          MEETNEARME_TEST_SECRET: process.env.MEETNEARME_TEST_SECRET,
+        },
       },
     },
     routes: {
