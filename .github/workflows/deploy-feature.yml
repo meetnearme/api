@@ -63,7 +63,8 @@ jobs:
       - name: Deploy app
         # npm i && npx sst deploy --stage $stage-${{ steps.extract_branch.outputs.branch }}
         run: |
-          echo "ls -lah at deploy: $(ls -lah) && npm i && npx sst deploy --stage prod
+          echo "ls -lah at deploy: $(ls -lah)"
+          npm i && npx sst deploy --stage prod
       - name: Second print debug
         run: |
           echo "printing cat .env below"
