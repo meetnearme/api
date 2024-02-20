@@ -22,8 +22,7 @@ jobs:
         uses: SpicyPizza/create-envfile@v2.0
         with:
           # envkey_DEBUG: false
-          envkey_secrets.MEETNEARME_TEST_SECRET:
-            ${{ secrets.MEETNEARME_TEST_SECRET }}
+          envkey_MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
           # envkey_SECRET_KEY: ${{ secrets.SECRET_KEY }}
           # envkey_VARIABLE: ${{ vars.SOME_ACTION_VARIABLE }}
           # some_other_variable: foobar
