@@ -16,5 +16,12 @@ export default {
       runtime: 'go',
     });
     app.stack(StorageStack).stack(ApiStack);
+    console.log(
+      '~process.env.MEETNEARME_TEST_SECRET=',
+      process.env.MEETNEARME_TEST_SECRET,
+    );
+    app.addDefaultFunctionEnv({
+      MEETNEARME_TEST_SECRET: process.env.MEETNEARME_TEST_SECRET,
+    });
   },
 } satisfies SSTConfig;
