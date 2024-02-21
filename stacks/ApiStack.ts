@@ -8,10 +8,6 @@ export function ApiStack({ stack }: StackContext) {
     permissions: ['dynamodb:*'],
   });
 
-  stack.setDefaultFunctionProps({
-    runtime: 'go',
-  });
-
   const api = new Api(stack, 'api', {
     defaults: {
       function: {

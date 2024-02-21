@@ -12,6 +12,9 @@ export default {
     };
   },
   stacks(app) {
+    app.setDefaultFunctionProps({
+      runtime: 'go',
+    });
     app.stack(StorageStack).stack(ApiStack);
   },
 } satisfies SSTConfig;
