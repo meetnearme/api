@@ -44,7 +44,7 @@ jobs:
       #     input_path: env.json
       #     output_path: .env
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::626762246796:role/GitHub
           role-duration-seconds: 1200 #adjust as needed for your build time
