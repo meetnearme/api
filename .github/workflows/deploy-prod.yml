@@ -1,6 +1,5 @@
 name: Deploy Prod (SST)
 on:
-  workflow_dispatch:
   push:
     branches:
       - main

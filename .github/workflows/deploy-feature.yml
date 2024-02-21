@@ -1,6 +1,5 @@
 name: Deploy Feature Branch (SST)
 on:
-  workflow_dispatch:
   push:
     branches:
       - feature/*
