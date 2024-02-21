@@ -15,7 +15,6 @@ permissions:
 jobs:
   DeployProdSST:
     runs-on: ubuntu-latest
-    needs: GitCheckoutWithEnvVars
     steps:
       - name: Checkout with Env Vars
         uses: './.github/actions/git-checkout-w-env-vars.yml'
