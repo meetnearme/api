@@ -6,6 +6,7 @@ runs:
       uses: SpicyPizza/create-envfile@v2.0
       with:
         envkey_MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
+        envkey_ZENROWS_API_KEY: ${{ secrets.ZENROWS_API_KEY }}
         file_name: .env
         fail_on_empty: true
         sort_keys: true
