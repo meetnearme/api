@@ -12,6 +12,7 @@ export default {
     };
   },
   stacks(app) {
+    // oddly, order matters here, don't switch the order
     app.setDefaultFunctionProps({
       runtime: 'go',
     });
