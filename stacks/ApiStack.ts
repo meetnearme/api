@@ -24,6 +24,10 @@ export function ApiStack({ stack }: StackContext) {
     permissions: ['dynamodb:*'],
   });
 
+  stack.setDefaultFunctionProps({
+    runtime: 'go',
+  });
+
   stack.addOutputs({
     ApiEndpoint: api.url,
   });
