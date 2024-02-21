@@ -13,8 +13,11 @@ permissions:
   contents: read # This is required for actions/checkout
 
 jobs:
-  DeployProdSST:
+  GitCheckoutWithEnvVars:
+    runs-on: ubuntu-latest
     uses: meetnearme/api/.github/workflows/git-checkout-w-env-vars.yml@feature/env-vars
+
+  DeployProdSST:
     runs-on: ubuntu-latest
     steps:
       - name: Extract branch name
