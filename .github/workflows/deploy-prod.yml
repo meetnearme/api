@@ -13,14 +13,6 @@ permissions:
   contents: read # This is required for actions/checkout
 
 jobs:
-  call-workflow-passing-data:
-    uses: octo-org/example-repo/.github/workflows/reusable-workflow.yml@main
-    with:
-      config-path: .github/labeler.yml
-    secrets:
-      envPAT: ${{ secrets.envPAT }}
-
-jobs:
   DeployProdSST:
     uses: meetnearme/api/.github/workflows/scripts/git-checkout-w-env-vars.yml@feature/env-vars
     runs-on: ubuntu-latest
