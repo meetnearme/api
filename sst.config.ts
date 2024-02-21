@@ -15,6 +15,9 @@ export default {
     app.setDefaultFunctionProps({
       runtime: 'go',
     });
+    stack.addDefaultFunctionPermissions({
+      permissions: ['dynamodb:*'],
+    });
     app.stack(StorageStack).stack(ApiStack);
   },
 } satisfies SSTConfig;

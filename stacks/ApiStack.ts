@@ -4,10 +4,6 @@ import { StorageStack } from './StorageStack';
 export function ApiStack({ stack }: StackContext) {
   const { table } = use(StorageStack);
 
-  stack.addDefaultFunctionPermissions({
-    permissions: ['dynamodb:*'],
-  });
-
   const api = new Api(stack, 'api', {
     defaults: {
       function: {
