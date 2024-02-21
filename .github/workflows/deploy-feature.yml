@@ -15,40 +15,8 @@ permissions:
 jobs:
   DeployFeatureSST:
     runs-on: ubuntu-latest
+    uses: meetnearme/api/.github/workflows/scripts/git-checkout-w-env-vars.yml@feature/env-vars
     steps:
-      - name: Git clone the repository
-        uses: actions/checkout@v4
-      - uses: actions/checkout@v4 # this line ensure the checkout is complete before making the `.env` file / ovewriting it
-      # See: https://github.com/SpicyPizza/create-envfile/issues/52#issuecomment-1518192378
-      - name: Make envfile
-        uses: SpicyPizza/create-envfile@v2.0
-        with:
-          # envkey_DEBUG: false
-          envkey_MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
-          # envkey_SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          # envkey_VARIABLE: ${{ vars.SOME_ACTION_VARIABLE }}
-          # some_other_variable: foobar
-          # directory: <directory_name>
-          file_name: .env
-          fail_on_empty: true
-          sort_keys: true
-      # - name: Create env.json
-      #   run: |
-      #     echo "${{ toJSON(secrets) }}" > env.json
-      #     echo "printing cat env.json below"
-      #     echo $(cat env.json)
-      # - name: convert-env-json
-      #   uses: ricosandyca/convert-env-json@v1.0.1
-      #   with:
-      #     type: json-to-env
-      #     input_path: env.json
-      #     output_path: .env
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::626762246796:role/GitHub
-          role-duration-seconds: 1200 #adjust as needed for your build time
-          aws-region: us-east-1
       - name: Extract branch name
         shell: bash
         run: |
@@ -57,8 +25,4 @@ jobs:
       - name: Deploy app
         # npm i && npx sst deploy --stage $stage-${{ steps.extract_branch.outputs.branch }}
         run: |
-          echo "printing ls -lah below"
-          echo "$(ls -lah)"
-          echo "printing cat .env below"
-          echo "$(cat .env)"
           npm i && npx sst deploy --stage prod
