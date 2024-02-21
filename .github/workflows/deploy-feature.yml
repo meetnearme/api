@@ -16,8 +16,10 @@ jobs:
   DeployFeatureSST:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout with Env Vars
-        uses: './.github/actions/git_checkout_w_env_vars'
+      - name: Git clone the repository
+        uses: actions/checkout@v4
+      - name: Set Env Vars
+        uses: './.github/actions/set_env_vars'
       - name: Extract branch name
         shell: bash
         run: |

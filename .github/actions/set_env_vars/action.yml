@@ -2,8 +2,6 @@ name: DeployProdSST
 runs:
   using: composite
   steps:
-    - name: Git clone the repository
-      uses: actions/checkout@v4
     - name: Make envfile
       uses: SpicyPizza/create-envfile@v2.0
       with:
