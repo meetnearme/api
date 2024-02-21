@@ -16,7 +16,7 @@ permissions:
 jobs:
   GitCheckoutWithEnvVars:
     runs-on: ubuntu-latest
-    uses: meetnearme/api/.github/workflows/git-checkout-w-env-vars.yml@feature/env-vars
+    uses: './.github/actions/git-checkout-w-env-vars.yml@'
 
   DeployFeatureSST:
     runs-on: ubuntu-latest
