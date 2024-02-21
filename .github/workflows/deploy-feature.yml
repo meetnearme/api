@@ -3,6 +3,12 @@ on:
   push:
     branches:
       - feature/*
+  workflow_call:
+    secrets:
+      MEETNEARME_TEST_SECRET:
+        default: ${{ secrets.MEETNEARME_TEST_SECRET }}
+      ZENROWS_API_KEY:
+        default: ${{ secrets.ZENROWS_API_KEY }}
 
 # Concurrency group name ensures concurrent workflow runs wait for any in-progress job to finish
 concurrency:
