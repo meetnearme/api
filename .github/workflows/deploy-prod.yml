@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   DeployProdSST:
-    uses: meetnearme/api/.github/workflows/scripts/git-checkout-w-env-vars.yml@feature/env-vars
+    uses: meetnearme/api/.github/workflows/git-checkout-w-env-vars.yml@feature/env-vars
     runs-on: ubuntu-latest
     steps:
       - name: Extract branch name
