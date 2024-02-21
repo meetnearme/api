@@ -15,7 +15,7 @@ export default {
     app.setDefaultFunctionProps({
       runtime: 'go',
     });
-    stack.addDefaultFunctionPermissions({
+    app.addDefaultFunctionPermissions({
       permissions: ['dynamodb:*'],
     });
     app.stack(StorageStack).stack(ApiStack);
