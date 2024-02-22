@@ -12,9 +12,13 @@ export default {
     };
   },
   stacks(app) {
+    // oddly, order matters here, don't switch the order
     app.setDefaultFunctionProps({
       runtime: 'go',
     });
     app.stack(StorageStack).stack(ApiStack);
+    app.addDefaultFunctionPermissions({
+      permissions: ['dynamodb:*'],
+    });
   },
 } satisfies SSTConfig;

@@ -15,28 +15,20 @@ permissions:
 jobs:
   DeployProdSST:
     runs-on: ubuntu-latest
-    env:
-      #Define your envs needed for static generation:
-      MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
     steps:
       - name: Git clone the repository
         uses: actions/checkout@v4
-      - name: 'Create env file'
-        env:
-          ALLMYSECRETS: ${{ toJSON(secrets) }}
-          ALLMYVARS: ${{ toJSON(vars) }}
-        run: |
-          echo "MEETNEARME_TEST_SECRET=$(secrets.MEETNEARME_TEST_SECRET)" > .env
-        shell: bash
-      - name: 'print path'
-        run: |
-          echo "$(cat .env)"
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS & Create env file
+        uses: './.github/actions/set_aws_creds_env_vars'
         with:
-          role-to-assume: arn:aws:iam::626762246796:role/GitHub
-          role-duration-seconds: 1200 #adjust as needed for your build time
-          aws-region: us-east-1
+          MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
+          ZENROWS_API_KEY: ${{ secrets.ZENROWS_API_KEY }}
+      - name: Extract branch name
+        shell: bash
+        run: |
+          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
       - name: Deploy app
+        # npm i && npx sst deploy --stage $stage-${{ steps.extract_branch.outputs.branch }}
         run: |
           npm i && npx sst deploy --stage prod
