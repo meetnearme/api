@@ -11,6 +11,7 @@ export function ApiStack({ stack }: StackContext) {
         bind: [table],
         environment: {
           MEETNEARME_TEST_SECRET: process.env.MEETNEARME_TEST_SECRET,
+          ZENROWS_API_KEY: process.env.ZENROWS_API_KEY,
         },
       },
     },
