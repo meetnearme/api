@@ -1,7 +1,7 @@
 name: set_aws_creds_env_vars
 inputs:
   MEETNEARME_TEST_SECRET:
-    description: 'The secret for the MeetNearMe test environment'
+    description: 'The dummy secret for the MeetNearMe project'
     required: true
   ZENROWS_API_KEY:
     description: 'The API key for the ZenRows environment'
@@ -10,13 +10,11 @@ runs:
   using: composite
   steps:
     - name: Make envfile
-      uses: SpicyPizza/create-envfile@v2.0
-      with:
-        envkey_MEETNEARME_TEST_SECRET: ${{ inputs.MEETNEARME_TEST_SECRET }}
-        envkey_ZENROWS_API_KEY: ${{ inputs.ZENROWS_API_KEY }}
-        file_name: .env
-        fail_on_empty: true
-        sort_keys: true
+      shell: bash
+      run: |
+        touch .env
+        echo MEET_NEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
+        echo ZENROWS_API_KEY =${{ inputs.ZENROWS_API_KEY }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

@@ -10,6 +10,8 @@
 ### Running the Lambda project
 
 1. `npm i`
+1. Create an `.env` file using `.env.example` to add needed keys (for the secret
+   values, ask someone on the team)
 1. Create an AWS account if you don't have one
 1. [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
 1. `npm run dev` runs the Go Lambda Gateway V2 server locally, proxied through
@@ -43,3 +45,16 @@ insert new event
 ### Reference for interacting with dynamodb from aws cli v2
 
 https://awscli.amazonaws.com/v2/documentation/api/latest/reference/dynamodb/index.html
+
+## Project Maintenance
+
+### Updating env vars
+
+When updating env vars, the changes need to be made in 4 places:
+
+1. `stacks/ApiStack.ts`
+1. `.github/actions/set_aws_creds_env_vars/action.yml` (`inputs` section)
+1. `.github/actions/set_aws_creds_env_vars/action.yml` (`run` section where vars
+   are `echo`d)
+1. `.env.example` to clarify in version control what our currently-used env vars
+   are
