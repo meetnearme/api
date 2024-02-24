@@ -16,7 +16,7 @@ import (
 )
 
 func getDbTableName (tableName string) string {
-    var SST_Table_tableName_Events = os.Getenv("SST_Table_tableName_Events")
+    var SST_Table_tableName_Events = os.Getenv("SST_Table_tableName_" + shared.EventsTablePrefix)
     if (os.Getenv("SST_STAGE") != "prod") {
         return tableName
     }
