@@ -10,6 +10,7 @@ runs:
   using: composite
   steps:
     - name: Make envfile
+      shell: bash
       run: |
         touch .env
         echo MEET_NEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
