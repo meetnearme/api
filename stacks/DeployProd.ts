@@ -3,8 +3,8 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import { StackContext } from 'sst/constructs';
 
 export function IAM({ app, stack }: StackContext) {
+  console.log('app.stage:', app.stage);
   if (app.stage === 'prod') {
-
     const provider = new iam.OpenIdConnectProvider(stack, 'GitHub', {
       url: 'https://token.actions.githubusercontent.com',
       clientIds: ['sts.amazonaws.com'],
@@ -22,7 +22,8 @@ export function IAM({ app, stack }: StackContext) {
       description: 'Role assumed for deploying from GitHub CI using AWS CDK',
       roleName: 'GitHub', // Change this to match the role name in the GitHub workflow file
       maxSessionDuration: Duration.hours(1),
-      inlinePolicies: { // You could attach AdministratorAccess here or constrain it even more, but this uses more granular permissions used by SST
+      inlinePolicies: {
+        // You could attach AdministratorAccess here or constrain it even more, but this uses more granular permissions used by SST
         SSTDeploymentPolicy: new iam.PolicyDocument({
           assignSids: true,
           statements: [
@@ -60,9 +61,7 @@ export function IAM({ app, stack }: StackContext) {
                 'ssm:PutParameter',
                 'sts:AssumeRole',
               ],
-              resources: [
-                '*',
-              ],
+              resources: ['*'],
             }),
           ],
         }),

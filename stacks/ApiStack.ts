@@ -15,6 +15,9 @@ export function ApiStack({ stack }: StackContext) {
   );
 
   const api = new Api(stack, 'api', {
+    ...(process.env.GIT_BRANCH_NAME
+      ? { name: `prod-${process.env.GIT_BRANCH_NAME}` }
+      : {}),
     defaults: {
       function: {
         // Bind the table name to our API
