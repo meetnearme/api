@@ -6,9 +6,6 @@ export function StorageStack({ stack }: StackContext) {
 
   // Create the `Events` table
   const table = new Table(stack, 'Events', {
-    ...(process.env.GIT_BRANCH_NAME
-      ? { name: `prod-${process.env.GIT_BRANCH_NAME}` }
-      : {}),
     fields: {
       id: 'string',
       name: 'string',
