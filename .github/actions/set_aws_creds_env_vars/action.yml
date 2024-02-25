@@ -6,6 +6,9 @@ inputs:
   ZENROWS_API_KEY:
     description: 'The API key for the ZenRows environment'
     required: true
+  GIT_BRANCH_NAME:
+    description: 'The name of the branch being deployed'
+    required: false
 runs:
   using: composite
   steps:
@@ -14,7 +17,8 @@ runs:
       run: |
         touch .env
         echo MEET_NEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} \n >> .env
-        echo ZENROWS_API_KEY =${{ inputs.ZENROWS_API_KEY }} \n >> .env
+        echo ZENROWS_API_KEY=${{ inputs.ZENROWS_API_KEY }} \n >> .env
+        echo GIT_BRANCH_NAME =${{ inputs.GIT_BRANCH_NAME }} \n >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

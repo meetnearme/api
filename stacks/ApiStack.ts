@@ -5,6 +5,9 @@ export function ApiStack({ stack }: StackContext) {
   const { table } = use(StorageStack);
 
   const api = new Api(stack, 'api', {
+    console.log('~process.env.MEET_NEARME_TEST_SECRET', process.env.MEET_NEARME_TEST_SECRET);
+    console.log('~process.env.GIT_BRANCH_NAME', process.env.GIT_BRANCH_NAME);
+    console.log('~process.env.GIT_BRANCH_NAME ?? "nope"', process.env.GIT_BRANCH_NAME ?? "nope");
     defaults: {
       function: {
         // Bind the table name to our API
