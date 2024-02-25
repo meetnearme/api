@@ -30,4 +30,5 @@ jobs:
         id: extract_branch
       - name: Deploy app
         run: |
-          npm i && npx sst deploy --stage $stage-${{ steps.extract_branch.outputs.branch }}
+          npm i && npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}
+          echo | ${{ steps.extract_branch.outputs.branch }}
