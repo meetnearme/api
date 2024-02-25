@@ -13,8 +13,8 @@ runs:
       shell: bash
       run: |
         touch .env
-        echo MEET_NEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
-        echo ZENROWS_API_KEY =${{ inputs.ZENROWS_API_KEY }} >> .env
+        echo MEET_NEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} \n >> .env
+        echo ZENROWS_API_KEY =${{ inputs.ZENROWS_API_KEY }} \n >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
