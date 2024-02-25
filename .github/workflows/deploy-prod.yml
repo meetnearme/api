@@ -23,11 +23,6 @@ jobs:
         with:
           MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
           ZENROWS_API_KEY: ${{ secrets.ZENROWS_API_KEY }}
-      - name: Extract branch name
-        shell: bash
-        run: |
-          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
-        id: extract_branch
       - name: Deploy app
         # npm i && npx sst deploy --stage $stage-${{ steps.extract_branch.outputs.branch }}
         run: |
