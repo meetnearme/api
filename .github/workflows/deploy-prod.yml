@@ -26,7 +26,9 @@ jobs:
       - name: Extract branch name
         shell: bash
         run: |
-          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+          BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+          BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g')
+          echo "branch=$BRANCH_NAME" >> $GITHUB_ENV
         id: extract_branch
       - name: Deploy app
         # npm i && npx sst deploy --stage $stage-${{ steps.extract_branch.outputs.branch }}
