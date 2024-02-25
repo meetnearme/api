@@ -31,6 +31,8 @@ export function ApiStack({ stack }: StackContext) {
     },
   });
 
+  console.log(`api.name: ${api.name}`);
+
   stack.addOutputs({
     ApiEndpoint: api.url,
   });
