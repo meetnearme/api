@@ -18,8 +18,8 @@ import (
 
 func isDeployed() bool {
     sstStage := os.Getenv("SST_STAGE")
-    // TODO: decide on `feature/` or `feature-` prefix
-    return sstStage == "prod" || strings.HasPrefix(sstStage, "feature")
+    // `.github/workflows/deploy-feature.yml` deploys any branch that begins with `feature/*` to aws as `feature-*`
+    return sstStage == "prod" || strings.HasPrefix(sstStage, "feature-")
 }
 
 func getDbTableName (tableName string) string {

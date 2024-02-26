@@ -16,7 +16,7 @@ runs:
       shell: bash
       run: |
         touch .env
-        echo MEET_NEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
+        echo MEETNEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
         echo ZENROWS_API_KEY=${{ inputs.ZENROWS_API_KEY }} >> .env
         echo GIT_BRANCH_NAME=${{ inputs.GIT_BRANCH_NAME }} >> .env
         echo "$(cat .env)"
