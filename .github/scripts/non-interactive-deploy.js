@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 const { spawn } = require('child_process');
 
-const child = spawn('sst', ['deploy', '--stage', '<dynamic var from GitHub>']);
+const child = spawn('sst', [
+  'deploy',
+  '--stage',
+  process.env.GITHUB_BRANCH_NAME,
+]);
 
 child.stdout.on('data', (data) => {
   if (data.toString().includes('Please enter a name')) {
