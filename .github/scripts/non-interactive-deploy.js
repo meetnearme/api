@@ -1,15 +1,11 @@
 #!/usr/bin/env node
 import { spawn } from 'child_process';
 
-const child = spawn('sst', [
-  'deploy',
-  '--stage',
-  process.env.GITHUB_BRANCH_NAME,
-]);
+const child = spawn('sst', ['deploy', '--stage', process.env.GIT_BRANCH_NAME]);
 
 child.stdout.on('data', (data) => {
   if (data.toString().includes('Please enter a name')) {
-    child.stdin.write(`${process.env.GITHUB_BRANCH_NAME}\n`); // or whatever it expects
+    child.stdin.write(`${process.env.GIT_BRANCH_NAME}\n`); // or whatever it expects
   }
 });
 
