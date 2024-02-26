@@ -34,5 +34,4 @@ jobs:
         # mkdir -p ~/.sst && touch stage && echo "${{ steps.extract_branch.outputs.branch }}" > ~/.sst/stage
         run: |
           echo ${{ steps.extract_branch.outputs.branch }}
-          mkdir -p ~/.sst && touch stage && echo "prod-test-ci-branch" > ~/.sst/stage
-          npm i && npx sst deploy --stage prod-test-ci-branch
+          npm i && npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}

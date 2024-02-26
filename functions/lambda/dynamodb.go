@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -15,9 +16,16 @@ import (
 	"github.com/meetnearme/api/functions/lambda/shared"
 )
 
+func isDeployed() bool {
+    sstStage := os.Getenv("SST_STAGE")
+    // TODO: decide on `feature/` or `feature-` prefix
+    return sstStage == "prod" || !strings.HasPrefix(sstStage, "feature")
+}
+
 func getDbTableName (tableName string) string {
     var SST_Table_tableName_Events = os.Getenv("SST_Table_tableName_" + shared.EventsTablePrefix)
-    if (os.Getenv("SST_STAGE") != "prod") {
+
+    if (!isDeployed()) {
         return tableName
     }
     return SST_Table_tableName_Events
@@ -54,7 +62,7 @@ func CreateDbClient() *dynamodb.Client {
         fmt.Println("Error loading default Dynamo client config", err)
     }
 
-    if (os.Getenv("SST_STAGE") != "prod") {
+    if (!isDeployed()) {
         optionalCredentials := config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
             Value: aws.Credentials{
                 AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test",
