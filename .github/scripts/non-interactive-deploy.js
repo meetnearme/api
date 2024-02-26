@@ -30,5 +30,5 @@ child.stderr.on('data', (data) => {
 // Listen for sst deploy to close
 child.on('close', (code) => {
   console.log(`sst deploy exited with code ${code}`);
-  child.exitCode(code);
+  child.stdin.end();
 });
