@@ -3,17 +3,7 @@ import { StorageStack } from './StorageStack';
 
 export function ApiStack({ stack }: StackContext) {
   const { table } = use(StorageStack);
-
-  console.log(
-    '~process.env.MEET_NEARME_TEST_SECRET',
-    process.env.MEET_NEARME_TEST_SECRET,
-  );
-  console.log('~process.env.GIT_BRANCH_NAME', process.env.GIT_BRANCH_NAME);
-  console.log(
-    '~process.env.GIT_BRANCH_NAME ?? "nope"',
-    process.env.GIT_BRANCH_NAME ?? 'nope',
-  );
-
+\
   const api = new Api(stack, 'api', {
     defaults: {
       function: {
@@ -30,8 +20,6 @@ export function ApiStack({ stack }: StackContext) {
       'POST /': 'functions/lambda',
     },
   });
-
-  console.log(`api.name: ${api.name}`);
 
   stack.addOutputs({
     ApiEndpoint: api.url,

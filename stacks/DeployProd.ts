@@ -3,7 +3,6 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import { StackContext } from 'sst/constructs';
 
 export function IAM({ app, stack }: StackContext) {
-  console.log('app.stage:', app.stage);
   if (app.stage === 'prod') {
     const provider = new iam.OpenIdConnectProvider(stack, 'GitHub', {
       url: 'https://token.actions.githubusercontent.com',
