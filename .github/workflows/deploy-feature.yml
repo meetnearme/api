@@ -31,6 +31,7 @@ jobs:
           ZENROWS_API_KEY: ${{ secrets.ZENROWS_API_KEY }}
           GIT_BRANCH_NAME: ${{ steps.extract_branch.outputs.branch }}
       - name: Deploy app
+        # npm i && npx sst deploy --stage prod-${{ steps.extract_branch.outputs.branch }}
         run: |
           echo ${{ steps.extract_branch.outputs.branch }}
-          npm i && npx sst deploy --stage prod-${{ steps.extract_branch.outputs.branch }}
+          node .github/scripts/deploy-feature.js
