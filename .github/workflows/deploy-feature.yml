@@ -34,4 +34,4 @@ jobs:
         # npm i && npx sst deploy --stage prod-${{ steps.extract_branch.outputs.branch }}
         run: |
           echo ${{ steps.extract_branch.outputs.branch }}
-          node .github/scripts/non-interactive-deploy.js
+          npm i && node .github/scripts/non-interactive-deploy.js
