@@ -24,6 +24,5 @@ jobs:
           MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
           ZENROWS_API_KEY: ${{ secrets.ZENROWS_API_KEY }}
       - name: Deploy app
-        # npm i && npx sst deploy --stage $stage-${{ steps.extract_branch.outputs.branch }}
         run: |
           npm i && npx sst deploy --stage prod

@@ -1,14 +1,14 @@
 name: set_aws_creds_env_vars
 inputs:
+  GIT_BRANCH_NAME:
+    description: 'The name of the branch being deployed'
+    required: false
   MEETNEARME_TEST_SECRET:
     description: 'The dummy secret for the MeetNearMe project'
     required: true
   ZENROWS_API_KEY:
     description: 'The API key for the ZenRows environment'
     required: true
-  GIT_BRANCH_NAME:
-    description: 'The name of the branch being deployed'
-    required: false
 runs:
   using: composite
   steps:
@@ -16,9 +16,9 @@ runs:
       shell: bash
       run: |
         touch .env
+        echo GIT_BRANCH_NAME=${{ inputs.GIT_BRANCH_NAME }} >> .env
         echo MEETNEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
         echo ZENROWS_API_KEY=${{ inputs.ZENROWS_API_KEY }} >> .env
-        echo GIT_BRANCH_NAME=${{ inputs.GIT_BRANCH_NAME }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

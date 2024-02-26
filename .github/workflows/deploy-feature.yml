@@ -32,5 +32,4 @@ jobs:
           GIT_BRANCH_NAME: ${{ steps.extract_branch.outputs.branch }}
       - name: Deploy app
         run: |
-          echo ${{ steps.extract_branch.outputs.branch }}
           npm i && npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}
