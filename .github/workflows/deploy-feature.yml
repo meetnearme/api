@@ -21,7 +21,7 @@ jobs:
       - name: Extract branch name
         shell: bash
         run: |
-          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" | sed 's|/|-|g' >> $GITHUB_OUTPUT
+          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
         id: extract_branch
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
