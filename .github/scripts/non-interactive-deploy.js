@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 import { spawn } from 'child_process';
 
-const child = spawn('sst', ['deploy', '--stage', process.env.GIT_BRANCH_NAME]);
+let child;
+try {
+  child = spawn('sst', ['deploy', '--stage', process.env.GIT_BRANCH_NAME]);
+} catch (err) {
+  console.error('Error spawning sst deploy', err);
+}
 
 child.stdout.on('data', (data) => {
   if (data.toString().includes('Please enter a name')) {
