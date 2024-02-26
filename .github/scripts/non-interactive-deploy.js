@@ -3,14 +3,19 @@ import { spawn } from 'child_process';
 
 let child;
 try {
-  child = spawn('sst', ['deploy', '--stage', process.env.GIT_BRANCH_NAME]);
+  child = spawn('npx', [
+    'sst',
+    'deploy',
+    '--stage',
+    process.env.GIT_BRANCH_NAME,
+  ]);
 } catch (err) {
   console.error('Error spawning sst deploy', err);
 }
 
 child.stdout.on('data', (data) => {
   if (data.toString().includes('Please enter a name')) {
-    child.stdin.write(`${process.env.GIT_BRANCH_NAME}\n`); // or whatever it expects
+    child.stdin.write(`${process.env.GIT_BRANCH_NAME}\n`);
   }
 });
 
