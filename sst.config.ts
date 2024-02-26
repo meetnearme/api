@@ -13,7 +13,7 @@ export default {
   },
   stacks(app) {
     if (process.env.GIT_BRANCH_NAME) {
-      app.stage = `prod-${process.env.GIT_BRANCH_NAME}`;
+      app.stage = `prod-test-ci-branch`;
     }
     // oddly, order matters here, don't switch the order
     app.setDefaultFunctionProps({
