@@ -9,12 +9,13 @@ child.stdout.on('data', (data) => {
   }
 });
 
-// child.stderr.on('data', (data) => {
-//   // if sst deploy writes to stderr
-//   if (data.toString().includes('<insert output here>')) {
-//     child.stdin.write('yes\n'); // or whatever it expects
-//   }
-// });
+child.stderr.on('data', (data) => {
+  // if sst deploy writes to stderr
+  console.log('~stderr from non-interactive-deploy.js~', data.toString());
+  if (data.toString().includes('<insert output here>')) {
+    child.stdin.write('yes\n'); // or whatever it expects
+  }
+});
 
 // Listen for sst deploy to close
 child.on('close', (code) => {
