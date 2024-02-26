@@ -19,7 +19,6 @@ runs:
         echo MEETNEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
         echo ZENROWS_API_KEY=${{ inputs.ZENROWS_API_KEY }} >> .env
         echo GIT_BRANCH_NAME=${{ inputs.GIT_BRANCH_NAME }} >> .env
-        echo "$(cat .env)"
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
