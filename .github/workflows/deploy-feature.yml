@@ -31,7 +31,9 @@ jobs:
           ZENROWS_API_KEY: ${{ secrets.ZENROWS_API_KEY }}
           GIT_BRANCH_NAME: ${{ steps.extract_branch.outputs.branch }}
       - name: Deploy app
-        # npm i && npx sst deploy --stage prod-${{ steps.extract_branch.outputs.branch }}
+        # npm i && node .github/scripts/non-interactive-deploy.js
+        # mkdir -p ~/.sst && touch stage && echo "${{ steps.extract_branch.outputs.branch }}" > ~/.sst/stage
         run: |
           echo ${{ steps.extract_branch.outputs.branch }}
-          npm i && node .github/scripts/non-interactive-deploy.js
+          mkdir -p ~/.sst && touch stage && echo "prod-test-ci-branch" > ~/.sst/stage
+          npm i && npx sst deploy --stage prod-test-ci-branch
