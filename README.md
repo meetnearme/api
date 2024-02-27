@@ -5,16 +5,27 @@
 ### Running the local SAM dynamodb docker container
 
 1. `$ docker compose build`
-1. `$ docker compose up`
+2. `$ docker compose up`
 
 ### Running the Lambda project
 
 1. `npm i`
-1. Create an `.env` file using `.env.example` to add needed keys (for the secret
-   values, ask someone on the team)
-1. Create an AWS account if you don't have one
-1. [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
-1. `npm run dev` runs the Go Lambda Gateway V2 server locally, proxied through
+2. Create an AWS account if you don't have one.
+3. Create an IAM Role: `meetnearme-bot`.
+4. [Optional] Assign IAM User to User group: `meetnearme`
+5. Under the IAM Role > Select the **Permissions** Tab
+6. Select _Attach existing policies directly_.
+7. Search for **AdministratorAccess** and select the policy by checking the checkbox, then select **Next**.
+8. Click **Add Permissions**
+9. Navigate back to the IAM Role
+10. Go to **Security Credentials** Tab
+11. Select **Create access key**
+12. Select **Other** and select **Next**
+13. Optionally add a tag and select **Create Access Key**
+14. Create an `.env` file using `.env.example` to add needed keys.
+15. Run `brew install awscli` in the terminal to install AWS CLI
+16. Run `aws configure` to [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
+17. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied through
    Lambda to your local
 
 ### Generate Go templates from \*.templ files
@@ -26,8 +37,8 @@ export GOPATH=$HOME/go
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 ```
 
-1. `go install github.com/a-h/templ`
-1. Run `templ generate`
+2. `go install github.com/a-h/templ`
+3. Run `templ generate`
 
 ### Validate home page is working + data-connected
 
@@ -53,8 +64,8 @@ https://awscli.amazonaws.com/v2/documentation/api/latest/reference/dynamodb/inde
 When updating env vars, the changes need to be made in 4 places:
 
 1. `stacks/ApiStack.ts`
-1. `.github/actions/set_aws_creds_env_vars/action.yml` (`inputs` section)
-1. `.github/actions/set_aws_creds_env_vars/action.yml` (`run` section where vars
+2. `.github/actions/set_aws_creds_env_vars/action.yml` (`inputs` section)
+3. `.github/actions/set_aws_creds_env_vars/action.yml` (`run` section where vars
    are `echo`d)
-1. `.env.example` to clarify in version control what our currently-used env vars
+4. `.env.example` to clarify in version control what our currently-used env vars
    are
