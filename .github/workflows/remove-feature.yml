@@ -1,0 +1,30 @@
+name: Remove Feature Branch (SST)
+on:
+  delete:
+    branches:
+      - 'feature/**'
+jobs:
+  DeleteFeatureSST:
+    if:
+      github.event.ref_type == 'branch' && startsWith(github.ref,
+      'refs/heads/feature/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract and format branch name
+        shell: bash
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          FORMATTED_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's|/|-|g')
+          echo "FORMATTED_BRANCH_NAME=$FORMATTED_BRANCH_NAME" >> $GITHUB_ENV
+        id: extract_branch
+      - name: Run SST remove
+        run: |
+          echo "Clean up for branch $FORMATTED_BRANCH_NAME"
+          npm i && npx sst remove --stage $FORMATTED_BRANCH_NAME
+
+# Concurrency group name ensures concurrent workflow runs wait for any in-progress job to finish
+concurrency:
+  group: delete-${{ github.event.ref }}
+
+permissions:
+  contents: read # This is required for actions/checkout
