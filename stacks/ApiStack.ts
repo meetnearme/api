@@ -16,8 +16,7 @@ export function ApiStack({ stack }: StackContext) {
       },
     },
     routes: {
-      'GET /': 'functions/lambda',
-      'POST /': 'functions/lambda',
+      'GET /': 'app',
     },
   });
 

@@ -1,20 +1,30 @@
 package main
 
 import (
-	"github.com/meetnearme/api/app/handlers"
+	"context"
+	"log"
 
-	"github.com/gin-contrib/cors"
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-gonic/gin"
+	"github.com/meetnearme/api/app/handlers"
 )
 
-func main() {
+var ginLambda *ginadapter.GinLambdaV2
+
+func shouldWrapLayout() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		hxRequestHeader := c.Request.Header["Hx-Request"]
+		isHxRequest := hxRequestHeader != nil && hxRequestHeader[0] == "true"
+		c.Set("shouldWrapLayout", !isHxRequest)
+		c.Next()
+	}
+}
+
+func init() {
 	r := gin.Default()
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"*"} // Update with your allowed origins
-	config.AllowCredentials = true
-	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
-	r.Use(cors.New(config))
+	log.Printf("Gin cold start")
 	r.Static("/static", "./static")
 	r.StaticFile("/favicon.ico", "./static/favicon.ico")
 	r.Use(shouldWrapLayout())
@@ -26,21 +36,18 @@ func main() {
 	componentRouterGroup := r.Group("/components")
 	{
 		componentRouterGroup.GET("/login-form", handlers.GetLoginFormComponent)
-	}
-
-	apiRouterGroup := r.Group("/api")
-	{
-		apiRouterGroup.GET("/events", handlers.GetEventsList)
+		componentRouterGroup.GET("/events-list", handlers.GetEventsList)
 	}
 	r.SetTrustedProxies(nil)
-	r.Run()
+
+	ginLambda = ginadapter.NewV2(r)
 }
 
-func shouldWrapLayout() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		hxRequestHeader := c.Request.Header["Hx-Request"]
-		isHxRequest := hxRequestHeader != nil && hxRequestHeader[0] == "true"
-		c.Set("shouldWrapLayout", !isHxRequest)
-		c.Next()
-	}
+func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	// If no name is provided in the HTTP request body, throw an error
+	return ginLambda.ProxyWithContext(ctx, req)
+}
+
+func main() {
+	lambda.Start(Handler)
 }
