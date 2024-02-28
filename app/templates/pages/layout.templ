@@ -1,0 +1,52 @@
+package templates
+
+// import templates "meetnearme-web/templates/components"
+
+templ Layout(pageContent templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			// @templates.MetaComponent()
+			<meta charset="UTF-8"/>
+			<meta
+				name="viewport"
+				content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+			/>
+			<link rel="preconnect" href="https://fonts.googleapis.com"/>
+			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+			<link
+				href="https://fonts.googleapis.com/css2?family=Macondo&display=swap"
+				rel="stylesheet"
+			/>
+			<link href="/static/styles.css" rel="stylesheet"/>
+			<link href="/static/app.css" rel="stylesheet"/>
+			<script src="https://unpkg.com/htmx.org"></script>
+			<title>Meet Near Me</title>
+		</head>
+		<body class="p-4 macondo-regular" data-theme="cupcake">
+			<div class="navbar bg-primary shadow-xl rounded-box">
+				<div class="navbar-start">
+					<a
+						class="btn btn-ghost text-xl"
+						hx-get="/events"
+						hx-push-url="true"
+						hx-target="#main-content"
+					>Meet Near Me</a>
+				</div>
+				<div class="navbar-end">
+					<button
+						class="btn btn-ghost btn-accent"
+						hx-get="/login"
+						hx-target="#main-content"
+						hx-push-url="true"
+					>
+						Login
+					</button>
+				</div>
+			</div>
+			<section id="main-content" class="py-4">
+				@pageContent
+			</section>
+		</body>
+	</html>
+}

@@ -1,0 +1,14 @@
+package templates
+
+templ LoginPage() {
+	<div class="card w-full lg:w-1/3 xl:w-1/4 bg-base-100 shadow-xl mx-auto">
+		<div class="card-body">
+			<h2 class="card-title">Login</h2>
+			<section
+				id="login-page-content"
+				hx-get="/components/login-form"
+				hx-trigger="load"
+			></section>
+		</div>
+	</div>
+}
