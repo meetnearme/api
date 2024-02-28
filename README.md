@@ -18,6 +18,9 @@
 17. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied through
    Lambda to your local
 
+#### AWS Credentials Deep Dive for SST Deployment
+https://docs.sst.dev/advanced/iam-credentials
+
 ### Generate Go templates from \*.templ files
 
 1. Add to your `.zshrc` / `.bashrc`
