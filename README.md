@@ -11,18 +11,8 @@
 
 1. `npm i`
 1. Create an AWS account if you don't have one.
-1. Create an IAM Role: `meetnearme-bot`.
-1. [Optional] Assign IAM User to User group: `meetnearme`
-1. Under the IAM Role > Select the **Permissions** Tab
-1. Select _Attach existing policies directly_.
-1. Search for **AdministratorAccess** and select the policy by checking the checkbox, then select **Next**.
-1. Click **Add Permissions**
-1. Navigate back to the IAM Role
-1. Go to **Security Credentials** Tab
-1. Select **Create access key**
-1. Select **Other** and select **Next**
-1. Optionally add a tag and select **Create Access Key**
-1. Create an `.env` file using `.env.example` to add needed keys.
+1. [Create an IAM User](https://sst.dev/chapters/create-an-iam-user.html)
+1. Export `aws_access_key_id` and `aws_secret_access_key` env variables.
 1. Run `brew install awscli` in the terminal to install AWS CLI
 1. Run `aws configure` to [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
 17. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied through
