@@ -12,6 +12,9 @@ export default {
     };
   },
   stacks(app) {
+    if (process.env.GIT_BRANCH_NAME) {
+      app.stage = process.env.GIT_BRANCH_NAME;
+    }
     // oddly, order matters here, don't switch the order
     app.setDefaultFunctionProps({
       runtime: 'go',

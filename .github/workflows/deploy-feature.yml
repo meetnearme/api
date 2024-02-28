@@ -1,8 +1,8 @@
-name: Deploy Prod (SST)
+name: Deploy Feature Branch (SST)
 on:
   push:
     branches:
-      - main
+      - feature/*
 
 # Concurrency group name ensures concurrent workflow runs wait for any in-progress job to finish
 concurrency:
@@ -13,16 +13,23 @@ permissions:
   contents: read # This is required for actions/checkout
 
 jobs:
-  DeployProdSST:
+  DeployFeatureSST:
     runs-on: ubuntu-latest
     steps:
       - name: Git clone the repository
         uses: actions/checkout@v4
+      - name: Extract branch name
+        shell: bash
+        # sed 's|/|-|g' replaces all slashes with hyphens, aws stack names can't have slashes
+        run: |
+          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" | sed 's|/|-|g' >> $GITHUB_OUTPUT
+        id: extract_branch
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
         with:
           MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
           ZENROWS_API_KEY: ${{ secrets.ZENROWS_API_KEY }}
+          GIT_BRANCH_NAME: ${{ steps.extract_branch.outputs.branch }}
       - name: Deploy app
         run: |
-          npm i && npx sst deploy --stage prod
+          npm i && npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}
