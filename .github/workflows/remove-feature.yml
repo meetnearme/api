@@ -15,7 +15,7 @@ jobs:
         run: |
           echo "github.event.ref_type=${{ github.event.ref_type }}"
           echo "github.ref=${{ github.ref }}"
-          echo "startsWith(github.ref, 'refs/heads/feature/')=$(startsWith(github.ref, 'refs/heads/feature/'))"
+          echo "startsWith=$(startsWith(github.ref, 'refs/heads/feature/'))"
         # - name: Extract and format branch name
         #   shell: bash
         #   run: |
