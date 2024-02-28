@@ -6,7 +6,7 @@ on:
 jobs:
   DeleteFeatureSST:
     # if:
-    #   github.event.ref_type == 'branch' && startsWith(github.ref,
+    #   github.event.ref_type == 'branch' && startsWith(github.event.ref,
     #   'refs/heads/feature/')
     runs-on: ubuntu-latest
     steps:
@@ -14,8 +14,8 @@ jobs:
         shell: bash
         run: |
           echo "github.event.ref_type=${{ github.event.ref_type }}"
-          echo "github.ref=${{ github.ref }}"
-          echo "startsWith=$(startsWith(github.ref, 'refs/heads/feature/'))"
+          echo "github.event.ref=${{ github.event.ref }}"
+          echo "startsWith=${{ startsWith(github.event.ref, 'refs/heads/feature/') }}"
         # - name: Extract and format branch name
         #   shell: bash
         #   run: |
