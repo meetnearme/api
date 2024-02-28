@@ -1,7 +1,7 @@
 package main
 
 import (
-	"meetnearme-web/handlers"
+	"github.com/meetnearme/api/app/handlers"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -26,6 +26,11 @@ func main() {
 	componentRouterGroup := r.Group("/components")
 	{
 		componentRouterGroup.GET("/login-form", handlers.GetLoginFormComponent)
+	}
+
+	apiRouterGroup := r.Group("/api")
+	{
+		apiRouterGroup.GET("/events", handlers.GetEventsList)
 	}
 	r.SetTrustedProxies(nil)
 	r.Run()

@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	templates "meetnearme-web/templates/components"
+	templates "github.com/meetnearme/api/app/templates/components"
 
 	"github.com/gin-gonic/gin"
 )
