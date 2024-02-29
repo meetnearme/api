@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -24,7 +23,6 @@ func shouldWrapLayout() gin.HandlerFunc {
 
 func init() {
 	r := gin.Default()
-	log.Printf("Gin cold start")
 	r.Static("/static", "./static")
 	r.StaticFile("/favicon.ico", "./static/favicon.ico")
 	r.Use(shouldWrapLayout())

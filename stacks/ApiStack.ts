@@ -13,10 +13,16 @@ export function ApiStack({ stack }: StackContext) {
           MEETNEARME_TEST_SECRET: process.env.MEETNEARME_TEST_SECRET,
           ZENROWS_API_KEY: process.env.ZENROWS_API_KEY,
         },
+        copyFiles: [
+          {
+            from: './app/static',
+            to: './static',
+          },
+        ],
       },
     },
     routes: {
-      'GET /': 'app',
+      'GET /{proxy+}': './app/main.go',
     },
   });
 
