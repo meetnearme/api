@@ -2,3 +2,5 @@ node_modules
 .sst/*
 .env
 tmp
+
+.DS_Store
