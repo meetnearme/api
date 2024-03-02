@@ -9,11 +9,7 @@ export function StaticSiteStack({ stack }: StackContext) {
   const staticSite = new StaticSite(stack, 'frontend', {
     path: 'static',
     customDomain: {
-      // TODO: get cloudfront domain dynamically here
       alternateNames: [api.url],
-      domainName: 'domain.com',
-      domainAlias: 'www.domain.com',
-      hostedZone: 'domain.com',
     },
   });
 
