@@ -8,9 +8,11 @@ export function StaticSiteStack({ stack }: StackContext) {
   console.log('~api.url', util.inspect(api.url));
   const staticSite = new StaticSite(stack, 'frontend', {
     path: 'static',
-    customDomain: {
-      alternateNames: [api.url],
-    },
+    // TODO: figure out a domain name with associated cert
+    // customDomain: {
+    //   alternateNames: [api.url],
+    //   domainName: 'domain.com',
+    // },
   });
 
   return { staticSite };
