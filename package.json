@@ -13,6 +13,7 @@
     "deploy:prod": "sst deploy --stage prod",
     "remove": "sst remove",
     "console": "sst console",
+    "templ:watch": "node scripts/watchTempl.js ./functions/lambda/views",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
@@ -21,6 +22,7 @@
     "aws-cdk-lib": "2.110.1",
     "constructs": "10.3.0",
     "daisyui": "^4.7.2",
+    "node-watch": "^0.7.4",
     "sst": "2.39.5",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3"
