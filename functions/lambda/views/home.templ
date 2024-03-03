@@ -1,40 +1,48 @@
 package views
 
+import "os"
 import "github.com/meetnearme/api/functions/lambda/shared"
 
 templ Home(pages []shared.Page, events []shared.Event, meetNearMeTestSecret string) {
 	@Layout("Home") {
-		<h2 class="title">Examples:</h2>
-		<table class="table is-fullwidth"><thead>
-	<tr>
-		<th>Pattern</th>
-		<th>Description</th>
-	</tr>
-</thead><tbody>
-	for _, e := range pages {
-		<tr>
-			<td><a href={ templ.SafeURL("/"+e.Slug) }>{ e.Name }</a></td>
-			<td>{ e.Desc }</td>
-		</tr>
-	}
-</tbody></table>
-
-<h1>Events</h1>
-<table class="table is-fullwidth"><thead>
-	<tr>
-		<th>Event Name</th>
-		<th>Event Description</th>
-	</tr>
-</thead><tbody>
-	for _, ev := range events {
-		<tr>
-			<td>{ ev.Name}</td>
-			<td>{ ev.Description }</td>
-		</tr>
-	}
-</tbody></table>
-	<h1>MEETNEARME_TEST_SECRET:</h1>
-	{ meetNearMeTestSecret }
+		<h1 class="text-5xl">
+			Magically gather in-person events you care about and discover new ones
+		</h1>
+		<table class="table is-fullwidth">
+			<thead>
+				<tr>
+					<th>Pattern</th>
+					<th>Description</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, e := range pages {
+					<tr>
+						<td><a href={ templ.SafeURL("/" + e.Slug) }>{ e.Name }</a></td>
+						<td>{ e.Desc }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		<h2 class="text-3xl">Events</h2>
+		<table class="table is-fullwidth">
+			<thead>
+				<tr>
+					<th>Event Name</th>
+					<th>Event Description</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, ev := range events {
+					<tr>
+						<td>{ ev.Name }</td>
+						<td>{ ev.Description }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		<h2 class="text-xl">MEETNEARME_TEST_SECRET:</h2>
+		{ meetNearMeTestSecret }
+		{ templ.EscapeString(os.Getenv("STATIC_BASE_URL")) }
 	}
 }
-

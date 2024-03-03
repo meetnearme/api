@@ -8,7 +8,9 @@ export function StaticSiteStack({ stack }: StackContext) {
     path: 'static',
     dev: {
       deploy: true,
+      url: 'http://localhost:3001',
     },
+    buildCommand: 'npm run tailwind:prod',
     // TODO: figure out a domain name with associated cert
     // customDomain: {
     //   alternateNames: [api.url],

@@ -13,6 +13,9 @@
     "deploy:prod": "sst deploy --stage prod",
     "remove": "sst remove",
     "console": "sst console",
+    "serve:static": "npx http-server -o /static -a localhost -p 3001",
+    "tailwind:dev": "tailwindcss -i ./static/assets/global.css -o ./static/assets/styles.css --watch",
+    "tailwind:prod": "tailwindcss -i ./static/assets/global.css -o ./static/assets/styles.css --minify",
     "templ:watch": "node scripts/watchTempl.js ./functions/lambda/views",
     "typecheck": "tsc --noEmit"
   },
