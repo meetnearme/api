@@ -20,7 +20,7 @@ export default {
     app.setDefaultFunctionProps({
       runtime: 'go',
     });
-    app.stack(StorageStack).stack(ApiStack).stack(StaticSiteStack);
+    app.stack(StaticSiteStack).stack(StorageStack).stack(ApiStack);
     app.addDefaultFunctionPermissions({
       permissions: ['dynamodb:*'],
     });
