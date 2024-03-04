@@ -9,6 +9,9 @@ inputs:
   ZENROWS_API_KEY:
     description: 'The API key for the ZenRows environment'
     required: true
+  STATIC_BASE_URL:
+    description: 'The cloudfront url for static assets'
+    required: true
 runs:
   using: composite
   steps:
@@ -19,6 +22,7 @@ runs:
         echo GIT_BRANCH_NAME=${{ inputs.GIT_BRANCH_NAME }} >> .env
         echo MEETNEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
         echo ZENROWS_API_KEY=${{ inputs.ZENROWS_API_KEY }} >> .env
+        echo STATIC_BASE_URL=${{ inputs.STATIC_BASE_URL }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
