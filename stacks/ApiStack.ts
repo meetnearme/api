@@ -14,6 +14,8 @@ export function ApiStack({ stack }: StackContext) {
         environment: {
           MEETNEARME_TEST_SECRET: process.env.MEETNEARME_TEST_SECRET,
           ZENROWS_API_KEY: process.env.ZENROWS_API_KEY,
+          // STATIC_BASE_URL is a special case because the value comes from
+          // `sst deploy` at runtime and then gets set as an environment variable
           STATIC_BASE_URL: staticSite.url,
         },
       },

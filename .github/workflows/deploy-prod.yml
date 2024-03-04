@@ -23,7 +23,6 @@ jobs:
         with:
           MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
           ZENROWS_API_KEY: ${{ secrets.ZENROWS_API_KEY }}
-          STATIC_BASE_URL: ${{ secrets.STATIC_BASE_URL }}
       - name: Deploy app
         run: |
           npm i && npx sst deploy --stage prod
