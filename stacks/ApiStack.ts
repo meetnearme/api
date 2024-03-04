@@ -16,7 +16,7 @@ export function ApiStack({ stack }: StackContext) {
           ZENROWS_API_KEY: process.env.ZENROWS_API_KEY,
           // STATIC_BASE_URL is a special case because the value comes from
           // `sst deploy` at runtime and then gets set as an environment variable
-          STATIC_BASE_URL: staticSite.url,
+          STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
         },
       },
     },
