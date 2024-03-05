@@ -52,7 +52,7 @@ func Router(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.API
         }
 
         meetNearMeTestSecret := os.Getenv("MEETNEARME_TEST_SECRET")
-        component := views.Home(Pages, eventList, meetNearMeTestSecret)
+        component := views.Home(eventList, meetNearMeTestSecret)
 
         var buf bytes.Buffer
         err := component.Render(ctx, &buf)
