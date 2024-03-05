@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@tailwind typography;
+@tailwind layout;
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Grandstander', 'Helvetica', 'Arial', 'sans-serif';
+    font-weight: 700;
+  }
+}

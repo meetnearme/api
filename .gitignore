@@ -1,3 +1,5 @@
 node_modules
 .sst/*
 .env
+# ignored because this is a build artifact that must be generated
+static/assets/styles.css

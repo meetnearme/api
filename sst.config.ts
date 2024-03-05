@@ -3,6 +3,7 @@ import { Api, use } from 'sst/constructs';
 
 import { StorageStack } from './stacks/StorageStack';
 import { ApiStack } from './stacks/ApiStack';
+import { StaticSiteStack } from './stacks/StaticSiteStack';
 
 export default {
   config(_input) {
@@ -19,7 +20,7 @@ export default {
     app.setDefaultFunctionProps({
       runtime: 'go',
     });
-    app.stack(StorageStack).stack(ApiStack);
+    app.stack(StaticSiteStack).stack(StorageStack).stack(ApiStack);
     app.addDefaultFunctionPermissions({
       permissions: ['dynamodb:*'],
     });
