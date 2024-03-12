@@ -21,8 +21,8 @@ export function StaticSiteStack({ stack }: StackContext) {
     // },
   });
   stack.addOutputs({
-    StaticEndpoint: staticSite.url,
-    BucketDomainName: staticSite.bucket.bucketDomainName,
+    StaticEndpoint: staticSite?.url,
+    BucketDomainName: staticSite?.bucket?.bucketDomainName,
   });
 
   return { staticSite };
