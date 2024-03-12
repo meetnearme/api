@@ -6,6 +6,7 @@ templ Layout(title string) {
 	<html>
 		<head>
 			<title>Meet Near Me - { title }</title>
+			<link rel="icon" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 			<link rel="preconnect" href="https://fonts.googleapis.com"/>
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 			<link href="https://fonts.googleapis.com/css2?family=Grandstander:wght@100..900&family=Red+Hat+Mono:wght@300..700&display=swap" rel="stylesheet"/>
@@ -39,7 +40,10 @@ templ Layout(title string) {
 templ Nav() {
 	<div class="navbar bg-base-100 flex-wrap">
 		<div class="navbar-start">
-			<a class="btn btn-ghost text-xl">Meet Near Me</a>
+			<a href="/" class="btn btn-ghost text-xl">
+				<img class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+				Meet Near Me
+			</a>
 		</div>
 		<div class="navbar-end hidden lg:flex">
 			<ul class="menu menu-horizontal px-1">
