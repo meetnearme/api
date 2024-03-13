@@ -1,0 +1,55 @@
+package pages
+
+import "os"
+
+templ Layout(title string, pageContent templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<title>Meet Near Me - { title }</title>
+			<link rel="preconnect" href="https://fonts.googleapis.com"/>
+			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+			<link href="https://fonts.googleapis.com/css2?family=Grandstander:wght@100..900&family=Red+Hat+Mono:wght@300..700&display=swap" rel="stylesheet"/>
+			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.css") }/>
+			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/app.css") }/>
+			<script src="https://unpkg.com/htmx.org@1.8.5"></script>
+			if os.Getenv("DEBUG") == "true" {
+				<style>
+				@keyframes debug {
+					from {outline: 3px solid #FF0000FF;}
+					to {outline: 3px solid #FF000000;}
+				}
+				* {
+					animation-name: debug;
+					animation-duration: 1s;
+				}
+			</style>
+			}
+		</head>
+		<body class="p-4" data-theme="cupcake">
+			<div class="navbar bg-primary shadow-xl rounded-box">
+				<div class="navbar-start">
+					<a
+						class="btn btn-ghost text-xl"
+						hx-get="/events"
+						hx-push-url="true"
+						hx-target="#main-content"
+					>Meet Near Me</a>
+				</div>
+				<div class="navbar-end">
+					<button
+						class="btn btn-ghost btn-accent"
+						hx-get="/login"
+						hx-target="#main-content"
+						hx-push-url="true"
+					>
+						Login
+					</button>
+				</div>
+			</div>
+			<section id="main-content" class="py-4">
+				@pageContent
+			</section>
+		</body>
+	</html>
+}

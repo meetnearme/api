@@ -1,4 +1,5 @@
-import { Api, StaticSite, use } from 'sst/constructs';
+import { Api, StackContext, StaticSite, use } from 'sst/constructs';
+
 import { ApiStack } from './ApiStack';
 
 // TODO: pass `api` created from that stack in to get `api.url` here for `alternateNames`
