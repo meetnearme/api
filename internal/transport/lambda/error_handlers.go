@@ -14,9 +14,9 @@ func SendServerError(err error) (Response, error) {
 	}, nil
 }
 
-func SendClientError(status int) (Response, error) {
+func SendClientError(status int, message string) (Response, error) {
 	return Response{
-		Body:       http.StatusText(status),
 		StatusCode: status,
+		Body:       message,
 	}, nil
 }
