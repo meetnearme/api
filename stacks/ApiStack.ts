@@ -1,6 +1,7 @@
 import { Api, StackContext, use } from 'sst/constructs';
-import { StorageStack } from './StorageStack';
+
 import { StaticSiteStack } from './StaticSiteStack';
+import { StorageStack } from './StorageStack';
 
 export function ApiStack({ stack }: StackContext) {
   const { table } = use(StorageStack);
@@ -21,8 +22,8 @@ export function ApiStack({ stack }: StackContext) {
       },
     },
     routes: {
-      'GET /': 'functions/lambda',
-      'POST /': 'functions/lambda',
+      // TODO: Will rename this to GET / once we have a stable project structure. Don't want to mess up what's currently working :p
+      $default: 'functions/lambda'
     },
   });
 

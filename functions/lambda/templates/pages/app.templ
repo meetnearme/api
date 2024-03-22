@@ -1,0 +1,39 @@
+package pages
+
+import (
+	"os"
+	"github.com/meetnearme/api/functions/lambda/templates/components"
+)
+
+templ App(title string, pageContent templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<title>Meet Near Me - { title }</title>
+			<link rel="preconnect" href="https://fonts.googleapis.com"/>
+			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+			<link href="https://fonts.googleapis.com/css2?family=Grandstander:wght@100..900&family=Red+Hat+Mono:wght@300..700&display=swap" rel="stylesheet"/>
+			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.css") }/>
+			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/app.css") }/>
+			<script src="https://unpkg.com/htmx.org@1.8.5"></script>
+			if os.Getenv("DEBUG") == "true" {
+				<style>
+				@keyframes debug {
+					from {outline: 3px solid #FF0000FF;}
+					to {outline: 3px solid #FF000000;}
+				}
+				* {
+					animation-name: debug;
+					animation-duration: 1s;
+				}
+			</style>
+			}
+		</head>
+		<body data-theme="cyberpunk">
+			@components.Navbar()
+			<section id="main-content" class="p-4">
+				@pageContent
+			</section>
+		</body>
+	</html>
+}
