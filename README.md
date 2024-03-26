@@ -49,6 +49,14 @@ https://awscli.amazonaws.com/v2/documentation/api/latest/reference/dynamodb/inde
 
 ## Project Maintenance
 
+### Rebuilding the templ binary
+
+If you see an error like
+`(!) templ version check failed: generator v0.2.513 is older than templ version v0.2.648 found in go.mod file, consider upgrading templ CLI`,
+you need to update the `templ` go binary
+
+1. `go install github.com/a-h/templ/cmd/templ@latest`
+
 ### Updating env vars
 
 When updating env vars, the changes need to be made in 4 places:
