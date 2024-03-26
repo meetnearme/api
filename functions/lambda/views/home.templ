@@ -25,11 +25,11 @@ templ Home(events []shared.Event, meetNearMeTestSecret string) {
 	@Layout("Home") {
 		<div class="header-hero">
 			<h1
-				class="text-2xl md:text-5xl text-center pt-5"
+				class="text-2xl md:text-5xl text-center mt-5"
 			>
 				Magically <span class="font-system">&#x2728</span> collect in-person events you care about <span class="font-system">&#x1F938</span> and discover new ones
 			</h1>
-			<h2 class="text-lg md:text-2xl font-mono font-light text-center bg-base-100">
+			<h2 class="text-lg md:text-2xl font-mono font-light text-center bg-base-100 mt-5">
 				Meet Near Me is a place to gather all of the in-person local events scattered across the internet into one unified place, volunteer to raise local event awareness, and discover nearby events shared by others.
 			</h2>
 		</div>
@@ -37,7 +37,7 @@ templ Home(events []shared.Event, meetNearMeTestSecret string) {
 		<br/>
 		<h2 class="text-3xl">Events</h2>
 		<div class="overflow-x-auto bg-base-100">
-			<table class="table table-zebra">
+			<table class="table table-pin-rows table-pin-cols table-zebra">
 				<thead>
 					<tr>
 						<th>Event Name</th>
