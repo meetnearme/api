@@ -142,20 +142,20 @@ func Nav() templ.Component {
 			templ_7745c5c3_Var7 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"drawer drawer-end\"><input id=\"main-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><div class=\"drawer-content flex flex-col\"><!-- Navbar --><div class=\"w-full navbar bg-base-100 shadow-md\"><div class=\"flex-1\"><a href=\"/\" class=\"btn btn-ghost text-xl\"><img class=\"brand\" src=\"")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"drawer drawer-end\"><input id=\"main-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><div class=\"drawer-content flex flex-col\"><!-- Navbar --><div class=\"w-full navbar bg-base-100 shadow-md\"><div class=\"container mx-auto flex items-center\"><div class=\"flex-1\"><a href=\"/\" class=\"btn btn-ghost text-xl\"><img class=\"brand\" src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/views/layout.templ`, Line: 51, Col: 100}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/views/layout.templ`, Line: 52, Col: 101}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"> Meet Near Me</a></div><div class=\"flex-none lg:hidden\"><label for=\"main-drawer\" aria-label=\"open sidebar\" class=\"btn btn-square btn-ghost\"><svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" class=\"inline-block w-6 h-6 stroke-current\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 6h16M4 12h16M4 18h16\"></path></svg></label></div><div class=\"navbar-end hidden lg:flex\"><ul class=\"items-center menu menu-horizontal px-1\"><!-- Navbar menu content here --><li><a href=\"/about\" class=\"px-5 py-3\">About</a></li><li><a href=\"/login\" class=\"btn btn-primary\">Add an Event</a></li></ul></div></div>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"> Meet Near Me</a></div><div class=\"flex-none lg:hidden\"><label for=\"main-drawer\" aria-label=\"open sidebar\" class=\"btn btn-square btn-ghost\"><svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" class=\"inline-block w-6 h-6 stroke-current\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 6h16M4 12h16M4 18h16\"></path></svg></label></div><div class=\"navbar-end hidden lg:flex\"><ul class=\"items-center menu menu-horizontal px-1\"><!-- Navbar menu content here --><li><a href=\"/about\" class=\"px-5 py-3\">About</a></li><li><a href=\"/login\" class=\"btn btn-primary\">Add an Event</a></li></ul></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
