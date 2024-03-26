@@ -1,7 +1,6 @@
 package views
 
 import (
-	"os"
 	"time"
 	"github.com/meetnearme/api/functions/lambda/shared"
 )
@@ -11,7 +10,7 @@ func formatDate(d string) string {
 	if err != nil {
 		return "Invalid date"
 	}
-	return date.Format("Jan 2 (Mon)")
+	return date.Format("Jan 2, 2006 (Mon)")
 }
 
 func formatTime(t string) string {
@@ -24,40 +23,72 @@ func formatTime(t string) string {
 
 templ Home(events []shared.Event, meetNearMeTestSecret string) {
 	@Layout("Home") {
-		<h1 class="text-5xl">
-			Magically <span class="font-system">&#x2728</span> gather in-person events you care about <span class="font-system">&#x1F938</span> and discover new ones
-		</h1>
+		<div class="header-hero">
+			<h1
+				class="text-2xl md:text-5xl text-center mt-5"
+			>
+				Magically <span class="font-system">&#x2728</span> collect in-person events you care about <span class="font-system">&#x1F938</span> and discover new ones
+			</h1>
+			<h2 class="text-lg md:text-2xl font-mono font-light text-center bg-base-100 mt-5">
+				Meet Near Me is a place to gather all of the in-person local events scattered across the internet into one unified place, volunteer to raise local event awareness, and discover nearby events shared by others.
+			</h2>
+		</div>
+		<br/>
+		<br/>
 		<h2 class="text-3xl">Events</h2>
-		<div class="border rounded-lg overflow-hidden divide-y dark:divide-gray-800">
-			<table class="w-full divide-y divide-gray-200 dark:divide-gray-900">
-				<tr class="grid w-full grid-cols-5 items-stretch bg-gray-100 dark:bg-gray-800">
-					<th class="flex w-full items-center justify-center p-4">Name</th>
-					<th class="flex w-full items-center justify-center p-4">Date</th>
-					<th class="flex w-full items-center justify-center p-4">Time</th>
-					<th class="flex w-full items-center justify-center p-4">Location</th>
-					<th class="flex w-full items-center justify-center p-4"></th>
-				</tr>
+		<div class="overflow-x-auto bg-base-100 border-2 border-base-300">
+			<table class="table table-pin-rows table-pin-cols table-zebra">
+				<thead>
+					<tr>
+						<th>Event Name</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Location</th>
+						<th></th>
+					</tr>
+				</thead>
 				<tbody>
-					for _, ev := range events {
-						<tr class="grid w-full grid-cols-5 items-stretch bg-gray-100 dark:bg-gray-800">
-							<td class="flex w-full items-center text-center justify-center p-4"><h3 class="font-bold"><a href={ templ.SafeURL("/") }>{ ev.Name }</a></h3></td>
-							<td class="flex w-full items-center text-center justify-center p-4">{ formatDate(ev.Datetime) }</td>
-							<td class="flex w-full items-center text-center justify-center p-4">{ formatTime(ev.Datetime) }</td>
-							<td class="flex w-full items-center text-center justify-center p-4">{ ev.Address }</td>
-							<td class="flex w-full items-center text-center justify-center p-4">
-								<button class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 rounded-md px-3">
-									View
-								</button>
-							</td>
+					if (len(events) < 1) {
+						<tr>
+							<td colspan="5" class="text-center">No events found, try enabling geolocation or changing your location, date, or time</td>
 						</tr>
+					} else {
+						for _, ev := range events {
+							<tr>
+								<td>
+									<div class="flex items-center gap-3">
+										<div>
+											<div class="font-bold">{ ev.Name }</div>
+											<div class="text-sm opacity-50">United States</div>
+										</div>
+									</div>
+								</td>
+								<td>
+									{ formatDate(ev.Datetime) }
+									<br/>
+									<span class="badge badge-ghost badge-sm">Some Metadata</span>
+								</td>
+								<td>{ formatTime(ev.Datetime) }</td>
+								<td>{ ev.Address }</td>
+								<th>
+									<button class="btn btn-primary btn-xs">details</button>
+								</th>
+							</tr>
+						}
 					}
 				</tbody>
+				<tfoot>
+					<tr>
+						<th>Event Name</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Location</th>
+						<th></th>
+					</tr>
+				</tfoot>
 			</table>
 		</div>
 		<br/>
 		<br/>
-		<h2 class="text-xl">MEETNEARME_TEST_SECRET:</h2>
-		{ meetNearMeTestSecret }
-		{ templ.EscapeString(os.Getenv("STATIC_BASE_URL")) }
 	}
 }
