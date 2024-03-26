@@ -48,27 +48,33 @@ templ Home(events []shared.Event, meetNearMeTestSecret string) {
 					</tr>
 				</thead>
 				<tbody>
-					for _, ev := range events {
+					if (len(events) < 1) {
 						<tr>
-							<td>
-								<div class="flex items-center gap-3">
-									<div>
-										<div class="font-bold">{ ev.Name }</div>
-										<div class="text-sm opacity-50">United States</div>
-									</div>
-								</div>
-							</td>
-							<td>
-								{ formatDate(ev.Datetime) }
-								<br/>
-								<span class="badge badge-ghost badge-sm">Some Metadata</span>
-							</td>
-							<td>{ formatTime(ev.Datetime) }</td>
-							<td>{ ev.Address }</td>
-							<th>
-								<button class="btn btn-primary btn-xs">details</button>
-							</th>
+							<td colspan="5" class="text-center">No events found, try enabling geolocation or changing your location, date, or time</td>
 						</tr>
+					} else {
+						for _, ev := range events {
+							<tr>
+								<td>
+									<div class="flex items-center gap-3">
+										<div>
+											<div class="font-bold">{ ev.Name }</div>
+											<div class="text-sm opacity-50">United States</div>
+										</div>
+									</div>
+								</td>
+								<td>
+									{ formatDate(ev.Datetime) }
+									<br/>
+									<span class="badge badge-ghost badge-sm">Some Metadata</span>
+								</td>
+								<td>{ formatTime(ev.Datetime) }</td>
+								<td>{ ev.Address }</td>
+								<th>
+									<button class="btn btn-primary btn-xs">details</button>
+								</th>
+							</tr>
+						}
 					}
 				</tbody>
 				<tfoot>
