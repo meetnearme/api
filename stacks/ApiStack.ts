@@ -1,6 +1,7 @@
 import { Api, StackContext, use } from 'sst/constructs';
 import { StorageStack } from './StorageStack';
 import { StaticSiteStack } from './StaticSiteStack';
+import { HostedZone } from 'aws-cdk-lib/aws-route53';
 
 export function ApiStack({ stack }: StackContext) {
   const { table } = use(StorageStack);
@@ -17,7 +18,22 @@ export function ApiStack({ stack }: StackContext) {
           // STATIC_BASE_URL is a special case because the value comes from
           // `sst deploy` at runtime and then gets set as an environment variable
           STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
+          // ROUTE53_HOSTED_ZONE_ID omitted because it's only used in deployment
+          // ROUTE53_HOSTED_ZONE_NAME omitted because it's only used in deployment
         },
+      },
+    },
+    customDomain: {
+      domainName: 'meetnear.me',
+      cdk: {
+        hostedZone: HostedZone.fromHostedZoneAttributes(
+          stack,
+          'MeetNearMeZone',
+          {
+            hostedZoneId: process.env.ROUTE53_HOSTED_ZONE_ID,
+            zoneName: process.env.ROUTE53_HOSTED_ZONE_NAME,
+          },
+        ),
       },
     },
     routes: {

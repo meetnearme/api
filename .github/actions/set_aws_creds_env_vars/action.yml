@@ -9,6 +9,14 @@ inputs:
   ZENROWS_API_KEY:
     description: 'The API key for the ZenRows environment'
     required: true
+  ROUTE53_HOSTED_ZONE_ID:
+    description:
+      'The AWS Route53 hosted zone ID for the environment being deployed to'
+    required: true
+  ROUTE53_HOSTED_ZONE_NAME:
+    description:
+      'The AWS Route53 hosted zone name for the environment being deployed to'
+    required: true
 runs:
   using: composite
   steps:
@@ -19,6 +27,8 @@ runs:
         echo GIT_BRANCH_NAME=${{ inputs.GIT_BRANCH_NAME }} >> .env
         echo MEETNEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
         echo ZENROWS_API_KEY=${{ inputs.ZENROWS_API_KEY }} >> .env
+        echo ROUTE53_HOSTED_ZONE_ID=${{ secrets.ROUTE53_HOSTED_ZONE_ID }} >> .env
+        echo ROUTE53_HOSTED_ZONE_NAME=${{ secrets.ROUTE53_HOSTED_ZONE_NAME }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
