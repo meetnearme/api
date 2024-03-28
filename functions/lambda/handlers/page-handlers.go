@@ -5,14 +5,13 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/meetnearme/api/functions/lambda/templates/components"
 	"github.com/meetnearme/api/functions/lambda/templates/pages"
 	"github.com/meetnearme/api/functions/lambda/transport"
 )
 
 func GetHomePage(ctx context.Context, r transport.Request) (transport.Response, error) {
-	demoCard := components.DemoCard()
-	layoutTemplate := pages.App("Home", demoCard)
+	homePage := pages.HomePage()
+	layoutTemplate := pages.App("Home", homePage)
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
