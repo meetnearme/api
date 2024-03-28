@@ -14,11 +14,14 @@ type Response = events.APIGatewayV2HTTPResponse
 
 type lambdaHandlerFunc func(ctx context.Context, r Request) (Response, error)
 
+type Middleware func(ctx context.Context, r Request) (context.Context, Request, error)
+
 type route struct {
 	method       string
 	pattern      *regexp.Regexp
 	innerHandler lambdaHandlerFunc
 	paramKeys    []string
+	middleware   []Middleware
 }
 
 type Router struct {
@@ -29,7 +32,7 @@ func NewRouter() *Router {
 	return &Router{routes: []*route{}}
 }
 
-func (r *Router) addRoute(method, pathDef string, handler lambdaHandlerFunc) *route {
+func (r *Router) addRoute(method string, pathDef string, handler lambdaHandlerFunc, middleware ...Middleware) *route {
 	// handle path parameters
 	pathParamMatcher := regexp.MustCompile(":([a-zA-Z]+)")
 	matches := pathParamMatcher.FindAllStringSubmatch(pathDef, -1)
@@ -56,33 +59,34 @@ func (r *Router) addRoute(method, pathDef string, handler lambdaHandlerFunc) *ro
 		regex,
 		handler,
 		paramKeys,
+		middleware,
 	}
 	r.routes = append(r.routes, newRoute)
 	return newRoute
 }
 
-func (r *Router) GET(pattern string, handler lambdaHandlerFunc) *route {
-	return r.addRoute(http.MethodGet, pattern, handler)
+func (r *Router) GET(pattern string, handler lambdaHandlerFunc, middleware ...Middleware) *route {
+	return r.addRoute(http.MethodGet, pattern, handler, middleware...)
 }
 
-func (r *Router) POST(pattern string, handler lambdaHandlerFunc) *route {
-	return r.addRoute(http.MethodPost, pattern, handler)
+func (r *Router) POST(pattern string, handler lambdaHandlerFunc, middleware ...Middleware) *route {
+	return r.addRoute(http.MethodPost, pattern, handler, middleware...)
 }
 
-func (r *Router) PUT(pattern string, handler lambdaHandlerFunc) *route {
-	return r.addRoute(http.MethodPut, pattern, handler)
+func (r *Router) PUT(pattern string, handler lambdaHandlerFunc, middleware ...Middleware) *route {
+	return r.addRoute(http.MethodPut, pattern, handler, middleware...)
 }
 
-func (r *Router) PATCH(pattern string, handler lambdaHandlerFunc) *route {
-	return r.addRoute(http.MethodPatch, pattern, handler)
+func (r *Router) PATCH(pattern string, handler lambdaHandlerFunc, middleware ...Middleware) *route {
+	return r.addRoute(http.MethodPatch, pattern, handler, middleware...)
 }
 
-func (r *Router) DELETE(pattern string, handler lambdaHandlerFunc) *route {
-	return r.addRoute(http.MethodDelete, pattern, handler)
+func (r *Router) DELETE(pattern string, handler lambdaHandlerFunc, middleware ...Middleware) *route {
+	return r.addRoute(http.MethodDelete, pattern, handler, middleware...)
 }
 
-func (r *Router) OPTIONS(pattern string, handler lambdaHandlerFunc) *route {
-	return r.addRoute(http.MethodOptions, pattern, handler)
+func (r *Router) OPTIONS(pattern string, handler lambdaHandlerFunc, middleware ...Middleware) *route {
+	return r.addRoute(http.MethodOptions, pattern, handler, middleware...)
 }
 
 func (r *Router) ServeHTTP(ctx context.Context, req Request) (Response, error) {
@@ -120,10 +124,13 @@ func (r *Router) ServeHTTP(ctx context.Context, req Request) (Response, error) {
 
 // A wrapper around a route's handler for request middleware
 func (r *route) handler(ctx context.Context, req Request) (Response, error) {
-	// Log request
-	// reqMethod := req.RequestContext.HTTP.Method
-	// reqPath := req.RequestContext.HTTP.Path
-	// requestString := fmt.Sprint(reqMethod, ": ", reqPath)
-	// Log: Received - Method: Path
+	// Middleware
+	var error error
+	for _, middleware := range r.middleware {
+		if ctx, req, error = middleware(ctx, req); error != nil {
+			return SendServerError(error)
+		}
+	}
+
 	return r.innerHandler(ctx, req)
 }

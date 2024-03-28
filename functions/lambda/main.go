@@ -16,7 +16,7 @@ var router *transport.Router
 
 func init() {
 	router = transport.NewRouter()
-	router.GET("/", handlers.GetHomePage)
+	router.GET("/", handlers.GetHomePage, transport.LogRequest)
 	router.GET("/login", handlers.GetLoginPage)
 	router.OPTIONS("/login", handlers.GetLoginPage)
 }
