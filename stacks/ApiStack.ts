@@ -24,6 +24,7 @@ export function ApiStack({ stack }: StackContext) {
       },
     },
     customDomain: {
+      isExternalDomain: true,
       domainName: 'meetnear.me',
       cdk: {
         hostedZone: HostedZone.fromHostedZoneAttributes(
