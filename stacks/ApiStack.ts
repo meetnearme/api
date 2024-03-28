@@ -2,6 +2,7 @@ import { Api, StackContext, use } from 'sst/constructs';
 import { StorageStack } from './StorageStack';
 import { StaticSiteStack } from './StaticSiteStack';
 import { HostedZone } from 'aws-cdk-lib/aws-route53';
+import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 
 export function ApiStack({ stack }: StackContext) {
   const { table } = use(StorageStack);
