@@ -18,7 +18,6 @@ func init() {
 	router = transport.NewRouter()
 	router.GET("/", handlers.GetHomePage, transport.LogRequest)
 	router.GET("/login", handlers.GetLoginPage)
-	router.OPTIONS("/login", handlers.GetLoginPage)
 }
 
 func Router(ctx context.Context, req transport.Request) (transport.Response, error) {
