@@ -7,12 +7,12 @@ import (
 
 	"github.com/meetnearme/api/functions/lambda/templates/components"
 	"github.com/meetnearme/api/functions/lambda/templates/pages"
-	transport "github.com/meetnearme/api/internal/transport/lambda"
+	"github.com/meetnearme/api/functions/lambda/transport"
 )
 
 func GetHomePage(ctx context.Context, r transport.Request) (transport.Response, error) {
 	demoCard := components.DemoCard()
-	layoutTemplate := pages.App("Meet Near Me - Home", demoCard)
+	layoutTemplate := pages.App("Home", demoCard)
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -28,7 +28,7 @@ func GetHomePage(ctx context.Context, r transport.Request) (transport.Response, 
 
 func GetLoginPage(ctx context.Context, r transport.Request) (transport.Response, error) {
 	loginPage := pages.LoginPage()
-	layoutTemplate := pages.App("Meet Near Me - Login", loginPage)
+	layoutTemplate := pages.App("Login", loginPage)
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {

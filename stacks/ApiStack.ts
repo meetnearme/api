@@ -22,7 +22,6 @@ export function ApiStack({ stack }: StackContext) {
       },
     },
     routes: {
-      // TODO: Will rename this to GET / once we have a stable project structure. Don't want to mess up what's currently working :p
       $default: 'functions/lambda'
     },
   });
