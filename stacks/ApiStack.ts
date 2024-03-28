@@ -25,23 +25,8 @@ export function ApiStack({ stack }: StackContext) {
       },
     },
     customDomain: {
-      isExternalDomain: true,
+      hostedZone: 'meetnear.me',
       domainName: 'meetnear.me',
-      cdk: {
-        certificate: Certificate.fromCertificateArn(
-          stack,
-          'MeetNearMeCert',
-          process.env.AWS_MEETNEARME_CERT_ARN,
-        ),
-        // hostedZone: HostedZone.fromHostedZoneAttributes(
-        //   stack,
-        //   'MeetNearMeZone',
-        //   {
-        //     hostedZoneId: process.env.ROUTE53_HOSTED_ZONE_ID,
-        //     zoneName: process.env.ROUTE53_HOSTED_ZONE_NAME,
-        //   },
-        // ),
-      },
     },
     routes: {
       'GET /': 'functions/lambda',
