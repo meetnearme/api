@@ -5,12 +5,14 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/meetnearme/api/functions/lambda/services"
 	"github.com/meetnearme/api/functions/lambda/templates/pages"
 	"github.com/meetnearme/api/functions/lambda/transport"
 )
 
 func GetHomePage(ctx context.Context, r transport.Request) (transport.Response, error) {
-	homePage := pages.HomePage()
+	var events []services.Event = services.GetEvents()
+	homePage := pages.HomePage(events)
 	layoutTemplate := pages.App("Home", homePage)
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
