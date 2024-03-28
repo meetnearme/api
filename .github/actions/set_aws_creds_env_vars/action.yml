@@ -17,6 +17,10 @@ inputs:
     description:
       'The AWS Route53 hosted zone name for the environment being deployed to'
     required: true
+  AWS_MEETNEARME_CERT_ARN:
+    description:
+      'The AWS Cert Manager (ACM) cert arn for the environment being deployed to'
+    required: true
 runs:
   using: composite
   steps:
@@ -29,6 +33,7 @@ runs:
         echo ZENROWS_API_KEY=${{ inputs.ZENROWS_API_KEY }} >> .env
         echo ROUTE53_HOSTED_ZONE_ID=${{ inputs.ROUTE53_HOSTED_ZONE_ID }} >> .env
         echo ROUTE53_HOSTED_ZONE_NAME=${{ inputs.ROUTE53_HOSTED_ZONE_NAME }} >> .env
+        echo AWS_MEETNEARME_CERT_ARN=${{ inputs.AWS_MEETNEARME_CERT_ARN }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

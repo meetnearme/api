@@ -27,6 +27,11 @@ export function ApiStack({ stack }: StackContext) {
       isExternalDomain: true,
       domainName: 'meetnear.me',
       cdk: {
+        certificate: Certificate.fromCertificateArn(
+          stack,
+          'MeetNearMeCert',
+          process.env.AWS_MEETNEARME_CERT_ARN,
+        ),
         hostedZone: HostedZone.fromHostedZoneAttributes(
           stack,
           'MeetNearMeZone',
