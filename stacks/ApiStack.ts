@@ -26,7 +26,7 @@ export function ApiStack({ stack }: StackContext) {
     },
     customDomain: {
       hostedZone: 'meetnear.me',
-      domainName: 'api.meetnear.me',
+      domainName: '*.meetnear.me',
     },
     routes: {
       'GET /': 'functions/lambda',
