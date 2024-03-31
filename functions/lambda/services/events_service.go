@@ -30,9 +30,7 @@ type EventInsert struct {
 	Country     string `json:"country" validate:"required"`
 }
 
-const EventsTablePrefix = "Events"
-
-var TableName = helpers.GetDbTableName(EventsTablePrefix)
+var TableName = helpers.GetDbTableName(helpers.EventsTablePrefix)
 
 func GetEvents(ctx context.Context, db *dynamodb.Client) ([]EventSelect, error) {
 

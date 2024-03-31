@@ -3,8 +3,6 @@ package helpers
 import (
 	"os"
 	"strings"
-
-	"github.com/meetnearme/api/functions/lambda/shared"
 )
 
 func IsDeployed() bool {
@@ -14,7 +12,7 @@ func IsDeployed() bool {
 }
 
 func GetDbTableName(tableName string) string {
-	var SST_Table_tableName_Events = os.Getenv("SST_Table_tableName_" + shared.EventsTablePrefix)
+	var SST_Table_tableName_Events = os.Getenv("SST_Table_tableName_" + EventsTablePrefix)
 
 	if !IsDeployed() {
 		return tableName
