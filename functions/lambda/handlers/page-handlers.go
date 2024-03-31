@@ -19,7 +19,7 @@ func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) 
 		return transport.SendServerError(err)
 	}
 	homePage := pages.HomePage(events)
-	layoutTemplate := pages.App("Home", homePage)
+	layoutTemplate := pages.Layout("Home", homePage)
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -35,7 +35,7 @@ func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) 
 
 func GetLoginPage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
 	loginPage := pages.LoginPage()
-	layoutTemplate := pages.App("Login", loginPage)
+	layoutTemplate := pages.Layout("Login", loginPage)
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
