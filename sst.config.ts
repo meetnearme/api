@@ -18,7 +18,7 @@ export default {
     }
     // oddly, order matters here, don't switch the order
     app.setDefaultFunctionProps({
-      runtime: 'go',
+      runtime: 'go1.x',
     });
     app.stack(StaticSiteStack).stack(StorageStack).stack(ApiStack);
     app.addDefaultFunctionPermissions({

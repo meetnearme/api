@@ -9,7 +9,7 @@ Description: >
 Globals:
   Function:
     Timeout: 3
-    Runtime: go
+    Runtime: go1.x
 
 Resources:
   EventFunction:
