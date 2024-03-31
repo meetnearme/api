@@ -24,15 +24,6 @@ export function ApiStack({ stack }: StackContext) {
         },
       },
     },
-    // only prod gets it's own domain name, GIT_BRANCH_NAME indicates a feature/* deployment
-    ...(!process.env.GIT_BRANCH_NAME
-      ? {
-          customDomain: {
-            hostedZone: 'meetnear.me',
-            domainName: ['*.meetnear.me', 'meetnear.me'],
-          },
-        }
-      : {}),
     routes: {
       'GET /': 'functions/lambda',
       'POST /': 'functions/lambda',
