@@ -27,7 +27,7 @@ export GOPATH=$HOME/go
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 ```
 
-1. `go install github.com/a-h/templ`
+1. `go install github.com/a-h/templ/cmd/templ@latest`
 1. Run `templ generate`
 
 ### Validate home page is working + data-connected
