@@ -5,17 +5,23 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/meetnearme/api/functions/lambda/services"
 	"github.com/meetnearme/api/functions/lambda/templates/pages"
 	"github.com/meetnearme/api/functions/lambda/transport"
 )
 
-func GetHomePage(ctx context.Context, r transport.Request) (transport.Response, error) {
-	var events []services.Event = services.GetEvents()
+func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
+	var events []services.EventSelect
+	var err error
+	events, err = services.GetEvents(ctx, db)
+	if err != nil {
+		return transport.SendServerError(err)
+	}
 	homePage := pages.HomePage(events)
 	layoutTemplate := pages.App("Home", homePage)
 	var buf bytes.Buffer
-	err := layoutTemplate.Render(ctx, &buf)
+	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerError(err)
 	}
@@ -27,7 +33,7 @@ func GetHomePage(ctx context.Context, r transport.Request) (transport.Response, 
 	}, nil
 }
 
-func GetLoginPage(ctx context.Context, r transport.Request) (transport.Response, error) {
+func GetLoginPage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
 	loginPage := pages.LoginPage()
 	layoutTemplate := pages.App("Login", loginPage)
 	var buf bytes.Buffer

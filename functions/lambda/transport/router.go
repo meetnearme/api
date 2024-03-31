@@ -7,12 +7,13 @@ import (
 	"regexp"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
 type Request = events.APIGatewayV2HTTPRequest
 type Response = events.APIGatewayV2HTTPResponse
 
-type lambdaHandlerFunc func(ctx context.Context, r Request) (Response, error)
+type lambdaHandlerFunc func(ctx context.Context, r Request, db *dynamodb.Client) (Response, error)
 
 type Middleware func(ctx context.Context, r Request) (context.Context, Request, error)
 
@@ -89,7 +90,7 @@ func (r *Router) OPTIONS(pattern string, handler lambdaHandlerFunc, middleware .
 	return r.addRoute(http.MethodOptions, pattern, handler, middleware...)
 }
 
-func (r *Router) ServeHTTP(ctx context.Context, req Request) (Response, error) {
+func (r *Router) ServeHTTP(ctx context.Context, req Request, db *dynamodb.Client) (Response, error) {
 	var allow []string
 	for _, route := range r.routes {
 		reqPath := req.RequestContext.HTTP.Path
@@ -113,7 +114,7 @@ func (r *Router) ServeHTTP(ctx context.Context, req Request) (Response, error) {
 				ctx = context.WithValue(ctx, key, values[idx])
 			}
 
-			return route.handler(ctx, req)
+			return route.handler(ctx, req, db)
 		}
 	}
 	if len(allow) > 0 {
@@ -123,7 +124,7 @@ func (r *Router) ServeHTTP(ctx context.Context, req Request) (Response, error) {
 }
 
 // A wrapper around a route's handler for request middleware
-func (r *route) handler(ctx context.Context, req Request) (Response, error) {
+func (r *route) handler(ctx context.Context, req Request, db *dynamodb.Client) (Response, error) {
 	// Middleware
 	var error error
 	for _, middleware := range r.middleware {
@@ -132,5 +133,5 @@ func (r *route) handler(ctx context.Context, req Request) (Response, error) {
 		}
 	}
 
-	return r.innerHandler(ctx, req)
+	return r.innerHandler(ctx, req, db)
 }

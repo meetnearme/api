@@ -1,8 +1,17 @@
 package services
 
-import "time"
+import (
+	"context"
 
-type Event struct {
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/google/uuid"
+	"github.com/meetnearme/api/functions/lambda/helpers"
+)
+
+type EventSelect struct {
 	Id          string `json:"id" dynamodbav:"id"`
 	Name        string `json:"name" dynamodbav:"name"`
 	Description string `json:"description" dynamodbav:"description"`
@@ -12,52 +21,78 @@ type Event struct {
 	Country     string `json:"country" dynamodbav:"country"`
 }
 
-func GetEvents() []Event {
-	return []Event{
-		{
-			Id:          "event1",
-			Name:        "Concert Night",
-			Description: "Enjoy live music under the stars",
-			Datetime:    time.Now().Format(time.RFC3339),
-			Address:     "123 Main St",
-			ZipCode:     "12345",
-			Country:     "US",
-		},
-		{
-			Id:          "event2",
-			Name:        "Food Festival",
-			Description: "Sample delicious cuisines from around the world",
-			Datetime:    time.Now().AddDate(0, 0, 7).Format(time.RFC3339), // One week from now
-			Address:     "Central Park",
-			ZipCode:     "98765",
-			Country:     "US",
-		},
-		{
-			Id:          "event3",
-			Name:        "Movie Marathon",
-			Description: "Catch all your favorite classics on the big screen",
-			Datetime:    time.Now().AddDate(0, 1, 0).Format(time.RFC3339), // One month from now
-			Address:     "Galaxy Theater",
-			ZipCode:     "54321",
-			Country:     "US",
-		},
-		{
-			Id:          "event4",
-			Name:        "Art Exhibition",
-			Description: "Explore stunning works from emerging and established artists",
-			Datetime:    time.Now().AddDate(0, 2, 0).Format(time.RFC3339), // Two months from now
-			Address:     "Modern Art Museum",
-			ZipCode:     "09876",
-			Country:     "US",
-		},
-		{
-			Id:          "event5",
-			Name:        "Hiking Adventure",
-			Description: "Challenge yourself with a scenic hike in nature",
-			Datetime:    time.Now().AddDate(0, 3, 0).Format(time.RFC3339), // Three months from now
-			Address:     "Mountain Trails",
-			ZipCode:     "78901",
-			Country:     "US",
-		},
+type EventInsert struct {
+	Name        string `json:"name" validate:"required"`
+	Description string `json:"description" validate:"required"`
+	Datetime    string `json:"datetime" validate:"required"`
+	Address     string `json:"address" validate:"required"`
+	ZipCode     string `json:"zip_code" validate:"required"`
+	Country     string `json:"country" validate:"required"`
+}
+
+const EventsTablePrefix = "Events"
+
+var TableName = helpers.GetDbTableName(EventsTablePrefix)
+
+func GetEvents(ctx context.Context, db *dynamodb.Client) ([]EventSelect, error) {
+
+	events := make([]EventSelect, 0)
+	var token map[string]types.AttributeValue
+
+	for {
+		input := &dynamodb.ScanInput{
+			TableName:         aws.String(TableName),
+			ExclusiveStartKey: token,
+		}
+
+		result, err := db.Scan(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+
+		var fetchedEvents []EventSelect
+		err = attributevalue.UnmarshalListOfMaps(result.Items, &fetchedEvents)
+		if err != nil {
+			return nil, err
+		}
+
+		events = append(events, fetchedEvents...)
+		token = result.LastEvaluatedKey
+		if token == nil {
+			break
+		}
 	}
+	return events, nil
+}
+
+func InsertEvent(ctx context.Context, db *dynamodb.Client, createEvent EventInsert) (*EventSelect, error) {
+	newEvent := EventSelect{
+		Name:        createEvent.Name,
+		Description: createEvent.Description,
+		Datetime:    createEvent.Datetime,
+		Address:     createEvent.Address,
+		ZipCode:     createEvent.ZipCode,
+		Id:          uuid.NewString(),
+	}
+
+	item, err := attributevalue.MarshalMap(newEvent)
+	if err != nil {
+		return nil, err
+	}
+
+	input := &dynamodb.PutItemInput{
+		TableName: aws.String(TableName),
+		Item:      item,
+	}
+
+	res, err := db.PutItem(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	err = attributevalue.UnmarshalMap(res.Attributes, &newEvent)
+	if err != nil {
+		return nil, err
+	}
+	return &newEvent, nil
 }
