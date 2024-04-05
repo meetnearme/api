@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/meetnearme/api/functions/lambda/services"
-	"github.com/meetnearme/api/functions/lambda/templates/pages"
-	"github.com/meetnearme/api/functions/lambda/transport"
+	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/templates/pages"
+	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
 func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {

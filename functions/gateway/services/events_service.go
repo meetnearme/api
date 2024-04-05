@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
-	"github.com/meetnearme/api/functions/lambda/helpers"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
 type EventSelect struct {

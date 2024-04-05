@@ -5,8 +5,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/meetnearme/api/functions/lambda/handlers"
-	"github.com/meetnearme/api/functions/lambda/transport"
+	"github.com/meetnearme/api/functions/gateway/handlers"
+	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
 var router *transport.Router

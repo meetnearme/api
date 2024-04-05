@@ -10,8 +10,8 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/go-playground/validator"
-	"github.com/meetnearme/api/functions/lambda/services"
-	"github.com/meetnearme/api/functions/lambda/transport"
+	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
 var validate *validator.Validate = validator.New()

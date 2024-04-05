@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/meetnearme/api/functions/lambda/helpers"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
 func CreateDbClient() *dynamodb.Client {

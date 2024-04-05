@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 
 export default {
-  content: ['functions/lambda/templates/**/*.templ'],
+  content: ['functions/gateway/templates/**/*.templ'],
   theme: {
     fontSize: {
       sm: '0.8rem',
