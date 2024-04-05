@@ -16,6 +16,9 @@ export function ApiStack({ stack }: StackContext) {
         bind: [table],
         environment: {
           ...envVars,
+          // STATIC_BASE_URL is a special case because the value comes from
+          // `sst deploy` at runtime and then gets set as an environment variable
+          STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
         },
       },
     },
