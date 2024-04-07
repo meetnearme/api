@@ -42,8 +42,30 @@ type SendMessagePayload struct {
 }
 
 type Message struct {
-	Role        string `json:"role"`
-	Content     string `json:"content"`
+	Role    string      `json:"role"`
+	Content string `json:"content"`
+}
+
+type EventInfo struct {
+	EventTitle    string `json:"event_title"`
+	EventLocation string `json:"event_location"`
+	EventDate     string `json:"event_date"`
+	EventURL      string `json:"event_url"`
+}
+
+type Choice struct {
+	Index        int     `json:"index"`
+	Message      Message `json:"message"`
+	FinishReason string  `json:"finish_reason"`
+}
+
+type ChatCompletionResponse struct {
+	ID      string         `json:"id"`
+	Object  string         `json:"object"`
+	Created int64          `json:"created"`
+	Model   string         `json:"model"`
+	Choices []Choice       `json:"choices"`
+	Usage   map[string]int `json:"usage"`
 }
 
 var systemPrompt = `You are a helpful LLM capable of accepting an array of strings and reorganizing them according to patterns only an LLM is capable of recognizing.
@@ -179,6 +201,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 
 	fmt.Println("Chat GPT response: ", sessionID)
 	fmt.Println("Chat GPT events data: ", eventsMap)
+	fmt.Println("Chat GPT message content: ", messageContent)
 
 	json, err := json.Marshal(SeshuResponseBody{sessionID, eventsMap})
 	if err != nil {
@@ -237,21 +260,21 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", err
 	}
 
-	var respData map[string]interface{}
+	var respData ChatCompletionResponse
 	if err := json.Unmarshal(body, &respData); err != nil {
 		return "", "", err
 	}
 
 	fmt.Println("Chat GPT response: ", respData)
 
-	sessionId, ok := respData["id"].(string)
-	if !ok {
+	sessionId := respData.ID
+	if sessionId == "" {
 		return "", "", fmt.Errorf("unexpected response format, `id` missing")
 	}
 
-	messageContentArray, ok := respData["choices"].([]interface{})[0].(map[string]interface{})["message"].(map[string]interface{})["content"].(map[string]interface{})
-	if !ok {
-			return "", "", fmt.Errorf("unexpected response format, `message.content` missing")
+	messageContentArray := respData.Choices[0].Message.Content
+	if messageContentArray == "" {
+		return "", "", fmt.Errorf("unexpected response format, `message.content` missing")
 	}
 
 	messageContentArrayBytes, err := json.Marshal(messageContentArray)
@@ -261,10 +284,9 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 
 	messageContentArrayJSON := string(messageContentArrayBytes)
 
-	if !ok {
+	if messageContentArrayJSON == "" {
 		return "", "", fmt.Errorf("failed convert message content to JSON")
 	}
-
 
 	return sessionId, messageContentArrayJSON, nil
 }
