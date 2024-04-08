@@ -28,7 +28,7 @@ type SeshuInputPayload struct {
 
 type SeshuResponseBody struct {
 	SessionID string `json:"session_id"`
-	EventsMap []map[string]string `json:"events_map"`
+	EventsMap interface{} `json:"events_map"`
 }
 
 // Define the structure for your request payload
@@ -179,6 +179,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 			}
 	}
 
+	// Convert to JSON
 	jsonStringBytes, err := json.Marshal(nonEmptyLines)
 	if err != nil {
 			fmt.Println("Error converting to JSON:", err)
@@ -199,13 +200,19 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 			fmt.Println("Invalid JSON response from OpenAI:", msgsErr)
 	}
 
+	openAIjson, err := parseJSONString(messageContent)
+	if err != nil {
+			fmt.Println("Error parsing JSON response from OpenAI message:", err)
+	}
+
 	fmt.Println("Chat GPT response: ", sessionID)
 	fmt.Println("Chat GPT events data: ", eventsMap)
 	fmt.Println("Chat GPT message content: ", messageContent)
 
-	json, err := json.Marshal(SeshuResponseBody{sessionID, eventsMap})
+	json, err := json.Marshal(SeshuResponseBody{sessionID, openAIjson})
+
 	if err != nil {
-		return serverError(err)
+			fmt.Println("Error parsing response body as JSON:", err)
 	}
 
 	// TODO: IMPORTANT: for meetup.com we need to parse out the data located in
@@ -220,6 +227,21 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 					"Location": fmt.Sprintf("/user/%s", "hello res"),
 			},
 	}, nil
+}
+
+func parseJSONString(jsonString string) (interface{}, error) {
+	// Remove whitespace and newlines
+	jsonString = strings.ReplaceAll(jsonString, " ", "")
+	jsonString = strings.ReplaceAll(jsonString, "\n", "")
+
+	// Parse the JSON string
+	var result interface{}
+	err := json.Unmarshal([]byte(jsonString), &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
