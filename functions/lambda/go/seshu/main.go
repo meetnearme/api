@@ -28,7 +28,7 @@ type SeshuInputPayload struct {
 
 type SeshuResponseBody struct {
 	SessionID string `json:"session_id"`
-	EventsMap interface{} `json:"events_map"`
+	EventsFound interface{} `json:"events_map"`
 }
 
 // Define the structure for your request payload
@@ -193,9 +193,9 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 		return events.LambdaFunctionURLResponse{}, err
 	}
 
-	var eventsMap []map[string]string
+	var eventsFound []map[string]string
 
-	msgsErr := json.Unmarshal([]byte(messageContent), &eventsMap)
+	msgsErr := json.Unmarshal([]byte(messageContent), &eventsFound)
 	if err != nil {
 			fmt.Println("Invalid JSON response from OpenAI:", msgsErr)
 	}
