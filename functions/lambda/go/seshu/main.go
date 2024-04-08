@@ -206,8 +206,8 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	}
 
 	fmt.Println("Chat GPT response: ", sessionID)
-	fmt.Println("Chat GPT events data: ", eventsMap)
 	fmt.Println("Chat GPT message content: ", messageContent)
+	fmt.Println("Chat GPT message converted to `openAIjson`: ", openAIjson)
 
 	json, err := json.Marshal(SeshuResponseBody{sessionID, openAIjson})
 
