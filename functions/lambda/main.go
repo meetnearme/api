@@ -18,7 +18,7 @@ var db *dynamodb.Client
 
 func init() {
 	db = transport.CreateDbClient()
-	router = transport.NewRouter()
+	router = transport.GetRouter()
 	router.GET("/", handlers.GetHomePage)
 	router.GET("/login", handlers.GetLoginPage)
 
