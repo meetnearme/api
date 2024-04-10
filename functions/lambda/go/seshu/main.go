@@ -193,32 +193,26 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 		return events.LambdaFunctionURLResponse{}, err
 	}
 
+	openAIjson := messageContent
+
 	var eventsFound []map[string]string
 
-	msgsErr := json.Unmarshal([]byte(messageContent), &eventsFound)
+	msgsErr := json.Unmarshal([]byte(openAIjson), &eventsFound)
 	if err != nil {
-			fmt.Println("Invalid JSON response from OpenAI:", msgsErr)
+			fmt.Println("OpenAI response is not valid JSON:", msgsErr)
 	}
 
-	openAIjson, err := parseJSONString(messageContent)
-	if err != nil {
-			fmt.Println("Error parsing JSON response from OpenAI message:", err)
-	}
+
 
 	fmt.Println("Chat GPT response: ", sessionID)
 	fmt.Println("Chat GPT message content: ", messageContent)
 	fmt.Println("Chat GPT message converted to `openAIjson`: ", openAIjson)
 
-	json, err := json.Marshal(SeshuResponseBody{sessionID, openAIjson})
+	json, err := json.Marshal(SeshuResponseBody{sessionID, messageContent})
 
 	if err != nil {
 			fmt.Println("Error parsing response body as JSON:", err)
 	}
-
-	// TODO: IMPORTANT: for meetup.com we need to parse out the data located in
-	// <script type="application/ld+json">...</script> and use that to grab
-	// `lat` / `lng` and location name ... details here:
-	// https://discord.com/channels/1096208627192320030/1151217204126290011/1226233470528000093
 
 	return events.LambdaFunctionURLResponse{
 			StatusCode: http.StatusCreated,
@@ -227,21 +221,6 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 					"Location": fmt.Sprintf("/user/%s", "hello res"),
 			},
 	}, nil
-}
-
-func parseJSONString(jsonString string) (interface{}, error) {
-	// Remove whitespace and newlines
-	jsonString = strings.ReplaceAll(jsonString, " ", "")
-	jsonString = strings.ReplaceAll(jsonString, "\n", "")
-
-	// Parse the JSON string
-	var result interface{}
-	err := json.Unmarshal([]byte(jsonString), &result)
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
 }
 
 func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
@@ -299,18 +278,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", fmt.Errorf("unexpected response format, `message.content` missing")
 	}
 
-	messageContentArrayBytes, err := json.Marshal(messageContentArray)
-	if err != nil {
-			return "", "", err
-	}
-
-	messageContentArrayJSON := string(messageContentArrayBytes)
-
-	if messageContentArrayJSON == "" {
-		return "", "", fmt.Errorf("failed convert message content to JSON")
-	}
-
-	return sessionId, messageContentArrayJSON, nil
+	return sessionId, messageContentArray, nil
 }
 
 func SendMessage(sessionID string, message string) (string, error) {
