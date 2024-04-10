@@ -91,7 +91,16 @@ func HomePage(events []services.EventSelect) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</td><th><button class=\"btn btn-primary btn-xs\">details</button></th></tr>")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</td><th><a class=\"btn btn-primary btn-xs\" href=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var6 templ.SafeURL = templ.URL("/events/" + ev.Id)
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var6)))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\">details</a></th></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
