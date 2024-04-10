@@ -1,6 +1,7 @@
 import { Api, StackContext, use } from 'sst/constructs';
-import { StorageStack } from './StorageStack';
+
 import { StaticSiteStack } from './StaticSiteStack';
+import { StorageStack } from './StorageStack';
 import { HostedZone } from 'aws-cdk-lib/aws-route53';
 import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 
@@ -25,8 +26,7 @@ export function ApiStack({ stack }: StackContext) {
       },
     },
     routes: {
-      'GET /': 'functions/lambda',
-      'POST /': 'functions/lambda',
+      $default: 'functions/lambda'
     },
   });
 

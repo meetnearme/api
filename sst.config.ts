@@ -1,5 +1,4 @@
 import { SSTConfig } from 'sst';
-import { Api, use } from 'sst/constructs';
 
 import { StorageStack } from './stacks/StorageStack';
 import { ApiStack } from './stacks/ApiStack';
@@ -21,8 +20,6 @@ export default {
       runtime: 'go',
     });
     app.stack(StaticSiteStack).stack(StorageStack).stack(ApiStack);
-    app.addDefaultFunctionPermissions({
-      permissions: ['dynamodb:*'],
-    });
+    app.addDefaultFunctionPermissions(['dynamodb:*']);
   },
 } satisfies SSTConfig;

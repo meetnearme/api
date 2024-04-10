@@ -15,7 +15,7 @@
 1. Export `aws_access_key_id` and `aws_secret_access_key` env variables.
 1. Run `brew install awscli` in the terminal to install AWS CLI
 1. Run `aws configure` to [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
-17. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied through
+1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied through
    Lambda to your local
 
 ### Generate Go templates from \*.templ files
@@ -27,7 +27,7 @@ export GOPATH=$HOME/go
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 ```
 
-1. `go install github.com/a-h/templ`
+1. `go install github.com/a-h/templ/cmd/templ@latest`
 1. Run `templ generate`
 
 ### Validate home page is working + data-connected

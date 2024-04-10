@@ -1,5 +1,4 @@
-import { Api, StaticSite, use } from 'sst/constructs';
-import { ApiStack } from './ApiStack';
+import { StackContext, StaticSite } from 'sst/constructs';
 
 // TODO: pass `api` created from that stack in to get `api.url` here for `alternateNames`
 // the problem is that `ApiStack.ts` needs `StatiSiteStack.ts` and vice versa so
