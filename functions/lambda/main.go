@@ -19,7 +19,7 @@ var db *dynamodb.Client
 func init() {
 	db = transport.CreateDbClient()
 	router = transport.NewRouter()
-	router.GET("/", handlers.GetHomePage, transport.LogRequest)
+	router.GET("/", handlers.GetHomePage)
 	router.GET("/login", handlers.GetLoginPage)
 
 	router.POST("/api/event", handlers.CreateEvent)
