@@ -278,8 +278,19 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", fmt.Errorf("unexpected response format, `message.content` missing")
 	}
 
-	return sessionId, messageContentArray, nil
+    compactedJSON := compactJSON(messageContentArray)
+
+	return sessionId, compactedJSON, nil
 }
+
+func compactJSON(jsonStr string) string {
+    buffer := new(bytes.Buffer)
+    if err := json.Compact(buffer, []byte(jsonStr)); err != nil {
+        log.Println("Error compacting JSON: ", err)
+        return jsonStr
+    } 
+    return buffer.String()
+} 
 
 func SendMessage(sessionID string, message string) (string, error) {
 	client := &http.Client{}
