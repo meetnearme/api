@@ -3,7 +3,7 @@ module github.com/meetnearme/api
 go 1.21
 
 require (
-	github.com/a-h/templ v0.2.648
+	github.com/a-h/templ v0.2.663
 	github.com/aws/aws-cdk-go/awscdk/v2 v2.133.0
 	github.com/aws/aws-lambda-go v1.46.0
 	github.com/aws/aws-sdk-go-v2 v1.26.0
