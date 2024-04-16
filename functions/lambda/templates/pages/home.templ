@@ -3,6 +3,7 @@ package pages;
 import (
 	"github.com/meetnearme/api/functions/lambda/services"
 	"github.com/meetnearme/api/functions/lambda/helpers"
+	"github.com/meetnearme/api/functions/lambda/templates/components"
 )
 
 templ HomePage(events []services.EventSelect) {
@@ -67,4 +68,15 @@ templ HomePage(events []services.EventSelect) {
 			</tfoot>
 		</table>
 	</div>
+	<h2 class="text-3xl">TODO: filters</h2>
+	@components.DropdownNestedCheckbox()
+	<br/>
+	<br/>
+	<br/>
+	<br/>
+	<br/>
+	<br/>
+	<br/>
+	<br/>
+	<br/>
 }
