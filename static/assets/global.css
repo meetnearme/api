@@ -24,3 +24,44 @@
 .drawer-end .drawer-toggle ~ .drawer-side {
   z-index: 999;
 }
+
+.dropdown-content .collapse {
+  padding: 0;
+}
+.dropdown-content .collapse .collapse-title {
+  padding: 0;
+  gap: 0;
+}
+
+.menu li > *:not(ul, .menu-title, details, .btn):active,
+.menu li > *:not(ul, .menu-title, details, .btn).active,
+.menu li > details > summary:active {
+  background-color: transparent;
+}
+
+.menu :where(li:not(.menu-title) > *:not(ul, details, .menu-title, .btn)),
+.menu :where(li:not(.menu-title) > details > summary:not(.menu-title)) {
+  gap: 0;
+  grid-auto-columns: initial;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.dropdown-content {
+  width: max-content;
+}
+
+.dropdown-content.menu li {
+  flex-direction: row;
+}
+
+.dropdown-content.menu .label {
+  justify-content: flex-start;
+}
+
+.dropdown-content .collapse-title,
+:where(.dropdown-content .collapse > input[type='checkbox']),
+:where(.dropdown-content .collapse > input[type='radio']) {
+  /* min-height: 0; */
+  min-height: 1.5rem;
+}
