@@ -2,8 +2,8 @@ package services
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -61,10 +61,14 @@ func GetEvents(ctx context.Context, db *dynamodb.Client, startTime, endTime time
     input := &dynamodb.QueryInput{
         TableName: aws.String(TableName),
         IndexName: aws.String("zorder_index"),
-        KeyConditionExpression: aws.String("z_order_index BETWEEN :min AND :max"),
+        KeyConditionExpression: aws.String(
+            "z_order_index BETWEEN :min AND :max AND #datetime BETWEEN :startTime AND :endTime",
+        ),
         ExpressionAttributeValues: map[string]types.AttributeValue{
             ":min": &types.AttributeValueMemberB{Value: minZOrderIndex},
             ":max": &types.AttributeValueMemberB{Value: maxZOrderIndex},
+            ":startTime": &types.AttributeValueMemberS{Value: startTime.Format(time.RFC3339)},
+            ":endTime": &types.AttributeValueMemberS{Value: endTime.Format(time.RFC3339)},
         },
     }
 
@@ -121,8 +125,22 @@ func InsertEvent(ctx context.Context, db *dynamodb.Client, createEvent EventInse
 	}
 
     // Calculate Z order index val
-    startTime, _ := time.Parse(time.RFC3339, createEvent.Datetime)
-    newEvent.ZOrderIndex = indexing.CalculateZOrderIndex(startTime, createEvent.Latitude, createEvent.Longitude, "actual")
+    startTime, err := time.Parse(time.RFC3339, createEvent.Datetime)
+    if err != nil {
+        return nil, err
+    } 
+
+    newEvent.ZOrderIndex, err = indexing.CalculateZOrderIndex(startTime, createEvent.Latitude, createEvent.Longitude, "actual")
+    if err != nil {
+        return nil, err
+    } 
+
+    eventCreationTime := time.Now()
+
+    var eventCreationTimeBinary [8]byte
+    binary.BigEndian.AppendUint64(eventCreationTimeBinary[:], uint64(eventCreationTime.UnixNano()))
+
+    newEvent.ZOrderIndex = append(newEvent.ZOrderIndex, eventCreationTimeBinary[:]...)
 
 	item, err := attributevalue.MarshalMap(newEvent)
 	if err != nil {
