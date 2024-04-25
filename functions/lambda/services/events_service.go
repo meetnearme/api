@@ -121,6 +121,8 @@ func InsertEvent(ctx context.Context, db *dynamodb.Client, createEvent EventInse
 		Datetime:    createEvent.Datetime,
 		Address:     createEvent.Address,
 		ZipCode:     createEvent.ZipCode,
+        Latitude: createEvent.Latitude,
+        Longitude: createEvent.Longitude,
 		Id:          uuid.NewString(),
 	}
 
@@ -138,7 +140,7 @@ func InsertEvent(ctx context.Context, db *dynamodb.Client, createEvent EventInse
     eventCreationTime := time.Now()
 
     var eventCreationTimeBinary [8]byte
-    binary.BigEndian.AppendUint64(eventCreationTimeBinary[:], uint64(eventCreationTime.UnixNano()))
+    binary.BigEndian.PutUint64(eventCreationTimeBinary[:], uint64(eventCreationTime.UnixNano()))
 
     newEvent.ZOrderIndex = append(newEvent.ZOrderIndex, eventCreationTimeBinary[:]...)
 
