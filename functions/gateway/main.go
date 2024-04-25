@@ -12,15 +12,12 @@ import (
 var router *transport.Router
 var db *dynamodb.Client
 
-// https://8hpnqnaevi.execute-api.us-east-1.amazonaws.com/
-// https://github.com/raphael-p/beango-messenger/blob/master/server/server.go
-// https://raphael-p.medium.com/a-guide-to-making-a-go-web-server-without-a-framework-1439a965f2b1
-
 func init() {
 	db = transport.CreateDbClient()
-	router = transport.NewRouter()
-	router.GET("/", handlers.GetHomePage, transport.LogRequest)
+	router = transport.GetRouter()
+	router.GET("/", handlers.GetHomePage)
 	router.GET("/login", handlers.GetLoginPage)
+	router.GET("/events/:eventId", handlers.GetEventDetailsPage)
 
 	router.POST("/api/event", handlers.CreateEvent)
 }

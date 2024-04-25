@@ -29,7 +29,7 @@ type Router struct {
 	routes []*route
 }
 
-func NewRouter() *Router {
+func GetRouter() *Router {
 	return &Router{routes: []*route{}}
 }
 
