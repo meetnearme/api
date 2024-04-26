@@ -11,6 +11,7 @@
     "dev-tab": "concurrently \"npm:tab:*\"",
     "build": "sst build",
     "dev:dynamodb": "docker compose up",
+    "dev-remote-db": "concurrently \"npm:dev:*(!dynamodb)\"",
     "dev:sst": "sst dev",
     "dev:serve-static": "npx http-server -o /static -a localhost -p 3001 --cors",
     "dev:tailwind": "tailwindcss -i ./static/assets/global.css -o ./static/assets/styles.css --watch",
