@@ -2,8 +2,8 @@ package services
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
-
 	"github.com/meetnearme/api/functions/lambda/helpers"
 	"github.com/meetnearme/api/functions/lambda/indexing"
 )
@@ -24,9 +23,9 @@ type EventSelect struct {
 	Address     string `json:"address" dynamodbav:"address"`
 	ZipCode     string `json:"zip_code" dynamodbav:"zip_code"`
 	Country     string `json:"country" dynamodbav:"country"`
-    Latitude float64 `json:"latitude" dynamodbav:"latitude,N"`
-    Longitude float64 `json:"longitude" dynamodbav:"longitude,N"`
-    ZOrderIndex []byte `json:"zOrderIndex" dynamodbav:"z_order_index,B"`
+    Latitude float64 `json:"latitude" dynamodbav:"latitude"`
+    Longitude float64 `json:"longitude" dynamodbav:"longitude"`
+    ZOrderIndex []byte `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
 }
 
 type EventInsert struct {
@@ -38,82 +37,54 @@ type EventInsert struct {
 	Country     string `json:"country" validate:"required"`
     Latitude float64 `json:"latitude" validate:"required"`
     Longitude float64 `json:"longitude" validate:"required"`
-    ZOrderIndex []byte `json:"zOrderIndex"`
+    ZOrderIndex []byte `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
 }
 
 var TableName = helpers.GetDbTableName(helpers.EventsTablePrefix)
 
-func GetEvents(ctx context.Context, db *dynamodb.Client, startTime, endTime time.Time, lat, lon, radius float64) ([]EventSelect, error) {
-	// events := make([]EventSelect, 0)
+func GetEvents(ctx context.Context, db *dynamodb.Client) ([]EventSelect, error) {
 
-    // Calc z order index range for given time and location
-    minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, lat, lon, "min")
-    if err != nil {
-        return nil, fmt.Errorf("error calculating min z-order index: %v", err)
-    } 
+	events := make([]EventSelect, 0)
+	var token map[string]types.AttributeValue
 
-    maxZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, lat, lon, "max")
-    if err != nil {
-        return nil, fmt.Errorf("error calculating max z-order index: %v", err)
-    } 
+	for {
+		input := &dynamodb.ScanInput{
+			TableName:         aws.String(TableName),
+			ExclusiveStartKey: token,
+		}
 
+		result, err := db.Scan(ctx, input)
+		if err != nil {
+			return nil, err
+		}
 
-    input := &dynamodb.QueryInput{
-        TableName: aws.String(TableName),
-        IndexName: aws.String("zorder_index"),
-        KeyConditionExpression: aws.String(
-            "z_order_index BETWEEN :min AND :max AND #datetime BETWEEN :startTime AND :endTime",
-        ),
-        ExpressionAttributeValues: map[string]types.AttributeValue{
-            ":min": &types.AttributeValueMemberB{Value: minZOrderIndex},
-            ":max": &types.AttributeValueMemberB{Value: maxZOrderIndex},
-            ":startTime": &types.AttributeValueMemberS{Value: startTime.Format(time.RFC3339)},
-            ":endTime": &types.AttributeValueMemberS{Value: endTime.Format(time.RFC3339)},
-        },
-    }
+		var fetchedEvents []EventSelect
+		err = attributevalue.UnmarshalListOfMaps(result.Items, &fetchedEvents)
+		if err != nil {
+			return nil, err
+		}
 
-    result, err := db.Query(ctx, input)
-    if err != nil {
-        return nil, err
-    } 
-
-    var fetchedEvents []EventSelect
-    err = attributevalue.UnmarshalListOfMaps(result.Items, &fetchedEvents)
-    if err != nil {
-        return nil, err
-    } 
-
-    return fetchedEvents, nil
-
-	// var token map[string]types.AttributeValue
-
-	// for {
-	// 	input := &dynamodb.ScanInput{
-	// 		TableName:         aws.String(TableName),
-	// 		ExclusiveStartKey: token,
-	// 	}
-
-	// 	result, err := db.Scan(ctx, input)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	var fetchedEvents []EventSelect
-	// 	err = attributevalue.UnmarshalListOfMaps(result.Items, &fetchedEvents)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	events = append(events, fetchedEvents...)
-	// 	token = result.LastEvaluatedKey
-	// 	if token == nil {
-	// 		break
-	// 	}
-	// }
-	// return events, nil
+		events = append(events, fetchedEvents...)
+		token = result.LastEvaluatedKey
+		if token == nil {
+			break
+		}
+	}
+	return events, nil
 }
 
+
+
 func InsertEvent(ctx context.Context, db *dynamodb.Client, createEvent EventInsert) (*EventSelect, error) {
+    startTime, err := time.Parse(time.RFC3339, createEvent.Datetime)
+    if err != nil {
+        return nil, fmt.Errorf("invalid datetime format: %v", err)
+    } 
+
+    zOrderIndex, err := indexing.CalculateZOrderIndex(startTime, createEvent.Latitude, createEvent.Longitude, "default")
+    if err != nil {
+        return nil, fmt.Errorf("failed to calculate Z Order index: %v", err)
+    } 
 
 	newEvent := EventSelect{
 		Name:        createEvent.Name,
@@ -123,36 +94,27 @@ func InsertEvent(ctx context.Context, db *dynamodb.Client, createEvent EventInse
 		ZipCode:     createEvent.ZipCode,
         Latitude: createEvent.Latitude,
         Longitude: createEvent.Longitude,
+        ZOrderIndex: zOrderIndex,
 		Id:          uuid.NewString(),
 	}
 
-    // Calculate Z order index val
-    startTime, err := time.Parse(time.RFC3339, createEvent.Datetime)
-    if err != nil {
-        return nil, err
-    } 
-
-    newEvent.ZOrderIndex, err = indexing.CalculateZOrderIndex(startTime, createEvent.Latitude, createEvent.Longitude, "actual")
-    if err != nil {
-        return nil, err
-    } 
-
-    eventCreationTime := time.Now()
-
-    var eventCreationTimeBinary [8]byte
-    binary.BigEndian.PutUint64(eventCreationTimeBinary[:], uint64(eventCreationTime.UnixNano()))
-
-    newEvent.ZOrderIndex = append(newEvent.ZOrderIndex, eventCreationTimeBinary[:]...)
+    log.Printf("%v", newEvent)
 
 	item, err := attributevalue.MarshalMap(newEvent)
 	if err != nil {
+        log.Print("Error in marshall!!!!")
 		return nil, err
 	}
+
+    log.Printf("Item before insert %v", item)
 
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(TableName),
 		Item:      item,
 	}
+
+    log.Printf("Item DB input  %v", input)
+
 
 	res, err := db.PutItem(ctx, input)
 	if err != nil {
@@ -165,3 +127,4 @@ func InsertEvent(ctx context.Context, db *dynamodb.Client, createEvent EventInse
 	}
 	return &newEvent, nil
 }
+
