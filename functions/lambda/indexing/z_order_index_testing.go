@@ -12,8 +12,8 @@ func TestCalculateZOrderIndex(t *testing.T) {
     testCases := []struct {
         name string
         startTime time.Time
-        lat float64
-        lon float64
+        lat float32
+        lon float32
         indexType string
         expectErr bool
         expectZero bool
@@ -67,18 +67,18 @@ func TestCalculateZOrderIndex(t *testing.T) {
 func TestMapFloatToSortableInt(t *testing.T) {
     testCases := []struct {
 		name     string
-		value    float64
-		expected uint64
+		value    float32
+		expected uint32
 	}{
 		{
 			name:     "Positive value",
 			value:    123.456,
-			expected: uint64(4638507617480429056),
+			expected: 0x47f12000,
 		},
 		{
 			name:     "Negative value",
 			value:    -123.456,
-			expected: uint64(13842132293241364480),
+			expected: 0xcf8ed000,
 		},
 		// Add more test cases as needed
 	}
