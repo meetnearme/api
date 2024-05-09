@@ -23,8 +23,8 @@ type EventSelect struct {
 	Address     string `json:"address" dynamodbav:"address"`
 	ZipCode     string `json:"zip_code" dynamodbav:"zip_code"`
 	Country     string `json:"country" dynamodbav:"country"`
-    Latitude float64 `json:"latitude" dynamodbav:"latitude"`
-    Longitude float64 `json:"longitude" dynamodbav:"longitude"`
+    Latitude float32 `json:"latitude" dynamodbav:"latitude"`
+    Longitude float32 `json:"longitude" dynamodbav:"longitude"`
     ZOrderIndex []byte `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
 }
 
@@ -35,8 +35,8 @@ type EventInsert struct {
 	Address     string `json:"address" validate:"required"`
 	ZipCode     string `json:"zip_code" validate:"required"`
 	Country     string `json:"country" validate:"required"`
-    Latitude float64 `json:"latitude" validate:"required"`
-    Longitude float64 `json:"longitude" validate:"required"`
+    Latitude float32 `json:"latitude" validate:"required"`
+    Longitude float32 `json:"longitude" validate:"required"`
     ZOrderIndex []byte `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
 }
 
