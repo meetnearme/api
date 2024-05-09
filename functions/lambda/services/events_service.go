@@ -73,6 +73,50 @@ func GetEvents(ctx context.Context, db *dynamodb.Client) ([]EventSelect, error) 
 	return events, nil
 }
 
+func GetEventsZOrder(ctx context.Context, db *dynamodb.Client, startTime, endTime time.Time, lat, lon, radius float32) ([]EventSelect, error) {
+    minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, lat, lon, "min")
+    if err != nil {
+        return nil, fmt.Errorf("error calculating min z-order index: %v", err)
+    } 
+
+    maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, lat, lon, "max")
+    if err != nil {
+        return nil, fmt.Errorf("error calculating max z-order index: %v", err)
+    } 
+
+    scanInput := &dynamodb.ScanInput{
+        TableName: aws.String(TableName),
+        FilterExpression: aws.String(
+            "#zOrderIndex BETWEEN :min AND :max AND #datetime BETWEEN :startTime AND :endTime",
+        ),
+        ExpressionAttributeNames: map[string]string{
+            "#zOrderIndex": "zOrderIndex",
+            "#datetime": "datetime",
+        },
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":min":       &types.AttributeValueMemberB{Value: minZOrderIndex},
+            ":max":       &types.AttributeValueMemberB{Value: maxZOrderIndex},
+            ":startTime": &types.AttributeValueMemberS{Value: startTime.Format(time.RFC3339)},
+            ":endTime":   &types.AttributeValueMemberS{Value: endTime.Format(time.RFC3339)},
+        },
+    }
+
+
+    scanResult, err := db.Scan(ctx, scanInput)
+    if err != nil {
+        return nil, err
+    } 
+
+    var events []EventSelect
+    err = attributevalue.UnmarshalListOfMaps(scanResult.Items, &events)
+    if err != nil {
+        return nil, err
+    }
+
+    log.Printf("Here are z order query events\n %v", events)
+    return events, nil
+} 
+
 
 
 func InsertEvent(ctx context.Context, db *dynamodb.Client, createEvent EventInsert) (*EventSelect, error) {
