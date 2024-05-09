@@ -113,7 +113,6 @@ func GetEventsZOrder(ctx context.Context, db *dynamodb.Client, startTime, endTim
         return nil, err
     }
 
-    log.Printf("Here are z order query events\n %v", events)
     return events, nil
 } 
 
