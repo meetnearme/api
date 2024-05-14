@@ -16,19 +16,7 @@ templ Layout(title string, pageContent templ.Component) {
 			<link href="https://fonts.googleapis.com/css2?family=Grandstander:wght@100..900&family=Red+Hat+Mono:wght@300..700&display=swap" rel="stylesheet"/>
 			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.css") }/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<script src="https://unpkg.com/htmx.org@1.8.5"></script>
-			if os.Getenv("DEBUG") == "true" {
-				<style>
-				@keyframes debug {
-					from {outline: 3px solid #FF0000FF;}
-					to {outline: 3px solid #FF000000;}
-				}
-				* {
-					animation-name: debug;
-					animation-duration: 1s;
-				}
-			</style>
-			}
+			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 		</head>
 		<body>
 			@components.Navbar() {
