@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,18 +18,43 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/go-playground/validator"
+	"github.com/meetnearme/api/functions/lambda/go/seshu/shared"
+	partials "github.com/meetnearme/api/functions/lambda/go/seshu/templates"
 )
+
+// TODO: make sure all of these edge cases are covered for / explained / documented
+// 1. OpenAI can respond with `[{ event_title: "My event", "event_location": "My locat... length}]` which is invalid JSON
+// 2. Timeout for ZR can fail to fetch in time... retry? or just return an error?
+// 3. Add special logic for meetup.com URLs to extract event info from <script type="application/ld+json">...</script>
+// 4. Add special logic for eventbrite.com URLs to extract event info from <script type="application/ld+json">...</script>
+// 5. Handle the "read more" / scroll down behavior for meetup.com / eventbrite via ZR remote JS
+// 6. Handle / validate that problem with Zenrows API Key properly aborts
+// 7. Check token consumption on OpenAI response (if present) and fork session if nearing limit
+// 8. Validate that the invalid metadata strings fromt the example (e.g. `Nowhere City`) do not appear in the LLM event array output
+// 9. Open AI can sometimes truncate the attempted JSON like this `<valid JSON start>...events/300401920/"}, {"event_tit...} stop}]`
+// 10. Validate user input is really a URL prior to consuming API resources like ZR or OpenAI
+// 11. Handle the scenario below where the scraped Markdown data is so large, that it exceeds the OpenAI API limit
+//    and results in the error `Error: unexpected response format, `id` missing` because OpenAI literally returns an empty
+//    Chat GPT response:  {  0  [] map[]}
+
+// 		[markdown response from ZR]...nited KingdomUnited States\"]"}]}} 0x1288b40 50405 [] false api.openai.com map[] map[] <nil> map[]   <nil> <nil> <nil> {{}}}
+// 		[sst] |  +10807ms Chat GPT response:  {  0  [] map[]}
+// 		[sst] |  +10807ms Error creating chat session: unexpected response format, `id` missing
+// 		[sst] |  +10808ms 2024/04/26 15:07:55 {"errorMessage":"unexpected response format, `id` missing","errorType":"errorString"}
+// 		[sst] |  Error: unexpected response format, `id` missing
+
 
 var validate *validator.Validate = validator.New()
 var converter = md.NewConverter("", true, nil)
 
 type SeshuInputPayload struct {
     Url string `json:"url" validate:"required"`
+
 }
 
 type SeshuResponseBody struct {
 	SessionID string `json:"session_id"`
-	EventsFound interface{} `json:"events_map"`
+	EventsFound []shared.EventInfo `json:"events_found"`
 }
 
 // Define the structure for your request payload
@@ -42,16 +68,10 @@ type SendMessagePayload struct {
 }
 
 type Message struct {
-	Role    string      `json:"role"`
+	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-type EventInfo struct {
-	EventTitle    string `json:"event_title"`
-	EventLocation string `json:"event_location"`
-	EventDate     string `json:"event_date"`
-	EventURL      string `json:"event_url"`
-}
 
 type Choice struct {
 	Index        int     `json:"index"`
@@ -72,6 +92,10 @@ var systemPrompt = `You are a helpful LLM capable of accepting an array of strin
 
 Your goal is to take the javascript array input I will provide, called the ` + "`textStrings`" + `below and return a grouped array of JSON objects. Each object should represent a single event, where it's keys are the event metadata associated with the categories below that are to be searched for. There should be no duplicate keys. Each object consists of no more than one of a given event metadata. When forming these groups, prioritize proximity (meaning, the closer two strings are in array position) in creating the event objects in the returned array of objects. In other words, the closer two strings are together, the higher the likelihood that they are two different event metadata items for the same event.
 
+If ` + "`textStrings`" + ` is empty, return an empty array.
+
+Any response you provide must ALWAYS begin with the characters ` + "`[{`" + ` and end with the characters ` + "`}]`" + `.
+
 Do not provide me with example code to achieve this task. Only an LLM (you are an LLM) is capable of reading the array of text strings and determining which string is a relevance match for which category can resolve this task. Javascript alone cannot resolve this query.
 
 Do not explain how code might be used to achieve this task. Do not explain how regex might accomplish this task. Only an LLM is capable of this pattern matching task. My expectation is a response from you that is an array of objects, where the keys are the event metadata from the categories below.
@@ -90,21 +114,11 @@ The categories to search for relevance matches in are as follows:
 
 Note that some keys may be missing, for example, in the example below, the "event description" is missing. This is acceptable. The event metadata keys are not guaranteed to be present in the input array of strings.
 
-Do not truncate the response with an ellipsis ` + "`...`" + `, list the full event array in it's entirety. Your response must be a JSON array of event objects that is valid JSON following this example schema:
+Do not truncate the response with an ellipsis ` + "`...`" + `, list the full event array in it's entirety, unless it exceeds the context window. Your response must be a JSON array of event objects that is valid JSON following this example schema:
+
 
 ` + "```" + `
-[{
-	"event_title": "Meetup at the park",
-	"event_location": "Espanola, NM 87532",
-	"event_date": "Sep 26, 5:30-7:30pm",
-	"event_url": "http://example.com/events/12345"
-},
-{
-	"event_title": "Yoga at sunrise",
-	"event_location": "Espanola, NM 87532",
-	"event_date": "Oct 13, 6:30-7:30am",
-	"event_url": "http://example.com/events/98765"
-}]
+[{"event_title": "Fake Event Title 1", "event_location": "Nowhere City, NM 11111", "event_date": "Sep 26, 5:30-7:30pm", "event_url": "http://example.com/events/12345"},{"event_title": "Fake Event Title 2", "event_location": "Nowhere City, NM 11111", "event_date": "Oct 13, 6:30-7:30am", "event_url": "http://example.com/events/98765"}]
 ` + "```" + `
 
 The input is:
@@ -115,6 +129,8 @@ const textStrings = `
 func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
     switch req.RequestContext.HTTP.Method {
     case "POST":
+				req.Headers["Access-Control-Allow-Origin"] = "*"
+				req.Headers["Access-Control-Allow-Credentials"] = "true"
 				return handlePost(ctx, req)
     default:
         return clientError(http.StatusMethodNotAllowed)
@@ -142,7 +158,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 
 	// start of ZR code
 	client := &http.Client{}
-	zrReq, zrErr := http.NewRequest("GET", "https://api.zenrows.com/v1/?apikey=" + os.Getenv("ZENROWS_API_KEY") + "&url=" + url.QueryEscape(inputPayload.Url) + "&js_render=true&wait=2500", nil)
+	zrReq, zrErr := http.NewRequest("GET", "https://api.zenrows.com/v1/?apikey=" + os.Getenv("ZENROWS_API_KEY") + "&url=" + url.QueryEscape(inputPayload.Url) + "&js_render=true&wait=4500", nil)
 	if zrErr != nil {
 		log.Fatalln(zrErr)
 	}
@@ -158,23 +174,28 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	}
 
 	zrBodyString := string(zrBody)
+
 	// avoid extra parsing work for <head> content outside of <body>
+
+	// TODO: this doesn't appear to be working
 	re := regexp.MustCompile(`<body>(.*?)<\/body>`)
 	matches := re.FindStringSubmatch(zrBodyString)
 	if len(matches) > 1 {
 		zrBodyString = matches[1]
 	}
+
 	markdown, err := converter.ConvertString(zrBodyString)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	lines := strings.Split(markdown, "\n")
-
+	fmt.Println("markdown string lines!: ", len(lines))
 	// Filter out empty lines
 	var nonEmptyLines []string
-	for _, line := range lines {
-			if line != "" {
+	for i, line := range lines {
+		// 30,000 as a line limit helps stay under the OpenAI API token limit of 16k, but this is not at all precise
+			if line != "" && i < 1500 {
 					nonEmptyLines = append(nonEmptyLines, line)
 			}
 	}
@@ -195,31 +216,40 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 
 	openAIjson := messageContent
 
-	var eventsFound []map[string]string
+	var eventsFound []shared.EventInfo
 
-	msgsErr := json.Unmarshal([]byte(openAIjson), &eventsFound)
+	err = json.Unmarshal([]byte(openAIjson), &eventsFound)
 	if err != nil {
-			fmt.Println("OpenAI response is not valid JSON:", msgsErr)
+		fmt.Println("Error unmarshaling OpenAI response into shared.EventInfo slice:", err)
+		return events.LambdaFunctionURLResponse{}, err
 	}
 
+	// responseBody, err := json.Marshal(SeshuResponseBody{
+	// 	SessionID:   sessionID,
+	// 	EventsFound: eventsFound, // This now directly sets a slice of structs
+	// })
+
+	if err != nil {
+		fmt.Println("Error marshaling response body as JSON:", err)
+	}
 
 
 	fmt.Println("Chat GPT response: ", sessionID)
 	fmt.Println("Chat GPT message content: ", messageContent)
 	fmt.Println("Chat GPT message converted to `openAIjson`: ", openAIjson)
 
-	json, err := json.Marshal(SeshuResponseBody{sessionID, messageContent})
-
+	layoutTemplate := partials.EventCandidatesPartial(eventsFound)
+	var buf bytes.Buffer
+	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
-			fmt.Println("Error parsing response body as JSON:", err)
+		return serverError(err)
 	}
 
 	return events.LambdaFunctionURLResponse{
-			StatusCode: http.StatusCreated,
-			Body: string(json),
-			Headers: map[string]string{
-					"Location": fmt.Sprintf("/user/%s", "hello res"),
-			},
+			Headers: map[string]string{"Content-Type": "text/html"},
+			StatusCode: http.StatusOK,
+			// Body: string(responseBody),
+			Body: buf.String(),
 	}, nil
 }
 
@@ -278,19 +308,39 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", fmt.Errorf("unexpected response format, `message.content` missing")
 	}
 
-    compactedJSON := compactJSON(messageContentArray)
+  // Use regex to remove incomplete JSON
 
-	return sessionId, compactedJSON, nil
+	// TODO: figure out why this isn't working
+	// problemPattern := regexp.MustCompile(`length}]$`)
+	// if (problemPattern.MatchString(messageContentArray)) {
+	// 	messageContentArray = problemPattern.ReplaceAllString(messageContentArray, "")
+	// 	trimPattern := regexp.MustCompile(`}[^}]*$`)
+  //   messageContentArray = trimPattern.ReplaceAllString(messageContentArray, "}]")
+	// 	fmt.Println("messageContentArray fixed invalid: ", messageContentArray)
+	// }
+
+	unpaddedJSON := unpadJSON(messageContentArray)
+
+
+	return sessionId, unpaddedJSON, nil
 }
 
-func compactJSON(jsonStr string) string {
+func decodeBase64(data string) (string, error) {
+	decodedBytes, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+			return "", err
+	}
+	return string(decodedBytes), nil
+}
+
+func unpadJSON(jsonStr string) string {
     buffer := new(bytes.Buffer)
     if err := json.Compact(buffer, []byte(jsonStr)); err != nil {
-        log.Println("Error compacting JSON: ", err)
+        log.Println("Error unpadding JSON: ", err)
         return jsonStr
-    } 
+    }
     return buffer.String()
-} 
+}
 
 func SendMessage(sessionID string, message string) (string, error) {
 	client := &http.Client{}

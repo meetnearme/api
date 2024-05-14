@@ -2,32 +2,44 @@ import watch from 'node-watch';
 import { spawn } from 'child_process';
 import path from 'path';
 
-watch(process.argv[2], { recursive: true }, (eventType, filename) => {
-  const fileExtension = path.extname(filename);
-  if (fileExtension === '.templ') {
-    console.log(
-      `File ${filename} has been ${eventType}d. Running 'templ generate' command...`,
-    );
-    const childProcess = spawn('templ', ['generate']);
+const dirs = process.argv.slice(2);
 
-    childProcess.stdout.on('data', (data) => {
-      process.stdout.write(data);
-    });
+dirs.forEach((dir) => {
+  watch(
+    dir,
+    {
+      recursive: true,
+    },
+    (eventType, filename) => {
+      const fileExtension = path.extname(filename);
+      if (fileExtension === '.templ') {
+        console.log(
+          `File ${filename} has been ${eventType}d. Running 'templ generate' command...`,
+        );
+        const childProcess = spawn('templ', ['generate']);
 
-    childProcess.stderr.on('data', (data) => {
-      process.stderr.write(data);
-    });
+        childProcess.stdout.on('data', (data) => {
+          process.stdout.write(data);
+        });
 
-    childProcess.on('error', (error) => {
-      console.error(`Error running 'templ generate' command: ${error.message}`);
-    });
+        childProcess.stderr.on('data', (data) => {
+          process.stderr.write(data);
+        });
 
-    childProcess.on('close', (code) => {
-      if (code === 0) {
-        console.log(`'templ generate' command executed successfully.`);
-      } else {
-        console.error(`'templ generate' command exited with code ${code}.`);
+        childProcess.on('error', (error) => {
+          console.error(
+            `Error running 'templ generate' command: ${error.message}`,
+          );
+        });
+
+        childProcess.on('close', (code) => {
+          if (code === 0) {
+            console.log(`'templ generate' command executed successfully.`);
+          } else {
+            console.error(`'templ generate' command exited with code ${code}.`);
+          }
+        });
       }
-    });
-  }
+    },
+  );
 });

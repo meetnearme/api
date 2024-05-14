@@ -67,17 +67,7 @@ func Layout(title string, pageContent templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><script src=\"https://unpkg.com/htmx.org@1.8.5\"></script>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if os.Getenv("DEBUG") == "true" {
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<style>\n\t\t\t\t@keyframes debug {\n\t\t\t\t\tfrom {outline: 3px solid #FF0000FF;}\n\t\t\t\t\tto {outline: 3px solid #FF000000;}\n\t\t\t\t}\n\t\t\t\t* {\n\t\t\t\t\tanimation-name: debug;\n\t\t\t\t\tanimation-duration: 1s;\n\t\t\t\t}\n\t\t\t</style>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</head><body>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><script src=\"https://unpkg.com/htmx.org@1.9.12\"></script><script src=\"https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js\"></script></head><body>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -115,7 +105,7 @@ func Layout(title string, pageContent templ.Component) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/meet_near_me_home_bg_full.webp"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/layout.templ`, Line: 42, Col: 184}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/layout.templ`, Line: 31, Col: 184}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {

@@ -17,6 +17,7 @@ func init() {
 	router = transport.GetRouter()
 	router.GET("/", handlers.GetHomePage)
 	router.GET("/login", handlers.GetLoginPage)
+	router.GET("/admin", handlers.GetAdminPage)
 	router.GET("/events/:eventId", handlers.GetEventDetailsPage)
 
 	router.POST("/api/event", handlers.CreateEvent)
