@@ -4,21 +4,23 @@ import "github.com/meetnearme/api/functions/lambda/go/seshu/shared"
 
 templ EventCandidatesPartial(eventCandidates []shared.EventInfo) {
 	<h2 class="text-2xl font-bold">Are these events?</h2>
-	for _, candidate := range eventCandidates {
-		<div class="card card-compact w-96 mb-5 shadow-lg flex">
-			<div class="checkbox-card-header bg-success content-success">
-				<label class="label cursor-pointer">
-					<input type="checkbox" class="toggle" checked/>
-					<span class="label-text ml-4">This is <strong class="hidden-when-checked">not </strong>an event</span>
-				</label>
+	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+		for _, candidate := range eventCandidates {
+			<div class="card card-compact m-5 shadow-lg">
+				<div class="checkbox-card-header bg-success content-success">
+					<label class="label cursor-pointer">
+						<input type="checkbox" class="toggle" checked/>
+						<span class="label-text ml-4">This is <strong class="hidden-when-checked">not </strong>an event</span>
+					</label>
+				</div>
+				<div class="card-body">
+					<h2 class="card-title">{ candidate.EventTitle }</h2>
+					<p><strong>Location:</strong> { candidate.EventLocation }</p>
+					<p><strong>Date:</strong> { candidate.EventDate }</p>
+					<p><strong>URL:</strong> { candidate.EventURL }</p>
+					<p><strong>Description:</strong> { candidate.EventDescription }</p>
+				</div>
 			</div>
-			<div class="card-body">
-				<h2 class="card-title">{ candidate.EventTitle }</h2>
-				<p><strong>Location:</strong> { candidate.EventLocation }</p>
-				<p><strong>Date:</strong> { candidate.EventDate }</p>
-				<p><strong>URL:</strong> { candidate.EventURL }</p>
-				<p><strong>Description:</strong> { candidate.EventDescription }</p>
-			</div>
-		</div>
-	}
+		}
+	</div>
 }
