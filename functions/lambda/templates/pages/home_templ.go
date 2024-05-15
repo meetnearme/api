@@ -13,6 +13,7 @@ import "bytes"
 import (
 	"github.com/meetnearme/api/functions/lambda/helpers"
 	"github.com/meetnearme/api/functions/lambda/services"
+	"github.com/meetnearme/api/functions/lambda/templates/components"
 )
 
 func HomePage(events []services.EventSelect) templ.Component {
@@ -46,7 +47,7 @@ func HomePage(events []services.EventSelect) templ.Component {
 				var templ_7745c5c3_Var2 string
 				templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(ev.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/templates/pages/home.templ`, Line: 40, Col: 42}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/templates/pages/home.templ`, Line: 41, Col: 42}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 				if templ_7745c5c3_Err != nil {
@@ -59,7 +60,7 @@ func HomePage(events []services.EventSelect) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(helpers.FormatDate(ev.Datetime))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/templates/pages/home.templ`, Line: 46, Col: 41}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/templates/pages/home.templ`, Line: 47, Col: 41}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -72,7 +73,7 @@ func HomePage(events []services.EventSelect) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(helpers.FormatTime(ev.Datetime))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/templates/pages/home.templ`, Line: 50, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/templates/pages/home.templ`, Line: 51, Col: 44}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -85,7 +86,7 @@ func HomePage(events []services.EventSelect) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(ev.Address)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/templates/pages/home.templ`, Line: 51, Col: 23}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/templates/pages/home.templ`, Line: 52, Col: 23}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -106,7 +107,15 @@ func HomePage(events []services.EventSelect) templ.Component {
 				}
 			}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</tbody><tfoot><tr><th>Event Name</th><th>Date</th><th>Time</th><th>Location</th><th></th></tr></tfoot></table></div>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</tbody><tfoot><tr><th>Event Name</th><th>Date</th><th>Time</th><th>Location</th><th></th></tr></tfoot></table></div><h2 class=\"text-3xl\">TODO: filters</h2>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = components.DropdownNestedCheckbox().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<br><br><br><br><br><br><br><br><br>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
