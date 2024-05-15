@@ -6,30 +6,29 @@ name: Go build and test
 on:
   push:
     branches:
-      - "*"
+      - '*'
   pull_request:
     branches:
-      - "*"
+      - '*'
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.21.x'
-    - name: Install dependencies
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.x'
+      - name: Install dependencies
         run: |
           go get .
           # go get example.com/octo-examplemodule
           # go get example.com/octo-examplemodule@v1.3.4
 
-    - name: Build Go binaries
-      run: go build -v ./...
+      - name: Build Go binaries
+        run: go build -v ./...
 
-    - name: Run Go tests
-      run: go test ./...
+      - name: Run Go tests
+        run: go test ./...
