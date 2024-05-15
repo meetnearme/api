@@ -1,5 +1,7 @@
 package models
 
+import "github.com/go-playground/validator/v10"
+
 type Event struct {
     ID string `json:"id" dynamodbav:"id"`
     StartTime string `json:"startTime" dynamodbav:"start_time" validator:"required"`
@@ -10,4 +12,4 @@ type Event struct {
     Description string `json:"description" dynamodbav:"description" validator:"required"`
     Location string `json:"location" dynamodbav:"location" validator:"required"`
     URL string `json:"url" dynamodbav:"url" validator:"url"`
-}
+} 
