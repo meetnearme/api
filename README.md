@@ -14,9 +14,10 @@
 1. [Create an IAM User](https://sst.dev/chapters/create-an-iam-user.html)
 1. Export `aws_access_key_id` and `aws_secret_access_key` env variables.
 1. Run `brew install awscli` in the terminal to install AWS CLI
-1. Run `aws configure` to [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
-1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied through
-   Lambda to your local
+1. Run `aws configure` to
+   [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
+1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied
+   through Lambda to your local
 
 ### Generate Go templates from \*.templ files
 
@@ -67,4 +68,3 @@ When updating env vars, the changes need to be made in 4 places:
    are `echo`d)
 1. `.env.example` to clarify in version control what our currently-used env vars
    are
-
