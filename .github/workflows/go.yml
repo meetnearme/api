@@ -15,7 +15,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -23,7 +23,7 @@ jobs:
           go-version: '1.21.x'
       - name: Install dependencies
         run: |
-          go get .
+          go get ./...
           # go get example.com/octo-examplemodule
           # go get example.com/octo-examplemodule@v1.3.4
 
