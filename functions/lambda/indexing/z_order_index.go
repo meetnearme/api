@@ -2,11 +2,9 @@ package indexing
 
 import (
 	"encoding/binary"
-	// "encoding/hex"
 	"fmt"
 	"math"
 	"strconv"
-	// "strings"
 	"time"
 )
 
