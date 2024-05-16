@@ -22,10 +22,8 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float32, indexType strin
     latSortableInt := mapFloatToSortableInt(lat)
 
     // Convert sortable integers to binary string
-    lonBin := strconv.FormatUint(uint64(lonSortableInt), 2)
-    lonBin = fmt.Sprintf("%032s", lonBin)
-    latBin := strconv.FormatUint(uint64(latSortableInt), 2)
-    latBin = fmt.Sprintf("%032s", latBin)
+    lonBin := fmt.Sprintf("%032b", lonSortableInt)
+    latBin := fmt.Sprintf("%032b", latSortableInt)
 
     // Interleave binary representations
     var zIndexBin string
