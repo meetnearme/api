@@ -70,16 +70,16 @@ func TestMapFloatToSortableInt(t *testing.T) {
 		value    float32
 		expected uint32
 	}{
-		{
-			name:     "Positive value",
-			value:    123.456,
-			expected: 0x47f12000,
-		},
-		{
-			name:     "Negative value",
-			value:    -123.456,
-			expected: 0xcf8ed000,
-		},
+        {
+            name:     "Positive value",
+            value:    123.456,
+            expected: 3270961529,
+        },
+        {
+            name:     "Negative value",
+            value:    -123.456,
+            expected: 1024005766,
+        },
 		// Add more test cases as needed
 	}
 
