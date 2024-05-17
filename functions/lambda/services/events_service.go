@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -141,23 +140,17 @@ func InsertEvent(ctx context.Context, db *dynamodb.Client, createEvent EventInse
 		Id:          uuid.NewString(),
 	}
 
-    log.Printf("%v", newEvent)
 
 	item, err := attributevalue.MarshalMap(newEvent)
 	if err != nil {
-        log.Print("Error in marshall!!!!")
 		return nil, err
 	}
 
-    log.Printf("Item before insert %v", item)
 
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(TableName),
 		Item:      item,
 	}
-
-    log.Printf("Item DB input  %v", input)
-
 
 	res, err := db.PutItem(ctx, input)
 	if err != nil {
