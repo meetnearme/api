@@ -34,7 +34,7 @@ func CreateDbClient() *dynamodb.Client {
 		fmt.Println("Error loading default Dynamo client config", err)
 	}
 
-	if !helpers.IsDeployed() {
+	if !helpers.IsRemoteDB() {
 		optionalCredentials := config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
 			Value: aws.Credentials{
 				AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test",

@@ -3,7 +3,7 @@ package helpers
 import "time"
 
 func FormatDate(d string) string {
-	date, err := time.Parse("2006-01-02T15:04:05", d)
+	date, err := time.Parse(time.RFC3339, d)
 	if err != nil {
 		return "Invalid date"
 	}
@@ -11,7 +11,7 @@ func FormatDate(d string) string {
 }
 
 func FormatTime(t string) string {
-	_time, err := time.Parse("2006-01-02T15:04:05", t)
+	_time, err := time.Parse(time.RFC3339, t)
 	if err != nil {
 		return "Invalid time"
 	}
