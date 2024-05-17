@@ -16,8 +16,16 @@
 1. Run `brew install awscli` in the terminal to install AWS CLI
 1. Run `aws configure` to
    [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
-1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied
    through Lambda to your local
+1. Create a `.env` file in the root directory with the necessary environment variables. Here's an example:
+```
+MEETNEARME_TEST_SECRET=anything
+ZENROWS_API_KEY=ask_for_key
+STATIC_BASE_URL='http://localhost:3001/static'
+USE_REMOTE_DB=true
+```
+1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied through Lambda to your local
+1. Alternatively, you can run `npm run dev-remote-db` to run the project with a remote DynamoDB instance instead of the local Docker container.
 
 ### Generate Go templates from \*.templ files
 
