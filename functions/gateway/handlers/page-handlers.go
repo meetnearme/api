@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -14,19 +16,55 @@ import (
 )
 
 func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
-	var events []services.EventSelect
-	var err error
-	events, err = services.GetEvents(ctx, db)
-	if err != nil {
-		return transport.SendServerError(err)
-	}
+    // Extract parameter values from the request query parameters
+    startTimeStr := r.QueryStringParameters["start_time"]
+    endTimeStr := r.QueryStringParameters["end_time"]
+    latStr := r.QueryStringParameters["lat"]
+    lonStr := r.QueryStringParameters["lon"]
+    radiusStr := r.QueryStringParameters["radius"]
+
+    Set default values if query parameters are not provided
+    startTime := time.Now()
+    endTime := startTime.AddDate(100, 0, 0)
+    lat := float32(39.8283)
+    lon := float32(-98.5795)
+    radius := float32(2500.0)
+
+    // Parse parameter values if provided
+    if startTimeStr != "" {
+        startTime, _ = time.Parse(time.RFC3339, startTimeStr)
+    }
+    if endTimeStr != "" {
+        endTime, _ = time.Parse(time.RFC3339, endTimeStr)
+    }
+    if latStr != "" {
+        lat64, _ := strconv.ParseFloat(latStr, 32)
+        lat = float32(lat64)
+    }
+    if lonStr != "" {
+        lon64, _ := strconv.ParseFloat(lonStr, 32)
+        lon = float32(lon64)
+    }
+    if radiusStr != "" {
+        radius64, _ := strconv.ParseFloat(radiusStr, 32)
+        radius = float32(radius64)
+    }
+
+    // Call the GetEventsZOrder service to retrieve events
+    events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
+    if err != nil {
+        return transport.SendServerError(err)
+    }
+
 	homePage := pages.HomePage(events)
 	layoutTemplate := pages.Layout("Home", homePage)
+
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerError(err)
 	}
+
 	return transport.Response{
 		Headers:         map[string]string{"Content-Type": "text/html"},
 		StatusCode:      http.StatusOK,

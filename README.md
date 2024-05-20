@@ -14,9 +14,18 @@
 1. [Create an IAM User](https://sst.dev/chapters/create-an-iam-user.html)
 1. Export `aws_access_key_id` and `aws_secret_access_key` env variables.
 1. Run `brew install awscli` in the terminal to install AWS CLI
-1. Run `aws configure` to [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
-1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied through
-   Lambda to your local
+1. Run `aws configure` to
+   [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
+   through Lambda to your local
+1. Create a `.env` file in the root directory with the necessary environment variables. Here's an example:
+```
+MEETNEARME_TEST_SECRET=anything
+ZENROWS_API_KEY=ask_for_key
+STATIC_BASE_URL='http://localhost:3001/static'
+USE_REMOTE_DB=true
+```
+1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied through Lambda to your local
+1. Alternatively, you can run `npm run dev-remote-db` to run the project with a remote DynamoDB instance instead of the local Docker container.
 
 ### Generate Go templates from \*.templ files
 
@@ -39,8 +48,8 @@ show a list of events in that particular stage's dynamoDb table
 
 ### API Example Curl Requests
 
-`curl <AWS URL from npm run dev>` - list table Events
-`curl -X POST -H 'Content-Type: application/json' -d '{"name": "Chess Tournament", "description": "Join the junior chess tournament to test your abilities", "datetime": "2024-03-13T15:07:00", "address": "15 Chess Street", "zip_code": "84322", "country": "USA"}' <AWS URL from npm run dev>` -
+`curl <AWS URL from npm run dev>/api/event` - list table Events
+`curl -X POST -H 'Content-Type: application/json' -d '{"name": "Chess Tournament", "description": "Join the junior chess tournament to test your abilities", "datetime": "2024-03-13T15:07:00", "address": "15 Chess Street", "zip_code": "84322", "country": "USA"}' <AWS URL from npm run dev>/api/event` -
 insert new event
 
 ### Reference for interacting with dynamodb from aws cli v2
@@ -67,4 +76,3 @@ When updating env vars, the changes need to be made in 4 places:
    are `echo`d)
 1. `.env.example` to clarify in version control what our currently-used env vars
    are
-
