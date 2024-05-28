@@ -33,7 +33,7 @@ func Navbar() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"> Meet Near Me</a></div><div class=\"flex-none lg:hidden\"><label for=\"main-drawer\" aria-label=\"open sidebar\" class=\"btn btn-square btn-ghost\"><svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" class=\"inline-block w-6 h-6 stroke-current\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 6h16M4 12h16M4 18h16\"></path></svg></label></div><div class=\"navbar-end hidden lg:flex\"><ul class=\"items-center menu menu-horizontal px-1\"><!-- Navbar menu content here --><li><a href=\"/about\" class=\"px-5 py-3\">About</a></li><li><a href=\"/login\" class=\"btn btn-primary\">Add an Event</a></li></ul></div></div></div>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"> Meet Near Me</a></div><div class=\"flex-none lg:hidden\"><label for=\"main-drawer\" aria-label=\"open sidebar\" class=\"btn btn-square btn-ghost\"><svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" class=\"inline-block w-6 h-6 stroke-current\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 6h16M4 12h16M4 18h16\"></path></svg></label></div><div class=\"navbar-end hidden lg:flex\"><ul class=\"items-center menu menu-horizontal px-1\"><!-- Navbar menu content here --><li><a href=\"/about\" class=\"px-5 py-3\">About</a></li><li><a href=\"/account\" class=\"px-5 py-3\">Account</a></li><li><a href=\"/login\" class=\"btn btn-primary\">Sign In</a></li></ul></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -126,11 +126,16 @@ func (r *Router) ServeHTTP(ctx context.Context, req Request, db *dynamodb.Client
 // A wrapper around a route's handler for request middleware
 func (r *route) handler(ctx context.Context, req Request, db *dynamodb.Client) (Response, error) {
 	// Middleware
-	var error error
+	context, request := ctx, req
 	for _, middleware := range r.middleware {
-		if ctx, req, error = middleware(ctx, req); error != nil {
+		updatedContext, updatedRequest, error := middleware(context, request)
+		if error != nil {
 			return SendServerError(error)
 		}
+		context = updatedContext
+		fmt.Println("Context")
+		fmt.Println(context.Value("cookiesMap"))
+		request = updatedRequest
 	}
 
 	return r.innerHandler(ctx, req, db)

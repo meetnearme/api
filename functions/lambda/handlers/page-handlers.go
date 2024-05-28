@@ -72,3 +72,20 @@ func GetEventDetailsPage(ctx context.Context, r transport.Request, db *dynamodb.
 		Body:            buf.String(),
 	}, nil
 }
+
+func GetAccountPage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
+
+	accountPage := pages.AccountPage()
+	layoutTemplate := pages.Layout("Account", accountPage)
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerError(err)
+	}
+	return transport.Response{
+		Headers:         map[string]string{"Content-Type": "text/html"},
+		StatusCode:      http.StatusOK,
+		IsBase64Encoded: false,
+		Body:            buf.String(),
+	}, nil
+}
