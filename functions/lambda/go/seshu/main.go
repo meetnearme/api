@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -160,23 +159,26 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	client := &http.Client{}
 	zrReq, zrErr := http.NewRequest("GET", "https://api.zenrows.com/v1/?apikey=" + os.Getenv("ZENROWS_API_KEY") + "&url=" + url.QueryEscape(inputPayload.Url) + "&js_render=true&wait=4500", nil)
 	if zrErr != nil {
-		log.Fatalln(zrErr)
+		log.Println("ERR: ", zrErr)
+		return SendHTMLError(zrErr, ctx, req)
 	}
 	zrRes, zrErr := client.Do(zrReq)
 	if zrErr != nil {
-			log.Fatalln(zrErr)
+		log.Println("ERR: ", zrErr)
+		return SendHTMLError(zrErr, ctx, req)
 	}
 	defer zrRes.Body.Close()
 
 	zrBody, zrErr := io.ReadAll(zrRes.Body)
 	if zrErr != nil {
-			log.Fatalln(zrErr)
+			log.Println("ERR: ", zrErr)
+			return SendHTMLError(zrErr, ctx, req)
 	}
 
 	if zrRes.StatusCode!= 200 {
-		zrStatusErr := fmt.Errorf("ERR: %v from ZenRows API", fmt.Sprint(zrRes.StatusCode))
-		// log.Fatalln(zrStatusErr)
-		return SendHTMLError(zrStatusErr, ctx, req)
+		zrErr := fmt.Errorf("%v from ZenRows API", fmt.Sprint(zrRes.StatusCode))
+		log.Println("ERR: ", zrErr)
+		return SendHTMLError(zrErr, ctx, req)
 	}
 
 	zrBodyString := string(zrBody)
@@ -192,11 +194,12 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 
 	markdown, err := converter.ConvertString(zrBodyString)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("ERR: ", err)
+		return SendHTMLError(err, ctx, req)
 	}
 
 	lines := strings.Split(markdown, "\n")
-	fmt.Println("markdown string lines!: ", len(lines))
+	log.Println("markdown string lines!: ", len(lines))
 	// Filter out empty lines
 	var nonEmptyLines []string
 	for i, line := range lines {
@@ -209,15 +212,16 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	// Convert to JSON
 	jsonStringBytes, err := json.Marshal(nonEmptyLines)
 	if err != nil {
-			fmt.Println("Error converting to JSON:", err)
+			log.Println("Error converting to JSON:", err)
+			return SendHTMLError(err, ctx, req)
 	}
 	jsonString := string(jsonStringBytes)
 
 	// TODO: consider log levels / log volume
 	sessionID, messageContent, err := CreateChatSession(jsonString)
 	if err != nil {
-		fmt.Println("Error creating chat session:", err)
-		return events.LambdaFunctionURLResponse{}, err
+		log.Println("Error creating chat session:", err)
+		return SendHTMLError(err, ctx, req)
 	}
 
 	openAIjson := messageContent
@@ -226,8 +230,8 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 
 	err = json.Unmarshal([]byte(openAIjson), &eventsFound)
 	if err != nil {
-		fmt.Println("Error unmarshaling OpenAI response into shared.EventInfo slice:", err)
-		return events.LambdaFunctionURLResponse{}, err
+		log.Println("Error unmarshaling OpenAI response into shared.EventInfo slice:", err)
+		return SendHTMLError(err, ctx, req)
 	}
 
 	// responseBody, err := json.Marshal(SeshuResponseBody{
@@ -236,13 +240,14 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	// })
 
 	if err != nil {
-		fmt.Println("Error marshaling response body as JSON:", err)
+		log.Println("Error marshaling response body as JSON:", err)
+		return SendHTMLError(err, ctx, req)
 	}
 
 
-	fmt.Println("Chat GPT response: ", sessionID)
-	fmt.Println("Chat GPT message content: ", messageContent)
-	fmt.Println("Chat GPT message converted to `openAIjson`: ", openAIjson)
+	log.Println("Chat GPT response: ", sessionID)
+	log.Println("Chat GPT message content: ", messageContent)
+	log.Println("Chat GPT message converted to `openAIjson`: ", openAIjson)
 
 	layoutTemplate := partials.EventCandidatesPartial(eventsFound)
 	var buf bytes.Buffer
@@ -276,8 +281,8 @@ func SendHTMLError(err error, ctx context.Context, req events.LambdaFunctionURLR
 
 func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	client := &http.Client{}
-	fmt.Println("Creating chat session")
-	fmt.Println("systemPrompt: ", systemPrompt)
+	log.Println("Creating chat session")
+	log.Println("systemPrompt: ", systemPrompt)
 	payload := CreateChatSessionPayload{
 		Model: "gpt-3.5-turbo-16k",
 		Messages: []Message{
@@ -317,7 +322,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", err
 	}
 
-	fmt.Println("Chat GPT response: ", respData)
+	log.Println("Chat GPT response: ", respData)
 
 	sessionId := respData.ID
 	if sessionId == "" {
@@ -344,14 +349,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 
 
 	return sessionId, unpaddedJSON, nil
-}
-
-func decodeBase64(data string) (string, error) {
-	decodedBytes, err := base64.StdEncoding.DecodeString(data)
-	if err != nil {
-			return "", err
-	}
-	return string(decodedBytes), nil
 }
 
 func unpadJSON(jsonStr string) string {
