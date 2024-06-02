@@ -23,7 +23,7 @@ func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) 
     lonStr := r.QueryStringParameters["lon"]
     radiusStr := r.QueryStringParameters["radius"]
 
-    Set default values if query parameters are not provided
+    // Set default values if query parameters are not provided
     startTime := time.Now()
     endTime := startTime.AddDate(100, 0, 0)
     lat := float32(39.8283)
