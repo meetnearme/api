@@ -3,10 +3,9 @@ package partials
 import "github.com/meetnearme/api/functions/lambda/go/seshu/shared"
 
 templ EventCandidatesPartial(eventCandidates []shared.EventInfo) {
-	<h2 class="text-2xl font-bold">Are these events?</h2>
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 		for _, candidate := range eventCandidates {
-			<div class="card card-compact m-5 shadow-lg">
+			<div class="checkbox-card card card-compact shadow-lg">
 				<div class="checkbox-card-header bg-success content-success">
 					<label class="label cursor-pointer">
 						<input type="checkbox" class="toggle" checked/>
@@ -15,6 +14,7 @@ templ EventCandidatesPartial(eventCandidates []shared.EventInfo) {
 				</div>
 				<div class="card-body">
 					<h2 class="card-title">{ candidate.EventTitle }</h2>
+					<p><strong>Title:</strong> { candidate.EventTitle }</p>
 					<p><strong>Location:</strong> { candidate.EventLocation }</p>
 					<p><strong>Date:</strong> { candidate.EventDate }</p>
 					<p><strong>URL:</strong> { candidate.EventURL }</p>

@@ -14,7 +14,7 @@ templ AdminPage() {
 		</div>
 		<div class="divider divider-horizontal"></div>
 		<div class="flex-grow card border-2 border-base-300 bg-base-200 p-10 rounded-box place-items-center">
-			<form hx-post="https://ye7nwfzxnfjkkil7xlxmxxugxy0aggih.lambda-url.us-east-1.on.aws" hx-ext="json-enc" hx-target="#event-candidates" hx-disabled-elt="input[name='url'], button[type='submit']">
+			<form hx-post="https://ye7nwfzxnfjkkil7xlxmxxugxy0aggih.lambda-url.us-east-1.on.aws" hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" hx-on:submit="" onSubmit="var $explainerNode = document.getElementById('explainer-section').classList; $explainerNode.remove('opacity-0');$explainerNode.remove('h-0');$explainerNode.add('opacity-100');$explainerNode.add('h-auto');var $eventCandidatesNode = document.getElementById('event-candidates').classList; $eventCandidatesNode.remove('h-0'); $eventCandidatesNode.remove('opacity-0'); $eventCandidatesNode.add('h-auto')">
 				<label for="url">Enter a URL that lists events and we will check the site and propose some events that might be on that page (this will take some time)</label>
 				<input name="url" id="url" type="text" class="border border-gray-300 p-2 w-full" placeholder="Event source URL"/>
 				<br/>
@@ -23,7 +23,33 @@ templ AdminPage() {
 			</form>
 			<br/>
 			<br/>
-			<div class="w-full" id="event-candidates"></div>
+			<div class="divider divider-horizontal"></div>
+			<div id="explainer-section" aria-live="polite" class="opacity-0 h-0 w-full transition-all">
+				// we need to use :has() for loading indicator and show this during load
+				<div role="alert" class="alert alert-info">
+					<span class="loading loading-ball loading-lg h-auto"></span>
+					<div>
+						<p>We are checking that URL to see if there are any events. This is going to take some time. When the process finishes, we're going to present you a list of events we think might be on that page. </p>
+						<br/>
+						<p class="font-bold">What we need from you is to confirm if our guesses are accurate.</p>
+					</div>
+				</div>
+				<br/>
+				<br/>
+			</div>
+			<div id="event-candidates" class="w-full opacity-0 h-0 transition-all">
+				<h2 class="text-2xl font-bold">Are these events?</h2>
+				<div id="event-candidates-inner">
+					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-stretch">
+						<div class="skeleton card card-compact h-52 w-full shadow-lg"></div>
+						<div class="skeleton card card-compact h-52 w-full shadow-lg"></div>
+						<div class="skeleton card card-compact h-52 w-full shadow-lg"></div>
+						<div class="skeleton card card-compact h-52 w-full shadow-lg"></div>
+						<div class="skeleton card card-compact h-52 w-full shadow-lg"></div>
+						<div class="skeleton card card-compact h-52 w-full shadow-lg"></div>
+					</div>
+				</div>
+			</div>
 		</div>
 	</div>
 }
