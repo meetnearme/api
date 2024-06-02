@@ -173,6 +173,12 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 			log.Fatalln(zrErr)
 	}
 
+	if zrRes.StatusCode!= 200 {
+		zrStatusErr := fmt.Errorf("ERR: %v from ZenRows API", fmt.Sprint(zrRes.StatusCode))
+		// log.Fatalln(zrStatusErr)
+		return SendHTMLError(zrStatusErr, ctx, req)
+	}
+
 	zrBodyString := string(zrBody)
 
 	// avoid extra parsing work for <head> content outside of <body>
@@ -249,6 +255,21 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 			Headers: map[string]string{"Content-Type": "text/html"},
 			StatusCode: http.StatusOK,
 			// Body: string(responseBody),
+			Body: buf.String(),
+	}, nil
+}
+
+func SendHTMLError(err error, ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+	layoutTemplate := partials.ErrorHTML(err, req.RequestContext.RequestID)
+	var buf bytes.Buffer
+	err = layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return serverError(err)
+	}
+
+	return events.LambdaFunctionURLResponse{
+			Headers: map[string]string{"Content-Type": "text/html"},
+			StatusCode: http.StatusOK,
 			Body: buf.String(),
 	}, nil
 }
