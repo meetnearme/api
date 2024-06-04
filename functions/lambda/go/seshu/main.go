@@ -27,7 +27,7 @@ import (
 // 3. Add special logic for meetup.com URLs to extract event info from <script type="application/ld+json">...</script>
 // 4. Add special logic for eventbrite.com URLs to extract event info from <script type="application/ld+json">...</script>
 // 5. Handle the "read more" / scroll down behavior for meetup.com / eventbrite via ZR remote JS
-// 6. Handle / validate that problem with Zenrows API Key properly aborts
+// 6. Handle / validate that problem with scraping API Key properly aborts
 // 7. Check token consumption on OpenAI response (if present) and fork session if nearing limit
 // 8. Validate that the invalid metadata strings fromt the example (e.g. `Nowhere City`) do not appear in the LLM event array output
 // 9. Open AI can sometimes truncate the attempted JSON like this `<valid JSON start>...events/300401920/"}, {"event_tit...} stop}]`
@@ -155,44 +155,44 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 			return serverError(err)
 	}
 
-	// start of ZR code
+	// start of scraping API code
 	client := &http.Client{}
-	zrReq, zrErr := http.NewRequest("GET", "https://api.zenrows.com/v1/?apikey=" + os.Getenv("ZENROWS_API_KEY") + "&url=" + url.QueryEscape(inputPayload.Url) + "&js_render=true&wait=4500", nil)
-	if zrErr != nil {
-		log.Println("ERR: ", zrErr)
-		return SendHTMLError(zrErr, ctx, req)
+	scrReq, scrErr := http.NewRequest("GET", "https://app.scrapingbee.com/api/v1/?api_key=" + os.Getenv("SCRAPINGBEE_API_KEY") + "&url=" + url.QueryEscape(inputPayload.Url) + "&wait=4500&render_js=true", nil)
+	if scrErr != nil {
+		log.Println("ERR: ", scrErr)
+		return SendHTMLError(scrErr, ctx, req)
 	}
-	zrRes, zrErr := client.Do(zrReq)
-	if zrErr != nil {
-		log.Println("ERR: ", zrErr)
-		return SendHTMLError(zrErr, ctx, req)
+	scrRes, scrErr := client.Do(scrReq)
+	if scrErr != nil {
+		log.Println("ERR: ", scrErr)
+		return SendHTMLError(scrErr, ctx, req)
 	}
-	defer zrRes.Body.Close()
+	defer scrRes.Body.Close()
 
-	zrBody, zrErr := io.ReadAll(zrRes.Body)
-	if zrErr != nil {
-			log.Println("ERR: ", zrErr)
-			return SendHTMLError(zrErr, ctx, req)
-	}
-
-	if zrRes.StatusCode!= 200 {
-		zrErr := fmt.Errorf("%v from ZenRows API", fmt.Sprint(zrRes.StatusCode))
-		log.Println("ERR: ", zrErr)
-		return SendHTMLError(zrErr, ctx, req)
+	scrBody, scrErr := io.ReadAll(scrRes.Body)
+	if scrErr != nil {
+			log.Println("ERR: ", scrErr)
+			return SendHTMLError(scrErr, ctx, req)
 	}
 
-	zrBodyString := string(zrBody)
+	if scrRes.StatusCode!= 200 {
+		scrErr := fmt.Errorf("%v from scraping API", fmt.Sprint(scrRes.StatusCode))
+		log.Println("ERR: ", scrErr)
+		return SendHTMLError(scrErr, ctx, req)
+	}
+
+	scrBodyString := string(scrBody)
 
 	// avoid extra parsing work for <head> content outside of <body>
 
 	// TODO: this doesn't appear to be working
 	re := regexp.MustCompile(`<body>(.*?)<\/body>`)
-	matches := re.FindStringSubmatch(zrBodyString)
+	matches := re.FindStringSubmatch(scrBodyString)
 	if len(matches) > 1 {
-		zrBodyString = matches[1]
+		scrBodyString = matches[1]
 	}
 
-	markdown, err := converter.ConvertString(zrBodyString)
+	markdown, err := converter.ConvertString(scrBodyString)
 	if err != nil {
 		log.Println("ERR: ", err)
 		return SendHTMLError(err, ctx, req)

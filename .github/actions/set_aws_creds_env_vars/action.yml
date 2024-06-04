@@ -6,7 +6,7 @@ inputs:
   MEETNEARME_TEST_SECRET:
     description: 'The dummy secret for the MeetNearMe project'
     required: true
-  ZENROWS_API_KEY:
+  SCRAPINGBEE_API_KEY:
     description: 'The API key for the ZenRows environment'
     required: true
   ROUTE53_HOSTED_ZONE_ID:
@@ -30,7 +30,7 @@ runs:
         touch .env
         echo GIT_BRANCH_NAME=${{ inputs.GIT_BRANCH_NAME }} >> .env
         echo MEETNEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
-        echo ZENROWS_API_KEY=${{ inputs.ZENROWS_API_KEY }} >> .env
+        echo SCRAPINGBEE_API_KEY=${{ inputs.SCRAPINGBEE_API_KEY }} >> .env
         echo ROUTE53_HOSTED_ZONE_ID=${{ inputs.ROUTE53_HOSTED_ZONE_ID }} >> .env
         echo ROUTE53_HOSTED_ZONE_NAME=${{ inputs.ROUTE53_HOSTED_ZONE_NAME }} >> .env
         echo AWS_MEETNEARME_CERT_ARN=${{ inputs.AWS_MEETNEARME_CERT_ARN }} >> .env

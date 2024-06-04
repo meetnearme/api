@@ -22,7 +22,7 @@ jobs:
         uses: './.github/actions/set_aws_creds_env_vars'
         with:
           MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
-          ZENROWS_API_KEY: ${{ secrets.ZENROWS_API_KEY }}
+          SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           ROUTE53_HOSTED_ZONE_ID: ${{ secrets.ROUTE53_HOSTED_ZONE_ID }}
           ROUTE53_HOSTED_ZONE_NAME: ${{ secrets.ROUTE53_HOSTED_ZONE_NAME }}
           AWS_MEETNEARME_CERT_ARN: ${{ secrets.AWS_MEETNEARME_CERT_ARN }}
