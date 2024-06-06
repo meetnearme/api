@@ -1,26 +1,34 @@
 package partials
 
-import "github.com/meetnearme/api/functions/lambda/go/seshu/shared"
+import (
+	"fmt"
+	"github.com/meetnearme/api/functions/lambda/go/seshu/shared"
+)
 
 templ EventCandidatesPartial(eventCandidates []shared.EventInfo) {
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-		for _, candidate := range eventCandidates {
-			<div class="checkbox-card card card-compact shadow-lg">
-				<div class="checkbox-card-header bg-success content-success">
-					<label class="label cursor-pointer">
-						<input type="checkbox" class="toggle" checked/>
-						<span class="label-text ml-4">This is <strong class="hidden-when-checked">not </strong>an event</span>
-					</label>
+	<form class="group" novalidate>
+		<div role="alert" class="alert alert-info mb-3">
+			Mark each field such as "title" and "location" as correct or incorrect with the adjacent toggle. If the proposed event is not an event, toggle "This is an event" to "This is not an event".
+		</div>
+		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+			for index, candidate := range eventCandidates {
+				<div class="checkbox-card card card-compact shadow-lg">
+					<div class="checkbox-card-header bg-success content-success">
+						<label class="label cursor-pointer">
+							<input id={ "main-toggle-" + fmt.Sprint(index) } type="checkbox" class="toggle" onclick="this.parentNode.parentNode.parentNode.querySelectorAll('input.toggle').forEach(item => item.checked = this.checked)" checked/>
+							<span class="label-text ml-4">This is <strong class="hidden-when-checked">not </strong>an event</span>
+						</label>
+					</div>
+					<div class="card-body">
+						<h2 class="card-title">{ candidate.EventTitle }</h2>
+						<p><input type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked/><strong>Title:</strong> { candidate.EventTitle }</p>
+						<p><input type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked/><strong>Location:</strong> { candidate.EventLocation }</p>
+						<p><input type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked/><strong>Date:</strong> { candidate.EventDate }</p>
+						<p><input type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked/><strong>URL:</strong> { candidate.EventURL }</p>
+						<p><input type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked/><strong>Description:</strong> { candidate.EventDescription }</p>
+					</div>
 				</div>
-				<div class="card-body">
-					<h2 class="card-title">{ candidate.EventTitle }</h2>
-					<p><strong>Title:</strong> { candidate.EventTitle }</p>
-					<p><strong>Location:</strong> { candidate.EventLocation }</p>
-					<p><strong>Date:</strong> { candidate.EventDate }</p>
-					<p><strong>URL:</strong> { candidate.EventURL }</p>
-					<p><strong>Description:</strong> { candidate.EventDescription }</p>
-				</div>
-			</div>
-		}
-	</div>
+			}
+		</div>
+	</form>
 }

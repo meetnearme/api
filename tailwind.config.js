@@ -112,7 +112,7 @@ export default {
           neutral: '#190c04',
           'neutral-content': '#00ceff',
           'base-100': '#fffbe6',
-          info: '#7cbbee',
+          info: '#9fb9f9',
           success: '#74ea62',
           warning: '#ffc458',
           error: '#ff7f7f',

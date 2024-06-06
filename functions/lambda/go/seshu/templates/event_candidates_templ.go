@@ -10,7 +10,10 @@ import "context"
 import "io"
 import "bytes"
 
-import "github.com/meetnearme/api/functions/lambda/go/seshu/shared"
+import (
+	"fmt"
+	"github.com/meetnearme/api/functions/lambda/go/seshu/shared"
+)
 
 func EventCandidatesPartial(eventCandidates []shared.EventInfo) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, templ_7745c5c3_W io.Writer) (templ_7745c5c3_Err error) {
@@ -25,86 +28,99 @@ func EventCandidatesPartial(eventCandidates []shared.EventInfo) templ.Component 
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4\">")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<form class=\"group\" novalidate><div role=\"alert\" class=\"alert alert-info mb-3\">Mark each field such as \"title\" and \"location\" as correct or incorrect with the adjacent toggle. If the proposed event is not an event, toggle \"This is an event\" to \"This is not an event\".</div><div class=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, candidate := range eventCandidates {
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"checkbox-card card card-compact shadow-lg\"><div class=\"checkbox-card-header bg-success content-success\"><label class=\"label cursor-pointer\"><input type=\"checkbox\" class=\"toggle\" checked> <span class=\"label-text ml-4\">This is <strong class=\"hidden-when-checked\">not </strong>an event</span></label></div><div class=\"card-body\"><h2 class=\"card-title\">")
+		for index, candidate := range eventCandidates {
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"checkbox-card card card-compact shadow-lg\"><div class=\"checkbox-card-header bg-success content-success\"><label class=\"label cursor-pointer\"><input id=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var2 string
-			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.EventTitle)
+			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs("main-toggle-" + fmt.Sprint(index))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 16, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 18, Col: 53}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</h2><p><strong>Title:</strong> ")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\" type=\"checkbox\" class=\"toggle\" onclick=\"this.parentNode.parentNode.parentNode.querySelectorAll(&#39;input.toggle&#39;).forEach(item =&gt; item.checked = this.checked)\" checked> <span class=\"label-text ml-4\">This is <strong class=\"hidden-when-checked\">not </strong>an event</span></label></div><div class=\"card-body\"><h2 class=\"card-title\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.EventTitle)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 17, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 23, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</p><p><strong>Location:</strong> ")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</h2><p><input type=\"checkbox\" class=\"toggle toggle-sm toggle-success -mb-1 mr-2\" checked><strong>Title:</strong> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.EventLocation)
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.EventTitle)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 18, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 24, Col: 138}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</p><p><strong>Date:</strong> ")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</p><p><input type=\"checkbox\" class=\"toggle toggle-sm toggle-success -mb-1 mr-2\" checked><strong>Location:</strong> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.EventDate)
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.EventLocation)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 19, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 25, Col: 144}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</p><p><strong>URL:</strong> ")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</p><p><input type=\"checkbox\" class=\"toggle toggle-sm toggle-success -mb-1 mr-2\" checked><strong>Date:</strong> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.EventURL)
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.EventDate)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 20, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 26, Col: 136}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</p><p><strong>Description:</strong> ")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</p><p><input type=\"checkbox\" class=\"toggle toggle-sm toggle-success -mb-1 mr-2\" checked><strong>URL:</strong> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var7 string
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.EventDescription)
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.EventURL)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 21, Col: 66}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 27, Col: 134}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</p><p><input type=\"checkbox\" class=\"toggle toggle-sm toggle-success -mb-1 mr-2\" checked><strong>Description:</strong> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var8 string
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.EventDescription)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/lambda/go/seshu/templates/event_candidates.templ`, Line: 28, Col: 150}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -113,7 +129,7 @@ func EventCandidatesPartial(eventCandidates []shared.EventInfo) templ.Component 
 				return templ_7745c5c3_Err
 			}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</div>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</div></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

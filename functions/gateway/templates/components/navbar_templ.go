@@ -25,7 +25,7 @@ func Navbar() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"drawer drawer-end\"><input id=\"main-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><div class=\"drawer-content flex flex-col\"><!-- Navbar --><div class=\"w-full navbar bg-base-100 shadow-md\"><div class=\"container mx-auto flex items-center\"><div class=\"flex-1\"><a href=\"/\" class=\"btn btn-ghost text-xl\"><img class=\"brand\" src=\"")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"drawer drawer-end\"><input id=\"main-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><div class=\"drawer-content flex flex-col\"><!-- Navbar --><div class=\"w-full navbar bg-base-100 shadow-md mb-12\"><div class=\"container mx-auto flex items-center\"><div class=\"flex-1\"><a href=\"/\" class=\"btn btn-ghost text-xl\"><img class=\"brand\" src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
