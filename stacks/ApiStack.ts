@@ -4,10 +4,12 @@ import { StaticSiteStack } from './StaticSiteStack';
 import { StorageStack } from './StorageStack';
 import { HostedZone } from 'aws-cdk-lib/aws-route53';
 import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
+import { SeshuFunction } from './SeshuFunction';
 
 export function ApiStack({ stack }: StackContext) {
   const { table } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
+  const { seshuFn } = use(SeshuFunction);
 
   const api = new Api(stack, 'api', {
     defaults: {
@@ -16,9 +18,12 @@ export function ApiStack({ stack }: StackContext) {
         bind: [table],
         environment: {
           ...envVars,
-          // STATIC_BASE_URL is a special case because the value comes from
+          // ----- BEGIN -----
+          // the vars below are a special case because the value comes from
           // `sst deploy` at runtime and then gets set as an environment variable
           STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
+          SESHU_FN_URL: process.env.SESHU_FN_URL ?? seshuFn.url,
+          // ----- END -----
         },
       },
     },

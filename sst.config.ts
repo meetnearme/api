@@ -23,8 +23,8 @@ export default {
     app
       .stack(StaticSiteStack)
       .stack(StorageStack)
-      .stack(ApiStack)
-      .stack(SeshuFunction);
+      .stack(SeshuFunction)
+      .stack(ApiStack);
     app.addDefaultFunctionPermissions(['dynamodb:*']);
   },
 } satisfies SSTConfig;
