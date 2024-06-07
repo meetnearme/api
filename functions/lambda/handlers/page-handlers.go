@@ -64,6 +64,26 @@ func GetLoginPage(ctx context.Context, r transport.Request, db *dynamodb.Client,
 	}
 }
 
+func GetSignUpPage(ctx context.Context, r transport.Request, db *dynamodb.Client, clerkAuth *transport.ClerkAuth) transport.Response {
+	loginPage := pages.SignUpPage()
+	layoutTemplate := pages.Layout("Sign Up", loginPage)
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHTTPError(&transport.HTTPError{
+			Status:         http.StatusInternalServerError,
+			Message:        err.Error(),
+			ErrorComponent: nil,
+		})
+	}
+	return transport.Response{
+		Headers:         map[string]string{"Content-Type": "text/html"},
+		StatusCode:      http.StatusOK,
+		IsBase64Encoded: false,
+		Body:            buf.String(),
+	}
+}
+
 func GetEventDetailsPage(ctx context.Context, r transport.Request, db *dynamodb.Client, clerkAuth *transport.ClerkAuth) transport.Response {
 	// TODO: Extract reading param values into a helper method.
 	eventId, error := ctx.Value(helpers.EVENT_ID_KEY).(string)
