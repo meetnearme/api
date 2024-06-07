@@ -133,10 +133,8 @@ func (r *route) handler(ctx context.Context, req Request, db *dynamodb.Client) (
 			return SendServerError(error)
 		}
 		context = updatedContext
-		fmt.Println("Context")
-		fmt.Println(context.Value("cookiesMap"))
 		request = updatedRequest
 	}
 
-	return r.innerHandler(ctx, req, db)
+	return r.innerHandler(context, request, db)
 }

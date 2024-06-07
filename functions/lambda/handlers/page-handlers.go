@@ -74,7 +74,6 @@ func GetEventDetailsPage(ctx context.Context, r transport.Request, db *dynamodb.
 }
 
 func GetAccountPage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
-
 	accountPage := pages.AccountPage()
 	layoutTemplate := pages.Layout("Account", accountPage)
 	var buf bytes.Buffer
