@@ -8,9 +8,9 @@ import (
 )
 
 type ClerkAuth struct {
-	genericClient *client.Client
-	userClient    *user.Client
-	sessionClient *session.Client
+	GenericClient *client.Client
+	UserClient    *user.Client
+	SessionClient *session.Client
 }
 
 func InitClerkAuth(config *clerk.ClientConfig) *ClerkAuth {
@@ -19,8 +19,8 @@ func InitClerkAuth(config *clerk.ClientConfig) *ClerkAuth {
 	sessionClient := session.NewClient(config)
 
 	return &ClerkAuth{
-		genericClient: genericClient,
-		userClient:    userClient,
-		sessionClient: sessionClient,
+		GenericClient: genericClient,
+		UserClient:    userClient,
+		SessionClient: sessionClient,
 	}
 }

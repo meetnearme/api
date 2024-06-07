@@ -16,7 +16,7 @@ import (
 
 var validate *validator.Validate = validator.New()
 
-func CreateEvent(ctx context.Context, r transport.Request, db *dynamodb.Client) transport.Response {
+func CreateEvent(ctx context.Context, r transport.Request, db *dynamodb.Client, clerkAuth *transport.ClerkAuth) transport.Response {
 	var createEvent services.EventInsert
 	err := json.Unmarshal([]byte(r.Body), &createEvent)
 

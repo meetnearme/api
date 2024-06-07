@@ -46,7 +46,7 @@ func init() {
 }
 
 func Router(ctx context.Context, req transport.Request) (transport.Response, error) {
-	return router.ServeHTTP(ctx, req, db)
+	return router.ServeHTTP(ctx, req, db, clerkAuth)
 }
 
 func main() {

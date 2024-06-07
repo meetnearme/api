@@ -7,13 +7,14 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/meetnearme/api/functions/lambda/helpers"
 	"github.com/meetnearme/api/functions/lambda/services"
 	"github.com/meetnearme/api/functions/lambda/templates/pages"
 	"github.com/meetnearme/api/functions/lambda/transport"
 )
 
-func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) transport.Response {
+func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client, clerkAuth *transport.ClerkAuth) transport.Response {
 	var events []services.EventSelect
 	var err error
 	events, err = services.GetEvents(ctx, db)
@@ -43,7 +44,7 @@ func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) 
 	}
 }
 
-func GetLoginPage(ctx context.Context, r transport.Request, db *dynamodb.Client) transport.Response {
+func GetLoginPage(ctx context.Context, r transport.Request, db *dynamodb.Client, clerkAuth *transport.ClerkAuth) transport.Response {
 	loginPage := pages.LoginPage()
 	layoutTemplate := pages.Layout("Login", loginPage)
 	var buf bytes.Buffer
@@ -63,7 +64,7 @@ func GetLoginPage(ctx context.Context, r transport.Request, db *dynamodb.Client)
 	}
 }
 
-func GetEventDetailsPage(ctx context.Context, r transport.Request, db *dynamodb.Client) transport.Response {
+func GetEventDetailsPage(ctx context.Context, r transport.Request, db *dynamodb.Client, clerkAuth *transport.ClerkAuth) transport.Response {
 	// TODO: Extract reading param values into a helper method.
 	eventId, error := ctx.Value(helpers.EVENT_ID_KEY).(string)
 	if error {
@@ -89,8 +90,21 @@ func GetEventDetailsPage(ctx context.Context, r transport.Request, db *dynamodb.
 	}
 }
 
-func GetAccountPage(ctx context.Context, r transport.Request, db *dynamodb.Client) transport.Response {
-	accountPage := pages.AccountPage()
+func GetAccountPage(ctx context.Context, r transport.Request, db *dynamodb.Client, clerkAuth *transport.ClerkAuth) transport.Response {
+	sessionClaims, ok := clerk.SessionClaimsFromContext(ctx)
+	var user *clerk.User
+	if ok {
+		userID := sessionClaims.Subject
+		userData, err := clerkAuth.UserClient.Get(ctx, userID)
+		if err != nil {
+			return transport.SendHTTPError(&transport.HTTPError{
+				Status:  http.StatusInternalServerError,
+				Message: err.Error(),
+			})
+		}
+		user = userData
+	}
+	accountPage := pages.AccountPage(user)
 	layoutTemplate := pages.Layout("Account", accountPage)
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)

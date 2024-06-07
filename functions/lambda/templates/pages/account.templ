@@ -1,5 +1,7 @@
 package pages
 
-templ AccountPage() {
-    <h2 class="text-3xl">Account Page</h2>
+import "github.com/clerk/clerk-sdk-go/v2"
+
+templ AccountPage(user *clerk.User) {
+    <h2 class="text-3xl">Welcome, {*user.FirstName} {*user.LastName}</h2>
 }

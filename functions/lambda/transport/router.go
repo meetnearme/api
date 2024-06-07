@@ -13,7 +13,7 @@ import (
 type Request = events.APIGatewayV2HTTPRequest
 type Response = events.APIGatewayV2HTTPResponse
 
-type lambdaHandlerFunc func(ctx context.Context, r Request, db *dynamodb.Client) Response
+type lambdaHandlerFunc func(ctx context.Context, r Request, db *dynamodb.Client, clerkAuth *ClerkAuth) Response
 
 type Middleware func(ctx context.Context, r Request) (context.Context, Request, *HTTPError)
 
@@ -90,7 +90,7 @@ func (r *Router) OPTIONS(pattern string, handler lambdaHandlerFunc, middleware .
 	return r.addRoute(http.MethodOptions, pattern, handler, middleware...)
 }
 
-func (r *Router) ServeHTTP(ctx context.Context, req Request, db *dynamodb.Client) (Response, error) {
+func (r *Router) ServeHTTP(ctx context.Context, req Request, db *dynamodb.Client, clerkAuth *ClerkAuth) (Response, error) {
 	var allow []string
 	for _, route := range r.routes {
 		reqPath := req.RequestContext.HTTP.Path
@@ -118,7 +118,7 @@ func (r *Router) ServeHTTP(ctx context.Context, req Request, db *dynamodb.Client
 				ctx = context.WithValue(ctx, key, values[idx])
 			}
 
-			return route.handler(ctx, req, db), nil
+			return route.handler(ctx, req, db, clerkAuth), nil
 		}
 	}
 	if len(allow) > 0 {
@@ -136,7 +136,7 @@ func (r *Router) ServeHTTP(ctx context.Context, req Request, db *dynamodb.Client
 }
 
 // A wrapper around a route's handler for request middleware
-func (r *route) handler(ctx context.Context, req Request, db *dynamodb.Client) Response {
+func (r *route) handler(ctx context.Context, req Request, db *dynamodb.Client, clerkAuth *ClerkAuth) Response {
 	// Middleware
 	context, request := ctx, req
 	for _, middleware := range r.middleware {
@@ -152,5 +152,5 @@ func (r *route) handler(ctx context.Context, req Request, db *dynamodb.Client) R
 		request = updatedRequest
 	}
 
-	return r.innerHandler(context, request, db)
+	return r.innerHandler(context, request, db, clerkAuth)
 }
