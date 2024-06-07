@@ -13,9 +13,9 @@ import (
 type Request = events.APIGatewayV2HTTPRequest
 type Response = events.APIGatewayV2HTTPResponse
 
-type lambdaHandlerFunc func(ctx context.Context, r Request, db *dynamodb.Client) (Response, error)
+type lambdaHandlerFunc func(ctx context.Context, r Request, db *dynamodb.Client) Response
 
-type Middleware func(ctx context.Context, r Request) (context.Context, Request, error)
+type Middleware func(ctx context.Context, r Request) (context.Context, Request, *HTTPError)
 
 type route struct {
 	method       string
@@ -108,29 +108,45 @@ func (r *Router) ServeHTTP(ctx context.Context, req Request, db *dynamodb.Client
 			if len(values) != len(route.paramKeys) {
 				message := "unexpected number of path parameters in request"
 				// Log Error message
-				return SendClientError(http.StatusBadRequest, message)
+				return SendHTTPError(&HTTPError{
+					Status:         http.StatusBadRequest,
+					Message:        message,
+					ErrorComponent: nil,
+				}), nil
 			}
 			for idx, key := range route.paramKeys {
 				ctx = context.WithValue(ctx, key, values[idx])
 			}
 
-			return route.handler(ctx, req, db)
+			return route.handler(ctx, req, db), nil
 		}
 	}
 	if len(allow) > 0 {
-		return SendClientError(http.StatusMethodNotAllowed, "")
+		return SendHTTPError(&HTTPError{
+			Status:         http.StatusMethodNotAllowed,
+			Message:        "Method Not Allowed",
+			ErrorComponent: nil,
+		}), nil
 	}
-	return SendClientError(http.StatusNotFound, "")
+	return SendHTTPError(&HTTPError{
+		Status:         http.StatusNotFound,
+		Message:        "Not Found",
+		ErrorComponent: nil,
+	}), nil
 }
 
 // A wrapper around a route's handler for request middleware
-func (r *route) handler(ctx context.Context, req Request, db *dynamodb.Client) (Response, error) {
+func (r *route) handler(ctx context.Context, req Request, db *dynamodb.Client) Response {
 	// Middleware
 	context, request := ctx, req
 	for _, middleware := range r.middleware {
 		updatedContext, updatedRequest, error := middleware(context, request)
 		if error != nil {
-			return SendServerError(error)
+			if error.ErrorComponent != nil {
+				return DisplayHTTPError(ctx, error)
+			} else {
+				return SendHTTPError(error)
+			}
 		}
 		context = updatedContext
 		request = updatedRequest

@@ -6,10 +6,28 @@ templ LoginPage() {
 		window.addEventListener("load", async function () {
 			await Clerk.load();
 
+			const url = window.location.href
+			const params = {};
+  			const queryString = url.split('?')[1];
+			let redirectUrl
+
+			if (queryString) {
+				const queryParams = queryString.split('&');
+
+				for (const param of queryParams) {
+					const [key, value] = param.split('=');
+					params[key] = decodeURIComponent(value || '');
+				}
+			}
+
 			const signInDiv =
 			document.getElementById('login-component');
 
-			Clerk.mountSignIn(signInDiv);
+			const signInParams = {
+				redirectUri: redirectUrl
+			}
+
+			Clerk.mountSignIn(signInDiv, signInParams);
 		});
 	</script>
 	<section class="w-full flex justify-center content-center mt-3">

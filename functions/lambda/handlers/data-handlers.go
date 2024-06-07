@@ -16,14 +16,19 @@ import (
 
 var validate *validator.Validate = validator.New()
 
-func CreateEvent(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
+func CreateEvent(ctx context.Context, r transport.Request, db *dynamodb.Client) transport.Response {
 	var createEvent services.EventInsert
 	err := json.Unmarshal([]byte(r.Body), &createEvent)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
 		log.Printf("Invalid JSON payload: %v", err)
-		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
+		return transport.SendHTTPError(&transport.HTTPError{
+			Status:          http.StatusUnprocessableEntity,
+			Message:         "Invalid JSON payload",
+			ErrorComponent:  nil,
+			ResponseHeaders: map[string]string{"Content-Type": "application/json"},
+		})
 	}
 
 	err = validate.Struct(&createEvent)
@@ -31,21 +36,33 @@ func CreateEvent(ctx context.Context, r transport.Request, db *dynamodb.Client) 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
 		log.Printf("Invalid body: %v", err)
-		return transport.SendClientError(http.StatusBadRequest, "Invalid Body")
+		return transport.SendHTTPError(&transport.HTTPError{
+			Status:         http.StatusBadRequest,
+			Message:        "Invalid body",
+			ErrorComponent: nil,
+		})
 	}
 
 	res, err := services.InsertEvent(ctx, db, createEvent)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendHTTPError(&transport.HTTPError{
+			Status:         http.StatusInternalServerError,
+			Message:        err.Error(),
+			ErrorComponent: nil,
+		})
 	}
 
 	json, err := json.Marshal(res)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendHTTPError(&transport.HTTPError{
+			Status:         http.StatusInternalServerError,
+			Message:        err.Error(),
+			ErrorComponent: nil,
+		})
 	}
 
 	// TODO: consider log levels / log volume
@@ -58,5 +75,5 @@ func CreateEvent(ctx context.Context, r transport.Request, db *dynamodb.Client) 
 		Headers: map[string]string{
 			"Location": fmt.Sprintf("/user/%s", "hello res"),
 		},
-	}, nil
+	}
 }

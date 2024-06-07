@@ -2,7 +2,6 @@ package transport
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/clerk/clerk-sdk-go/v2"
@@ -11,7 +10,7 @@ import (
 	"github.com/meetnearme/api/functions/lambda/helpers"
 )
 
-func ParseCookies(ctx context.Context, r Request) (context.Context, Request, error) {
+func ParseCookies(ctx context.Context, r Request) (context.Context, Request, *HTTPError) {
 	cookies := make(map[string]string)
 	for _, cookie := range r.Cookies {
 		parts := strings.SplitN(cookie, "=", 2)
@@ -24,16 +23,27 @@ func ParseCookies(ctx context.Context, r Request) (context.Context, Request, err
 	return ctx, r, nil
 }
 
-func RequireHeaderAuthorization(ctx context.Context, r Request) (context.Context, Request, error) {
+func RequireHeaderAuthorization(ctx context.Context, r Request) (context.Context, Request, *HTTPError) {
 	cookiesMap := ctx.Value("cookiesMap").(map[string]string)
 	sessionToken := cookiesMap[helpers.SESSION_COOKIE]
 	if sessionToken == "" {
-		return ctx, r, errors.New("Unauthorized")
+		httpError := &HTTPError{
+			Status:          302,
+			Message:         "Unauthorized. Session token missing.",
+			ErrorComponent:  nil,
+			ResponseHeaders: map[string]string{"Location": "https://zi01imi18j.execute-api.us-east-1.amazonaws.com/login?redirect=" + r.RawPath},
+		}
+		return ctx, r, httpError
 	}
 
 	_, err := jwt.Decode(ctx, &jwt.DecodeParams{Token: sessionToken})
 	if err != nil {
-		return ctx, r, err
+		httpError := &HTTPError{
+			Status:         403,
+			Message:        "Forbidden. Failed to decode session token.",
+			ErrorComponent: nil,
+		}
+		return ctx, r, httpError
 	}
 
 	params := &http.AuthorizationParams{}
@@ -41,7 +51,12 @@ func RequireHeaderAuthorization(ctx context.Context, r Request) (context.Context
 
 	claims, err := jwt.Verify(ctx, &params.VerifyParams)
 	if err != nil {
-		return ctx, r, err
+		httpError := &HTTPError{
+			Status:         403,
+			Message:        "Forbidden. Invalid session token.",
+			ErrorComponent: nil,
+		}
+		return ctx, r, httpError
 	}
 
 	newCtx := clerk.ContextWithSessionClaims(ctx, claims)
