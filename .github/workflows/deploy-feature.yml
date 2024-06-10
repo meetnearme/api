@@ -30,9 +30,7 @@ jobs:
           MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           GIT_BRANCH_NAME: ${{ steps.extract_branch.outputs.branch }}
-          ROUTE53_HOSTED_ZONE_ID: ${{ secrets.ROUTE53_HOSTED_ZONE_ID }}
-          ROUTE53_HOSTED_ZONE_NAME: ${{ secrets.ROUTE53_HOSTED_ZONE_NAME }}
-          AWS_MEETNEARME_CERT_ARN: ${{ secrets.AWS_MEETNEARME_CERT_ARN }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
       - name: Deploy app
         run: |
           npm i && npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}

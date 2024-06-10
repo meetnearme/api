@@ -89,28 +89,27 @@
   color: oklch(var(--suc));
 }
 
-.checkbox-card:has(input[type='checkbox']:checked) {
+.checkbox-card:has(input[id*='main-toggle-'][type='checkbox']:checked) {
   border-color: oklch(var(--su));
 }
 
-.checkbox-card
-  .checkbox-card-header:has(input[type='checkbox'])
-  .hidden-when-checked {
-  display: inline;
+.has-toggleable-text:has(input[type='checkbox']) .hidden-when-checked {
+  display: inherit;
 }
 
-.checkbox-card
-  .checkbox-card-header:has(input[type='checkbox']:checked)
-  .hidden-when-checked {
+.has-toggleable-text:has(input[type='checkbox']:checked) .hidden-when-checked {
+  display: none;
+}
+
+.has-toggleable-text:not(:has(input[type='checkbox']:checked))
+  .hidden-when-not-checked {
   display: none;
 }
 
 #event-source-container:not(:has(#event-candidates-inner .checkbox-card))
-  #explainer-section
-  .loaded-visible,
+  .candidates-loaded-visible,
 #event-source-container:has(#event-candidates-inner .checkbox-card)
-  #explainer-section
-  .loading-visible {
+  .candidates-loading-visible {
   height: 0;
   width: 0;
   opacity: 0;

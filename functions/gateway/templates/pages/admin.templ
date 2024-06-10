@@ -2,52 +2,66 @@ package pages
 
 import (
 	"os"
-	"fmt"
-	"regexp"
 )
 
 templ AdminPage() {
 	<h2 class="text-3xl">Add an Event Source</h2>
 	<br/>
 	<br/>
-	<div class="flex w-full h-full items-start">
+	<div class="flex w-full h-full items-start" x-data="getWizardData()">
 		<div class="w-1/2 flex-grow card border-2 border-base-300 bg-base-200 rounded-box place-items-center">
 			<ul id="event-source-steps" class="steps steps-vertical">
-				<li class="step step-primary">Add a Target URL</li>
-				<li class="step">Verify Events</li>
-				<li class="step">Add to Site</li>
+				<li
+					class="step"
+					:class="{'step-primary':
+             formStep >= 1}"
+				>Add a Target URL</li>
+				<li
+					class="step"
+					:class="{'step-primary':
+             formStep >= 2}"
+				>Verify Events</li>
+				<li
+					class="step"
+					:class="{'step-primary':
+             formStep >= 3}"
+				>Add to Site</li>
 			</ul>
+			<button @click="incrementFormStep()">Increment</button>
 		</div>
 		<div class="divider divider-horizontal"></div>
 		<div id="event-source-container" class="flex-grow card border-2 border-base-300 bg-base-200 p-10 rounded-box place-items-center">
-			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL")) } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" hx-on:submit="" onSubmit="var $explainerNode = document.getElementById('explainer-section').classList; $explainerNode.remove('opacity-0');$explainerNode.remove('h-0');$explainerNode.add('opacity-100');$explainerNode.add('h-auto');var $eventCandidatesNode = document.getElementById('event-candidates').classList; $eventCandidatesNode.remove('h-0'); $eventCandidatesNode.remove('opacity-0'); $eventCandidatesNode.add('h-auto')">
+			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL")) } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="incrementFormStep()">
 				<label for="url">Enter a URL that lists events and we will check the site and propose some events that might be on that page (this will take some time)</label>
 				<input
+					x-model="formData.url"
 					name="url"
 					id="url"
 					type="url"
-					required
-					pattern={ fmt.Sprint(regexp.MustCompile(`[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)`)) }
-					class="peer border border-gray-300 p-2 w-full"
+					class="input input-bordered w-full p-2 w-full"
+					:class="{'border-red-500': formData.url && !isURL(formData.url)}"
 					placeholder="Event source URL"
 				/>
-				<span class="mt-2 hidden text-sm text-red-500 peer-[&:not(:placeholder-shown):not(:focus):invalid]:block">
-					Please enter a valid URL (must start with http:// or https://)
-				</span>
+				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid URL (must start with http:// or https://)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
 				<br/>
 				<br/>
-				<button type="submit" class="btn btn-primary group-invalid:pointer-events-none group-invalid:opacity-30">Search for Events</button>
+				<button type="submit" :disabled="!formData.url || !isURL(formData.url)" class="btn btn-primary">Search for Events</button>
 			</form>
 			<br/>
 			<br/>
 			<div class="divider divider-horizontal"></div>
-			<div id="explainer-section" aria-live="polite" class="opacity-0 h-0 w-full transition-all">
+			<div
+				:class="{'opacity-100 h-auto': formStep >= 2}"
+				id="explainer-section"
+				aria-live="polite"
+				class="opacity-0 h-0 w-full transition-all"
+			>
 				<div role="alert" class="alert alert-info">
-					<span class="loading-visible loading loading-ball loading-lg h-auto"></span>
-					<svg xmlns="http://www.w3.org/2000/svg" class="loaded-visible stroke-current shrink-0 h-10 w-10" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+					<span class="candidates-loading-visible loading loading-ball loading-lg h-auto"></span>
+					<svg xmlns="http://www.w3.org/2000/svg" class="candidates-loaded-visible stroke-current shrink-0 h-10 w-10" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
 					<div>
-						<p class="loading-visible">We are checking that URL to see if there are any events. This is going to take some time. When the process finishes, we're going to present you a list of events we think might be on that page. </p>
-						<p class="loaded-visible">Here are the events we've found. </p>
+						<p class="candidates-loading-visible" aria-live="polite">We are checking that URL to see if there are any events. This is going to take some time. When the process finishes, we're going to present you a list of events we think might be on that page. </p>
+						<p class="candidates-loaded-visible" aria-live="polite">Here are the events we've found.</p>
 						<br/>
 						<p class="font-bold">What we need from you is to confirm if our guesses are accurate.</p>
 					</div>
@@ -55,7 +69,7 @@ templ AdminPage() {
 				<br/>
 				<br/>
 			</div>
-			<div id="event-candidates" aria-live="polite" class="w-full opacity-0 h-0 transition-all">
+			<div id="event-candidates" :class="{'opacity-100 h-auto': formStep >= 2}" aria-live="polite" class="w-full opacity-0 h-0 transition-all">
 				<h2 class="text-2xl font-bold">Are these events?</h2>
 				<div id="event-candidates-inner">
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-stretch">
@@ -64,7 +78,57 @@ templ AdminPage() {
 						<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 					</div>
 				</div>
+				<div id="event-candidates-location" class="has-toggleable-text">
+					<h2 class="text-2xl font-bold mt-16">Are all events at the target URL located in the same geography?</h2>
+					<label class="label cursor-pointer justify-normal">
+						<input id="event-candidates-location-toggle" type="checkbox" class="toggle toggle-success mr-4" checked/>
+						<span class="label-text ml-4 contents">These events are <strong class="hidden-when-checked">not </strong>in the same geography or near each other</span>
+					</label>
+					<div class="hidden-when-not-checked dropdown dropdown-hover">
+						<div id="location-type-address" :class="{'opacity-100 h-auto': formData.selectedLocationType === 'address'}" aria-live="polite" class="opacity-0 h-0 w-full mt-5 mb-5 transition-all">
+							<label for="geolocation-input" class="form-control w-full">
+								Enter an Address, ZIP / Postal Code, or City (more specific is better!)
+								<input name="geolocation-input" x-model.debounce.500ms="formData.address" type="text" class="input input-bordered w-full mt-3" placeholder="101 Somewhere St, Nowhereville 12345"/>
+							</label>
+							<button id="send-post-message" class="btn btn-primary mt-3">Send Post Message</button>
+							<iframe
+								id="google-map"
+								class="mt-5"
+								width="600"
+								height="450"
+								style="border:0"
+								loading="lazy"
+								allowfullscreen
+								referrerpolicy="no-referrer-when-downgrade"
+								:style="formData.address?.length ? 'display: block;' : 'display: none;'"
+								:src="getAddress()"
+							></iframe>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
+	<script>
+			function getWizardData() {
+					return {
+							formData: {
+								url: "",
+								selectedLocationType: "address",
+								address: "",
+							},
+							formStep: 1,
+							getAddress() {
+								return `https://www.google.com/maps/embed/v1/place?key=AIzaSyD7Aiz8HIyA3FgCUk3W2Gs35CECp89TWAc&q=${this.formData.address}`
+							},
+							isURL(url) {
+									var re = /[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z0-9]{2,}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/;
+									return re.test(url);
+							},
+							incrementFormStep() {
+									this.formStep += 1;
+							}
+				}
+		}
+	</script>
 }
