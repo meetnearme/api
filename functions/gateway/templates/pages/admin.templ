@@ -27,11 +27,10 @@ templ AdminPage() {
              formStep >= 3}"
 				>Add to Site</li>
 			</ul>
-			<button @click="incrementFormStep()">Increment</button>
 		</div>
 		<div class="divider divider-horizontal"></div>
 		<div id="event-source-container" class="flex-grow card border-2 border-base-300 bg-base-200 p-10 rounded-box place-items-center">
-			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL")) } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="incrementFormStep()">
+			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL")) } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? incrementFormStep() : ''">
 				<label for="url">Enter a URL that lists events and we will check the site and propose some events that might be on that page (this will take some time)</label>
 				<input
 					x-model="formData.url"
@@ -90,7 +89,6 @@ templ AdminPage() {
 								Enter an Address, ZIP / Postal Code, or City (more specific is better!)
 								<input name="geolocation-input" x-model.debounce.500ms="formData.address" type="text" class="input input-bordered w-full mt-3" placeholder="101 Somewhere St, Nowhereville 12345"/>
 							</label>
-							<button id="send-post-message" class="btn btn-primary mt-3">Send Post Message</button>
 							<iframe
 								id="google-map"
 								class="mt-5"
