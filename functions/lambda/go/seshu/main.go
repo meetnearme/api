@@ -182,7 +182,6 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	}
 
 	scrBodyString := string(scrBody)
-
 	// avoid extra parsing work for <head> content outside of <body>
 
 	// TODO: this doesn't appear to be working
@@ -199,7 +198,6 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	}
 
 	lines := strings.Split(markdown, "\n")
-	log.Println("markdown string lines!: ", len(lines))
 	// Filter out empty lines
 	var nonEmptyLines []string
 	for i, line := range lines {
@@ -234,20 +232,10 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 		return SendHTMLError(err, ctx, req)
 	}
 
-	// responseBody, err := json.Marshal(SeshuResponseBody{
-	// 	SessionID:   sessionID,
-	// 	EventsFound: eventsFound, // This now directly sets a slice of structs
-	// })
-
 	if err != nil {
 		log.Println("Error marshaling response body as JSON:", err)
 		return SendHTMLError(err, ctx, req)
 	}
-
-
-	log.Println("Chat GPT response: ", sessionID)
-	log.Println("Chat GPT message content: ", messageContent)
-	log.Println("Chat GPT message converted to `openAIjson`: ", openAIjson)
 
 	layoutTemplate := partials.EventCandidatesPartial(eventsFound)
 	var buf bytes.Buffer
@@ -334,19 +322,10 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", fmt.Errorf("unexpected response format, `message.content` missing")
 	}
 
-  // Use regex to remove incomplete JSON
-
 	// TODO: figure out why this isn't working
-	// problemPattern := regexp.MustCompile(`length}]$`)
-	// if (problemPattern.MatchString(messageContentArray)) {
-	// 	messageContentArray = problemPattern.ReplaceAllString(messageContentArray, "")
-	// 	trimPattern := regexp.MustCompile(`}[^}]*$`)
-  //   messageContentArray = trimPattern.ReplaceAllString(messageContentArray, "}]")
-	// 	fmt.Println("messageContentArray fixed invalid: ", messageContentArray)
-	// }
+  // Use regex to remove incomplete JSON that OpenAI sometimes returns
 
 	unpaddedJSON := unpadJSON(messageContentArray)
-
 
 	return sessionId, unpaddedJSON, nil
 }
