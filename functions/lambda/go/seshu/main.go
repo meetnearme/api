@@ -216,11 +216,16 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	jsonString := string(jsonStringBytes)
 
 	// TODO: consider log levels / log volume
-	sessionID, messageContent, err := CreateChatSession(jsonString)
+	_, messageContent, err := CreateChatSession(jsonString)
 	if err != nil {
 		log.Println("Error creating chat session:", err)
 		return SendHTMLError(err, ctx, req)
 	}
+
+	// TODO: `CreateChatSession` returns `SessionID` which should be stored in session data
+	// which is a separate DynamoDB table that is keyed with the `SessionID` and can be used for
+	// follow up internally when we detect invalidity in the OpenAI response and need to re-prompt
+	// for correct output
 
 	openAIjson := messageContent
 
@@ -309,8 +314,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	if err := json.Unmarshal(body, &respData); err != nil {
 		return "", "", err
 	}
-
-	log.Println("Chat GPT response: ", respData)
 
 	sessionId := respData.ID
 	if sessionId == "" {
