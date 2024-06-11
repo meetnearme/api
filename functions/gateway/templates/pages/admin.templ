@@ -83,7 +83,7 @@ templ AdminPage() {
 						<input id="event-candidates-location-toggle" type="checkbox" class="toggle toggle-success mr-4" checked/>
 						<span class="label-text ml-4 contents">These events are <strong class="hidden-when-checked">not </strong>in the same geography or near each other</span>
 					</label>
-					<div class="hidden-when-not-checked dropdown dropdown-hover">
+					<div class="hidden-when-not-checked">
 						<div id="location-type-address" :class="{'opacity-100 h-auto': formData.selectedLocationType === 'address'}" aria-live="polite" class="opacity-0 h-0 w-full mt-5 mb-5 transition-all">
 							<label for="geolocation-input" class="form-control w-full">
 								Enter an Address, ZIP / Postal Code, or City (more specific is better!)
@@ -102,6 +102,9 @@ templ AdminPage() {
 								:src="getAddress()"
 							></iframe>
 						</div>
+						<p>Is the red location pin &#128205; in the map accurate? (enter a value above before confirming)</p>
+						<button :disabled="!formData.address" class="btn btn-primary mt-3">Confirm Location</button>
+						// TODO: ping the map embed (/embed?address="123+somewhere+st" here to get the location from HTML
 					</div>
 				</div>
 			</div>

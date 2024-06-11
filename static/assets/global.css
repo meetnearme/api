@@ -66,6 +66,12 @@
   min-height: 1.5rem;
 }
 
+/* BEGIN seshu ingestion "add event source" section */
+
+#event-source-steps .step {
+  min-width: 15rem;
+}
+
 .checkbox-card {
   border: 2px solid oklch(var(--er));
 }
@@ -120,8 +126,4 @@
   #explainer-section
   .alert-info {
   background-color: oklch(var(--su));
-}
-
-#event-source-steps .step {
-  min-width: 15rem;
 }
