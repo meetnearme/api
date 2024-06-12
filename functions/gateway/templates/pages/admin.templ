@@ -102,7 +102,7 @@ templ AdminPage() {
 								:src="getAddress()"
 							></iframe>
 						</div>
-						<p>Is the red location pin &#128205; in the map accurate? (enter a value above before confirming)</p>
+						<p>Is the location in the map above accurate? (enter something in the text field above before confirming)</p>
 						<button :disabled="!formData.address" class="btn btn-primary mt-3">Confirm Location</button>
 						// TODO: ping the map embed (/embed?address="123+somewhere+st" here to get the location from HTML
 					</div>

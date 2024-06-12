@@ -56,7 +56,6 @@ type SeshuResponseBody struct {
 	EventsFound []shared.EventInfo `json:"events_found"`
 }
 
-// Define the structure for your request payload
 type CreateChatSessionPayload struct {
 	Model string `json:"model"` // Set the model you want to use
 	Messages []Message `json:"messages"`
