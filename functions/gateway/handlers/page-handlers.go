@@ -89,6 +89,22 @@ func GetLoginPage(ctx context.Context, r transport.Request, db *dynamodb.Client)
 	}, nil
 }
 
+func GetEmbedPage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
+	embedPage := pages.EmbedPage(r.QueryStringParameters["address"])
+	layoutTemplate := pages.Layout("Embed", embedPage)
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerError(err)
+	}
+	return transport.Response{
+		Headers:         map[string]string{"Content-Type": "text/html"},
+		StatusCode:      http.StatusOK,
+		IsBase64Encoded: false,
+		Body:            buf.String(),
+	}, nil
+}
+
 func GetEventDetailsPage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
 	// TODO: Extract reading param values into a helper method.
 	eventId, error := ctx.Value(helpers.EVENT_ID_KEY).(string)

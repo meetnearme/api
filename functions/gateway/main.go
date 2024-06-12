@@ -18,6 +18,7 @@ func init() {
 	router.GET("/", handlers.GetHomePage)
 	router.GET("/login", handlers.GetLoginPage)
 	router.GET("/admin", handlers.GetAdminPage)
+	router.GET("/embed", handlers.GetEmbedPage)
 	router.GET("/events/:eventId", handlers.GetEventDetailsPage)
 
 	router.POST("/api/event", handlers.CreateEvent)

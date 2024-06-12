@@ -1,0 +1,14 @@
+package pages
+
+import (
+	"os"
+)
+
+templ EmbedPage(address string) {
+	<section class="w-full">
+		<h1 class="text-2xl">Map Page - { address }</h1>
+		<div id="embed-map" class="w-full h-screen">
+			<iframe src={ "https://www.google.com/maps/embed/v1/place?key=" + os.Getenv("GOOGLE_API_KEY") + "&q=" + address } width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+		</div>
+	</section>
+}
