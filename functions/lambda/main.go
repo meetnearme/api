@@ -38,7 +38,7 @@ func init() {
 	router = transport.GetRouter()
 	router.GET("/", handlers.GetHomePage)
 	router.GET("/login", handlers.GetLoginPage)
-	router.GET("/sign-up", handlers.GetSignUpPage)
+	router.GET("/signup", handlers.GetSignUpPage)
 	router.GET("/events/:eventId", handlers.GetEventDetailsPage)
 
 	router.GET("/account", handlers.GetAccountPage, transport.ParseCookies, transport.RequireHeaderAuthorization)
