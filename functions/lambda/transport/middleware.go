@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"os"
 	"strings"
 
 	"github.com/clerk/clerk-sdk-go/v2"
@@ -31,7 +32,7 @@ func RequireHeaderAuthorization(ctx context.Context, r Request) (context.Context
 			Status:          302,
 			Message:         "Unauthorized. Session token missing.",
 			ErrorComponent:  nil,
-			ResponseHeaders: map[string]string{"Location": "https://zi01imi18j.execute-api.us-east-1.amazonaws.com/login?redirect=" + r.RawPath},
+			ResponseHeaders: map[string]string{"Location": os.Getenv("APEX_URL") + "/login?redirect=" + r.RawPath},
 		}
 		return ctx, r, httpError
 	}

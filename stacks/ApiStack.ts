@@ -20,13 +20,14 @@ export function ApiStack({ stack }: StackContext) {
           // STATIC_BASE_URL is a special case because the value comes from
           // `sst deploy` at runtime and then gets set as an environment variable
           STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
+          APEX_URL: app.stage === 'prod' ? process.env.PROD_URL : api.url,
           // ROUTE53_HOSTED_ZONE_ID omitted because it's only used in deployment
           // ROUTE53_HOSTED_ZONE_NAME omitted because it's only used in deployment
         },
       },
     },
     routes: {
-      $default: 'functions/lambda'
+      $default: 'functions/lambda',
     },
   });
 
