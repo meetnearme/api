@@ -5,7 +5,7 @@ import { StorageStack } from './StorageStack';
 import { HostedZone } from 'aws-cdk-lib/aws-route53';
 import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 
-export function ApiStack({ stack }: StackContext) {
+export function ApiStack({ app, stack }: StackContext) {
   const { table } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
 
