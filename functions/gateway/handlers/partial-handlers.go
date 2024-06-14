@@ -40,6 +40,7 @@ func GeoLookup(ctx context.Context, req transport.Request, db *dynamodb.Client) 
 			return transport.SendServerError(err)
 	}
 
+	// TODO: this needs to be parameterized!
 	htmlString, err := services.GetHTMLFromURL("https://vxk2uxg8v4.execute-api.us-east-1.amazonaws.com/map?address=" + inputPayload.Location, 500, false)
 
 	if err != nil {
