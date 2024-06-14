@@ -43,16 +43,22 @@ func TestGetHTMLFromURL(t *testing.T) {
 			baseURL := mockServer.URL
 
 			html, err := GetHTMLFromURLWithBase(baseURL, tc.value, 10, true)
-			if (tc.expectedErr == nil && err == nil) {
-				return
-			}
-			if err.Error() != tc.expectedErr.Error() {
-				t.Fatalf("Expected %v, got %v", tc.expectedErr, err)
-			}
 
 			if html != tc.expectedHTML {
 				t.Fatalf("Expected %v, got %v", tc.expectedHTML, html)
 			}
+
+			// if we expect `nil` and get `nil`, return early, we want to avoid
+			// calling `err.Error()` on a `nil` value below
+			if (tc.expectedErr == nil && err == nil) {
+				return
+			}
+
+			if err.Error() != tc.expectedErr.Error() {
+				t.Fatalf("Expected %v, got %v", tc.expectedErr, err)
+			}
+
+
 		})
 	}
 }
