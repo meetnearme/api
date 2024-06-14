@@ -18,10 +18,11 @@ func init() {
 	router.GET("/", handlers.GetHomePage)
 	router.GET("/login", handlers.GetLoginPage)
 	router.GET("/admin", handlers.GetAdminPage)
-	router.GET("/embed", handlers.GetEmbedPage)
+	router.GET("/map", handlers.GetMapEmbedPage)
 	router.GET("/events/:eventId", handlers.GetEventDetailsPage)
 
 	router.POST("/api/event", handlers.CreateEvent)
+	router.POST("/api/location/geo", handlers.GeoLookup)
 }
 
 func Router(ctx context.Context, req transport.Request) (transport.Response, error) {

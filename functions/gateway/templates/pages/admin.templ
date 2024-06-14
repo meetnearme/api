@@ -44,7 +44,7 @@ templ AdminPage() {
 				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid URL (must start with http:// or https://)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
 				<br/>
 				<br/>
-				<button type="submit" :disabled="!formData.url || !isURL(formData.url)" class="btn btn-primary">Search for Events</button>
+				<button type="submit" :disabled="!formData.url || !isURL(formData.url)" class="btn btn-primary">Search for Events <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 			</form>
 			<br/>
 			<br/>
@@ -85,26 +85,32 @@ templ AdminPage() {
 					</label>
 					<div class="hidden-when-not-checked">
 						<div id="location-type-address" :class="{'opacity-100 h-auto': formData.selectedLocationType === 'address'}" aria-live="polite" class="opacity-0 h-0 w-full mt-5 mb-5 transition-all">
-							<label for="geolocation-input" class="form-control w-full">
-								Enter an Address, ZIP / Postal Code, or City (more specific is better!)
-								<input name="geolocation-input" x-model.debounce.500ms="formData.address" type="text" class="input input-bordered w-full mt-3" placeholder="101 Somewhere St, Nowhereville 12345"/>
-							</label>
-							<iframe
-								id="google-map"
-								class="mt-5"
-								width="600"
-								height="450"
-								style="border:0"
-								loading="lazy"
-								allowfullscreen
-								referrerpolicy="no-referrer-when-downgrade"
-								:style="formData.address?.length ? 'display: block;' : 'display: none;'"
-								:src="getAddress()"
-							></iframe>
+							<form class="group" novalidate hx-post="/api/location/geo" hx-ext="json-enc" hx-target="#location-confirmation" hx-disabled-elt="input[name='location'], button[type='submit']" @submit.prevent="formData.address ? '' : ''">
+								<label for="location" class="form-control w-full">
+									Enter an Address, ZIP / Postal Code, or City (more specific is better!)
+									<input name="location" x-model.debounce.500ms="formData.address" type="text" class="input input-bordered w-full mt-3" placeholder="101 Somewhere St, Nowhereville 12345"/>
+								</label>
+								<iframe
+									id="google-map"
+									class="mt-5"
+									width="600"
+									height="450"
+									style="border:0"
+									loading="lazy"
+									allowfullscreen
+									referrerpolicy="no-referrer-when-downgrade"
+									:style="formData.address?.length ? 'display: block;' : 'display: none;'"
+									:src="getAddress()"
+								></iframe>
+								<br/>
+								<br/>
+								<p>Is the location in the map above accurate? (enter something in the text field above before confirming)</p>
+								<button type="submit" :disabled="!formData.address" class="btn btn-primary mt-3">Confirm Location <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+								<div id="location-confirmation" class="mt-5">
+									<div class="skeleton card card-compact h-24 w-full htmx-show-in-flight"></div>
+								</div>
+							</form>
 						</div>
-						<p>Is the location in the map above accurate? (enter something in the text field above before confirming)</p>
-						<button :disabled="!formData.address" class="btn btn-primary mt-3">Confirm Location</button>
-						// TODO: ping the map embed (/embed?address="123+somewhere+st" here to get the location from HTML
 					</div>
 				</div>
 			</div>

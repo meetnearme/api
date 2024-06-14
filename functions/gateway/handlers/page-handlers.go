@@ -89,9 +89,9 @@ func GetLoginPage(ctx context.Context, r transport.Request, db *dynamodb.Client)
 	}, nil
 }
 
-func GetEmbedPage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
-	embedPage := pages.EmbedPage(r.QueryStringParameters["address"])
-	layoutTemplate := pages.Layout("Embed", embedPage)
+func GetMapEmbedPage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
+	mapEmbedPage := pages.MapEmbedPage(r.QueryStringParameters["address"])
+	layoutTemplate := pages.Layout("Embed", mapEmbedPage)
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {

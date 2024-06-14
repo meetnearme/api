@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/go-playground/validator"
+	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/lambda/go/seshu/shared"
 	partials "github.com/meetnearme/api/functions/lambda/go/seshu/templates"
 )
@@ -32,7 +32,9 @@ import (
 // 8. Validate that the invalid metadata strings fromt the example (e.g. `Nowhere City`) do not appear in the LLM event array output
 // 9. Open AI can sometimes truncate the attempted JSON like this `<valid JSON start>...events/300401920/"}, {"event_tit...} stop}]`
 // 10. Validate user input is really a URL prior to consuming API resources like ZR or OpenAI
-// 11. Handle the scenario below where the scraped Markdown data is so large, that it exceeds the OpenAI API limit
+// 11. Loop over OpenAI response and remove any that have no chance of validity (e.g. lack a time or event title) before sending to the client
+// 12. Check for "Fake Event Title 1" (and the same for `location`, `time`, and `url`) and null those values before sending to client
+// 13. Handle the scenario below where the scraped Markdown data is so large, that it exceeds the OpenAI API limit
 //    and results in the error `Error: unexpected response format, `id` missing` because OpenAI literally returns an empty
 //    Chat GPT response:  {  0  [] map[]}
 
@@ -48,7 +50,6 @@ var converter = md.NewConverter("", true, nil)
 
 type SeshuInputPayload struct {
     Url string `json:"url" validate:"required"`
-
 }
 
 type SeshuResponseBody struct {
@@ -154,43 +155,20 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 			return serverError(err)
 	}
 
-	// start of scraping API code
-	client := &http.Client{}
-	scrReq, scrErr := http.NewRequest("GET", "https://app.scrapingbee.com/api/v1/?api_key=" + os.Getenv("SCRAPINGBEE_API_KEY") + "&url=" + url.QueryEscape(inputPayload.Url) + "&wait=4500&render_js=true", nil)
-	if scrErr != nil {
-		log.Println("ERR: ", scrErr)
-		return SendHTMLError(scrErr, ctx, req)
-	}
-	scrRes, scrErr := client.Do(scrReq)
-	if scrErr != nil {
-		log.Println("ERR: ", scrErr)
-		return SendHTMLError(scrErr, ctx, req)
-	}
-	defer scrRes.Body.Close()
-
-	scrBody, scrErr := io.ReadAll(scrRes.Body)
-	if scrErr != nil {
-			log.Println("ERR: ", scrErr)
-			return SendHTMLError(scrErr, ctx, req)
+	htmlString, err := services.GetHTMLFromURL(inputPayload.Url, 4500, true)
+	if err != nil {
+		return SendHTMLError(err, ctx, req)
 	}
 
-	if scrRes.StatusCode!= 200 {
-		scrErr := fmt.Errorf("%v from scraping API", fmt.Sprint(scrRes.StatusCode))
-		log.Println("ERR: ", scrErr)
-		return SendHTMLError(scrErr, ctx, req)
-	}
-
-	scrBodyString := string(scrBody)
 	// avoid extra parsing work for <head> content outside of <body>
-
 	// TODO: this doesn't appear to be working
 	re := regexp.MustCompile(`<body>(.*?)<\/body>`)
-	matches := re.FindStringSubmatch(scrBodyString)
+	matches := re.FindStringSubmatch(htmlString)
 	if len(matches) > 1 {
-		scrBodyString = matches[1]
+		htmlString = matches[1]
 	}
 
-	markdown, err := converter.ConvertString(scrBodyString)
+	markdown, err := converter.ConvertString(htmlString)
 	if err != nil {
 		log.Println("ERR: ", err)
 		return SendHTMLError(err, ctx, req)

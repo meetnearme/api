@@ -66,6 +66,22 @@
   min-height: 1.5rem;
 }
 
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator {
+  display: inherit;
+}
+
+.htmx-show-in-flight {
+  display: none;
+}
+
+.htmx-request .htmx-show-in-flight {
+  display: inherit;
+}
+
 /* BEGIN seshu ingestion "add event source" section */
 
 #event-source-steps .step {
@@ -127,3 +143,5 @@
   .alert-info {
   background-color: oklch(var(--su));
 }
+
+/* END seshu ingestion "add event source" section */
