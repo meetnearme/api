@@ -12,17 +12,22 @@ import (
 const URLEscapedErrorMsg = "ERR: URL must not be encoded, it should look like this 'https://example.com/path?query=value'"
 
 func GetHTMLFromURLWithBase(baseURL, unescapedURL string, timeout int, jsRender bool) (string, error) {
-	escapedURL, err := url.QueryUnescape(unescapedURL)
+
+	// TODO: Escaping twice, thrice or more is unlikely, but this just makes sure the URL isn't
+	// single or double-encoded when passed as a param
+	firstPassUrl, err := url.QueryUnescape(unescapedURL)
 	if err != nil {
 		return "", fmt.Errorf(URLEscapedErrorMsg)
 	}
-	decodedURL, err := url.QueryUnescape(escapedURL)
+	secondPassUrl, err := url.QueryUnescape(firstPassUrl)
 	if err != nil {
 		return "", fmt.Errorf(URLEscapedErrorMsg)
 	}
-	if unescapedURL != decodedURL {
+	if unescapedURL != secondPassUrl {
 		return "", fmt.Errorf(URLEscapedErrorMsg)
 	}
+
+	escapedURL := url.QueryEscape(unescapedURL)
 
 	// start of scraping API code
 	client := &http.Client{}
