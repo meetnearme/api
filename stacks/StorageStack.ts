@@ -14,8 +14,11 @@ export function StorageStack({ stack }: StackContext) {
       address: 'string',
       zipCode: 'string',
       country: 'string',
+      latitude: 'number',
+      longitude: 'number',
+      zOrderIndex: 'binary',
     },
-    primaryIndex: { partitionKey: 'id', sortKey: 'datetime' },
+    primaryIndex: { partitionKey: 'zOrderIndex', sortKey: 'datetime' },
   });
 
   return {
