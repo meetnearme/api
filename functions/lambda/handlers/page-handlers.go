@@ -16,7 +16,7 @@ import (
 	"github.com/meetnearme/api/functions/lambda/transport"
 )
 
-func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
+func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client, clerkAuth *transport.ClerkAuth) transport.Response {
 	// Extract parameter values from the request query parameters
 	startTimeStr := r.QueryStringParameters["start_time"]
 	endTimeStr := r.QueryStringParameters["end_time"]
@@ -58,7 +58,7 @@ func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) 
 			Status:         http.StatusInternalServerError,
 			Message:        err.Error(),
 			ErrorComponent: nil,
-		}), nil
+		})
 	}
 
 	homePage := pages.HomePage(events)
@@ -71,7 +71,7 @@ func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) 
 			Status:         http.StatusInternalServerError,
 			Message:        err.Error(),
 			ErrorComponent: nil,
-		}), nil
+		})
 	}
 
 	return transport.Response{
@@ -79,7 +79,7 @@ func GetHomePage(ctx context.Context, r transport.Request, db *dynamodb.Client) 
 		StatusCode:      http.StatusOK,
 		IsBase64Encoded: false,
 		Body:            buf.String(),
-	}, nil
+	}
 }
 
 func GetLoginPage(ctx context.Context, r transport.Request, db *dynamodb.Client, clerkAuth *transport.ClerkAuth) transport.Response {
