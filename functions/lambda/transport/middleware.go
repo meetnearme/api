@@ -2,7 +2,6 @@ package transport
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	"github.com/clerk/clerk-sdk-go/v2"
@@ -11,7 +10,8 @@ import (
 	"github.com/meetnearme/api/functions/lambda/helpers"
 )
 
-func ParseCookies(ctx context.Context, r Request) (context.Context, Request, *HTTPError) {
+func InitAppContext(ctx context.Context, r Request) (context.Context, Request, *HTTPError) {
+	domainName := r.RequestContext.DomainName
 	cookies := make(map[string]string)
 	for _, cookie := range r.Cookies {
 		parts := strings.SplitN(cookie, "=", 2)
@@ -21,18 +21,21 @@ func ParseCookies(ctx context.Context, r Request) (context.Context, Request, *HT
 	}
 
 	ctx = context.WithValue(ctx, "cookiesMap", cookies)
+	ctx = context.WithValue(ctx, "domainName", domainName)
 	return ctx, r, nil
 }
 
 func RequireHeaderAuthorization(ctx context.Context, r Request) (context.Context, Request, *HTTPError) {
 	cookiesMap := ctx.Value("cookiesMap").(map[string]string)
 	sessionToken := cookiesMap[helpers.SESSION_COOKIE]
+	domainName := ctx.Value("domainName").(string)
+
 	if sessionToken == "" {
 		httpError := &HTTPError{
 			Status:          302,
 			Message:         "Unauthorized. Session token missing.",
 			ErrorComponent:  nil,
-			ResponseHeaders: map[string]string{"Location": os.Getenv("APEX_URL") + "/login?redirect=" + r.RawPath},
+			ResponseHeaders: map[string]string{"Location": "https://" + domainName + "/login?redirect=" + r.RawPath},
 		}
 		return ctx, r, httpError
 	}

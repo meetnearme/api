@@ -36,14 +36,14 @@ func init() {
 
 	// Setup Routing
 	router = transport.GetRouter()
-	router.GET("/", handlers.GetHomePage)
-	router.GET("/login", handlers.GetLoginPage)
-	router.GET("/signup", handlers.GetSignUpPage)
-	router.GET("/events/:eventId", handlers.GetEventDetailsPage)
+	router.GET("/", handlers.GetHomePage, transport.InitAppContext)
+	router.GET("/login", handlers.GetLoginPage, transport.InitAppContext)
+	router.GET("/signup", handlers.GetSignUpPage, transport.InitAppContext)
+	router.GET("/events/:eventId", handlers.GetEventDetailsPage, transport.InitAppContext)
 
-	router.GET("/account", handlers.GetAccountPage, transport.ParseCookies, transport.RequireHeaderAuthorization)
+	router.GET("/account", handlers.GetAccountPage, transport.InitAppContext, transport.RequireHeaderAuthorization)
 
-	router.POST("/api/event", handlers.CreateEvent)
+	router.POST("/api/event", handlers.CreateEvent, transport.InitAppContext)
 }
 
 func Router(ctx context.Context, req transport.Request) (transport.Response, error) {
