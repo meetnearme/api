@@ -43,6 +43,7 @@ func CreateDbClient() *dynamodb.Client {
 			},
 		})
 		cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
+		log.Println("Connected to LOCAL DB")
 	}
 
 	if err != nil {
