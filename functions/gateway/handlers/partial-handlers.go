@@ -91,7 +91,6 @@ func GeoThenPatchSeshuSession(ctx context.Context, req transport.Request, db *dy
 		return transport.SendServerError(err)
 	}
 
-
 	var updateSehsuSession services.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(req.Body), &updateSehsuSession)
 
@@ -136,6 +135,47 @@ func GeoThenPatchSeshuSession(ctx context.Context, req transport.Request, db *dy
 
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerError(err)
+	}
+
+	return transport.Response{
+		Headers:         map[string]string{"Content-Type": "text/html"},
+		StatusCode:      http.StatusOK,
+		IsBase64Encoded: false,
+		Body:            buf.String(),
+	}, nil
+}
+
+func SubmitSeshuSession(ctx context.Context, req transport.Request, db *dynamodb.Client) (transport.Response, error) {
+	var inputPayload services.SeshuSessionUpdate
+	err := json.Unmarshal([]byte(req.Body), &inputPayload)
+	if err != nil {
+		msg := "Invalid JSON payload"
+		log.Println(msg + ": " + err.Error())
+		return transport.SendClientError(http.StatusBadRequest, msg)
+	}
+
+	err = validate.Struct(&inputPayload)
+	if err != nil {
+		msg := "Invalid request body"
+		log.Println(msg + ": " + err.Error())
+		return transport.SendClientError(http.StatusBadRequest, msg)
+	}
+
+	_, err = services.UpdateSeshuSession(ctx, db, inputPayload)
+
+	if err != nil {
+		msg := "Failed to update Event Target URL session"
+		log.Println(msg + ": " + err.Error())
+		return transport.SendClientError(http.StatusBadRequest, msg)
+	}
+
+
+	successPartial := partials.SuccessBannerHTML(`Your Event Source his beend added. We will put it in the queue and let you know when it's imported.`)
+
+	var buf bytes.Buffer
+	err = successPartial.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerError(err)
 	}

@@ -82,6 +82,14 @@
   display: inherit;
 }
 
+.htmx-hide-in-flight {
+  display: inherit;
+}
+
+.htmx-request .htmx-hide-in-flight {
+  display: none;
+}
+
 /* BEGIN seshu ingestion "add event source" section */
 
 #event-source-steps .step {

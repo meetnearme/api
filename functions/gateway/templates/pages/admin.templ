@@ -5,11 +5,11 @@ import (
 )
 
 templ AdminPage() {
-	<h2 class="text-3xl">Add an Event Source</h2>
+	<h1 class="text-3xl">Add an Event Source</h1>
 	<br/>
 	<br/>
-	<div class="flex w-full h-full items-start" x-data="getWizardData()">
-		<div class="w-1/2 flex-grow card border-2 border-base-300 bg-base-200 rounded-box place-items-center">
+	<div class="grid grid-cols-7" x-data="getWizardData()">
+		<div class="self-start sticky top-0 col-span-2 mr-5 card border-2 border-base-300 bg-base-200 rounded-box place-items-center ">
 			<ul id="event-source-steps" class="steps steps-vertical">
 				<li
 					class="step"
@@ -29,16 +29,16 @@ templ AdminPage() {
 			</ul>
 			<button @click="incrementFormStep()" class="btn btn-primary">Increment (DELETE ME!)</button>
 		</div>
-		<div class="divider divider-horizontal"></div>
-		<div id="event-source-container" class="flex-grow card border-2 border-base-300 bg-base-200 p-10 rounded-box place-items-center">
-			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL")) } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? incrementFormStep() : ''">
+		<div id="event-source-container" class="col-span-5 card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+			<h2 class="text-3xl font-bold ">Add a Target URL</h2>
+			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL")) } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? incrementFormStep() : ''" hx-on::after-request="getWizardData().updateHasEvents(event)">
 				<label for="url">Enter a URL that lists events and we will check the site and propose some events that might be on that page (this will take some time)</label>
 				<input
 					x-model="formData.url"
 					name="url"
 					id="url"
 					type="url"
-					class="input input-bordered w-full p-2 w-full"
+					class="input input-bordered w-full p-2 mt-5 w-full"
 					:class="{'border-red-500': formData.url && !isURL(formData.url)}"
 					placeholder="Event source URL"
 				/>
@@ -70,16 +70,29 @@ templ AdminPage() {
 				<br/>
 			</div>
 			<div id="event-candidates" :class="{'opacity-100 h-auto': formStep >= 2}" aria-live="polite" class="w-full opacity-0 h-0 transition-all">
-				<h2 class="text-2xl font-bold">Are these events?</h2>
-				<div id="event-candidates-inner">
-					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-stretch">
-						<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
-						<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
-						<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
+				<h3 class="text-2xl font-bold">Are these events?</h3>
+				// note that the input[type='checkbox'] items come back in response to the SESHU_FN_URL
+				// call and the checkboxes are not present by default
+				// TODO: delete the forced event.detail.successful = true call here in `hx-on`
+				<form class="group" novalidate hx-post="/api/seshu/session/submit" hx-ext="json-enc" hx-target="#events-valid-confirmation" hx-disabled-elt="input[type='checkbox'], button[type='submit']" hx-on::after-request="getWizardData().updateEventsValidated(event)">
+					<input
+						x-model="formData.url"
+						name="url"
+						id="url"
+						type="hidden"
+					/>
+					<div id="event-candidates-inner" class="mb-8">
+						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-stretch">
+							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
+							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
+							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
+						</div>
 					</div>
-				</div>
+					<button type="submit" :disabled="!hasEvents" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Event Data <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+				</form>
+				<div id="events-valid-confirmation"></div>
 				<div id="event-candidates-location" class="has-toggleable-text">
-					<h2 class="text-2xl font-bold mt-16">Are all events at the target URL located in the same geography?</h2>
+					<h3 class="text-2xl font-bold mt-16">Are all events at the target URL located in the same geography?</h3>
 					<label class="label cursor-pointer justify-normal">
 						<input id="event-candidates-location-toggle" type="checkbox" class="toggle toggle-success mr-4" checked/>
 						<span class="label-text ml-4 contents">These events are <strong class="hidden-when-checked">not </strong>in the same geography or near each other</span>
@@ -112,14 +125,29 @@ templ AdminPage() {
 								<br/>
 								<br/>
 								<p>Is the location in the map above accurate? (enter something in the text field above before adding)</p>
-								<button type="submit" :disabled="!formData.address" class="btn btn-primary mt-3">Add Location <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
-								<div id="location-confirmation" class="mt-5">
+								<button type="submit" :disabled="!formData.address" class="btn btn-primary mt-3"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Add Location <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+								<div id="location-confirmation" class="mt-5 htmx-hide-in-flight" aria-live="polite">
 									<div class="skeleton card card-compact h-24 w-full htmx-show-in-flight"></div>
 								</div>
 							</form>
 						</div>
 					</div>
 				</div>
+			</div>
+			<div class="divider divider-horizontal"></div>
+			<div
+				:class="{'opacity-100 h-auto': eventsValidated}"
+				id="explainer-section"
+				aria-live="polite"
+				class="opacity-0 h-0 w-full transition-all"
+			>
+				<p>Looks like we have the data we need to continuously import event data from the URL you've provided. Ready when you are!</p>
+				<form class="group" novalidate hx-post="/api/seshu/session/submit" hx-ext="json-enc" hx-target="#final-submission" hx-disabled-elt="button[type='submit']">
+					<button type="submit" class="btn btn-primary">Submit Event Source <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+					<div id="final-submission" class="mt-5 htmx-hide-in-flight" aria-live="polite">
+						<div class="skeleton card card-compact h-24 w-full htmx-show-in-flight"></div>
+					</div>
+				</form>
 			</div>
 		</div>
 	</div>
@@ -132,6 +160,24 @@ templ AdminPage() {
 								address: "",
 							},
 							formStep: 1,
+							hasEvents: false,
+							eventsValidated: false,
+							updateHasEvents(event) {
+								if (event?.detail?.successful) {
+									this.hasEvents = true;
+								} else {
+									console.error('Something went wrong with the Target URL ingestion request');
+								}
+							},
+							updateEventsValidated(event) {
+								if (event?.detail?.successful) {
+									this.eventsValidated = true;
+								} else {
+									console.error('Something went wrong with confirming events as valid');
+								}
+								// TODO: delete this, hacking for now
+								this.eventsValidated = true;
+							},
 							getAddress() {
 								return `https://www.google.com/maps/embed/v1/place?key=${document.querySelector('#alpine-state').getAttribute('data-google-api-key')}&q=${this.formData.address}`
 							},

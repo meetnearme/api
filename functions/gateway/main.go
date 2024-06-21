@@ -26,6 +26,7 @@ func init() {
 	// "/api/location/geo" is for use there
 	router.POST("/api/location/geo", handlers.GeoLookup)
 	router.POST("/api/seshu/session", handlers.CreateSeshuSession)
+	router.POST("/api/seshu/session/submit", handlers.SubmitSeshuSession)
 	router.PATCH("/api/seshu/session", handlers.UpdateSeshuSession)
 	router.PATCH("/api/seshu/session/location", handlers.GeoThenPatchSeshuSession)
 }
