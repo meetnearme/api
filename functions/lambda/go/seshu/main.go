@@ -8,15 +8,20 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/go-playground/validator"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/lambda/go/seshu/shared"
 	partials "github.com/meetnearme/api/functions/lambda/go/seshu/templates"
 )
@@ -47,6 +52,9 @@ import (
 
 var validate *validator.Validate = validator.New()
 var converter = md.NewConverter("", true, nil)
+// 395KB is just a bit under the 400KB dynamoDB limit
+// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html
+const maxHtmlDocSize = 395 * 1024
 
 type SeshuInputPayload struct {
     Url string `json:"url" validate:"required"`
@@ -124,6 +132,17 @@ The input is:
 =====
 const textStrings = `
 
+var db *dynamodb.Client
+
+func init() {
+	db = transport.CreateDbClient()
+}
+
+// TODO: debugging helper, DELETE ME! (maybe?) We should calculate string size and ensure
+// it doesn't overflow the byte buffer limitation of DynamoDB
+func calculateStringSize(s string) int {
+	return len([]byte(s))
+}
 
 func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
     switch req.RequestContext.HTTP.Method {
@@ -138,6 +157,10 @@ func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.La
 
 func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 	var inputPayload SeshuInputPayload
+
+	// TODO: debugging, DELETE ME!
+	// return clientError(http.StatusUnprocessableEntity)
+
 	err := json.Unmarshal([]byte(req.Body), &inputPayload)
 	if err != nil {
 			log.Printf("Invalid JSON payload: %v", err)
@@ -150,7 +173,6 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 			return clientError(http.StatusBadRequest)
 	}
 
-	log.Println("URL: ", inputPayload.Url)
 	if err != nil {
 			return serverError(err)
 	}
@@ -219,6 +241,52 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 		return SendHTMLError(err, ctx, req)
 	}
 
+	// we want to save the session AFTER sending an HTML response, since we will already
+	// have the session's `partitionKey` (which is always the full URL) for lookup later
+	defer func() {
+		url, err := url.Parse(inputPayload.Url)
+		if err != nil {
+			log.Println("ERR: Error parsing URL:", err)
+		}
+
+		domain := url.Host
+		path := url.Path
+		queryParams := url.Query()
+
+		// we opt for a truncation rather than error here as a tough UX decision. If an HTML document
+		// violates the 400KB dynamo doc size limit, there's really nothing we can do aside from
+		// "hope for the best" and use the first 400KB of the document and  hope it's enough to get
+		// the event data that's being sought after in the HTML doc output
+		// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html
+
+		truncatedHTMLStr, exceededLimit := helpers.TruncateStringByBytes(htmlString, maxHtmlDocSize)
+
+		if (exceededLimit) {
+			log.Printf("WARN: HTML document exceeded %v byte limit, truncating", maxHtmlDocSize)
+		}
+
+		currentTime := time.Now()
+		seshuSessionPayload := services.SeshuSessionInput{
+			SeshuSession: services.SeshuSession{
+				// TODO: this needs wiring up with Auth
+				OwnerId: "123",
+				Url: inputPayload.Url,
+				UrlDomain: domain,
+				UrlPath: path,
+				UrlQueryParams: queryParams,
+				Html: truncatedHTMLStr,
+				CreatedAt: currentTime.Unix(),
+				UpdatedAt: currentTime.Unix(),
+				ExpireAt: currentTime.Add(time.Hour * 24).Unix(),
+			},
+		}
+
+		_, err = services.InsertSeshuSession(ctx, db, seshuSessionPayload)
+		if err != nil {
+			log.Println("Error inserting Seshu session:", err)
+		}
+	}()
+
 	layoutTemplate := partials.EventCandidatesPartial(eventsFound)
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
@@ -229,7 +297,6 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	return events.LambdaFunctionURLResponse{
 			Headers: map[string]string{"Content-Type": "text/html"},
 			StatusCode: http.StatusOK,
-			// Body: string(responseBody),
 			Body: buf.String(),
 	}, nil
 }
@@ -251,8 +318,6 @@ func SendHTMLError(err error, ctx context.Context, req events.LambdaFunctionURLR
 
 func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	client := &http.Client{}
-	log.Println("Creating chat session")
-	log.Println("systemPrompt: ", systemPrompt)
 	payload := CreateChatSessionPayload{
 		Model: "gpt-3.5-turbo-16k",
 		Messages: []Message{

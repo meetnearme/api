@@ -22,7 +22,12 @@ func init() {
 	router.GET("/events/:eventId", handlers.GetEventDetailsPage)
 
 	router.POST("/api/event", handlers.CreateEvent)
+	// TODO: delete this comment once user location is implemented in profile,
+	// "/api/location/geo" is for use there
 	router.POST("/api/location/geo", handlers.GeoLookup)
+	router.POST("/api/seshu/session", handlers.CreateSeshuSession)
+	router.PATCH("/api/seshu/session", handlers.UpdateSeshuSession)
+	router.PATCH("/api/seshu/session/location", handlers.GeoThenPatchSeshuSession)
 }
 
 func Router(ctx context.Context, req transport.Request) (transport.Response, error) {

@@ -7,15 +7,16 @@ import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { SeshuFunction } from './SeshuFunction';
 
 export function ApiStack({ stack }: StackContext) {
-  const { table } = use(StorageStack);
+  const { eventsTable } = use(StorageStack);
+  const { seshuSessionsTable } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
   const { seshuFn } = use(SeshuFunction);
 
   const api = new Api(stack, 'api', {
     defaults: {
       function: {
-        // Bind the table name to our API
-        bind: [table],
+        // Bind the eventsTable name to our API
+        bind: [eventsTable, seshuSessionsTable],
         environment: {
           ...envVars,
           // ----- BEGIN -----

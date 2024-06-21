@@ -27,6 +27,7 @@ templ AdminPage() {
              formStep >= 3}"
 				>Add to Site</li>
 			</ul>
+			<button @click="incrementFormStep()" class="btn btn-primary">Increment (DELETE ME!)</button>
 		</div>
 		<div class="divider divider-horizontal"></div>
 		<div id="event-source-container" class="flex-grow card border-2 border-base-300 bg-base-200 p-10 rounded-box place-items-center">
@@ -85,7 +86,13 @@ templ AdminPage() {
 					</label>
 					<div class="hidden-when-not-checked">
 						<div id="location-type-address" :class="{'opacity-100 h-auto': formData.selectedLocationType === 'address'}" aria-live="polite" class="opacity-0 h-0 w-full mt-5 mb-5 transition-all">
-							<form class="group" novalidate hx-post="/api/location/geo" hx-ext="json-enc" hx-target="#location-confirmation" hx-disabled-elt="input[name='location'], button[type='submit']" @submit.prevent="formData.address ? '' : ''">
+							<form class="group" novalidate hx-patch="/api/seshu/session/location" hx-ext="json-enc" hx-target="#location-confirmation" hx-disabled-elt="input[name='location'], button[type='submit']" @submit.prevent="formData.address ? '' : ''">
+								<input
+									x-model="formData.url"
+									name="url"
+									id="url"
+									type="hidden"
+								/>
 								<label for="location" class="form-control w-full">
 									Enter an Address, ZIP / Postal Code, or City (more specific is better!)
 									<input name="location" x-model.debounce.500ms="formData.address" type="text" class="input input-bordered w-full mt-3" placeholder="101 Somewhere St, Nowhereville 12345"/>
@@ -104,8 +111,8 @@ templ AdminPage() {
 								></iframe>
 								<br/>
 								<br/>
-								<p>Is the location in the map above accurate? (enter something in the text field above before confirming)</p>
-								<button type="submit" :disabled="!formData.address" class="btn btn-primary mt-3">Confirm Location <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+								<p>Is the location in the map above accurate? (enter something in the text field above before adding)</p>
+								<button type="submit" :disabled="!formData.address" class="btn btn-primary mt-3">Add Location <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 								<div id="location-confirmation" class="mt-5">
 									<div class="skeleton card card-compact h-24 w-full htmx-show-in-flight"></div>
 								</div>

@@ -1,6 +1,7 @@
 package helpers
 
 const EventsTablePrefix = "Events"
+const SeshuSessionTablePrefix = "SeshuSessions"
 
 const (
 	EVENT_ID_KEY string = "eventId"

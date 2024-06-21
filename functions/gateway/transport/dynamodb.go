@@ -3,6 +3,7 @@ package transport
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -47,5 +48,6 @@ func CreateDbClient() *dynamodb.Client {
 	if err != nil {
 		panic(err)
 	}
+
 	return dynamodb.NewFromConfig(cfg)
 }

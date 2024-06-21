@@ -1,7 +1,10 @@
-import { Function } from 'sst/constructs';
+import { Function, use } from 'sst/constructs';
 import envVars from './shared/env';
+import { StorageStack } from './StorageStack';
 
 export function SeshuFunction({ stack }: StackContext) {
+  const { seshuSessionsTable } = use(StorageStack);
+
   const seshuFn = new Function(stack, 'SeshuFunction', {
     handler: 'functions/lambda/go/seshu',
     runtime: 'go',
@@ -11,6 +14,7 @@ export function SeshuFunction({ stack }: StackContext) {
     environment: {
       ...envVars,
     },
+    bind: [seshuSessionsTable],
   });
   stack.addOutputs({
     SeshuFunctionUrl: seshuFn.url,

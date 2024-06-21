@@ -17,3 +17,11 @@ func FormatTime(t string) string {
 	}
 	return _time.Format("3:04pm")
 }
+
+func TruncateStringByBytes(str string, limit int) (s string, exceededLimit bool) {
+	byteLen := len([]byte(str))
+	if byteLen <= limit {
+		return str, false
+	}
+	return string([]byte(str)[:limit]), false
+}

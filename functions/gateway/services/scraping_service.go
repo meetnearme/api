@@ -32,6 +32,8 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, timeout int, jsRender 
 	// start of scraping API code
 	client := &http.Client{}
 	scrapingUrl := baseURL + "?api_key=" + os.Getenv("SCRAPINGBEE_API_KEY") + "&url=" + escapedURL + "&wait=" + fmt.Sprint(timeout) + "&render_js=" + fmt.Sprint(jsRender)
+	log.Println("unescapedURL: ", unescapedURL)
+	log.Println("escapedURL: ", escapedURL)
 	log.Println("scrapingUrl: ", scrapingUrl)
 	req, err := http.NewRequest("GET", scrapingUrl, nil)
 	if err != nil {
@@ -50,6 +52,7 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, timeout int, jsRender 
 	}
 
 	if res.StatusCode!= 200 {
+		log.Println("ERR: RES =  ", fmt.Sprint(res))
 		err := fmt.Errorf("%v from scraping API", fmt.Sprint(res.StatusCode))
 		return  "", fmt.Errorf("ERR: %v", err)
 	}

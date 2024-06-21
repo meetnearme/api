@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"regexp"
-	"strings"
+	"strconv"
 
 	"log"
 	"net/http"
@@ -19,6 +17,11 @@ import (
 
 type GeoLookupInputPayload struct {
 	Location string `json:"location" validate:"required"`
+}
+
+type GeoThenSeshuPatchInputPayload struct {
+	Location string `json:"location" validate:"required"`
+	Url string `json:"url" validate:"required"` // URL is the DB key in SeshuSession
 }
 
 func GeoLookup(ctx context.Context, req transport.Request, db *dynamodb.Client) (transport.Response, error) {
@@ -40,40 +43,96 @@ func GeoLookup(ctx context.Context, req transport.Request, db *dynamodb.Client) 
 			return transport.SendServerError(err)
 	}
 
-	// TODO: this needs to be parameterized!
-	htmlString, err := services.GetHTMLFromURL("https://vxk2uxg8v4.execute-api.us-east-1.amazonaws.com/map?address=" + inputPayload.Location, 500, false)
+	lat, lon, address, err := services.GetGeo(inputPayload.Location)
 
 	if err != nil {
-		return transport.SendHTMLError(err, ctx, req)
+		return transport.SendServerError(err)
 	}
 
-	// this regex specifically captures the pattern of a lat/lon pair e.g. [40.7128, -74.0060]
-	re := regexp.MustCompile(`\[\-?\+?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*\-?\+?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)\]`)
-	latLon := re.FindString(htmlString)
+	geoLookupPartial := partials.GeoLookup(lat, lon, address, false)
 
-	if latLon == "" {
-		return transport.SendHTMLError(fmt.Errorf("location is not valid"), ctx, req)
+	var buf bytes.Buffer
+	err = geoLookupPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerError(err)
 	}
 
-	latLonArr := strings.Split(latLon, ",")
-	lat := latLonArr[0]
-	lon := latLonArr[1]
-	re = regexp.MustCompile(`[^\d.]`)
-	lat = re.ReplaceAllString(lat, "")
-	lon = re.ReplaceAllString(lon, "")
+	return transport.Response{
+		Headers:         map[string]string{"Content-Type": "text/html"},
+		StatusCode:      http.StatusOK,
+		IsBase64Encoded: false,
+		Body:            buf.String(),
+	}, nil
+}
 
-	// Regular expression pattern
-	pattern := `"([^"]*)"\s*,\s*\` + latLon
-	re = regexp.MustCompile(pattern)
+func GeoThenPatchSeshuSession(ctx context.Context, req transport.Request, db *dynamodb.Client) (transport.Response, error) {
 
-	// Find the matches
-	address := re.FindStringSubmatch(htmlString)
+	var inputPayload GeoThenSeshuPatchInputPayload
+	err := json.Unmarshal([]byte(req.Body), &inputPayload)
 
-	if len(address) < 1 {
-		address = []string{"", "No address found"}
+	if err != nil {
+			log.Printf("Invalid JSON payload: %v", err)
+			return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
 	}
 
-	geoLookupPartial := partials.GeoLookup(lat, lon, address[1])
+	err = validate.Struct(&inputPayload)
+	if err != nil {
+			log.Printf("Invalid body: %v", err)
+			return transport.SendClientError(http.StatusBadRequest, "Invalid Body")
+	}
+
+	if err != nil {
+			return transport.SendServerError(err)
+	}
+
+	lat, lon, address, err := services.GetGeo(inputPayload.Location)
+
+	if err != nil {
+		return transport.SendServerError(err)
+	}
+
+
+	var updateSehsuSession services.SeshuSessionUpdate
+	err = json.Unmarshal([]byte(req.Body), &updateSehsuSession)
+
+	if err != nil {
+		log.Printf("Invalid JSON payload: %v", err)
+		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
+	}
+
+	latFloat, err := strconv.ParseFloat(lat, 64)
+	if err != nil {
+		log.Printf("Invalid latitude value: %v", err)
+		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid latitude value")
+	}
+	updateSehsuSession.LocationLatitude = latFloat
+	lonFloat, err := strconv.ParseFloat(lon, 64)
+	if err != nil {
+		log.Printf("Invalid latitude value: %v", err)
+		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid longitude value")
+	}
+	updateSehsuSession.LocationLongitude = lonFloat
+	updateSehsuSession.LocationAddress = address
+
+	if err != nil {
+		log.Printf("Invalid JSON payload: %v", err)
+		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
+	}
+
+	if (updateSehsuSession.Url == "") {
+		var msg = "ERR: Invalid body: url is required"
+		log.Println(msg)
+		return transport.SendClientError(http.StatusBadRequest, msg)
+	}
+
+	geoLookupPartial := partials.GeoLookup(lat, lon, address, true)
+
+	_, err = services.UpdateSeshuSession(ctx, db, updateSehsuSession)
+
+	if err != nil {
+		log.Printf("Error updating target URL session: %v", err)
+		return transport.SendClientError(http.StatusNotFound, "Error updating target URL session")
+	}
 
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
