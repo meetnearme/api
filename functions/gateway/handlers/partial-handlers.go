@@ -24,6 +24,15 @@ type GeoThenSeshuPatchInputPayload struct {
 	Url string `json:"url" validate:"required"` // URL is the DB key in SeshuSession
 }
 
+type SeshuSessionSubmitPayload struct {
+	Url string `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+}
+
+type SeshuSessionEventsPayload struct {
+	Url string `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+	EventValidations [][]bool `json:"eventValidations" validate:"required"`
+}
+
 func GeoLookup(ctx context.Context, req transport.Request, db *dynamodb.Client) (transport.Response, error) {
 
 	var inputPayload GeoLookupInputPayload
@@ -147,8 +156,9 @@ func GeoThenPatchSeshuSession(ctx context.Context, req transport.Request, db *dy
 	}, nil
 }
 
-func SubmitSeshuSession(ctx context.Context, req transport.Request, db *dynamodb.Client) (transport.Response, error) {
-	var inputPayload services.SeshuSessionUpdate
+func SubmitSeshuEvents(ctx context.Context, req transport.Request, db *dynamodb.Client) (transport.Response, error) {
+	var inputPayload SeshuSessionEventsPayload
+
 	err := json.Unmarshal([]byte(req.Body), &inputPayload)
 	if err != nil {
 		msg := "Invalid JSON payload"
@@ -163,7 +173,22 @@ func SubmitSeshuSession(ctx context.Context, req transport.Request, db *dynamodb
 		return transport.SendClientError(http.StatusBadRequest, msg)
 	}
 
-	_, err = services.UpdateSeshuSession(ctx, db, inputPayload)
+	var updateSehsuSession services.SeshuSessionUpdate
+	err = json.Unmarshal([]byte(req.Body), &updateSehsuSession)
+
+	if err != nil {
+		msg := "Invalid JSON payload"
+		log.Println(msg + ": " + err.Error())
+		return transport.SendClientError(http.StatusBadRequest, msg)
+	}
+
+	updateSehsuSession.Url = inputPayload.Url
+	// Note that only OpenAI can push events as candidates, `eventValidations` is an array of
+	// arrays that confirms the subfields, but avoids a scenario where users can push string data
+	// that is prone to manipulation
+	updateSehsuSession.EventValidations = inputPayload.EventValidations
+
+	_, err = services.UpdateSeshuSession(ctx, db, updateSehsuSession)
 
 	if err != nil {
 		msg := "Failed to update Event Target URL session"
@@ -171,8 +196,62 @@ func SubmitSeshuSession(ctx context.Context, req transport.Request, db *dynamodb
 		return transport.SendClientError(http.StatusBadRequest, msg)
 	}
 
+	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`)
 
-	successPartial := partials.SuccessBannerHTML(`Your Event Source his beend added. We will put it in the queue and let you know when it's imported.`)
+	var buf bytes.Buffer
+	err = successPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerError(err)
+	}
+
+	return transport.Response{
+		Headers:         map[string]string{"Content-Type": "text/html"},
+		StatusCode:      http.StatusOK,
+		IsBase64Encoded: false,
+		Body:            buf.String(),
+	}, nil
+}
+
+func SubmitSeshuSession(ctx context.Context, req transport.Request, db *dynamodb.Client) (transport.Response, error) {
+	var inputPayload SeshuSessionSubmitPayload
+	err := json.Unmarshal([]byte(req.Body), &inputPayload)
+	if err != nil {
+		msg := "Invalid JSON payload"
+		log.Println(msg + ": " + err.Error())
+		return transport.SendClientError(http.StatusBadRequest, msg)
+	}
+
+	err = validate.Struct(&inputPayload)
+	if err != nil {
+		msg := "Invalid request body"
+		log.Println(msg + ": " + err.Error())
+		return transport.SendClientError(http.StatusBadRequest, msg)
+	}
+
+	var updateSehsuSession services.SeshuSessionUpdate
+	err = json.Unmarshal([]byte(req.Body), &updateSehsuSession)
+
+	if err != nil {
+		msg := "Invalid JSON payload"
+		log.Println(msg + ": " + err.Error())
+		return transport.SendClientError(http.StatusBadRequest, msg)
+	}
+
+	updateSehsuSession.Url = inputPayload.Url
+	updateSehsuSession.Status = "submitted"
+
+	_, err = services.UpdateSeshuSession(ctx, db, updateSehsuSession)
+
+	if err != nil {
+		msg := "Failed to update Event Target URL session"
+		log.Println(msg + ": " + err.Error())
+		return transport.SendClientError(http.StatusBadRequest, msg)
+	}
+
+	// TODO: this sets the session to `submitted`, in a follow-up PR this will call a function
+	// that manages the handoff to the event scraping queue to do the real ingestion work
+
+	successPartial := partials.SuccessBannerHTML(`Your Event Source his been added. We will put it in the queue and let you know when it's imported.`)
 
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)

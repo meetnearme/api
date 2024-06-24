@@ -22,7 +22,6 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/transport"
-	"github.com/meetnearme/api/functions/lambda/go/seshu/shared"
 	partials "github.com/meetnearme/api/functions/lambda/go/seshu/templates"
 )
 
@@ -62,7 +61,7 @@ type SeshuInputPayload struct {
 
 type SeshuResponseBody struct {
 	SessionID string `json:"session_id"`
-	EventsFound []shared.EventInfo `json:"events_found"`
+	EventsFound []services.EventInfo `json:"events_found"`
 }
 
 type CreateChatSessionPayload struct {
@@ -228,11 +227,11 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 
 	openAIjson := messageContent
 
-	var eventsFound []shared.EventInfo
+	var eventsFound []services.EventInfo
 
 	err = json.Unmarshal([]byte(openAIjson), &eventsFound)
 	if err != nil {
-		log.Println("Error unmarshaling OpenAI response into shared.EventInfo slice:", err)
+		log.Println("Error unmarshaling OpenAI response into services.EventInfo slice:", err)
 		return SendHTMLError(err, ctx, req)
 	}
 
@@ -275,6 +274,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 				UrlPath: path,
 				UrlQueryParams: queryParams,
 				Html: truncatedHTMLStr,
+				EventCandidates: eventsFound,
 				CreatedAt: currentTime.Unix(),
 				UpdatedAt: currentTime.Unix(),
 				ExpireAt: currentTime.Add(time.Hour * 24).Unix(),

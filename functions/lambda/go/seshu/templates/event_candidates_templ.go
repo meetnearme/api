@@ -12,10 +12,10 @@ import "bytes"
 
 import (
 	"fmt"
-	"github.com/meetnearme/api/functions/lambda/go/seshu/shared"
+	"github.com/meetnearme/api/functions/gateway/services"
 )
 
-func EventCandidatesPartial(eventCandidates []shared.EventInfo) templ.Component {
+func EventCandidatesPartial(eventCandidates []services.EventInfo) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, templ_7745c5c3_W io.Writer) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templ_7745c5c3_W.(*bytes.Buffer)
 		if !templ_7745c5c3_IsBuffer {

@@ -15,6 +15,14 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
+type EventInfo struct {
+	EventTitle    	 string `json:"event_title"`
+	EventLocation 	 string `json:"event_location"`
+	EventDate     	 string `json:"event_date"`
+	EventURL      	 string `json:"event_url"`
+	EventDescription string `json:"event_description"`
+}
+
 type SeshuSession struct {
 	OwnerId    string `json:"ownerId" validate:"required"`
 	Url        string `json:"url" validate:"required"`
@@ -25,6 +33,8 @@ type SeshuSession struct {
 	LocationLongitude float64 `json:"locationLongitude" validate:"optional"`
 	LocationAddress   string  `json:"locationAddress" validate:"optional"`
 	Html      string `json:"html" validate:"required"`
+	EventCandidates	 []EventInfo `json:"eventCandidates" validate:"optional"`
+	Status 		string `json:"status" validate:"optional"`
 	CreatedAt int64  `json:"createdAt" validate:"required"`
 	UpdatedAt int64  `json:"updatedAt" validate:"required"`
 	ExpireAt  int64  `json:"expireAt" validate:"required"`
@@ -38,7 +48,7 @@ type SeshuSessionInput struct {
 }
 
 type SeshuSessionInsert struct {
-	OwnerId    string `json:"ownerId" dynamodbav:"ownerId" validate:"required" `
+	OwnerId    string `json:"ownerId" dynamodbav:"ownerId" validate:"required"`
 	Url        string `json:"url" dynamodbav:"url" validate:"required"`
 	UrlDomain      string `json:"urlDomain" dynamodbav:"urlDomain" validate:"required"`
 	UrlPath        string `json:"urlPath" dynamodbav:"urlPath" validate:"optional"`
@@ -47,13 +57,15 @@ type SeshuSessionInsert struct {
 	LocationLongitude float64 `json:"locationLongitude" dynamodbav:"locationLongitude" validate:"optional"`
 	LocationAddress   string  `json:"locationAddress" dynamodbav:"locationAddress" validate:"optional"`
 	Html      string `json:"html" dynamodbav:"html" validate:"required"`
+	EventCandidates	 []EventInfo `json:"eventCandidates" dynamodbav:"eventCandidates" validate:"optional"`
+	EventValidations [][]bool `json:"eventValidations" dynamodbav:"eventValidations" validate:"optional"`
+	Status 		string `json:"status" dynamodbav:"status" validate:"optional"`
 	CreatedAt int64  `json:"createdAt" dynamodbav:"createdAt" validate:"required"`
 	UpdatedAt int64  `json:"updatedAt" dynamodbav:"updatedAt" validate:"required"`
 	ExpireAt  int64  `json:"expireAt" dynamodbav:"expireAt" validate:"required"`
 }
-
 type SeshuSessionUpdate struct {
-	OwnerId    string `json:"ownerId" dynamodbav:"ownerId" validate:"optional" `
+	OwnerId    string `json:"ownerId" dynamodbav:"ownerId" validate:"optional"`
 	Url        string `json:"url" dynamodbav:"url" validate:"required"`
 	UrlDomain      string `json:"urlDomain" dynamodbav:"urlDomain" validate:"optional"`
 	UrlPath        string `json:"urlPath" dynamodbav:"urlPath" validate:"optional"`
@@ -62,6 +74,9 @@ type SeshuSessionUpdate struct {
 	LocationLongitude float64 `json:"locationLongitude" dynamodbav:"locationLongitude" validate:"optional"`
 	LocationAddress   string  `json:"locationAddress" dynamodbav:"locationAddress" validate:"optional"`
 	Html      string `json:"html" dynamodbav:"html" validate:"optional"`
+	EventCandidates   []EventInfo `json:"eventCandidates" dynamodbav:"eventCandidates" validate:"optional"`
+	EventValidations [][]bool `json:"eventValidations" dynamodbav:"eventValidations" validate:"optional"`
+	Status 		string `json:"status" dynamodbav:"status" validate:"optional"`
 	CreatedAt int64  `json:"createdAt" dynamodbav:"createdAt" validate:"optional"`
 	UpdatedAt int64  `json:"updatedAt" dynamodbav:"updatedAt" validate:"optional"`
 	ExpireAt  int64  `json:"expireAt" dynamodbav:"expireAt" validate:"optional"`
@@ -72,8 +87,6 @@ var seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePre
 func init () {
 	seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
 }
-
-
 
 func GetSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload SeshuSession) (*SeshuSession, error) {
 	input := &dynamodb.GetItemInput{
@@ -113,6 +126,9 @@ func GetSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload Sesh
 
 func InsertSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload SeshuSessionInput) (*SeshuSessionInsert, error) {
 	currentTime := time.Now().Unix()
+	if len(seshuPayload.EventCandidates) < 1 {
+		seshuPayload.EventCandidates = []EventInfo{}
+	}
 	newSeshuSession := SeshuSessionInsert{
 		OwnerId:    seshuPayload.OwnerId,
 		Url:  seshuPayload.Url,
@@ -123,6 +139,9 @@ func InsertSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload S
 		LocationLongitude: seshuPayload.LocationLongitude,
 		LocationAddress:   seshuPayload.LocationAddress,
 		Html:       seshuPayload.Html,
+		EventCandidates: seshuPayload.EventCandidates,
+		EventValidations: [][]bool{},
+		Status:		 "draft",
 		ExpireAt:   currentTime + 3600*24, // 24 hrs expiration
 		CreatedAt:  currentTime,
 		UpdatedAt:  currentTime,
@@ -174,6 +193,12 @@ func UpdateSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload S
 		UpdateExpression:          aws.String("SET"),
 	}
 
+	if seshuPayload.OwnerId != "" {
+		input.ExpressionAttributeNames["#ownerId"] = "ownerId"
+		input.ExpressionAttributeValues[":ownerId"] = &types.AttributeValueMemberS{Value: seshuPayload.OwnerId}
+		*input.UpdateExpression += " #ownerId = :ownerId,"
+	}
+
 	if seshuPayload.UrlDomain != "" {
 		input.ExpressionAttributeNames["#urlDomain"] = "urlDomain"
 		input.ExpressionAttributeValues[":urlDomain"] = &types.AttributeValueMemberS{Value: seshuPayload.UrlDomain}
@@ -220,17 +245,42 @@ func UpdateSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload S
 		*input.UpdateExpression += " #html = :html,"
 	}
 
+	if seshuPayload.EventCandidates != nil {
+		input.ExpressionAttributeNames["#eventCandidates"] = "eventCandidates"
+		eventCandidates, err := attributevalue.MarshalList(seshuPayload.EventCandidates)
+		if err != nil {
+			return nil, err
+		}
+		input.ExpressionAttributeValues[":eventCandidates"] = &types.AttributeValueMemberL{Value: eventCandidates}
+		*input.UpdateExpression += " #eventCandidates = :eventCandidates,"
+	}
+
+	if seshuPayload.EventValidations != nil {
+		input.ExpressionAttributeNames["#eventValidations"] = "eventValidations"
+		eventValidations, err := attributevalue.MarshalList(seshuPayload.EventValidations)
+		if err != nil {
+			return nil, err
+		}
+		input.ExpressionAttributeValues[":eventValidations"] = &types.AttributeValueMemberL{Value: eventValidations}
+		*input.UpdateExpression += " #eventValidations = :eventValidations,"
+	}
+
+	if seshuPayload.Status != "" {
+		input.ExpressionAttributeNames["#status"] = "status"
+		input.ExpressionAttributeValues[":status"] = &types.AttributeValueMemberS{Value: seshuPayload.Status}
+		*input.UpdateExpression += " #status = :status,"
+	}
+
 	currentTime := time.Now().Unix()
 	input.ExpressionAttributeNames["#updatedAt"] = "updatedAt"
 	input.ExpressionAttributeValues[":updatedAt"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(float64(currentTime), 'f', -1, 64)}
 	*input.UpdateExpression += " #updatedAt = :updatedAt"
 
-	res, err := db.UpdateItem(ctx, input)
+	_, err := db.UpdateItem(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Printf("Seshu session DB res: %+v", res)
 	log.Printf("Updated seshu session: %+v", seshuPayload.Url)
 
 	return nil, nil

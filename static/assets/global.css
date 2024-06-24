@@ -90,6 +90,10 @@
   display: none;
 }
 
+.margins-when-children.my-8:has(*) {
+  margin: 2rem 0;
+}
+
 /* BEGIN seshu ingestion "add event source" section */
 
 #event-source-steps .step {

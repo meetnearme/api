@@ -29,6 +29,7 @@ func init() {
 	router.POST("/api/seshu/session/submit", handlers.SubmitSeshuSession)
 	router.PATCH("/api/seshu/session", handlers.UpdateSeshuSession)
 	router.PATCH("/api/seshu/session/location", handlers.GeoThenPatchSeshuSession)
+	router.PATCH("/api/seshu/session/events", handlers.SubmitSeshuEvents)
 }
 
 func Router(ctx context.Context, req transport.Request) (transport.Response, error) {

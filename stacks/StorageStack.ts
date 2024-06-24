@@ -33,6 +33,9 @@ export function StorageStack({ stack }: StackContext) {
       locationLongitude: 'number',
       locationAddress: 'string',
       html: 'string',
+      status: 'string',
+      eventCandidates: 'string', // this is an array, but there is no type for arrays
+      eventValidations: 'string', // this is an array, but there is no type for arrays
       expireAt: 'number',
       createdAt: 'number',
       updatedAt: 'number', // TODO: consider updating `expireAt` when session is updated
