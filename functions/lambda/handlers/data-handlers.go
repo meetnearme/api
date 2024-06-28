@@ -1,62 +1,85 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
+	"io"
 	"log"
 	"net/http"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/go-playground/validator"
 	"github.com/meetnearme/api/functions/lambda/services"
-	"github.com/meetnearme/api/functions/lambda/transport"
 )
 
 var validate *validator.Validate = validator.New()
 
-func CreateEvent(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
+func CreateEvent(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+	ctx := r.Context()
 	var createEvent services.EventInsert
-	err := json.Unmarshal([]byte(r.Body), &createEvent)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		msg := "Failed to read request body: " + err.Error()
+		log.Println(msg)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(msg))
+
+		return http.HandlerFunc(nil)
+	}
+
+	err = json.Unmarshal(body, &createEvent)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		log.Printf("Invalid JSON payload: %v", err)
-		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
+		msg := "Invalid JSON payload: " + err.Error()
+		log.Println(msg)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(msg))
+
+		return http.HandlerFunc(nil)
 	}
 
 	err = validate.Struct(&createEvent)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		log.Printf("Invalid body: %v", err)
-		return transport.SendClientError(http.StatusBadRequest, "Invalid Body")
+		msg := "Invalid body: " + err.Error()
+		log.Println(msg)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(msg))
+
+		return http.HandlerFunc(nil)
 	}
 
 	res, err := services.InsertEvent(ctx, db, createEvent)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerError(err)
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+
+		return http.HandlerFunc(nil)
 	}
 
 	json, err := json.Marshal(res)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerError(err)
+		msg := "ERR: marshaling JSON: " + err.Error()
+		log.Println(msg)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(msg))
+
+		return http.HandlerFunc(nil)
 	}
 
 	// TODO: consider log levels / log volume
 	log.Printf("Inserted new item: %+v", res)
 
 	// TODO: Replace JSON response with htmx template with event data
-	return events.APIGatewayV2HTTPResponse{
-		StatusCode: http.StatusCreated,
-		Body:       string(json),
-		Headers: map[string]string{
-			"Location": fmt.Sprintf("/user/%s", "hello res"),
-		},
-	}, nil
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(string(json)))
+
+	return http.HandlerFunc(nil)
 }
