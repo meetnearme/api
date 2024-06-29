@@ -22,11 +22,12 @@ func SendHtmlError(w http.ResponseWriter, body []byte, status int) http.HandlerF
 }
 
 
-func SendServerRes(w http.ResponseWriter, body []byte, status int, err error) http.HandlerFunc {
-	log.Println(err.Error())
+func SendServerRes(w http.ResponseWriter, body []byte, status int) http.HandlerFunc {
+	msg := "ERR: "+string(body)
+	log.Println(msg)
 
 	w.WriteHeader(status)
-	w.Write(body)
+	w.Write([]byte(msg))
 
 	return http.HandlerFunc(nil)
 }

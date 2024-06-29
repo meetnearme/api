@@ -19,35 +19,35 @@ func CreateEvent(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) ht
 	var createEvent services.EventInsert
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return transport.SendServerRes(w, []byte("ERR: Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	err = json.Unmarshal(body, &createEvent)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerRes(w, []byte("ERR: Invalid JSON payload: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	err = validate.Struct(&createEvent)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerRes(w, []byte("ERR: Invalid body: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	res, err := services.InsertEvent(ctx, db, createEvent)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerRes(w, []byte("ERR: Failed to add event: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to add event: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	json, err := json.Marshal(res)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerRes(w, []byte("ERR: marshaling JSON: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Marshaling JSON: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	// TODO: consider log levels / log volume

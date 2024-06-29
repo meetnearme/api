@@ -58,7 +58,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) ht
 	// Call the GetEventsZOrder service to retrieve events
 	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	homePage := pages.HomePage(events)
@@ -67,7 +67,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) ht
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	return transport.SendHtmlSuccess(w, buf.Bytes(), http.StatusOK)
@@ -80,7 +80,7 @@ func GetLoginPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) h
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	return transport.SendHtmlSuccess(w, buf.Bytes(), http.StatusOK)
@@ -101,7 +101,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Cl
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	return transport.SendHtmlSuccess(w, buf.Bytes(), http.StatusOK)
