@@ -13,6 +13,7 @@ import (
 	"github.com/meetnearme/api/functions/lambda/helpers"
 	"github.com/meetnearme/api/functions/lambda/services"
 	"github.com/meetnearme/api/functions/lambda/templates/pages"
+	"github.com/meetnearme/api/functions/lambda/transport"
 )
 
 func GetHomePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
@@ -57,10 +58,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) ht
 	// Call the GetEventsZOrder service to retrieve events
 	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-
-		return http.HandlerFunc(nil)
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
 	homePage := pages.HomePage(events)
@@ -69,17 +67,10 @@ func GetHomePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) ht
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-
-		return http.HandlerFunc(nil)
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	w.Write(buf.Bytes())
-
-	return http.HandlerFunc(nil)
+	return transport.SendHtmlSuccess(w, buf.Bytes(), http.StatusOK)
 }
 
 func GetLoginPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
@@ -89,17 +80,10 @@ func GetLoginPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) h
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-
-		return http.HandlerFunc(nil)
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	w.Write(buf.Bytes())
-
-	return http.HandlerFunc(nil)
+	return transport.SendHtmlSuccess(w, buf.Bytes(), http.StatusOK)
 }
 
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
@@ -117,15 +101,8 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Cl
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-
-		return http.HandlerFunc(nil)
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	w.Write(buf.Bytes())
-
-	return http.HandlerFunc(nil)
+	return transport.SendHtmlSuccess(w, buf.Bytes(), http.StatusOK)
 }
