@@ -23,7 +23,10 @@ func SendHtmlError(w http.ResponseWriter, body []byte, status int) http.HandlerF
 
 
 func SendServerRes(w http.ResponseWriter, body []byte, status int) http.HandlerFunc {
-	msg := "ERR: "+string(body)
+	msg := string(body)
+	if (status >= 400) {
+		msg = "ERR: "+msg
+	}
 	log.Println(msg)
 
 	w.WriteHeader(status)
