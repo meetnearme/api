@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Event",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "ownerId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "startTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "endTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recurrenceRule": {
+      "type": "string"
+    },
+    "recurrenceId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "urlDomain": {
+      "type": "string"
+    },
+    "urlPath": {
+      "type": "string"
+    },
+    "urlQueryParams": {
+      "type": "object"
+    },
+    "locationLatitude": {
+      "type": "number"
+    },
+    "locationLongitude": {
+      "type": "number"
+    },
+    "locationAddress": {
+      "type": "string"
+    },
+    "locationCountry": {
+      "type": "string"
+    },
+    "locationZipCode": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "createdAt": {
+      "type": "number"
+    },
+    "updatedAt": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "ownerId",
+    "name",
+    "startTime",
+    "url",
+    "urlQueryParams",
+    "locationLatitude",
+    "locationLongitude",
+    "tags",
+    "categories",
+    "createdAt",
+    "updatedAt"
+  ]
+}
