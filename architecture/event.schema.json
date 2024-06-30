@@ -84,7 +84,6 @@
     "name",
     "startTime",
     "url",
-    "urlQueryParams",
     "locationLatitude",
     "locationLongitude",
     "tags",
