@@ -25,6 +25,12 @@
       "type": "string",
       "format": "date-time"
     },
+    "eventCapacity": {
+      "type": "number"
+    },
+    "eventCost": {
+      "type": "number"
+    },
     "recurrenceRule": {
       "type": "string"
     },
