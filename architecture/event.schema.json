@@ -81,7 +81,6 @@
   },
   "required": [
     "id",
-    "ownerId",
     "name",
     "startTime",
     "url",
@@ -92,5 +91,19 @@
     "categories",
     "createdAt",
     "updatedAt"
+  ],
+  "oneOf": [
+    {
+      "required": ["ownerId"],
+      "not": {
+        "required": ["recurrenceId"]
+      }
+    },
+    {
+      "required": ["recurrenceId"],
+      "not": {
+        "required": ["ownerId"]
+      }
+    }
   ]
 }
