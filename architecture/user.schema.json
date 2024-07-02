@@ -1,0 +1,188 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ISOString": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "EventSlug": {
+      "type": "string"
+    },
+    "UserNotificationSettings": {
+      "type": "object",
+      "properties": {
+        "emailNotifications": {
+          "type": "boolean"
+        },
+        "smsNotifications": {
+          "type": "boolean"
+        },
+        "pushNotifications": {
+          "type": "boolean"
+        }
+      },
+      "required": ["emailNotifications", "smsNotifications", "pushNotifications"]
+    },
+    "Event": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "date": {
+          "$ref": "#/definitions/ISOString"
+        },
+        "location": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "name", "date", "location"]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "firstName": {
+      "type": "string"
+    },
+    "lastName": {
+      "type": "string"
+    },
+    "mobile": {
+      "type": ["string", "null"]
+    },
+    "locationLatitude": {
+      "type": ["number", "null"]
+    },
+    "locationLongitude": {
+      "type": ["number", "null"]
+    },
+    "locationAddress": {
+      "type": ["string", "null"]
+    },
+    "karma": {
+      "type": "number"
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "isEmailVerified": {
+      "type": "boolean"
+    },
+    "dateOfBirth": {
+      "$ref": "#/definitions/ISOString"
+    },
+    "entitlements": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["ingestEvent", "postEvent", "editEvent", "reportEvent", "hasSubdomain", "hasBranding"]
+      }
+    },
+    "isActive": {
+      "type": "boolean"
+    },
+    "isVerified": {
+      "type": "boolean"
+    },
+    "badges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "about": {
+      "type": ["string", "null"]
+    },
+    "avatarURL": {
+      "type": "string",
+      "format": "uri"
+    },
+    "notificationSettings": {
+      "$ref": "#/definitions/UserNotificationSettings"
+    },
+    "createdAt": {
+      "$ref": "#/definitions/ISOString"
+    },
+    "lastLoggedIn": {
+      "$ref": "#/definitions/ISOString"
+    },
+    "eventsRSVP": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Event"
+      },
+      "default": []
+    },
+    "eventsAttended": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Event"
+      },
+      "default": []
+    },
+    "eventsSaved": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Event"
+      },
+      "default": []
+    },
+    "favoriteCategories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/EventSlug"
+      },
+      "default": []
+    },
+    "favoriteCurators": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/uuid"
+      },
+      "default": []
+    },
+    "mutedCurators": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/uuid"
+      },
+      "default": []
+    },
+    "eventsHosted": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Event"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "id",
+    "firstName",
+    "lastName",
+    "karma",
+    "email",
+    "isEmailVerified",
+    "dateOfBirth",
+    "entitlements",
+    "isActive",
+    "isVerified",
+    "avatarURL",
+    "notificationSettings",
+    "createdAt",
+    "lastLoggedIn"
+  ]
+}
