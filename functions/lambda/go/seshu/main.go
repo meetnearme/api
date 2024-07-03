@@ -274,8 +274,6 @@ func SendHTMLError(err error, ctx context.Context, req events.LambdaFunctionURLR
 func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	client := &http.Client{}
 	log.Println("Creating chat session")
-	log.Println("systemPrompt: ", systemPrompt)
-	log.Println("markdownLinesAsArr scrape input: ", markdownLinesAsArr[:15])
 	payload := CreateChatSessionPayload{
 		Model: "gpt-3.5-turbo-16k",
 		Messages: []Message{
@@ -305,7 +303,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	}
 	defer resp.Body.Close()
 
-	log.Println("OpenAI response: ", resp)
 	if resp.StatusCode != 200 {
 		return "", "", fmt.Errorf(fmt.Sprint(resp.StatusCode) + ": Completion API request not successful")
 	}
@@ -320,7 +317,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	}
 
 	sessionId := respData.ID
-	log.Println("Chat GPT response: ", respData)
 	if sessionId == "" {
 		return "", "", fmt.Errorf("unexpected response format, `id` missing")
 	}
@@ -366,6 +362,10 @@ func SendMessage(sessionID string, message string) (string, error) {
 	}
 
 	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.openai.com/v1/chat/completions/%s/messages", sessionID), bytes.NewBuffer(payloadBytes))
+
+	if err != nil {
+		return "", err
+	}
 
 	req.Header.Add("Authorization", "Bearer " + os.Getenv("OPENAI_API_KEY"))
 	req.Header.Add("Content-Type", "application/json")
