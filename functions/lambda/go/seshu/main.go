@@ -307,7 +307,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 
 	log.Println("OpenAI response: ", resp)
 	if resp.StatusCode != 200 {
-		return "", "", fmt.Errorf("Completion API request not successful" + fmt.Sprint(resp.StatusCode))
+		return "", "", fmt.Errorf(fmt.Sprint(resp.StatusCode) + ": Completion API request not successful")
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
