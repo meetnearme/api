@@ -274,7 +274,7 @@ func SendHTMLError(err error, ctx context.Context, req events.LambdaFunctionURLR
 func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	client := &http.Client{}
 	log.Println("Creating chat session")
-	// log.Println("systemPrompt: ", systemPrompt)
+	log.Println("systemPrompt: ", systemPrompt)
 	log.Println("markdownLinesAsArr scrape input: ", markdownLinesAsArr[:15])
 	payload := CreateChatSessionPayload{
 		Model: "gpt-3.5-turbo-16k",
@@ -305,6 +305,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	}
 	defer resp.Body.Close()
 
+	log.Println("OpenAI response: ", resp)
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", "", err
