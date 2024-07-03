@@ -367,6 +367,7 @@ func SendMessage(sessionID string, message string) (string, error) {
 	}
 
 	req.Header.Add("Authorization", "Bearer " + os.Getenv("OPENAI_API_KEY"))
+	log.Println("req.Header: ", req.Header)
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := client.Do(req)

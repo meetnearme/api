@@ -7,10 +7,13 @@ inputs:
     description: 'The dummy secret for the MeetNearMe project'
     required: true
   SCRAPINGBEE_API_KEY:
-    description: 'The API key for the ZenRows environment'
+    description: 'The API key for the ScrapingBee API'
     required: true
   GOOGLE_API_KEY:
-    description: 'The API key for the ZenRows environment'
+    description: 'The API key for the Google API'
+    required: true
+  OPENAI_API_KEY:
+    description: 'The API key for the OpenAI environment'
     required: true
 runs:
   using: composite
@@ -23,6 +26,7 @@ runs:
         echo MEETNEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
         echo SCRAPINGBEE_API_KEY=${{ inputs.SCRAPINGBEE_API_KEY }} >> .env
         echo GOOGLE_API_KEY=${{ inputs.GOOGLE_API_KEY }} >> .env
+        echo OPENAI_API_KEY=${{ inputs.OPENAI_API_KEY }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
