@@ -297,8 +297,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	req.Header.Add("Authorization", "Bearer " + os.Getenv("OPENAI_API_KEY"))
 	req.Header.Add("Content-Type", "application/json")
 
-	log.Println("Request object:", req)
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", err
