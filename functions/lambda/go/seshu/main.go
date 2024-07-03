@@ -157,9 +157,6 @@ func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.La
 func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 	var inputPayload SeshuInputPayload
 
-	// TODO: debugging, DELETE ME!
-	// return clientError(http.StatusUnprocessableEntity)
-
 	err := json.Unmarshal([]byte(req.Body), &inputPayload)
 	if err != nil {
 			log.Printf("Invalid JSON payload: %v", err)
@@ -347,6 +344,9 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != 200 {
+		return "", "", fmt.Errorf(fmt.Sprint(resp.StatusCode) + ": Completion API request not successful")
+	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", "", err
@@ -369,7 +369,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 
 	// TODO: figure out why this isn't working
   // Use regex to remove incomplete JSON that OpenAI sometimes returns
-
 	unpaddedJSON := unpadJSON(messageContentArray)
 
 	return sessionId, unpaddedJSON, nil
@@ -403,6 +402,10 @@ func SendMessage(sessionID string, message string) (string, error) {
 	}
 
 	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.openai.com/v1/chat/completions/%s/messages", sessionID), bytes.NewBuffer(payloadBytes))
+
+	if err != nil {
+		return "", err
+	}
 
 	req.Header.Add("Authorization", "Bearer " + os.Getenv("OPENAI_API_KEY"))
 	req.Header.Add("Content-Type", "application/json")

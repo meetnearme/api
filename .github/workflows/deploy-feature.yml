@@ -31,6 +31,7 @@ jobs:
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           GIT_BRANCH_NAME: ${{ steps.extract_branch.outputs.branch }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       - name: Deploy app
         run: |
           npm i && npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}

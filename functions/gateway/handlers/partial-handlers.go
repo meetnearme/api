@@ -2,11 +2,10 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
+	"io"
 	"strconv"
 
-	"log"
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -33,29 +32,33 @@ type SeshuSessionEventsPayload struct {
 	EventValidations [][]bool `json:"eventValidations" validate:"required"`
 }
 
-func GeoLookup(ctx context.Context, req transport.Request, db *dynamodb.Client) (transport.Response, error) {
+func GeoLookup(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
 
+	ctx := r.Context()
 	var inputPayload GeoLookupInputPayload
-	err := json.Unmarshal([]byte(req.Body), &inputPayload)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-			log.Printf("Invalid JSON payload: %v", err)
-			return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
+		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	err = json.Unmarshal([]byte(body), &inputPayload)
+	if err != nil {
+			return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, err)
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-			log.Printf("Invalid body: %v", err)
-			return transport.SendClientError(http.StatusBadRequest, "Invalid Body")
+			return transport.SendHtmlRes(w, []byte("Invalid Body"), http.StatusBadRequest, err)
 	}
 
 	if err != nil {
-			return transport.SendServerError(err)
+			return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
 	lat, lon, address, err := services.GetGeo(inputPayload.Location)
 
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
 	geoLookupPartial := partials.GeoLookup(lat, lon, address, false)
@@ -63,74 +66,62 @@ func GeoLookup(ctx context.Context, req transport.Request, db *dynamodb.Client) 
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.Response{
-		Headers:         map[string]string{"Content-Type": "text/html"},
-		StatusCode:      http.StatusOK,
-		IsBase64Encoded: false,
-		Body:            buf.String(),
-	}, nil
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GeoThenPatchSeshuSession(ctx context.Context, req transport.Request, db *dynamodb.Client) (transport.Response, error) {
-
+func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+	ctx := r.Context()
 	var inputPayload GeoThenSeshuPatchInputPayload
-	err := json.Unmarshal([]byte(req.Body), &inputPayload)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	err = json.Unmarshal([]byte(body), &inputPayload)
 
 	if err != nil {
-			log.Printf("Invalid JSON payload: %v", err)
-			return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
+			return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, err)
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-			log.Printf("Invalid body: %v", err)
-			return transport.SendClientError(http.StatusBadRequest, "Invalid Body")
+			return transport.SendHtmlRes(w, []byte("Invalid Body: "+err.Error()), http.StatusBadRequest, err)
 	}
 
 	if err != nil {
-			return transport.SendServerError(err)
+			return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
 	lat, lon, address, err := services.GetGeo(inputPayload.Location)
 
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
 	var updateSehsuSession services.SeshuSessionUpdate
-	err = json.Unmarshal([]byte(req.Body), &updateSehsuSession)
+	err = json.Unmarshal([]byte(body), &updateSehsuSession)
 
 	if err != nil {
-		log.Printf("Invalid JSON payload: %v", err)
-		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, err)
 	}
 
 	latFloat, err := strconv.ParseFloat(lat, 64)
 	if err != nil {
-		log.Printf("Invalid latitude value: %v", err)
-		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid latitude value")
+		return transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusUnprocessableEntity, err)
 	}
 	updateSehsuSession.LocationLatitude = latFloat
 	lonFloat, err := strconv.ParseFloat(lon, 64)
 	if err != nil {
-		log.Printf("Invalid latitude value: %v", err)
-		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid longitude value")
+		return transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusUnprocessableEntity, err)
 	}
 	updateSehsuSession.LocationLongitude = lonFloat
 	updateSehsuSession.LocationAddress = address
 
-	if err != nil {
-		log.Printf("Invalid JSON payload: %v", err)
-		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
-	}
-
 	if (updateSehsuSession.Url == "") {
-		var msg = "ERR: Invalid body: url is required"
-		log.Println(msg)
-		return transport.SendClientError(http.StatusBadRequest, msg)
+		return transport.SendHtmlRes(w, []byte("ERR: Invalid body: url is required"), http.StatusBadRequest, nil)
 	}
 
 	geoLookupPartial := partials.GeoLookup(lat, lon, address, true)
@@ -138,48 +129,42 @@ func GeoThenPatchSeshuSession(ctx context.Context, req transport.Request, db *dy
 	_, err = services.UpdateSeshuSession(ctx, db, updateSehsuSession)
 
 	if err != nil {
-		log.Printf("Error updating target URL session: %v", err)
-		return transport.SendClientError(http.StatusNotFound, "Error updating target URL session")
+		return transport.SendHtmlRes(w, []byte("Failed to update target URL session"), http.StatusNotFound, err)
 	}
 
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.Response{
-		Headers:         map[string]string{"Content-Type": "text/html"},
-		StatusCode:      http.StatusOK,
-		IsBase64Encoded: false,
-		Body:            buf.String(),
-	}, nil
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func SubmitSeshuEvents(ctx context.Context, req transport.Request, db *dynamodb.Client) (transport.Response, error) {
+func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+	ctx := r.Context()
 	var inputPayload SeshuSessionEventsPayload
-
-	err := json.Unmarshal([]byte(req.Body), &inputPayload)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		msg := "Invalid JSON payload"
-		log.Println(msg + ": " + err.Error())
-		return transport.SendClientError(http.StatusBadRequest, msg)
+		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	err = json.Unmarshal([]byte(body), &inputPayload)
+
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, err)
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-		msg := "Invalid request body"
-		log.Println(msg + ": " + err.Error())
-		return transport.SendClientError(http.StatusBadRequest, msg)
+		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
 	}
 
 	var updateSehsuSession services.SeshuSessionUpdate
-	err = json.Unmarshal([]byte(req.Body), &updateSehsuSession)
+	err = json.Unmarshal([]byte(body), &updateSehsuSession)
 
 	if err != nil {
-		msg := "Invalid JSON payload"
-		log.Println(msg + ": " + err.Error())
-		return transport.SendClientError(http.StatusBadRequest, msg)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, err)
 	}
 
 	updateSehsuSession.Url = inputPayload.Url
@@ -191,9 +176,7 @@ func SubmitSeshuEvents(ctx context.Context, req transport.Request, db *dynamodb.
 	_, err = services.UpdateSeshuSession(ctx, db, updateSehsuSession)
 
 	if err != nil {
-		msg := "Failed to update Event Target URL session"
-		log.Println(msg + ": " + err.Error())
-		return transport.SendClientError(http.StatusBadRequest, msg)
+		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, err)
 	}
 
 	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`)
@@ -201,40 +184,37 @@ func SubmitSeshuEvents(ctx context.Context, req transport.Request, db *dynamodb.
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.Response{
-		Headers:         map[string]string{"Content-Type": "text/html"},
-		StatusCode:      http.StatusOK,
-		IsBase64Encoded: false,
-		Body:            buf.String(),
-	}, nil
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func SubmitSeshuSession(ctx context.Context, req transport.Request, db *dynamodb.Client) (transport.Response, error) {
-	var inputPayload SeshuSessionSubmitPayload
-	err := json.Unmarshal([]byte(req.Body), &inputPayload)
+func SubmitSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+
+	ctx := r.Context()
+	var inputPayload SeshuSessionEventsPayload
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		msg := "Invalid JSON payload"
-		log.Println(msg + ": " + err.Error())
-		return transport.SendClientError(http.StatusBadRequest, msg)
+		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	err = json.Unmarshal([]byte(body), &inputPayload)
+
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, err)
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-		msg := "Invalid request body"
-		log.Println(msg + ": " + err.Error())
-		return transport.SendClientError(http.StatusBadRequest, msg)
+		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
 	}
 
 	var updateSehsuSession services.SeshuSessionUpdate
-	err = json.Unmarshal([]byte(req.Body), &updateSehsuSession)
+	err = json.Unmarshal([]byte(body), &updateSehsuSession)
 
 	if err != nil {
-		msg := "Invalid JSON payload"
-		log.Println(msg + ": " + err.Error())
-		return transport.SendClientError(http.StatusBadRequest, msg)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, err)
 	}
 
 	updateSehsuSession.Url = inputPayload.Url
@@ -243,9 +223,7 @@ func SubmitSeshuSession(ctx context.Context, req transport.Request, db *dynamodb
 	_, err = services.UpdateSeshuSession(ctx, db, updateSehsuSession)
 
 	if err != nil {
-		msg := "Failed to update Event Target URL session"
-		log.Println(msg + ": " + err.Error())
-		return transport.SendClientError(http.StatusBadRequest, msg)
+		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, err)
 	}
 
 	// TODO: this sets the session to `submitted`, in a follow-up PR this will call a function
@@ -256,13 +234,8 @@ func SubmitSeshuSession(ctx context.Context, req transport.Request, db *dynamodb
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.Response{
-		Headers:         map[string]string{"Content-Type": "text/html"},
-		StatusCode:      http.StatusOK,
-		IsBase64Encoded: false,
-		Body:            buf.String(),
-	}, nil
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }

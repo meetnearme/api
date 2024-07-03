@@ -1,13 +1,11 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
+	"io"
 	"log"
 	"net/http"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/go-playground/validator"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -16,133 +14,128 @@ import (
 
 var validate *validator.Validate = validator.New()
 
-func CreateEvent(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
+func CreateEvent(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+	ctx := r.Context()
 	var createEvent services.EventInsert
-	err := json.Unmarshal([]byte(r.Body), &createEvent)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	err = json.Unmarshal(body, &createEvent)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		log.Printf("Invalid JSON payload: %v", err)
-		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
+		return transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	err = validate.Struct(&createEvent)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		log.Printf("Invalid body: %v", err)
-		return transport.SendClientError(http.StatusBadRequest, "Invalid Body")
+		return transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	res, err := services.InsertEvent(ctx, db, createEvent)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte("Failed to add event: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	json, err := json.Marshal(res)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
 	}
 
 	// TODO: consider log levels / log volume
 	log.Printf("Inserted new item: %+v", res)
 
 	// TODO: Replace JSON response with htmx template with event data
-	return events.APIGatewayV2HTTPResponse{
-		StatusCode: http.StatusCreated,
-		Body:       string(json),
-		Headers: map[string]string{
-			"Location": fmt.Sprintf("/user/%s", "hello res"),
-		},
-	}, nil
+	return transport.SendHtmlRes(w, []byte(string(json)), http.StatusCreated, nil)
 }
 
-func CreateSeshuSession(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
+func CreateSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+	ctx := r.Context()
 	var createSehsuSession services.SeshuSessionInput
-	err := json.Unmarshal([]byte(r.Body), &createSehsuSession)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(string("Failed to read request body")), http.StatusInternalServerError, err)
+	}
+
+	err = json.Unmarshal(body, &createSehsuSession)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		log.Printf("Invalid JSON payload: %v", err)
-		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
+		return transport.SendHtmlRes(w,  []byte(string("Invalid JSON payload")), http.StatusUnprocessableEntity, err)
 	}
 
 	err = validate.Struct(&createSehsuSession)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		log.Printf("Invalid body: %v", err)
-		return transport.SendClientError(http.StatusBadRequest, "Invalid Body")
+		return transport.SendHtmlRes(w,  []byte(string("Invalid Body")), http.StatusBadRequest, err)
 	}
 
 	res, err := services.InsertSeshuSession(ctx, db, createSehsuSession)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte(string(err.Error())), http.StatusInternalServerError, err)
 	}
 
 	json, err := json.Marshal(res)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte(string(err.Error())), http.StatusInternalServerError, err)
 	}
 
 	// TODO: consider log levels / log volume
 	log.Printf("Inserted new seshu session: %+v", res)
 
 	// TODO: Replace JSON response with htmx template with event data
-	return events.APIGatewayV2HTTPResponse{
-		StatusCode: http.StatusCreated,
-		Body:       string(json),
-		Headers: map[string]string{
-			"Location": fmt.Sprintf("/user/%s", "hello res"),
-		},
-	}, nil
+	return transport.SendServerRes(w, []byte(string(json)), http.StatusCreated, nil)
 }
 
-func UpdateSeshuSession(ctx context.Context, r transport.Request, db *dynamodb.Client) (transport.Response, error) {
+func UpdateSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+	ctx := r.Context()
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(string("Error reading request body")), http.StatusUnprocessableEntity, err)
+	}
 	var updateSehsuSession services.SeshuSessionUpdate
-	err := json.Unmarshal([]byte(r.Body), &updateSehsuSession)
+	err = json.Unmarshal([]byte(body), &updateSehsuSession)
 	if err != nil {
 		log.Printf("Invalid JSON payload: %v", err)
-		return transport.SendClientError(http.StatusUnprocessableEntity, "Invalid JSON payload")
+		return transport.SendHtmlRes(w, []byte(string("Invalid JSON payload")), http.StatusUnprocessableEntity, err)
 	}
 
 	if (updateSehsuSession.Url == "") {
 		var msg = "ERR: Invalid body: url is required"
 		log.Println(msg)
-		return transport.SendClientError(http.StatusBadRequest, msg)
+		return transport.SendHtmlRes(w, []byte(string(msg)), http.StatusBadRequest, err)
 	}
 
 	res, err := services.UpdateSeshuSession(ctx, db, updateSehsuSession)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte(string(err.Error())), http.StatusInternalServerError, err)
 	}
 
 	json, err := json.Marshal(res)
 
 	// TODO: Update errors to send htmx template with error message
 	if err != nil {
-		return transport.SendServerError(err)
+		return transport.SendServerRes(w, []byte(string(err.Error())), http.StatusInternalServerError, err)
 	}
 
 	// TODO: consider log levels / log volume
 	log.Printf("Updated seshu session: %+v", res.Url)
 
 	// TODO: Replace JSON response with htmx template with event data
-	return events.APIGatewayV2HTTPResponse{
-		StatusCode: http.StatusCreated,
-		Body:       string(json),
-		Headers: map[string]string{
-			"Location": fmt.Sprintf("/user/%s", "hello res"),
-		},
-	}, nil
+	return transport.SendServerRes(w, []byte(string(json)), http.StatusCreated, nil)
 }
