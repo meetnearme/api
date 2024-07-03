@@ -315,6 +315,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	}
 
 	sessionId := respData.ID
+	log.Println("Chat GPT response: ", respData)
 	if sessionId == "" {
 		return "", "", fmt.Errorf("unexpected response format, `id` missing")
 	}
