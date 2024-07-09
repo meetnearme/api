@@ -27,14 +27,14 @@ func AdminPage() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<h1 class=\"text-3xl\">Add an Event Source</h1><br><br><div class=\"grid grid-cols-7\" x-data=\"getWizardData()\"><div class=\"self-start sticky top-0 col-span-2 mr-5 card border-2 border-base-300 bg-base-200 rounded-box place-items-center \"><ul id=\"event-source-steps\" class=\"steps steps-vertical\"><li class=\"step\" :class=\"{&#39;step-primary&#39;:\n             formStep &gt;= 1}\">Add a Target URL</li><li class=\"step\" :class=\"{&#39;step-primary&#39;:\n             formStep &gt;= 2}\">Verify Events</li><li class=\"step\" :class=\"{&#39;step-primary&#39;:\n             formStep &gt;= 3}\">Add to Site</li></ul></div><div id=\"event-source-container\" class=\"col-span-5 card border-2 border-base-300 bg-base-200 p-10 rounded-box\"><h2 class=\"text-3xl font-bold \">Add a Target URL</h2><form class=\"group\" novalidate hx-post=\"")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<h1 class=\"text-3xl\">Add an Event Source</h1><br><br><div class=\"grid grid-cols-7\" x-data=\"getWizardData()\"><div class=\"self-start sticky top-0 col-span-2 mr-5 card border-2 border-base-300 bg-base-200 rounded-box place-items-center \"><ul id=\"event-source-steps\" class=\"steps steps-vertical\"><li class=\"step\" :class=\"{&#39;step-primary&#39;:\n             formStep &gt;= 1}\">Add a Target URL</li><li class=\"step\" :class=\"{&#39;step-primary&#39;:\n             formStep &gt;= 2}\">Verify Events</li><li class=\"step\" :class=\"{&#39;step-primary&#39;:\n             formStep &gt;= 3}\">Add to Site</li></ul><button class=\"btn btn-primary mt-10\" @click=\"incrementFormStep()\" :disabled=\"formStep &gt;= 3\">Next Step</button></div><div id=\"event-source-container\" class=\"col-span-5 card border-2 border-base-300 bg-base-200 p-10 rounded-box\"><h2 class=\"text-3xl font-bold \">Add a Target URL</h2><form class=\"group\" novalidate hx-post=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(templ.EscapeString(os.Getenv("SESHU_FN_URL")))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/admin.templ`, Line: 33, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/admin.templ`, Line: 34, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -47,7 +47,7 @@ func AdminPage() templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(os.Getenv("GOOGLE_API_KEY"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/admin.templ`, Line: 153, Col: 76}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/admin.templ`, Line: 154, Col: 76}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {

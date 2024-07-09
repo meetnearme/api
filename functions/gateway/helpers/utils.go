@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"time"
 	"unsafe"
@@ -29,6 +30,10 @@ func TruncateStringByBytes(str string, limit int) (s string, exceededLimit bool)
 		return str, false
 	}
 	return string([]byte(str)[:limit]), false
+}
+
+func GetBaseUrlFromReq(r *http.Request) string {
+	return r.URL.Scheme + "://" + r.URL.Host
 }
 
 // NOTE: this is for internal debugging

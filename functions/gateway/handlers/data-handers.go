@@ -75,13 +75,13 @@ func CreateSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	res, err := services.InsertSeshuSession(ctx, db, createSehsuSession)
 
 	if err != nil {
-		return transport.SendServerRes(w, []byte(string(err.Error())), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w,  []byte("Failed to create new event target session" + string(err.Error())), http.StatusInternalServerError, err)
 	}
 
 	json, err := json.Marshal(res)
 
 	if err != nil {
-		return transport.SendServerRes(w, []byte(string(err.Error())), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w,  []byte("Failed parse JSON from new event target session" + string(err.Error())), http.StatusInternalServerError, err)
 	}
 
 	// TODO: consider log levels / log volume
