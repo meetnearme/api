@@ -59,6 +59,7 @@ func main() {
 		{"/login", "GET", handlers.GetLoginPage},
 		{"/login", "GET", handlers.GetEventDetailsPage},
 		{"/events/{eventId}", "GET", handlers.GetEventDetailsPage},
+		{"/map-embed", "GET", handlers.GetMapEmbedPage},
 		{"/api/event", "POST", handlers.CreateEvent},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
@@ -66,7 +67,6 @@ func main() {
 		{"/api/seshu/session", "POST", handlers.CreateSeshuSession},
 		{"/api/seshu/session/submit", "POST", handlers.SubmitSeshuSession},
 		{"/api/seshu/session", "PATCH", handlers.UpdateSeshuSession},
-		{"/api/seshu/session/location", "PATCH", handlers.UpdateSeshuSession},
 		{"/api/seshu/session/location", "PATCH", handlers.GeoThenPatchSeshuSession},
 		{"/api/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents},
 	}
