@@ -110,20 +110,6 @@ func GetSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload Sesh
 	return &seshuSession, nil
 }
 
-// curl -X POST -H "Content-Type: application/json" -d '{
-//   "name": "New York Event",
-//   "description": "An event in New York",
-//   "datetime": "2023-06-01T10:00:00Z",
-//   "locationAddress": "123 Main Street",
-//   "zip_code": "10001",
-//   "country": "USA",
-//   "locationLatitude": 40.7128,
-//   "locationLongitude": -74.0060
-// }' https://w65hlwklek.execute-api.us-east-1.amazonaws.com/api/event
-
-// curl -X POST -H 'Content-Type: application/json' -d '{"ownerId": "123", "url": "http://example.com/path?key=value", "urlProperties": { "urlDomain": "example.com", "urlPath": "/path", "urlQueryParams": { "key": "value"} }, "location": {"locationLatitude": 35.6869752, "locationLongitude": 105.937799, "locationAddress": "Santa Fe, NM, USA" }, "html": "<html><body>Test HTML</body></html>"}' https://t3tgatdysl.execute-api.us-east-1.amazonaws.com/api/seshu/session
-
-
 func InsertSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload SeshuSessionInput) (*SeshuSessionInsert, error) {
 	currentTime := time.Now().Unix()
 	if len(seshuPayload.EventCandidates) < 1 {
@@ -160,6 +146,11 @@ func InsertSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload S
 		TableName: aws.String(seshuSessionsTableName),
 		Item: item,
 	}
+
+	// TODO: Before this db PUT, check for existing seshu job
+  // key via query to "jobs" table... if it exists, then return a
+  // 409 error to the client, explaining it can't be added because
+	// that URL is already owned by someone else
 
 	res, err := db.PutItem(ctx, input)
 	if err != nil {
@@ -285,6 +276,24 @@ func UpdateSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload S
 
 	return nil, nil
 }
+
+// TODO: `CommitSeshuSession` needs to consider:
+// 1. Validate the session
+// 2. Update the status to `committed`
+// 3. If the "are these in the same location?" checkbox in UI is not checked,
+//    then `latitude` `longitude` and `address` should be ignored from the OpenAI
+//    structured response
+// 4. Iterate over the union array of `EventCandidates` and `EventValidations` to
+//    create a new array that removes any `EventCandidates` that lack any of:
+//    `event_title`, `event_location`, `event_date` which are all required
+// 5. Use that reduced array to find the corresponding strings in the stored
+//    `SeshuSession.Html` in the db
+// 6. Store the deduced DOM query strings in the new "Scraping Jobs" db table we've
+//    not created yet
+// 7. The input URL should have it's query params algorithmically sorted to prevent
+//    db index (the URL itself is the index) collision / duplicates
+// 8. Delete the session from the `SeshuSessions` table once it's confirmed to be
+//    successfully committed to the "Scraping Jobs" table
 
 
 

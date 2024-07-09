@@ -137,12 +137,6 @@ func init() {
 	db = transport.CreateDbClient()
 }
 
-// TODO: debugging helper, DELETE ME! (maybe?) We should calculate string size and ensure
-// it doesn't overflow the byte buffer limitation of DynamoDB
-func calculateStringSize(s string) int {
-	return len([]byte(s))
-}
-
 func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
     switch req.RequestContext.HTTP.Method {
     case "POST":

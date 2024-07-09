@@ -72,7 +72,6 @@ templ AdminPage() {
 				<h3 class="text-2xl font-bold">Are these events?</h3>
 				// note that the input[type='checkbox'] items come back in response to the SESHU_FN_URL
 				// call and the checkboxes are not present by default
-				// TODO: delete the forced event.detail.successful = true call here in `hx-on`
 				<form id="event-candidates-form" class="group" novalidate hx-patch="/api/seshu/session/events" hx-ext="json-enc" hx-target="#events-valid-confirmation" hx-vals="js:{eventValidations: getEventValidations()}" hx-disabled-elt="input[type='checkbox'], button[type='submit']" @htmx:after-request="updateEventsValidated(event)">
 					<input
 						x-model="formData.url"
@@ -184,7 +183,6 @@ templ AdminPage() {
 								}
 							},
 							updateEventsValidated(event) {
-								// TODO: this fails because the API work needs to be done for the `/api/sehu/session/events` endpoint
 								if (event.detail.successful) {
 									this.eventsValidated = true;
 								} else {
