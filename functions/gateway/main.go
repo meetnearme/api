@@ -41,13 +41,6 @@ func withContext(next http.Handler) http.Handler {
 	})
 }
 
-// Wrapper to convert a handler function to one that accepts http.Request
-func makeHandler(fn func(http.ResponseWriter, *http.Request, *dynamodb.Client)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		fn(w, r, db)
-	}
-}
-
 func main() {
 	r := mux.NewRouter()
 	r.Use(withContext)
@@ -81,7 +74,7 @@ func main() {
 	routes := []struct {
 		path    string
 		method  string
-		handler func(http.ResponseWriter, *http.Request, *dynamodb.Client) http.HandlerFunc
+		handler func(http.ResponseWriter, *http.Request) http.HandlerFunc
 		auth    AuthType
 	}{
 		{"/", "GET", handlers.GetHomePage, Check},
@@ -110,9 +103,9 @@ func main() {
 		currentRoute := route
 		if currentRoute.auth == Require {
 			r.HandleFunc(currentRoute.path, func(w http.ResponseWriter, r *http.Request) {
-				mw.RequireAuthentication()(makeHandler(func(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) {
+				mw.RequireAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if authentication.IsAuthenticated(r.Context()) {
-						currentRoute.handler(w, r, db)
+						currentRoute.handler(w, r)
 					} else {
 						http.Redirect(w, r, "/login", http.StatusFound)
 					}
@@ -120,14 +113,14 @@ func main() {
 			}).Methods(currentRoute.method)
 		} else if currentRoute.auth == Check {
 			r.HandleFunc(currentRoute.path, func(w http.ResponseWriter, r *http.Request) {
-				mw.CheckAuthentication()(makeHandler(func(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) {
-					currentRoute.handler(w, r, db)
+				mw.CheckAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					currentRoute.handler(w, r)
 				})).ServeHTTP(w, r)
 			}).Methods(currentRoute.method)
 		} else {
-			r.HandleFunc(currentRoute.path, makeHandler(func(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) {
-				currentRoute.handler(w, r, db)
-			})).Methods(currentRoute.method)
+			r.HandleFunc(currentRoute.path, func(w http.ResponseWriter, r *http.Request) {
+				currentRoute.handler(w, r)
+			}).Methods(currentRoute.method)
 		}
 	}
 

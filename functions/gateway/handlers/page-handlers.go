@@ -22,9 +22,11 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
+var db *dynamodb.Client
 var mw   *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 
 func init () {
+	db = transport.GetDB()
 	mw, _ = services.GetAuthMw()
 }
 
@@ -42,7 +44,7 @@ func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.User
 	return userInfo, nil
 }
 
-func GetHomePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	log.Println("GetHomePage")
 	ctx := r.Context()
@@ -108,7 +110,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) ht
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GetLoginPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func GetLoginPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	loginPage := pages.LoginPage()
 	layoutTemplate := pages.Layout("Login", helpers.UserInfo{}, loginPage)
@@ -121,7 +123,7 @@ func GetLoginPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) h
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GetProfilePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	authCtx := mw.Context(ctx)
 
@@ -140,7 +142,7 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client)
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GetMapEmbedPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
 
@@ -157,7 +159,7 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GetEventDetailsPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// TODO: Extract reading param values into a helper method.
 	ctx := r.Context()
 	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
@@ -184,7 +186,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Cl
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GetAdminPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	authCtx := mw.Context(ctx)
 

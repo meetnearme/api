@@ -8,7 +8,6 @@ import (
 
 	"net/http"
 
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -32,7 +31,7 @@ type SeshuSessionEventsPayload struct {
 	EventValidations [][]bool `json:"eventValidations" validate:"required"`
 }
 
-func GeoLookup(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	ctx := r.Context()
 	var inputPayload GeoLookupInputPayload
@@ -72,7 +71,7 @@ func GeoLookup(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	var inputPayload GeoThenSeshuPatchInputPayload
 	body, err := io.ReadAll(r.Body)
@@ -141,7 +140,7 @@ func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamo
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	var inputPayload SeshuSessionEventsPayload
 	body, err := io.ReadAll(r.Body)
@@ -190,7 +189,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request, db *dynamodb.Clie
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func SubmitSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	ctx := r.Context()
 	var inputPayload SeshuSessionEventsPayload

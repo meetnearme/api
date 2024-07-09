@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/go-playground/validator"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -14,7 +13,7 @@ import (
 
 var validate *validator.Validate = validator.New()
 
-func CreateEvent(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func CreateEvent(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	var createEvent services.EventInsert
 	body, err := io.ReadAll(r.Body)
@@ -57,7 +56,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) ht
 	return transport.SendHtmlRes(w, []byte(string(json)), http.StatusCreated, nil)
 }
 
-func CreateSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func CreateSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	var createSehsuSession services.SeshuSessionInput
 	body, err := io.ReadAll(r.Body)
@@ -100,7 +99,7 @@ func CreateSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Cli
 	return transport.SendServerRes(w, []byte(string(json)), http.StatusCreated, nil)
 }
 
-func UpdateSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func UpdateSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
