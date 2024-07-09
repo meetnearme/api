@@ -4,10 +4,29 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
 const basicHTMLresp = "<html><body>Test HTML</body></html>"
+
+func TestMain(m *testing.M) {
+	// Set mock values for flags
+	*domain = "https://test.zitadel.cloud"
+	*key = "test-key"
+	*clientID = "test-client-id"
+	*redirectURI = "https://test-redirect.com"
+
+	// Initialize auth with mock values
+	InitAuth()
+
+	// Run the tests
+	code := m.Run()
+
+	// Exit with the test status code
+	os.Exit(code)
+}
+
 
 func TestGetHTMLFromURL(t *testing.T) {
 	testCases := []struct {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -44,6 +45,9 @@ func withContext(next http.Handler) http.Handler {
 func main() {
 	r := mux.NewRouter()
 	r.Use(withContext)
+
+	flag.Parse()
+	services.InitAuth()
 
 	mw, authN = services.GetAuthMw()
 
