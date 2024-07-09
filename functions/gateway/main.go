@@ -86,7 +86,7 @@ func main() {
 		{"/admin", "GET", handlers.GetAdminPage, Require},
 		{"/login", "GET", handlers.GetLoginPage, Check},
 		{"/profile", "GET", handlers.GetProfilePage, Require},
-		{"/map-embed", "GET", handlers.GetMapEmbedPage},
+		{"/map-embed", "GET", handlers.GetMapEmbedPage, None},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...
 		// the complexity is we might want "in the middle", which would be "auto-refresh
@@ -97,12 +97,9 @@ func main() {
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo", "POST", handlers.GeoLookup, None},
-		{"/api/seshu/session", "POST", handlers.CreateSeshuSession, None},
-		{"/api/seshu/session/submit", "POST", handlers.SubmitSeshuSession, None},
-		{"/api/seshu/session", "PATCH", handlers.UpdateSeshuSession, None},
-		{"/api/seshu/session/location", "PATCH", handlers.UpdateSeshuSession, None},
-		{"/api/seshu/session/location", "PATCH", handlers.GeoThenPatchSeshuSession, None},
-		{"/api/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents, None},
+		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, None},
+		{"/api/html/seshu/session/location", "PATCH", handlers.GeoThenPatchSeshuSession, None},
+		{"/api/html/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents, None},
 	}
 
 	for _, route := range routes {

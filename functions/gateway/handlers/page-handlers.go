@@ -22,11 +22,11 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
-var db *dynamodb.Client
+var Db *dynamodb.Client
 var mw   *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 
 func init () {
-	db = transport.GetDB()
+	Db = transport.GetDB()
 	mw, _ = services.GetAuthMw()
 }
 
@@ -85,7 +85,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	// Call the GetEventsZOrder service to retrieve events
-	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
+	events, err := services.GetEventsZOrder(ctx, Db, startTime, endTime, lat, lon, radius)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
 	}

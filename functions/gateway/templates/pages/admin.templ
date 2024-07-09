@@ -73,7 +73,7 @@ templ AdminPage() {
 				<h3 class="text-2xl font-bold">Are these events?</h3>
 				// note that the input[type='checkbox'] items come back in response to the SESHU_FN_URL
 				// call and the checkboxes are not present by default
-				<form id="event-candidates-form" class="group" novalidate hx-patch="/api/seshu/session/events" hx-ext="json-enc" hx-target="#events-valid-confirmation" hx-vals="js:{eventValidations: getEventValidations()}" hx-disabled-elt="input[type='checkbox'], button[type='submit']" @htmx:after-request="updateEventsValidated(event)">
+				<form id="event-candidates-form" class="group" novalidate hx-patch="/api/html/seshu/session/events" hx-ext="json-enc" hx-target="#events-valid-confirmation" hx-vals="js:{eventValidations: getEventValidations()}" hx-disabled-elt="input[type='checkbox'], button[type='submit']" @htmx:after-request="updateEventsValidated(event)">
 					<input
 						x-model="formData.url"
 						name="url"
@@ -98,7 +98,7 @@ templ AdminPage() {
 					</label>
 					<div class="hidden-when-not-checked">
 						<div id="location-type-address" :class="{'opacity-100 h-auto': formData.selectedLocationType === 'address'}" aria-live="polite" class="opacity-0 h-0 w-full mt-5 mb-5 transition-all">
-							<form class="group" novalidate hx-patch="/api/seshu/session/location" hx-ext="json-enc" hx-target="#location-confirmation" hx-disabled-elt="input[name='location'], button[type='submit']" @submit.prevent="formData.address ? '' : ''">
+							<form class="group" novalidate hx-patch="/api/html/seshu/session/location" hx-ext="json-enc" hx-target="#location-confirmation" hx-disabled-elt="input[name='location'], button[type='submit']" @submit.prevent="formData.address ? '' : ''">
 								<input
 									x-model="formData.url"
 									name="url"
@@ -124,7 +124,7 @@ templ AdminPage() {
 								<br/>
 								<br/>
 								<p>Is the location in the map above accurate? (enter something in the text field above before adding)</p>
-								<button type="submit" :disabled="!formData.address?.length" class="btn btn-primary mt-3"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Add Location <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+								<button type="submit" :disabled="!formData.address?.length || !formData.url?.length" class="btn btn-primary mt-3"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Add Location <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 								<div id="location-confirmation" class="margins-when-children my-8 htmx-hide-in-flight" aria-live="polite"></div>
 								<div class="skeleton card card-compact h-24 w-full htmx-show-in-flight my-8"></div>
 							</form>
@@ -142,7 +142,7 @@ templ AdminPage() {
 				<p>Looks like we have the data we need to continuously import event data from the URL you've provided. Ready when you are!</p>
 				<br/>
 				<br/>
-				<form class="group" novalidate hx-post="/api/seshu/session/submit" hx-ext="json-enc" hx-target="#final-submission" hx-disabled-elt="button[type='submit']">
+				<form class="group" novalidate hx-post="/api/html/seshu/session/submit" hx-ext="json-enc" hx-target="#final-submission" hx-disabled-elt="button[type='submit']">
 					<button type="submit" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Submit Event Source <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 					<div id="final-submission" class="mt-5 htmx-hide-in-flight" aria-live="polite">
 						<div class="skeleton card card-compact h-24 w-full htmx-show-in-flight"></div>
