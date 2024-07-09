@@ -23,28 +23,24 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	err = json.Unmarshal(body, &createEvent)
 
-	// TODO: Update errors to send htmx template with error message
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	err = validate.Struct(&createEvent)
 
-	// TODO: Update errors to send htmx template with error message
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	res, err := services.InsertEvent(ctx, db, createEvent)
 
-	// TODO: Update errors to send htmx template with error message
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to add event: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	json, err := json.Marshal(res)
 
-	// TODO: Update errors to send htmx template with error message
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
 	}
@@ -66,28 +62,24 @@ func CreateSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 	err = json.Unmarshal(body, &createSehsuSession)
 
-	// TODO: Update errors to send htmx template with error message
 	if err != nil {
 		return transport.SendHtmlRes(w,  []byte(string("Invalid JSON payload")), http.StatusUnprocessableEntity, err)
 	}
 
 	err = validate.Struct(&createSehsuSession)
 
-	// TODO: Update errors to send htmx template with error message
 	if err != nil {
 		return transport.SendHtmlRes(w,  []byte(string("Invalid Body")), http.StatusBadRequest, err)
 	}
 
 	res, err := services.InsertSeshuSession(ctx, db, createSehsuSession)
 
-	// TODO: Update errors to send htmx template with error message
 	if err != nil {
 		return transport.SendServerRes(w, []byte(string(err.Error())), http.StatusInternalServerError, err)
 	}
 
 	json, err := json.Marshal(res)
 
-	// TODO: Update errors to send htmx template with error message
 	if err != nil {
 		return transport.SendServerRes(w, []byte(string(err.Error())), http.StatusInternalServerError, err)
 	}
@@ -95,7 +87,6 @@ func CreateSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	// TODO: consider log levels / log volume
 	log.Printf("Inserted new seshu session: %+v", res)
 
-	// TODO: Replace JSON response with htmx template with event data
 	return transport.SendServerRes(w, []byte(string(json)), http.StatusCreated, nil)
 }
 
