@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"log"
 	"strconv"
 
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -47,18 +49,21 @@ func GeoLookup(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http
 	}
 
 	err = validate.Struct(&inputPayload)
+
 	if err != nil {
-			return transport.SendHtmlRes(w, []byte("Invalid Body"), http.StatusBadRequest, err)
+			return transport.SendServerRes(w, []byte(string("Invalid Body: ") + err.Error()), http.StatusBadRequest, err)
 	}
 
-	if err != nil {
-			return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+	baseUrl := helpers.GetBaseUrlFromReq(r)
+
+	if baseUrl == "" {
+		return transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, err)
 	}
 
-	lat, lon, address, err := services.GetGeo(inputPayload.Location)
+	lat, lon, address, err := services.GetGeo(inputPayload.Location, baseUrl)
 
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ") + err.Error()), http.StatusInternalServerError, err)
 	}
 
 	geoLookupPartial := partials.GeoLookup(lat, lon, address, false)
@@ -66,39 +71,42 @@ func GeoLookup(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
 func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+	log.Println("GeoThenPatchSeshuSession called")
 	ctx := r.Context()
 	var inputPayload GeoThenSeshuPatchInputPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	err = json.Unmarshal([]byte(body), &inputPayload)
 
 	if err != nil {
-			return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, err)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, err)
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-			return transport.SendHtmlRes(w, []byte("Invalid Body: "+err.Error()), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Invalid Body: "+err.Error()), http.StatusBadRequest, err)
 	}
 
-	if err != nil {
-			return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+	baseUrl := helpers.GetBaseUrlFromReq(r)
+
+	if baseUrl == "" {
+		return transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, err)
 	}
 
-	lat, lon, address, err := services.GetGeo(inputPayload.Location)
+	lat, lon, address, err := services.GetGeo(inputPayload.Location, baseUrl)
 
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Failed to get geocoordinates: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	var updateSehsuSession services.SeshuSessionUpdate
@@ -135,7 +143,7 @@ func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamo
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)

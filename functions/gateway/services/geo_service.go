@@ -6,9 +6,12 @@ import (
 	"strings"
 )
 
-func GetGeo(location string) (lat string, lon string, address string, err error) {
+func GetGeo(location string, baseUrl string) (lat string, lon string, address string, err error) {
 		// TODO: this needs to be parameterized!
-		htmlString, err := GetHTMLFromURL("https://w65hlwklek.execute-api.us-east-1.amazonaws.com/map?address=" + location, 500, false)
+		if baseUrl == "" {
+			return "", "", "", fmt.Errorf("base URL is empty")
+		}
+		htmlString, err := GetHTMLFromURL( baseUrl + "/map-embed?address=" + location, 500, false)
 
 		if err != nil {
 			return "", "", "", err
