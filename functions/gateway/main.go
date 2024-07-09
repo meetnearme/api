@@ -46,6 +46,7 @@ func main() {
 	r := mux.NewRouter()
 	r.Use(withContext)
 
+	// used by the auth service but must init in `main` https://go.dev/src/flag/example_test.go?s=933:2300#L33
 	flag.Parse()
 	services.InitAuth()
 
