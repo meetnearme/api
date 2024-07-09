@@ -4,9 +4,10 @@ import (
 	"os"
 	"time"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
-templ Layout(title string, pageContent templ.Component) {
+templ Layout(title string, userInfo helpers.UserInfo, pageContent templ.Component) {
 	<!DOCTYPE html>
 	<html data-theme="cyberpunk">
 		<head>
@@ -22,7 +23,7 @@ templ Layout(title string, pageContent templ.Component) {
 			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 		</head>
 		<body>
-			@components.Navbar() {
+			@components.Navbar(userInfo) {
 				<div class="container mx-auto">
 					<div id="content">
 						@pageContent

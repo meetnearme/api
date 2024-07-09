@@ -2,11 +2,16 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/zitadel/oidc/v3/pkg/oidc"
+	"github.com/zitadel/zitadel-go/v3/pkg/authentication"
+	openid "github.com/zitadel/zitadel-go/v3/pkg/authentication/oidc"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -16,6 +21,26 @@ import (
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/transport"
 )
+
+var mw   *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
+
+func init () {
+	mw, _ = services.GetAuthMw()
+}
+
+func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo], userInfo helpers.UserInfo) (helpers.UserInfo, error) {
+	if authCtx != nil && authCtx.UserInfo != nil {
+		data, err := json.MarshalIndent(authCtx.UserInfo, "", "	")
+		if err != nil {
+			return userInfo, err
+		}
+		err = json.Unmarshal(data, &userInfo)
+		if err != nil {
+			return userInfo, err
+		}
+	}
+	return userInfo, nil
+}
 
 func GetHomePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
@@ -63,8 +88,16 @@ func GetHomePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) ht
 		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
+	authCtx := mw.Context(ctx)
+
+	userInfo := helpers.UserInfo{}
+	userInfo, err = setUserInfo(authCtx, userInfo)
+	if err != nil {
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+	}
+
 	homePage := pages.HomePage(events)
-	layoutTemplate := pages.Layout("Home", homePage)
+	layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
@@ -78,13 +111,32 @@ func GetHomePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) ht
 func GetLoginPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
 	ctx := r.Context()
 	loginPage := pages.LoginPage()
-	layoutTemplate := pages.Layout("Login", loginPage)
+	layoutTemplate := pages.Layout("Login", helpers.UserInfo{}, loginPage)
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+}
+
+func GetProfilePage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+	ctx := r.Context()
+	authCtx := mw.Context(ctx)
+
+	userInfo := helpers.UserInfo{}
+	userInfo, err := setUserInfo(authCtx, userInfo)
+	if err != nil {
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+	}
+	adminPage := pages.ProfilePage(userInfo)
+	layoutTemplate := pages.Layout("Admin", userInfo, adminPage)
+	var buf bytes.Buffer
+	err = layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
+	}
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
@@ -95,7 +147,7 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client
 	queryParameters := apiGwV2Req.QueryStringParameters
 
 	mapEmbedPage := pages.MapEmbedPage(queryParameters["address"])
-	layoutTemplate := pages.Layout("Embed", mapEmbedPage)
+	layoutTemplate := pages.Layout("Embed", helpers.UserInfo{}, mapEmbedPage)
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -109,16 +161,22 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Cl
 	// TODO: Extract reading param values into a helper method.
 	ctx := r.Context()
 	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
-
 	if eventId == "" {
 		// TODO: If no eventID is passed, return a 404 page or redirect to events list.
-		fmt.Println("Event Id not found")
+		fmt.Println("No event ID provided. Redirecting to home page.")
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+	authCtx := mw.Context(ctx)
+	eventDetailsPage := pages.EventDetailsPage(eventId)
+	userInfo := helpers.UserInfo{}
+	userInfo, err := setUserInfo(authCtx, userInfo)
+	if err != nil {
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
-	eventDetailsPage := pages.EventDetailsPage(eventId)
-	layoutTemplate := pages.Layout("Event Details", eventDetailsPage)
+	layoutTemplate := pages.Layout("Event Details", userInfo, eventDetailsPage)
 	var buf bytes.Buffer
-	err := layoutTemplate.Render(ctx, &buf)
+	err = layoutTemplate.Render(ctx, &buf,)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
@@ -128,10 +186,17 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Cl
 
 func GetAdminPage(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
 	ctx := r.Context()
+	authCtx := mw.Context(ctx)
+
+	userInfo := helpers.UserInfo{}
+	userInfo, err := setUserInfo(authCtx, userInfo)
+	if err != nil {
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+	}
 	adminPage := pages.AdminPage()
-	layoutTemplate := pages.Layout("Admin", adminPage)
+	layoutTemplate := pages.Layout("Admin", userInfo, adminPage)
 	var buf bytes.Buffer
-	err := layoutTemplate.Render(ctx, &buf)
+	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}

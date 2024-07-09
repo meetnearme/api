@@ -1,8 +1,13 @@
 package components
 
-import "os"
+import (
+	"os"
+"github.com/meetnearme/api/functions/gateway/helpers"
+)
 
-templ Navbar() {
+
+
+templ Navbar(userInfo helpers.UserInfo) {
 	<div class="drawer drawer-end">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content flex flex-col">
@@ -21,11 +26,39 @@ templ Navbar() {
 						</label>
 					</div>
 					<div class="navbar-end hidden lg:flex">
-						<ul class="items-center menu menu-horizontal px-1">
-							<!-- Navbar menu content here -->
-							<li><a href="/about" class="px-5 py-3">About</a></li>
-							<li><a href="/login" class="btn btn-primary">Add an Event</a></li>
-						</ul>
+						<div class="items-center">
+							<ul class="menu menu-horizontal px-1">
+								<li><a href="/about" class="px-5 py-3">About</a></li>
+								<li><a href="/login" class="btn btn-primary">Add an Event</a></li>
+							</ul>
+							if userInfo.Email != "" {
+								<div class="dropdown dropdown-end">
+									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
+										<div class="bg-neutral text-neutral-content w-24 rounded-full">
+											<span class="text-3xl">{string(userInfo.Email[:1])}</span>
+										</div>
+										// <div class="w-10 rounded-full">
+										// 	<img
+										// 		alt="Tailwind CSS Navbar component"
+										// 		src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg" />
+										// </div>
+									</div>
+									<ul
+										tabindex="0"
+										class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
+										<li><strong>{string(userInfo.Email)}</strong></li>
+										<li>
+											<a href="/profile" class="justify-between">
+												Profile
+												<span class="badge">New</span>
+											</a>
+										</li>
+										<li><a>Settings</a></li>
+										<li><a>Logout</a></li>
+									</ul>
+								</div>
+							}
+						</div>
 					</div>
 				</div>
 			</div>

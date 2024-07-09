@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -11,6 +12,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 )
+
+var (
+	db   *dynamodb.Client
+	once sync.Once
+)
+
+func init() {
+	db = CreateDbClient()
+}
 
 func CreateDbClient() *dynamodb.Client {
 
@@ -51,4 +61,11 @@ func CreateDbClient() *dynamodb.Client {
 	}
 
 	return dynamodb.NewFromConfig(cfg)
+}
+
+func GetDB() *dynamodb.Client {
+	once.Do(func() {
+		db = CreateDbClient()
+	})
+	return db
 }
