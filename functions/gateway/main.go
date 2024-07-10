@@ -83,9 +83,9 @@ func main() {
 		auth    AuthType
 	}{
 		{"/", "GET", handlers.GetHomePage, Check},
-		{"/admin", "GET", handlers.GetAdminPage, Require},
 		{"/login", "GET", handlers.GetLoginPage, Check},
-		{"/profile", "GET", handlers.GetProfilePage, Require},
+		{"/admin/add-event-source", "GET", handlers.GetAdminPage, Require},
+		{"/admin/profile", "GET", handlers.GetProfilePage, Require},
 		{"/map-embed", "GET", handlers.GetMapEmbedPage, None},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...

@@ -26,13 +26,13 @@ templ Navbar(userInfo helpers.UserInfo) {
 						</label>
 					</div>
 					<div class="navbar-end hidden lg:flex">
-						<div class="items-center">
+						<div class="items-center lg:flex">
 							<ul class="menu menu-horizontal px-1">
 								<li><a href="/about" class="px-5 py-3">About</a></li>
 								<li><a href="/login" class="btn btn-primary">Add an Event</a></li>
 							</ul>
 							if userInfo.Email != "" {
-								<div class="dropdown dropdown-end">
+								<div class="dropdown dropdown-end px-3">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 										<div class="bg-neutral text-neutral-content w-24 rounded-full">
 											<span class="text-3xl">{string(userInfo.Email[:1])}</span>
@@ -48,7 +48,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 										class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
 										<li><strong>{string(userInfo.Email)}</strong></li>
 										<li>
-											<a href="/profile" class="justify-between">
+											<a href="/admin/profile" class="justify-between">
 												Profile
 												<span class="badge">New</span>
 											</a>
