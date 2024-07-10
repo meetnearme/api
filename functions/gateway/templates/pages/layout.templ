@@ -33,7 +33,7 @@ templ Layout(title string, userInfo helpers.UserInfo, pageContent templ.Componen
 			<footer class="footer footer-center p-10 mt-60 bg-primary text-primary-content">
 				<aside>
 					<a href="/" class="btn btn-ghost text-xl">
-						<img class="brand" src="http://localhost:3001/static/assets/logo.svg"/>
+						<img class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 					</a>
 					<p>
 						<br/>

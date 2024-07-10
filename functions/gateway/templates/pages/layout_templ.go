@@ -100,16 +100,29 @@ func Layout(title string, userInfo helpers.UserInfo, pageContent templ.Component
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<footer class=\"footer footer-center p-10 mt-60 bg-primary text-primary-content\"><aside><a href=\"/\" class=\"btn btn-ghost text-xl\"><img class=\"brand\" src=\"http://localhost:3001/static/assets/logo.svg\"></a><p><br><em>I saw a friend of mine the other day</em><br><em>And he told me that my eyes were gleaming</em><br><em>I said I had been away</em><br><em>And he knew, oh, he knew the depths I was meaning</em><br><em>It felt so good to see his face</em><br><em>The comfort invested in my soul</em><br><em>To feel the warmth of his smile</em><br><em>When he said &lsquo;I'm happy to have you home&rsquo;</em><br><br>~ <a href=\"https://open.spotify.com/track/5fpEDGQX0Ah3utGnFYulQZ?si=608b29dece2c4e74&amp;nd=1&amp;dlsi=4e5280a68a5544b7\" target=\"_blank\">Ben Howard</a></p><br><br><p>&copy; ")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<footer class=\"footer footer-center p-10 mt-60 bg-primary text-primary-content\"><aside><a href=\"/\" class=\"btn btn-ghost text-xl\"><img class=\"brand\" src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(time.Now().Format("2006"))
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/layout.templ`, Line: 36, Col: 100}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"></a><p><br><em>I saw a friend of mine the other day</em><br><em>And he told me that my eyes were gleaming</em><br><em>I said I had been away</em><br><em>And he knew, oh, he knew the depths I was meaning</em><br><em>It felt so good to see his face</em><br><em>The comfort invested in my soul</em><br><em>To feel the warmth of his smile</em><br><em>When he said &lsquo;I'm happy to have you home&rsquo;</em><br><br>~ <a href=\"https://open.spotify.com/track/5fpEDGQX0Ah3utGnFYulQZ?si=608b29dece2c4e74&amp;nd=1&amp;dlsi=4e5280a68a5544b7\" target=\"_blank\">Ben Howard</a></p><br><br><p>&copy; ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var7 string
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(time.Now().Format("2006"))
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/layout.templ`, Line: 62, Col: 40}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -117,12 +130,12 @@ func Layout(title string, userInfo helpers.UserInfo, pageContent templ.Component
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/meet_near_me_home_bg_full.webp"))
+		var templ_7745c5c3_Var8 string
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/meet_near_me_home_bg_full.webp"))
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/layout.templ`, Line: 77, Col: 184}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
