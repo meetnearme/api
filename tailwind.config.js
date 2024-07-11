@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 
 export default {
-  content: ['functions/lambda/templates/**/*.templ'],
+  content: ['**/*.templ'],
   theme: {
     fontSize: {
       sm: '0.8rem',
@@ -98,17 +98,21 @@ export default {
           'color-scheme': 'light',
           fontFamily:
             'ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace',
-          '--rounded-box': '0',
-          '--rounded-btn': '0',
-          '--rounded-badge': '0',
-          '--tab-radius': '0',
+          '--rounded-box': '1rem', // border radius rounded-box utility class, used in card and other large boxes
+          '--rounded-btn': '0.5rem', // border radius rounded-btn utility class, used in buttons and similar element
+          '--rounded-badge': '1.9rem',
+          '--tab-radius': '0.5rem',
+          // '--rounded-box': '0',
+          // '--rounded-btn': '0',
+          // '--rounded-badge': '0',
+          // '--tab-radius': '0',
           primary: '#00ceff',
           secondary: '#5eead4',
           accent: '#f0abfc',
           neutral: '#190c04',
           'neutral-content': '#00ceff',
           'base-100': '#fffbe6',
-          info: '#7cbbee',
+          info: '#9fb9f9',
           success: '#74ea62',
           warning: '#ffc458',
           error: '#ff7f7f',

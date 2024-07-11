@@ -65,3 +65,95 @@
   /* min-height: 0; */
   min-height: 1.5rem;
 }
+
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator {
+  display: inherit;
+}
+
+.htmx-show-in-flight {
+  display: none;
+}
+
+.htmx-request .htmx-show-in-flight {
+  display: inherit;
+}
+
+.htmx-hide-in-flight {
+  display: inherit;
+}
+
+.htmx-request .htmx-hide-in-flight {
+  display: none;
+}
+
+.margins-when-children.my-8:has(*) {
+  margin: 2rem 0;
+}
+
+/* BEGIN seshu ingestion "add event source" section */
+
+#event-source-steps .step {
+  min-width: 15rem;
+}
+
+.checkbox-card {
+  border: 2px solid oklch(var(--er));
+}
+
+.checkbox-card .checkbox-card-header {
+  border-top-left-radius: var(--rounded-btn);
+  border-top-right-radius: var(--rounded-btn);
+}
+
+.checkbox-card .checkbox-card-header .label {
+  justify-content: center;
+}
+
+.checkbox-card .checkbox-card-header:has(input[type='checkbox']) {
+  background-color: oklch(var(--er));
+  color: oklch(var(--erc));
+}
+
+.checkbox-card .checkbox-card-header:has(input[type='checkbox']:checked) {
+  background-color: oklch(var(--su));
+  color: oklch(var(--suc));
+}
+
+.checkbox-card:has(input[id*='main-toggle-'][type='checkbox']:checked) {
+  border-color: oklch(var(--su));
+}
+
+.has-toggleable-text:has(input[type='checkbox']) .hidden-when-checked {
+  display: inherit;
+}
+
+.has-toggleable-text:has(input[type='checkbox']:checked) .hidden-when-checked {
+  display: none;
+}
+
+.has-toggleable-text:not(:has(input[type='checkbox']:checked))
+  .hidden-when-not-checked {
+  display: none;
+}
+
+#event-source-container:not(:has(#event-candidates-inner .checkbox-card))
+  .candidates-loaded-visible,
+#event-source-container:has(#event-candidates-inner .checkbox-card)
+  .candidates-loading-visible {
+  height: 0;
+  width: 0;
+  opacity: 0;
+  display: none;
+}
+
+#event-source-container:has(#event-candidates-inner .checkbox-card)
+  #explainer-section
+  .alert-info {
+  background-color: oklch(var(--su));
+}
+
+/* END seshu ingestion "add event source" section */
