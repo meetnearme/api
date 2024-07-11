@@ -9,7 +9,6 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/awslabs/aws-lambda-go-api-proxy/gorillamux"
 	"github.com/gorilla/mux"
 
@@ -20,17 +19,10 @@ import (
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
-	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
-
-var db *dynamodb.Client
 var mw   *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 var authN *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
-
-func init() {
-	db = transport.GetDB()
-}
 
 // Middleware to inject context into the request
 func withContext(next http.Handler) http.Handler {
