@@ -15,6 +15,18 @@ inputs:
   OPENAI_API_KEY:
     description: 'The API key for the OpenAI environment'
     required: true
+  ZITADEL_CLIENT_ID:
+    description: 'The client ID for zitadel auth'
+    required: true
+  ZITADEL_ENCRYPTION_KEY:
+    description: 'The encryption key for zitadel auth'
+    required: true
+  ZITADEL_INSTANCE_URL:
+    description: 'The client instance URL for zitadel auth'
+    required: true
+  ZITADEL_REDIRECT_URI:
+    description: 'The redirect URI for zitadel auth'
+    required: true
 runs:
   using: composite
   steps:
@@ -27,6 +39,10 @@ runs:
         echo SCRAPINGBEE_API_KEY=${{ inputs.SCRAPINGBEE_API_KEY }} >> .env
         echo GOOGLE_API_KEY=${{ inputs.GOOGLE_API_KEY }} >> .env
         echo OPENAI_API_KEY=${{ inputs.OPENAI_API_KEY }} >> .env
+        echo ZITADEL_CLIENT_ID=${{ inputs.ZITADEL_CLIENT_ID }} >> .env
+        echo ZITADEL_ENCRYPTION_KEY=${{ inputs.ZITADEL_ENCRYPTION_KEY }} >> .env
+        echo ZITADEL_INSTANCE_URL=${{ inputs.ZITADEL_INSTANCE_URL }} >> .env
+        echo ZITADEL_REDIRECT_URI=${{ inputs.ZITADEL_REDIRECT_URI }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

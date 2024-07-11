@@ -10,6 +10,18 @@ const (
 	EVENT_ID_KEY string = "eventId"
 )
 
+type UserInfo struct {
+	Email string `json:"email"`
+	EmailVerified bool `json:"email_verified"`
+	FamilyName string `json:"family_name"`
+	GivenName string `json:"given_name"`
+	Locale string `json:"locale"`
+	Name string `json:"name"`
+	PreferredUsername string `json:"preferred_username"`
+	Sub string `json:"sub"`
+	UpdatedAt int `json:"updated_at"`
+}
+
 type Category struct {
 	Name, Desc, Slug string
 	Items []Subcategory

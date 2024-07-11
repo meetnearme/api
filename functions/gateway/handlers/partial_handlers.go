@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"log"
 	"strconv"
 
 	"net/http"
 
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
@@ -34,7 +32,7 @@ type SeshuSessionEventsPayload struct {
 	EventValidations [][]bool `json:"eventValidations" validate:"required"`
 }
 
-func GeoLookup(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	ctx := r.Context()
 	var inputPayload GeoLookupInputPayload
@@ -77,15 +75,13 @@ func GeoLookup(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
-	log.Println("GeoThenPatchSeshuSession called")
+func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	var inputPayload GeoThenSeshuPatchInputPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
 	}
-
 	err = json.Unmarshal([]byte(body), &inputPayload)
 
 	if err != nil {
@@ -102,15 +98,14 @@ func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamo
 	if baseUrl == "" {
 		return transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, err)
 	}
-
 	lat, lon, address, err := services.GetGeo(inputPayload.Location, baseUrl)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to get geocoordinates: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	var updateSehsuSession services.SeshuSessionUpdate
-	err = json.Unmarshal([]byte(body), &updateSehsuSession)
+	var updateSeshuSession services.SeshuSessionUpdate
+	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, err)
@@ -120,21 +115,21 @@ func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamo
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusUnprocessableEntity, err)
 	}
-	updateSehsuSession.LocationLatitude = latFloat
+
+	updateSeshuSession.LocationLatitude = latFloat
 	lonFloat, err := strconv.ParseFloat(lon, 64)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusUnprocessableEntity, err)
 	}
-	updateSehsuSession.LocationLongitude = lonFloat
-	updateSehsuSession.LocationAddress = address
+	updateSeshuSession.LocationLongitude = lonFloat
+	updateSeshuSession.LocationAddress = address
 
-	if (updateSehsuSession.Url == "") {
+	if (updateSeshuSession.Url == "") {
 		return transport.SendHtmlRes(w, []byte("ERR: Invalid body: url is required"), http.StatusBadRequest, nil)
 	}
-
 	geoLookupPartial := partials.GeoLookup(lat, lon, address, true)
 
-	_, err = services.UpdateSeshuSession(ctx, db, updateSehsuSession)
+	_, err = services.UpdateSeshuSession(ctx, Db, updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to update target URL session"), http.StatusNotFound, err)
@@ -145,11 +140,10 @@ func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamo
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
-
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	var inputPayload SeshuSessionEventsPayload
 	body, err := io.ReadAll(r.Body)
@@ -168,20 +162,20 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request, db *dynamodb.Clie
 		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
 	}
 
-	var updateSehsuSession services.SeshuSessionUpdate
-	err = json.Unmarshal([]byte(body), &updateSehsuSession)
+	var updateSeshuSession services.SeshuSessionUpdate
+	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, err)
 	}
 
-	updateSehsuSession.Url = inputPayload.Url
+	updateSeshuSession.Url = inputPayload.Url
 	// Note that only OpenAI can push events as candidates, `eventValidations` is an array of
 	// arrays that confirms the subfields, but avoids a scenario where users can push string data
 	// that is prone to manipulation
-	updateSehsuSession.EventValidations = inputPayload.EventValidations
+	updateSeshuSession.EventValidations = inputPayload.EventValidations
 
-	_, err = services.UpdateSeshuSession(ctx, db, updateSehsuSession)
+	_, err = services.UpdateSeshuSession(ctx, Db, updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, err)
@@ -198,7 +192,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request, db *dynamodb.Clie
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func SubmitSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Client) http.HandlerFunc {
+func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	ctx := r.Context()
 	var inputPayload SeshuSessionEventsPayload
@@ -218,17 +212,17 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request, db *dynamodb.Cli
 		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
 	}
 
-	var updateSehsuSession services.SeshuSessionUpdate
-	err = json.Unmarshal([]byte(body), &updateSehsuSession)
+	var updateSeshuSession services.SeshuSessionUpdate
+	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, err)
 	}
 
-	updateSehsuSession.Url = inputPayload.Url
-	updateSehsuSession.Status = "submitted"
+	updateSeshuSession.Url = inputPayload.Url
+	updateSeshuSession.Status = "submitted"
 
-	_, err = services.UpdateSeshuSession(ctx, db, updateSehsuSession)
+	_, err = services.UpdateSeshuSession(ctx, Db, updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, err)
