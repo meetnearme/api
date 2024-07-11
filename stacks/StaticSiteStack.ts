@@ -13,11 +13,6 @@ export function StaticSiteStack({ stack }: StackContext) {
       url: 'http://localhost:3001',
     },
     buildCommand: 'npm run tailwind:prod',
-    // TODO: figure out a domain name with associated cert
-    // customDomain: {
-    //   alternateNames: [api.url],
-    //   domainName: 'domain.com',
-    // },
   });
   stack.addOutputs({
     StaticEndpoint: staticSite?.url,
