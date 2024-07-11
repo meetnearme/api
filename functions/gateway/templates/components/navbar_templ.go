@@ -46,7 +46,7 @@ func Navbar(userInfo helpers.UserInfo) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if userInfo.Email != "" {
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"dropdown dropdown-end px-3\"><div tabindex=\"0\" role=\"button\" class=\"btn btn-ghost btn-circle avatar placeholder\"><div class=\"bg-neutral text-neutral-content w-24 rounded-full\"><span class=\"text-3xl\">")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"dropdown dropdown-end px-3\"><div tabindex=\"0\" role=\"button\" class=\"btn btn-ghost btn-circle avatar placeholder\"><div class=\"border-2 border-base-300 w-24 rounded-full\"><span class=\"text-3xl\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -72,7 +72,7 @@ func Navbar(userInfo helpers.UserInfo) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</strong></li><li><a href=\"/admin/profile\" class=\"justify-between\">Profile <span class=\"badge\">New</span></a></li><li><a>Settings</a></li><li><a>Logout</a></li></ul></div>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</strong></li><li><a href=\"/admin/profile\" class=\"justify-between\">Profile <span class=\"badge\">New</span></a></li><li><a href=\"/auth/logout\">Logout</a></li></ul></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

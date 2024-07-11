@@ -34,7 +34,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 							if userInfo.Email != "" {
 								<div class="dropdown dropdown-end px-3">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
-										<div class="bg-neutral text-neutral-content w-24 rounded-full">
+										<div class="border-2 border-base-300 w-24 rounded-full">
 											<span class="text-3xl">{string(userInfo.Email[:1])}</span>
 										</div>
 										// <div class="w-10 rounded-full">
@@ -53,8 +53,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 												<span class="badge">New</span>
 											</a>
 										</li>
-										<li><a>Settings</a></li>
-										<li><a>Logout</a></li>
+										<li><a href="/auth/logout">Logout</a></li>
 									</ul>
 								</div>
 							}

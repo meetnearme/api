@@ -45,8 +45,11 @@ func main() {
 	mw, authN = services.GetAuthMw()
 
 	r.Handle("/auth/login", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// TODO: 3rd param is the requested URI we should redirect the user to after login (via request context)
-		authN.Authenticate(w, req, "/")
+		query := ""
+		if req.URL.RawQuery != "" {
+			query = "?" + req.URL.RawQuery
+		}
+		authN.Authenticate(w, req, req.URL.Path + query)
 	}))
 	r.Handle("/auth/callback", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		authN.Callback(w, req)

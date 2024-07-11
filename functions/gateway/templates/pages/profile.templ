@@ -34,6 +34,13 @@ templ ProfilePage(userInfo helpers.UserInfo) {
       <br/>
       Email: {userInfo.Email}
       <br/>
+      Verified:
+      if userInfo.EmailVerified {
+        Yes
+      } else {
+        No
+      }
+      <br/>
       ID: {userInfo.Sub}
       <br/>
       Locale: {userInfo.Locale}

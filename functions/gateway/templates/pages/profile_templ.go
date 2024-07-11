@@ -53,6 +53,21 @@ func ProfilePage(userInfo helpers.UserInfo) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<br>Verified: ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if userInfo.EmailVerified {
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("Yes")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("No")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<br>ID: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -60,7 +75,7 @@ func ProfilePage(userInfo helpers.UserInfo) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(userInfo.Sub)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/profile.templ`, Line: 37, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/profile.templ`, Line: 44, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -73,7 +88,7 @@ func ProfilePage(userInfo helpers.UserInfo) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(userInfo.Locale)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/profile.templ`, Line: 39, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `functions/gateway/templates/pages/profile.templ`, Line: 46, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
