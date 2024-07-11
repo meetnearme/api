@@ -5,7 +5,13 @@ import (
 	"net/http"
 )
 
-func SendHtmlSuccess(w http.ResponseWriter, body []byte, status int) http.HandlerFunc {
+// NOTE: `err` is passed in and logged if status is 400 or greater, but msg
+func SendHtmlRes(w http.ResponseWriter, body []byte, status int, err error) http.HandlerFunc {
+	msg := string(body)
+	if (status >= 400) {
+		msg = "ERR: "+msg
+		log.Println(msg+ " || Internal error msg: "+err.Error())
+	}
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(status)
 	w.Write(body)
@@ -22,12 +28,12 @@ func SendHtmlError(w http.ResponseWriter, body []byte, status int) http.HandlerF
 }
 
 
-func SendServerRes(w http.ResponseWriter, body []byte, status int) http.HandlerFunc {
+func SendServerRes(w http.ResponseWriter, body []byte, status int, err error) http.HandlerFunc {
 	msg := string(body)
 	if (status >= 400) {
 		msg = "ERR: "+msg
+		log.Println(msg)
 	}
-	log.Println(msg)
 
 	w.WriteHeader(status)
 	w.Write([]byte(msg))

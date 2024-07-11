@@ -12,12 +12,16 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/go-playground/validator"
-	"github.com/meetnearme/api/functions/lambda/go/seshu/shared"
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/transport"
 	partials "github.com/meetnearme/api/functions/lambda/go/seshu/templates"
 )
 
@@ -32,7 +36,9 @@ import (
 // 8. Validate that the invalid metadata strings fromt the example (e.g. `Nowhere City`) do not appear in the LLM event array output
 // 9. Open AI can sometimes truncate the attempted JSON like this `<valid JSON start>...events/300401920/"}, {"event_tit...} stop}]`
 // 10. Validate user input is really a URL prior to consuming API resources like ZR or OpenAI
-// 11. Handle the scenario below where the scraped Markdown data is so large, that it exceeds the OpenAI API limit
+// 11. Loop over OpenAI response and remove any that have no chance of validity (e.g. lack a time or event title) before sending to the client
+// 12. Check for "Fake Event Title 1" (and the same for `location`, `time`, and `url`) and null those values before sending to client
+// 13. Handle the scenario below where the scraped Markdown data is so large, that it exceeds the OpenAI API limit
 //    and results in the error `Error: unexpected response format, `id` missing` because OpenAI literally returns an empty
 //    Chat GPT response:  {  0  [] map[]}
 
@@ -45,15 +51,17 @@ import (
 
 var validate *validator.Validate = validator.New()
 var converter = md.NewConverter("", true, nil)
+// 395KB is just a bit under the 400KB dynamoDB limit
+// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html
+const maxHtmlDocSize = 395 * 1024
 
 type SeshuInputPayload struct {
     Url string `json:"url" validate:"required"`
-
 }
 
 type SeshuResponseBody struct {
 	SessionID string `json:"session_id"`
-	EventsFound []shared.EventInfo `json:"events_found"`
+	EventsFound []services.EventInfo `json:"events_found"`
 }
 
 type CreateChatSessionPayload struct {
@@ -123,6 +131,11 @@ The input is:
 =====
 const textStrings = `
 
+var db *dynamodb.Client
+
+func init() {
+	db = transport.CreateDbClient()
+}
 
 func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
     switch req.RequestContext.HTTP.Method {
@@ -137,6 +150,7 @@ func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.La
 
 func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 	var inputPayload SeshuInputPayload
+
 	err := json.Unmarshal([]byte(req.Body), &inputPayload)
 	if err != nil {
 			log.Printf("Invalid JSON payload: %v", err)
@@ -149,48 +163,24 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 			return clientError(http.StatusBadRequest)
 	}
 
-	log.Println("URL: ", inputPayload.Url)
 	if err != nil {
 			return serverError(err)
 	}
 
-	// start of scraping API code
-	client := &http.Client{}
-	scrReq, scrErr := http.NewRequest("GET", "https://app.scrapingbee.com/api/v1/?api_key=" + os.Getenv("SCRAPINGBEE_API_KEY") + "&url=" + url.QueryEscape(inputPayload.Url) + "&wait=4500&render_js=true", nil)
-	if scrErr != nil {
-		log.Println("ERR: ", scrErr)
-		return SendHTMLError(scrErr, ctx, req)
-	}
-	scrRes, scrErr := client.Do(scrReq)
-	if scrErr != nil {
-		log.Println("ERR: ", scrErr)
-		return SendHTMLError(scrErr, ctx, req)
-	}
-	defer scrRes.Body.Close()
-
-	scrBody, scrErr := io.ReadAll(scrRes.Body)
-	if scrErr != nil {
-			log.Println("ERR: ", scrErr)
-			return SendHTMLError(scrErr, ctx, req)
+	htmlString, err := services.GetHTMLFromURL(inputPayload.Url, 4500, true)
+	if err != nil {
+		return SendHTMLError(err, ctx, req)
 	}
 
-	if scrRes.StatusCode!= 200 {
-		scrErr := fmt.Errorf("%v from scraping API", fmt.Sprint(scrRes.StatusCode))
-		log.Println("ERR: ", scrErr)
-		return SendHTMLError(scrErr, ctx, req)
-	}
-
-	scrBodyString := string(scrBody)
 	// avoid extra parsing work for <head> content outside of <body>
-
 	// TODO: this doesn't appear to be working
 	re := regexp.MustCompile(`<body>(.*?)<\/body>`)
-	matches := re.FindStringSubmatch(scrBodyString)
+	matches := re.FindStringSubmatch(htmlString)
 	if len(matches) > 1 {
-		scrBodyString = matches[1]
+		htmlString = matches[1]
 	}
 
-	markdown, err := converter.ConvertString(scrBodyString)
+	markdown, err := converter.ConvertString(htmlString)
 	if err != nil {
 		log.Println("ERR: ", err)
 		return SendHTMLError(err, ctx, req)
@@ -228,11 +218,11 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 
 	openAIjson := messageContent
 
-	var eventsFound []shared.EventInfo
+	var eventsFound []services.EventInfo
 
 	err = json.Unmarshal([]byte(openAIjson), &eventsFound)
 	if err != nil {
-		log.Println("Error unmarshaling OpenAI response into shared.EventInfo slice:", err)
+		log.Println("Error unmarshaling OpenAI response into services.EventInfo slice:", err)
 		return SendHTMLError(err, ctx, req)
 	}
 
@@ -240,6 +230,53 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 		log.Println("Error marshaling response body as JSON:", err)
 		return SendHTMLError(err, ctx, req)
 	}
+
+	// we want to save the session AFTER sending an HTML response, since we will already
+	// have the session's `partitionKey` (which is always the full URL) for lookup later
+	defer func() {
+		url, err := url.Parse(inputPayload.Url)
+		if err != nil {
+			log.Println("ERR: Error parsing URL:", err)
+		}
+
+		domain := url.Host
+		path := url.Path
+		queryParams := url.Query()
+
+		// we opt for a truncation rather than error here as a tough UX decision. If an HTML document
+		// violates the 400KB dynamo doc size limit, there's really nothing we can do aside from
+		// "hope for the best" and use the first 400KB of the document and  hope it's enough to get
+		// the event data that's being sought after in the HTML doc output
+		// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html
+
+		truncatedHTMLStr, exceededLimit := helpers.TruncateStringByBytes(htmlString, maxHtmlDocSize)
+
+		if (exceededLimit) {
+			log.Printf("WARN: HTML document exceeded %v byte limit, truncating", maxHtmlDocSize)
+		}
+
+		currentTime := time.Now()
+		seshuSessionPayload := services.SeshuSessionInput{
+			SeshuSession: services.SeshuSession{
+				// TODO: this needs wiring up with Auth
+				OwnerId: "123",
+				Url: inputPayload.Url,
+				UrlDomain: domain,
+				UrlPath: path,
+				UrlQueryParams: queryParams,
+				Html: truncatedHTMLStr,
+				EventCandidates: eventsFound,
+				CreatedAt: currentTime.Unix(),
+				UpdatedAt: currentTime.Unix(),
+				ExpireAt: currentTime.Add(time.Hour * 24).Unix(),
+			},
+		}
+
+		_, err = services.InsertSeshuSession(ctx, db, seshuSessionPayload)
+		if err != nil {
+			log.Println("Error inserting Seshu session:", err)
+		}
+	}()
 
 	layoutTemplate := partials.EventCandidatesPartial(eventsFound)
 	var buf bytes.Buffer
@@ -251,7 +288,6 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	return events.LambdaFunctionURLResponse{
 			Headers: map[string]string{"Content-Type": "text/html"},
 			StatusCode: http.StatusOK,
-			// Body: string(responseBody),
 			Body: buf.String(),
 	}, nil
 }
@@ -273,7 +309,6 @@ func SendHTMLError(err error, ctx context.Context, req events.LambdaFunctionURLR
 
 func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	client := &http.Client{}
-	log.Println("Creating chat session")
 	payload := CreateChatSessionPayload{
 		Model: "gpt-3.5-turbo-16k",
 		Messages: []Message{

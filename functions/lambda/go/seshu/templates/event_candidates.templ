@@ -2,10 +2,10 @@ package partials
 
 import (
 	"fmt"
-	"github.com/meetnearme/api/functions/lambda/go/seshu/shared"
+	"github.com/meetnearme/api/functions/gateway/services"
 )
 
-templ EventCandidatesPartial(eventCandidates []shared.EventInfo) {
+templ EventCandidatesPartial(eventCandidates []services.EventInfo) {
 	<form class="group" novalidate>
 		<div role="alert" class="alert alert-info mt-3 mb-11">
 			Mark each field such as "title" and "location" as correct or incorrect with the adjacent toggle. If the proposed event is not an event, toggle "This is an event" to "This is not an event".

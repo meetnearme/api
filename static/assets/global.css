@@ -66,6 +66,34 @@
   min-height: 1.5rem;
 }
 
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator {
+  display: inherit;
+}
+
+.htmx-show-in-flight {
+  display: none;
+}
+
+.htmx-request .htmx-show-in-flight {
+  display: inherit;
+}
+
+.htmx-hide-in-flight {
+  display: inherit;
+}
+
+.htmx-request .htmx-hide-in-flight {
+  display: none;
+}
+
+.margins-when-children.my-8:has(*) {
+  margin: 2rem 0;
+}
+
 /* BEGIN seshu ingestion "add event source" section */
 
 #event-source-steps .step {
@@ -127,3 +155,5 @@
   .alert-info {
   background-color: oklch(var(--su));
 }
+
+/* END seshu ingestion "add event source" section */
