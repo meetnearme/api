@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 var (
@@ -22,7 +23,7 @@ func init() {
 	db = CreateDbClient()
 }
 
-func CreateDbClient() *dynamodb.Client {
+func CreateDbClient() types.DynamoDBAPI {
 
 	// used for local dev via aws sam in docker container
 	dbUrl := "http://localhost:8000"

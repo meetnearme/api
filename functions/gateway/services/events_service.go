@@ -13,12 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/indexing"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
-
-type DynamoDBAPI interface {
-    Scan(ctx context.Context, params *dynamodb.ScanInput, optsFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
-    PutItem(ctx context.Context, params *dynamodb.PutItemInput, optsFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
-}
 
 type EventSelect struct {
 	Id          string `json:"id" dynamodbav:"id"`
@@ -78,7 +74,7 @@ func GetEvents(ctx context.Context, db *dynamodb.Client) ([]EventSelect, error) 
 	return events, nil
 }
 
-func GetEventsZOrder(ctx context.Context, db DynamoDBAPI, startTime, endTime time.Time, lat, lon, radius float32) ([]EventSelect, error) {
+func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime, endTime time.Time, lat, lon, radius float32) ([]EventSelect, error) {
     minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, lat, lon, "min")
     if err != nil {
         return nil, fmt.Errorf("error calculating min z-order index: %v", err)
@@ -121,7 +117,7 @@ func GetEventsZOrder(ctx context.Context, db DynamoDBAPI, startTime, endTime tim
     return events, nil
 }
 
-func InsertEvent(ctx context.Context, db DynamoDBAPI, createEvent EventInsert) (*EventSelect, error) {
+func InsertEvent(ctx context.Context, db internal_types.DynamoDBAPI, createEvent EventInsert) (*EventSelect, error) {
     startTime, err := time.Parse(time.RFC3339, createEvent.Datetime)
     if err != nil {
         return nil, fmt.Errorf("invalid datetime format: %v", err)

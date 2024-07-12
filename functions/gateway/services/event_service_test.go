@@ -12,21 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
     "github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/indexing"
+	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
-
-type mockDynamoDBClient struct {
-    scanFunc func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
-    putItemFunc func(ctx context.Context, params *dynamodb.PutItemInput, optsFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
-}
-
-func (m *mockDynamoDBClient) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
-    return m.scanFunc(ctx, params, optFns...)
-}
-
-
-func (m *mockDynamoDBClient) PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
-    return m.putItemFunc(ctx, params, optFns...)
-}
 
 func TestGetEventsZOrder(t *testing.T) {
     tests := []struct {
@@ -66,8 +53,8 @@ func TestGetEventsZOrder(t *testing.T) {
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            mockDB := &mockDynamoDBClient{
-                scanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+            mockDB := &test_helpers.MockDynamoDBClient{
+                ScanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
                     return tt.mockScanOutput, tt.mockScanError
                 },
             }
@@ -90,8 +77,8 @@ func TestGetEventsZOrder(t *testing.T) {
 func TestInsertEvent(t *testing.T) {
     var capturedInput *dynamodb.PutItemInput
 
-    mockDB := &mockDynamoDBClient{
-        putItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+    mockDB := &test_helpers.MockDynamoDBClient{
+        PutItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
             capturedInput = params
             return &dynamodb.PutItemOutput{}, nil
         },
