@@ -1,8 +1,9 @@
 package helpers
 
 import (
-    "os"
-    "testing"
+	"os"
+	"strings"
+	"testing"
 )
 
 func init() {
@@ -79,22 +80,33 @@ func TestIsRemoteDB(t *testing.T) {
 }
 
 func TestGetDbTableName(t *testing.T) {
+    originalEnv := os.Environ()
+    defer func() {
+        for _, pair := range originalEnv {
+            parts := strings.SplitN(pair, "=", 2)
+            os.Setenv(parts[0], parts[1])
+        }
+    }()
+
     tests := []struct {
         name string
         useRemoteDB string
         sstStage string
         tableName string
+        remoteTableEnv string
         expectedResult string
     }{
-        {"Local DB", "", "", "TestTable", "TestTable"},
-        {"Remote DB", "true", "", "TestTable", ""},
+        {"Local DB", "false", "", "TestTable", "RemoteTestTable", "TestTable"},
+        {"Remote DB", "true", "prod", "TestTable", "RemoteTestTable", "RemoteTestTable"},
     }
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
+            os.Clearenv()
             os.Setenv("USE_REMOTE_DB", tt.useRemoteDB)
-            os.Setenv("SST_STAGE", tt.useRemoteDB)
+            os.Setenv("SST_STAGE", tt.sstStage)
             os.Setenv("SST_Table_tableName_"+EventsTablePrefix, "RemoteTestTable")
+            os.Setenv("GO_ENV", "test")
 
             result := GetDbTableName(tt.tableName)
             if result != tt.expectedResult {

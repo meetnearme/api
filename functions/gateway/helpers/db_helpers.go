@@ -29,6 +29,9 @@ func GetDbTableName(tableName string) string {
     if os.Getenv("GO_ENV") != "test" {
         log.Printf("Log Get Db Table: %v", SST_Table_tableName_Events)
     }
+    if SST_Table_tableName_Events == "" {
+        return ""
+    }
 	return SST_Table_tableName_Events
 }
 
