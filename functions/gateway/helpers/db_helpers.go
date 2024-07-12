@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"log"
 	"os"
 	"strings"
 )
@@ -18,11 +19,16 @@ func IsRemoteDB() bool {
 
 func GetDbTableName(tableName string) string {
 	// this must be added in stacks/ApiStack.ts and stacks/StorageStack.ts
-	var SST_Table_tableName = os.Getenv("SST_Table_tableName_" + tableName)
+	var SST_Table_tableName_Events = os.Getenv("SST_Table_tableName_" + tableName)
 	if !IsRemoteDB() {
+        if os.Getenv("GO_ENV") != "test" {
+            log.Printf("Log Get Db Table: %v", tableName)
+        }
 		return tableName
 	}
-
-	return SST_Table_tableName
+    if os.Getenv("GO_ENV") != "test" {
+        log.Printf("Log Get Db Table: %v", SST_Table_tableName_Events)
+    }
+	return SST_Table_tableName_Events
 }
 
