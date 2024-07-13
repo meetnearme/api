@@ -97,7 +97,16 @@ templ AddEventSource() {
 					</label>
 					<div class="hidden-when-not-checked">
 						<div id="location-type-address" :class="{'opacity-100 h-auto': formData.selectedLocationType === 'address'}" aria-live="polite" class="opacity-0 h-0 w-full mt-5 mb-5 transition-all">
-							<form class="group" novalidate hx-patch="/api/html/seshu/session/location" hx-ext="json-enc" hx-target="#location-confirmation" hx-disabled-elt="input[name='location'], button[type='submit']" @submit.prevent="formData.address ? '' : ''">
+							<form
+								class="group"
+								novalidate
+								hx-patch="/api/html/seshu/session/location"
+								hx-ext="json-enc"
+								hx-target="#location-confirmation"
+								hx-disabled-elt="input[name='location'], button[type='submit']"
+								@submit.prevent="formData.address ? '' : ''"
+								@htmx:after-request="handleLocationValidation(event)"
+							>
 								<input
 									x-model="formData.url"
 									name="url"
@@ -123,7 +132,7 @@ templ AddEventSource() {
 								<br/>
 								<br/>
 								<button type="submit" :disabled="!formData.address?.length || !formData.url?.length" class="btn btn-primary mt-3">
-									<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Add Location <span class="htmx-indicator loading loading-spinner loading-sm"></span>
+									<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Location <span class="htmx-indicator loading loading-spinner loading-sm"></span>
 								</button>
 								<div id="location-confirmation" class="margins-when-children my-8 htmx-hide-in-flight" aria-live="polite"></div>
 								<div class="skeleton card card-compact h-24 w-full htmx-show-in-flight my-8"></div>
@@ -133,11 +142,8 @@ templ AddEventSource() {
 				</div>
 			</div>
 			<div class="divider divider-horizontal"></div>
-			<div
-				id="explainer-section"
-				aria-live="polite"
-			>
-				<p aria-live="polite" x-init="$watch(() => [eventsLoading, hasEvents, hasFallbackLocation, formData.address, eventsValidated], (value, oldValue) => console.log(value, oldValue))" x-text="getSubmissionStateText()"></p>
+			<div aria-live="polite">
+				<p aria-live="polite" x-init="$watch(() => [eventsLoading, hasEvents, hasFallbackLocation, formData.address, eventsValidated], (value, oldValue) => console.log())" x-text="getSubmissionStateText()"></p>
 				<br/>
 				<br/>
 				<form
@@ -155,7 +161,14 @@ templ AddEventSource() {
 						id="url"
 						type="hidden"
 					/>
-					<button :disabled="!hasEvents || !eventsValidated" type="submit" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Submit Event Source <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+					<button
+						:disabled="!hasEvents || !eventsValidated || (hasFallbackLocation && !locationValidated) || formStep < 2"
+						type="submit"
+						class="btn btn-primary"
+						x-init="$watch(() => [hasEvents, eventsValidated, hasFallbackLocation, formData.address], (value, oldValue) => console.log())"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Submit Event Source <span class="htmx-indicator loading loading-spinner loading-sm"></span>
+					</button>
 					<div id="final-submission" class="mt-8 htmx-hide-in-flight" aria-live="polite">
 					</div>
 					<div class="skeleton card card-compact mt-8 h-24 w-full htmx-show-in-flight"></div>
@@ -190,6 +203,7 @@ templ AddEventSource() {
 							eventsValidated: false,
 							eventsLoading: false,
 							hasFallbackLocation: true,
+							locationValidated: false,
 							updateHasEvents(event) {
 								if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
 									this.hasEvents = true;
@@ -226,27 +240,32 @@ templ AddEventSource() {
 							setEventsLoading(bool) {
 									this.eventsLoading = bool;
 							},
+							handleLocationValidation(event) {
+								if (event.detail.successful){
+									this.locationValidated = true;
+								}
+							},
 							handleFinalSubmission(event) {
 								if (event.detail.successful){
 									this.incrementFormStep();
 								}
 							},
 							getSubmissionStateText() {
-								console.log('toggle checked =' +  document.querySelector('#event-candidates-location-toggle').checked)
-								console.log(this.formData.address)
-									if (this.formStep === 1 || !this.formData.url) {
-										return "In order to submit, a URL is required"
-									} else if (this.eventsLoading) {
-										return "Checking the provided URL for event listings ..."
-									} else if (!this.hasEvents) {
-										return "No events found at the URL provided. Please try another URL"
-									} else if (this.hasFallbackLocation && !this.formData.address) {
-										return "If events are all in the same geography, please provide a zip code, address, or city"
-									} else if (!this.eventsValidated) {
-										return "Events must be confirmed before submitting"
-									} else if (this.formStep === 2) {
-										return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
-									}
+								if (this.formStep === 1 || !this.formData.url) {
+									return "In order to submit, a URL is required"
+								} else if (this.eventsLoading) {
+									return "Checking the provided URL for event listings ..."
+								} else if (!this.hasEvents) {
+									return "No events found at the URL provided. Please try another URL"
+								} else if (!this.eventsValidated) {
+									return "Events must be confirmed before submitting"
+								} else if (this.hasFallbackLocation && !this.formData.address) {
+									return "If events are all in the same geography, please provide a zip code, address, or city"
+								} else if (this.hasFallbackLocation && !this.locationValidated) {
+									return "Location must be confirmed before submitting"
+								} else if (this.formStep === 2) {
+									return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
+								}
 							}
 				}
 		}
