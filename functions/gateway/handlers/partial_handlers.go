@@ -195,7 +195,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	ctx := r.Context()
-	var inputPayload SeshuSessionEventsPayload
+	var inputPayload SeshuSessionSubmitPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)

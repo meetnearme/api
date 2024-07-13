@@ -30,7 +30,7 @@ templ AdminPage() {
 		</div>
 		<div id="event-source-container" class="col-span-5 card border-2 border-base-300 bg-base-200 p-10 rounded-box">
 			<h2 class="text-3xl font-bold ">Add a Target URL</h2>
-			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL")) } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? incrementFormStep() : ''" @htmx:after-request="updateHasEvents(event)">
+			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL")) } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? handleURLSubmit() : ''" @htmx:after-request="handleUrlRes(event)">
 				<label for="url">Enter a URL that lists events and we will check the site and propose some events that might be on that page (this will take some time)</label>
 				<input
 					x-model="formData.url"
@@ -92,7 +92,7 @@ templ AdminPage() {
 				<div id="event-candidates-location" class="has-toggleable-text">
 					<h3 class="text-2xl font-bold mt-16">Are all events at the target URL located in the same geography?</h3>
 					<label class="label cursor-pointer justify-normal">
-						<input id="event-candidates-location-toggle" type="checkbox" class="toggle toggle-success mr-4" checked/>
+						<input x-model="hasFallbackLocation" id="event-candidates-location-toggle" type="checkbox" class="toggle toggle-success mr-4" />
 						<span class="label-text ml-4 contents">These events are <strong class="hidden-when-checked">not </strong>in the same geography or near each other</span>
 					</label>
 					<div class="hidden-when-not-checked">
@@ -122,8 +122,9 @@ templ AdminPage() {
 								></iframe>
 								<br/>
 								<br/>
-								<p>Is the location in the map above accurate? (enter something in the text field above before adding)</p>
-								<button type="submit" :disabled="!formData.address?.length || !formData.url?.length" class="btn btn-primary mt-3"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Add Location <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+								<button type="submit" :disabled="!formData.address?.length || !formData.url?.length" class="btn btn-primary mt-3">
+									<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Add Location <span class="htmx-indicator loading loading-spinner loading-sm"></span>
+								</button>
 								<div id="location-confirmation" class="margins-when-children my-8 htmx-hide-in-flight" aria-live="polite"></div>
 								<div class="skeleton card card-compact h-24 w-full htmx-show-in-flight my-8"></div>
 							</form>
@@ -133,19 +134,31 @@ templ AdminPage() {
 			</div>
 			<div class="divider divider-horizontal"></div>
 			<div
-				:class="{'opacity-100 h-auto': !!eventsValidated}"
 				id="explainer-section"
 				aria-live="polite"
-				class="opacity-0 h-0 w-full transition-all"
 			>
-				<p>Looks like we have the data we need to continuously import event data from the URL you've provided. Ready when you are!</p>
+				<p aria-live="polite" x-init="$watch(() => [eventsLoading, hasEvents, hasFallbackLocation, formData.address, eventsValidated], (value, oldValue) => console.log(value, oldValue))" x-text="getSubmissionStateText()"></p>
 				<br/>
 				<br/>
-				<form class="group" novalidate hx-post="/api/html/seshu/session/submit" hx-ext="json-enc" hx-target="#final-submission" hx-disabled-elt="button[type='submit']">
-					<button type="submit" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Submit Event Source <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
-					<div id="final-submission" class="mt-5 htmx-hide-in-flight" aria-live="polite">
-						<div class="skeleton card card-compact h-24 w-full htmx-show-in-flight"></div>
+				<form
+					class="group"
+					novalidate
+					hx-post="/api/html/seshu/session/submit"
+					hx-ext="json-enc"
+					hx-target="#final-submission"
+					hx-disabled-elt="button[type='submit']"
+					@htmx:after-request="handleFinalSubmission(event)"
+				>
+					<input
+						x-model="formData.url"
+						name="url"
+						id="url"
+						type="hidden"
+					/>
+					<button :disabled="!hasEvents || !eventsValidated" type="submit" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Submit Event Source <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+					<div id="final-submission" class="mt-8 htmx-hide-in-flight" aria-live="polite">
 					</div>
+					<div class="skeleton card card-compact mt-8 h-24 w-full htmx-show-in-flight"></div>
 				</form>
 			</div>
 		</div>
@@ -175,12 +188,15 @@ templ AdminPage() {
 							formStep: 1,
 							hasEvents: false,
 							eventsValidated: false,
+							eventsLoading: false,
+							hasFallbackLocation: true,
 							updateHasEvents(event) {
 								if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
 									this.hasEvents = true;
 								} else {
 									this.hasEvents = false;
 								}
+								console.log('this.hasEvents', this.hasEvents)
 							},
 							updateEventsValidated(event) {
 								if (event.detail.successful) {
@@ -196,8 +212,41 @@ templ AdminPage() {
 									var re = /[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z0-9]{2,}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/;
 									return re.test(url);
 							},
+							handleURLSubmit() {
+									this.setEventsLoading(true);
+									this.incrementFormStep();
+							},
+							handleUrlRes(event) {
+									this.setEventsLoading(false);
+									this.updateHasEvents(event);
+							},
 							incrementFormStep() {
 									this.formStep += 1;
+							},
+							setEventsLoading(bool) {
+									this.eventsLoading = bool;
+							},
+							handleFinalSubmission(event) {
+								if (event.detail.successful){
+									this.incrementFormStep();
+								}
+							},
+							getSubmissionStateText() {
+								console.log('toggle checked =' +  document.querySelector('#event-candidates-location-toggle').checked)
+								console.log(this.formData.address)
+									if (this.formStep === 1 || !this.formData.url) {
+										return "In order to submit, a URL is required"
+									} else if (this.eventsLoading) {
+										return "Checking the provided URL for event listings ..."
+									} else if (!this.hasEvents) {
+										return "No events found at the URL provided. Please try another URL"
+									} else if (this.hasFallbackLocation && !this.formData.address) {
+										return "If events are all in the same geography, please provide a zip code, address, or city"
+									} else if (!this.eventsValidated) {
+										return "Events must be confirmed before submitting"
+									} else if (this.formStep === 2) {
+										return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
+									}
 							}
 				}
 		}
