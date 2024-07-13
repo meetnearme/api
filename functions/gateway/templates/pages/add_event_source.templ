@@ -143,7 +143,7 @@ templ AddEventSource() {
 			</div>
 			<div class="divider divider-horizontal"></div>
 			<div aria-live="polite">
-				<p aria-live="polite" x-init="$watch(() => [eventsLoading, hasEvents, hasFallbackLocation, formData.address, eventsValidated], (value, oldValue) => console.log())" x-text="getSubmissionStateText()"></p>
+				<p aria-live="polite" x-text="getSubmissionStateText()"></p>
 				<br/>
 				<br/>
 				<form
@@ -165,7 +165,6 @@ templ AddEventSource() {
 						:disabled="!hasEvents || !eventsValidated || (hasFallbackLocation && !locationValidated) || formStep < 2"
 						type="submit"
 						class="btn btn-primary"
-						x-init="$watch(() => [hasEvents, eventsValidated, hasFallbackLocation, formData.address], (value, oldValue) => console.log())"
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Submit Event Source <span class="htmx-indicator loading loading-spinner loading-sm"></span>
 					</button>
