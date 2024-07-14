@@ -131,7 +131,7 @@ templ AddEventSource() {
 								></iframe>
 								<br/>
 								<br/>
-								<button type="submit" :disabled="!formData.address?.length || !formData.url?.length" class="btn btn-primary mt-3">
+								<button type="submit" :disabled="formData.address?.length < 1 || !formData.url?.length" class="btn btn-primary mt-3">
 									<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Location <span class="htmx-indicator loading loading-spinner loading-sm"></span>
 								</button>
 								<div id="location-confirmation" class="margins-when-children my-8 htmx-hide-in-flight" aria-live="polite"></div>
