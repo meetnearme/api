@@ -29,7 +29,7 @@ templ AddEventSource() {
 			</ul>
 		</div>
 		<div id="event-source-container" class="col-span-5 card border-2 border-base-300 bg-base-200 p-10 rounded-box">
-			<h2 class="text-3xl font-bold ">Add a Target URL</h2>
+			<h2 class="text-3xl font-bold">Add a Target URL</h2>
 			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL")) } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? handleURLSubmit() : ''" @htmx:after-request="handleUrlRes(event)">
 				<label for="url">Enter a URL that lists events and we will check the site and propose some events that might be on that page (this will take some time)</label>
 				<input
@@ -86,7 +86,7 @@ templ AddEventSource() {
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 						</div>
 					</div>
-					<button type="submit" :disabled="!hasEvents" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Event Data <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+					<button type="submit" :disabled="!hasEvents || eventCandidates.length === 0" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Event Data <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 				</form>
 				<div id="events-valid-confirmation" class="margins-when-children my-8"></div>
 				<div id="event-candidates-location" class="has-toggleable-text">
@@ -162,7 +162,7 @@ templ AddEventSource() {
 						type="hidden"
 					/>
 					<button
-						:disabled="!hasEvents || !eventsValidated || (hasFallbackLocation && !locationValidated) || formStep < 2"
+						:disabled="!hasEvents || !eventsValidated || (hasFallbackLocation && !locationValidated) || formStep < 2 || eventCandidates.length === 0"
 						type="submit"
 						class="btn btn-primary"
 					>
@@ -201,6 +201,7 @@ templ AddEventSource() {
 							hasEvents: false,
 							eventsValidated: false,
 							eventsLoading: false,
+							eventCandidates: [],
 							hasFallbackLocation: true,
 							locationValidated: false,
 							updateHasEvents(event) {
@@ -256,6 +257,8 @@ templ AddEventSource() {
 									return "Checking the provided URL for event listings ..."
 								} else if (!this.hasEvents) {
 									return "No events found at the URL provided. Please try another URL"
+								} else if (this.eventCandidates.length === 0) {
+									return "All events are marked invalid. Confirm their are events listed at the Target URL. Either click to search again, or try a different URL"
 								} else if (!this.eventsValidated) {
 									return "Events must be confirmed before submitting"
 								} else if (this.hasFallbackLocation && !this.formData.address) {

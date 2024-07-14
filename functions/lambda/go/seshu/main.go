@@ -38,7 +38,9 @@ import (
 // 10. Validate user input is really a URL prior to consuming API resources like ZR or OpenAI
 // 11. Loop over OpenAI response and remove any that have no chance of validity (e.g. lack a time or event title) before sending to the client
 // 12. Check for "Fake Event Title 1" (and the same for `location`, `time`, and `url`) and null those values before sending to client
-// 13. Handle the scenario below where the scraped Markdown data is so large, that it exceeds the OpenAI API limit
+// 13. Was discovered that google.com/events requires a "premium proxy" (20 scrape credits instead of 5)
+//     so we want to create a "deny list" of sites we don't support and respond with an API error to let users know
+// 14. Handle the scenario below where the scraped Markdown data is so large, that it exceeds the OpenAI API limit
 //    and results in the error `Error: unexpected response format, `id` missing` because OpenAI literally returns an empty
 //    Chat GPT response:  {  0  [] map[]}
 
