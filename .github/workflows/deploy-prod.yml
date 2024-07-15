@@ -28,7 +28,7 @@ jobs:
           ZITADEL_CLIENT_ID: ${{ secrets.ZITADEL_CLIENT_ID }}
           ZITADEL_ENCRYPTION_KEY: ${{ secrets.ZITADEL_ENCRYPTION_KEY }}
           ZITADEL_INSTANCE_URL: ${{ secrets.ZITADEL_INSTANCE_URL }}
-          ZITADEL_REDIRECT_URI: ${{ secrets.ZITADEL_REDIRECT_URI }}
+          APEX_URL: ${{ secrets.APEX_URL }}
       - name: Deploy app
         run: |
           npm i && npx sst deploy --stage prod

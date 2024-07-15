@@ -6,7 +6,7 @@ import { HostedZone } from 'aws-cdk-lib/aws-route53';
 import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { SeshuFunction } from './SeshuFunction';
 
-export function ApiStack({ stack }: StackContext) {
+export function ApiStack({ stack, app }: StackContext & { app: any }) {
   const { eventsTable } = use(StorageStack);
   const { seshuSessionsTable } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
@@ -24,17 +24,28 @@ export function ApiStack({ stack }: StackContext) {
           // `sst deploy` at runtime and then gets set as an environment variable
           STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
           SESHU_FN_URL: process.env.SESHU_FN_URL ?? seshuFn.url,
+          SST_STAGE: app.stage,
           // ----- END -----
         },
       },
     },
-    routes: {
-      $default: 'functions/gateway',
+  });
+
+  // $default route is added separately because we want to get `api.url` which is yielded above among
+  // others, this is used by zitadel auth to redirect back to a frontend URL that matches the apex
+  api.addRoutes(stack, {
+    $default: {
+      function: {
+        handler: 'functions/gateway',
+        environment: {
+          APEX_URL: app.stage === 'prod' ? process.env.APEX_URL : api.url,
+        },
+      },
     },
   });
 
   stack.addOutputs({
-    ApiEndpoint: api.url,
+    ApiEndpoint: app.stage === 'prod' ? process.env.APEX_URL : api.url,
   });
 
   return { api };
