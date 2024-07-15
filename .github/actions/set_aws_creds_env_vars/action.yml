@@ -24,8 +24,9 @@ inputs:
   ZITADEL_INSTANCE_URL:
     description: 'The client instance URL for zitadel auth'
     required: true
-  ZITADEL_REDIRECT_URI:
-    description: 'The redirect URI for zitadel auth'
+  APEX_URL:
+    description:
+      'The site apex URL, dynamic in lower environments, static in prod'
     required: true
 runs:
   using: composite
@@ -42,7 +43,7 @@ runs:
         echo ZITADEL_CLIENT_ID=${{ inputs.ZITADEL_CLIENT_ID }} >> .env
         echo ZITADEL_ENCRYPTION_KEY=${{ inputs.ZITADEL_ENCRYPTION_KEY }} >> .env
         echo ZITADEL_INSTANCE_URL=${{ inputs.ZITADEL_INSTANCE_URL }} >> .env
-        echo ZITADEL_REDIRECT_URI=${{ inputs.ZITADEL_REDIRECT_URI }} >> .env
+        echo APEX_URL=${{ inputs.APEX_URL }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

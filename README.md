@@ -49,6 +49,17 @@ export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 `npm run dev` should finish with an AWS endpoint, hitting that endpoint should
 show a list of events in that particular stage's dynamoDb table
 
+### Add your AWS local deployment URL to Zitadel config
+
+For auth to work, you must add your AWS local deployment's URL to Zitadel's
+callback URLs
+[our app-specific redirect settings](https://meet-near-me-production-8baqim.zitadel.cloud/ui/console/projects/273257176187855242/apps/273257486885118346)
+
+1. Add your AWS deployment URL to `Redirect URIs` and suffix it like
+   `https://{instance-id}.execute-api.us-east-1.amazonaws.com/auth/callback`
+1. Add your AWS deployment URL to `Post- Logout URIs`, your deployment URL looks
+   like this `https://{instance-id}.execute-api.us-east-1.amazonaws.com`
+
 ## Validating Event Basic end Points
 
 ### API Example Curl Requests
@@ -81,4 +92,3 @@ When updating env vars, the changes need to be made in 4 places:
    are `echo`d)
 1. `.env.example` to clarify in version control what our currently-used env vars
    are
-
