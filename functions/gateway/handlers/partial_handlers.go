@@ -64,7 +64,7 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ") + err.Error()), http.StatusInternalServerError, err)
 	}
 
-	geoLookupPartial := partials.GeoLookup(lat, lon, address, false)
+	geoLookupPartial := partials.GeoLookup(lat, lon, address)
 
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
@@ -127,7 +127,7 @@ func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.Handl
 	if (updateSeshuSession.Url == "") {
 		return transport.SendHtmlRes(w, []byte("ERR: Invalid body: url is required"), http.StatusBadRequest, nil)
 	}
-	geoLookupPartial := partials.GeoLookup(lat, lon, address, true)
+	geoLookupPartial := partials.GeoLookup(lat, lon, address)
 
 	_, err = services.UpdateSeshuSession(ctx, Db, updateSeshuSession)
 
@@ -195,7 +195,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	ctx := r.Context()
-	var inputPayload SeshuSessionEventsPayload
+	var inputPayload SeshuSessionSubmitPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)

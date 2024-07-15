@@ -184,7 +184,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	authCtx := mw.Context(ctx)
 
@@ -193,7 +193,7 @@ func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
-	adminPage := pages.AdminPage()
+	adminPage := pages.AddEventSource()
 	layoutTemplate := pages.Layout("Admin", userInfo, adminPage)
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)

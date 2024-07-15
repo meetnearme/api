@@ -79,7 +79,7 @@ func main() {
 	}{
 		{"/", "GET", handlers.GetHomePage, Check},
 		{"/login", "GET", handlers.GetLoginPage, Check},
-		{"/admin/add-event-source", "GET", handlers.GetAdminPage, Require},
+		{"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
 		{"/admin/profile", "GET", handlers.GetProfilePage, Require},
 		{"/map-embed", "GET", handlers.GetMapEmbedPage, None},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
