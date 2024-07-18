@@ -284,6 +284,7 @@ func findTextSubstring(doc *goquery.Document, substring string) (string, bool) {
 
 			// Build path for the current node
 			nodeTag := goquery.NodeName(node)
+			// TODO: this definitely looks like incorrect LLM output
 			nodePath := fmt.Sprintf("%s > %s:nth-child(%d)", currentPath, nodeTag, i+1)
 
 			traverse(node, nodePath)
@@ -362,11 +363,14 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
 		if err != nil {
-			panic(err)
+			log.Println("Failed to parse HTML document: ", err)
 		}
 
+		// TODO: [0] is just a placeholder, should be a loop over `validatedEvents` array and search for each
+		// or maybe once it finds the first one that's good enough? Walking a long array might be wasted compute
+		// if the first one is good enough
+
 		// Find the path to the text substring
-		// TODO: [0] is just a placeholder, should be a loop over `validatedEvents` array
 		substring := validatedEvents[0].EventTitle
 		path, found := findTextSubstring(doc, substring)
 		if found {
@@ -374,20 +378,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		} else {
 			fmt.Printf("Text '%s' not found\n", substring)
 		}
-
-
-		// Load the HTML document
-		// doc, err := goquery.NewDocumentFromReader(bytes.NewReader([]byte(session.Html)))
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// // Find the review items
-		// doc.Find(".left-content article .post-title").Each(func(i int, s *goquery.Selection) {
-		// 	// For each item found, get the title
-		// 	title := s.Find("a").Text()
-		// 	fmt.Printf("Review %d: %s\n", i, title)
-		// })
 
 		// TODO: delete this `SeshuSession` once the handoff to the `SeshuJobs` table is complete
 	}()
