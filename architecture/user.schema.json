@@ -1,0 +1,166 @@
+{
+  "$id": "https://github.com/meetnearme/api/architecture/User.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ISOString": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "UUID": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "firstName": {
+      "type": "string"
+    },
+    "lastName": {
+      "type": "string"
+    },
+    "mobile": {
+      "type": ["string", "null"]
+    },
+    "locationLatitude": {
+      "type": ["number", "null"]
+    },
+    "locationLongitude": {
+      "type": ["number", "null"]
+    },
+    "locationAddress": {
+      "type": ["string", "null"]
+    },
+    "locationCountry": {
+      "type": ["string", "null"]
+    },
+    "locationZipcode": {
+      "type": ["string", "null"]
+    },
+    "karma": {
+      "type": "number"
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "isEmailVerified": {
+      "type": "boolean"
+    },
+    "dateOfBirth": {
+      "$ref": "#/definitions/ISOString"
+    },
+    "entitlements": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "ingestEvent",
+          "postEvent",
+          "editEvent",
+          "reportEvent",
+          "hasSubdomain",
+          "hasBranding"
+        ]
+      }
+    },
+    "isActive": {
+      "type": "boolean"
+    },
+    "isVerified": {
+      "type": "boolean"
+    },
+    "badges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "about": {
+      "type": ["string", "null"]
+    },
+    "avatarURL": {
+      "type": "string",
+      "format": "uri"
+    },
+    "notificationSettings": {
+      "$ref": "https://github.com/meetnearme/api/architecture/NotificationSetting.json"
+    },
+    "createdAt": {
+      "$ref": "#/definitions/ISOString"
+    },
+    "lastLoggedIn": {
+      "$ref": "#/definitions/ISOString"
+    },
+    "eventsRSVP": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/Event.json"
+      },
+      "default": []
+    },
+    "eventsAttended": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/Event.json"
+      },
+      "default": []
+    },
+    "eventsSaved": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/Event.json"
+      },
+      "default": []
+    },
+    "favoriteCategories": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/Category.json"
+      },
+      "default": []
+    },
+    "favoriteCurators": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/User.json"
+      },
+      "default": []
+    },
+    "mutedCurators": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/User.json"
+      },
+      "default": []
+    },
+    "eventsHosted": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/Event.json"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "id",
+    "firstName",
+    "lastName",
+    "karma",
+    "email",
+    "isEmailVerified",
+    "dateOfBirth",
+    "entitlements",
+    "isActive",
+    "isVerified",
+    "avatarURL",
+    "notificationSettings",
+    "createdAt",
+    "lastLoggedIn"
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "$id": "https://github.com/meetnearme/api/architecture/Event.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ISOString": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "UUID": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "owner": {
+      "$ref": "https://github.com/meetnearme/api/architecture/User.json"
+    },
+    "ingestion": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Ingestion.json"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "startTime": {
+      "$ref": "#/definitions/ISOString"
+    },
+    "endTime": {
+      "$ref": "#/definitions/ISOString"
+    },
+    "eventCapacity": {
+      "type": "number"
+    },
+    "eventCost": {
+      "type": "number"
+    },
+    "recurrenceRule": {
+      "type": "string"
+    },
+    "recurrenceId": {
+      "$ref": "#/definitions/UUID"
+    },
+    "url": {
+      "type": "string"
+    },
+    "urlDomain": {
+      "type": "string"
+    },
+    "urlPath": {
+      "type": "string"
+    },
+    "urlQueryParams": {
+      "type": "string"
+    },
+    "urlSlug": {
+      "type": "string"
+    },
+    "locationLatitude": {
+      "type": ["number", "null"]
+    },
+    "locationLongitude": {
+      "type": ["number", "null"]
+    },
+    "locationAddress": {
+      "type": ["string", "null"]
+    },
+    "locationCountry": {
+      "type": ["string", "null"]
+    },
+    "locationZipcode": {
+      "type": ["string", "null"]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/Category.json"
+      },
+      "default": []
+    },
+    "createdAt": {
+      "$ref": "#/definitions/ISOString"
+    },
+    "updatedAt": {
+      "$ref": "#/definitions/ISOString"
+    },
+    "updatedBy": {
+      "$ref": "https://github.com/meetnearme/api/architecture/User.json"
+    }
+  },
+  "required": [
+    "id",
+    "owner",
+    "ingestion",
+    "name",
+    "startTime",
+    "recurrenceRule",
+    "recurrenceId",
+    "url",
+    "urlDomain",
+    "urlPath",
+    "urlSlug",
+    "locationLatitude",
+    "locationLongitude",
+    "locationAddress",
+    "locationCountry",
+    "locationZipcode",
+    "isVerified",
+    "createdAt",
+    "updatedAt",
+    "updatedBy"
+  ]
+}
