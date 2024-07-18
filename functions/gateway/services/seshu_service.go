@@ -18,7 +18,8 @@ import (
 type EventInfo struct {
 	EventTitle    	 string `json:"event_title"`
 	EventLocation 	 string `json:"event_location"`
-	EventDate     	 string `json:"event_date"`
+	EventStartTime 	 string `json:"event_start_time"`
+	EventEndTime   	 string `json:"event_end_time"`
 	EventURL      	 string `json:"event_url"`
 	EventDescription string `json:"event_description"`
 }
@@ -34,10 +35,16 @@ type SeshuSession struct {
 	LocationAddress   string  `json:"locationAddress" validate:"optional"`
 	Html      string `json:"html" validate:"required"`
 	EventCandidates	 []EventInfo `json:"eventCandidates" validate:"optional"`
+	EventValidations [][]bool `json:"eventValidations" validate:"optional"`
 	Status 		string `json:"status" validate:"optional"`
 	CreatedAt int64  `json:"createdAt" validate:"required"`
 	UpdatedAt int64  `json:"updatedAt" validate:"required"`
 	ExpireAt  int64  `json:"expireAt" validate:"required"`
+}
+
+type SeshuSessionGet struct {
+	OwnerId    string `json:"ownerId" dynamodbav:"ownerId" validate:"required"`
+	Url    string `json:"url" dynamodbav:"url" validate:"required"`
 }
 
 type SeshuSessionInput struct {
@@ -84,11 +91,23 @@ type SeshuSessionUpdate struct {
 
 var seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
 
+const FakeCity = "Nowhere City, NM 11111"
+const FakeUrl1 = "http://example.com/events/12345"
+const FakeUrl2 = "http://example.com/events/98765"
+const FakeEventTitle1 = "Fake Event Title 1"
+const FakeEventTitle2 = "Fake Event Title 2"
+const FakeStartTime1 = "Sep 26, 26:30pm"
+const FakeStartTime2 = "Oct 10, 25:00am"
+const FakeEndTime1 = "Sep 26, 27:30pm"
+const FakeEndTime2 = "Oct 10, 26:00am"
+
+const InitialEmptyLatLong = 9e+10;
+
 func init () {
 	seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
 }
 
-func GetSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload SeshuSession) (*SeshuSession, error) {
+func GetSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload SeshuSessionGet) (*SeshuSession, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(seshuSessionsTableName),
 		Key: map[string]types.AttributeValue{
@@ -126,6 +145,8 @@ func InsertSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload S
 		LocationAddress:   seshuPayload.LocationAddress,
 		Html:       seshuPayload.Html,
 		EventCandidates: seshuPayload.EventCandidates,
+		// TODO: this needs to become a map to avoid regressions pertaining
+		// to key ordering in the future
 		EventValidations: [][]bool{},
 		Status:		 "draft",
 		ExpireAt:   currentTime + 3600*24, // 24 hrs expiration
@@ -285,7 +306,7 @@ func UpdateSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload S
 //    structured response
 // 4. Iterate over the union array of `EventCandidates` and `EventValidations` to
 //    create a new array that removes any `EventCandidates` that lack any of:
-//    `event_title`, `event_location`, `event_date` which are all required
+//    `event_title`, `event_location`, `event_start_time` which are all required
 // 5. Use that reduced array to find the corresponding strings in the stored
 //    `SeshuSession.Html` in the db
 // 6. Store the deduced DOM query strings in the new "Scraping Jobs" db table we've

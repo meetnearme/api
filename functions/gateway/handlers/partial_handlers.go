@@ -3,10 +3,17 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
+	"reflect"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"net/http"
+
+	"github.com/PuerkitoBio/goquery"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -192,6 +199,103 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
+func getFieldIndices() map[string]int {
+	indices := make(map[string]int)
+	eventType := reflect.TypeOf(services.EventInfo{})
+
+	for i := 0; i < eventType.NumField(); i++ {
+		fieldName := eventType.Field(i).Name
+		switch fieldName {
+		case "EventTitle", "EventLocation", "EventStartTime", "EventEndTime", "EventURL", "EventDescription":
+			indices[fieldName] = i
+		}
+	}
+	return indices
+}
+
+func isFakeData(val string) bool {
+	switch val {
+		case services.FakeCity: return true
+		case services.FakeUrl1: return true
+		case services.FakeUrl2: return true
+		case services.FakeEventTitle1: return true
+		case services.FakeEventTitle2: return true
+		case services.FakeStartTime1: return true
+		case services.FakeStartTime2: return true
+		case services.FakeEndTime1: return true
+		case services.FakeEndTime2: return true
+	}
+	return false
+}
+
+func getValidatedEvents(candidates []services.EventInfo, validations [][]bool, hasDefaultLocation bool) []services.EventInfo {
+	var validatedEvents []services.EventInfo
+	indiceMap := getFieldIndices()
+
+	log.Println("Indice Map: ", indiceMap)
+	for i := range candidates {
+		isValid := true
+
+		if candidates[i].EventTitle == "" || !validations[i][indiceMap["EventTitle"]] || isFakeData(candidates[i].EventTitle) {
+			isValid = false
+		}
+		if hasDefaultLocation {
+			isValid = true
+		} else if candidates[i].EventLocation == "" || !validations[i][indiceMap["EventLocation"]] || isFakeData(candidates[i].EventLocation) {
+			isValid = false
+		}
+		if candidates[i].EventStartTime == "" || !validations[i][indiceMap["EventStartTime"]] || isFakeData(candidates[i].EventTitle) {
+			isValid = false
+		}
+
+		if isValid {
+			validatedEvents = append(validatedEvents, candidates[i])
+		}
+	}
+	return validatedEvents
+}
+
+
+// TODO: I have no idea if this actually works or not, this is provided by ChatGPT 4o
+// I'm leaving this unifinished to go work on other more urgent items, please fix
+// change, or remove this as needed
+func findTextSubstring(doc *goquery.Document, substring string) (string, bool) {
+	var path string
+	found := false
+
+	// Recursive function to traverse nodes and build the path
+	var traverse func(*goquery.Selection, string)
+	traverse = func(s *goquery.Selection, currentPath string) {
+		if found {
+			return
+		}
+
+		s.Contents().Each(func(i int, node *goquery.Selection) {
+			if found {
+				return
+			}
+
+			nodeText := node.Text()
+			if strings.Contains(nodeText, substring) {
+				path = currentPath
+				found = true
+				return
+			}
+
+			// Build path for the current node
+			nodeTag := goquery.NodeName(node)
+			nodePath := fmt.Sprintf("%s > %s:nth-child(%d)", currentPath, nodeTag, i+1)
+
+			traverse(node, nodePath)
+		})
+	}
+
+	// Start traversing from the document root
+	traverse(doc.Selection, "html")
+
+	return path, found
+}
+
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	ctx := r.Context()
@@ -218,6 +322,75 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, err)
 	}
+
+	defer func() {
+		var seshuSessionGet services.SeshuSessionGet
+		seshuSessionGet.Url = inputPayload.Url
+		// TODO: this needs to use Auth
+		seshuSessionGet.OwnerId = "123"
+		session, err := services.GetSeshuSession(ctx, Db, seshuSessionGet)
+
+		if err != nil {
+			log.Println("Failed to get SeshuSession. ID: " , session, err)
+		}
+
+		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLong`
+		// which is an intentionally invalid placeholder
+
+		hasDefaultLat := false
+		latMatch, err := regexp.MatchString(services.LatitudeRegex, fmt.Sprint(session.LocationLatitude))
+		if session.LocationLatitude == services.InitialEmptyLatLong {
+			hasDefaultLat = false
+		} else if (err != nil || !latMatch ) {
+			hasDefaultLat = true
+		}
+
+		hasDefaultLon := false
+		lonMatch, err := regexp.MatchString(services.LongitudeRegex, fmt.Sprint(session.LocationLongitude))
+		if session.LocationLongitude == services.InitialEmptyLatLong {
+			hasDefaultLon = false
+		} else if (err != nil || !lonMatch || session.LocationLongitude == services.InitialEmptyLatLong) {
+			hasDefaultLon = true
+		}
+
+		validatedEvents := getValidatedEvents(session.EventCandidates, session.EventValidations, hasDefaultLat && hasDefaultLon)
+
+		log.Println("Candidate Events, length: ", len(session.EventCandidates), " | events: ", session.EventCandidates)
+		log.Println("Validated Events, length: ", len(validatedEvents), " | events: ", validatedEvents)
+
+		// TODO: search `session.Html` for the items in the `validatedEvents` array
+
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
+		if err != nil {
+			panic(err)
+		}
+
+		// Find the path to the text substring
+		// TODO: [0] is just a placeholder, should be a loop over `validatedEvents` array
+		substring := validatedEvents[0].EventTitle
+		path, found := findTextSubstring(doc, substring)
+		if found {
+			fmt.Printf("Text '%s' found at path: %s\n", substring, path)
+		} else {
+			fmt.Printf("Text '%s' not found\n", substring)
+		}
+
+
+		// Load the HTML document
+		// doc, err := goquery.NewDocumentFromReader(bytes.NewReader([]byte(session.Html)))
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+
+		// // Find the review items
+		// doc.Find(".left-content article .post-title").Each(func(i int, s *goquery.Selection) {
+		// 	// For each item found, get the title
+		// 	title := s.Find("a").Text()
+		// 	fmt.Printf("Review %d: %s\n", i, title)
+		// })
+
+		// TODO: delete this `SeshuSession` once the handoff to the `SeshuJobs` table is complete
+	}()
 
 	updateSeshuSession.Url = inputPayload.Url
 	updateSeshuSession.Status = "submitted"

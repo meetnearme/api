@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+const (
+	LatitudeRegex = `^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?)$`
+	LongitudeRegex = `^[-+]?((1[0-7]\d)|([1-9]?\d))(\.\d+)?$`
+)
+
 func GetGeo(location string, baseUrl string) (lat string, lon string, address string, err error) {
 		// TODO: this needs to be parameterized!
 		if baseUrl == "" {

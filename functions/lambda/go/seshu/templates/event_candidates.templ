@@ -51,10 +51,22 @@ templ EventCandidatesPartial(eventCandidates []services.EventInfo) {
 									name={ "cand_date_" + fmt.Sprint(index) }
 									type="checkbox"
 									class="toggle toggle-sm toggle-success -mb-1 mr-2"
-									if len(candidate.EventDate) > 0 {
+									if len(candidate.EventStartTime) > 0 {
 										checked
 									}
-								/><span class="label-text"><strong>Date:</strong> { candidate.EventDate }</span>
+								/><span class="label-text"><strong>Start Time:</strong> { candidate.EventStartTime }</span>
+							</label>
+						</p>
+						<p>
+							<label for={ "cand_date_" + fmt.Sprint(index) } class="label items-start justify-normal cursor-pointer">
+								<input
+									name={ "cand_date_" + fmt.Sprint(index) }
+									type="checkbox"
+									class="toggle toggle-sm toggle-success -mb-1 mr-2"
+									if len(candidate.EventEndTime) > 0 {
+										checked
+									}
+								/><span class="label-text"><strong>End Time:</strong> { candidate.EventEndTime }</span>
 							</label>
 						</p>
 						<p>
