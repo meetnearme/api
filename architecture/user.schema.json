@@ -14,8 +14,7 @@
   "type": "object",
   "properties": {
     "id": {
-      "type": "string",
-      "format": "uuid"
+      "$ref": "#/definitions/UUID"
     },
     "firstName": {
       "type": "string"
@@ -96,27 +95,6 @@
     },
     "lastLoggedIn": {
       "$ref": "#/definitions/ISOString"
-    },
-    "eventsRSVP": {
-      "type": "array",
-      "items": {
-        "$ref": "https://github.com/meetnearme/api/architecture/Event.json"
-      },
-      "default": []
-    },
-    "eventsAttended": {
-      "type": "array",
-      "items": {
-        "$ref": "https://github.com/meetnearme/api/architecture/Event.json"
-      },
-      "default": []
-    },
-    "eventsSaved": {
-      "type": "array",
-      "items": {
-        "$ref": "https://github.com/meetnearme/api/architecture/Event.json"
-      },
-      "default": []
     },
     "favoriteCategories": {
       "type": "array",

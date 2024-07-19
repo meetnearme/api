@@ -14,8 +14,7 @@
   "type": "object",
   "properties": {
     "id": {
-      "type": "string",
-      "format": "uuid"
+      "$ref": "#/definitions/UUID"
     },
     "owner": {
       "$ref": "https://github.com/meetnearme/api/architecture/User.json"

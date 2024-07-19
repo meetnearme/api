@@ -1,5 +1,5 @@
 {
-  "$id": "https://github.com/meetnearme/api/architecture/Category.json",
+  "$id": "https://github.com/meetnearme/api/architecture/EventSaved.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
     "ISOString": {
@@ -16,19 +16,17 @@
     "id": {
       "$ref": "#/definitions/UUID"
     },
-    "name": {
-      "type": "string"
+    "userId": {
+      "type": "string",
+      "$ref": "https://github.com/meetnearme/api/architecture/User.json"
     },
-    "subCategories": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "default": []
+    "eventId": {
+      "type": "string",
+      "$ref": "https://github.com/meetnearme/api/architecture/Event.json"
     },
     "createdAt": {
       "$ref": "#/definitions/ISOString"
     }
   },
-  "required": ["id", "name", "createdAt"]
+  "required": ["id", "userId", "eventId", "createdAt"]
 }
