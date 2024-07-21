@@ -327,7 +327,7 @@ func SendHTMLError(err error, ctx context.Context, req events.LambdaFunctionURLR
 func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	client := &http.Client{}
 	payload := CreateChatSessionPayload{
-		Model: "gpt-3.5-turbo-16k",
+		Model: "gpt-4o-mini",
 		Messages: []Message{
 			{
 				Role: "user",
