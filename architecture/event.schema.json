@@ -43,8 +43,14 @@
     "recurrenceRule": {
       "type": "string"
     },
-    "recurrenceId": {
-      "$ref": "#/definitions/UUID"
+    "registrationFields": {
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "recurrenceRule": {
+      "type": "string"
     },
     "url": {
       "type": "string"
