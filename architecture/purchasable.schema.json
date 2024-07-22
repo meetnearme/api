@@ -44,6 +44,9 @@
     "currency": {
       "type": "string"
     },
+    "inventory": {
+      "type": "number"
+    },
     "itemRecurrence": {
       "$ref": "#/definitions/itemRecurrence"
     }
