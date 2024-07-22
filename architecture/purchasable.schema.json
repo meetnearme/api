@@ -6,19 +6,15 @@
       "type": "string",
       "enum": ["ticket", "membership", "donation", "merchandise"]
     },
-    "itemFrequency": {
-      "type": "string",
-      "enum": ["once", "recurring"]
-    },
     "itemRecurrence": {
       "type": "object",
       "properties": {
-        "frequency": {
-          "$ref": "#/definitions/itemFrequency"
-        },
         "interval": {
           "type": "string",
-          "enum": ["day", "month", "year"]
+          "enum": ["day", "week", "month", "year"]
+        },
+        "intervalCount": {
+          "type": "number"
         },
         "endDate": {
           "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
