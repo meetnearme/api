@@ -1,20 +1,10 @@
 {
   "$id": "https://github.com/meetnearme/api/architecture/Event.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "definitions": {
-    "ISOString": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "UUID": {
-      "type": "string",
-      "format": "uuid"
-    }
-  },
   "type": "object",
   "properties": {
     "id": {
-      "$ref": "#/definitions/UUID"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
     },
     "owner": {
       "$ref": "https://github.com/meetnearme/api/architecture/User.json"
@@ -29,10 +19,10 @@
       "type": "string"
     },
     "startTime": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
     "endTime": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
     "eventCapacity": {
       "type": "number"
@@ -57,7 +47,7 @@
       "default": []
     },
     "url": {
-      "type": "string"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
     },
     "urlDomain": {
       "type": "string"
@@ -70,6 +60,9 @@
     },
     "urlSlug": {
       "type": "string"
+    },
+    "imageUrl": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
     },
     "locationLatitude": {
       "type": ["number", "null"]
@@ -101,10 +94,10 @@
       "default": []
     },
     "createdAt": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
     "updatedAt": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
     "updatedBy": {
       "$ref": "https://github.com/meetnearme/api/architecture/User.json"

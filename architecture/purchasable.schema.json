@@ -2,10 +2,6 @@
   "$id": "https://github.com/meetnearme/api/architecture/Purchasable.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
-    "ISOString": {
-      "type": "string",
-      "format": "date-time"
-    },
     "itemType": {
       "type": "string",
       "enum": ["ticket", "membership", "donation", "merchandise"]
@@ -25,7 +21,7 @@
           "enum": ["day", "month", "year"]
         },
         "endDate": {
-          "$ref": "#/definitions/ISOString"
+          "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
         }
       }
     }

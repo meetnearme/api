@@ -1,20 +1,10 @@
 {
   "$id": "https://github.com/meetnearme/api/architecture/Category.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "definitions": {
-    "ISOString": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "UUID": {
-      "type": "string",
-      "format": "uuid"
-    }
-  },
   "type": "object",
   "properties": {
     "id": {
-      "$ref": "#/definitions/UUID"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
     },
     "name": {
       "type": "string"
@@ -27,7 +17,7 @@
       "default": []
     },
     "createdAt": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     }
   },
   "required": ["id", "name", "createdAt"]

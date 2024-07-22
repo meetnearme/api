@@ -2,14 +2,6 @@
   "$id": "https://github.com/meetnearme/api/architecture/Ingestion.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
-    "ISOString": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "UUID": {
-      "type": "string",
-      "format": "uuid"
-    },
     "IngestionStatus": {
       "type": "string",
       "enum": ["active", "inactive", "expired", "error"]
@@ -18,7 +10,7 @@
   "type": "object",
   "properties": {
     "id": {
-      "$ref": "#/definitions/UUID"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
     },
     "owners": {
       "type": "array",
@@ -30,7 +22,7 @@
       "type": "string"
     },
     "recurrenceId": {
-      "$ref": "#/definitions/UUID"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
     },
     "url": {
       "type": "string"
@@ -48,16 +40,16 @@
       "$ref": "#/definitions/IngestionStatus"
     },
     "lastRunAt": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
     "nextRunAt": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
     "createdAt": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
     "updatedAt": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
     "updatedBy": {
       "$ref": "https://github.com/meetnearme/api/architecture/User.json"

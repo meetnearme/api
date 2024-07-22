@@ -1,20 +1,10 @@
 {
   "$id": "https://github.com/meetnearme/api/architecture/User.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "definitions": {
-    "ISOString": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "UUID": {
-      "type": "string",
-      "format": "uuid"
-    }
-  },
   "type": "object",
   "properties": {
     "id": {
-      "$ref": "#/definitions/UUID"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
     },
     "firstName": {
       "type": "string"
@@ -51,7 +41,7 @@
       "type": "boolean"
     },
     "dateOfBirth": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
     "entitlements": {
       "type": "array",
@@ -91,10 +81,10 @@
       "$ref": "https://github.com/meetnearme/api/architecture/NotificationSetting.json"
     },
     "createdAt": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
     "lastLoggedIn": {
-      "$ref": "#/definitions/ISOString"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
     "favoriteCategories": {
       "type": "array",
