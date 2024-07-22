@@ -1,0 +1,52 @@
+{
+  "$id": "https://github.com/meetnearme/api/architecture/Purchasable.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ISOString": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "itemType": {
+      "type": "string",
+      "enum": ["ticket", "membership", "donation", "merchandise"]
+    },
+    "itemFrequency": {
+      "type": "string",
+      "enum": ["once", "recurring"]
+    },
+    "itemRecurrence": {
+      "type": "object",
+      "properties": {
+        "frequency": {
+          "$ref": "#/definitions/itemFrequency"
+        },
+        "interval": {
+          "type": "string",
+          "enum": ["day", "month", "year"]
+        },
+        "endDate": {
+          "$ref": "#/definitions/ISOString"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "itemType": {
+      "$ref": "#/definitions/itemType"
+    },
+    "cost": {
+      "type": "number"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "itemRecurrence": {
+      "$ref": "#/definitions/itemRecurrence"
+    }
+  },
+  "required": ["name", "itemType", "cost", "currency"]
+}

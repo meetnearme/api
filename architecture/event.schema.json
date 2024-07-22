@@ -49,8 +49,12 @@
       },
       "default": []
     },
-    "recurrenceRule": {
-      "type": "string"
+    "purchasable": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/Purchasable.json"
+      },
+      "default": []
     },
     "url": {
       "type": "string"
