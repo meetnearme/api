@@ -24,12 +24,6 @@
     "endTime": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
-    "eventCapacity": {
-      "type": "number"
-    },
-    "eventCost": {
-      "type": "number"
-    },
     "recurrenceRule": {
       "type": "string"
     },
