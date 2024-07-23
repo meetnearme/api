@@ -20,9 +20,9 @@ jobs:
           script: |
             console.log('Full context:', JSON.stringify(context, null, 2));
 
-            const owner = context.repository.owner.name;
-            const repo = context.repository.name;
-            const branch = context.ref.replace('refs/heads/', '');
+            const owner = context.payload.repository.owner.name;
+            const repo = context.payload.repository.name;
+            const branch = context.payload.ref.replace('refs/heads/', '');
 
             console.log(`Checking for PR: owner="${owner}", repo="${repo}", branch="${branch}"`);
             console.log('GITHUB_REPOSITORY:', process.env.GITHUB_REPOSITORY);
