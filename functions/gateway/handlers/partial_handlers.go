@@ -259,43 +259,44 @@ func getValidatedEvents(candidates []services.EventInfo, validations [][]bool, h
 // TODO: I have no idea if this actually works or not, this is provided by ChatGPT 4o
 // I'm leaving this unifinished to go work on other more urgent items, please fix
 // change, or remove this as needed
-func findTextSubstring(doc *goquery.Document, substring string) (string, bool) {
-	var path string
-	found := false
 
-	// Recursive function to traverse nodes and build the path
-	var traverse func(*goquery.Selection, string)
-	traverse = func(s *goquery.Selection, currentPath string) {
-		if found {
-			return
-		}
+// func findTextSubstring(doc *goquery.Document, substring string) (string, bool) {
+// 	var path string
+// 	found := false
 
-		s.Contents().Each(func(i int, node *goquery.Selection) {
-			if found {
-				return
-			}
+// 	// Recursive function to traverse nodes and build the path
+// 	var traverse func(*goquery.Selection, string)
+// 	traverse = func(s *goquery.Selection, currentPath string) {
+// 		if found {
+// 			return
+// 		}
 
-			nodeText := node.Text()
-			if strings.Contains(nodeText, substring) {
-				path = currentPath
-				found = true
-				return
-			}
+// 		s.Contents().Each(func(i int, node *goquery.Selection) {
+// 			if found {
+// 				return
+// 			}
 
-			// Build path for the current node
-			nodeTag := goquery.NodeName(node)
-			// TODO: this definitely looks like incorrect LLM output
-			nodePath := fmt.Sprintf("%s > %s:nth-child(%d)", currentPath, nodeTag, i+1)
+// 			nodeText := node.Text()
+// 			if strings.Contains(nodeText, substring) {
+// 				path = currentPath
+// 				found = true
+// 				return
+// 			}
 
-			traverse(node, nodePath)
-		})
-	}
+// 			// Build path for the current node
+// 			nodeTag := goquery.NodeName(node)
+// 			// TODO: this definitely looks like incorrect LLM output
+// 			nodePath := fmt.Sprintf("%s > %s:nth-child(%d)", currentPath, nodeTag, i+1)
 
-	// Start traversing from the document root
-	traverse(doc.Selection, "html")
+// 			traverse(node, nodePath)
+// 		})
+// 	}
 
-	return path, found
-}
+// 	// Start traversing from the document root
+// 	traverse(doc.Selection, "html")
+
+// 	return path, found
+// }
 
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
@@ -371,13 +372,21 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// if the first one is good enough
 
 		// Find the path to the text substring
-		substring := validatedEvents[0].EventTitle
-		path, found := findTextSubstring(doc, substring)
-		if found {
-			fmt.Printf("Text '%s' found at path: %s\n", substring, path)
-		} else {
-			fmt.Printf("Text '%s' not found\n", substring)
-		}
+		// TODO: this is commented out because it's not verified and I don't want to introduce regression,
+		// uncomment this and figure out if it this approach works for traversing the DOM
+
+		// NOTE: I think searching the DOM string for `>{ validatedEvents[0].EventTitle }<` and then backtracing
+		// to get a full DOM Querystring path is a better approach because `validatedEvents[0].EventTitle` can appear
+		// in HTML attributes in my testing, we want to find in where it's the opening of an HTML tag
+
+
+		// substring := validatedEvents[0].EventTitle
+		// path, found := findTextSubstring(doc, substring)
+		// if found {
+		// 	fmt.Printf("Text '%s' found at path: %s\n", substring, path)
+		// } else {
+		// 	fmt.Printf("Text '%s' not found\n", substring)
+		// }
 
 		// TODO: delete this `SeshuSession` once the handoff to the `SeshuJobs` table is complete
 	}()

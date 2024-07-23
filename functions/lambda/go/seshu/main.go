@@ -96,16 +96,6 @@ type ChatCompletionResponse struct {
 	Usage   map[string]int `json:"usage"`
 }
 
-// const fakeCity = "Nowhere City, NM 11111"
-// const fakeUrl1 = "http://example.com/events/12345"
-// const fakeUrl2 = "http://example.com/events/98765"
-// const fakeEventTitle1 = "Fake Event Title 1"
-// const fakeEventTitle2 = "Fake Event Title 2"
-// const fakeStartTime1 = "Sep 26, 26:30pm"
-// const fakeStartTime2 = "Oct 10, 25:00am"
-// const fakeEndTime1 = "Sep 26, 27:30pm"
-// const fakeEndTime2 = "Oct 10, 26:00am"
-
 var systemPrompt = `You are a helpful LLM capable of accepting an array of strings and reorganizing them according to patterns only an LLM is capable of recognizing.
 
 Your goal is to take the javascript array input I will provide, called the ` + "`textStrings`" + `below and return a grouped array of JSON objects. Each object should represent a single event, where it's keys are the event metadata associated with the categories below that are to be searched for. There should be no duplicate keys. Each object consists of no more than one of a given event metadata. When forming these groups, prioritize proximity (meaning, the closer two strings are in array position) in creating the event objects in the returned array of objects. In other words, the closer two strings are together, the higher the likelihood that they are two different event metadata items for the same event.
