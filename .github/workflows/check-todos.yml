@@ -1,0 +1,72 @@
+name: Check for TODOs in Open PRs
+
+on:
+  push:
+
+jobs:
+  check-todos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Check for open PR
+        id: check-pr
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`,
+              state: 'open'
+            });
+            if (prs.data.length > 0) {
+              console.log('Open PR found');
+              return true;
+            }
+            console.log('No open PR found');
+            return false;
+
+      - name: Check for TODOs in Push
+        if: steps.check-pr.outputs.result == 'true'
+        id: todo-check
+        run: |
+          TODOS=$(git diff origin/${{ github.event.repository.default_branch }}..HEAD -U0 | grep '^+' | grep -E 'TODO:' || true)
+          if [ ! -z "$TODOS" ]; then
+            echo "todos_found=true" >> $GITHUB_OUTPUT
+            echo "TODOS<<EOF" >> $GITHUB_OUTPUT
+            echo "$TODOS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "todos_found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR
+        if:
+          steps.check-pr.outputs.result == 'true' &&
+          steps.todo-check.outputs.todos_found == 'true'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`,
+              state: 'open'
+            });
+            const pr = prs.data[0];
+            const todoList = `${{ steps.todo-check.outputs.TODOS }}`
+              .split('\n')
+              .map(line => line.replace(/^\+/, '').trim())
+              .join('\n- ');
+            await github.rest.issues.createComment({
+              issue_number: pr.number,
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              body: `Is this resolved?\n\nTODOs found in new or modified lines:\n- ${todoList}`
+            });
