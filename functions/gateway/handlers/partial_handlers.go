@@ -9,11 +9,8 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"net/http"
-
-	"github.com/PuerkitoBio/goquery"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -362,11 +359,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 		// TODO: search `session.Html` for the items in the `validatedEvents` array
 
-		doc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
-		if err != nil {
-			log.Println("Failed to parse HTML document: ", err)
-		}
-
 		// TODO: [0] is just a placeholder, should be a loop over `validatedEvents` array and search for each
 		// or maybe once it finds the first one that's good enough? Walking a long array might be wasted compute
 		// if the first one is good enough
@@ -379,6 +371,10 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// to get a full DOM Querystring path is a better approach because `validatedEvents[0].EventTitle` can appear
 		// in HTML attributes in my testing, we want to find in where it's the opening of an HTML tag
 
+		// doc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
+		// if err != nil {
+		// 	log.Println("Failed to parse HTML document: ", err)
+		// }
 
 		// substring := validatedEvents[0].EventTitle
 		// path, found := findTextSubstring(doc, substring)
