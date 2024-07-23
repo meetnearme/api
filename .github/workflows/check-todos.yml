@@ -18,11 +18,15 @@ jobs:
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
+            console.log('Full context:', JSON.stringify(context, null, 2));
+
             const owner = context.repo.owner;
             const repo = context.repo.name;
             const branch = context.ref.replace('refs/heads/', '');
 
-            console.log(`Checking for PR: owner=${owner}, repo=${repo}, branch=${branch}`);
+            console.log(`Checking for PR: owner="${owner}", repo="${repo}", branch="${branch}"`);
+            console.log('GITHUB_REPOSITORY:', process.env.GITHUB_REPOSITORY);
+            console.log('GITHUB_REF:', process.env.GITHUB_REF);
 
             if (!owner || !repo || !branch) {
               console.log('Error: Missing required information');
