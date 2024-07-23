@@ -18,18 +18,35 @@ jobs:
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            const prs = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.name,
-              head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`,
-              state: 'open'
-            });
-            if (prs.data.length > 0) {
-              console.log('Open PR found');
-              return true;
+            const owner = context.repo.owner;
+            const repo = context.repo.name;
+            const branch = context.ref.replace('refs/heads/', '');
+
+            console.log(`Checking for PR: owner=${owner}, repo=${repo}, branch=${branch}`);
+
+            if (!owner || !repo || !branch) {
+              console.log('Error: Missing required information');
+              return false;
             }
-            console.log('No open PR found');
-            return false;
+
+            try {
+              const prs = await github.rest.pulls.list({
+                owner: owner,
+                repo: repo,
+                head: `${owner}:${branch}`,
+                state: 'open'
+              });
+
+              if (prs.data.length > 0) {
+                console.log('Open PR found');
+                return true;
+              }
+              console.log('No open PR found');
+              return false;
+            } catch (error) {
+              console.log(`Error occurred: ${error.message}`);
+              return false;
+            }
 
       - name: Check for TODOs in Push
         if: steps.check-pr.outputs.result == 'true'
