@@ -240,4 +240,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	}
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+
+	// TODO: delete me, this is just a test
 }
