@@ -143,6 +143,8 @@ jobs:
                         body: `Is this resolved?\n\nTODO found: ${todo}`,
                         commit_id: pr.head.sha,
                         path: file.filename,
+                        line: lineNumber,
+                        side: 'RIGHT',
                         start_line: lineNumber,
                         start_side: 'RIGHT'
                       });
