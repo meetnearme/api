@@ -75,3 +75,12 @@ jobs:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             console.log('TEST!');
+            const owner = context.payload.repository.owner.name;
+            const repo = context.payload.repository.name;
+            const branch = context.ref.replace('refs/heads/', '');
+
+            async function commentOnPR() {
+              console.log('test empty function body')
+            }
+
+            await commentOnPR();
