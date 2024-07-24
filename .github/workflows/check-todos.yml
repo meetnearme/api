@@ -131,10 +131,28 @@ jobs:
                     const todoLineIndex = lines.findIndex(line => line.includes(todo));
 
                     if (todoLineIndex !== -1) {
-                      // Find the actual line number in the file
-                      const lineNumber = file.patch.split('\n').slice(0, todoLineIndex + 1)
-                        .filter(line => line.startsWith('+') || line.startsWith(' '))
-                        .length;
+                      let lineNumber = 0;
+                      let inHunk = false;
+                      let hunkStart = 0;
+                      let diffHunk = '';
+
+                      for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i];
+                        if (line.startsWith('@@')) {
+                          inHunk = true;
+                          hunkStart = parseInt(line.match(/\+(\d+)/)[1]);
+                          lineNumber = hunkStart - 1;
+                          diffHunk = line + '\n';
+                        } else if (inHunk) {
+                          if (line.startsWith('+') || line.startsWith(' ')) {
+                            lineNumber++;
+                          }
+                          diffHunk += line + '\n';
+                          if (i === todoLineIndex) {
+                            break;
+                          }
+                        }
+                      }
 
                       await github.rest.pulls.createReviewComment({
                         owner: owner,
@@ -145,8 +163,9 @@ jobs:
                         path: file.filename,
                         line: lineNumber,
                         side: 'RIGHT',
-                        start_line: lineNumber,
-                        start_side: 'RIGHT'
+                        start_line: hunkStart,
+                        start_side: 'RIGHT',
+                        diff_hunk: diffHunk
                       });
                       console.log(`Comment added for TODO: ${todo}`);
                     }
