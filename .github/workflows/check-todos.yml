@@ -130,6 +130,9 @@ jobs:
                     const lines = file.patch.split('\n');
                     const todoLineIndex = lines.findIndex(line => line.includes(todo));
 
+                    console.log('todoLineIndex', todoLineIndex);
+                    console.log('lines', lines);
+
                     if (todoLineIndex !== -1) {
                       let lineNumber = 0;
                       let inHunk = false;
@@ -153,6 +156,11 @@ jobs:
                           }
                         }
                       }
+
+                      console.log('lineNumber', lineNumber);
+                      console.log('inHunk', inHunk);
+                      console.log('hunkStart', hunkStart);
+                      console.log('diffHunk', diffHunk);
 
                       await github.rest.pulls.createReviewComment({
                         owner: owner,
