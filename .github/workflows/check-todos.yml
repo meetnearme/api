@@ -100,6 +100,21 @@ jobs:
                 const pr = prs.data[0];
                 console.log('pr', pr);
 
+                const todoList = process.env.TODOS
+                  .split('\n')
+                  .map(line => line.replace(/^\+/, '').trim())
+                  .join('\n- ');
+
+                console.log('line 102');
+
+                await github.rest.issues.createComment({
+                  issue_number: pr.number,
+                  owner: owner,
+                  repo: repo,
+                  body: `Is this resolved?\n\nTODOs found in new or modified lines:\n- ${todoList}`
+                });
+
+                console.log('Comment added successfully');
 
 
               } catch (error) {
