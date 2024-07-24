@@ -74,16 +74,12 @@ jobs:
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            console.log('TEST!');
             const owner = context?.payload?.repository?.owner?.name;
             const repo = context?.payload?.repository?.name;
             const branch = context.ref.replace('refs/heads/', '');
 
             async function commentOnPR() {
-              console.log('test empty function body')
-
               try {
-                console.log('line 83')
                 const prs = await github.rest.pulls.list({
                   owner: owner,
                   repo: repo,
@@ -96,15 +92,12 @@ jobs:
                   return;
                 }
 
-                console.log('line 95');
                 const pr = prs.data[0];
-                console.log('pr', pr);
-
                 const todoCheckOutputs = ${{ toJSON(steps.todo-check.outputs) }};
 
                 console.log("todoCheckOutputs!", todoCheckOutputs);
 
-                const todoList = todoCheckOutputs
+                const todoList = todoCheckOutputs.TODOS
                   .split('\n')
                   .map(line => line.replace(/^\+/, '').trim())
                   .join('\n- ');
