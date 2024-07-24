@@ -114,7 +114,9 @@ jobs:
                   }
                 });
 
-                // Get the diff
+                console.log('todoLines', todoLines);
+
+                // Get the list of files changed in the PR
                 const { data: files } = await github.rest.pulls.listFiles({
                   owner: owner,
                   repo: repo,
@@ -129,9 +131,10 @@ jobs:
                     const todoLineIndex = lines.findIndex(line => line.includes(todo));
 
                     if (todoLineIndex !== -1) {
-                      const startLine = Math.max(0, todoLineIndex - 3);
-                      const endLine = Math.min(lines.length, todoLineIndex + 4);
-                      const diff_hunk = lines.slice(startLine, endLine).join('\n');
+                      // Find the actual line number in the file
+                      const lineNumber = file.patch.split('\n').slice(0, todoLineIndex + 1)
+                        .filter(line => line.startsWith('+') || line.startsWith(' '))
+                        .length;
 
                       await github.rest.pulls.createReviewComment({
                         owner: owner,
@@ -140,11 +143,8 @@ jobs:
                         body: `Is this resolved?\n\nTODO found: ${todo}`,
                         commit_id: pr.head.sha,
                         path: file.filename,
-                        line: file.additions,  // Comment on the last added line
-                        side: 'RIGHT',
-                        start_line: null,
-                        start_side: null,
-                        diff_hunk: diff_hunk
+                        start_line: lineNumber,
+                        start_side: 'RIGHT'
                       });
                       console.log(`Comment added for TODO: ${todo}`);
                     }
