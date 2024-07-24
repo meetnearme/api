@@ -100,9 +100,9 @@ jobs:
                 const pr = prs.data[0];
                 console.log('pr', pr);
 
-                const inputs = ${{ toJSON(inputs) }};
+                const todoCheckOutputs = ${{ toJSON(steps.todo-check.outputs) }};
 
-                console.log("My inputs!", inputs);
+                console.log("todoCheckOutputs!", todoCheckOutputs);
 
               } catch (error) {
                 console.log(`Error occurred: ${error.message}`);
