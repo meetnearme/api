@@ -74,44 +74,4 @@ jobs:
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            const owner = context.payload.repository.owner.name;
-            const repo = context.payload.repository.name;
-            const branch = context.ref.replace('refs/heads/', '');
-
-            async function commentOnPR() {
-              try {
-                console.log('line 83')
-                const prs = await github.rest.pulls.list({
-                  owner: owner,
-                  repo: repo,
-                  head: `${owner}:${branch}`,
-                  state: 'open'
-                });
-                console.log('line 90');
-                if (prs.data.length === 0) {
-                  console.log('No open PR found');
-                  return;
-                }
-                console.log('line 95');
-                const pr = prs.data[0];
-                const todoList = `${{ steps.todo-check.outputs.TODOS }}`
-                  .split('\n')
-                  .map(line => line.replace(/^\+/, '').trim())
-                  .join('\n- ');
-
-                console.log('line 102');
-
-                await github.rest.issues.createComment({
-                  issue_number: pr.number,
-                  owner: owner,
-                  repo: repo,
-                  body: `Is this resolved?\n\nTODOs found in new or modified lines:\n- ${todoList}`
-                });
-
-                console.log('Comment added successfully');
-              } catch (error) {
-                console.log(`Error occurred: ${error.message}`);
-              }
-            }
-
-            await commentOnPR();
+            console.log('TEST!');
