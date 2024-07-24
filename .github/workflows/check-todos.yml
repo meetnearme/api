@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -80,23 +80,26 @@ jobs:
 
             async function commentOnPR() {
               try {
+                console.log('line 83')
                 const prs = await github.rest.pulls.list({
                   owner: owner,
                   repo: repo,
                   head: `${owner}:${branch}`,
                   state: 'open'
                 });
-
+                console.log('line 90');
                 if (prs.data.length === 0) {
                   console.log('No open PR found');
                   return;
                 }
-
+                console.log('line 95');
                 const pr = prs.data[0];
                 const todoList = `${{ steps.todo-check.outputs.TODOS }}`
                   .split('\n')
                   .map(line => line.replace(/^\+/, '').trim())
                   .join('\n- ');
+
+                console.log('line 102');
 
                 await github.rest.issues.createComment({
                   issue_number: pr.number,
