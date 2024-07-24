@@ -81,6 +81,19 @@ jobs:
 
             async function commentOnPR() {
               console.log('test empty function body')
+
+              try {
+                console.log('line 83')
+                const prs = await github.rest.pulls.list({
+                  owner: owner,
+                  repo: repo,
+                  head: `${owner}:${branch}`,
+                  state: 'open'
+                });
+
+              } catch (error) {
+                console.log(`Error occurred: ${error.message}`);
+              }
             }
 
             await commentOnPR();
