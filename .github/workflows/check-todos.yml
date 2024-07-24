@@ -97,21 +97,53 @@ jobs:
 
                 console.log("todoCheckOutputs!", todoCheckOutputs);
 
-                const todoList = todoCheckOutputs.TODOS
+                const todoLines = todoCheckOutputs.TODOS
                   .split('\n')
-                  .map(line => line.replace(/^\+/, '').trim())
-                  .join('\n- ');
+                  .filter(line => line.includes('TODO:') && !line.includes('$(git diff'))
+                  .map(line => line.replace(/^\+/, '').trim());
 
-                console.log('todoList', todoList);
+                console.log('todoLines', todoLines);
 
-                await github.rest.issues.createComment({
-                  issue_number: pr.number,
+                 // Get the diff
+                const diff = await github.rest.pulls.get({
                   owner: owner,
                   repo: repo,
-                  body: `Is this resolved?\n\nTODOs found in new or modified lines:\n- ${todoList}`
+                  pull_number: pr.number,
+                  mediaType: {
+                    format: 'diff'
+                  }
                 });
 
-                console.log('Comment added successfully');
+                // Parse the diff to find line numbers
+                const diffLines = diff.data.split('\n');
+                let currentFile = '';
+                let lineNumber = 0;
+
+                for (const line of diffLines) {
+                  if (line.startsWith('+++')) {
+                    currentFile = line.split('+++')[1].trim();
+                    lineNumber = 0;
+                  } else if (line.startsWith('@@')) {
+                    lineNumber = parseInt(line.match(/\+(\d+)/)[1]) - 1;
+                  } else if (line.startsWith('+')) {
+                    lineNumber++;
+                    const todoLine = todoLines.find(todo => line.includes(todo));
+                    if (todoLine) {
+                      await github.rest.pulls.createReviewComment({
+                        owner: owner,
+                        repo: repo,
+                        pull_number: pr.number,
+                        body: `Is this resolved?\n\nTODO found: ${todoLine}`,
+                        commit_id: pr.head.sha,
+                        path: currentFile,
+                        line: lineNumber
+                      });
+                      console.log(`Comment added for TODO: ${todoLine}`);
+                    }
+                  }
+                }
+
+                console.log('All comments added successfully');
 
               } catch (error) {
                 console.log(`Error occurred: ${error.message}`);
