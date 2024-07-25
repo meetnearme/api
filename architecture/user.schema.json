@@ -24,12 +24,6 @@
     "locationAddress": {
       "type": ["string", "null"]
     },
-    "locationCountry": {
-      "type": ["string", "null"]
-    },
-    "locationZipcode": {
-      "type": ["string", "null"]
-    },
     "karma": {
       "type": "number"
     },

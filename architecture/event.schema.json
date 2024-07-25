@@ -6,10 +6,12 @@
     "id": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
     },
-    "owner": {
-      "$ref": "https://github.com/meetnearme/api/architecture/User.json"
+    "ownerId": {
+      "type": "string",
+      "$ref": "https://github.com/meetnearme/api/architecture/Owner.json"
     },
-    "ingestion": {
+    "ingestionId": {
+      "type": "string",
       "$ref": "https://github.com/meetnearme/api/architecture/Ingestion.json"
     },
     "name": {
@@ -65,12 +67,6 @@
       "type": ["number", "null"]
     },
     "locationAddress": {
-      "type": ["string", "null"]
-    },
-    "locationCountry": {
-      "type": ["string", "null"]
-    },
-    "locationZipcode": {
       "type": ["string", "null"]
     },
     "tags": {
