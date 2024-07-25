@@ -170,10 +170,7 @@ jobs:
                         commit_id: pr.head.sha,
                         path: file.filename,
                         line: lineNumber,
-                        side: 'RIGHT',
-                        start_line: hunkStart,
-                        start_side: 'RIGHT',
-                        diff_hunk: diffHunk
+                        side: 'RIGHT'
                       });
                       console.log(`Comment added for TODO: ${todo}`);
                     }
