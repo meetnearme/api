@@ -13,7 +13,7 @@ func IsRemoteDB() bool {
     }
 	sstStage := os.Getenv("SST_STAGE")
 	// `.github/workflows/deploy-feature.yml` deploys any branch that begins with `feature/*` to aws as `feature-*`
-	return sstStage == "prod" || strings.HasPrefix(sstStage, "feature-")
+	return sstStage == "prod" || sstStage == "dev" || strings.HasPrefix(sstStage, "feature-")
 }
 
 func GetDbTableName(tableName string) string {
