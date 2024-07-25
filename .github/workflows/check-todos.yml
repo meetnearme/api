@@ -8,28 +8,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Check for open PR
         id: check-pr
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            const prs = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.name,
-              head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`,
-              state: 'open'
-            });
-            if (prs.data.length > 0) {
-              console.log('Open PR found');
-              return true;
+            const owner = context.payload.repository.owner.name;
+            const repo = context.payload.repository.name;
+            const branch = context.payload.ref.replace('refs/heads/', '');
+
+            if (!owner || !repo || !branch) {
+              console.log('Error: Missing required information');
+              return false;
             }
-            console.log('No open PR found');
-            return false;
+
+            try {
+              const prs = await github.rest.pulls.list({
+                owner: owner,
+                repo: repo,
+                head: `${owner}:${branch}`,
+                state: 'open'
+              });
+
+              if (prs.data.length > 0) {
+                console.log('Open PR found');
+                return true;
+              }
+              console.log('No open PR found');
+              return false;
+            } catch (error) {
+              console.log(`Error occurred: ${error.message}`);
+              return false;
+            }
 
       - name: Check for TODOs in Push
         if: steps.check-pr.outputs.result == 'true'
@@ -49,24 +64,103 @@ jobs:
         if:
           steps.check-pr.outputs.result == 'true' &&
           steps.todo-check.outputs.todos_found == 'true'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            const prs = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.name,
-              head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`,
-              state: 'open'
-            });
-            const pr = prs.data[0];
-            const todoList = `${{ steps.todo-check.outputs.TODOS }}`
-              .split('\n')
-              .map(line => line.replace(/^\+/, '').trim())
-              .join('\n- ');
-            await github.rest.issues.createComment({
-              issue_number: pr.number,
-              owner: context.repo.owner,
-              repo: context.repo.name,
-              body: `Is this resolved?\n\nTODOs found in new or modified lines:\n- ${todoList}`
-            });
+            const owner = context?.payload?.repository?.owner?.name;
+            const repo = context?.payload?.repository?.name;
+            const branch = context.ref.replace('refs/heads/', '');
+
+            async function commentOnPR() {
+              try {
+                const prs = await github.rest.pulls.list({
+                  owner: owner,
+                  repo: repo,
+                  head: `${owner}:${branch}`,
+                  state: 'open'
+                });
+
+                if (prs?.data?.length === 0) {
+                  console.log('No open PR found');
+                  return;
+                }
+
+                const pr = prs.data[0];
+                const todoCheckOutputs = ${{ toJSON(steps.todo-check.outputs) }};
+                const todoLines = todoCheckOutputs.TODOS
+                  .split('\n')
+                  .filter(line => line.includes('TODO:') && !line.includes('$(git diff'))
+                  .map(line => line.replace(/^\+/, '').trim());
+
+                 // Get the diff
+                const diff = await github.rest.pulls.get({
+                  owner: owner,
+                  repo: repo,
+                  pull_number: pr.number,
+                  mediaType: {
+                    format: 'diff'
+                  }
+                });
+
+                // Get the list of files changed in the PR
+                const { data: files } = await github.rest.pulls.listFiles({
+                  owner: owner,
+                  repo: repo,
+                  pull_number: pr.number
+                });
+
+                for (const file of files) {
+                  const fileTodos = todoLines.filter(todo => file.patch.includes(todo));
+
+                  for (const todo of fileTodos) {
+                    const lines = file.patch.split('\n');
+                    const todoLineIndex = lines.findIndex(line => line.includes(todo));
+
+                    if (todoLineIndex !== -1) {
+                      let lineNumber = 0;
+                      let inHunk = false;
+                      let hunkStart = 0;
+                      let diffHunk = '';
+
+                      for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i];
+                        if (line.startsWith('@@')) {
+                          inHunk = true;
+                          hunkStart = parseInt(line.match(/\+(\d+)/)[1]);
+                          lineNumber = hunkStart - 1;
+                          diffHunk = line + '\n';
+                        } else if (inHunk) {
+                          if (line.startsWith('+') || line.startsWith(' ')) {
+                            lineNumber++;
+                          }
+                          diffHunk += line + '\n';
+                          if (i === todoLineIndex) {
+                            break;
+                          }
+                        }
+                      }
+
+                      await github.rest.pulls.createReviewComment({
+                        owner: owner,
+                        repo: repo,
+                        pull_number: pr.number,
+                        body: `Is this resolved?\n\nTODO found: ${todo}`,
+                        commit_id: pr.head.sha,
+                        path: file.filename,
+                        line: lineNumber,
+                        side: 'RIGHT'
+                      });
+                      console.log(`Comment added for TODO: ${todo}`);
+                    }
+                  }
+                }
+
+                console.log('All comments added successfully');
+
+              } catch (error) {
+                console.log(`Error occurred: ${error.message}`);
+              }
+            }
+
+            await commentOnPR();
