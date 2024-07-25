@@ -83,6 +83,15 @@
       },
       "default": []
     },
+    "isExternalEvent": {
+      "type": "boolean"
+    },
+    "zOrderIndex": {
+      "type": "string"
+    },
+    "externalEventUrl": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
+    },
     "createdAt": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     },
@@ -99,8 +108,6 @@
     "ingestion",
     "name",
     "startTime",
-    "recurrenceRule",
-    "recurrenceId",
     "url",
     "urlDomain",
     "urlPath",
@@ -111,6 +118,7 @@
     "locationCountry",
     "locationZipcode",
     "isVerified",
+    "isExternalEvent",
     "createdAt",
     "updatedAt",
     "updatedBy"
