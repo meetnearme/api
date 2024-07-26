@@ -6,7 +6,12 @@ import (
 	"strings"
 )
 
+
 func GetGeo(location string, baseUrl string) (lat string, lon string, address string, err error) {
+    return GetGeoService().GetGeo(location, baseUrl)
+}
+
+func (s *RealGeoService) GetGeo(location string, baseUrl string) (lat string, lon string, address string, err error) {
 		// TODO: this needs to be parameterized!
 		if baseUrl == "" {
 			return "", "", "", fmt.Errorf("base URL is empty")
