@@ -150,14 +150,14 @@ func TestGetEventDetailsPage(t *testing.T) {
 	}
 }
 
-func TestGetAdminPage(t *testing.T) {
+func TestGetAddEventSourcePage(t *testing.T) {
 	req, err := http.NewRequest("GET", "/admin", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
-	handler := GetAdminPage(rr, req)
+	handler := GetAddEventSourcePage(rr, req)
 	handler.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
