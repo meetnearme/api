@@ -2,7 +2,6 @@ package helpers
 
 import (
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -80,38 +79,26 @@ func TestIsRemoteDB(t *testing.T) {
 }
 
 func TestGetDbTableName(t *testing.T) {
-    originalEnv := os.Environ()
-    defer func() {
-        for _, pair := range originalEnv {
-            parts := strings.SplitN(pair, "=", 2)
-            os.Setenv(parts[0], parts[1])
+    originalEnv := os.Getenv("GO_ENV")
+    defer os.Setenv("GO_ENV", originalEnv)
+
+    os.Setenv("GO_ENV", "test")
+
+    t.Run("Local DB", func(t *testing.T) {
+        os.Setenv("USE_REMOTE_DB", "false")
+        os.Setenv("SST_STAGE", "")
+        result := GetDbTableName("TestTable")
+        if result != "TestTable" {
+            t.Errorf("GetDbTableName(\"TestTable\") = %s, want TestTable", result)
         }
-    }()
+    })
 
-    tests := []struct {
-        name string
-        useRemoteDB string
-        sstStage string
-        tableName string
-        remoteTableEnv string
-        expectedResult string
-    }{
-        {"Local DB", "false", "", "TestTable", "RemoteTestTable", "TestTable"},
-        {"Remote DB", "true", "prod", "TestTable", "RemoteTestTable", "RemoteTestTable"},
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            os.Clearenv()
-            os.Setenv("USE_REMOTE_DB", tt.useRemoteDB)
-            os.Setenv("SST_STAGE", tt.sstStage)
-            os.Setenv("SST_Table_tableName_"+EventsTablePrefix, "RemoteTestTable")
-            os.Setenv("GO_ENV", "test")
-
-            result := GetDbTableName(tt.tableName)
-            if result != tt.expectedResult {
-                t.Errorf("GetDbTableName(%q) = %q, want %q", tt.tableName, result, tt.expectedResult)
-            }
-        })
-    }
+    t.Run("Remote DB", func(t *testing.T) {
+        os.Setenv("USE_REMOTE_DB", "true")
+        os.Setenv("SST_Table_tableName_TestTable", "RemoteTestTable")
+        result := GetDbTableName("TestTable")
+        if result != "RemoteTestTable" {
+            t.Errorf("GetDbTableName(\"TestTable\") = %s, want RemoteTestTable", result)
+        }
+    })
 }
