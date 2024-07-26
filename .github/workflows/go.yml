@@ -30,5 +30,23 @@ jobs:
       - name: Build Go binaries
         run: go build -v ./...
 
-      - name: Run Go tests
-        run: go test ./...
+      - name: Run tests and generate coverage
+        run: |
+          go test -v -coverprofile=coverage.out ./functions/...
+          go tool cover -func=coverage.out > coverage.txt
+
+      - name: Check coverage
+        run: |
+          COVERAGE=$(grep -Po '(?<=total:\s{6})\d+\.\d+' coverage.txt)
+          echo "Total coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 50" | bc -l) )); then
+            echo "Coverage is below 50%"  
+            exit 1
+          fi
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with: 
+          name: coverage-report
+          path: coverage.txt
+      
