@@ -17,11 +17,11 @@ import (
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/go-playground/validator"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/transport"
+	"github.com/meetnearme/api/functions/gateway/types"
 	partials "github.com/meetnearme/api/functions/lambda/go/seshu/templates"
 )
 
@@ -63,7 +63,7 @@ type SeshuInputPayload struct {
 
 type SeshuResponseBody struct {
 	SessionID string `json:"session_id"`
-	EventsFound []services.EventInfo `json:"events_found"`
+	EventsFound []types.EventInfo `json:"events_found"`
 }
 
 type CreateChatSessionPayload struct {
@@ -133,7 +133,7 @@ The input is:
 =====
 const textStrings = `
 
-var db *dynamodb.Client
+var db types.DynamoDBAPI
 
 func init() {
 	db = transport.CreateDbClient()
@@ -220,7 +220,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 
 	openAIjson := messageContent
 
-	var eventsFound []services.EventInfo
+	var eventsFound []types.EventInfo
 
 	err = json.Unmarshal([]byte(openAIjson), &eventsFound)
 	if err != nil {
@@ -258,8 +258,8 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 		}
 
 		currentTime := time.Now()
-		seshuSessionPayload := services.SeshuSessionInput{
-			SeshuSession: services.SeshuSession{
+		seshuSessionPayload := types.SeshuSessionInput{
+			SeshuSession: types.SeshuSession{
 				// TODO: this needs wiring up with Auth
 				OwnerId: "123",
 				Url: inputPayload.Url,
