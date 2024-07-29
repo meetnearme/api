@@ -29,6 +29,7 @@ jobs:
           ZITADEL_ENCRYPTION_KEY: ${{ secrets.ZITADEL_ENCRYPTION_KEY }}
           ZITADEL_INSTANCE_URL: ${{ secrets.ZITADEL_INSTANCE_URL }}
           APEX_URL: ${{ secrets.APEX_DEV_URL }}
+          APEX_DEV_URL: ${{ secrets.APEX_DEV_URL }}
       - name: Deploy app
         run: |
           npm i && npx sst deploy --stage dev
