@@ -23,14 +23,14 @@ jobs:
           go-version: '1.21.x'
       - name: Install dependencies
         run: |
+          go install github.com/a-h/templ/cmd/templ@latest 
+          templ generate
           go get ./...
-          go install github.com/a-h/templ/cmd/templ@latest
+          
           # go get example.com/octo-examplemodule
           # go get example.com/octo-examplemodule@v1.3.4
 
       - name: Build Go binaries
         run: go build -v ./...
-      - name: Generate templates
-        run: templ generate
       - name: Run Go tests
         run: go test ./...
