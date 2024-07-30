@@ -53,7 +53,7 @@ func init() {
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
 		{"/events/{eventId}", "GET", handlers.GetEventDetailsPage, Check},
-		{"/api/event", "POST", handlers.CreateEvent, None},
+		{"/api/event", "POST", handlers.CreateEventHandler, None},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo", "POST", handlers.GeoLookup, None},
@@ -215,8 +215,7 @@ func main() {
     log.Println("NOt found handler set up")
 
     // This is the package level instance of Db in handlers
-    handlers.Db = transport.GetDB()
-    log.Printf("Handlers.Db initialized: %v", handlers.Db)
+    _ = transport.GetDB()
 
     app.SetupRoutes(Routes)
 
