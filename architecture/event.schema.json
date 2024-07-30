@@ -1,6 +1,47 @@
 {
   "$id": "https://github.com/meetnearme/api/architecture/Event.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "registrationFields": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "url",
+            "email",
+            "phone",
+            "number",
+            "select",
+            "checkbox",
+            "radio"
+          ]
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": {
+          "type": "string"
+        },
+        "placeholder": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    }
+  },
   "type": "object",
   "properties": {
     "id": {
@@ -32,9 +73,7 @@
       "type": "string"
     },
     "registrationFields": {
-      "items": {
-        "type": "string"
-      },
+      "$ref": "#/definitions/registrationFields",
       "default": []
     },
     "purchasable": {

@@ -12,7 +12,7 @@
         "merchandise"
       ]
     },
-    "itemRecurrence": {
+    "chargeRecurrence": {
       "type": "object",
       "properties": {
         "interval": {
@@ -48,8 +48,8 @@
     "inventory": {
       "type": "number"
     },
-    "itemRecurrence": {
-      "$ref": "#/definitions/itemRecurrence"
+    "chargeRecurrence": {
+      "$ref": "#/definitions/chargeRecurrence"
     }
   },
   "required": ["name", "itemType", "cost", "currency"],
