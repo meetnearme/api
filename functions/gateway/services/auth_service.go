@@ -24,6 +24,7 @@ var (
 )
 
 func InitAuth() {
+	log.Println("redirectURI: ", *redirectURI)
 	once.Do(func() {
 		ctx := context.Background()
 
