@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
@@ -20,10 +19,8 @@ import (
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/transport"
-	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var Db internal_types.DynamoDBAPI
 var mw *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 var authN *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 
@@ -31,17 +28,6 @@ var bypassAuthForTesting bool
 
 func SetBypassAuthForTesting(bypass bool) {
     bypassAuthForTesting = bypass
-}
-
-func init() {
-    if os.Getenv("GO_ENV") != "test" {
-        Db = transport.GetDB()
-    }
-    mw, authN = services.GetAuthMw()
-}
-
-func InitTestDB(testDB internal_types.DynamoDBAPI) {
-    Db = testDB
 }
 
 func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo], userInfo helpers.UserInfo) (helpers.UserInfo, error) {
@@ -63,12 +49,9 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     log.Println("GetHomePage handler called")
 	ctx := r.Context()
 
-    if Db == nil {
-        log.Println("Db is nil, initializing...")
-        Db = transport.GetDB()
-    }
+    db := transport.GetDB()
 
-    log.Printf("Db innitialized %v", Db)
+    log.Printf("db innitialized %v", db)
 
 	apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
     if !ok {
@@ -121,7 +104,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	// Call the GetEventsZOrder service to retrieve events
     log.Println("Calling GetEventsZOrder service")
-	events, err := services.GetEventsZOrder(ctx, Db, startTime, endTime, lat, lon, radius)
+	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
 	if err != nil {
         log.Printf("Error getting events: %v", err)
 		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)

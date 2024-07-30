@@ -7,13 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
-	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -29,16 +26,6 @@ func mockGetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, sta
 }
 
 func TestGetHomePage(t *testing.T) {
-    // Setup
-    mockDB := &test_helpers.MockDynamoDBClient{
-        ScanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
-            return &dynamodb.ScanOutput{
-                Items: []map[string]types.AttributeValue{},
-            }, nil
-        },
-    }
-    InitTestDB(mockDB)
-
     // Create a request
     req, err := http.NewRequest("GET", "/", nil)
     if err != nil {

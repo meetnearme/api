@@ -172,6 +172,8 @@ func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 
 func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     log.Printf("Entering SubmitSeshuEvents handler")
+    db := transport.GetDB()
+
 	ctx := r.Context()
 	var inputPayload SeshuSessionEventsPayload
 	body, err := io.ReadAll(r.Body)
@@ -204,7 +206,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	updateSeshuSession.EventValidations = inputPayload.EventValidations
 
     seshuService := services.GetSeshuService()
-	_, err = seshuService.UpdateSeshuSession(ctx, Db, updateSeshuSession)
+	_, err = seshuService.UpdateSeshuSession(ctx, db, updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, err)
@@ -224,7 +226,8 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	var inputPayload SeshuSessionSubmitPayload
+    db := transport.GetDB()
+	var inputPayload SeshuSessionEventsPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()),  http.StatusInternalServerError, err)
@@ -251,7 +254,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	updateSeshuSession.Url = inputPayload.Url
 	updateSeshuSession.Status = "submitted"
 
-	_, err = services.UpdateSeshuSession(ctx, Db, updateSeshuSession)
+	_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, err)
