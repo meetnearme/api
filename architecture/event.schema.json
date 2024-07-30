@@ -6,9 +6,11 @@
     "id": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
     },
-    "ownerId": {
-      "type": "string",
-      "$ref": "https://github.com/meetnearme/api/architecture/Owner.json"
+    "eventSourceId": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
+    },
+    "eventSourceType": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/EventSourceType"
     },
     "ingestionId": {
       "type": "string",
@@ -45,18 +47,6 @@
     "url": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
     },
-    "urlDomain": {
-      "type": "string"
-    },
-    "urlPath": {
-      "type": "string"
-    },
-    "urlQueryParams": {
-      "type": "string"
-    },
-    "urlSlug": {
-      "type": "string"
-    },
     "imageUrl": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
     },
@@ -83,9 +73,6 @@
       },
       "default": []
     },
-    "isExternalEvent": {
-      "type": "boolean"
-    },
     "zOrderIndex": {
       "type": "string"
     },
@@ -104,21 +91,14 @@
   },
   "required": [
     "id",
-    "owner",
-    "ingestion",
+    "eventSourceId",
+    "eventSourceType",
     "name",
     "startTime",
     "url",
-    "urlDomain",
-    "urlPath",
-    "urlSlug",
     "locationLatitude",
     "locationLongitude",
     "locationAddress",
-    "locationCountry",
-    "locationZipcode",
-    "isVerified",
-    "isExternalEvent",
     "createdAt",
     "updatedAt",
     "updatedBy"

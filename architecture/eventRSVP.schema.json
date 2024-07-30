@@ -4,7 +4,7 @@
   "definitions": {
     "RSVPStatus": {
       "type": "string",
-      "enum": ["yes", "no", "maybe"]
+      "enum": ["Yes", "Maybe", "Interested, can't make it!"]
     }
   },
   "type": "object",
@@ -20,6 +20,12 @@
       "type": "string",
       "$ref": "https://github.com/meetnearme/api/architecture/Event.json"
     },
+    "eventSourceId": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
+    },
+    "eventSourceType": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/EventSourceType"
+    },
     "status": {
       "$ref": "#/definitions/RSVPStatus"
     },
@@ -27,5 +33,13 @@
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
     }
   },
-  "required": ["id", "userId", "eventId", "status", "createdAt"]
+  "required": [
+    "id",
+    "userId",
+    "eventId",
+    "eventSourceId",
+    "eventSourceType",
+    "status",
+    "createdAt"
+  ]
 }

@@ -16,6 +16,10 @@
     "UUID": {
       "type": "string",
       "format": "uuid"
+    },
+    "EventSourceType": {
+      "type": "string",
+      "enum": ["internalRecurrence", "internalSingle", "seshuJob"]
     }
   }
 }
