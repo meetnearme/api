@@ -11,19 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/meetnearme/api/functions/gateway/services"
-	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
-type mockEventService struct {
-    insertEventFunc func(ctx context.Context, db types.DynamoDBAPI, createEvent services.EventInsert) (*services.EventSelect, error)
-}
-
-func (m *mockEventService) InsertEvent(ctx context.Context, db types.DynamoDBAPI, createEvent services.EventInsert) (*services.EventSelect, error) {
-    return m.insertEventFunc(ctx, db, createEvent)
-}
 
 func TestCreateEvent(t *testing.T) {
     tests := []struct {
@@ -103,27 +94,19 @@ func TestCreateEvent(t *testing.T) {
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            ctx := context.Background()
-            mockDB := &test_helpers.MockDynamoDBClient{
-                PutItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
-					return &dynamodb.PutItemOutput{}, nil
-				},
-            }
-            mockService := &mockEventService{
-                insertEventFunc: tt.mockInsertFunc,
+            mockService := &services.MockEventService{
+                InsertEventFunc: tt.mockInsertFunc,
             }
 
-            req, err := http.NewRequestWithContext(ctx, "POST", "/event", bytes.NewBufferString(tt.requestBody))
+            req, err := http.NewRequestWithContext(context.Background(), "POST", "/event", bytes.NewBufferString(tt.requestBody))
             if err != nil {
                 t.Fatalf("Unexpected error: %v", err)
             }
 
             rr := httptest.NewRecorder()
-            handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
-                createEventHandler(r.Context(), w, r, mockService, mockDB)
-            })
+            handler := NewEventHandler(mockService)
 
-            handler.ServeHTTP(rr, req)
+            handler.CreateEvent(rr, req)
 
             if status := rr.Code; status != tt.expectedStatus {
                 t.Errorf("Handler returned wrong status code: got %v want %v", status, tt.expectedStatus)
