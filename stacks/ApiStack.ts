@@ -31,21 +31,32 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
     },
   });
 
+  let apexUrl;
+  if (app.stage === 'prod') {
+    apexUrl = process.env.APEX_URL;
+  } else if (app.stage === 'dev') {
+    apexUrl = process.env.APEX_DEV_URL;
+  } else {
+    apexUrl = api.url;
+  }
+
   // $default route is added separately because we want to get `api.url` which is yielded above among
   // others, this is used by zitadel auth to redirect back to a frontend URL that matches the apex
+
   api.addRoutes(stack, {
     $default: {
       function: {
         handler: 'functions/gateway',
         environment: {
-          APEX_URL: app.stage === 'prod' ? process.env.APEX_URL : api.url,
+          APEX_URL: apexUrl,
         },
       },
     },
   });
 
   stack.addOutputs({
-    ApiEndpoint: app.stage === 'prod' ? process.env.APEX_URL : api.url,
+    ApexUrl: apexUrl,
+    CloudformationApiUrl: api.url,
   });
 
   return { api };

@@ -28,6 +28,10 @@ inputs:
     description:
       'The site apex URL, dynamic in lower environments, static in prod'
     required: true
+  APEX_DEV_URL:
+    description:
+      'The site apex DEV URL, dynamic in lower environments, static in prod'
+    required: true
 runs:
   using: composite
   steps:
@@ -44,6 +48,7 @@ runs:
         echo ZITADEL_ENCRYPTION_KEY=${{ inputs.ZITADEL_ENCRYPTION_KEY }} >> .env
         echo ZITADEL_INSTANCE_URL=${{ inputs.ZITADEL_INSTANCE_URL }} >> .env
         echo APEX_URL=${{ inputs.APEX_URL }} >> .env
+        echo APEX_DEV_URL=${{ inputs.APEX_DEV_URL }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

@@ -1,0 +1,59 @@
+{
+  "$id": "https://github.com/meetnearme/api/architecture/SeshuJob.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "IngestionStatus": {
+      "type": "string",
+      "enum": ["active", "inactive", "expired", "error"]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
+    },
+    "owners": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/User.json"
+      }
+    },
+    "recurrenceRule": {
+      "type": "string"
+    },
+    "recurrenceId": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
+    },
+    "url": {
+      "type": "string"
+    },
+    "urlDomain": {
+      "type": "string"
+    },
+    "urlPath": {
+      "type": "string"
+    },
+    "urlQueryParams": {
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/definitions/IngestionStatus"
+    },
+    "lastRunAt": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
+    },
+    "nextRunAt": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
+    },
+    "createdAt": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
+    },
+    "updatedAt": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
+    },
+    "updatedBy": {
+      "$ref": "https://github.com/meetnearme/api/architecture/User.json"
+    }
+  },
+  "required": ["id", "name", "createdAt"]
+}

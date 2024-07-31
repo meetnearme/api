@@ -18,6 +18,8 @@ require (
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
+	github.com/zitadel/oidc/v3 v3.25.1
+	github.com/zitadel/zitadel-go/v3 v3.0.0-next.2
 )
 
 require (
@@ -40,7 +42,6 @@ require (
 	github.com/cdklabs/awscdk-asset-kubectl-go/kubectlv20/v2 v2.1.2 // indirect
 	github.com/cdklabs/awscdk-asset-node-proxy-agent-go/nodeproxyagentv6/v2 v2.0.1 // indirect
 	github.com/fatih/color v1.16.0 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -55,10 +56,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/yuin/goldmark v1.7.0 // indirect
 	github.com/zitadel/logging v0.6.0 // indirect
-	github.com/zitadel/oidc v1.13.5 // indirect
-	github.com/zitadel/oidc/v3 v3.25.1 // indirect
 	github.com/zitadel/schema v1.3.0 // indirect
-	github.com/zitadel/zitadel-go/v3 v3.0.0-next.2 // indirect
 	go.opentelemetry.io/otel v1.28.0 // indirect
 	go.opentelemetry.io/otel/metric v1.28.0 // indirect
 	go.opentelemetry.io/otel/trace v1.28.0 // indirect
@@ -72,5 +70,4 @@ require (
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
-	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 )
