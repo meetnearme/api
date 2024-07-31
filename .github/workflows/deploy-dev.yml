@@ -24,7 +24,6 @@ jobs:
           go-version: '1.21.x'
       - name: Generate `templ` templates
         run: |
-          go install github.com/a-h/templ/cmd/templ@latest
           templ generate ./...
       - name: Breakpoint if `templ` generate failed
         if: failure()
