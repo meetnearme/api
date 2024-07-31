@@ -1,4 +1,4 @@
-package services_test
+package services
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-    "github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/indexing"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
@@ -25,7 +24,7 @@ func TestGetEventsZOrder(t *testing.T) {
         lat float32
         lon float32
         radius float32
-        expectedEvents []services.EventSelect
+        expectedEvents []EventSelect
         expectedError error
     }{
          {
@@ -40,7 +39,7 @@ func TestGetEventsZOrder(t *testing.T) {
             lat:            51.5074,
             lon:            -0.1278,
             radius:         10.0,
-            expectedEvents: []services.EventSelect{
+            expectedEvents: []EventSelect{
                 // ... (expected events)
             },
         },
@@ -59,7 +58,7 @@ func TestGetEventsZOrder(t *testing.T) {
                 },
             }
 
-            events, err := services.GetEventsZOrder(context.Background(), mockDB, tt.startTime, tt.endTime, tt.lat, tt.lon, tt.radius)
+            events, err := GetEventsZOrder(context.Background(), mockDB, tt.startTime, tt.endTime, tt.lat, tt.lon, tt.radius)
 
             if tt.expectedError != nil {
                 if err == nil || err.Error() != tt.expectedError.Error() {
@@ -85,7 +84,7 @@ func TestInsertEvent(t *testing.T) {
     }
 
     eventTime := time.Date(2030, 5, 1, 12, 0, 0, 0, time.UTC)
-    createEvent := services.EventInsert{
+    createEvent := EventInsert{
         Name:        "New Event",
         Description: "New Description",
         Datetime:    eventTime.Format(time.RFC3339),
@@ -96,7 +95,7 @@ func TestInsertEvent(t *testing.T) {
         Longitude:   float32(-0.1278),
     }
 
-    newEvent, err := services.InsertEvent(context.Background(), mockDB, createEvent)
+    newEvent, err := InsertEvent(context.Background(), mockDB, createEvent)
 
     if err != nil {
         t.Errorf("Unexpected error: %v", err)
@@ -114,11 +113,11 @@ func TestInsertEvent(t *testing.T) {
         t.Fatal("Expected PutItemInput to be captured")
     }
 
-    if *capturedInput.TableName != services.TableName {
-        t.Errorf("Expected TableName to be %s, got %s", services.TableName, *capturedInput.TableName)
+    if *capturedInput.TableName != eventsTableName {
+        t.Errorf("Expected TableName to be %s, got %s", eventsTableName, *capturedInput.TableName)
     }
 
-    var insertedEvent services.EventSelect
+    var insertedEvent EventSelect
     err = attributevalue.UnmarshalMap(capturedInput.Item, &insertedEvent)
     if err != nil {
         t.Fatalf("Failed to unmarshal PutItem input: %v", err)
