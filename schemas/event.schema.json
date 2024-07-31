@@ -53,10 +53,6 @@
     "eventSourceType": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/EventSourceType"
     },
-    "ingestionId": {
-      "type": "string",
-      "$ref": "https://github.com/meetnearme/api/architecture/Ingestion.json"
-    },
     "name": {
       "type": "string"
     },
