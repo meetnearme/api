@@ -12,9 +12,6 @@
     "lastName": {
       "type": "string"
     },
-    "mobile": {
-      "type": ["string", "null"]
-    },
     "locationLatitude": {
       "type": ["number", "null"]
     },
@@ -24,87 +21,26 @@
     "locationAddress": {
       "type": ["string", "null"]
     },
-    "karma": {
-      "type": "number"
-    },
     "email": {
       "type": "string",
       "format": "email"
     },
-    "isEmailVerified": {
+    "emailVerified": {
       "type": "boolean"
-    },
-    "dateOfBirth": {
-      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
-    },
-    "entitlements": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "enum": [
-          "ingestEvent",
-          "postEvent",
-          "editEvent",
-          "reportEvent",
-          "hasSubdomain",
-          "hasBranding"
-        ]
-      }
-    },
-    "isActive": {
-      "type": "boolean"
-    },
-    "isVerified": {
-      "type": "boolean"
-    },
-    "badges": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "default": []
     },
     "about": {
       "type": ["string", "null"]
     },
     "avatarURL": {
-      "type": "string",
-      "format": "uri"
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
     },
     "notificationSettings": {
       "$ref": "https://github.com/meetnearme/api/architecture/NotificationSetting.json"
     },
-    "createdAt": {
-      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
-    },
-    "lastLoggedIn": {
-      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
-    },
-    "favoriteCategories": {
-      "type": "array",
-      "items": {
-        "$ref": "https://github.com/meetnearme/api/architecture/Category.json"
-      },
-      "default": []
-    },
     "favoriteCurators": {
       "type": "array",
       "items": {
-        "$ref": "https://github.com/meetnearme/api/architecture/User.json"
-      },
-      "default": []
-    },
-    "mutedCurators": {
-      "type": "array",
-      "items": {
-        "$ref": "https://github.com/meetnearme/api/architecture/User.json"
-      },
-      "default": []
-    },
-    "eventsHosted": {
-      "type": "array",
-      "items": {
-        "$ref": "https://github.com/meetnearme/api/architecture/Event.json"
+        "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
       },
       "default": []
     }
@@ -113,16 +49,9 @@
     "id",
     "firstName",
     "lastName",
-    "karma",
     "email",
-    "isEmailVerified",
-    "dateOfBirth",
-    "entitlements",
-    "isActive",
-    "isVerified",
+    "emailVerified",
     "avatarURL",
-    "notificationSettings",
-    "createdAt",
-    "lastLoggedIn"
+    "notificationSettings"
   ]
 }
