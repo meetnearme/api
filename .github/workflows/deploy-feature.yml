@@ -28,10 +28,17 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21.x'
-      - name: Generate `templ` templates
-        run: |
-          go install github.com/a-h/templ/cmd/templ@latest
-          templ generate ./...
+      - name: Generate templ code
+        uses: './.github/actions/templ_generate'
+        with:
+          templ-version: 'v0.2.663'
+          commit: 'false'
+      - name: Breakpoint if `templ` generate failed
+        if: failure()
+        uses: namespacelabs/breakpoint-action@v0
+        with:
+          duration: 30m
+          authorized-users: brianfeister
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
         with:
