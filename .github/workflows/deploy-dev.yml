@@ -31,7 +31,7 @@ jobs:
         uses: namespacelabs/breakpoint-action@v0
         with:
           duration: 30m
-          authorized-users: brianfeister, msnorth, Brandon-G-Tripp, j4ainam
+          authorized-users: brianfeister, msnorth, Brandon-G-Tripp, j4inam
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
         with:
@@ -52,4 +52,4 @@ jobs:
         uses: namespacelabs/breakpoint-action@v0
         with:
           duration: 30m
-          authorized-users: brianfeister, msnorth, Brandon-G-Tripp, j4ainam
+          authorized-users: brianfeister, msnorth, Brandon-G-Tripp, j4inam
