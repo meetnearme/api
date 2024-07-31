@@ -24,9 +24,8 @@ jobs:
           go-version: '1.21.x'
       - name: Generate `templ` templates
         run: |
-          go install github.com/a-h/templ/runtime@latest
           go install github.com/a-h/templ/cmd/templ@latest
-          templ generate
+          templ generate ./...
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
         with:
