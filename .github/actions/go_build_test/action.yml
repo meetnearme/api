@@ -4,8 +4,6 @@ description: 'Build and test Go project'
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
-
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
