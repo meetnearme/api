@@ -11,7 +11,7 @@ concurrency:
 permissions:
   id-token: write # This is required for requesting the JWT
   contents: write # This is required for actions/checkout
-
+  pull-requests: write # This is required for comitting templ generated code
 jobs:
   DeployDevSST:
     runs-on: ubuntu-latest
@@ -26,7 +26,18 @@ jobs:
         uses: './.github/actions/templ_generate'
         with:
           templ_version: 'latest'
-          commit: 'true'
+          commit: 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit and push changes
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git commit -m "Auto-generated templ code" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Breakpoint if `templ` generate failed
         if: failure()
         uses: namespacelabs/breakpoint-action@v0
