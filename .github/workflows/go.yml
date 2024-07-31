@@ -21,9 +21,13 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21.x'
+      - name: Generate templ code
+        uses: './.github/actions/templ_generate'
+        with:
+          templ_version: 'v0.2.663'
+          commit: 'false'
       - name: Install dependencies
         run: |
-          go run github.com/a-h/templ/cmd/templ generate ./...
           go get ./...
       - name: Build Go binaries
         run: go build -v ./...
