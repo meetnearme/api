@@ -26,6 +26,12 @@ jobs:
         run: |
           go install github.com/a-h/templ/cmd/templ@latest
           templ generate ./...
+      - name: Breakpoint if `templ` generate failed
+        if: failure()
+        uses: namespacelabs/breakpoint-action@v0
+        with:
+          duration: 30m
+          authorized-users: brianfeister, msnorth, Brandon-G-Tripp, j4ainam
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
         with:
