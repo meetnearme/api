@@ -26,7 +26,7 @@ jobs:
         uses: './.github/actions/templ_generate'
         with:
           templ_version: 'latest'
-          commit: 'false'
+          commit: 'true'
       - name: Breakpoint if `templ` generate failed
         if: failure()
         uses: namespacelabs/breakpoint-action@v0
