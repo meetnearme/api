@@ -1,0 +1,68 @@
+{
+  "$id": "https://github.com/meetnearme/api/architecture/Purchasable.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "itemType": {
+      "type": "string",
+      "enum": [
+        "ticket",
+        "membership",
+        "donation",
+        "partialDonation",
+        "merchandise"
+      ]
+    },
+    "chargeRecurrence": {
+      "type": "object",
+      "properties": {
+        "interval": {
+          "type": "string",
+          "enum": ["day", "week", "month", "year"]
+        },
+        "intervalCount": {
+          "type": "number"
+        },
+        "endDate": {
+          "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/ISOString"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "itemType": {
+      "$ref": "#/definitions/itemType"
+    },
+    "cost": {
+      "type": "number"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "donationRatio": {
+      "type": "number"
+    },
+    "inventory": {
+      "type": "number"
+    },
+    "chargeRecurrence": {
+      "$ref": "#/definitions/chargeRecurrence"
+    }
+  },
+  "required": ["name", "itemType", "cost", "currency"],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "itemType": { "const": "partialDonation" }
+        }
+      },
+      "then": {
+        "required": ["donationRatio"]
+      }
+    }
+  ]
+}

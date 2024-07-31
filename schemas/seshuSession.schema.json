@@ -1,0 +1,89 @@
+{
+  "$id": "https://github.com/meetnearme/api/architecture/SeshuSession.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "EventInfo": {
+      "type": "object",
+      "properties": {
+        "event_title": {
+          "type": "string"
+        },
+        "event_location": {
+          "type": "string"
+        },
+        "event_date": {
+          "type": "string"
+        },
+        "event_url": {
+          "type": "string"
+        },
+        "event_description": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "ownerId": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
+    },
+    "urlDomain": {
+      "type": "string"
+    },
+    "urlPath": {
+      "type": "string"
+    },
+    "urlQueryParams": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "locationLatitude": {
+      "type": "number"
+    },
+    "locationLongitude": {
+      "type": "number"
+    },
+    "locationAddress": {
+      "type": "string"
+    },
+    "html": {
+      "type": "string"
+    },
+    "eventCandidates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/EventInfo"
+      }
+    },
+    "status": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer"
+    },
+    "updatedAt": {
+      "type": "integer"
+    },
+    "expireAt": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "ownerId",
+    "url",
+    "urlDomain",
+    "html",
+    "createdAt",
+    "updatedAt",
+    "expireAt"
+  ]
+}
