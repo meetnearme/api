@@ -56,6 +56,7 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
 
   stack.addOutputs({
     ApexUrl: apexUrl,
+    CloudformationApiUrl: api.url,
   });
 
   return { api };
