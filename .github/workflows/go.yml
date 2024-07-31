@@ -23,7 +23,7 @@ jobs:
           go-version: '1.21.x'
       - name: Install dependencies
         run: |
-          go install github.com/a-h/templ/cmd/templ@latest
+          go run github.com/a-h/templ/cmd/templ
           templ generate ./...
           go get ./...
       - name: Build Go binaries
