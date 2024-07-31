@@ -92,3 +92,49 @@ When updating env vars, the changes need to be made in 4 places:
    are `echo`d)
 1. `.env.example` to clarify in version control what our currently-used env vars
    are
+
+### Setting up AWS DNS in Route53 with Custom Domain names for API Gateway
+
+For `*.meetnear.me` and `*.devnear.me` there is some custom configuration
+required at the API Gateway level, DNS nameserver level, and Route53
+configuration level
+
+1. **DNS Level** - at the time of writing, the `*.me` TLD can't be registered
+   through Amazon, so it's handled through Namecheap.com.
+   1. First, go to Route53 in AWS console and add a new "Hosted Zone" (we'll use
+      `devnear.me` as an example)
+   1. In the
+      [list view](https://us-east-1.console.aws.amazon.com/route53/v2/hostedzones?region=us-east-1#ListRecordSets/Z06752732TZBTZ1LBFAWP),
+      look for `Type: NS` and copy the `Value`s to Namecheap.com under the
+      [admin tab](https://ap.www.namecheap.com/domains/domaincontrolpanel/devnear.me/domain)
+      for `devnear.me`
+1. **API Gateway / Route53 Level** - To map the DNS to Route53 (covered in the
+   next step), you must first configure at the API Gateway level
+   1. First, go to API Gateway >
+      [Custom Domain Names](https://us-east-1.console.aws.amazon.com/apigateway/main/publish/domain-names?region=us-east-1)
+      and click `Create`.
+   1. Enter the new domain, in our case `devnear.me`
+   1. Under `ACM Certificate` if this is a new domain, you might need to click
+      [Create a new ACM Certificate](https://us-east-1.console.aws.amazon.com/acm/home?region=us-east-1)
+   1. After initiating the certificate creation, you'll be taken to the AWS
+      [cert admin panel](https://us-east-1.console.aws.amazon.com/acm/home?region=us-east-1#/certificates/c5840d8f-9937-4d49-abdc-83f2c5e3609c)
+      where you need to click `Create Records in Route53` to verify domain
+      ownership for the cert
+   1. Go to the `API Gateway` >
+      [Custom Domains](https://us-east-1.console.aws.amazon.com/apigateway/main/publish/domain-names?api=unselected&region=us-east-1)
+      in the AWS console
+   1. Click `Create`
+   1. Choose the newly created (and now verified via the Route53 records added
+      above) cert
+   1. Go to `devnear.me` (your newly created Custom Domain Name) >
+      [Configure API Mappings](https://us-east-1.console.aws.amazon.com/apigateway/main/publish/domain-names/api-mappings?api=unselected&domain=devnear.me&region=us-east-1)
+   1. Set `API` value to the Cloudformation resource you want to map to
+      `devnear.me`
+   1. Go back to Route53 console to confirm the mapped `A` records are set
+      correctly. If they are, the `Value` for the `A` record will be (slightly
+      confusingly) `d-<alpha-numeric>.execute-api.us-east-1.amazonaws.com`. This
+      should be different from the `ApiEndpoint` seen in Github Actions output
+      for the deployment, which typically looks like
+      `ApiEndpoint: https://<alpha-numeric>.execute-api.us-east-1.amazonaws.com`.
+      The alpha-numeric characters will not match, and the correct `A` record
+      should be prefixed with `d-`
