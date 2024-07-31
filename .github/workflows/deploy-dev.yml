@@ -35,9 +35,9 @@ jobs:
           git config user.email github-actions@github.com
           git add .
           git commit -m "Auto-generated templ code" || echo "No changes to commit"
-          git push
+          git push https://${{ secrets.ADMIN_WORKFLOW_GH_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git HEAD:develop
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ADMIN_WORKFLOW_GH_TOKEN: ${{ secrets.ADMIN_WORKFLOW_GH_TOKEN }}
       - name: Breakpoint if `templ` generate failed
         if: failure()
         uses: namespacelabs/breakpoint-action@v0
