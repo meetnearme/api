@@ -17,5 +17,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Go build and test
-        uses: './.github/actions/go_build_test'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.x'
+      - name: Install dependencies
+        run: |
+          go install github.com/a-h/templ/cmd/templ@latest
+          templ generate
+          go get ./...
+      - name: Build Go binaries
+        run: go build -v ./...
+      - name: Run Go tests
+        run: go test ./...

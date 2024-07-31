@@ -18,8 +18,10 @@ jobs:
     steps:
       - name: Git clone the repository
         uses: actions/checkout@v4
-      - name: Go build and test
-        uses: './.github/actions/go_build_test'
+      - name: Generate `templ` templates
+        run: |
+          go install github.com/a-h/templ/cmd/templ@latest
+          templ generate
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
         with:

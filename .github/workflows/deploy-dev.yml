@@ -18,10 +18,12 @@ jobs:
     steps:
       - name: Git clone the repository
         uses: actions/checkout@v4
+      - name: Generate `templ` templates
+        run: |
+          go install github.com/a-h/templ/cmd/templ@latest
+          templ generate
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
-      - name: Go build and test
-        uses: './.github/actions/go_build_test'
         with:
           MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
