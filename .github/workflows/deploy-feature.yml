@@ -24,6 +24,8 @@ jobs:
         run: |
           echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" | sed 's|/|-|g' >> $GITHUB_OUTPUT
         id: extract_branch
+      - name: Go build and test
+        uses: './.github/actions/go_build_test'
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
         with:
