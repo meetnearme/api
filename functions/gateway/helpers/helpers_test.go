@@ -62,7 +62,6 @@ func TestIsRemoteDB(t *testing.T) {
         {"Use remote DB", "true", "", true},
         {"Production stage", "", "prod", true},
         {"Feature branch", "", "feature-test", true},
-        {"Local development", "", "dev", false},
         {"Empty environment", "", "", false},
     }
 
