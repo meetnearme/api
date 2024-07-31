@@ -25,6 +25,7 @@ jobs:
         uses: './.github/actions/templ_generate'
         with:
           templ-version: 'v0.2.663'
+          setup-go: 'false'
           commit: 'false'
       - name: Install dependencies
         run: |
