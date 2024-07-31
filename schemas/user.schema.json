@@ -13,10 +13,10 @@
       "type": "string"
     },
     "locationLatitude": {
-      "type": ["number", "null"]
+      "type": ["number"]
     },
     "locationLongitude": {
-      "type": ["number", "null"]
+      "type": ["number"]
     },
     "locationAddress": {
       "type": ["string", "null"]
