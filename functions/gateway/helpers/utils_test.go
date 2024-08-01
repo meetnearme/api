@@ -55,17 +55,18 @@ func TestFormatTime(t *testing.T) {
 func TestTruncateStringByBytes(t *testing.T) {
 	tests := []struct {
 			name string
-			input string
+			input1 string
+			input2 int
 			expected string
 	}{
-			{"Truncate exceeds by one", "123456789012345678901", "12345678901234567890"}
+			{"Truncate exceeds by one", "123456789012345678901", 20, "12345678901234567890"},
 	}
 
 	for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-					result, exceeded := TruncateStringByBytes("123456789012345678901", 20)
+					result, _ := TruncateStringByBytes(tt.input1, tt.input2)
 					if result != tt.expected {
-							t.Errorf("FormatDate(%q) = %q, want %q", tt.input, result, tt.expected)
+							t.Errorf("TruncateStringByBytes(%q) = %q, want %q", tt.input1, result, tt.expected)
 					}
 			})
 	}
