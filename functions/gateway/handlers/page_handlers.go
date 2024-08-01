@@ -22,7 +22,6 @@ import (
 )
 
 var mw *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
-var authN *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 
 var bypassAuthForTesting bool
 
@@ -100,7 +99,6 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Call the GetEventsZOrder service to retrieve events
 	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
 	if err != nil {
-    log.Printf("Error getting events: %v", err)
     return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
@@ -108,14 +106,12 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
   if mw != nil {
     authCtx = mw.Context(r.Context())
   } else {
-    log.Println("Warning: mw is nil, proceeding without auth context")
     authCtx = &openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]{}
   }
 
 	userInfo := helpers.UserInfo{}
 	userInfo, err = setUserInfo(authCtx, userInfo)
 	if err != nil {
-    log.Printf("Error setting user info: %v", err)
     return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 	homePage := pages.HomePage(events)
@@ -124,7 +120,6 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
-        log.Println("There was an error with the template rendering")
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
@@ -211,8 +206,6 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	authCtx := mw.Context(ctx)
-    log.Printf("AuthContext: %+v", authCtx)
-
 	userInfo := helpers.UserInfo{}
 	userInfo, err := setUserInfo(authCtx, userInfo)
 	if err != nil {

@@ -25,6 +25,7 @@ func SendHtmlRes(w http.ResponseWriter, body []byte, status int, err error) http
 
 func SendHtmlError(w http.ResponseWriter, body []byte, status int) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
+        log.Println("ERR: ", string(body))
         w.Header().Set("Content-Type", "text/html")
         w.WriteHeader(status)
         w.Write(body)
