@@ -45,15 +45,11 @@ func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.User
 }
 
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	// Extract parameter values from the request query parameters
-    log.Println("GetHomePage handler called")
-	ctx := r.Context()
+    // Extract parameter values from the request query parameters
+    ctx := r.Context()
 
     db := transport.GetDB()
-
-    log.Printf("db innitialized %v", db)
-
-	apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+    apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
     if !ok {
         log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
         // For testing or non-API gateway envs
