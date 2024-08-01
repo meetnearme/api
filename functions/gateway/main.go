@@ -87,36 +87,28 @@ func (app *App) InitializeAuth() {
 }
 
 func (app *App) SetupRoutes(routes []Route) {
-    log.Println("Setting up routes")
     for _, route := range routes {
-        log.Printf("Setting up route: %s %s", route.Method, route.Path)
         app.addRoute(route)
     }
-    log.Println("Routes set up complete")
 }
 
 func (app *App) addRoute(route Route) {
-    log.Printf("Adding route: %s %s, Auth: %v", route.Method, route.Path, route.Auth)
     var handler http.HandlerFunc
     switch route.Auth {
     case Require:
-        log.Println("Require auth case")
         handler = func(w http.ResponseWriter, r *http.Request) {
-            log.Printf("Handling request for %s %s", r.Method, r.URL.Path)
             if app.Mw == nil {
                 log.Println("Warning: app.Mw is nil, skipping authentication")
                 route.Handler(w, r).ServeHTTP(w, r)
                 return
             }
             app.Mw.RequireAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-                log.Printf("Inside RequireAuthentication middleware for %s %s", r.Method, r.URL.Path)
                 if authentication.IsAuthenticated(r.Context()) {
-                    log.Println("Request is authenticated")
                     route.Handler(w, r).ServeHTTP(w, r)
                 } else {
-                    log.Println("Request is not authenticated, redirecting to login")
                     http.Redirect(w, r, "/login", http.StatusFound)
                 }
+
             })).ServeHTTP(w, r)
         }
     case Check:
@@ -126,35 +118,12 @@ func (app *App) addRoute(route Route) {
             })).ServeHTTP(w, r)
         }
     default:
-        log.Println("No auth case")
         handler = func(w http.ResponseWriter, r *http.Request) {
             route.Handler(w, r).ServeHTTP(w, r)
         }
     }
 
-    log.Printf("Adding route: %s %s", route.Method, route.Path)
     app.Router.HandleFunc(route.Path, handler).Methods(route.Method).Name(route.Path)
-    log.Printf("Route added: %s %s", route.Method, route.Path)
-}
-
-func (app *App) requireAuth(handler http.HandlerFunc) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        app.Mw.RequireAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            if authentication.IsAuthenticated(r.Context()) {
-                handler(w, r)
-            } else {
-                http.Redirect(w, r, "/login", http.StatusFound)
-            }
-        })).ServeHTTP(w, r)
-    }
-}
-
-func (app *App) checkAuth(handler http.HandlerFunc) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        app.Mw.CheckAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            handler(w, r)
-        })).ServeHTTP(w, r)
-    }
 }
 
 func (app *App) SetupAuthRoutes() {
@@ -203,16 +172,11 @@ func withContext(next http.Handler) http.Handler {
 
 
 func main() {
-    log.Println("Starting main function")
     flag.Parse()
     app := NewApp()
-    log.Printf("App created: %+v", app)
     app.InitializeAuth()
-    log.Println("auth initialized")
     app.SetupAuthRoutes()
-    log.Println("Auth routes set up")
     app.SetupNotFoundHandler()
-    log.Println("NOt found handler set up")
 
     // This is the package level instance of Db in handlers
     _ = transport.GetDB()

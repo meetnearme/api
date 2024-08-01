@@ -45,24 +45,23 @@ func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.User
 }
 
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-    // Extract parameter values from the request query parameters
-    ctx := r.Context()
+  // Extract parameter values from the request query parameters
+  ctx := r.Context()
 
-    db := transport.GetDB()
-    apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-    if !ok {
-        log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
-        // For testing or non-API gateway envs
-        apiGwV2Req = events.APIGatewayV2HTTPRequest{
-            RequestContext: events.APIGatewayV2HTTPRequestContext{
-                HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
-                    Method: r.Method,
-                    Path: r.URL.Path,
-                },
-            },
-        }
+  db := transport.GetDB()
+  apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+  if !ok {
+    log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
+    // For testing or non-API gateway envs
+    apiGwV2Req = events.APIGatewayV2HTTPRequest{
+      RequestContext: events.APIGatewayV2HTTPRequestContext{
+        HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
+          Method: r.Method,
+          Path: r.URL.Path,
+        },
+      },
     }
-    log.Printf("apiGREq is %v", apiGwV2Req)
+  }
 
 	queryParameters := apiGwV2Req.QueryStringParameters
 	startTimeStr := queryParameters["start_time"]
@@ -99,47 +98,35 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	// Call the GetEventsZOrder service to retrieve events
-    log.Println("Calling GetEventsZOrder service")
 	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
 	if err != nil {
-        log.Printf("Error getting events: %v", err)
-		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
+    log.Printf("Error getting events: %v", err)
+    return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
 	}
-    log.Printf("Retrieved %d events", len(events))
 
-    log.Println("Setting up auth context")
-    var authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]
-    if mw != nil {
-        authCtx = mw.Context(r.Context())
-    } else {
-        log.Println("Warning: mw is nil, proceeding without auth context")
-        authCtx = &openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]{}
-    }
-    log.Printf("auth context: %+v", authCtx)
+  var authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]
+  if mw != nil {
+    authCtx = mw.Context(r.Context())
+  } else {
+    log.Println("Warning: mw is nil, proceeding without auth context")
+    authCtx = &openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]{}
+  }
 
 	userInfo := helpers.UserInfo{}
-    log.Println("Setting user info")
 	userInfo, err = setUserInfo(authCtx, userInfo)
 	if err != nil {
-        log.Printf("Error setting user info: %v", err)
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+    log.Printf("Error setting user info: %v", err)
+    return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
-    log.Printf("User info set: %+v", userInfo)
-
-    log.Println("Creating home page")
 	homePage := pages.HomePage(events)
-    log.Println("Creating layout template")
 	layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
 	var buf bytes.Buffer
-    log.Println("Rendering template...")
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
         log.Println("There was an error with the template rendering")
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
-
-    log.Println("About to return from GetHomepage")
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
@@ -157,12 +144,10 @@ func GetLoginPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 }
 
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-    log.Println("GetProfilePage handler called")
 	ctx := r.Context()
 
-    mw, _ := services.GetAuthMw()
-	userInfoCtx := mw.Context(ctx)
-    log.Printf("AuthContext: %+v", userInfoCtx)
+  mw, _ := services.GetAuthMw()
+  userInfoCtx := mw.Context(ctx)
 
 	userInfo := helpers.UserInfo{}
 	userInfo, err := setUserInfo(userInfoCtx, userInfo)

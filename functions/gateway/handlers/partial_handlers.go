@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"log"
 	"strconv"
 
 	"net/http"
@@ -35,7 +34,6 @@ type SeshuSessionEventsPayload struct {
 }
 
 func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-    log.Printf("38")
 	ctx := r.Context()
 	var inputPayload GeoLookupInputPayload
 	body, err := io.ReadAll(r.Body)
@@ -43,13 +41,10 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-    log.Printf("46")
 	err = json.Unmarshal([]byte(body), &inputPayload)
 	if err != nil {
 			return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, err)
 	}
-
-    log.Printf("52")
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
@@ -62,7 +57,6 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, err)
 	}
 
-    log.Printf("65")
     geoService := services.GetGeoService()
 	lat, lon, address, err := geoService.GetGeo(inputPayload.Location, baseUrl)
 
@@ -78,7 +72,6 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
-    log.Printf("80")
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
@@ -171,7 +164,6 @@ func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 }
 
 func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-    log.Printf("Entering SubmitSeshuEvents handler")
     db := transport.GetDB()
 
 	ctx := r.Context()
