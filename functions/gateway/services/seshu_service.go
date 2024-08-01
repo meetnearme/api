@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/url"
 	"strconv"
 	"time"
 
@@ -13,74 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+
+    internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-type EventInfo struct {
-	EventTitle    	 string `json:"event_title"`
-	EventLocation 	 string `json:"event_location"`
-	EventDate     	 string `json:"event_date"`
-	EventURL      	 string `json:"event_url"`
-	EventDescription string `json:"event_description"`
-}
-
-type SeshuSession struct {
-	OwnerId    string `json:"ownerId" validate:"required"`
-	Url        string `json:"url" validate:"required"`
-	UrlDomain      string `json:"urlDomain" validate:"required"`
-	UrlPath        string `json:"urlPath" validate:"optional"`
-	UrlQueryParams url.Values `json:"urlQueryParams" validate:"optional"`
-	LocationLatitude  float64 `json:"locationLatitude" validate:"optional"`
-	LocationLongitude float64 `json:"locationLongitude" validate:"optional"`
-	LocationAddress   string  `json:"locationAddress" validate:"optional"`
-	Html      string `json:"html" validate:"required"`
-	EventCandidates	 []EventInfo `json:"eventCandidates" validate:"optional"`
-	Status 		string `json:"status" validate:"optional"`
-	CreatedAt int64  `json:"createdAt" validate:"required"`
-	UpdatedAt int64  `json:"updatedAt" validate:"required"`
-	ExpireAt  int64  `json:"expireAt" validate:"required"`
-}
-
-type SeshuSessionInput struct {
-	SeshuSession
-	CreatedAt struct{} `json:"createdAt,omitempty"`
-	UpdatedAt struct{} `json:"updatedAt,omitempty"`
-	ExpireAt struct{} `json:"expireAt,omitempty"`
-}
-
-type SeshuSessionInsert struct {
-	OwnerId    string `json:"ownerId" dynamodbav:"ownerId" validate:"required"`
-	Url        string `json:"url" dynamodbav:"url" validate:"required"`
-	UrlDomain      string `json:"urlDomain" dynamodbav:"urlDomain" validate:"required"`
-	UrlPath        string `json:"urlPath" dynamodbav:"urlPath" validate:"optional"`
-	UrlQueryParams url.Values `json:"urlQueryParams" dynamodbav:"urlQueryParams" validate:"optional"`
-	LocationLatitude  float64 `json:"locationLatitude" dynamodbav:"locationLatitude" validate:"optional"`
-	LocationLongitude float64 `json:"locationLongitude" dynamodbav:"locationLongitude" validate:"optional"`
-	LocationAddress   string  `json:"locationAddress" dynamodbav:"locationAddress" validate:"optional"`
-	Html      string `json:"html" dynamodbav:"html" validate:"required"`
-	EventCandidates	 []EventInfo `json:"eventCandidates" dynamodbav:"eventCandidates" validate:"optional"`
-	EventValidations [][]bool `json:"eventValidations" dynamodbav:"eventValidations" validate:"optional"`
-	Status 		string `json:"status" dynamodbav:"status" validate:"optional"`
-	CreatedAt int64  `json:"createdAt" dynamodbav:"createdAt" validate:"required"`
-	UpdatedAt int64  `json:"updatedAt" dynamodbav:"updatedAt" validate:"required"`
-	ExpireAt  int64  `json:"expireAt" dynamodbav:"expireAt" validate:"required"`
-}
-type SeshuSessionUpdate struct {
-	OwnerId    string `json:"ownerId" dynamodbav:"ownerId" validate:"optional"`
-	Url        string `json:"url" dynamodbav:"url" validate:"required"`
-	UrlDomain      string `json:"urlDomain" dynamodbav:"urlDomain" validate:"optional"`
-	UrlPath        string `json:"urlPath" dynamodbav:"urlPath" validate:"optional"`
-	UrlQueryParams url.Values `json:"urlQueryParams" dynamodbav:"urlQueryParams" validate:"optional"`
-	LocationLatitude  float64 `json:"locationLatitude" dynamodbav:"locationLatitude" validate:"optional"`
-	LocationLongitude float64 `json:"locationLongitude" dynamodbav:"locationLongitude" validate:"optional"`
-	LocationAddress   string  `json:"locationAddress" dynamodbav:"locationAddress" validate:"optional"`
-	Html      string `json:"html" dynamodbav:"html" validate:"optional"`
-	EventCandidates   []EventInfo `json:"eventCandidates" dynamodbav:"eventCandidates" validate:"optional"`
-	EventValidations [][]bool `json:"eventValidations" dynamodbav:"eventValidations" validate:"optional"`
-	Status 		string `json:"status" dynamodbav:"status" validate:"optional"`
-	CreatedAt int64  `json:"createdAt" dynamodbav:"createdAt" validate:"optional"`
-	UpdatedAt int64  `json:"updatedAt" dynamodbav:"updatedAt" validate:"optional"`
-	ExpireAt  int64  `json:"expireAt" dynamodbav:"expireAt" validate:"optional"`
-}
 
 var seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
 
@@ -88,7 +23,7 @@ func init () {
 	seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
 }
 
-func GetSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload SeshuSession) (*SeshuSession, error) {
+func GetSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSession) (*internal_types.SeshuSession, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(seshuSessionsTableName),
 		Key: map[string]types.AttributeValue{
@@ -101,7 +36,7 @@ func GetSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload Sesh
 		return nil, err
 	}
 
-	var seshuSession SeshuSession
+	var seshuSession internal_types.SeshuSession
 	err = attributevalue.UnmarshalMap(result.Item, &seshuSession)
 	if err != nil {
 		return nil, err
@@ -110,12 +45,12 @@ func GetSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload Sesh
 	return &seshuSession, nil
 }
 
-func InsertSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload SeshuSessionInput) (*SeshuSessionInsert, error) {
+func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionInput) (*internal_types.SeshuSessionInsert, error) {
 	currentTime := time.Now().Unix()
 	if len(seshuPayload.EventCandidates) < 1 {
-		seshuPayload.EventCandidates = []EventInfo{}
+		seshuPayload.EventCandidates = []internal_types.EventInfo{}
 	}
-	newSeshuSession := SeshuSessionInsert{
+	newSeshuSession := internal_types.SeshuSessionInsert{
 		OwnerId:    seshuPayload.OwnerId,
 		Url:  seshuPayload.Url,
 		UrlDomain: seshuPayload.UrlDomain,
@@ -166,7 +101,7 @@ func InsertSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload S
 	return &newSeshuSession, nil
 }
 
-func UpdateSeshuSession(ctx context.Context, db *dynamodb.Client, seshuPayload SeshuSessionUpdate) (*SeshuSessionUpdate, error) {
+func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionUpdate) (*internal_types.SeshuSessionUpdate, error) {
 
 	// TODO: DB call to check if it exists first, and the the owner is the same as the one updating
 

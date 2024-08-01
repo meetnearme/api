@@ -15,7 +15,7 @@ import (
 
 var (
 	domain      = flag.String("domain", os.Getenv("ZITADEL_INSTANCE_URL"), "your ZITADEL instance domain (in the form: https://<instance>.zitadel.cloud or https://<yourdomain>)")
-	key         = flag.String("key", os.Getenv("ZITADEL_ENCRYPTION_KEY") , "encryption key")
+	key         = flag.String("key", os.Getenv("ZITADEL_ENCRYPTION_KEY"), "encryption key")
 	clientID    = flag.String("clientID", os.Getenv("ZITADEL_CLIENT_ID"), "clientID provided by ZITADEL")
 	redirectURI = flag.String("redirectURI", string( os.Getenv("APEX_URL") + "/auth/callback"), "redirect URI registered with ZITADEL")
 	mw   *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
@@ -24,31 +24,33 @@ var (
 )
 
 func InitAuth() {
-	log.Println("redirectURI: ", *redirectURI)
 	once.Do(func() {
 		ctx := context.Background()
 
+		log.Printf("Initializing authentication with domain: %s, clientID: %s, redirectURI: %s", *domain, *clientID, *redirectURI)
+
 		var err error
 		authN, err = authentication.New(ctx, zitadel.New(*domain), *key,
-				openid.DefaultAuthentication(*clientID, *redirectURI, *key),
+			openid.DefaultAuthentication(*clientID, *redirectURI, *key),
 		)
 		if err != nil {
-				log.Println("zitadel sdk could not initialize:" + err.Error())
-				return
+			log.Printf("Failed to initialize Zitadel authentication: %v", err)
+			return
 		}
 
-		mw = authentication.Middleware(authN)
+		mw = authentication.Middleware[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]](authN)
+
 		if mw == nil {
-				log.Println("middleware is nil")
+			log.Println("Warning: middleware (mw) is nil after initialization")
 		}
+
 		if authN == nil {
-				log.Println("authN is nil")
-		} else {
-				log.Println("middleware and authenticator initialized successfully")
+			log.Println("Warning: authenticator (authN) is nil after initialization")
 		}
 	})
 }
 
 func GetAuthMw() (*authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]], *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]) {
+	InitAuth()
 	return mw, authN
 }

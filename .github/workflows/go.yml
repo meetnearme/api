@@ -53,6 +53,3 @@ jobs:
           else
             echo "🟢 Coverage is $COVERAGE%. We're good!"  
           fi
-     
-
-      
