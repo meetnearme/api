@@ -24,6 +24,22 @@ jobs:
         run: |
           echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" | sed 's|/|-|g' >> $GITHUB_OUTPUT
         id: extract_branch
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.x'
+      - name: Generate templ code
+        uses: './.github/actions/templ_generate'
+        with:
+          templ-version: 'v0.2.663'
+          setup-go: 'false'
+          commit: 'false'
+      - name: Breakpoint if `templ` generate failed
+        if: failure()
+        uses: namespacelabs/breakpoint-action@v0
+        with:
+          duration: 30m
+          authorized-users: brianfeister
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
         with:

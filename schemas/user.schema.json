@@ -1,0 +1,57 @@
+{
+  "$id": "https://github.com/meetnearme/api/architecture/User.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
+    },
+    "firstName": {
+      "type": "string"
+    },
+    "lastName": {
+      "type": "string"
+    },
+    "locationLatitude": {
+      "type": ["number"]
+    },
+    "locationLongitude": {
+      "type": ["number"]
+    },
+    "locationAddress": {
+      "type": ["string", "null"]
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "emailVerified": {
+      "type": "boolean"
+    },
+    "about": {
+      "type": ["string", "null"]
+    },
+    "avatarURL": {
+      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
+    },
+    "notificationSettings": {
+      "$ref": "https://github.com/meetnearme/api/architecture/NotificationSetting.json"
+    },
+    "favoriteCurators": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "id",
+    "firstName",
+    "lastName",
+    "email",
+    "emailVerified",
+    "avatarURL",
+    "notificationSettings"
+  ]
+}
