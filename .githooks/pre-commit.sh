@@ -1,6 +1,8 @@
 #!/bin/bash
 
-STAGED_GO_FILES=$(git diff --cached --name-status --diff-filter d -- '*.go' | awk '{ print $2 }')
+STAGED_GO_FILES=$(git diff --cached --name-only | grep ".go$")
+
+echo $STAGED_GO_FILES
 
 if [[ "$STAGED_GO_FILES" = "" ]]; then
   exit 0
