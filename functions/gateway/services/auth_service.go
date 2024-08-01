@@ -24,7 +24,6 @@ var (
 )
 
 func InitAuth() {
-	log.Println("redirectURI: ", *redirectURI)
 	once.Do(func() {
 		ctx := context.Background()
 
@@ -43,17 +42,11 @@ func InitAuth() {
 
 		if mw == nil {
 			log.Println("Warning: middleware (mw) is nil after initialization")
-		} else {
-			log.Println("Middleware (mw) initialized successfully")
 		}
 
 		if authN == nil {
 			log.Println("Warning: authenticator (authN) is nil after initialization")
-		} else {
-			log.Println("Authenticator (authN) initialized successfully")
 		}
-
-		log.Println("Authentication initialization completed")
 	})
 }
 
