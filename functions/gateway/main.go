@@ -52,7 +52,7 @@ func init() {
 		// the complexity is we might want "in the middle", which would be "auto-refresh
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
-		{"/events/{eventId}", "GET", handlers.GetEventDetailsPage, Check},
+		{"/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventDetailsPage, Check},
 		{"/api/event", "POST", handlers.CreateEventHandler, None},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
