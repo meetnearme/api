@@ -24,13 +24,70 @@ templ HomePage(events []services.EventSelect) {
 					<th>Date</th>
 					<th>Time</th>
 					<th>Location</th>
-					<th></th>
+					<th>
+						<button onclick="document.getElementById('main-drawer').click()" style="display: inline-block;" class="btn btn-ghost">
+							Filter <svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96" fill="#181818"></path></svg>
+						</button>
+					</th>
 				</tr>
 			</thead>
 			<tbody>
 				if (len(events) < 1) {
 					<tr>
-						<td colspan="5" class="text-center">No events found, try enabling geolocation or changing your location, date, or time</td>
+						<td>
+							<div class="flex items-center gap-3">
+								<div>
+									<div class="font-bold">Chess Club at Roseland Park</div>
+									<div class="text-sm opacity-50">United States</div>
+								</div>
+							</div>
+						</td>
+						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+						<td>3:07pm</td>
+						<td>15 Chess Street</td>
+						<th><a class="btn btn-primary btn-xs" href="/events/ecefe260-0f6c-41f5-b731-0e9767938f4a">details</a></th>
+					</tr>
+					<tr>
+						<td>
+							<div class="flex items-center gap-3">
+								<div>
+									<div class="font-bold">Monthly Permaculture Meetup</div>
+									<div class="text-sm opacity-50">United States</div>
+								</div>
+							</div>
+						</td>
+						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+						<td>3:07pm</td>
+						<td>15 Chess Street</td>
+						<th><a class="btn btn-primary btn-xs" href="/events/7bb12e44-f344-469d-820d-fdff1c060f05">details</a></th>
+					</tr>
+					<tr>
+						<td>
+							<div class="flex items-center gap-3">
+								<div>
+									<div class="font-bold">Bocce Club of DC @ Highland Brewing</div>
+									<div class="text-sm opacity-50">United States</div>
+								</div>
+							</div>
+						</td>
+						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+						<td>3:07pm</td>
+						<td>15 Chess Street</td>
+						<th><a class="btn btn-primary btn-xs" href="/events/d44d2dac-f5be-4c83-a0bd-3fa45475b0e7">details</a></th>
+					</tr>
+					<tr>
+						<td>
+							<div class="flex items-center gap-3">
+								<div>
+									<div class="font-bold">Karate (Black Belt Level)</div>
+									<div class="text-sm opacity-50">United States</div>
+								</div>
+							</div>
+						</td>
+						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+						<td>3:07pm</td>
+						<td>15 Chess Street</td>
+						<th><a class="btn btn-primary btn-xs" href="/events/88784dfd-a8cc-4b15-b65e-f6f47e56e66d">details</a></th>
 					</tr>
 				} else {
 					for _, ev := range events {

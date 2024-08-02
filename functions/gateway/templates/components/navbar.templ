@@ -2,10 +2,8 @@ package components
 
 import (
 	"os"
-"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 )
-
-
 
 templ Navbar(userInfo helpers.UserInfo) {
 	<div class="drawer drawer-end">
@@ -35,7 +33,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 								<div class="dropdown dropdown-end px-3">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 										<div class="border-2 border-base-300 w-24 rounded-full">
-											<span class="text-3xl">{string(userInfo.Email[:1])}</span>
+											<span class="text-3xl">{ string(userInfo.Email[:1]) }</span>
 										</div>
 										// <div class="w-10 rounded-full">
 										// 	<img
@@ -45,8 +43,9 @@ templ Navbar(userInfo helpers.UserInfo) {
 									</div>
 									<ul
 										tabindex="0"
-										class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
-										<li><strong>{string(userInfo.Email)}</strong></li>
+										class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow"
+									>
+										<li><strong>{ string(userInfo.Email) }</strong></li>
 										<li>
 											<a href="/admin/profile" class="justify-between">
 												Profile
@@ -65,14 +64,43 @@ templ Navbar(userInfo helpers.UserInfo) {
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-			<ul class="menu p-4 w-80 min-h-full bg-base-100">
-				<!-- Sidebar content here -->
-				<li class="block justify-end pb-5">
+			<div class="menu p-4 w-3/4 min-h-full bg-base-100">
+				<dv class="block justify-end pb-5">
 					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click()"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
-				</li>
-				<li><a href="/login" class="btn btn-primary mb-5">Add an Event</a></li>
-				<li><a href="/about">About</a></li>
-			</ul>
+				</dv>
+				<div role="tablist" class="tabs tabs-bordered">
+					<input type="radio" name="my_tabs_1" role="tab" class="tab" aria-label="Main Nav"/>
+					<div role="tabpanel" class="tab-content p-10">
+						<ul class="">
+							<!-- Sidebar content here -->
+							<li><a href="/login" class="btn btn-primary mb-5">Add an Event</a></li>
+							<li><a href="/about">About</a></li>
+						</ul>
+					</div>
+					<input
+						type="radio"
+						name="my_tabs_1"
+						role="tab"
+						class="tab"
+						aria-label="Filters"
+						checked="checked"
+					/>
+					<div role="tabpanel" class="tab-content p-10">
+						@NestedCheckboxList(false)
+					</div>
+					<input type="radio" name="my_tabs_1" role="tab" class="tab" aria-label="Cart"/>
+					<div role="tabpanel" class="tab-content p-10">Idea here is that the cart is only sometimes visible</div>
+					<input type="radio" name="my_tabs_1" role="tab" class="tab" aria-label="RSVP Status"/>
+					<div role="tabpanel" class="tab-content p-10">
+						<ul class="">
+							<!-- Sidebar content here -->
+							<li><button>Yes</button></li>
+							<li><button>Maybe</button></li>
+							<li><button>Interested, can't make it!</button></li>
+						</ul>
+					</div>
+				</div>
+			</div>
 		</div>
 	</div>
 }
