@@ -55,7 +55,7 @@ jobs:
           # APEX_URL: ${{ secrets.APEX_URL }}
       - name: Generate Cloudflare locations Go file
         uses: './.github/actions/generate_cloudflare_locations_file'
-      - name: Breakpoint to validate file generation in CI TODO: delete me
+      - name: Breakpoint to validate file generation in CI
         if: true
         uses: namespacelabs/breakpoint-action@v0
         with:
