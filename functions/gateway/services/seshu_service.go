@@ -19,6 +19,8 @@ import (
 
 var seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
 
+const InitialEmptyLatLon = 9e+10;
+
 func init () {
 	seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
 }

@@ -67,15 +67,18 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
   rayId := GetCfRay(ctx)
   rayCode := ""
-  var cfLocation float64
+  cfLocationLat := services.InitialEmptyLatLon
+  cfLocationLon := services.InitialEmptyLatLon
   if len(rayId) > 2 {
     log.Println("CF Ray ID not found")
     rayCode = rayId[len(rayId)-3:]
-	  cfLocation = helpers.CfLocationMap[rayCode].Lat
+	  cfLocationLat = helpers.CfLocationMap[rayCode].Lat
+    cfLocationLon = helpers.CfLocationMap[rayCode].Lon
   }
 
   log.Println("CF Ray ID: ", rayCode)
-  log.Println("CF Location: ", fmt.Sprint(cfLocation))
+  log.Println("CF Location Lat: ", fmt.Sprint(cfLocationLat))
+  log.Println("CF Location Lon: ", fmt.Sprint(cfLocationLon))
   log.Println("CF Location DEN: ", fmt.Sprint(helpers.CfLocationMap["DEN"]))
 
 	queryParameters := apiGwV2Req.QueryStringParameters
@@ -102,11 +105,15 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if latStr != "" {
 			lat64, _ := strconv.ParseFloat(latStr, 32)
 			lat = float32(lat64)
-	}
+	} else if cfLocationLat != services.InitialEmptyLatLon  {
+      lat = float32(cfLocationLat)
+  }
 	if lonStr != "" {
 			lon64, _ := strconv.ParseFloat(lonStr, 32)
 			lon = float32(lon64)
-	}
+	} else if cfLocationLon != services.InitialEmptyLatLon {
+      lon = float32(cfLocationLon)
+  }
 	if radiusStr != "" {
 			radius64, _ := strconv.ParseFloat(radiusStr, 32)
 			radius = float32(radius64)
