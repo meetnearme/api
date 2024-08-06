@@ -14,10 +14,6 @@ import (
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-func init() {
-	SetBypassAuthForTesting(true)
-}
-
 // Mock the GetEventsZOrder function
 var originalGetEventsZOrder = services.GetEventsZOrder
 
