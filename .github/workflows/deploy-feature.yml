@@ -53,6 +53,22 @@ jobs:
           ZITADEL_INSTANCE_URL: ${{ secrets.ZITADEL_INSTANCE_URL }}
           # Not set because this is dynamic in lower environments
           # APEX_URL: ${{ secrets.APEX_URL }}
+      - name: Generate Cloudflare locations Go file
+        run: |
+          # Fetch Cloudflare locations data
+          cf_locations=$(curl -s -X GET https://speed.cloudflare.com/locations)
+
+          # Escape special characters in the JSON
+          escaped_locations=$(echo "$cf_locations" | sed 's/`/\\`/g' | sed 's/$/\\n/' | tr -d '\n')
+
+          # Replace the placeholder in the template file
+          sed "s|<replace me>|$escaped_locations|" functions/gateway/helpers/cloudflare_locations_template > functions/gateway/helpers/cloudflare_locations.go
+      - name: Breakpoint if `templ` generate failed
+        if: true
+        uses: namespacelabs/breakpoint-action@v0
+        with:
+          duration: 30m
+          authorized-users: brianfeister
       - name: Deploy app
         run: |
           npm i && npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}
