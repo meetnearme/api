@@ -229,14 +229,18 @@ func PrintContextInternals(ctx interface{}, inner bool) {
  func GetCfRay (c context.Context) string {
   apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
   if (!ok) {
+    log.Println("not ok! 232, apiGwV2Req:", apiGwV2Req)
     return ""
   }
   if apiGwV2Req.Headers == nil {
+    log.Println("headers nil 236, apiGwV2Req.Headers:", apiGwV2Req.Headers)
     return ""
   }
-  if rayId := apiGwV2Req.Headers["cf-ray"]; rayId != "" {
-    return rayId
+  if cfRay := apiGwV2Req.Headers["cf-ray"]; cfRay != "" {
+    log.Println("got ray", cfRay)
+    return cfRay
   }
+  log.Println("no ray")
   return ""
 }
 
