@@ -4,3 +4,5 @@ node_modules
 # ignored because this is a build artifact that must be generated
 static/assets/styles.css
 *_templ.go
+coverage.out
+coverage.txt

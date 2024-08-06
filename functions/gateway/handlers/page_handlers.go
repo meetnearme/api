@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,7 +14,6 @@ import (
 	openid "github.com/zitadel/zitadel-go/v3/pkg/authentication/oidc"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -21,13 +21,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
-var Db *dynamodb.Client
-var mw   *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
-
-func init () {
-	Db = transport.GetDB()
-	mw, _ = services.GetAuthMw()
-}
+var mw *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 
 func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo], userInfo helpers.UserInfo) (helpers.UserInfo, error) {
 	if authCtx != nil && authCtx.UserInfo != nil {
@@ -44,9 +38,23 @@ func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.User
 }
 
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	// Extract parameter values from the request query parameters
-	ctx := r.Context()
-	apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+  // Extract parameter values from the request query parameters
+  ctx := r.Context()
+
+  db := transport.GetDB()
+  apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+  if !ok {
+    log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
+    // For testing or non-API gateway envs
+    apiGwV2Req = events.APIGatewayV2HTTPRequest{
+      RequestContext: events.APIGatewayV2HTTPRequestContext{
+        HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
+          Method: r.Method,
+          Path: r.URL.Path,
+        },
+      },
+    }
+  }
 
 	queryParameters := apiGwV2Req.QueryStringParameters
 	startTimeStr := queryParameters["start_time"]
@@ -83,19 +91,23 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	// Call the GetEventsZOrder service to retrieve events
-	events, err := services.GetEventsZOrder(ctx, Db, startTime, endTime, lat, lon, radius)
+	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
+    return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	authCtx := mw.Context(ctx)
+  var authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]
+  if mw != nil {
+    authCtx = mw.Context(r.Context())
+  } else {
+    authCtx = &openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]{}
+  }
 
 	userInfo := helpers.UserInfo{}
 	userInfo, err = setUserInfo(authCtx, userInfo)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+    return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
-
 	homePage := pages.HomePage(events)
 	layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
@@ -104,7 +116,6 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
-
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
@@ -123,10 +134,12 @@ func GetLoginPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	authCtx := mw.Context(ctx)
+
+  mw, _ := services.GetAuthMw()
+  userInfoCtx := mw.Context(ctx)
 
 	userInfo := helpers.UserInfo{}
-	userInfo, err := setUserInfo(authCtx, userInfo)
+	userInfo, err := setUserInfo(userInfoCtx, userInfo)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
@@ -187,7 +200,6 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	authCtx := mw.Context(ctx)
-
 	userInfo := helpers.UserInfo{}
 	userInfo, err := setUserInfo(authCtx, userInfo)
 	if err != nil {

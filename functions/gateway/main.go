@@ -19,65 +19,30 @@ import (
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
-var mw   *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
-var authN *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 
-// Middleware to inject context into the request
-func withContext(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		// Add context to request
-		r = r.WithContext(ctx)
-		next.ServeHTTP(w, r)
-	})
+type AuthType string
+
+const (
+    None AuthType = "none"
+    Check AuthType = "check"
+    Require AuthType = "require"
+)
+
+type Route struct {
+    Path string
+    Method  string
+    Handler func(http.ResponseWriter, *http.Request) http.HandlerFunc
+    Auth    AuthType
 }
 
-func main() {
-	r := mux.NewRouter()
-	r.Use(withContext)
+var Routes []Route
 
-	// used by the auth service but must init in `main` https://go.dev/src/flag/example_test.go?s=933:2300#L33
-	flag.Parse()
-	services.InitAuth()
-
-	mw, authN = services.GetAuthMw()
-
-	r.Handle("/auth/login", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		query := ""
-		if req.URL.RawQuery != "" {
-			query = "?" + req.URL.RawQuery
-		}
-		authN.Authenticate(w, req, req.URL.Path + query)
-	}))
-	r.Handle("/auth/callback", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		authN.Callback(w, req)
-	}))
-	r.Handle("/auth/logout", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		authN.Logout(w, req)
-	}))
-
-	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Not found", r.RequestURI)
-		http.Error(w, fmt.Sprintf("Not found: %s", r.RequestURI), http.StatusNotFound)
-	})
-
-	type AuthType string
-
-	const (
-		None    AuthType = "none"
-		Check   AuthType = "check"
-		Require AuthType = "require"
-	)
-
-	routes := []struct {
-		path    string
-		method  string
-		handler func(http.ResponseWriter, *http.Request) http.HandlerFunc
-		auth    AuthType
-	}{
-		{"/", "GET", handlers.GetHomePage, Check},
+func init() {
+    Routes = []Route{
+        {"/", "GET", handlers.GetHomePage, Check},
 		{"/login", "GET", handlers.GetLoginPage, Check},
 		{"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
 		{"/admin/profile", "GET", handlers.GetProfilePage, Require},
@@ -88,46 +53,140 @@ func main() {
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
 		{"/events/{eventId}", "GET", handlers.GetEventDetailsPage, Check},
-		{"/api/event", "POST", handlers.CreateEvent, None},
+		{"/api/event", "POST", handlers.CreateEventHandler, None},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo", "POST", handlers.GeoLookup, None},
 		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, None},
 		{"/api/html/seshu/session/location", "PATCH", handlers.GeoThenPatchSeshuSession, None},
 		{"/api/html/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents, None},
-	}
+    }
+}
 
-	for _, route := range routes {
-		currentRoute := route
-		if currentRoute.auth == Require {
-			r.HandleFunc(currentRoute.path, func(w http.ResponseWriter, r *http.Request) {
-				mw.RequireAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					if authentication.IsAuthenticated(r.Context()) {
-						currentRoute.handler(w, r)
-					} else {
-						http.Redirect(w, r, "/login", http.StatusFound)
-					}
-				})).ServeHTTP(w, r)
-			}).Methods(currentRoute.method)
-		} else if currentRoute.auth == Check {
-			r.HandleFunc(currentRoute.path, func(w http.ResponseWriter, r *http.Request) {
-				mw.CheckAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					currentRoute.handler(w, r)
-				})).ServeHTTP(w, r)
-			}).Methods(currentRoute.method)
-		} else {
-			r.HandleFunc(currentRoute.path, func(w http.ResponseWriter, r *http.Request) {
-				currentRoute.handler(w, r)
-			}).Methods(currentRoute.method)
-		}
-	}
 
-	adapter := gorillamux.NewV2(r)
+type App struct {
+    Router *mux.Router
+     Mw   *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
+    AuthN *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
+}
 
-	lambda.Start(func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-		// store the original `events.APIGatewayV2HTTPRequest` in context for later access
-		// NOTE: original requestContext is available via request.Context().GetValue(apiGwV2ReqKey).RequestContext
-		ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, request)
-		return adapter.ProxyWithContext(ctx, request)
+
+func NewApp() *App {
+    app := &App{
+        Router: mux.NewRouter(),
+    }
+    log.Printf("App created: %+v", app)
+    app.Router.Use(withContext)
+    app.InitializeAuth()
+    return app
+}
+
+func (app *App) InitializeAuth() {
+    services.InitAuth()
+    app.Mw, app.AuthN = services.GetAuthMw()
+}
+
+func (app *App) SetupRoutes(routes []Route) {
+    for _, route := range routes {
+        app.addRoute(route)
+    }
+}
+
+func (app *App) addRoute(route Route) {
+    var handler http.HandlerFunc
+    switch route.Auth {
+    case Require:
+        handler = func(w http.ResponseWriter, r *http.Request) {
+            if app.Mw == nil {
+                log.Println("Warning: app.Mw is nil, skipping authentication")
+                route.Handler(w, r).ServeHTTP(w, r)
+                return
+            }
+            app.Mw.RequireAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                if authentication.IsAuthenticated(r.Context()) {
+                    route.Handler(w, r).ServeHTTP(w, r)
+                } else {
+                    http.Redirect(w, r, "/login", http.StatusFound)
+                }
+
+            })).ServeHTTP(w, r)
+        }
+    case Check:
+        handler = func(w http.ResponseWriter, r *http.Request) {
+            app.Mw.CheckAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                route.Handler(w, r).ServeHTTP(w, r)
+            })).ServeHTTP(w, r)
+        }
+    default:
+        handler = func(w http.ResponseWriter, r *http.Request) {
+            route.Handler(w, r).ServeHTTP(w, r)
+        }
+    }
+
+    app.Router.HandleFunc(route.Path, handler).Methods(route.Method).Name(route.Path)
+}
+
+func (app *App) SetupAuthRoutes() {
+    app.Router.Handle("/auth/login", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+        query := ""
+        if req.URL.RawQuery != "" {
+            query = "?" + req.URL.RawQuery
+        }
+        app.AuthN.Authenticate(w, req, req.URL.Path+query)
+    }))
+    app.Router.Handle("/auth/callback", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		app.AuthN.Callback(w, req)
+	}))
+	app.Router.Handle("/auth/logout", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		app.AuthN.Logout(w, req)
+	}))
+}
+
+func (app *App) SetupNotFoundHandler() {
+	app.Router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Not found", r.RequestURI)
+		http.Error(w, fmt.Sprintf("Not found: %s", r.RequestURI), http.StatusNotFound)
 	})
+}
+
+// Middleware to inject context into the request
+func withContext(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+        // Add a dummy APIGatewayV2HTTPRequest for testing
+        if _, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest); !ok {
+            ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+                RequestContext: events.APIGatewayV2HTTPRequestContext{
+                    HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
+                        Method: r.Method,
+                        Path: r.URL.Path,
+                    },
+                },
+            })
+        }
+		// Add context to request
+		r = r.WithContext(ctx)
+		next.ServeHTTP(w, r)
+	})
+}
+
+
+func main() {
+    flag.Parse()
+    app := NewApp()
+    app.InitializeAuth()
+    app.SetupAuthRoutes()
+    app.SetupNotFoundHandler()
+
+    // This is the package level instance of Db in handlers
+    _ = transport.GetDB()
+
+    app.SetupRoutes(Routes)
+
+    adapter := gorillamux.NewV2(app.Router)
+
+    lambda.Start(func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+        ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, request)
+        return adapter.ProxyWithContext(ctx, request)
+    })
 }
