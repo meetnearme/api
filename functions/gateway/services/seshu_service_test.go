@@ -23,7 +23,7 @@ func TestGetSeshuSession(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	seshuPayload := internal_types.SeshuSession{Url: "https://test.com"}
+	seshuPayload := internal_types.SeshuSessionGet{Url: "https://test.com"}
 
 	result, err := GetSeshuSession(ctx, mockDB, seshuPayload)
 
