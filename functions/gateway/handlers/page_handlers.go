@@ -42,7 +42,7 @@ func init() {
   if err != nil {
     fmt.Println("Error unmarshaling JSON:", err)
   }
-  cfLocationMap := make(map[string]helpers.CdnLocation)
+  cfLocationMap = make(map[string]helpers.CdnLocation)
   for _, location := range cfLocationData {
     cfLocationMap[location.IATA] = location
   }
@@ -88,7 +88,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
   rayId := GetCfRay(ctx)
   rayCode := rayId[len(rayId)-3:]
   log.Println("CF Ray ID: ", rayCode)
-  log.Println("CF Location: ", cfLocationMap[rayCode])
+  log.Println("CF Location: ", fmt.Sprint(cfLocationMap[rayCode]))
 
 	queryParameters := apiGwV2Req.QueryStringParameters
 	startTimeStr := queryParameters["start_time"]
