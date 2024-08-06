@@ -59,13 +59,14 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     }
   }
 
-  rayId := GetCfRay(ctx)
+  cfRay := GetCfRay(ctx)
   rayCode := ""
   cfLocationLat := services.InitialEmptyLatLon
   cfLocationLon := services.InitialEmptyLatLon
-  if len(rayId) < 2 {
+  log.Println("CF Ray len: ", len(cfRay))
+  if len(cfRay) < 2 {
     log.Println("CF Ray ID not found")
-    rayCode = rayId[len(rayId)-3:]
+    rayCode = cfRay[len(cfRay)-3:]
 	  cfLocationLat = helpers.CfLocationMap[rayCode].Lat
     cfLocationLon = helpers.CfLocationMap[rayCode].Lon
   }
