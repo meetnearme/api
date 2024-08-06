@@ -2,12 +2,16 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"reflect"
 	"strconv"
 	"time"
+	"unsafe"
 
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/zitadel-go/v3/pkg/authentication"
@@ -24,6 +28,25 @@ import (
 var mw *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 
 var bypassAuthForTesting bool
+
+var cfLocationMap map[string]helpers.CdnLocation
+
+func init() {
+  var cfLocationData []helpers.CdnLocation
+  cfLocations, err := os.ReadFile("../speed.cloudflare.com-locations.json")
+  if err != nil {
+      fmt.Println("Error reading speed.cloudflare.com.locations.json:", err)
+      return
+  }
+  err = json.Unmarshal(cfLocations, &cfLocationData)
+  if err != nil {
+    fmt.Println("Error unmarshaling JSON:", err)
+  }
+  cfLocationMap := make(map[string]helpers.CdnLocation)
+  for _, location := range cfLocationData {
+    cfLocationMap[location.IATA] = location
+  }
+}
 
 func SetBypassAuthForTesting(bypass bool) {
     bypassAuthForTesting = bypass
@@ -61,6 +84,11 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
       },
     }
   }
+
+  rayId := GetCfRay(ctx)
+  rayCode := rayId[len(rayId)-3:]
+  log.Println("CF Ray ID: ", rayCode)
+  log.Println("CF Location: ", cfLocationMap[rayCode])
 
 	queryParameters := apiGwV2Req.QueryStringParameters
 	startTimeStr := queryParameters["start_time"]
@@ -176,6 +204,54 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
+// NOTE: this is for internal debugging
+func PrintContextInternals(ctx interface{}, inner bool) {
+  contextValues := reflect.ValueOf(ctx).Elem()
+  contextKeys := reflect.TypeOf(ctx).Elem()
+
+
+  if !inner {
+      fmt.Printf("\nFields for %s.%s\n", contextKeys.PkgPath(), contextKeys.Name())
+  }
+
+
+  if contextKeys.Kind() == reflect.Struct {
+      for i := 0; i < contextValues.NumField(); i++ {
+          reflectValue := contextValues.Field(i)
+          reflectValue = reflect.NewAt(reflectValue.Type(), unsafe.Pointer(reflectValue.UnsafeAddr())).Elem()
+
+
+          reflectField := contextKeys.Field(i)
+
+
+          if reflectField.Name == "Context" {
+              PrintContextInternals(reflectValue.Interface(), true)
+          } else {
+              fmt.Printf("field name: %+v\n", reflectField.Name)
+              fmt.Printf("value: %+v\n", reflectValue.Interface())
+          }
+          fmt.Printf("\n")
+      }
+  } else {
+      fmt.Printf("context is empty (int)\n")
+  }
+ }
+
+ func GetCfRay (c context.Context) string {
+  apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+  if (!ok) {
+    return ""
+  }
+  if apiGwV2Req.Headers == nil {
+    return ""
+  }
+  if rayId := apiGwV2Req.Headers["cf-ray"]; rayId != "" {
+    return rayId
+  }
+  return ""
+}
+
+
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// TODO: Extract reading param values into a helper method.
 	ctx := r.Context()
@@ -186,6 +262,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
 	authCtx := mw.Context(ctx)
+
 	eventDetailsPage := pages.EventDetailsPage(eventId)
 	userInfo := helpers.UserInfo{}
 	userInfo, err := setUserInfo(authCtx, userInfo)
