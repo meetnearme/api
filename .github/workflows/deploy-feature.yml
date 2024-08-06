@@ -55,12 +55,6 @@ jobs:
           # APEX_URL: ${{ secrets.APEX_URL }}
       - name: Generate Cloudflare locations Go file
         uses: './.github/actions/generate_cloudflare_locations_file'
-      - name: Breakpoint to validate file generation in CI
-        if: true
-        uses: namespacelabs/breakpoint-action@v0
-        with:
-          duration: 30m
-          authorized-users: brianfeister
       - name: Deploy app
         run: |
           npm i && npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}
