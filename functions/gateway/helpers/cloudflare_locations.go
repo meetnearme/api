@@ -1,4 +1,11 @@
-[
+package helpers
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+const cfLocations = `[
   {
     "iata": "TIA",
     "lat": 41.4146995544,
@@ -2391,4 +2398,19 @@
     "region": "Africa",
     "city": "Harare"
   }
-]
+]`
+
+var CfLocationMap map[string]CdnLocation
+
+func init() {
+
+  var cfLocationData []CdnLocation
+	err := json.Unmarshal([]byte(cfLocations), &cfLocationData)
+  if err != nil {
+    fmt.Println("Error unmarshaling JSON:", err)
+  }
+  CfLocationMap = make(map[string]CdnLocation)
+  for _, location := range cfLocationData {
+    CfLocationMap[location.IATA] = location
+  }
+}

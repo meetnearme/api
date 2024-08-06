@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"reflect"
 	"strconv"
 	"time"
@@ -28,25 +27,6 @@ import (
 var mw *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 
 var bypassAuthForTesting bool
-
-var cfLocationMap map[string]helpers.CdnLocation
-
-func init() {
-  var cfLocationData []helpers.CdnLocation
-  cfLocations, err := os.ReadFile("../speed.cloudflare.com-locations.json")
-  if err != nil {
-      fmt.Println("Error reading speed.cloudflare.com.locations.json:", err)
-      return
-  }
-  err = json.Unmarshal(cfLocations, &cfLocationData)
-  if err != nil {
-    fmt.Println("Error unmarshaling JSON:", err)
-  }
-  cfLocationMap = make(map[string]helpers.CdnLocation)
-  for _, location := range cfLocationData {
-    cfLocationMap[location.IATA] = location
-  }
-}
 
 func SetBypassAuthForTesting(bypass bool) {
     bypassAuthForTesting = bypass
@@ -86,9 +66,17 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
   }
 
   rayId := GetCfRay(ctx)
-  rayCode := rayId[len(rayId)-3:]
+  rayCode := ""
+  var cfLocation float64
+  if len(rayId) > 2 {
+    log.Println("CF Ray ID not found")
+    rayCode = rayId[len(rayId)-3:]
+	  cfLocation = helpers.CfLocationMap[rayCode].Lat
+  }
+
   log.Println("CF Ray ID: ", rayCode)
-  log.Println("CF Location: ", fmt.Sprint(cfLocationMap[rayCode]))
+  log.Println("CF Location: ", fmt.Sprint(cfLocation))
+  log.Println("CF Location DEN: ", fmt.Sprint(helpers.CfLocationMap["DEN"]))
 
 	queryParameters := apiGwV2Req.QueryStringParameters
 	startTimeStr := queryParameters["start_time"]

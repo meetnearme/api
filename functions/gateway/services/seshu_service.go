@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 
-    internal_types "github.com/meetnearme/api/functions/gateway/types"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
 
@@ -147,12 +147,14 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		*input.UpdateExpression += " #urlQueryParams = :urlQueryParams,"
 	}
 
+	// TODO: this should not be 0, as 0 is a valid latitude
 	if seshuPayload.LocationLatitude != 0 {
 		input.ExpressionAttributeNames["#locationLatitude"] = "locationLatitude"
 		input.ExpressionAttributeValues[":locationLatitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(seshuPayload.LocationLatitude, 'f', -1, 64)}
 		*input.UpdateExpression += " #locationLatitude = :locationLatitude,"
 	}
 
+	// TODO: this should not be 0, as 0 is a valid longitude
 	if seshuPayload.LocationLongitude != 0 {
 		input.ExpressionAttributeNames["#locationLongitude"] = "locationLongitude"
 		input.ExpressionAttributeValues[":locationLongitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(seshuPayload.LocationLongitude, 'f', -1, 64)}
