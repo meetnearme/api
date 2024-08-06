@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/indexing"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
 type EventSelect struct {
@@ -73,7 +74,7 @@ func GetEvents(ctx context.Context, db *dynamodb.Client) ([]EventSelect, error) 
 	return events, nil
 }
 
-func GetEventsZOrder(ctx context.Context, db *dynamodb.Client, startTime, endTime time.Time, lat, lon, radius float32) ([]EventSelect, error) {
+func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime, endTime time.Time, lat, lon, radius float32) ([]EventSelect, error) {
     minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, lat, lon, "min")
     if err != nil {
         return nil, fmt.Errorf("error calculating min z-order index: %v", err)
@@ -116,27 +117,27 @@ func GetEventsZOrder(ctx context.Context, db *dynamodb.Client, startTime, endTim
     return events, nil
 }
 
-func InsertEvent(ctx context.Context, db *dynamodb.Client, createEvent EventInsert) (*EventSelect, error) {
-	startTime, err := time.Parse(time.RFC3339, createEvent.Datetime)
-	if err != nil {
-			return nil, fmt.Errorf("invalid datetime format: %v", err)
-	}
+func InsertEvent(ctx context.Context, db internal_types.DynamoDBAPI, createEvent EventInsert) (*EventSelect, error) {
+    startTime, err := time.Parse(time.RFC3339, createEvent.Datetime)
+    if err != nil {
+        return nil, fmt.Errorf("invalid datetime format: %v", err)
+    } 
 
-	zOrderIndex, err := indexing.CalculateZOrderIndex(startTime, createEvent.Latitude, createEvent.Longitude, "default")
-	if err != nil {
-			return nil, fmt.Errorf("failed to calculate Z Order index: %v", err)
-	}
+    zOrderIndex, err := indexing.CalculateZOrderIndex(startTime, createEvent.Latitude, createEvent.Longitude, "default")
+    if err != nil {
+        return nil, fmt.Errorf("failed to calculate Z Order index: %v", err)
+    } 
 
 	newEvent := EventSelect{
-		Name:        	createEvent.Name,
-		Description: 	createEvent.Description,
-		Datetime:    	createEvent.Datetime,
-		Address:     	createEvent.Address,
-		ZipCode:     	createEvent.ZipCode,
-		Latitude:			createEvent.Latitude,
-		Longitude: 		createEvent.Longitude,
-		ZOrderIndex: 	zOrderIndex,
-		Id:          	uuid.NewString(),
+		Name:        createEvent.Name,
+		Description: createEvent.Description,
+		Datetime:    createEvent.Datetime,
+		Address:     createEvent.Address,
+		ZipCode:     createEvent.ZipCode,
+        Latitude: createEvent.Latitude,
+        Longitude: createEvent.Longitude,
+        ZOrderIndex: zOrderIndex,
+		Id:          uuid.NewString(),
 	}
 
 	item, err := attributevalue.MarshalMap(newEvent)

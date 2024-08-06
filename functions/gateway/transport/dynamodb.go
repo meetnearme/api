@@ -4,25 +4,30 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/test_helpers"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
 var (
-	db   *dynamodb.Client
+	db   internal_types.DynamoDBAPI
 	once sync.Once
+    testDB internal_types.DynamoDBAPI
 )
 
 func init() {
 	db = CreateDbClient()
 }
 
-func CreateDbClient() *dynamodb.Client {
+func CreateDbClient() internal_types.DynamoDBAPI {
 
 	// used for local dev via aws sam in docker container
 	dbUrl := "http://localhost:8000"
@@ -63,7 +68,25 @@ func CreateDbClient() *dynamodb.Client {
 	return dynamodb.NewFromConfig(cfg)
 }
 
-func GetDB() *dynamodb.Client {
+func SetTestDB(db internal_types.DynamoDBAPI) {
+    testDB = db
+}
+
+func GetDB() internal_types.DynamoDBAPI {
+    if os.Getenv("GO_ENV") == "test" {
+        if testDB == nil {
+            log.Println("Creating mock DB for testing")
+            testDB = &test_helpers.MockDynamoDBClient{
+                ScanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+                    return &dynamodb.ScanOutput{
+                        Items: []map[string]types.AttributeValue{},
+                    }, nil
+                },
+            }
+        }
+        log.Println("Returning mock DB for testing")
+        return testDB
+    }
 	once.Do(func() {
 		db = CreateDbClient()
 	})

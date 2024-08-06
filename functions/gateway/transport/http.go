@@ -7,24 +7,29 @@ import (
 
 // NOTE: `err` is passed in and logged if status is 400 or greater, but msg
 func SendHtmlRes(w http.ResponseWriter, body []byte, status int, err error) http.HandlerFunc {
-	msg := string(body)
-	if (status >= 400) {
-		msg = "ERR: "+msg
-		log.Println(msg+ " || Internal error msg: "+err.Error())
-	}
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(status)
-	w.Write(body)
-
-	return http.HandlerFunc(nil)
+    return func(w http.ResponseWriter, r *http.Request) {
+        msg := string(body)
+        if (status >= 400) {
+            msg = "ERR: "+msg
+            log.Println(msg+ " || Internal error msg: "+err.Error())
+            body = []byte(msg)
+        }
+        w.Header().Set("Content-Type", "text/html")
+        w.WriteHeader(status)
+        _, writeErr := w.Write(body)
+        if writeErr != nil {
+            log.Println("Error writing response:", writeErr)
+        }
+    }
 }
 
 func SendHtmlError(w http.ResponseWriter, body []byte, status int) http.HandlerFunc {
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(status)
-	w.Write(body)
-
-	return http.HandlerFunc(nil)
+    return func(w http.ResponseWriter, r *http.Request) {
+        log.Println("ERR: ", string(body))
+        w.Header().Set("Content-Type", "text/html")
+        w.WriteHeader(status)
+        w.Write(body)
+    }
 }
 
 
