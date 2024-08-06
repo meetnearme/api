@@ -26,12 +26,6 @@ import (
 
 var mw *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 
-var bypassAuthForTesting bool
-
-func SetBypassAuthForTesting(bypass bool) {
-    bypassAuthForTesting = bypass
-}
-
 func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo], userInfo helpers.UserInfo) (helpers.UserInfo, error) {
 	if authCtx != nil && authCtx.UserInfo != nil {
 		data, err := json.MarshalIndent(authCtx.UserInfo, "", "	")
