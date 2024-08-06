@@ -16,7 +16,8 @@ import (
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
-	"github.com/meetnearme/api/functions/gateway/types"
+
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
 type GeoLookupInputPayload struct {
@@ -86,7 +87,7 @@ func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.Handl
     }
 }
 
-func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db types.DynamoDBAPI) {
+func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db internal_types.DynamoDBAPI) {
 	ctx := r.Context()
 	var inputPayload GeoThenSeshuPatchInputPayload
 	body, err := io.ReadAll(r.Body)
@@ -122,7 +123,7 @@ func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
         return
 	}
 
-	var updateSeshuSession types.SeshuSessionUpdate
+	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
@@ -188,7 +189,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
 	}
 
-	var updateSeshuSession types.SeshuSessionUpdate
+	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
@@ -221,7 +222,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 
 func getFieldIndices() map[string]int {
 	indices := make(map[string]int)
-	eventType := reflect.TypeOf(services.EventInfo{})
+	eventType := reflect.TypeOf(internal_types.EventInfo{})
 
 	for i := 0; i < eventType.NumField(); i++ {
 		fieldName := eventType.Field(i).Name
@@ -248,8 +249,8 @@ func isFakeData(val string) bool {
 	return false
 }
 
-func getValidatedEvents(candidates []services.EventInfo, validations [][]bool, hasDefaultLocation bool) []services.EventInfo {
-	var validatedEvents []services.EventInfo
+func getValidatedEvents(candidates []internal_types.EventInfo, validations [][]bool, hasDefaultLocation bool) []internal_types.EventInfo {
+	var validatedEvents []internal_types.EventInfo
 	indiceMap := getFieldIndices()
 
 	log.Println("Indice Map: ", indiceMap)
@@ -338,7 +339,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
 	}
 
-	var updateSeshuSession types.SeshuSessionUpdate
+	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
@@ -346,22 +347,22 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	}
 
 	defer func() {
-		var seshuSessionGet services.SeshuSessionGet
+		var seshuSessionGet internal_types.SeshuSessionGet
 		seshuSessionGet.Url = inputPayload.Url
 		// TODO: this needs to use Auth
 		seshuSessionGet.OwnerId = "123"
-		session, err := services.GetSeshuSession(ctx, Db, seshuSessionGet)
+		session, err := services.GetSeshuSession(ctx, db, seshuSessionGet)
 
 		if err != nil {
 			log.Println("Failed to get SeshuSession. ID: " , session, err)
 		}
 
-		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLong`
+		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLon`
 		// which is an intentionally invalid placeholder
 
 		hasDefaultLat := false
 		latMatch, err := regexp.MatchString(services.LatitudeRegex, fmt.Sprint(session.LocationLatitude))
-		if session.LocationLatitude == services.InitialEmptyLatLong {
+		if session.LocationLatitude == services.InitialEmptyLatLon {
 			hasDefaultLat = false
 		} else if (err != nil || !latMatch ) {
 			hasDefaultLat = true
@@ -369,9 +370,9 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 		hasDefaultLon := false
 		lonMatch, err := regexp.MatchString(services.LongitudeRegex, fmt.Sprint(session.LocationLongitude))
-		if session.LocationLongitude == services.InitialEmptyLatLong {
+		if session.LocationLongitude == services.InitialEmptyLatLon {
 			hasDefaultLon = false
-		} else if (err != nil || !lonMatch || session.LocationLongitude == services.InitialEmptyLatLong) {
+		} else if (err != nil || !lonMatch || session.LocationLongitude == services.InitialEmptyLatLon) {
 			hasDefaultLon = true
 		}
 

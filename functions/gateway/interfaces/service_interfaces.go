@@ -12,7 +12,7 @@ type GeoServiceInterface interface {
 }
 
 type SeshuServiceInterface interface {
-    GetSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSession) (*types.SeshuSession, error)
+    GetSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionGet) (*types.SeshuSession, error)
     InsertSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionInput) (*types.SeshuSessionInsert, error)
     UpdateSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionUpdate) (*types.SeshuSessionUpdate, error)
 }

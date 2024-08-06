@@ -270,8 +270,8 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 				// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
 				// when we create a new session, we can't allow it to be `0` because that is
 				// a valid value for both latitdue and longitude (see "null island")
-				LocationLatitude: services.InitialEmptyLatLong,
-				LocationLongitude: services.InitialEmptyLatLong,
+				LocationLatitude: services.InitialEmptyLatLon,
+				LocationLongitude: services.InitialEmptyLatLon,
 				EventCandidates: eventsFound,
 				CreatedAt: currentTime.Unix(),
 				UpdatedAt: currentTime.Unix(),

@@ -13,47 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 
-  internal_types "github.com/meetnearme/api/functions/gateway/types"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
-
-type EventInfo struct {
-	EventTitle    	 string `json:"event_title"`
-	EventLocation 	 string `json:"event_location"`
-	EventStartTime 	 string `json:"event_start_time"`
-	EventEndTime   	 string `json:"event_end_time"`
-	EventURL      	 string `json:"event_url"`
-	EventDescription string `json:"event_description"`
-}
-
-type SeshuSession struct {
-	OwnerId    string `json:"ownerId" validate:"required"`
-	Url        string `json:"url" validate:"required"`
-	UrlDomain      string `json:"urlDomain" validate:"required"`
-	UrlPath        string `json:"urlPath" validate:"optional"`
-	UrlQueryParams url.Values `json:"urlQueryParams" validate:"optional"`
-	LocationLatitude  float64 `json:"locationLatitude" validate:"optional"`
-	LocationLongitude float64 `json:"locationLongitude" validate:"optional"`
-	LocationAddress   string  `json:"locationAddress" validate:"optional"`
-	Html      string `json:"html" validate:"required"`
-	EventCandidates	 []EventInfo `json:"eventCandidates" validate:"optional"`
-	EventValidations [][]bool `json:"eventValidations" validate:"optional"`
-	Status 		string `json:"status" validate:"optional"`
-	CreatedAt int64  `json:"createdAt" validate:"required"`
-	UpdatedAt int64  `json:"updatedAt" validate:"required"`
-	ExpireAt  int64  `json:"expireAt" validate:"required"`
-}
-
-type SeshuSessionGet struct {
-	OwnerId    string `json:"ownerId" dynamodbav:"ownerId" validate:"required"`
-	Url    string `json:"url" dynamodbav:"url" validate:"required"`
-}
-
-type SeshuSessionInput struct {
-	SeshuSession
-	CreatedAt struct{} `json:"createdAt,omitempty"`
-	UpdatedAt struct{} `json:"updatedAt,omitempty"`
-	ExpireAt struct{} `json:"expireAt,omitempty"`
-}
 
 var seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
 
@@ -67,13 +28,13 @@ const FakeStartTime2 = "Oct 10, 25:00am"
 const FakeEndTime1 = "Sep 26, 27:30pm"
 const FakeEndTime2 = "Oct 10, 26:00am"
 
-const InitialEmptyLatLong = 9e+10;
+const InitialEmptyLatLon = 9e+10;
 
 func init () {
 	seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
 }
 
-func GetSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSession) (*internal_types.SeshuSession, error) {
+func GetSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionGet) (*internal_types.SeshuSession, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(seshuSessionsTableName),
 		Key: map[string]types.AttributeValue{
