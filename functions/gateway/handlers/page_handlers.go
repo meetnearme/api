@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"reflect"
 	"strconv"
 	"time"
-	"unsafe"
 
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/zitadel-go/v3/pkg/authentication"
@@ -186,39 +184,6 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
-
-// NOTE: this is for internal debugging
-func PrintContextInternals(ctx interface{}, inner bool) {
-  contextValues := reflect.ValueOf(ctx).Elem()
-  contextKeys := reflect.TypeOf(ctx).Elem()
-
-
-  if !inner {
-      fmt.Printf("\nFields for %s.%s\n", contextKeys.PkgPath(), contextKeys.Name())
-  }
-
-
-  if contextKeys.Kind() == reflect.Struct {
-      for i := 0; i < contextValues.NumField(); i++ {
-          reflectValue := contextValues.Field(i)
-          reflectValue = reflect.NewAt(reflectValue.Type(), unsafe.Pointer(reflectValue.UnsafeAddr())).Elem()
-
-
-          reflectField := contextKeys.Field(i)
-
-
-          if reflectField.Name == "Context" {
-              PrintContextInternals(reflectValue.Interface(), true)
-          } else {
-              fmt.Printf("field name: %+v\n", reflectField.Name)
-              fmt.Printf("value: %+v\n", reflectValue.Interface())
-          }
-          fmt.Printf("\n")
-      }
-  } else {
-      fmt.Printf("context is empty (int)\n")
-  }
- }
 
  func GetCfRay (c context.Context) string {
   apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)

@@ -33,4 +33,3 @@ func GetBaseUrlFromReq(r *http.Request) string {
 	return r.URL.Scheme + "://" + r.URL.Host
 }
 
-
