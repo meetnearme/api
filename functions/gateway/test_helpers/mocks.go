@@ -1,6 +1,5 @@
 package test_helpers
 
-
 import (
 	"bytes"
 	"context"
@@ -55,7 +54,7 @@ func (m *MockSeshuService) UpdateSeshuSession(ctx context.Context, db types.Dyna
     return &update, nil
 }
 
-func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSession) (*types.SeshuSession, error) {
+func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionGet) (*types.SeshuSession, error) {
     // Return mock data
     return &types.SeshuSession{
         OwnerId: "mockOwner",

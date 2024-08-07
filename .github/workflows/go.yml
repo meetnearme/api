@@ -46,10 +46,10 @@ jobs:
           COVERAGE=$(awk -F'[[:space:]]+' '/^total:/ {print $NF+0}' coverage.txt)
           echo "Total coverage: $COVERAGE%"
           if (( $(echo "$COVERAGE < 50" | bc -l) )); then
-            echo "🔴 Coverage is $COVERAGE%. We require minimum 50%."  
+            echo "🔴 Coverage is $COVERAGE%. We require minimum 50%."
             exit 1
           elif (( $(echo "$COVERAGE < 60" | bc -l) )); then
             echo "🟠 Coverage is $COVERAGE%. It's passing but is close to the failure cutoff."
           else
-            echo "🟢 Coverage is $COVERAGE%. We're good!"  
+            echo "🟢 Coverage is $COVERAGE%. We're good!"
           fi
