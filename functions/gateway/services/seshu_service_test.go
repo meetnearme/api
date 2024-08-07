@@ -51,10 +51,12 @@ func TestInsertSeshuSession(t *testing.T) {
 	ctx := context.Background()
 	seshuPayload := internal_types.SeshuSessionInput{
 		SeshuSession: internal_types.SeshuSession{
-			OwnerId: "testowner",
-			Url:     "https://test.com",
-			UrlDomain: "test.com",
-			Html:    "<html></html>",
+			OwnerId:           "testowner",
+			Url:               "https://test.com",
+			UrlDomain:         "test.com",
+			Html:              "<html></html>",
+			EventValidations:  [][]bool{{true, false}, {true, false}},
+			EventCandidates: []internal_types.EventInfo{{EventTitle: "Test Event", EventLocation: "Nowhere", EventStartTime: "1234567890"}},
 		},
 	}
 
@@ -88,6 +90,8 @@ func TestUpdateSeshuSession(t *testing.T) {
 	seshuPayload := internal_types.SeshuSessionUpdate{
 		Url:    "https://test.com",
 		Status: "completed",
+		EventCandidates: []internal_types.EventInfo{{EventTitle: "Test Event", EventLocation: "Nowhere", EventStartTime: "1234567890"}},
+		EventValidations:  [][]bool{{true, false}, {true, false}},
 	}
 
 	_, err := UpdateSeshuSession(ctx, mockDB, seshuPayload)
