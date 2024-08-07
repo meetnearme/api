@@ -57,6 +57,8 @@ func TestInsertSeshuSession(t *testing.T) {
 			Html:              "<html></html>",
 			EventValidations:  [][]bool{{true, false}, {true, false}},
 			EventCandidates: []internal_types.EventInfo{{EventTitle: "Test Event", EventLocation: "Nowhere", EventStartTime: "1234567890"}},
+			LocationLatitude: 39.8616981506,
+			LocationLongitude: -104.672996521,
 		},
 	}
 
@@ -92,6 +94,8 @@ func TestUpdateSeshuSession(t *testing.T) {
 		Status: "completed",
 		EventCandidates: []internal_types.EventInfo{{EventTitle: "Test Event", EventLocation: "Nowhere", EventStartTime: "1234567890"}},
 		EventValidations:  [][]bool{{true, false}, {true, false}},
+		LocationLatitude: 39.8616981506,
+		LocationLongitude: -104.672996521,
 	}
 
 	_, err := UpdateSeshuSession(ctx, mockDB, seshuPayload)
