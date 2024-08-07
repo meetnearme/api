@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -56,6 +57,16 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     }
   }
 
+  cfRay := GetCfRay(ctx)
+  rayCode := ""
+  cfLocationLat := services.InitialEmptyLatLon
+  cfLocationLon := services.InitialEmptyLatLon
+  if len(cfRay) > 2 {
+    rayCode = cfRay[len(cfRay)-3:]
+	  cfLocationLat = helpers.CfLocationMap[rayCode].Lat
+    cfLocationLon = helpers.CfLocationMap[rayCode].Lon
+  }
+
 	queryParameters := apiGwV2Req.QueryStringParameters
 	startTimeStr := queryParameters["start_time"]
 	endTimeStr := queryParameters["end_time"]
@@ -80,11 +91,15 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if latStr != "" {
 			lat64, _ := strconv.ParseFloat(latStr, 32)
 			lat = float32(lat64)
-	}
+	} else if cfLocationLat != services.InitialEmptyLatLon  {
+      lat = float32(cfLocationLat)
+  }
 	if lonStr != "" {
 			lon64, _ := strconv.ParseFloat(lonStr, 32)
 			lon = float32(lon64)
-	}
+	} else if cfLocationLon != services.InitialEmptyLatLon {
+      lon = float32(cfLocationLon)
+  }
 	if radiusStr != "" {
 			radius64, _ := strconv.ParseFloat(radiusStr, 32)
 			radius = float32(radius64)
@@ -170,6 +185,21 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
+ func GetCfRay (c context.Context) string {
+  apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+  if (!ok) {
+    return ""
+  }
+  if apiGwV2Req.Headers == nil {
+    return ""
+  }
+  if cfRay := apiGwV2Req.Headers["cf-ray"]; cfRay != "" {
+    return cfRay
+  }
+  return ""
+}
+
+
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// TODO: Extract reading param values into a helper method.
 	ctx := r.Context()
@@ -180,6 +210,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
 	authCtx := mw.Context(ctx)
+
 	eventDetailsPage := pages.EventDetailsPage(eventId)
 	userInfo := helpers.UserInfo{}
 	userInfo, err := setUserInfo(authCtx, userInfo)

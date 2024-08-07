@@ -30,6 +30,8 @@ jobs:
       - name: Install dependencies
         run: |
           go get ./...
+      - name: Generate Cloudflare locations Go file
+        uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Build Go binaries
         run: go build -v ./...
       - name: Run Go tests
