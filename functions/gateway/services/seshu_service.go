@@ -149,15 +149,13 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		*input.UpdateExpression += " #urlQueryParams = :urlQueryParams,"
 	}
 
-	// TODO: this should not be 0, as 0 is a valid latitude
-	if seshuPayload.LocationLatitude != 0 {
+	if seshuPayload.LocationLatitude != InitialEmptyLatLon {
 		input.ExpressionAttributeNames["#locationLatitude"] = "locationLatitude"
 		input.ExpressionAttributeValues[":locationLatitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(seshuPayload.LocationLatitude, 'f', -1, 64)}
 		*input.UpdateExpression += " #locationLatitude = :locationLatitude,"
 	}
 
-	// TODO: this should not be 0, as 0 is a valid longitude
-	if seshuPayload.LocationLongitude != 0 {
+	if seshuPayload.LocationLongitude != InitialEmptyLatLon {
 		input.ExpressionAttributeNames["#locationLongitude"] = "locationLongitude"
 		input.ExpressionAttributeValues[":locationLongitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(seshuPayload.LocationLongitude, 'f', -1, 64)}
 		*input.UpdateExpression += " #locationLongitude = :locationLongitude,"
