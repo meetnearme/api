@@ -46,6 +46,38 @@ func TestGetHomePage(t *testing.T) {
     }
 }
 
+func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
+		// Create a request
+    req, err := http.NewRequest("GET", "/", nil)
+    if err != nil {
+        t.Fatal(err)
+    }
+
+		// Set up context with APIGatewayV2HTTPRequest
+		ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			Headers: map[string]string{"cf-ray": "8aebbd939a781f45-DEN"},
+		})
+
+		req = req.WithContext(ctx)
+
+    // Create a ResponseRecorder to record the response
+    rr := httptest.NewRecorder()
+
+    // Call the handler
+    handler := GetHomePage(rr, req)
+    handler.ServeHTTP(rr, req)
+
+    // Check the status code
+    if status := rr.Code; status != http.StatusOK {
+        t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+    }
+
+    // Check the response body (you might want to add more specific checks)
+    if rr.Body.String() == "" {
+        t.Errorf("Handler returned empty body")
+    }
+}
+
 func TestGetLoginPage(t *testing.T) {
 	req, err := http.NewRequest("GET", "/login", nil)
 	if err != nil {
