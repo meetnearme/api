@@ -53,6 +53,8 @@ jobs:
           ZITADEL_INSTANCE_URL: ${{ secrets.ZITADEL_INSTANCE_URL }}
           # Not set because this is dynamic in lower environments
           # APEX_URL: ${{ secrets.APEX_URL }}
+      - name: Generate Cloudflare locations Go file
+        uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Deploy app
         run: |
           npm i && npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}

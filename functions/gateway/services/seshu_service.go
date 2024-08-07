@@ -13,11 +13,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 
-    internal_types "github.com/meetnearme/api/functions/gateway/types"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
 
 var seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
+
+const InitialEmptyLatLon = 9e+10;
 
 func init () {
 	seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
@@ -147,13 +149,13 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		*input.UpdateExpression += " #urlQueryParams = :urlQueryParams,"
 	}
 
-	if seshuPayload.LocationLatitude != 0 {
+	if seshuPayload.LocationLatitude != InitialEmptyLatLon {
 		input.ExpressionAttributeNames["#locationLatitude"] = "locationLatitude"
 		input.ExpressionAttributeValues[":locationLatitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(seshuPayload.LocationLatitude, 'f', -1, 64)}
 		*input.UpdateExpression += " #locationLatitude = :locationLatitude,"
 	}
 
-	if seshuPayload.LocationLongitude != 0 {
+	if seshuPayload.LocationLongitude != InitialEmptyLatLon {
 		input.ExpressionAttributeNames["#locationLongitude"] = "locationLongitude"
 		input.ExpressionAttributeValues[":locationLongitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(seshuPayload.LocationLongitude, 'f', -1, 64)}
 		*input.UpdateExpression += " #locationLongitude = :locationLongitude,"

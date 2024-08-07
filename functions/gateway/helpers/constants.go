@@ -31,6 +31,15 @@ type Subcategory struct {
 	Name, Desc, Slug string
 }
 
+type CdnLocation struct {
+	IATA   string  `json:"iata"`
+	Lat    float64 `json:"lat"`
+	Lon    float64 `json:"lon"`
+	CCA2   string  `json:"cca2"`
+	Region string  `json:"region"`
+	City   string  `json:"city"`
+}
+
 var Categories = []Category {
 	{
 		Name: "Academic & Career Development",
