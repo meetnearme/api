@@ -3,7 +3,11 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
+	"reflect"
+	"regexp"
 	"strconv"
 
 	"net/http"
@@ -12,7 +16,8 @@ import (
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
-	"github.com/meetnearme/api/functions/gateway/types"
+
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
 type GeoLookupInputPayload struct {
@@ -82,7 +87,7 @@ func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.Handl
     }
 }
 
-func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db types.DynamoDBAPI) {
+func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db internal_types.DynamoDBAPI) {
 	ctx := r.Context()
 	var inputPayload GeoThenSeshuPatchInputPayload
 	body, err := io.ReadAll(r.Body)
@@ -118,7 +123,7 @@ func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
         return
 	}
 
-	var updateSeshuSession types.SeshuSessionUpdate
+	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
@@ -184,7 +189,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
 	}
 
-	var updateSeshuSession types.SeshuSessionUpdate
+	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
@@ -215,6 +220,104 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
+func getFieldIndices() map[string]int {
+	indices := make(map[string]int)
+	eventType := reflect.TypeOf(internal_types.EventInfo{})
+
+	for i := 0; i < eventType.NumField(); i++ {
+		fieldName := eventType.Field(i).Name
+		switch fieldName {
+		case "EventTitle", "EventLocation", "EventStartTime", "EventEndTime", "EventURL", "EventDescription":
+			indices[fieldName] = i
+		}
+	}
+	return indices
+}
+
+func isFakeData(val string) bool {
+	switch val {
+		case services.FakeCity: return true
+		case services.FakeUrl1: return true
+		case services.FakeUrl2: return true
+		case services.FakeEventTitle1: return true
+		case services.FakeEventTitle2: return true
+		case services.FakeStartTime1: return true
+		case services.FakeStartTime2: return true
+		case services.FakeEndTime1: return true
+		case services.FakeEndTime2: return true
+	}
+	return false
+}
+
+func getValidatedEvents(candidates []internal_types.EventInfo, validations [][]bool, hasDefaultLocation bool) []internal_types.EventInfo {
+	var validatedEvents []internal_types.EventInfo
+	indiceMap := getFieldIndices()
+
+	log.Println("Indice Map: ", indiceMap)
+	for i := range candidates {
+		isValid := true
+
+		if candidates[i].EventTitle == "" || !validations[i][indiceMap["EventTitle"]] || isFakeData(candidates[i].EventTitle) {
+			isValid = false
+		}
+		if hasDefaultLocation {
+			isValid = true
+		} else if candidates[i].EventLocation == "" || !validations[i][indiceMap["EventLocation"]] || isFakeData(candidates[i].EventLocation) {
+			isValid = false
+		}
+		if candidates[i].EventStartTime == "" || !validations[i][indiceMap["EventStartTime"]] || isFakeData(candidates[i].EventTitle) {
+			isValid = false
+		}
+
+		if isValid {
+			validatedEvents = append(validatedEvents, candidates[i])
+		}
+	}
+	return validatedEvents
+}
+
+
+// TODO: I have no idea if this actually works or not, this is provided by ChatGPT 4o
+// I'm leaving this unifinished to go work on other more urgent items, please fix
+// change, or remove this as needed
+
+// func findTextSubstring(doc *goquery.Document, substring string) (string, bool) {
+// 	var path string
+// 	found := false
+
+// 	// Recursive function to traverse nodes and build the path
+// 	var traverse func(*goquery.Selection, string)
+// 	traverse = func(s *goquery.Selection, currentPath string) {
+// 		if found {
+// 			return
+// 		}
+
+// 		s.Contents().Each(func(i int, node *goquery.Selection) {
+// 			if found {
+// 				return
+// 			}
+
+// 			nodeText := node.Text()
+// 			if strings.Contains(nodeText, substring) {
+// 				path = currentPath
+// 				found = true
+// 				return
+// 			}
+
+// 			// Build path for the current node
+// 			nodeTag := goquery.NodeName(node)
+// 			// TODO: this definitely looks like incorrect LLM output
+// 			nodePath := fmt.Sprintf("%s > %s:nth-child(%d)", currentPath, nodeTag, i+1)
+
+// 			traverse(node, nodePath)
+// 		})
+// 	}
+
+// 	// Start traversing from the document root
+// 	traverse(doc.Selection, "html")
+
+// 	return path, found
+// }
 
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
@@ -236,12 +339,77 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
 	}
 
-	var updateSeshuSession types.SeshuSessionUpdate
+	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, err)
 	}
+
+	defer func() {
+		var seshuSessionGet internal_types.SeshuSessionGet
+		seshuSessionGet.Url = inputPayload.Url
+		// TODO: this needs to use Auth
+		seshuSessionGet.OwnerId = "123"
+		session, err := services.GetSeshuSession(ctx, db, seshuSessionGet)
+
+		if err != nil {
+			log.Println("Failed to get SeshuSession. ID: " , session, err)
+		}
+
+		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLon`
+		// which is an intentionally invalid placeholder
+
+		hasDefaultLat := false
+		latMatch, err := regexp.MatchString(services.LatitudeRegex, fmt.Sprint(session.LocationLatitude))
+		if session.LocationLatitude == services.InitialEmptyLatLon {
+			hasDefaultLat = false
+		} else if (err != nil || !latMatch ) {
+			hasDefaultLat = true
+		}
+
+		hasDefaultLon := false
+		lonMatch, err := regexp.MatchString(services.LongitudeRegex, fmt.Sprint(session.LocationLongitude))
+		if session.LocationLongitude == services.InitialEmptyLatLon {
+			hasDefaultLon = false
+		} else if (err != nil || !lonMatch || session.LocationLongitude == services.InitialEmptyLatLon) {
+			hasDefaultLon = true
+		}
+
+		validatedEvents := getValidatedEvents(session.EventCandidates, session.EventValidations, hasDefaultLat && hasDefaultLon)
+
+		log.Println("Candidate Events, length: ", len(session.EventCandidates), " | events: ", session.EventCandidates)
+		log.Println("Validated Events, length: ", len(validatedEvents), " | events: ", validatedEvents)
+
+		// TODO: search `session.Html` for the items in the `validatedEvents` array
+
+		// TODO: [0] is just a placeholder, should be a loop over `validatedEvents` array and search for each
+		// or maybe once it finds the first one that's good enough? Walking a long array might be wasted compute
+		// if the first one is good enough
+
+		// Find the path to the text substring
+		// TODO: this is commented out because it's not verified and I don't want to introduce regression,
+		// uncomment this and figure out if it this approach works for traversing the DOM
+
+		// NOTE: I think searching the DOM string for `>{ validatedEvents[0].EventTitle }<` and then backtracing
+		// to get a full DOM Querystring path is a better approach because `validatedEvents[0].EventTitle` can appear
+		// in HTML attributes in my testing, we want to find in where it's the opening of an HTML tag
+
+		// doc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
+		// if err != nil {
+		// 	log.Println("Failed to parse HTML document: ", err)
+		// }
+
+		// substring := validatedEvents[0].EventTitle
+		// path, found := findTextSubstring(doc, substring)
+		// if found {
+		// 	fmt.Printf("Text '%s' found at path: %s\n", substring, path)
+		// } else {
+		// 	fmt.Printf("Text '%s' not found\n", substring)
+		// }
+
+		// TODO: delete this `SeshuSession` once the handoff to the `SeshuJobs` table is complete
+	}()
 
 	updateSeshuSession.Url = inputPayload.Url
 	updateSeshuSession.Status = "submitted"

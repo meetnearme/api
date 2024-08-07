@@ -1,14 +1,15 @@
 package types
 
-import ( 
-    "net/url"
+import (
+	"net/url"
 )
 
 
 type EventInfo struct {
 	EventTitle    	 string `json:"event_title"`
 	EventLocation 	 string `json:"event_location"`
-	EventDate     	 string `json:"event_date"`
+	EventStartTime 	 string `json:"event_start_time"`
+	EventEndTime   	 string `json:"event_end_time"`
 	EventURL      	 string `json:"event_url"`
 	EventDescription string `json:"event_description"`
 }
@@ -24,10 +25,16 @@ type SeshuSession struct {
 	LocationAddress   string  `json:"locationAddress" validate:"optional"`
 	Html      string `json:"html" validate:"required"`
 	EventCandidates	 []EventInfo `json:"eventCandidates" validate:"optional"`
+	EventValidations [][]bool `json:"eventValidations" validate:"optional"`
 	Status 		string `json:"status" validate:"optional"`
 	CreatedAt int64  `json:"createdAt" validate:"required"`
 	UpdatedAt int64  `json:"updatedAt" validate:"required"`
 	ExpireAt  int64  `json:"expireAt" validate:"required"`
+}
+
+type SeshuSessionGet struct {
+	OwnerId    string `json:"ownerId" dynamodbav:"ownerId" validate:"required"`
+	Url    string `json:"url" dynamodbav:"url" validate:"required"`
 }
 
 type SeshuSessionInput struct {
