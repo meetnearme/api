@@ -63,17 +63,11 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
   rayCode := ""
   cfLocationLat := services.InitialEmptyLatLon
   cfLocationLon := services.InitialEmptyLatLon
-  log.Println("CF Ray len: ", len(cfRay))
   if len(cfRay) > 2 {
     rayCode = cfRay[len(cfRay)-3:]
 	  cfLocationLat = helpers.CfLocationMap[rayCode].Lat
     cfLocationLon = helpers.CfLocationMap[rayCode].Lon
   }
-
-  log.Println("CF Ray ID: ", rayCode)
-  log.Println("CF Location Lat: ", fmt.Sprint(cfLocationLat))
-  log.Println("CF Location Lon: ", fmt.Sprint(cfLocationLon))
-  log.Println("CF Location DEN: ", fmt.Sprint(helpers.CfLocationMap["DEN"]))
 
 	queryParameters := apiGwV2Req.QueryStringParameters
 	startTimeStr := queryParameters["start_time"]
@@ -229,18 +223,14 @@ func PrintContextInternals(ctx interface{}, inner bool) {
  func GetCfRay (c context.Context) string {
   apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
   if (!ok) {
-    log.Println("not ok! 232, apiGwV2Req:", apiGwV2Req)
     return ""
   }
   if apiGwV2Req.Headers == nil {
-    log.Println("headers nil 236, apiGwV2Req.Headers:", apiGwV2Req.Headers)
     return ""
   }
   if cfRay := apiGwV2Req.Headers["cf-ray"]; cfRay != "" {
-    log.Println("got ray", cfRay)
     return cfRay
   }
-  log.Println("no ray")
   return ""
 }
 
