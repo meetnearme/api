@@ -117,16 +117,48 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
     return events, nil
 }
 
+
+func GetEvent(ctx context.Context, db internal_types.DynamoDBAPI, eventId string) (*EventSelect, error) {
+	scanInput := &dynamodb.ScanInput{
+		TableName: aws.String(eventsTableName),
+		FilterExpression: aws.String(
+			"#id = :id",
+		),
+		ExpressionAttributeNames: map[string]string{
+			"#id": "id",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":id": &types.AttributeValueMemberS{Value: eventId},
+		},
+	}
+
+	scanResult, err := db.Scan(ctx, scanInput)
+	if err != nil {
+			log.Println("error scanning for event", err)
+			return nil, err
+	}
+
+	var event EventSelect
+	err = attributevalue.UnmarshalMap(scanResult.Items[0], &event)
+	if err != nil {
+			log.Println("error unmarshalling event", err)
+			return nil, err
+	}
+
+	return &event, nil
+}
+
+
 func InsertEvent(ctx context.Context, db internal_types.DynamoDBAPI, createEvent EventInsert) (*EventSelect, error) {
     startTime, err := time.Parse(time.RFC3339, createEvent.Datetime)
     if err != nil {
         return nil, fmt.Errorf("invalid datetime format: %v", err)
-    } 
+    }
 
     zOrderIndex, err := indexing.CalculateZOrderIndex(startTime, createEvent.Latitude, createEvent.Longitude, "default")
     if err != nil {
         return nil, fmt.Errorf("failed to calculate Z Order index: %v", err)
-    } 
+    }
 
 	newEvent := EventSelect{
 		Name:        createEvent.Name,
