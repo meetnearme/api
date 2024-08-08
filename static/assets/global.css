@@ -177,4 +177,8 @@
   border: 5px solid oklch(var(--p)) !important;
 }
 
+.m-centered {
+  margin: 0 auto;
+}
+
 /* END styles to be deleted */

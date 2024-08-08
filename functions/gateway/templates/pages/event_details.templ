@@ -5,34 +5,36 @@ import (
 )
 
 templ EventDetailsPage(eventId string) {
-	<h2 class="text-3xl">The Indigo Players</h2>
-	// <h3>Event Id: { eventId }</h3>
-	<br/>
-	<p>
-		<img style="display: inline-block;" alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/location.svg") }/> <strong>Location:</strong> The Regent
+	<div class="max-w-prose m-centered">
+		<h2 class="text-3xl">The Indigo Players</h2>
+		// <h3>Event Id: { eventId }</h3>
 		<br/>
-		2932 Michigan Ave., Phoenix, AZ, 71831
-		<br/>
-		<br/>
-		<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> August 14, 2024
-		<br/>
-		<br/>
-		<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/Clock.svg") }/><strong>Time:</strong> 12:00 PM
-		<br/>
-		<br/>
-		<strong>Price:</strong> $10.00
-		<br/>
-		<br/>
-		<h3 class="text-xl">EVENT DESCRIPTION</h3>
-		<br/>
-		<br/>
-		Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, conhshsh hshsah hhshsbsbbs hshshh ... See More
-	</p>
-	<div class="bottom-drawer">
-		<button class="btn btn-block btn-primary">RSVP</button>
-		<br/>
-		<br/>
-		<button class="btn btn-block btn-primary btn-outline text-neutral-content">Interested, can't make it!</button>
+		<p>
+			<img style="display: inline-block;" alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/location.svg") }/> <strong>Location:</strong> The Regent
+			<br/>
+			2932 Michigan Ave., Phoenix, AZ, 71831
+			<br/>
+			<br/>
+			<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> August 14, 2024
+			<br/>
+			<br/>
+			<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/Clock.svg") }/><strong>Time:</strong> 12:00 PM
+			<br/>
+			<br/>
+			<strong>Price:</strong> $10.00
+			<br/>
+			<br/>
+			<h3 class="text-xl">EVENT DESCRIPTION</h3>
+			<br/>
+			<br/>
+			Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, conhshsh hshsah hhshsbsbbs hshshh ... See More
+		</p>
+		<div class="bottom-drawer">
+			<button class="btn btn-block btn-primary">RSVP</button>
+			<br/>
+			<br/>
+			<button class="btn btn-block btn-primary btn-outline text-neutral-content">Interested, can't make it!</button>
+		</div>
 	</div>
 	<img class="main-bg top" alt="Illustration: A diverse group of whimsical-looking people" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/stevie_bg.png") }/>
 }
