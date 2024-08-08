@@ -12,6 +12,61 @@ templ HomePage(events []services.EventSelect) {
 			Push Your Boundaries and Explore Your World
 		</h1>
 	</div>
+	<div class="min-h-screen bg-black text-white">
+		<header class="flex justify-between p-4 bg-black border-b border-gray-700">
+			<nav class="flex space-x-4">
+				<a href="#" class="text-lg font-bold border-b-2 border-white">
+					EVENTS
+				</a>
+				<a href="#" class="text-lg">
+					GROUPS
+				</a>
+				<a href="#" class="text-lg">
+					ORGANIZERS
+				</a>
+				<a href="#" class="text-lg">
+					VENUES
+				</a>
+			</nav>
+		</header>
+		<div class="flex justify-center p-4 bg-black">
+			<div class="flex space-x-2">
+				<button class="px-4 py-2 btn btn-primary ">TODAY</button>
+				<button class="px-4 py-2 text-black bg-gray-200">TOMORROW</button>
+				<button class="px-4 py-2 text-black bg-gray-200">THIS WEEK</button>
+			</div>
+		</div>
+		if (len(events) < 1) {
+			<p class="text-md md:text-lg text-center mt-5">
+				No events found, try enabling geolocation or changing your location, date, or time
+			</p>
+		} else {
+			<main class="p-4 space-y-4 md:grid md:grid-cols-1 md:gap-4 md:space-y-0">
+				for _, ev := range events {
+					<div class="flex flex-row overflow-hidden rounded-lg shadow-lg  relative">
+						<img
+							src={ templ.EscapeString(helpers.GetImgUrlFromHash(ev.Id)) }
+							alt=""
+							class="object-cover w-1/2 h-96 md:h-72"
+							width="400"
+							height="200"
+							style="aspect-ratio: 400 / 200; object-fit: cover;"
+						/>
+						<div class="flex flex-col justify-between w-1/2 p-4 bg-gradient-to-t from-black to-transparent">
+							<div>
+								<h2 class="text-xl">{ ev.Name }</h2>
+								<p class="text-sm">{ ev.Address } | { helpers.FormatDate(ev.Datetime) } | { helpers.FormatTime(ev.Datetime) }</p>
+							</div>
+							<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block">
+								LEARN MORE
+								&rarr;
+							</a>
+						</div>
+					</div>
+				}
+			</main>
+		}
+	</div>
 	<h2 class="text-3xl">Events</h2>
 	<div class="overflow-x-auto bg-base-100 border-2 border-base-300">
 		<table class="table table-pin-rows table-pin-cols table-zebra">

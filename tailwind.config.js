@@ -70,7 +70,6 @@ export default {
           },
         },
         '.header-hero': {
-          minHeight: '50vw',
           maxWidth: '70vw',
           margin: '0 auto',
           '@screen sm': {
@@ -78,15 +77,12 @@ export default {
           },
           '@screen md': {
             maxWidth: '90vw',
-            minHeight: '30vw',
           },
           '@screen lg': {
             maxWidth: '70vw',
-            minHeight: '20vw',
           },
           '@screen xl': {
             maxWidth: '70vw',
-            minHeight: '20vw',
           },
         },
       });
