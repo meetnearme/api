@@ -138,6 +138,10 @@ func GetEvent(ctx context.Context, db internal_types.DynamoDBAPI, eventId string
 			return nil, err
 	}
 
+	if len(scanResult.Items) == 0 {
+		return nil, fmt.Errorf("event not found")
+	}
+
 	var event EventSelect
 	err = attributevalue.UnmarshalMap(scanResult.Items[0], &event)
 	if err != nil {
