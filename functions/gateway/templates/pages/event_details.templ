@@ -36,5 +36,5 @@ templ EventDetailsPage(event services.EventSelect) {
 			<button class="btn btn-block btn-primary btn-outline text-neutral-content">Interested, can't make it!</button>
 		</div>
 	</div>
-	<img class="main-bg top" alt="Illustration: A diverse group of whimsical-looking people" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/stevie_bg.png") }/>
+	<img class="main-bg top" alt="Illustration: A diverse group of whimsical-looking people" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event.Id)) }/>
 }

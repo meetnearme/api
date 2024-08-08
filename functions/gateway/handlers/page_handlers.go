@@ -200,7 +200,6 @@ func GetCfRay (c context.Context) string {
   return ""
 }
 
-
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// TODO: Extract reading param values into a helper method.
 	ctx := r.Context()

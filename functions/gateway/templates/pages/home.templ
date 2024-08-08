@@ -9,17 +9,15 @@ import (
 templ HomePage(events []services.EventSelect) {
 	<div class="header-hero">
 		<h1 class="text-2xl md:text-5xl text-center mt-5">
-			Magically <span class="font-system">&#x2728</span> collect in-person events you care about <span class="font-system">&#x1F938</span> and discover new ones
+			Push Your Boundaries and Explore Your World
 		</h1>
-		<h2 class="text-lg md:text-2xl font-mono font-light text-center bg-base-100 mt-5">
-			Meet Near Me is a place to gather all of the in-person local events scattered across the internet into one unified place, volunteer to raise local event awareness, and discover nearby events shared by others.
-		</h2>
 	</div>
 	<h2 class="text-3xl">Events</h2>
 	<div class="overflow-x-auto bg-base-100 border-2 border-base-300">
 		<table class="table table-pin-rows table-pin-cols table-zebra">
 			<thead>
 				<tr>
+					<th></th>
 					<th>Event Name</th>
 					<th>Date</th>
 					<th>Time</th>
@@ -35,6 +33,7 @@ templ HomePage(events []services.EventSelect) {
 				} else {
 					for _, ev := range events {
 						<tr>
+							<td><img style="max-width: 300px; max-height: 300px;" src={ templ.EscapeString(helpers.GetImgUrlFromHash(ev.Id)) }/></td>
 							<td>
 								<div class="flex items-center gap-3">
 									<div>
@@ -59,6 +58,7 @@ templ HomePage(events []services.EventSelect) {
 			</tbody>
 			<tfoot>
 				<tr>
+					<th></th>
 					<th>Event Name</th>
 					<th>Date</th>
 					<th>Time</th>
