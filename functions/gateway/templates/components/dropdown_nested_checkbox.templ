@@ -23,7 +23,7 @@ templ NestedCheckboxList(isInDropdown bool) {
 			<li>
 				<div class="collapse bg-base-200">
 					<input type="checkbox" class="peer"/>
-					<div class="collapse-title text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content">
+					<div class="collapse-title peer-checked:bg-secondary peer-checked:text-secondary-content">
 						<div class="form-control flex-none">
 							<label class="label cursor-pointer justify-start">
 								<input type="checkbox" class="z-[9] checkbox checkbox-tertiary mr-5"/>
@@ -31,7 +31,7 @@ templ NestedCheckboxList(isInDropdown bool) {
 							</label>
 						</div>
 					</div>
-					<div class="collapse-content bg-base-200 text-primary-content peer-checked:bg-base-200 peer-checked:text-bg-base-200">
+					<div class="collapse-content bg-base-200 peer-checked:bg-base-200">
 						<ul>
 							for _, cat := range cat.Items {
 								<li><input type="checkbox" class="z-[9] checkbox checkbox-xs checkbox-tertiary mr-5 my-1"/>{ cat.Name }</li>

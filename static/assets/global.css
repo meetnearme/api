@@ -182,3 +182,11 @@
 }
 
 /* END styles to be deleted */
+
+.drawer .collapse-content :where(.menu li) {
+  flex-direction: inherit;
+}
+
+.tab:is(input[type='radio']) {
+  width: max-content;
+}

@@ -10,7 +10,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content flex flex-col">
 			<!-- Navbar -->
-			<div class="navbar w-full  bg-base-100 shadow-md mb-5">
+			<div class="navbar w-full bg-base-100 shadow-md mb-5">
 				<div class="container mx-auto flex items-center">
 					<div class="flex-1">
 						<a href="/" class="btn btn-ghost text-xl">
@@ -69,7 +69,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 				</dv>
 				<div role="tablist" class="tabs tabs-bordered">
 					<input id="flyout-tab-nav" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
-					<div role="tabpanel" class="tab-content p-10">
+					<div role="tabpanel" class="tab-content p-2">
 						<ul class="">
 							<!-- Sidebar content here -->
 							<li><a href="/login" class="btn btn-primary mb-5">Add an Event</a></li>
@@ -85,11 +85,11 @@ templ Navbar(userInfo helpers.UserInfo) {
 						aria-label="Filters"
 						checked="checked"
 					/>
-					<div role="tabpanel" class="tab-content p-10">
+					<div role="tabpanel" class="tab-content p-2">
 						@NestedCheckboxList(false)
 					</div>
 					<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
-					<div role="tabpanel" class="tab-content p-10">Idea here is that the cart is only sometimes visible</div>
+					<div role="tabpanel" class="tab-content p-2">Idea here is that the cart is only sometimes visible</div>
 				</div>
 			</div>
 		</div>
