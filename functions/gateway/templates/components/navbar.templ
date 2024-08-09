@@ -6,11 +6,11 @@ import (
 )
 
 templ Navbar(userInfo helpers.UserInfo) {
-	<div class="drawer drawer-end">
+	<div class="drawer drawer-end overflow-hidden">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content flex flex-col">
 			<!-- Navbar -->
-			<div class="w-full navbar bg-base-100 shadow-md mb-5">
+			<div class="navbar w-full  bg-base-100 shadow-md mb-5">
 				<div class="container mx-auto flex items-center">
 					<div class="flex-1">
 						<a href="/" class="btn btn-ghost text-xl">
@@ -32,7 +32,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 								<div class="dropdown dropdown-end px-3">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 										<div class="border-2 border-base-300 w-24 rounded-full">
-											<span class="text-3xl">{ string(userInfo.Email[:1]) }</span>
+											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
 										</div>
 										// <div class="w-10 rounded-full">
 										// 	<img

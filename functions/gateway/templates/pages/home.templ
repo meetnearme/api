@@ -16,13 +16,13 @@ templ HomePage(events []services.EventSelect) {
 	<div class="min-h-screen">
 		<header class="flex justify-between p-4 bg-black border-b border-gray-700">
 			<nav class="flex space-x-4">
-				<button href="#" class="text-xl font-bold border-b-2 border-white">
+				<button href="#" class="text-sm md:text-xl font-bold border-b-2 border-white">
 					EVENTS
 				</button>
-				<button href="#" class="text-xl">
+				<button href="#" class="text-sm md:text-xl">
 					GROUPS
 				</button>
-				<button href="#" class="text-xl">
+				<button href="#" class="text-sm md:text-xl">
 					ORGANIZERS
 				</button>
 			</nav>
@@ -33,10 +33,10 @@ templ HomePage(events []services.EventSelect) {
 		</header>
 		<div class="flex p-4 bg-black">
 			<div class="flex flex-auto space-x-2">
-				<button class="grow px-4 py-2 text-xl btn btn-primary">TODAY</button>
-				<button class="grow px-4 py-2 text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">TOMORROW</button>
-				<button class="grow px-4 py-2 text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">THIS WEEK</button>
-				<button class="grow px-4 py-2 text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">CUSTOM</button>
+				<button class="grow px-4 py-2 text-md md:text-xl btn btn-primary">TODAY</button>
+				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">TOMORROW</button>
+				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">THIS WEEK</button>
+				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">CUSTOM</button>
 			</div>
 		</div>
 		if (len(events) < 1) {
