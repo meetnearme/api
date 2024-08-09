@@ -29,15 +29,15 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@tailwindcss/typography": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.14",
     "@tsconfig/node18": "^18.2.2",
     "aws-cdk-lib": "2.110.1",
     "concurrently": "^8.2.2",
     "constructs": "10.3.0",
-    "daisyui": "^4.8.0",
+    "daisyui": "^4.12.10",
     "node-watch": "^0.7.4",
     "sst": "2.39.5",
-    "tailwindcss": "^3.4.1",
+    "tailwindcss": "^3.4.9",
     "ttab": "^0.8.0",
     "typescript": "^5.3.3"
   },
