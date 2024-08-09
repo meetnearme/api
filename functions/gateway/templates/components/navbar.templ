@@ -17,7 +17,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 							<img alt="Meen Near Me" class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 						</a>
 					</div>
-					<div class="flex-none lg:hidden">
+					<div class="flex-none lg:hidden" onclick="document.getElementById('flyout-tab-nav').click();">
 						<label for="main-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
 							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
 						</label>
@@ -63,14 +63,35 @@ templ Navbar(userInfo helpers.UserInfo) {
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-			<ul class="menu p-4 w-80 min-h-full bg-base-100">
-				<!-- Sidebar content here -->
-				<li class="block justify-end pb-5">
-					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click()"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
-				</li>
-				<li><a href="/login" class="btn btn-primary mb-5">Add an Event</a></li>
-				<li><a href="/about">About</a></li>
-			</ul>
+			<div class="menu p-4 w-3/4 min-h-full bg-base-100">
+				<dv class="block justify-end pb-5">
+					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click();"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
+				</dv>
+				<div role="tablist" class="tabs tabs-bordered">
+					<input id="flyout-tab-nav" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
+					<div role="tabpanel" class="tab-content p-10">
+						<ul class="">
+							<!-- Sidebar content here -->
+							<li><a href="/login" class="btn btn-primary mb-5">Add an Event</a></li>
+							<li><a href="/about">About</a></li>
+						</ul>
+					</div>
+					<input
+						id="flyout-tab-filters"
+						type="radio"
+						name="flyout-nav-tabs"
+						role="tab"
+						class="tab"
+						aria-label="Filters"
+						checked="checked"
+					/>
+					<div role="tabpanel" class="tab-content p-10">
+						@NestedCheckboxList(false)
+					</div>
+					<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
+					<div role="tabpanel" class="tab-content p-10">Idea here is that the cart is only sometimes visible</div>
+				</div>
+			</div>
 		</div>
 	</div>
 }

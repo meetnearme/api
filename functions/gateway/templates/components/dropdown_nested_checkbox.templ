@@ -4,30 +4,42 @@ import "github.com/meetnearme/api/functions/gateway/helpers"
 
 templ DropdownNestedCheckbox() {
 	<details class="dropdown">
+		@NestedCheckboxList(true)
+	</details>
+}
+
+templ NestedCheckboxList(isInDropdown bool) {
+	if isInDropdown {
 		<summary class="m-1 btn">Categories</summary>
-		<ul class="p-2 shadow menu dropdown-content z-[1] bg-base-100 rounded-box">
-			for _, cat := range helpers.Categories {
-				<li>
-					<div class="collapse bg-base-200">
-						<input type="checkbox" class="peer"/>
-						<div class="collapse-title text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content">
-							<div class="form-control flex-none">
-								<label class="label cursor-pointer">
-									<input type="checkbox" class="z-[9] checkbox checkbox-tertiary mr-5"/>
-									<span class="label-text">{ cat.Name }</span>
-								</label>
-							</div>
-						</div>
-						<div class="collapse-content bg-base-200 text-primary-content peer-checked:bg-base-200 peer-checked:text-bg-base-200">
-							<ul>
-								for _, cat := range cat.Items {
-									<li><input type="checkbox" class="z-[9] checkbox checkbox-xs checkbox-tertiary mr-5 my-1"/>{ cat.Name }</li>
-								}
-							</ul>
+	}
+	<ul
+		if isInDropdown {
+			class="p-2 shadow menu dropdown-content z-[1] bg-base-100 rounded-box"
+		} else {
+			class="p-2 shadow menu bg-base-100 rounded-box"
+		}
+	>
+		for _, cat := range helpers.Categories {
+			<li>
+				<div class="collapse bg-base-200">
+					<input type="checkbox" class="peer"/>
+					<div class="collapse-title text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content">
+						<div class="form-control flex-none">
+							<label class="label cursor-pointer justify-start">
+								<input type="checkbox" class="z-[9] checkbox checkbox-tertiary mr-5"/>
+								<span class="label-text">{ cat.Name }</span>
+							</label>
 						</div>
 					</div>
-				</li>
-			}
-		</ul>
-	</details>
+					<div class="collapse-content bg-base-200 text-primary-content peer-checked:bg-base-200 peer-checked:text-bg-base-200">
+						<ul>
+							for _, cat := range cat.Items {
+								<li><input type="checkbox" class="z-[9] checkbox checkbox-xs checkbox-tertiary mr-5 my-1"/>{ cat.Name }</li>
+							}
+						</ul>
+					</div>
+				</div>
+			</li>
+		}
+	</ul>
 }
