@@ -126,7 +126,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
     return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
-	homePage := pages.HomePage(events, cfLocation)
+	homePage := pages.HomePage(events, cfLocation, latStr, lonStr)
 	layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
 	var buf bytes.Buffer
