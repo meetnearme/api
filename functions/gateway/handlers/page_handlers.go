@@ -64,8 +64,9 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
   cfLocationLon := services.InitialEmptyLatLon
   if len(cfRay) > 2 {
     rayCode = cfRay[len(cfRay)-3:]
-	  cfLocationLat = helpers.CfLocationMap[rayCode].Lat
-    cfLocationLon = helpers.CfLocationMap[rayCode].Lon
+		cfLocation = helpers.CfLocationMap[rayCode]
+	  cfLocationLat = cfLocation.Lat
+    cfLocationLon = cfLocation.Lon
   }
 
 	queryParameters := apiGwV2Req.QueryStringParameters
