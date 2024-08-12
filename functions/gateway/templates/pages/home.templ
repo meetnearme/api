@@ -206,9 +206,7 @@ var cityStateArray = []string{
 
 func GetCityCountryFromLocation(cfLocation helpers.CdnLocation) string {
 	if cfLocation.City != "" && cfLocation.CCA2 != "" {
-		var country services.Country
-		country = services.Countries[cfLocation.CCA2]
-		return cfLocation.City + ", " + country.Country
+		return cfLocation.City + ", " + cfLocation.CCA2
 	}
 	return "Location: Please Select"
 }
