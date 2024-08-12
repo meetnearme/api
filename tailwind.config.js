@@ -116,7 +116,7 @@ export default {
           'base-100': '#000000',
           'base-200': '#000000',
           'base-300': '#000000',
-          'base-content': '#bebebe',
+          'base-content': '#F5F5F5',
           info: '#7cbbee',
           'info-content': '#000000',
           success: '#74ea62',
