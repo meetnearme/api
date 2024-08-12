@@ -5,14 +5,6 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
-func GetCityRegionFromLocation(cfLocation helpers.CdnLocation) string {
-	if cfLocation.City != "" && cfLocation.Region != "" {
-		return "Location: " + cfLocation.City + ", " + cfLocation.Region
-	}
-	return "Location: Please Select"
-}
-
-
 var cityStateArray = []string{
     "New York, New York, USA",
     "Los Angeles, California, USA",
@@ -211,6 +203,17 @@ var cityStateArray = []string{
     "New Haven, Connecticut, USA",
 }
 
+func GetCityRegionFromLocation(cfLocation helpers.CdnLocation) string {
+	if cfLocation.City != "" && cfLocation.Region != "" {
+		return "Location: " + cfLocation.City + ", " + cfLocation.Region
+	}
+	return "Location: Please Select"
+}
+
+func GetSelectedOptionAttr(cfLocation helpers.CdnLocation) string {
+	return "selectedOption ? selectedOption.value : " + GetCityRegionFromLocation(cfLocation) + "'"
+}
+
 templ HomePage(events []services.EventSelect, cfLocation helpers.CdnLocation) {
 	<div class="header-hero">
 		<h1 class="text-2xl md:text-5xl text-center mb-5">
@@ -280,9 +283,9 @@ templ HomePage(events []services.EventSelect, cfLocation helpers.CdnLocation) {
 		<div x-data="getLocationSearchData()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
     <div class="relative px-4">
         <!-- trigger button  -->
-        <button type="button" class="inline-flex w-full items-center justify-between gap-2 border border-slate-300 rounded-md bg-slate-100 mt-2 px-4 py-2 text-sm font-medium tracking-wide text-slate-700 transition hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:focus-visible:outline-blue-600" role="combobox" aria-controls="makesList" aria-haspopup="listbox" x-on:click="isOpen = ! isOpen" x-on:keydown.down.prevent="openedWithKeyboard = true" x-on:keydown.enter.prevent="openedWithKeyboard = true" x-on:keydown.space.prevent="openedWithKeyboard = true" x-bind:aria-expanded="isOpen || openedWithKeyboard" x-bind:aria-label={"selectedOption ? selectedOption.value : '{GetCityRegionFromLocation(cfLocation)}'"}>
+        <button type="button" class="inline-flex w-full items-center justify-between gap-2 border border-slate-300 rounded-md bg-slate-100 mt-2 px-4 py-2 text-sm font-medium tracking-wide text-slate-700 transition hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:focus-visible:outline-blue-600" role="combobox" aria-controls="makesList" aria-haspopup="listbox" x-on:click="isOpen = ! isOpen" x-on:keydown.down.prevent="openedWithKeyboard = true" x-on:keydown.enter.prevent="openedWithKeyboard = true" x-on:keydown.space.prevent="openedWithKeyboard = true" x-bind:aria-expanded="isOpen || openedWithKeyboard" x-bind:aria-label={ GetSelectedOptionAttr(cfLocation) }>
             <span class="text-sm font-normal"
-						x-text={"selectedOption ? selectedOption.value : '" + GetCityRegionFromLocation(cfLocation) + "'"}></span>
+						x-text={ GetSelectedOptionAttr(cfLocation) }></span>
 						<span class="sr-only"
 						x-text="selectedOption ? selectedOption.value : 'Please Select'"></span>
             <!-- Chevron  -->
