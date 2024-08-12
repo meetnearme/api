@@ -211,7 +211,7 @@ func GetCityRegionFromLocation(cfLocation helpers.CdnLocation) string {
 }
 
 func GetSelectedOptionAttr(cfLocation helpers.CdnLocation) string {
-	return "selectedOption ? selectedOption.value : " + GetCityRegionFromLocation(cfLocation) + "'"
+	return "selectedOption ? selectedOption.value : '" + GetCityRegionFromLocation(cfLocation) + "'"
 }
 
 templ HomePage(events []services.EventSelect, cfLocation helpers.CdnLocation) {
