@@ -59,6 +59,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
   cfRay := GetCfRay(ctx)
   rayCode := ""
+	var cfLocation helpers.CdnLocation
   cfLocationLat := services.InitialEmptyLatLon
   cfLocationLon := services.InitialEmptyLatLon
   if len(cfRay) > 2 {
@@ -124,7 +125,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
     return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
-	homePage := pages.HomePage(events)
+	homePage := pages.HomePage(events, cfLocation)
 	layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
 	var buf bytes.Buffer

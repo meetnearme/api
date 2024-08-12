@@ -31,7 +31,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 							if userInfo.Email != "" {
 								<div class="dropdown dropdown-end px-3">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
-										<div class="border-2 border-base-300 w-24 rounded-full">
+										<div class="border-2 w-24 rounded-full">
 											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
 										</div>
 										// <div class="w-10 rounded-full">
@@ -40,19 +40,23 @@ templ Navbar(userInfo helpers.UserInfo) {
 										// 		src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg" />
 										// </div>
 									</div>
-									<ul
-										tabindex="0"
-										class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow"
-									>
-										<li><strong>{ string(userInfo.Email) }</strong></li>
-										<li>
-											<a href="/admin/profile" class="justify-between">
-												Profile
-												<span class="badge">New</span>
-											</a>
-										</li>
-										<li><a href="/auth/logout">Logout</a></li>
-									</ul>
+									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
+										<strong>{ string(userInfo.Name) }</strong>
+										<br/>
+										{ string(userInfo.Email) }
+										<ul
+											tabindex="0"
+											class="menu menu-sm"
+										>
+											<li>
+												<a href="/admin/profile" class="justify-between">
+													Profile
+													<span class="badge">New</span>
+												</a>
+											</li>
+											<li><a href="/auth/logout">Logout</a></li>
+										</ul>
+									</div>
 								</div>
 							}
 						</div>
@@ -67,6 +71,33 @@ templ Navbar(userInfo helpers.UserInfo) {
 				<dv class="block justify-end pb-5">
 					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click();"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
 				</dv>
+				if userInfo.Email != "" {
+					<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
+						<div class="border-2 w-24 rounded-full">
+							<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+						</div>
+						// <div class="w-10 rounded-full">
+						// 	<img
+						// 		alt="Tailwind CSS Navbar component"
+						// 		src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg" />
+						// </div>
+					</div>
+					<strong>{ string(userInfo.Name) }</strong>
+					<br/>
+					{ string(userInfo.Email) }
+					<ul
+						tabindex="0"
+						class="menu menu-sm"
+					>
+						<li>
+							<a href="/admin/profile" class="justify-between">
+								Profile
+								<span class="badge">New</span>
+							</a>
+						</li>
+						<li><a href="/auth/logout">Logout</a></li>
+					</ul>
+				}
 				<div role="tablist" class="tabs tabs-bordered">
 					<input id="flyout-tab-nav" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
 					<div role="tabpanel" class="tab-content p-2">
