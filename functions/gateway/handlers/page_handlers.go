@@ -190,12 +190,15 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func GetCfRay (c context.Context) string {
   apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
   if (!ok) {
+		log.Println(("APIGatewayV2HTTPRequest not found in context"))
     return ""
   }
   if apiGwV2Req.Headers == nil {
+		log.Println(("Headers not found in APIGatewayV2HTTPRequest"))
     return ""
   }
   if cfRay := apiGwV2Req.Headers["cf-ray"]; cfRay != "" {
+		log.Println(("cf-ray found in APIGatewayV2HTTPRequest: " + fmt.Sprint(cfRay)))
     return cfRay
   }
   return ""

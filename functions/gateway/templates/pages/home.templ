@@ -1,6 +1,8 @@
 package pages
 
 import (
+	"fmt"
+
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 )
@@ -205,7 +207,7 @@ var cityStateArray = []string{
 
 func GetCityRegionFromLocation(cfLocation helpers.CdnLocation) string {
 	if cfLocation.City != "" && cfLocation.Region != "" {
-		return "Location: " + cfLocation.City + ", " + cfLocation.Region
+		return cfLocation.City + ", " + cfLocation.Region
 	}
 	return "Location: Please Select"
 }
@@ -280,6 +282,9 @@ templ HomePage(events []services.EventSelect, cfLocation helpers.CdnLocation) {
 			}
 		</script>
 
+		// TODO: delete debugging statement
+		<div>{ fmt.Sprint(cfLocation) }</div>
+
 		<div x-data="getLocationSearchData()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
     <div class="relative px-4">
         <!-- trigger button  -->
@@ -287,7 +292,7 @@ templ HomePage(events []services.EventSelect, cfLocation helpers.CdnLocation) {
             <span class="text-sm font-normal"
 						x-text={ GetSelectedOptionAttr(cfLocation) }></span>
 						<span class="sr-only"
-						x-text="selectedOption ? selectedOption.value : 'Please Select'"></span>
+						x-text="selectedOption ? selectedOption.value : 'Location: Please Select'"></span>
             <!-- Chevron  -->
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"class="size-5" aria-hidden="true">
                 <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/>
@@ -297,9 +302,16 @@ templ HomePage(events []services.EventSelect, cfLocation helpers.CdnLocation) {
         <!-- Hidden Input To Grab The Selected Value  -->
         <input id="make" name="make" x-ref="hiddenTextField" hidden=""/>
         <div
-					:class="{'opacity-100': isOpen || openedWithKeyboard}"
 					x-show="isOpen || openedWithKeyboard"
-				 id="makesList" class="w-full opacity-0 transition-all absolute left-4 top-12 z-10 overflow-hidden rounded-md border border-slate-300 bg-slate-100" role="listbox" aria-label="locations list" x-on:click.outside="isOpen = false, openedWithKeyboard = false" x-on:keydown.down.prevent="$focus.wrap().next()" x-on:keydown.up.prevent="$focus.wrap().previous()" x-transition x-trap="openedWithKeyboard">
+					:class="{'opacity-100': isOpen || openedWithKeyboard}"
+					class="w-full opacity-0 transition-all absolute left-4 top-12 z-10 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
+					id="makesList"
+					role="listbox"
+					aria-label="locations list"
+					x-on:click.outside="isOpen = false, openedWithKeyboard = false"
+					x-on:keydown.down.prevent="$focus.wrap().next()"
+					x-on:keydown.up.prevent="$focus.wrap().previous()"
+					x-transition x-trap="openedWithKeyboard">
 
             <!-- Search  -->
             <div class="relative">
