@@ -220,7 +220,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	db := transport.GetDB()
 	authCtx := mw.Context(ctx)
 
-	event, err := services.GetEvent(ctx, db, eventId)
+	event, err := services.GetEventbyId(ctx, db, eventId)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
 	}

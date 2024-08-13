@@ -118,7 +118,7 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 }
 
 
-func GetEvent(ctx context.Context, db internal_types.DynamoDBAPI, eventId string) (*EventSelect, error) {
+func GetEventbyId(ctx context.Context, db internal_types.DynamoDBAPI, eventId string) (*EventSelect, error) {
 	scanInput := &dynamodb.ScanInput{
 		TableName: aws.String(eventsTableName),
 		FilterExpression: aws.String(
