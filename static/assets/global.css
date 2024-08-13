@@ -158,8 +158,6 @@
 
 /* END seshu ingestion "add event source" section */
 
-/* TODO: delete this hack, temporary for visual demo */
-
 .bottom-drawer {
   position: fixed;
   bottom: 0;
@@ -172,16 +170,9 @@
   padding: 20px;
 }
 
-.bottom-drawer .text-neutral-content {
-  color: oklch(var(--pc)) !important;
+.bottom-drawer .btn-outline {
   border: 5px solid oklch(var(--p)) !important;
 }
-
-.m-centered {
-  margin: 0 auto;
-}
-
-/* END styles to be deleted */
 
 .drawer .collapse-content :where(.menu li) {
   flex-direction: inherit;

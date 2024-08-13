@@ -1,13 +1,13 @@
 package pages
 
 import (
-	"os"
-	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
+	"os"
 )
 
 templ EventDetailsPage(event services.EventSelect) {
-	<div class="max-w-prose m-centered">
+	<div class="max-w-prose mx-auto">
 		<h2 class="text-3xl mt-2">{ event.Name }</h2>
 		// <h3>Event Id: { eventId }</h3>
 		<br/>
@@ -36,5 +36,5 @@ templ EventDetailsPage(event services.EventSelect) {
 			<button class="btn btn-block btn-primary btn-outline text-neutral-content">Interested, can't make it!</button>
 		</div>
 	</div>
-	<img class="main-bg top" alt="Illustration: A diverse group of whimsical-looking people" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event.Id)) }/>
+	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event.Id)) }/>
 }
