@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/zitadel-go/v3/pkg/authentication"
 	openid "github.com/zitadel/zitadel-go/v3/pkg/authentication/oidc"
@@ -207,12 +208,8 @@ func GetCfRay (c context.Context) string {
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// TODO: Extract reading param values into a helper method.
 	ctx := r.Context()
-	apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-	if !ok {
-		log.Println("ApiGwV2HTTPRequest not found in context")
-	}
-	eventId := apiGwV2Req.PathParameters[helpers.EVENT_ID_KEY]
-	if !ok || eventId == "" {
+	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	if eventId == "" {
 		// TODO: If no eventID is passed, return a 404 page or redirect to events list.
 		fmt.Println("No event ID provided. Redirecting to home page.")
 		http.Redirect(w, r, "/", http.StatusFound)
