@@ -5,21 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
-	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
-
-// Mock the GetEventsZOrder function
-var originalGetEventsZOrder = services.GetEventsZOrder
-
-func mockGetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime time.Time, endTime time.Time, lat float32, lon float32, radius float32) ([]services.EventSelect, error) {
-	return []services.EventSelect{}, nil
-}
 
 func TestGetHomePage(t *testing.T) {
     // Create a request
