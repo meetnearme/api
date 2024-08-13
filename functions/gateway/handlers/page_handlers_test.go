@@ -132,14 +132,23 @@ func TestGetMapEmbedPage(t *testing.T) {
 }
 
 func TestGetEventDetailsPage(t *testing.T) {
-	req, err := http.NewRequest("GET", "/events/123", nil)
+	const eventID = "123"
+	req, err := http.NewRequest("GET", "/events/" + eventID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Set up context with APIGatewayV2HTTPRequest
+	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+    PathParameters: map[string]string{
+        helpers.EVENT_ID_KEY: eventID,
+    },
+	})
+	req = req.WithContext(ctx)
+
 	// Set up router to extract variables
 	router := mux.NewRouter()
-	router.HandleFunc("/events/{eventId}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/events/{" + helpers.EVENT_ID_KEY + "}", func(w http.ResponseWriter, r *http.Request) {
 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
 	})
 
