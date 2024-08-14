@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"reflect"
 	"strconv"
 	"time"
+	"unsafe"
 
 	"github.com/gorilla/mux"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
@@ -38,9 +40,44 @@ func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.User
 	return userInfo, nil
 }
 
+// NOTE: this is for internal debugging
+func PrintContextInternals(ctx interface{}, inner bool) {
+	contextValues := reflect.ValueOf(ctx).Elem()
+	contextKeys := reflect.TypeOf(ctx).Elem()
+
+
+	if !inner {
+			fmt.Printf("\nFields for %s.%s\n", contextKeys.PkgPath(), contextKeys.Name())
+	}
+
+
+	if contextKeys.Kind() == reflect.Struct {
+			for i := 0; i < contextValues.NumField(); i++ {
+					reflectValue := contextValues.Field(i)
+					reflectValue = reflect.NewAt(reflectValue.Type(), unsafe.Pointer(reflectValue.UnsafeAddr())).Elem()
+
+
+					reflectField := contextKeys.Field(i)
+
+
+					if reflectField.Name == "Context" {
+							PrintContextInternals(reflectValue.Interface(), true)
+					} else {
+							fmt.Printf("field name: %+v\n", reflectField.Name)
+							fmt.Printf("value: %+v\n", reflectValue.Interface())
+					}
+			}
+	} else {
+			fmt.Printf("context is empty (int)\n")
+	}
+ }
+
+
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
   // Extract parameter values from the request query parameters
   ctx := r.Context()
+
+	PrintContextInternals(ctx, true)
 
   db := transport.GetDB()
   apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
