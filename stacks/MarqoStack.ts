@@ -78,7 +78,8 @@ export function MarqoStack({ stack }: StackContext) {
     const loadBalancer = new lb.ApplicationLoadBalancer(stack, 'MarqoALB', {
         loadBalancerName: "marqo-alb",
         vpc: vpc,
-        internetFacing: false
+        internetFacing: false,
+        vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC, availabilityZones: ['us-east-1a', 'us-east-1b'] }
     });
 
     const listener = loadBalancer.addListener('Listener', {
