@@ -141,21 +141,22 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			lat = float32(lat64)
 	} else if cfLocationLat != services.InitialEmptyLatLon  {
       lat = float32(cfLocationLat)
+			log.Println("setting lat to cfLocationLat: ", cfLocationLat)
   }
 	if lonStr != "" {
 			lon64, _ := strconv.ParseFloat(lonStr, 32)
 			lon = float32(lon64)
 	} else if cfLocationLon != services.InitialEmptyLatLon {
       lon = float32(cfLocationLon)
+			log.Println("setting lon to cfLocationLon: ", cfLocationLon)
   }
 	if radiusStr != "" {
 			radius64, _ := strconv.ParseFloat(radiusStr, 32)
 			radius = float32(radius64)
 	}
 
-	log.Println("cfLocation: ", cfLocation)
-	log.Println("cfLocationLat: ", cfLocationLat)
-	log.Println("cfLocationLon: ", cfLocationLon)
+	cfLocation.Lat = float64(lat)
+	cfLocation.Lon = float64(lon)
 
 	log.Println("lat: ", lat)
 	log.Println("lon: ", lon)

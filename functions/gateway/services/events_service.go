@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -14,6 +15,11 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/indexing"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
+)
+
+const (
+	earthRadiusKm = 6378.0
+	milesPerKm    = 0.621371
 )
 
 type EventSelect struct {
@@ -74,13 +80,44 @@ func GetEvents(ctx context.Context, db *dynamodb.Client) ([]EventSelect, error) 
 	return events, nil
 }
 
-func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime, endTime time.Time, lat, lon, radius float32) ([]EventSelect, error) {
-    minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, lat, lon, "min")
+
+func offsetLatLon(radius float64, lat, lon float64, corner string) (newLat, newLon float64) {
+	radiusKm := radius / milesPerKm
+	halfRadius := radiusKm / 2
+
+	latOffset := (halfRadius / earthRadiusKm) * (180 / math.Pi)
+	lonOffset := (halfRadius / earthRadiusKm) * (180 / math.Pi) / math.Cos(lat*math.Pi/180)
+
+	switch corner {
+	case "upper left":
+		newLat = lat + latOffset
+		newLon = lon - lonOffset
+	case "lower right":
+		newLat = lat - latOffset
+		newLon = lon + lonOffset
+	default:
+		return lat, lon // Return original coordinates if corner is invalid
+	}
+
+	return newLat, newLon
+}
+
+func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime, endTime time.Time, lat, lon float32, radius float32) ([]EventSelect, error) {
+    // Calculate the bounding box coordinates
+		minLat, minLon := offsetLatLon(float64(radius), float64(lat), float64(lon), "upper left")
+		maxLat, maxLon := offsetLatLon(float64(radius), float64(lat), float64(lon), "lower right")
+
+    // Calculate Z-order indices for the corners of the bounding box
+		log.Println("minLat: ", minLat)
+		log.Println("maxLat: ", maxLat)
+		log.Println("minLon: ", minLon)
+		log.Println("maxLon: ", maxLon)
+    minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, float32(minLat), float32(minLon), "min")
     if err != nil {
         return nil, fmt.Errorf("error calculating min z-order index: %v", err)
     }
 
-    maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, lat, lon, "max")
+    maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, float32(maxLat), float32(maxLon), "max")
     if err != nil {
         return nil, fmt.Errorf("error calculating max z-order index: %v", err)
     }
@@ -200,4 +237,3 @@ func InsertEvent(ctx context.Context, db internal_types.DynamoDBAPI, createEvent
 	}
 	return &newEvent, nil
 }
-
