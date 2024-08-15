@@ -126,7 +126,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	endTime := startTime.AddDate(100, 0, 0)
 	lat := float32(39.8283)
 	lon := float32(-98.5795)
-	radius := float32(2500.0)
+	radius := float32(500.0)
 
 	// Parse parameter values if provided
 	if startTimeStr != "" {
