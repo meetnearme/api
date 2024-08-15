@@ -75,7 +75,6 @@ export function MarqoStack({ stack }: StackContext) {
         ]
     });
 
-
     const loadBalancer = new lb.ApplicationLoadBalancer(stack, 'MarqoALB', {
         loadBalancerName: "marqo-alb",
         vpc: vpc,
