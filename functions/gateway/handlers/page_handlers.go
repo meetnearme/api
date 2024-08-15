@@ -94,15 +94,23 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     }
   }
 
+	cfLocation := GetCfLocation(ctx)
   cfRay := GetCfRay(ctx)
   rayCode := ""
-	var cfLocation helpers.CdnLocation
+
   cfLocationLat := services.InitialEmptyLatLon
   cfLocationLon := services.InitialEmptyLatLon
-  if len(cfRay) > 2 {
+  if cfLocation.Lat != services.InitialEmptyLatLon &&
+    cfLocation.Lon != services.InitialEmptyLatLon &&
+    cfLocation.City != "" &&
+    cfLocation.Region != "" &&
+    cfLocation.Country != "" {
+    	cfLocationLat = cfLocation.Lat
+    	cfLocationLon = cfLocation.Lon
+  } else if len(cfRay) > 2 {
     rayCode = cfRay[len(cfRay)-3:]
-		cfLocation = helpers.CfLocationMap[rayCode]
-	  cfLocationLat = cfLocation.Lat
+    cfLocation = helpers.CfLocationMap[rayCode]
+    cfLocationLat = cfLocation.Lat
     cfLocationLon = cfLocation.Lon
   }
 
@@ -143,6 +151,14 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			radius64, _ := strconv.ParseFloat(radiusStr, 32)
 			radius = float32(radius64)
 	}
+
+	log.Println("cfLocation: ", cfLocation)
+	log.Println("cfLocationLat: ", cfLocationLat)
+	log.Println("cfLocationLon: ", cfLocationLon)
+
+	log.Println("lat: ", lat)
+	log.Println("lon: ", lon)
+	log.Println("radius: ", radius)
 
 	// Call the GetEventsZOrder service to retrieve events
 	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
@@ -240,6 +256,28 @@ func GetCfRay (c context.Context) string {
     return cfRay
   }
   return ""
+}
+
+func parseFloat64(s string) float64 {
+	f, _ := strconv.ParseFloat(s, 64)
+	return f
+}
+
+func GetCfLocation(c context.Context) helpers.CdnLocation {
+	apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	if !ok {
+		log.Println("APIGatewayV2HTTPRequest not found in context")
+		return helpers.CdnLocation{}
+	}
+	// Use cfIpCity as needed
+	return helpers.CdnLocation{
+		Lat: parseFloat64(apiGwV2Req.Headers["cf-iplatitude"]),
+		Lon: parseFloat64(apiGwV2Req.Headers["cf-iplongitude"]),
+		IATA: "",
+		City: apiGwV2Req.Headers["cf-ipcity"],
+		Country: apiGwV2Req.Headers["cf-ipcountry"],
+		Region: apiGwV2Req.Headers["cf-region"],
+	}
 }
 
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {

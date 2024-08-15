@@ -38,6 +38,7 @@ type CdnLocation struct {
 	CCA2   string  `json:"cca2"`
 	Region string  `json:"region"`
 	City   string  `json:"city"`
+	Country   string  `json:"country"`
 }
 
 var Categories = []Category {
