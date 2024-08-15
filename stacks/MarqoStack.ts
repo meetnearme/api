@@ -88,6 +88,7 @@ export function MarqoStack({ stack }: StackContext) {
     // Create a target group
     const targetGroup = listener.addTargets('ECS', {
         port: 8882,
+        protocol: lb.ApplicationProtocol.HTTP,
         targets: [marqoService],
         healthCheck: {
             path: '/health',
