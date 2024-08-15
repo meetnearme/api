@@ -2,6 +2,7 @@ import { Api, StackContext, use } from 'sst/constructs';
 import envVars from './shared/env';
 import { StaticSiteStack } from './StaticSiteStack';
 import { StorageStack } from './StorageStack';
+import { MarqoStack } from './MarqoStack';
 import { HostedZone } from 'aws-cdk-lib/aws-route53';
 import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { SeshuFunction } from './SeshuFunction';
@@ -11,6 +12,7 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
   const { seshuSessionsTable } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
   const { seshuFn } = use(SeshuFunction);
+  const { marqoService } = use(MarqoStack);
 
   const api = new Api(stack, 'api', {
     defaults: {

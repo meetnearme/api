@@ -35,3 +35,8 @@ func GetDbTableName(tableName string) string {
 	return SST_Table_tableName
 }
 
+func GetMarqoLB() string {
+    marqoLB := os.Getenv("MarqoAlbArn")
+    return marqoLB
+}
+
