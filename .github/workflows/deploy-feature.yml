@@ -31,7 +31,7 @@ jobs:
       - name: Generate templ code
         uses: './.github/actions/templ_generate'
         with:
-          templ-version: 'v0.2.663'
+          templ-version: 'v0.2.747'
           setup-go: 'false'
           commit: 'false'
       - name: Breakpoint if `templ` generate failed

@@ -1,82 +1,397 @@
-package pages;
+package pages
 
 import (
-	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/templates/components"
+	"github.com/meetnearme/api/functions/gateway/services"
 )
 
-templ HomePage(events []services.EventSelect) {
+var cityStateArray = []string{
+	"New York, New York, US",
+	"Los Angeles, California, US",
+	"Chicago, Illinois, US",
+	"Houston, Texas, US",
+	"Philadelphia, Pennsylvania, US",
+	"Phoenix, Arizona, US",
+	"San Antonio, Texas, US",
+	"San Diego, California, US",
+	"Dallas, Texas, US",
+	"San Jose, California, US",
+	"Austin, Texas, US",
+	"Indianapolis, Indiana, US",
+	"Jacksonville, Florida, US",
+	"San Francisco, California, US",
+	"Columbus, Ohio, US",
+	"Charlotte, North Carolina, US",
+	"Fort Worth, Texas, US",
+	"Detroit, Michigan, US",
+	"El Paso, Texas, US",
+	"Memphis, Tennessee, US",
+	"Seattle, Washington, US",
+	"Denver, Colorado, US",
+	"Washington, District of Columbia, US",
+	"Boston, Massachusetts, US",
+	"Nashville-Davidson, Tennessee, US",
+	"Baltimore, Maryland, US",
+	"Oklahoma City, Oklahoma, US",
+	"Louisville, Kentucky, US",
+	"Portland, Oregon, US",
+	"Las Vegas, Nevada, US",
+	"Milwaukee, Wisconsin, US",
+	"Albuquerque, New Mexico, US",
+	"Tucson, Arizona, US",
+	"Fresno, California, US",
+	"Sacramento, California, US",
+	"Long Beach, California, US",
+	"Kansas City, Missouri, US",
+	"Mesa, Arizona, US",
+	"Virginia Beach, Virginia, US",
+	"Atlanta, Georgia, US",
+	"Colorado Springs, Colorado, US",
+	"Omaha, Nebraska, US",
+	"Raleigh, North Carolina, US",
+	"Miami, Florida, US",
+	"Oakland, California, US",
+	"Minneapolis, Minnesota, US",
+	"Tulsa, Oklahoma, US",
+	"Cleveland, Ohio, US",
+	"Wichita, Kansas, US",
+	"Arlington, Texas, US",
+	"New Orleans, Louisiana, US",
+	"Bakersfield, California, US",
+	"Tampa, Florida, US",
+	"Honolulu, Hawaii, US",
+	"Aurora, Colorado, US",
+	"Anaheim, California, US",
+	"Santa Ana, California, US",
+	"St. Louis, Missouri, US",
+	"Riverside, California, US",
+	"Corpus Christi, Texas, US",
+	"Lexington-Fayette, Kentucky, US",
+	"Pittsburgh, Pennsylvania, US",
+	"Anchorage, Alaska, US",
+	"Stockton, California, US",
+	"Cincinnati, Ohio, US",
+	"St. Paul, Minnesota, US",
+	"Toledo, Ohio, US",
+	"Greensboro, North Carolina, US",
+	"Newark, New Jersey, US",
+	"Plano, Texas, US",
+	"Henderson, Nevada, US",
+	"Lincoln, Nebraska, US",
+	"Buffalo, New York, US",
+	"Jersey City, New Jersey, US",
+	"Chula Vista, California, US",
+	"Fort Wayne, Indiana, US",
+	"Orlando, Florida, US",
+	"St. Petersburg, Florida, US",
+	"Chandler, Arizona, US",
+	"Laredo, Texas, US",
+	"Norfolk, Virginia, US",
+	"Durham, North Carolina, US",
+	"Madison, Wisconsin, US",
+	"Lubbock, Texas, US",
+	"Irvine, California, US",
+	"Winston-Salem, North Carolina, US",
+	"Glendale, Arizona, US",
+	"Garland, Texas, US",
+	"Hialeah, Florida, US",
+	"Reno, Nevada, US",
+	"Chesapeake, Virginia, US",
+	"Gilbert, Arizona, US",
+	"Baton Rouge, Louisiana, US",
+	"Irving, Texas, US",
+	"Scottsdale, Arizona, US",
+	"North Las Vegas, Nevada, US",
+	"Fremont, California, US",
+	"Boise City, Idaho, US",
+	"Richmond, Virginia, US",
+	"San Bernardino, California, US",
+	"Birmingham, Alabama, US",
+	"Spokane, Washington, US",
+	"Rochester, New York, US",
+	"Des Moines, Iowa, US",
+	"Modesto, California, US",
+	"Fayetteville, North Carolina, US",
+	"Tacoma, Washington, US",
+	"Oxnard, California, US",
+	"Fontana, California, US",
+	"Columbus, Georgia, US",
+	"Montgomery, Alabama, US",
+	"Moreno Valley, California, US",
+	"Shreveport, Louisiana, US",
+	"Aurora, Illinois, US",
+	"Yonkers, New York, US",
+	"Akron, Ohio, US",
+	"Huntington Beach, California, US",
+	"Little Rock, Arkansas, US",
+	"Augusta-Richmond County, Georgia, US",
+	"Amarillo, Texas, US",
+	"Glendale, California, US",
+	"Mobile, Alabama, US",
+	"Grand Rapids, Michigan, US",
+	"Salt Lake City, Utah, US",
+	"Tallahassee, Florida, US",
+	"Huntsville, Alabama, US",
+	"Grand Prairie, Texas, US",
+	"Knoxville, Tennessee, US",
+	"Worcester, Massachusetts, US",
+	"Newport News, Virginia, US",
+	"Brownsville, Texas, US",
+	"Overland Park, Kansas, US",
+	"Santa Clarita, California, US",
+	"Providence, Rhode Island, US",
+	"Garden Grove, California, US",
+	"Chattanooga, Tennessee, US",
+	"Oceanside, California, US",
+	"Jackson, Mississippi, US",
+	"Fort Lauderdale, Florida, US",
+	"Santa Rosa, California, US",
+	"Rancho Cucamonga, California, US",
+	"Port St. Lucie, Florida, US",
+	"Tempe, Arizona, US",
+	"Ontario, California, US",
+	"Vancouver, Washington, US",
+	"Cape Coral, Florida, US",
+	"Sioux Falls, South Dakota, US",
+	"Springfield, Missouri, US",
+	"Peoria, Arizona, US",
+	"Pembroke Pines, Florida, US",
+	"Elk Grove, California, US",
+	"Salem, Oregon, US",
+	"Lancaster, California, US",
+	"Corona, California, US",
+	"Eugene, Oregon, US",
+	"Palmdale, California, US",
+	"Salinas, California, US",
+	"Springfield, Massachusetts, US",
+	"Pasadena, Texas, US",
+	"Fort Collins, Colorado, US",
+	"Hayward, California, US",
+	"Pomona, California, US",
+	"Cary, North Carolina, US",
+	"Rockford, Illinois, US",
+	"Alexandria, Virginia, US",
+	"Escondido, California, US",
+	"McKinney, Texas, US",
+	"Kansas City, Kansas, US",
+	"Joliet, Illinois, US",
+	"Sunnyvale, California, US",
+	"Torrance, California, US",
+	"Bridgeport, Connecticut, US",
+	"Lakewood, Colorado, US",
+	"Hollywood, Florida, US",
+	"Paterson, New Jersey, US",
+	"Naperville, Illinois, US",
+	"Syracuse, New York, US",
+	"Mesquite, Texas, US",
+	"Dayton, Ohio, US",
+	"Savannah, Georgia, US",
+	"Clarksville, Tennessee, US",
+	"Orange, California, US",
+	"Pasadena, California, US",
+	"Fullerton, California, US",
+	"Killeen, Texas, US",
+	"Frisco, Texas, US",
+	"Hampton, Virginia, US",
+	"McAllen, Texas, US",
+	"Warren, Michigan, US",
+	"Bellevue, Washington, US",
+	"West Valley City, Utah, US",
+	"Columbia, South Carolina, US",
+	"Olathe, Kansas, US",
+	"Sterling Heights, Michigan, US",
+	"New Haven, Connecticut, US",
+}
+
+func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr string, lonStr string) string {
+	if latStr != "" && lonStr != "" {
+		return "Geocoordinates: " + latStr + ", " + lonStr
+	}
+	if cfLocation.City != "" && cfLocation.CCA2 != "" {
+		return cfLocation.City + ", " + cfLocation.CCA2
+	}
+	return "Location: Please Select"
+}
+
+func GetSelectedOptionAttr(cfLocation helpers.CdnLocation, latStr string, lonStr string) string {
+	return "selectedOption ? selectedOption.value : '" + GetCityCountryFromLocation(cfLocation, latStr, lonStr) + "'"
+}
+
+templ HomePage(events []services.EventSelect, cfLocation helpers.CdnLocation, latStr string, lonStr string) {
 	<div class="header-hero">
-		<h1 class="text-2xl md:text-5xl text-center mt-5">
-			Magically <span class="font-system">&#x2728</span> collect in-person events you care about <span class="font-system">&#x1F938</span> and discover new ones
+		<h1 class="text-2xl md:text-5xl text-center mb-5">
+			Push Your Boundaries.
+			<br/>
+			Explore Your World.
 		</h1>
-		<h2 class="text-lg md:text-2xl font-mono font-light text-center bg-base-100 mt-5">
-			Meet Near Me is a place to gather all of the in-person local events scattered across the internet into one unified place, volunteer to raise local event awareness, and discover nearby events shared by others.
-		</h2>
 	</div>
-	<h2 class="text-3xl">Events</h2>
-	<div class="overflow-x-auto bg-base-100 border-2 border-base-300">
-		<table class="table table-pin-rows table-pin-cols table-zebra">
-			<thead>
-				<tr>
-					<th>Event Name</th>
-					<th>Date</th>
-					<th>Time</th>
-					<th>Location</th>
-					<th></th>
-				</tr>
-			</thead>
-			<tbody>
-				if (len(events) < 1) {
-					<tr>
-						<td colspan="5" class="text-center">No events found, try enabling geolocation or changing your location, date, or time</td>
-					</tr>
-				} else {
-					for _, ev := range events {
-						<tr>
-							<td>
-								<div class="flex items-center gap-3">
-									<div>
-										<div class="font-bold">{ ev.Name }</div>
-										<div class="text-sm opacity-50">United States</div>
-									</div>
-								</div>
-							</td>
-							<td>
-								{ helpers.FormatDate(ev.Datetime) }
-								<br/>
-								<span class="badge badge-ghost badge-sm">Some Metadata</span>
-							</td>
-							<td>{ helpers.FormatTime(ev.Datetime) }</td>
-							<td>{ ev.Address }</td>
-							<th>
-								<a class="btn btn-primary btn-xs" href={ templ.URL("/events/" + ev.Id) }>details</a>
-							</th>
-						</tr>
-					}
+	<div class="min-h-screen">
+		<header class="flex justify-between p-4 bg-black border-b border-gray-700">
+			<nav class="flex space-x-4">
+				<button href="#" class="text-sm md:text-xl font-bold border-b-2 border-white">
+					EVENTS
+				</button>
+				<button href="#" class="text-sm md:text-xl">
+					GROUPS
+				</button>
+				<button href="#" class="text-sm md:text-xl">
+					ORGANIZERS
+				</button>
+			</nav>
+			//
+			<button onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
+				FILTER <svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96" fill="#FFFFFF"></path></svg>
+			</button>
+		</header>
+		<script id="alpine-state" data-maps-default-list={ templ.JSONString(cityStateArray) }>
+			function getLocationSearchData() {
+				return {
+					allOptions: JSON.parse(
+						document.querySelector('#alpine-state').getAttribute('data-maps-default-list')
+						).map((cityState) => ({
+							label: cityState,
+							value: cityState,
+						})),
+					options: [],
+					isOpen: false,
+					openedWithKeyboard: false,
+					selectedOption: null,
+					setSelectedOption(option) {
+							this.selectedOption = option
+							this.isOpen = false
+							this.openedWithKeyboard = false
+							this.$refs.hiddenTextField.value = option.value
+					},
+					getFilteredOptions(query) {
+							this.options = this.allOptions.filter((option) =>
+									option.label.toLowerCase().includes(query.toLowerCase()),
+							)
+							if (this.options.length === 0) {
+									this.$refs.noResultsMessage.classList.remove('hidden')
+							} else {
+									this.$refs.noResultsMessage.classList.add('hidden')
+							}
+					},
+					handleKeydownOnOptions(event) {
+							// if the user presses backspace or the alpha-numeric keys, focus on the search field
+							if ((event.keyCode >= 65 && event.keyCode <= 90) || (event.keyCode >= 48 && event.keyCode <= 57) || event.keyCode === 8) {
+									this.$refs.searchField.focus()
+							}
+					},
 				}
-			</tbody>
-			<tfoot>
-				<tr>
-					<th>Event Name</th>
-					<th>Date</th>
-					<th>Time</th>
-					<th>Location</th>
-					<th></th>
-				</tr>
-			</tfoot>
-		</table>
+			}
+		</script>
+		<div x-data="getLocationSearchData()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
+			<div class="relative px-4">
+				<!-- trigger button  -->
+				<button
+					type="button"
+					class="inline-flex w-full items-center justify-between gap-2 border border-slate-300 rounded-md bg-slate-100 mt-2 px-4 py-2 text-sm font-medium tracking-wide text-slate-700 transition hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:focus-visible:outline-blue-600"
+					role="combobox"
+					aria-controls="makesList"
+					aria-haspopup="listbox"
+					x-on:click="isOpen = ! isOpen"
+					x-on:keydown.down.prevent="openedWithKeyboard = true"
+					x-on:keydown.enter.prevent="openedWithKeyboard = true"
+					x-on:keydown.space.prevent="openedWithKeyboard = true"
+					x-bind:aria-expanded="isOpen || openedWithKeyboard"
+					x-bind:aria-label={ GetSelectedOptionAttr(cfLocation, latStr, lonStr) }
+				>
+					<span
+						class="text-sm font-normal"
+						x-text={ GetSelectedOptionAttr(cfLocation, latStr, lonStr) }
+					></span>
+					<span
+						class="sr-only"
+						x-text="selectedOption ? selectedOption.value : 'Location: Please Select'"
+					></span>
+					<!-- Chevron  -->
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true">
+						<path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"></path>
+					</svg>
+				</button>
+				<!-- Hidden Input To Grab The Selected Value  -->
+				<input id="make" name="make" x-ref="hiddenTextField" hidden=""/>
+				<div
+					x-show="isOpen || openedWithKeyboard"
+					:class="{'opacity-100': isOpen || openedWithKeyboard}"
+					class="w-full opacity-0 transition-all absolute left-4 top-12 z-10 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
+					id="makesList"
+					role="listbox"
+					aria-label="locations list"
+					x-on:click.outside="isOpen = false, openedWithKeyboard = false"
+					x-on:keydown.down.prevent="$focus.wrap().next()"
+					x-on:keydown.up.prevent="$focus.wrap().previous()"
+					x-transition
+					x-trap="openedWithKeyboard"
+				>
+					<!-- Search  -->
+					<div class="relative">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.5" class="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-700/50 dark:text-slate-300/50" aria-hidden="true">
+							<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"></path>
+						</svg>
+						<input type="text" class="w-full border-b borderslate-300 bg-slate-100 py-2.5 pl-11 pr-4 text-sm text-slate-700 focus:outline-none focus-visible:border-blue-700 disabled:cursor-not-allowed disabled:opacity-75 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus-visible:border-blue-600" name="searchField" aria-label="Search" x-on:input="getFilteredOptions($el.value)" x-ref="searchField" placeholder="Search"/>
+					</div>
+					<!-- Options  -->
+					<ul class="flex max-h-44 flex-col overflow-y-auto">
+						<li class="hidden px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
+							<span>No matches found</span>
+						</li>
+						<template x-for="(item, index) in options" x-bind:key="item.value">
+							<li class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white" role="option" x-on:click="setSelectedOption(item)" x-on:keydown.enter="setSelectedOption(item)" x-bind:id="'option-' + index" tabindex="0">
+								<!-- Label  -->
+								<span x-bind:class="selectedOption == item ? 'font-bold' : null" x-text="item.label"></span>
+								<!-- Screen reader 'selected' indicator  -->
+								<span class="sr-only" x-text="selectedOption == item ? 'selected' : null"></span>
+								<!-- Checkmark  -->
+								<svg x-cloak x-show="selectedOption == item" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" class="size-4" aria-hidden="true">
+									<path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"></path>
+								</svg>
+							</li>
+						</template>
+					</ul>
+				</div>
+			</div>
+		</div>
+		<div class="flex p-4 bg-black">
+			<div class="flex flex-auto space-x-2">
+				<button class="grow px-4 py-2 text-md md:text-xl btn btn-primary">TODAY</button>
+				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">TOMORROW</button>
+				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">THIS WEEK</button>
+				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">CUSTOM</button>
+			</div>
+		</div>
+		if (len(events) < 1) {
+			<p class="text-md md:text-lg text-center mt-5">
+				No events found, try enabling geolocation or changing your location, date, or time
+			</p>
+		} else {
+			<main class="p-4 space-y-4 md:grid md:grid-cols-1 md:gap-4 md:space-y-0">
+				for _, ev := range events {
+					<div class="md:flex md:flex-row overflow-hidden relative">
+						<a class="flex w-full md:w-1/2 h-96 md:h-72" href={ templ.URL("/events/" + ev.Id) }>
+							<img
+								src={ templ.EscapeString(helpers.GetImgUrlFromHash(ev.Id)) }
+								alt=""
+								class="object-cover w-full"
+								width="400"
+								height="200"
+								style="opacity: 0.3; aspect-ratio: 400 / 200; object-fit: cover;"
+							/>
+						</a>
+						<div class="flex flex-col justify-between w-full md:w-1/2 p-4 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0 md:relative">
+							<div class="mb-2">
+								<h2 class="text-xl">{ ev.Name }</h2>
+								<p class="text-sm">{ ev.Address } | { helpers.FormatDate(ev.Datetime) } | { helpers.FormatTime(ev.Datetime) }</p>
+							</div>
+							<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block">
+								LEARN MORE
+								&rarr;
+							</a>
+						</div>
+					</div>
+				}
+			</main>
+		}
 	</div>
-	<h2 class="text-3xl">TODO: filters</h2>
-	@components.DropdownNestedCheckbox()
-	<br/>
-	<br/>
-	<br/>
-	<br/>
-	<br/>
-	<br/>
-	<br/>
-	<br/>
-	<br/>
 }
