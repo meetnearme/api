@@ -8,8 +8,22 @@ import { Duration } from "aws-cdk-lib";
 export function MarqoStack({ stack }: StackContext) {
     // Create a VPC
     const vpc = new ec2.Vpc(stack, "MarqoVpc", {
-        maxAzs: 1  // Use only one AZ
-    });
+        cidr: '10.0.0.0/16', // CIDR block for the VPC
+        maxAzs: 1, // Maximum number of Availability Zones
+        subnetConfiguration: [
+            {
+            cidrMask: 24, // CIDR block size for each subnet
+            name: 'PrivateSubnet1',
+            subnetType: ec2.SubnetType.PRIVATE_ISOLATED, // Private subnet with no internet access
+            },
+            {
+            cidrMask: 24,
+            name: 'PrivateSubnet2',
+            subnetType: ec2.SubnetType.PRIVATE_ISOLATED, // Private subnet with no internet access
+            },
+        ],
+        }
+    );
 
     // Create an ECS cluster
     const cluster = new ecs.Cluster(stack, "MarqoCluster", {
@@ -75,11 +89,11 @@ export function MarqoStack({ stack }: StackContext) {
         ]
     });
 
+    vpc.s
     const loadBalancer = new lb.ApplicationLoadBalancer(stack, 'MarqoALB', {
         loadBalancerName: "marqo-alb",
         vpc: vpc,
         internetFacing: false,
-        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED, availabilityZones: ['us-east-1a', 'us-east-1b'] }
     });
 
     const listener = loadBalancer.addListener('Listener', {
@@ -104,7 +118,8 @@ export function MarqoStack({ stack }: StackContext) {
     // Output the API URL
     stack.addOutputs({
         "MarqoAlbDnsName": loadBalancer.loadBalancerDnsName,
-        "MarqoAlbArn": loadBalancer.loadBalancerArn
+        "MarqoAlbArn": loadBalancer.loadBalancerArn,
+        "MarqoTargetGroupArn": targetGroup.targetGroupArn
     });
     return {marqoService};
 }
