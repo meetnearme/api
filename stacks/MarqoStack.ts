@@ -8,16 +8,13 @@ import { Duration } from "aws-cdk-lib";
 export function MarqoStack({ stack }: StackContext) {
     // Create a VPC
     const vpc = new ec2.Vpc(stack, "MarqoVpc", {
-        cidr: '10.0.0.0/16', // CIDR block for the VPC
-        maxAzs: 1, // Maximum number of Availability Zones
+        maxAzs: 2, // Maximum number of Availability Zones
         subnetConfiguration: [
             {
-            cidrMask: 24, // CIDR block size for each subnet
             name: 'PrivateSubnet1',
             subnetType: ec2.SubnetType.PRIVATE_ISOLATED, // Private subnet with no internet access
             },
             {
-            cidrMask: 24,
             name: 'PrivateSubnet2',
             subnetType: ec2.SubnetType.PRIVATE_ISOLATED, // Private subnet with no internet access
             },
