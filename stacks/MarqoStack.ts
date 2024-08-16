@@ -9,16 +9,6 @@ export function MarqoStack({ stack }: StackContext) {
     // Create a VPC
     const vpc = new ec2.Vpc(stack, "MarqoVpc", {
         maxAzs: 2, // Maximum number of Availability Zones
-        subnetConfiguration: [
-            {
-            name: 'PrivateSubnet1',
-            subnetType: ec2.SubnetType.PRIVATE_ISOLATED, // Private subnet with no internet access
-            },
-            {
-            name: 'PrivateSubnet2',
-            subnetType: ec2.SubnetType.PRIVATE_ISOLATED, // Private subnet with no internet access
-            },
-        ],
         }
     );
 
@@ -86,7 +76,6 @@ export function MarqoStack({ stack }: StackContext) {
         ]
     });
 
-    vpc.s
     const loadBalancer = new lb.ApplicationLoadBalancer(stack, 'MarqoALB', {
         loadBalancerName: "marqo-alb",
         vpc: vpc,
