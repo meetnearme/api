@@ -104,8 +104,8 @@ func offsetLatLon(radius float64, lat, lon float64, corner string) (newLat, newL
 
 func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime, endTime time.Time, lat, lon float32, radius float32) ([]EventSelect, error) {
     // Calculate the bounding box coordinates
-		minLat, minLon := offsetLatLon(float64(radius), float64(lat), float64(lon), "upper left")
-		maxLat, maxLon := offsetLatLon(float64(radius), float64(lat), float64(lon), "lower right")
+		maxLat, minLon := offsetLatLon(float64(radius), float64(lat), float64(lon), "upper left")
+		minLat, maxLon := offsetLatLon(float64(radius), float64(lat), float64(lon), "lower right")
 
     // Calculate Z-order indices for the corners of the bounding box
 		log.Println("minLat: ", minLat)
@@ -116,11 +116,21 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
     if err != nil {
         return nil, fmt.Errorf("error calculating min z-order index: %v", err)
     }
+		startTime, lat, lon, error := indexing.DeriveValuesFromZOrder(minZOrderIndex)
+		log.Println("decoded min startTime: ", startTime)
+		log.Println("decoded min lat: ", lat)
+		log.Println("decoded min lon: ", lon)
+		log.Println("error: ", error)
 
     maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, float32(maxLat), float32(maxLon), "max")
     if err != nil {
         return nil, fmt.Errorf("error calculating max z-order index: %v", err)
     }
+		startTime, lat, lon, error = indexing.DeriveValuesFromZOrder(maxZOrderIndex)
+		log.Println("decoded max startTime: ", startTime)
+		log.Println("decoded max lat: ", lat)
+		log.Println("decoded max lon: ", lon)
+		log.Println("error: ", error)
 
     scanInput := &dynamodb.ScanInput{
         TableName: aws.String(eventsTableName),

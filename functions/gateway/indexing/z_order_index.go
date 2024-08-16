@@ -74,9 +74,70 @@ func mapFloatToSortableInt(floatValue float32) uint32 {
             sortableBytes[i] = b ^ 0xFF
         }
 
-    } 
+    }
     // Convert mapped bytes to an unsigned integer
     sortableInt :=  binary.BigEndian.Uint32(sortableBytes)
 
     return sortableInt
-} 
+}
+
+func DeriveValuesFromZOrder(zOrderIndex []byte) (startTime time.Time, lat, lon float32, err error) {
+    if len(zOrderIndex) < 12 {
+        return time.Time{}, 0, 0, fmt.Errorf("invalid z-order index length")
+    }
+
+    // Extract the interleaved binary string
+    zIndexBin := ""
+    for i := 0; i < 12; i++ {
+        zIndexBin += fmt.Sprintf("%08b", zOrderIndex[i])
+    }
+
+    // De-interleave the binary string
+    startTimeBin := ""
+    lonBin := ""
+    latBin := ""
+    for i := 0; i < 96; i += 3 {
+        startTimeBin += zIndexBin[i : i+1]
+        lonBin += zIndexBin[i+1 : i+2]
+        latBin += zIndexBin[i+2 : i+3]
+    }
+
+    // Convert binary strings to values
+    startTimeUnix, err := strconv.ParseInt(startTimeBin, 2, 64)
+    if err != nil {
+        return time.Time{}, 0, 0, fmt.Errorf("error parsing start time: %v", err)
+    }
+    startTime = time.Unix(startTimeUnix, 0)
+
+    lonSortableInt, err := strconv.ParseUint(lonBin, 2, 32)
+    if err != nil {
+        return time.Time{}, 0, 0, fmt.Errorf("error parsing longitude: %v", err)
+    }
+
+    latSortableInt, err := strconv.ParseUint(latBin, 2, 32)
+    if err != nil {
+        return time.Time{}, 0, 0, fmt.Errorf("error parsing latitude: %v", err)
+    }
+
+    lon = mapSortableIntToFloat(uint32(lonSortableInt))
+    lat = mapSortableIntToFloat(uint32(latSortableInt))
+
+    return startTime, lat, lon, nil
+}
+
+func mapSortableIntToFloat(sortableInt uint32) float32 {
+    floatBytes := make([]byte, 4)
+    binary.BigEndian.PutUint32(floatBytes, sortableInt)
+
+    if sortableInt&0x80000000 != 0 {
+        // Positive number, flip the first bit back
+        floatBytes[0] ^= 0x80
+    } else {
+        // Negative number, flip all bits back
+        for i := range floatBytes {
+            floatBytes[i] ^= 0xFF
+        }
+    }
+
+    return math.Float32frombits(binary.BigEndian.Uint32(floatBytes))
+}
