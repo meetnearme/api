@@ -384,6 +384,7 @@ templ HomePage(events []services.EventSelect, cfLocation helpers.CdnLocation, la
 								<h2 class="text-xl">{ ev.Name }</h2>
 								<p class="text-sm">{ ev.Address } | { helpers.FormatDate(ev.Datetime) } | { helpers.FormatTime(ev.Datetime) }</p>
 							</div>
+							<iframe src={ getMapUrl(ev.ZOrderIndex) } width="100%" height="300px" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
 							<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block">
 								LEARN MORE
 								&rarr;

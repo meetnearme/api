@@ -112,28 +112,28 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 		log.Println("minLon: ", minLon)
 		log.Println("maxLon: ", maxLon)
 
-		// TODO: this is temporary, need to decide how to properly do radius offset
+		// TODO: this is temporary, need to decide how to properlhandle radius offset
     // minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, minLat, minLon, "min")
-		minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, lat, lon, "min")
+		minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, minLat, minLon, "min")
     if err != nil {
         return nil, fmt.Errorf("error calculating min z-order index: %v", err)
     }
-		startTime, lat, lon, error := indexing.DeriveValuesFromZOrder(minZOrderIndex)
-		log.Println("decoded min startTime: ", startTime)
-		log.Println("decoded min lat: ", lat)
-		log.Println("decoded min lon: ", lon)
+		derivedStartTime, derivedLat, derivedLon, error := indexing.DeriveValuesFromZOrder(minZOrderIndex)
+		log.Println("decoded min derivedStartTime: ", derivedStartTime)
+		log.Println("decoded min derivedLat: ", derivedLat)
+		log.Println("decoded min derivedLon: ", derivedLon)
 		log.Println("error: ", error)
 
-		// TODO: this is temporary, need to decide how to properly do radius offset
+		// TODO: this is temporary, need to decide how to properlhandle radius offset
     // maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, maxLat, maxLon, "max")
-		maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, lat, lon, "max")
+		maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, maxLat, maxLon, "max")
     if err != nil {
         return nil, fmt.Errorf("error calculating max z-order index: %v", err)
     }
-		startTime, lat, lon, error = indexing.DeriveValuesFromZOrder(maxZOrderIndex)
-		log.Println("decoded max startTime: ", startTime)
-		log.Println("decoded max lat: ", lat)
-		log.Println("decoded max lon: ", lon)
+		derivedStartTime, derivedLat, derivedLon, error = indexing.DeriveValuesFromZOrder(maxZOrderIndex)
+		log.Println("decoded max derivedStartTime: ", derivedStartTime)
+		log.Println("decoded max derivedLat: ", derivedLat)
+		log.Println("decoded max derivedLon: ", derivedLon)
 		log.Println("error: ", error)
 
     scanInput := &dynamodb.ScanInput{

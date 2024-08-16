@@ -127,7 +127,10 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	lat := float32(39.8283)
 	lon := float32(-98.5795)
 	// roughly 500 miles
-	radius := float32(7.2)
+	// radius := float32(7.2)
+
+	// TODO: debugging delete this
+	radius := float32(2500)
 
 	// Parse parameter values if provided
 	if startTimeStr != "" {
