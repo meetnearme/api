@@ -1,7 +1,9 @@
 package pages
 
 import (
+	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/indexing"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"os"
 )
@@ -22,6 +24,10 @@ templ EventDetailsPage(event services.EventSelect) {
 			<br/>
 			<br/>
 			<strong>Price:</strong> $10.00
+			<br/>
+			<br/>
+			// TODO: remove this, just for testing
+			{ fmt.Sprint(indexing.DeriveValuesFromZOrder(event.ZOrderIndex) ) }
 			<br/>
 			<br/>
 			<h3 class="text-xl">EVENT DESCRIPTION</h3>

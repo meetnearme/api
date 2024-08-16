@@ -81,20 +81,19 @@ func GetEvents(ctx context.Context, db *dynamodb.Client) ([]EventSelect, error) 
 }
 
 
-func offsetLatLon(radius float64, lat, lon float64, corner string) (newLat, newLon float64) {
-	radiusKm := radius / milesPerKm
+func offsetLatLon(radius float32, lat, lon float32, corner string) (newLat, newLon float32) {
+	radiusKm := float64(radius) / milesPerKm
 	halfRadius := radiusKm / 2
-
 	latOffset := (halfRadius / earthRadiusKm) * (180 / math.Pi)
-	lonOffset := (halfRadius / earthRadiusKm) * (180 / math.Pi) / math.Cos(lat*math.Pi/180)
+	lonOffset := (halfRadius / earthRadiusKm) * (180 / math.Pi) / math.Cos(float64(lat)*math.Pi/180)
 
 	switch corner {
 	case "upper left":
-		newLat = lat + latOffset
-		newLon = lon - lonOffset
+		newLat = lat + float32(latOffset)
+		newLon = lon - float32(lonOffset)
 	case "lower right":
-		newLat = lat - latOffset
-		newLon = lon + lonOffset
+		newLat = lat - float32(latOffset)
+		newLon = lon + float32(lonOffset)
 	default:
 		return lat, lon // Return original coordinates if corner is invalid
 	}
@@ -104,15 +103,18 @@ func offsetLatLon(radius float64, lat, lon float64, corner string) (newLat, newL
 
 func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime, endTime time.Time, lat, lon float32, radius float32) ([]EventSelect, error) {
     // Calculate the bounding box coordinates
-		maxLat, minLon := offsetLatLon(float64(radius), float64(lat), float64(lon), "upper left")
-		minLat, maxLon := offsetLatLon(float64(radius), float64(lat), float64(lon), "lower right")
+		maxLat, minLon := offsetLatLon(radius, lat, lon, "upper left")
+		minLat, maxLon := offsetLatLon(radius, lat, lon, "lower right")
 
     // Calculate Z-order indices for the corners of the bounding box
 		log.Println("minLat: ", minLat)
 		log.Println("maxLat: ", maxLat)
 		log.Println("minLon: ", minLon)
 		log.Println("maxLon: ", maxLon)
-    minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, float32(minLat), float32(minLon), "min")
+
+		// TODO: this is temporary, need to decide how to properly do radius offset
+    // minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, minLat, minLon, "min")
+		minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, lat, lon, "min")
     if err != nil {
         return nil, fmt.Errorf("error calculating min z-order index: %v", err)
     }
@@ -122,7 +124,9 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 		log.Println("decoded min lon: ", lon)
 		log.Println("error: ", error)
 
-    maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, float32(maxLat), float32(maxLon), "max")
+		// TODO: this is temporary, need to decide how to properly do radius offset
+    // maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, maxLat, maxLon, "max")
+		maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, lat, lon, "max")
     if err != nil {
         return nil, fmt.Errorf("error calculating max z-order index: %v", err)
     }
