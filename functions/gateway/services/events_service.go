@@ -118,11 +118,6 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
     if err != nil {
         return nil, fmt.Errorf("error calculating min z-order index: %v", err)
     }
-		derivedStartTime, derivedLat, derivedLon, error := indexing.DeriveValuesFromZOrder(minZOrderIndex)
-		log.Println("decoded min derivedStartTime: ", derivedStartTime)
-		log.Println("decoded min derivedLat: ", derivedLat)
-		log.Println("decoded min derivedLon: ", derivedLon)
-		log.Println("error: ", error)
 
 		// TODO: this is temporary, need to decide how to properlhandle radius offset
     // maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, maxLat, maxLon, "max")
@@ -130,11 +125,6 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
     if err != nil {
         return nil, fmt.Errorf("error calculating max z-order index: %v", err)
     }
-		derivedStartTime, derivedLat, derivedLon, error = indexing.DeriveValuesFromZOrder(maxZOrderIndex)
-		log.Println("decoded max derivedStartTime: ", derivedStartTime)
-		log.Println("decoded max derivedLat: ", derivedLat)
-		log.Println("decoded max derivedLon: ", derivedLon)
-		log.Println("error: ", error)
 
     scanInput := &dynamodb.ScanInput{
         TableName: aws.String(eventsTableName),
@@ -228,6 +218,7 @@ func InsertEvent(ctx context.Context, db internal_types.DynamoDBAPI, createEvent
 	}
 
 	item, err := attributevalue.MarshalMap(newEvent)
+	log.Println("newEvent.ZorderIndex", newEvent.ZOrderIndex)
 	log.Println("item after marshalMap", item)
 	log.Println("item.zOrderIndex after marshalMap:", item["zOrderIndex"])
 	log.Println("item.name after marshalMap:", item["name"])

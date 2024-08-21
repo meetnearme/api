@@ -8,14 +8,31 @@ import (
 	"time"
 )
 
+func ConvertUnixTimeToBinary(unixTime int64) string {
+    // we need to start with 64 bits to account for the year, avoiding
+    // trunction of it, later we shave this to remove left-padded zeroes
+    //
+    // IMPORTANT: left-padding is the default in golang's binary helper
+    // functions, so we need to work around that scenario. This means that
+    // we can't presume 32 bits is the correct starting position of truncation
+    binaryStr := fmt.Sprintf("%064b", uint64(unixTime))
+
+    // keep only characters at index 32 on (represented as 64 here)
+    // this trims the left-padding to slightly less than 32 bits
+    // so that we don't shave the signicant first bit, which dictates
+    // the YEAR in unix timestamp
+    binaryStr = binaryStr[31:]
+
+    return binaryStr
+}
+
 func CalculateZOrderIndex(startTime time.Time, lat, lon float32, indexType string) ([]byte, error) {
     // Get current timestamp as index creation time
     indexCreationTime := time.Now().UTC()
-
-    // Convert dimensions to binary representations
     startTimeUnix := startTime.Unix()
-    startTimeBin := strconv.FormatInt(startTimeUnix, 2)
-    startTimeBin = fmt.Sprintf("%032s", startTimeBin)
+    // Convert dimensions to binary representations
+
+    startTimeBin := ConvertUnixTimeToBinary(startTimeUnix)
 
     // Map floating point values to sortable unsigned integers
     lonSortableInt := mapFloatToSortableInt(lon)
@@ -27,12 +44,12 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float32, indexType strin
 
     // Interleave binary representations
     var zIndexBin string
+
     for i := 0; i < 32; i++ {
         zIndexBin += startTimeBin[i : i+1]
-        if i < 32 {
+
             zIndexBin += lonBin[i : i+1]
             zIndexBin += latBin[i : i+1]
-        }
     }
 
     // Convert binary string to byte slice
@@ -42,14 +59,14 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float32, indexType strin
         zIndexBytes[i/8] = byte(b)
     }
 
-    // Append index creation time as bytes
-    indexCreationTimeBytes, _ := indexCreationTime.MarshalBinary()
-    zIndexBytes = append(zIndexBytes, indexCreationTimeBytes...)
-
     if indexType == "min" {
-        zIndexBytes = append(zIndexBytes, make([]byte, 8)...)
+        zIndexBytes = append(zIndexBytes, []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xFF}...)
     } else if indexType == "max" {
         zIndexBytes = append(zIndexBytes, []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}...)
+    } else {
+        // Append index creation time as bytes
+        indexCreationTimeBytes, _ := indexCreationTime.MarshalBinary()
+        zIndexBytes = append(zIndexBytes, indexCreationTimeBytes...)
     }
 
     return zIndexBytes, nil
@@ -73,71 +90,9 @@ func mapFloatToSortableInt(floatValue float32) uint32 {
         for i, b := range floatBytes {
             sortableBytes[i] = b ^ 0xFF
         }
-
     }
     // Convert mapped bytes to an unsigned integer
     sortableInt :=  binary.BigEndian.Uint32(sortableBytes)
 
     return sortableInt
-}
-
-func DeriveValuesFromZOrder(zOrderIndex []byte) (startTime time.Time, lat, lon float32, err error) {
-    if len(zOrderIndex) < 12 {
-        return time.Time{}, 0, 0, fmt.Errorf("invalid z-order index length")
-    }
-
-    // Extract the interleaved binary string
-    zIndexBin := ""
-    for i := 0; i < 12; i++ {
-        zIndexBin += fmt.Sprintf("%08b", zOrderIndex[i])
-    }
-
-    // De-interleave the binary string
-    startTimeBin := ""
-    lonBin := ""
-    latBin := ""
-    for i := 0; i < 96; i += 3 {
-        startTimeBin += zIndexBin[i : i+1]
-        lonBin += zIndexBin[i+1 : i+2]
-        latBin += zIndexBin[i+2 : i+3]
-    }
-
-    // Convert binary strings to values
-    startTimeUnix, err := strconv.ParseInt(startTimeBin, 2, 64)
-    if err != nil {
-        return time.Time{}, 0, 0, fmt.Errorf("error parsing start time: %v", err)
-    }
-    startTime = time.Unix(startTimeUnix, 0)
-
-    lonSortableInt, err := strconv.ParseUint(lonBin, 2, 32)
-    if err != nil {
-        return time.Time{}, 0, 0, fmt.Errorf("error parsing longitude: %v", err)
-    }
-
-    latSortableInt, err := strconv.ParseUint(latBin, 2, 32)
-    if err != nil {
-        return time.Time{}, 0, 0, fmt.Errorf("error parsing latitude: %v", err)
-    }
-
-    lon = mapSortableIntToFloat(uint32(lonSortableInt))
-    lat = mapSortableIntToFloat(uint32(latSortableInt))
-
-    return startTime, lat, lon, nil
-}
-
-func mapSortableIntToFloat(sortableInt uint32) float32 {
-    floatBytes := make([]byte, 4)
-    binary.BigEndian.PutUint32(floatBytes, sortableInt)
-
-    if sortableInt&0x80000000 != 0 {
-        // Positive number, flip the first bit back
-        floatBytes[0] ^= 0x80
-    } else {
-        // Negative number, flip all bits back
-        for i := range floatBytes {
-            floatBytes[i] ^= 0xFF
-        }
-    }
-
-    return math.Float32frombits(binary.BigEndian.Uint32(floatBytes))
 }

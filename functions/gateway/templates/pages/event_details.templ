@@ -3,20 +3,22 @@ package pages
 import (
 	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/indexing"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"log"
 	"os"
 )
 
-func getMapUrl(zorder []byte) string {
-	var _, lat, lon, _ = indexing.DeriveValuesFromZOrder(zorder)
-	return "https://www.google.com/maps/embed/v1/place?key=" + os.Getenv("GOOGLE_API_KEY") + "&q=" + fmt.Sprintf("%f,%f", lat, lon)
+func getMapUrl(event services.EventSelect) string {
+	log.Println("getMapUrl event.Latitude: ", event.Latitude)
+	log.Println("getMapUrl event.Longitude: ", event.Longitude)
+	return "https://www.google.com/maps/embed/v1/place?key=" + os.Getenv("GOOGLE_API_KEY") + "&q=" + fmt.Sprintf("%f,%f", event.Latitude, event.Longitude)
 }
 
 templ EventDetailsPage(event services.EventSelect) {
 	<div class="max-w-prose mx-auto">
 		<h2 class="text-3xl mt-2">{ event.Name }</h2>
-		// <h3>Event Id: { eventId }</h3>
+		<h3>ZorderIndex arr: { fmt.Sprint(event.ZOrderIndex) }</h3>
+		<h3>ZorderIndex str: { fmt.Sprintf("%x", event.ZOrderIndex) }</h3>
 		<br/>
 		<p>
 			<img style="display: inline-block;" alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/location.svg") }/> <strong>Location:</strong> { event.Address }
@@ -32,8 +34,7 @@ templ EventDetailsPage(event services.EventSelect) {
 			<br/>
 			<br/>
 			// TODO: remove this, just for testing
-			{ fmt.Sprint(indexing.DeriveValuesFromZOrder(event.ZOrderIndex) ) }
-			<iframe src={ getMapUrl(event.ZOrderIndex) } width="100%" height="300px" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+			<iframe src={ getMapUrl(event) } width="100%" height="300px" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
 			<br/>
 			<br/>
 			<h3 class="text-xl">EVENT DESCRIPTION</h3>
