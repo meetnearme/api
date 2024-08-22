@@ -86,13 +86,13 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Set default values if query parameters are not provided
 	startTime := time.Now()
 	endTime := startTime.AddDate(100, 0, 0)
-	lat := float32(39.8283)
-	lon := float32(-98.5795)
+	lat := float64(39.8283)
+	lon := float64(-98.5795)
 	// roughly 500 miles
-	// radius := float32(7.2)
+	// radius := float64(7.2)
 
 	// TODO: debugging delete this
-	radius := float32(2500)
+	radius := float64(2500)
 
 	// Parse parameter values if provided
 	if startTimeStr != "" {
@@ -103,21 +103,21 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 	if latStr != "" {
 			lat64, _ := strconv.ParseFloat(latStr, 32)
-			lat = float32(lat64)
+			lat = float64(lat64)
 	} else if cfLocationLat != services.InitialEmptyLatLon  {
-      lat = float32(cfLocationLat)
+      lat = float64(cfLocationLat)
 			log.Println("setting lat to cfLocationLat: ", cfLocationLat)
   }
 	if lonStr != "" {
 			lon64, _ := strconv.ParseFloat(lonStr, 32)
-			lon = float32(lon64)
+			lon = float64(lon64)
 	} else if cfLocationLon != services.InitialEmptyLatLon {
-      lon = float32(cfLocationLon)
+      lon = float64(cfLocationLon)
 			log.Println("setting lon to cfLocationLon: ", cfLocationLon)
   }
 	if radiusStr != "" {
 			radius64, _ := strconv.ParseFloat(radiusStr, 32)
-			radius = float32(radius64)
+			radius = float64(radius64)
 	}
 
 	cfLocation.Lat = float64(lat)

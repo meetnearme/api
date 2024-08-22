@@ -21,12 +21,12 @@ func ConvertUnixTimeToBinary(unixTime int64) string {
     // this trims the left-padding to slightly less than 32 bits
     // so that we don't shave the signicant first bit, which dictates
     // the YEAR in unix timestamp
-    binaryStr = binaryStr[31:]
+    // binaryStr = binaryStr[31:]
 
     return binaryStr
 }
 
-func CalculateZOrderIndex(startTime time.Time, lat, lon float32, indexType string) ([]byte, error) {
+func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType string) ([]byte, error) {
     // Get current timestamp as index creation time
     indexCreationTime := time.Now().UTC()
     startTimeUnix := startTime.Unix()
@@ -35,8 +35,12 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float32, indexType strin
     startTimeBin := ConvertUnixTimeToBinary(startTimeUnix)
 
     // Map floating point values to sortable unsigned integers
-    lonSortableInt := mapFloatToSortableInt(lon)
-    latSortableInt := mapFloatToSortableInt(lat)
+    // lonSortableInt := mapFloatToSortableInt32(lon)
+    // latSortableInt := mapFloatToSortableInt32(lat)
+
+    lonSortableInt := mapFloatToSortableInt64(float64(lon))
+    latSortableInt := mapFloatToSortableInt64(float64(lat))
+
 
     // Convert sortable integers to binary string
     lonBin := fmt.Sprintf("%032b", lonSortableInt)
@@ -72,7 +76,7 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float32, indexType strin
     return zIndexBytes, nil
 }
 
-func mapFloatToSortableInt(floatValue float32) uint32 {
+func mapFloatToSortableInt32(floatValue float32) uint32 {
     // Convert float64 to byte slice
     floatBytes := make([]byte, 8)
     binary.BigEndian.PutUint32(floatBytes, math.Float32bits(floatValue))
@@ -93,6 +97,31 @@ func mapFloatToSortableInt(floatValue float32) uint32 {
     }
     // Convert mapped bytes to an unsigned integer
     sortableInt :=  binary.BigEndian.Uint32(sortableBytes)
+
+    return sortableInt
+}
+
+func mapFloatToSortableInt64(floatValue float64) uint64 {
+    // Convert float64 to byte slice
+    floatBytes := make([]byte, 8)
+    binary.BigEndian.PutUint64(floatBytes, math.Float64bits(floatValue))
+
+    var sortableBytes []byte
+
+    if floatValue >= 0 {
+        // XOR op for flipping first bit to make unsigned int representation of positive float after negative
+        sortableBytes = make([]byte, 8)
+        sortableBytes[0] = floatBytes[0] ^ 0x80
+        copy(sortableBytes[1:], floatBytes[1:])
+    } else {
+        // XOR to flip all bits, makes negative float come first as int
+        sortableBytes = make([]byte, 8)
+        for i, b := range floatBytes {
+            sortableBytes[i] = b ^ 0xFF
+        }
+    }
+    // Convert mapped bytes to an unsigned integer
+    sortableInt := binary.BigEndian.Uint64(sortableBytes)
 
     return sortableInt
 }

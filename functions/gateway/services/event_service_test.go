@@ -18,12 +18,12 @@ func TestGetEventsZOrder(t *testing.T) {
     tests := []struct {
         name string
         mockScanOutput *dynamodb.ScanOutput
-        mockScanError error 
+        mockScanError error
         startTime time.Time
         endTime time.Time
-        lat float32
-        lon float32
-        radius float32
+        lat float64
+        lon float64
+        radius float64
         expectedEvents []EventSelect
         expectedError error
     }{

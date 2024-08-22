@@ -30,8 +30,8 @@ type EventSelect struct {
 	Address     string `json:"address" dynamodbav:"address"`
 	ZipCode     string `json:"zip_code" dynamodbav:"zip_code"`
 	Country     string `json:"country" validate:"required"`
-	Latitude 		float32 `json:"latitude" validate:"required"`
-	Longitude		float32 `json:"longitude" validate:"required"`
+	Latitude 		float64 `json:"latitude" validate:"required"`
+	Longitude		float64 `json:"longitude" validate:"required"`
 	ZOrderIndex []byte `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
 }
 
@@ -42,8 +42,8 @@ type EventInsert struct {
 	Address     string `json:"address" validate:"required"`
 	ZipCode     string `json:"zip_code" validate:"required"`
 	Country     string `json:"country" validate:"required"`
-	Latitude 		float32 `json:"latitude" validate:"required"`
-	Longitude		float32 `json:"longitude" validate:"required"`
+	Latitude 		float64 `json:"latitude" validate:"required"`
+	Longitude		float64 `json:"longitude" validate:"required"`
 	ZOrderIndex []byte `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
 }
 
@@ -81,7 +81,7 @@ func GetEvents(ctx context.Context, db *dynamodb.Client) ([]EventSelect, error) 
 }
 
 
-func offsetLatLon(radius float32, lat, lon float32, corner string) (newLat, newLon float32) {
+func offsetLatLon(radius float64, lat, lon float64, corner string) (newLat, newLon float64) {
 	radiusKm := float64(radius) / milesPerKm
 	halfRadius := radiusKm / 2
 	latOffset := (halfRadius / earthRadiusKm) * (180 / math.Pi)
@@ -89,11 +89,11 @@ func offsetLatLon(radius float32, lat, lon float32, corner string) (newLat, newL
 
 	switch corner {
 	case "upper left":
-		newLat = lat + float32(latOffset)
-		newLon = lon - float32(lonOffset)
+		newLat = lat + float64(latOffset)
+		newLon = lon - float64(lonOffset)
 	case "lower right":
-		newLat = lat - float32(latOffset)
-		newLon = lon + float32(lonOffset)
+		newLat = lat - float64(latOffset)
+		newLon = lon + float64(lonOffset)
 	default:
 		return lat, lon // Return original coordinates if corner is invalid
 	}
@@ -101,7 +101,7 @@ func offsetLatLon(radius float32, lat, lon float32, corner string) (newLat, newL
 	return newLat, newLon
 }
 
-func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime, endTime time.Time, lat, lon float32, radius float32) ([]EventSelect, error) {
+func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime, endTime time.Time, lat, lon float64, radius float64) ([]EventSelect, error) {
     // Calculate the bounding box coordinates
 		maxLat, minLon := offsetLatLon(radius, lat, lon, "upper left")
 		minLat, maxLon := offsetLatLon(radius, lat, lon, "lower right")
