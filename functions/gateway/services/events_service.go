@@ -7,6 +7,9 @@ import (
 	"math"
 	"time"
 
+	"encoding/base64"
+	"encoding/binary"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -101,12 +104,25 @@ func offsetLatLon(radius float64, lat, lon float64, corner string) (newLat, newL
 	return newLat, newLon
 }
 
+func base64ToDecimal(b64 string) (uint64, error) {
+	// Decode base64 to bytes
+	bytes, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+			return 0, fmt.Errorf("failed to decode base64: %v", err)
+	}
+
+	decimal := binary.BigEndian.Uint64(bytes)
+
+	return decimal, nil
+}
+
 func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime, endTime time.Time, lat, lon float64, radius float64) ([]EventSelect, error) {
     // Calculate the bounding box coordinates
 		maxLat, minLon := offsetLatLon(radius, lat, lon, "upper left")
 		minLat, maxLon := offsetLatLon(radius, lat, lon, "lower right")
 
     // Calculate Z-order indices for the corners of the bounding box
+		log.Println("startTime: ", startTime)
 		log.Println("minLat: ", minLat)
 		log.Println("maxLat: ", maxLat)
 		log.Println("minLon: ", minLon)
@@ -114,6 +130,9 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 
 		// TODO: this is temporary, need to decide how to properlhandle radius offset
     // minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, minLat, minLon, "min")
+
+		log.Printf("\n\n\n\n======>>>>>>>> minZOrderIndex: before")
+
 		minZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, minLat, minLon, "min")
     if err != nil {
         return nil, fmt.Errorf("error calculating min z-order index: %v", err)
@@ -121,10 +140,51 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 
 		// TODO: this is temporary, need to decide how to properlhandle radius offset
     // maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, maxLat, maxLon, "max")
+
+		log.Printf("\n\n\n\n======>>>>>>>> maxZOrderIndex: before")
+
 		maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, maxLat, maxLon, "max")
     if err != nil {
         return nil, fmt.Errorf("error calculating max z-order index: %v", err)
     }
+
+	// Convert minZOrderIndex and maxZOrderIndex to decimal string representations
+	minDecimal := fmt.Sprintf("%d", binary.BigEndian.Uint64(minZOrderIndex))
+	maxDecimal := fmt.Sprintf("%d", binary.BigEndian.Uint64(maxZOrderIndex))
+
+	log.Printf("minZOrderIndex (decimal): %s", minDecimal)
+	log.Printf("maxZOrderIndex (decimal): %s", maxDecimal)
+
+	// THIS WAS FROM THE CREATION TIME BINARY REPRESENTATION appended to the end of the zIndexBytes
+	// int, err := base64ToDecimal("LktlqgvNGnUxMTAwMTEwMTEwMDEwMDAxMDAwMDEwMDExMDExMDAxMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw")
+
+	int, err := base64ToDecimal("LktlqgvNGnUAAAAAZsiXTw==")
+	log.Printf("World Trivia Event (decimal): %d", int)
+
+	// THIS WAS FROM THE CREATION TIME BINARY REPRESENTATION appended to the end of the zIndexBytes
+	// int, err = base64ToDecimal("LktsigEfy9gxMTAwMTEwMTEwMDEwMDAxMDAwMDEwMDExMTAxMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw")
+
+	int, err = base64ToDecimal("LktsigEfy9gAAAAAZsiXVQ==")
+	log.Printf("Denver Karaoke Event (decimal): %d", int)
+
+
+	// THIS WAS FROM THE CREATION TIME BINARY REPRESENTATION appended to the end of the zIndexBytes
+	// int, err = base64ToDecimal("Lktliosar3kxMTAwMTEwMTEwMDEwMDAxMDAwMDEwMDExMDEwMDAxMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw")
+	int, err = base64ToDecimal("Lktliosar3kAAAAAZsiXRw==")
+	log.Printf("DC Bocce Ball Event (decimal): %d", int)
+
+
+	// 10749413644872293935
+	// 9611972806766166127
+
+	if minDecimal > maxDecimal {
+		log.Println("minZOrderIndex is greater than maxZOrderIndex")
+		// minZOrderIndex, maxZOrderIndex = maxZOrderIndex, minZOrderIndex
+	} else if minDecimal < maxDecimal {
+		log.Println("maxZOrderIndex is greater than minZOrderIndex")
+	} else {
+		log.Println("minZOrderIndex and maxZOrderIndex are equal")
+	}
 
     scanInput := &dynamodb.ScanInput{
         TableName: aws.String(eventsTableName),

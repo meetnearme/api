@@ -28,7 +28,7 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType strin
     startTimeUnix := startTime.Unix()
     // Convert dimensions to binary representations
 
-    indexCreationTimeBin := ConvertUnixTimeToBinary(indexCreationTime.Unix())
+    // indexCreationTimeBin := ConvertUnixTimeToBinary(indexCreationTime.Unix())
     startTimeBin := ConvertUnixTimeToBinary(startTimeUnix)
     log.Println("startTimeBin: ", startTimeBin)
 
@@ -46,40 +46,95 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType strin
 
     log.Println("lonBin: ", lonBin)
     log.Println("latBin: ", latBin)
+    log.Println("startTimeBin: ", startTimeBin)
 
+
+    // latBin = "1111111111111111111111111111111111111111111111111111111111111111"
+
+    // lonBin = "0000000000000000000000000000000000000000000000000000000000000000"
+
+    // startTimeBin = "0000000000000000000000000000000000000000000000000000000000000000"
+
+    // min startTimeBin
+    // 1100110110010001000000101111010000000000000000000000000000000000
+    // max startTimeBin
+    // 1001000101110000001000011011110100000000000000000000000000000000
+
+    // min lonBin
+    // 0011111110101010010110111111111110001000010001010110101001110010
+    // max lonBin
+    // 0011111110110001000111001101000011101111011101010010101100011001
+
+    // min latBin
+    // 0100000000111111010010111001010111111011001010000001011100000000
+    // max latBin
+    // 0100000001001001000010110111110011000010011010111111010011000000
 
 
     // Interleave binary representations
     var zIndexBin string
 
     for i := 0; i < 64; i++ {
+        zIndexBin += lonBin[i : i+1]
+        zIndexBin += latBin[i : i+1]
         zIndexBin += startTimeBin[i : i+1]
-
-            zIndexBin += lonBin[i : i+1]
-            zIndexBin += latBin[i : i+1]
     }
 
+    log.Println("zIndexBin: ", zIndexBin)
+
     // Convert binary string to byte slice
-    zIndexBytes := make([]byte, len(zIndexBin)/8)
-    for i := 0; i < len(zIndexBin); i += 8 {
+    zIndexBytes := make([]byte, 8)
+    for i := 0; i < len(zIndexBin) && i < 64; i += 8 {
         b, _ := strconv.ParseUint(zIndexBin[i:i+8], 2, 8)
         zIndexBytes[i/8] = byte(b)
     }
 
     if indexType == "min" {
-        appendedBytes := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+        appendedBytes := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1}
+        log.Println("MIN appendedBytes: ", appendedBytes)
         zIndexBytes = append(zIndexBytes, appendedBytes...)
     } else if indexType == "max" {
         appendedBytes := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+        log.Println("MAX appendedBytes: ", appendedBytes)
         zIndexBytes = append(zIndexBytes, appendedBytes...)
     } else {
-        // Append index creation time as bytes
-        // indexCreationTimeBytes, _ := indexCreationTime.MarshalBinary()
-        log.Println("indexCreationTimeBin: ", indexCreationTimeBin)
-        // log.Println("indexCreationTimeBytes: ", indexCreationTimeBytes)
-        log.Println("len indexCreationTimeBin: ", len(indexCreationTimeBin))
-        zIndexBytes = append(zIndexBytes, indexCreationTimeBin...)
+        // Append index creation time as 8 bytes
+        appendedBytes := make([]byte, 8)
+        binary.BigEndian.PutUint64(appendedBytes, uint64(indexCreationTime.Unix()))
+        log.Println("IDX TIME appendedBytes: ", appendedBytes)
+        zIndexBytes = append(zIndexBytes, appendedBytes...)
     }
+
+
+
+// START ORIGINAL CODE
+
+    // Convert binary string to byte slice
+    // zIndexBytes := make([]byte, len(zIndexBin)/8)
+    // for i := 0; i < len(zIndexBin); i += 8 {
+    //     b, _ := strconv.ParseUint(zIndexBin[i:i+8], 2, 8)
+    //     zIndexBytes[i/8] = byte(b)
+    // }
+
+    // log.Println("zIndexBytes: ", zIndexBytes)
+    // if indexType == "min" {
+    //     appendedBytes := make([]byte, 8)
+    //     binary.BigEndian.PutUint64(appendedBytes, 0)
+    //     zIndexBytes = append(zIndexBytes, appendedBytes...)
+    // } else if indexType == "max" {
+    //     appendedBytes := make([]byte, 8)
+    //     binary.BigEndian.PutUint64(appendedBytes, math.MaxUint64)
+    //     zIndexBytes = append(zIndexBytes, appendedBytes...)
+    // } else {
+    //     // Append index creation time as bytes
+    //     // indexCreationTimeBytes, _ := indexCreationTime.MarshalBinary()
+    //     log.Println("indexCreationTimeBin: ", indexCreationTimeBin)
+    //     // log.Println("indexCreationTimeBytes: ", indexCreationTimeBytes)
+    //     log.Println("len indexCreationTimeBin: ", len(indexCreationTimeBin))
+    //     zIndexBytes = append(zIndexBytes, indexCreationTimeBin...)
+    // }
+
+// END ORIGINAL CODE
 
     return zIndexBytes, nil
 }
