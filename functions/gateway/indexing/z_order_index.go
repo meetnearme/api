@@ -3,27 +3,23 @@ package indexing
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 )
 
 func ConvertUnixTimeToBinary(unixTime int64) string {
-    // we need to start with 64 bits to account for the year, avoiding
-    // trunction of it, later we shave this to remove left-padded zeroes
-    //
-    // IMPORTANT: left-padding is the default in golang's binary helper
-    // functions, so we need to work around that scenario. This means that
-    // we can't presume 32 bits is the correct starting position of truncation
-    binaryStr := fmt.Sprintf("%064b", uint64(unixTime))
+    // Convert to binary without padding
+    binaryStr := strconv.FormatInt(unixTime, 2)
 
-    // keep only characters at index 32 on (represented as 64 here)
-    // this trims the left-padding to slightly less than 32 bits
-    // so that we don't shave the signicant first bit, which dictates
-    // the YEAR in unix timestamp
-    // binaryStr = binaryStr[31:]
+    // Right-pad with zeros to ensure 64-bit length
+    paddedBinaryStr := binaryStr + strings.Repeat("0", 64-len(binaryStr))
 
-    return binaryStr
+    log.Println("startTime binaryStr: ", paddedBinaryStr)
+
+    return paddedBinaryStr
 }
 
 func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType string) ([]byte, error) {
@@ -32,7 +28,9 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType strin
     startTimeUnix := startTime.Unix()
     // Convert dimensions to binary representations
 
+    indexCreationTimeBin := ConvertUnixTimeToBinary(indexCreationTime.Unix())
     startTimeBin := ConvertUnixTimeToBinary(startTimeUnix)
+    log.Println("startTimeBin: ", startTimeBin)
 
     // Map floating point values to sortable unsigned integers
     // lonSortableInt := mapFloatToSortableInt32(lon)
@@ -43,13 +41,18 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType strin
 
 
     // Convert sortable integers to binary string
-    lonBin := fmt.Sprintf("%032b", lonSortableInt)
-    latBin := fmt.Sprintf("%032b", latSortableInt)
+    lonBin := fmt.Sprintf("%064b", lonSortableInt)
+    latBin := fmt.Sprintf("%064b", latSortableInt)
+
+    log.Println("lonBin: ", lonBin)
+    log.Println("latBin: ", latBin)
+
+
 
     // Interleave binary representations
     var zIndexBin string
 
-    for i := 0; i < 32; i++ {
+    for i := 0; i < 64; i++ {
         zIndexBin += startTimeBin[i : i+1]
 
             zIndexBin += lonBin[i : i+1]
@@ -64,17 +67,50 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType strin
     }
 
     if indexType == "min" {
-        zIndexBytes = append(zIndexBytes, []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xFF}...)
+        appendedBytes := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+        zIndexBytes = append(zIndexBytes, appendedBytes...)
     } else if indexType == "max" {
-        zIndexBytes = append(zIndexBytes, []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}...)
+        appendedBytes := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+        zIndexBytes = append(zIndexBytes, appendedBytes...)
     } else {
         // Append index creation time as bytes
-        indexCreationTimeBytes, _ := indexCreationTime.MarshalBinary()
-        zIndexBytes = append(zIndexBytes, indexCreationTimeBytes...)
+        // indexCreationTimeBytes, _ := indexCreationTime.MarshalBinary()
+        log.Println("indexCreationTimeBin: ", indexCreationTimeBin)
+        // log.Println("indexCreationTimeBytes: ", indexCreationTimeBytes)
+        log.Println("len indexCreationTimeBin: ", len(indexCreationTimeBin))
+        zIndexBytes = append(zIndexBytes, indexCreationTimeBin...)
     }
 
     return zIndexBytes, nil
 }
+
+
+// Denver Karaoke League FINAL SHOWDOWN
+// BSSSRQCLZaQaJILaViW1KDQH6Xo41SYQMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMTEwMDExMDExMDAwMTExMTExMDEwMDAxMTAwMTAwMA==
+
+// Bocce Ball DC
+// BSSSRQSJRbSKYRQacqW7iGHHVjw7o6zIMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMTEwMDExMDExMDAwMTExMTExMDEwMTAwMDEwMTAwMA==
+
+// World Trivia NYC
+// BSSSRQTCDTKCIaCJNhHp2Qc8iJ5x5tQTMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMTEwMDExMDExMDAwMTExMTExMDEwMDEwMDAwMTExMA==
+
+
+
+
+// BigEndian
+// [sst] |  +3548ms 2024/08/22 19:28:54 startTime binaryStr:  0000000000000000000000000000000001100110110001111110010111010110
+// [sst] |  +3548ms 2024/08/22 19:28:54 startTime binaryStr:  0000000000000000000000000000000100100010110111111010011111010110
+
+
+// LittleEndian
+
+// [sst] |  +2102ms 2024/08/22 19:30:56 startTime binaryStr:  0000000000000000000000000000000001100110110001111110011001010000
+// [sst] |  +2103ms 2024/08/22 19:30:56 startTime binaryStr:  0000000000000000000000000000000100100010110111111010100001010000
+// [sst] |  Done in 2919ms
+
+
+// 0000000000000000000000000000000001100110110001111110010111010110
+// 0000000000000000000000000000000001100110110001111110011001010000
 
 func mapFloatToSortableInt32(floatValue float32) uint32 {
     // Convert float64 to byte slice
@@ -104,7 +140,7 @@ func mapFloatToSortableInt32(floatValue float32) uint32 {
 func mapFloatToSortableInt64(floatValue float64) uint64 {
     // Convert float64 to byte slice
     floatBytes := make([]byte, 8)
-    binary.BigEndian.PutUint64(floatBytes, math.Float64bits(floatValue))
+    binary.LittleEndian.PutUint64(floatBytes, math.Float64bits(floatValue))
 
     var sortableBytes []byte
 
@@ -121,7 +157,15 @@ func mapFloatToSortableInt64(floatValue float64) uint64 {
         }
     }
     // Convert mapped bytes to an unsigned integer
-    sortableInt := binary.BigEndian.Uint64(sortableBytes)
+    sortableInt := binary.LittleEndian.Uint64(sortableBytes)
 
     return sortableInt
 }
+
+
+// curl -X POST -H 'Content-Type: application/json' -d '{"name": "DC Bocce Ball Semifinals", "description": "Join us for the thrilling semifinals of the DC Bocce Ball Championship! Witness top-tier bocce action as teams compete for a spot in the finals. Enjoy refreshments, meet fellow bocce enthusiasts, and experience the excitement of this classic Italian game in the heart of DC. Whether you are a seasoned player or a curious spectator, this event promises an unforgettable evening of skill, strategy, and fun!", "datetime": "2024-07-15T18:30:00Z", "address": "National Mall, Washington, DC", "zip_code": "20001", "country": "USA", "latitude": 38.8951, "longitude": -77.0364}' https://8j5aj6o6v8.execute-api.us-east-1.amazonaws.com/api/event
+
+// curl -X POST -H 'Content-Type: application/json' -d '{"name": "World Trivia Night Semifinals @ NYC", "description": "Calling all trivia buffs! The World Trivia Night Championship reaches its penultimate stage in the Big Apple. Teams from around the globe will battle it out in a test of knowledge spanning history, pop culture, science, and more. With high stakes and fierce competition, this event promises to be an intellectual spectacle. Join us for an evening of brain-teasing questions, international camaraderie, and the chance to witness trivia history in the making!", "datetime": "2024-08-22T19:00:00Z", "address": "Gotham Hall, 1356 Broadway, New York, NY", "zip_code": "10018", "country": "USA", "latitude": 40.6925, "longitude": -74.1687}' https://8j5aj6o6v8.execute-api.us-east-1.amazonaws.com/api/event
+
+
+// curl -X POST -H 'Content-Type: application/json' -d '{"name": "Denver Karaoke League FINAL SHOWDOWN", "description": "Get ready for the ultimate sing-off at the Denver Karaoke League FINAL SHOWDOWN! After months of fierce competition, the top performers will take the stage to battle for the title of Denver Karaoke Champion. Expect show-stopping performances, surprise guest judges, and an electrifying atmosphere as contestants give it their all. Whether you are a participant or a spectator, this night promises unforgettable entertainment and the crowning of a new karaoke royalty!", "datetime": "2024-10-05T20:00:00Z", "address": "Grizzly Rose, 5450 N Valley Hwy, Denver, CO", "zip_code": "80216", "country": "USA", "latitude": 39.772896, "longitude": -105.07766}' https://8j5aj6o6v8.execute-api.us-east-1.amazonaws.com/api/event
