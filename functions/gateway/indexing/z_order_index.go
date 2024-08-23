@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -15,37 +16,61 @@ func ConvertUnixTimeToBinary(unixTime int64) string {
     binaryStr := strconv.FormatInt(unixTime, 2)
 
     // Right-pad with zeros to ensure 64-bit length
-    paddedBinaryStr := binaryStr + strings.Repeat("0", 64-len(binaryStr))
+    paddedBinaryStr := binaryStr + strings.Repeat("0", 64 - len(binaryStr))
 
     log.Println("startTime binaryStr: ", paddedBinaryStr)
 
     return paddedBinaryStr
 }
 
-func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType string) ([]byte, error) {
+func BinToDecimal(binaryStr string) (*big.Int, error) {
+    decimal := new(big.Int)
+    _, ok := decimal.SetString(binaryStr, 2)
+    if !ok {
+        return nil, fmt.Errorf("failed to convert binary string to decimal")
+    }
+    return decimal, nil
+}
+
+
+func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType string) (string, error) {
     // Get current timestamp as index creation time
     indexCreationTime := time.Now().UTC()
     startTimeUnix := startTime.Unix()
+
     // Convert dimensions to binary representations
 
     // indexCreationTimeBin := ConvertUnixTimeToBinary(indexCreationTime.Unix())
     startTimeBin := ConvertUnixTimeToBinary(startTimeUnix)
     log.Println("startTimeBin: ", startTimeBin)
 
-    // Map floating point values to sortable unsigned integers
-    // lonSortableInt := mapFloatToSortableInt32(lon)
-    // latSortableInt := mapFloatToSortableInt32(lat)
+    log.Println("lon: ", lon)
+    log.Println("lat: ", lat)
 
-    lonSortableInt := mapFloatToSortableInt64(float64(lon))
-    latSortableInt := mapFloatToSortableInt64(float64(lat))
+    log.Println("middle negative lon", -20)
+
+    _ = mapFloatToSortableBinaryString(10)
+
+    log.Println("positive lon", 10)
+
+    _ = mapFloatToSortableBinaryString(-20)
+
+
+    lonSortableBinStr := mapFloatToSortableBinaryString(float64(lon))
+    latSortableBinStr := mapFloatToSortableBinaryString(float64(lat))
 
 
     // Convert sortable integers to binary string
-    lonBin := fmt.Sprintf("%064b", lonSortableInt)
-    latBin := fmt.Sprintf("%064b", latSortableInt)
+    // lonBin := fmt.Sprintf("%064b", lonSortableInt)
+    // latBin := fmt.Sprintf("%064b", latSortableInt)
 
-    log.Println("lonBin: ", lonBin)
-    log.Println("latBin: ", latBin)
+    log.Println("lonSortableBinStr: ", lonSortableBinStr)
+    decimal, _ := BinToDecimal(lonSortableBinStr)
+    log.Println("decimal: ", decimal)
+    log.Println("latSortableBinStr: ", latSortableBinStr)
+    decimal, _ = BinToDecimal(latSortableBinStr)
+    log.Println("decimal: ", decimal)
+
     log.Println("startTimeBin: ", startTimeBin)
 
 
@@ -55,117 +80,54 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType strin
 
     // startTimeBin = "0000000000000000000000000000000000000000000000000000000000000000"
 
-    // min startTimeBin
-    // 1100110110010001000000101111010000000000000000000000000000000000
-    // max startTimeBin
-    // 1001000101110000001000011011110100000000000000000000000000000000
-
-    // min lonBin
-    // 0011111110101010010110111111111110001000010001010110101001110010
-    // max lonBin
-    // 0011111110110001000111001101000011101111011101010010101100011001
-
-    // min latBin
-    // 0100000000111111010010111001010111111011001010000001011100000000
-    // max latBin
-    // 0100000001001001000010110111110011000010011010111111010011000000
-
-
     // Interleave binary representations
     var zIndexBin string
 
     for i := 0; i < 64; i++ {
-        zIndexBin += lonBin[i : i+1]
-        zIndexBin += latBin[i : i+1]
         zIndexBin += startTimeBin[i : i+1]
+        zIndexBin += lonSortableBinStr[i : i+1]
+        zIndexBin += latSortableBinStr[i : i+1]
     }
 
-    log.Println("zIndexBin: ", zIndexBin)
+    // log.Println("zIndexBin: ", zIndexBin)
 
-    // Convert binary string to byte slice
-    zIndexBytes := make([]byte, 8)
-    for i := 0; i < len(zIndexBin) && i < 64; i += 8 {
-        b, _ := strconv.ParseUint(zIndexBin[i:i+8], 2, 8)
-        zIndexBytes[i/8] = byte(b)
-    }
-
-    if indexType == "min" {
-        appendedBytes := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1}
-        log.Println("MIN appendedBytes: ", appendedBytes)
-        zIndexBytes = append(zIndexBytes, appendedBytes...)
-    } else if indexType == "max" {
-        appendedBytes := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
-        log.Println("MAX appendedBytes: ", appendedBytes)
-        zIndexBytes = append(zIndexBytes, appendedBytes...)
-    } else {
-        // Append index creation time as 8 bytes
-        appendedBytes := make([]byte, 8)
-        binary.BigEndian.PutUint64(appendedBytes, uint64(indexCreationTime.Unix()))
-        log.Println("IDX TIME appendedBytes: ", appendedBytes)
-        zIndexBytes = append(zIndexBytes, appendedBytes...)
-    }
-
-
-
-// START ORIGINAL CODE
-
-    // Convert binary string to byte slice
-    // zIndexBytes := make([]byte, len(zIndexBin)/8)
-    // for i := 0; i < len(zIndexBin); i += 8 {
+    // // Convert binary string to byte slice
+    // zIndexBytes := make([]byte, 8)
+    // for i := 0; i < len(zIndexBin) && i < 64; i += 8 {
     //     b, _ := strconv.ParseUint(zIndexBin[i:i+8], 2, 8)
     //     zIndexBytes[i/8] = byte(b)
     // }
 
-    // log.Println("zIndexBytes: ", zIndexBytes)
-    // if indexType == "min" {
-    //     appendedBytes := make([]byte, 8)
-    //     binary.BigEndian.PutUint64(appendedBytes, 0)
-    //     zIndexBytes = append(zIndexBytes, appendedBytes...)
-    // } else if indexType == "max" {
-    //     appendedBytes := make([]byte, 8)
-    //     binary.BigEndian.PutUint64(appendedBytes, math.MaxUint64)
-    //     zIndexBytes = append(zIndexBytes, appendedBytes...)
-    // } else {
-    //     // Append index creation time as bytes
-    //     // indexCreationTimeBytes, _ := indexCreationTime.MarshalBinary()
-    //     log.Println("indexCreationTimeBin: ", indexCreationTimeBin)
-    //     // log.Println("indexCreationTimeBytes: ", indexCreationTimeBytes)
-    //     log.Println("len indexCreationTimeBin: ", len(indexCreationTimeBin))
-    //     zIndexBytes = append(zIndexBytes, indexCreationTimeBin...)
-    // }
+    if indexType == "min" {
+        // appendedBytes := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1}
+        // log.Println("MIN appendedBytes: ", appendedBytes)
+        // zIndexBytes = append(zIndexBytes, appendedBytes...)
+        // log.Println("zIndexBytes AFTER MIN append: ", zIndexBytes)
 
-// END ORIGINAL CODE
+        zIndexBin += "0000000000000000000000000000000000000000000000000000000000000001"
+    } else if indexType == "max" {
+        // appendedBytes := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+        // log.Println("MAX appendedBytes: ", appendedBytes)
+        // zIndexBytes = append(zIndexBytes, appendedBytes...)
+        // log.Println("zIndexBytes AFTER MAX append: ", zIndexBytes)
+        zIndexBin += "1111111111111111111111111111111111111111111111111111111111111111"
+    } else {
+        // Append index creation time as 8 bytes
+        // appendedBytes := make([]byte, 8)
+        // binary.BigEndian.PutUint64(appendedBytes, uint64(indexCreationTime.Unix()))
+        // log.Println("IDX TIME appendedBytes: ", appendedBytes)
+        // zIndexBytes = append(zIndexBytes, appendedBytes...)
+        // log.Println("zIndexBytes IDX TIME append: ", zIndexBytes)
+        binaryStr := strconv.FormatInt(indexCreationTime.Unix(), 2)
 
-    return zIndexBytes, nil
+        // Left-pad with zeros to ensure 64-bit length
+        zIndexBin += strings.Repeat("0", 64-len(binaryStr)) + binaryStr
+
+    }
+
+    return zIndexBin, nil
 }
 
-
-// Denver Karaoke League FINAL SHOWDOWN
-// BSSSRQCLZaQaJILaViW1KDQH6Xo41SYQMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMTEwMDExMDExMDAwMTExMTExMDEwMDAxMTAwMTAwMA==
-
-// Bocce Ball DC
-// BSSSRQSJRbSKYRQacqW7iGHHVjw7o6zIMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMTEwMDExMDExMDAwMTExMTExMDEwMTAwMDEwMTAwMA==
-
-// World Trivia NYC
-// BSSSRQTCDTKCIaCJNhHp2Qc8iJ5x5tQTMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMTEwMDExMDExMDAwMTExMTExMDEwMDEwMDAwMTExMA==
-
-
-
-
-// BigEndian
-// [sst] |  +3548ms 2024/08/22 19:28:54 startTime binaryStr:  0000000000000000000000000000000001100110110001111110010111010110
-// [sst] |  +3548ms 2024/08/22 19:28:54 startTime binaryStr:  0000000000000000000000000000000100100010110111111010011111010110
-
-
-// LittleEndian
-
-// [sst] |  +2102ms 2024/08/22 19:30:56 startTime binaryStr:  0000000000000000000000000000000001100110110001111110011001010000
-// [sst] |  +2103ms 2024/08/22 19:30:56 startTime binaryStr:  0000000000000000000000000000000100100010110111111010100001010000
-// [sst] |  Done in 2919ms
-
-
-// 0000000000000000000000000000000001100110110001111110010111010110
-// 0000000000000000000000000000000001100110110001111110011001010000
 
 func mapFloatToSortableInt32(floatValue float32) uint32 {
     // Convert float64 to byte slice
@@ -190,6 +152,36 @@ func mapFloatToSortableInt32(floatValue float32) uint32 {
     sortableInt :=  binary.BigEndian.Uint32(sortableBytes)
 
     return sortableInt
+}
+
+func mapFloatToSortableBinaryString(floatValue float64) string {
+    // Convert float64 to bits
+    floatValue += 1000;
+    bits := math.Float64bits(floatValue)
+
+    log.Println("\n\n\n>>>> floatValue:", floatValue)
+    log.Println(">>>> bits:", bits)
+    // Convert bits to binary string
+    binaryStr := fmt.Sprintf("%064b", bits)
+
+    if floatValue < 0 {
+        // For negative values, flip all bits
+        flippedBits := ""
+        for _, bit := range binaryStr {
+            if bit == '0' {
+                flippedBits += "1"
+            } else {
+                flippedBits += "0"
+            }
+        }
+        log.Println(">>>> flippedBits:", flippedBits)
+        return flippedBits
+    }
+
+    // For positive values, just flip the sign bit
+    retVal := "1" + binaryStr[1:]
+    log.Println(">>>> retVal:", retVal)
+    return retVal
 }
 
 func mapFloatToSortableInt64(floatValue float64) uint64 {
