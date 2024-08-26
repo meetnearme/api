@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"strconv"
 	"time"
-
-	"encoding/base64"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -35,7 +32,7 @@ type EventSelect struct {
 	Country     string `json:"country" validate:"required"`
 	Latitude 		float64 `json:"latitude" validate:"required"`
 	Longitude		float64 `json:"longitude" validate:"required"`
-	ZOrderIndex string `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
+	ZOrderIndex []byte `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
 }
 
 type EventInsert struct {
@@ -47,7 +44,6 @@ type EventInsert struct {
 	Country     string `json:"country" validate:"required"`
 	Latitude 		float64 `json:"latitude" validate:"required"`
 	Longitude		float64 `json:"longitude" validate:"required"`
-	ZOrderIndex string `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
 }
 
 var eventsTableName = helpers.GetDbTableName(helpers.EventsTablePrefix)
@@ -104,27 +100,6 @@ func offsetLatLon(radius float64, lat, lon float64, corner string) (newLat, newL
 	return newLat, newLon
 }
 
-func ConvertBinaryStringToBase64(binaryStr string) (string, error) {
-	// Ensure the binary string length is a multiple of 8
-	if len(binaryStr)%8 != 0 {
-		return "", fmt.Errorf("binary string length must be a multiple of 8")
-	}
-
-	// Convert binary string to byte slice
-	byteSlice := make([]byte, len(binaryStr)/8)
-	for i := 0; i < len(binaryStr); i += 8 {
-		byteVal, err := strconv.ParseUint(binaryStr[i:i+8], 2, 8)
-		if err != nil {
-			return "", fmt.Errorf("invalid binary string: %v", err)
-		}
-		byteSlice[i/8] = byte(byteVal)
-	}
-
-	// Encode byte slice to base64
-	base64Str := base64.StdEncoding.EncodeToString(byteSlice)
-	return base64Str, nil
-}
-
 func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime, endTime time.Time, lat, lon float64, radius float64) ([]EventSelect, error) {
     // Calculate the bounding box coordinates
 		maxLat, minLon := offsetLatLon(radius, lat, lon, "upper left")
@@ -132,6 +107,7 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 
     // Calculate Z-order indices for the corners of the bounding box
 		log.Println("startTime: ", startTime)
+    log.Println("endTime: ", endTime)
 		log.Println("minLat: ", minLat)
 		log.Println("maxLat: ", maxLat)
 		log.Println("minLon: ", minLon)
@@ -182,7 +158,7 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 	// this was the interleaved binary ordered: startTime > lat > lon
 	// int, err := indexing.BinToDecimal("LktlqgvNGnUAAAAAZsiXTw==")
 
-	int, err := indexing.BinToDecimal("mJtNqIvlDPUAAAAAZsi0Fw==")
+	int, err := indexing.BinToDecimal("/AkE4B2kTUWcdwDRQBJIYLaCDBQDLKJQAAAAAGbJ0GU=")
 	log.Printf("World Trivia Event (decimal): %d", int)
 
 	// THIS WAS FROM THE CREATION TIME BINARY REPRESENTATION appended to the end of the zIndexBytes
@@ -191,7 +167,7 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 	// this was the interleaved binary ordered: startTime > lat > lon
 	// int, err = indexing.BinToDecimal("LktsigEfy9gAAAAAZsiXVQ==")
 
-	int, err = indexing.BinToDecimal("mJtpKIB3a9MAAAAAZsi0Hg==")
+	int, err = indexing.BinToDecimal("/AkgYBQ2S/PfiRBJTbAaSAZSISbQLDDaAAAAAGbJ0IA=")
 	log.Printf("Denver Karaoke Event (decimal): %d", int)
 
 
@@ -201,7 +177,7 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 	// this was the interleaved binary ordered: startTime > lat > lon
 	// int, err = indexing.BinToDecimal("Lktliosar3kAAAAAZsiXRw==")
 
-	int, err = indexing.BinToDecimal("mJtNKopyufMAAAAAZsi0EA==")
+	int, err = indexing.BinToDecimal("/AkEYhyg2POfcXDCKTBTSRYQQaIaKRYBAAAAAGbJ0IQ=")
 	log.Printf("DC Bocce Ball Event (decimal): %d", int)
 
 
@@ -217,11 +193,11 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 		log.Println("minZOrderIndex and maxZOrderIndex are equal")
 	}
 
-	minZOrderIndex, _ = ConvertBinaryStringToBase64(minZOrderIndex)
-	log.Println("minZOrderIndex: ", minZOrderIndex)
+	minZOrderIndexBytes, _ := helpers.BinaryStringToBinary(minZOrderIndex)
+	log.Println("minZOrderIndex: ", minZOrderIndexBytes)
 
-	maxZOrderIndex, _ = ConvertBinaryStringToBase64(maxZOrderIndex)
-	log.Println("maxZOrderIndex: ", maxZOrderIndex)
+	maxZOrderIndexBytes, _ := helpers.BinaryStringToBinary(maxZOrderIndex)
+	log.Println("maxZOrderIndex: ", maxZOrderIndexBytes)
 
     scanInput := &dynamodb.ScanInput{
         TableName: aws.String(eventsTableName),
@@ -233,8 +209,8 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
             "#datetime": "datetime",
         },
         ExpressionAttributeValues: map[string]types.AttributeValue{
-            ":min":       &types.AttributeValueMemberS{Value: minZOrderIndex},
-            ":max":       &types.AttributeValueMemberS{Value: maxZOrderIndex},
+            ":min":       &types.AttributeValueMemberB{Value: minZOrderIndexBytes},
+            ":max":       &types.AttributeValueMemberB{Value: maxZOrderIndexBytes},
             ":startTime": &types.AttributeValueMemberS{Value: startTime.Format(time.RFC3339)},
             ":endTime":   &types.AttributeValueMemberS{Value: endTime.Format(time.RFC3339)},
         },
@@ -292,25 +268,33 @@ func GetEventById(ctx context.Context, db internal_types.DynamoDBAPI, eventId st
 
 
 func InsertEvent(ctx context.Context, db internal_types.DynamoDBAPI, createEvent EventInsert) (*EventSelect, error) {
-    startTime, err := time.Parse(time.RFC3339, createEvent.Datetime)
-    if err != nil {
-        return nil, fmt.Errorf("invalid datetime format: %v", err)
-    }
+  startTime, err := time.Parse(time.RFC3339, createEvent.Datetime)
+  if err != nil {
+      return nil, fmt.Errorf("invalid datetime format: %v", err)
+  }
 
-    zOrderIndex, err := indexing.CalculateZOrderIndex(startTime, createEvent.Latitude, createEvent.Longitude, "default")
-    if err != nil {
-        return nil, fmt.Errorf("failed to calculate Z Order index: %v", err)
-    }
+  zOrderIndex, err := indexing.CalculateZOrderIndex(startTime, createEvent.Latitude, createEvent.Longitude, "default")
+  if err != nil {
+      return nil, fmt.Errorf("failed to calculate Z Order index: %v", err)
+  }
 
-	newEvent := EventSelect{
-		Name:        createEvent.Name,
-		Description: createEvent.Description,
-		Datetime:    createEvent.Datetime,
-		Address:     createEvent.Address,
-		ZipCode:     createEvent.ZipCode,
+  zOrderIndexBytes, err := helpers.BinaryStringToBinary(zOrderIndex)
+  if err != nil {
+    return nil, fmt.Errorf("failed to convert Z Order index to binary: %v", err)
+  }
+
+  b64, err := helpers.ConvertBinaryStringToBase64(zOrderIndex)
+  log.Println("Base 64 zOrderIndex: ", b64)
+
+  newEvent := EventSelect{
+    Name:        createEvent.Name,
+    Description: createEvent.Description,
+    Datetime:    createEvent.Datetime,
+    Address:     createEvent.Address,
+    ZipCode:     createEvent.ZipCode,
         Latitude: createEvent.Latitude,
         Longitude: createEvent.Longitude,
-        ZOrderIndex: zOrderIndex,
+        ZOrderIndex: zOrderIndexBytes,
 		Id:          uuid.NewString(),
 	}
 

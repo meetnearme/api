@@ -17,7 +17,7 @@ func ConvertUnixTimeToBinary(unixTime int64) string {
 
     // Right-pad with zeros to ensure 64-bit length
     paddedBinaryStr := binaryStr + strings.Repeat("0", 64 - len(binaryStr))
-
+    log.Println("startTime unix: ", unixTime)
     log.Println("startTime binaryStr: ", paddedBinaryStr)
 
     return paddedBinaryStr
@@ -56,8 +56,8 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType strin
     _ = mapFloatToSortableBinaryString(-20)
 
 
-    lonSortableBinStr := mapFloatToSortableBinaryString(float64(lon))
-    latSortableBinStr := mapFloatToSortableBinaryString(float64(lat))
+    lonSortableBinStr := mapFloatToSortableBinaryString(lon)
+    latSortableBinStr := mapFloatToSortableBinaryString(lat)
 
 
     // Convert sortable integers to binary string
@@ -74,11 +74,11 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType strin
     log.Println("startTimeBin: ", startTimeBin)
 
 
-    // latBin = "1111111111111111111111111111111111111111111111111111111111111111"
+    // latSortableBinStr = "1111111111111111111111111111111111111111111111111111111111111111"
 
-    // lonBin = "0000000000000000000000000000000000000000000000000000000000000000"
+    // lonSortableBinStr = "0000000000000000000000000000000000000000000000000000000000000000"
 
-    // startTimeBin = "0000000000000000000000000000000000000000000000000000000000000000"
+    startTimeBin = "0000000000000000000000000000000000000000000000000000000000000000"
 
     // Interleave binary representations
     var zIndexBin string

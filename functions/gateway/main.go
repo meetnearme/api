@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -70,7 +71,6 @@ type App struct {
     AuthN *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
 }
 
-
 func NewApp() *App {
     app := &App{
         Router: mux.NewRouter(),
@@ -113,7 +113,22 @@ func (app *App) addRoute(route Route) {
         }
     case Check:
         handler = func(w http.ResponseWriter, r *http.Request) {
+            log.Println(">>>> Checking authentication")
             app.Mw.CheckAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                log.Println(">>>> IN app.MW() Checking authentication")
+                userInfo := helpers.UserInfo{}
+                authCtx := app.Mw.Context(r.Context())
+                if authCtx != nil {
+                    data, err := json.MarshalIndent(authCtx.UserInfo, "", "	")
+                    if err != nil {
+                        log.Println("Error marshalling userInfo: ", err)
+                    }
+                    err = json.Unmarshal(data, &userInfo)
+                    if err != nil {
+                        log.Println("Error unmarshalling userInfo: ", err)
+                    }
+                    log.Println("UserInfo: ", userInfo)
+                }
                 route.Handler(w, r).ServeHTTP(w, r)
             })).ServeHTTP(w, r)
         }
