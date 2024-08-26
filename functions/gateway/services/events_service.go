@@ -126,63 +126,27 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 		// TODO: this is temporary, need to decide how to properlhandle radius offset
     // maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, maxLat, maxLon, "max")
 
-		log.Printf("\n\n\n\n======>>>>>>>> maxZOrderIndex: before")
+    log.Printf("\n\n\n\n======>>>>>>>> maxZOrderIndex: before")
 
-		maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, maxLat, maxLon, "max")
+    maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, maxLat, maxLon, "max")
     if err != nil {
         return nil, fmt.Errorf("error calculating max z-order index: %v", err)
     }
 
-	// Convert minZOrderIndex and maxZOrderIndex to decimal string representations
-	// minDecimal := fmt.Sprintf("%d", binary.BigEndian.Uint64(minZOrderIndex))
-	// maxDecimal := fmt.Sprintf("%d", binary.BigEndian.Uint64(maxZOrderIndex))
+    minDecimalStr := minZOrderIndex
+    maxDecimalStr := maxZOrderIndex
 
-	minDecimalStr := minZOrderIndex
-	maxDecimalStr := maxZOrderIndex
+    minDecimal, err := indexing.BinToDecimal(minDecimalStr)
+    if err != nil {
+      return nil, fmt.Errorf("error converting min z-order index: %v", err)
+    }
+    maxDecimal, err := indexing.BinToDecimal(maxDecimalStr)
+    if err != nil {
+      return nil, fmt.Errorf("error converting max z-order index: %v", err)
+    }
 
-	minDecimal, err := indexing.BinToDecimal(minDecimalStr)
-	if err != nil {
-		return nil, fmt.Errorf("error converting min z-order index: %v", err)
-	}
-	maxDecimal, err := indexing.BinToDecimal(maxDecimalStr)
-	if err != nil {
-		return nil, fmt.Errorf("error converting max z-order index: %v", err)
-	}
-
-	log.Printf("minZOrderIndex (decimal): %s", minDecimal)
-	log.Printf("maxZOrderIndex (decimal): %s", maxDecimal)
-
-	// THIS WAS FROM THE CREATION TIME BINARY REPRESENTATION appended to the end of the zIndexBytes
-	// int, err := indexing.BinToDecimal("LktlqgvNGnUxMTAwMTEwMTEwMDEwMDAxMDAwMDEwMDExMDExMDAxMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw")
-
-	// this was the interleaved binary ordered: startTime > lat > lon
-	// int, err := indexing.BinToDecimal("LktlqgvNGnUAAAAAZsiXTw==")
-
-	int, err := indexing.BinToDecimal("/AkE4B2kTUWcdwDRQBJIYLaCDBQDLKJQAAAAAGbJ0GU=")
-	log.Printf("World Trivia Event (decimal): %d", int)
-
-	// THIS WAS FROM THE CREATION TIME BINARY REPRESENTATION appended to the end of the zIndexBytes
-	// int, err = indexing.BinToDecimal("LktsigEfy9gxMTAwMTEwMTEwMDEwMDAxMDAwMDEwMDExMTAxMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw")
-
-	// this was the interleaved binary ordered: startTime > lat > lon
-	// int, err = indexing.BinToDecimal("LktsigEfy9gAAAAAZsiXVQ==")
-
-	int, err = indexing.BinToDecimal("/AkgYBQ2S/PfiRBJTbAaSAZSISbQLDDaAAAAAGbJ0IA=")
-	log.Printf("Denver Karaoke Event (decimal): %d", int)
-
-
-	// THIS WAS FROM THE CREATION TIME BINARY REPRESENTATION appended to the end of the zIndexBytes
-	// int, err = indexing.BinToDecimal("Lktliosar3kxMTAwMTEwMTEwMDEwMDAxMDAwMDEwMDExMDEwMDAxMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw")
-
-	// this was the interleaved binary ordered: startTime > lat > lon
-	// int, err = indexing.BinToDecimal("Lktliosar3kAAAAAZsiXRw==")
-
-	int, err = indexing.BinToDecimal("/AkEYhyg2POfcXDCKTBTSRYQQaIaKRYBAAAAAGbJ0IQ=")
-	log.Printf("DC Bocce Ball Event (decimal): %d", int)
-
-
-	// 10749413644872293935
-	// 9611972806766166127
+    log.Printf("minZOrderIndex (decimal): %s", minDecimal)
+    log.Printf("maxZOrderIndex (decimal): %s", maxDecimal)
 
 	if minDecimal.Cmp(maxDecimal) > 0 {
 		// minZOrderIndex, maxZOrderIndex = maxZOrderIndex, minZOrderIndex
