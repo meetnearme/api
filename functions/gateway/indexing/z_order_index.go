@@ -33,16 +33,16 @@ func BinToDecimal(binaryStr string) (*big.Int, error) {
 }
 
 
-func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType string) (string, error) {
+func CalculateZOrderIndex(tm time.Time, lat, lon float64, indexType string) (string, error) {
     // Get current timestamp as index creation time
     indexCreationTime := time.Now().UTC()
-    startTimeUnix := startTime.Unix()
+    tmUnix := tm.Unix()
 
     // Convert dimensions to binary representations
 
     // indexCreationTimeBin := ConvertUnixTimeToBinary(indexCreationTime.Unix())
-    startTimeBin := ConvertUnixTimeToBinary(startTimeUnix)
-    log.Println("startTimeBin: ", startTimeBin)
+    tmBin := ConvertUnixTimeToBinary(tmUnix)
+    log.Println("tmBin: ", tmBin)
 
     log.Println("lon: ", lon)
     log.Println("lat: ", lat)
@@ -71,14 +71,14 @@ func CalculateZOrderIndex(startTime time.Time, lat, lon float64, indexType strin
     decimal, _ = BinToDecimal(latSortableBinStr)
     log.Println("decimal: ", decimal)
 
-    log.Println("startTimeBin: ", startTimeBin)
+    log.Println(">>> LINE 74 <<< tmBin: ", tmBin)
 
 
     // latSortableBinStr = "1111111111111111111111111111111111111111111111111111111111111111"
 
     // lonSortableBinStr = "0000000000000000000000000000000000000000000000000000000000000000"
 
-    startTimeBin = "0000000000000000000000000000000000000000000000000000000000000000"
+    // tmBin = "0000000000000000000000000000000000000000000000000000000000000000"
 
     // Interleave binary representations
     var zIndexBin string
