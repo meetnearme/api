@@ -11,16 +11,30 @@ import (
 	"time"
 )
 
+// IMPORTANT:
+// ================================
+// Tather right-padding with zeros to the max 64 bit length, we're
+// left-padding with zeros to accommodate up to 35 integer precision
+// which is roughly the year 3,000. If we used 32 bits, we would run
+// into "The 2038 problem" around 14 years from the time of this writing
+// if we used the full 64 bits, our index precision would be diluted by
+// the large span of 292 billion years that 64 bit unix time can represent
+
 func ConvertUnixTimeToBinary(unixTime int64) string {
-    // Convert to binary without padding
-    binaryStr := strconv.FormatInt(unixTime, 2)
 
-    // Right-pad with zeros to ensure 64-bit length
-    paddedBinaryStr := binaryStr + strings.Repeat("0", 64 - len(binaryStr))
-    log.Println("startTime unix: ", unixTime)
-    log.Println("startTime binaryStr: ", paddedBinaryStr)
+    // Create a 35-character base of zeroes
+    base := strings.Repeat("0", 35)
 
-    return paddedBinaryStr
+    // Convert to unpadded binary 64-bit representation
+    binaryStr := fmt.Sprintf("%b", unixTime)
+
+    // Right-align the binaryStr within the 35-character precision limit
+    // (year 3,000) and right-pad with 29 zeroes to ensure 64-bit length
+    alignedStr := base[:35-len(binaryStr)] + binaryStr
+
+    result := alignedStr + strings.Repeat("0", 29)
+
+    return result
 }
 
 func BinToDecimal(binaryStr string) (*big.Int, error) {
