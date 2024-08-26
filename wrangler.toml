@@ -1,0 +1,12 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "meetnearme-worker"
+main = "cf_workers/index.js"
+compatibility_date = "2024-08-06"
+compatibility_flags = ["nodejs_compat"]
+
+# Bind a KV Namespace. Use KV as persistent storage for small key-value pairs.
+# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#kv-namespaces
+
+[[kv_namespaces]]
+binding = "CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE"
+id = "e99a1de88bdb43058c4fe26699b03cd2"

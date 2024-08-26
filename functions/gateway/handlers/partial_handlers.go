@@ -38,6 +38,74 @@ type SeshuSessionEventsPayload struct {
 	EventValidations [][]bool `json:"eventValidations" validate:"required"`
 }
 
+type SetSubdomainRequestPayload struct {
+	Subdomain string `json:"subdomain" validate:"required"`
+}
+
+
+func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+		log.Println("SetUserSubdomain called")
+		var inputPayload SetSubdomainRequestPayload
+
+		authMw, _ := services.GetAuthMw()
+		authCtx := authMw.Context(r.Context())
+
+		if authCtx.IsAuthenticated() {
+			log.Println("User is authenticated")
+		} else {
+			log.Println("User is not authenticated")
+		}
+		// requestID := r.Context().Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest).RequestContext.RequestID
+
+		// errorPartial := partials.ErrorHTML(err.Error(), fmt.Sprint(requestID))
+		// var buf bytes.Buffer
+
+		body, err := io.ReadAll(r.Body)
+		log.Println("L 64")
+		if err != nil {
+			log.Println("L 66")
+			return transport.SendHtmlError(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+		}
+		log.Println("L 69")
+		err = json.Unmarshal([]byte(body), &inputPayload)
+		if err != nil {
+			log.Println("L 72")
+			return transport.SendHtmlError(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
+		}
+		log.Println("L 75")
+		if authCtx == nil || authCtx.UserInfo == nil {
+			log.Println("L 77")
+				return transport.SendHtmlError(w, []byte("User not authenticated"), http.StatusInternalServerError)
+		}
+		log.Println("L 80")
+		userID := authCtx.UserInfo.GetSubject()
+
+		log.Println("User ID: ", userID)
+		log.Println("inputPayload.Subdomain: ", inputPayload.Subdomain)
+
+
+		// Call Cloudflare KV store to save the subdomain
+		metadata := map[string]string{"": ""}
+		err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, metadata)
+		if err != nil {
+				if err.Error() == "key already exists in KV store" {
+						return transport.SendHtmlError(w, []byte("Subdomain already taken"), http.StatusInternalServerError)
+				} else {
+						return transport.SendHtmlError(w, []byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
+				}
+		}
+
+		var buf bytes.Buffer
+		successPartial := partials.SuccessBannerHTML(`Subdomain set successfully`)
+
+		err = successPartial.Render(r.Context(), &buf)
+		if err != nil {
+			return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+		}
+
+		return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+}
+
 func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	var inputPayload GeoLookupInputPayload
