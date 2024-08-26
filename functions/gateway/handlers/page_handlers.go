@@ -84,8 +84,8 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	radiusStr := queryParameters["radius"]
 
 	// Set default values if query parameters are not provided
-	startTime := time.Now()
-	endTime := startTime.AddDate(100, 0, 0)
+	startTime := time.Now().Truncate(time.Millisecond)
+	endTime := startTime.AddDate(100, 0, 0).Truncate(time.Millisecond)
 	lat := float64(39.8283)
 	lon := float64(-98.5795)
 	// roughly 500 miles

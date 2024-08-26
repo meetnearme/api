@@ -128,7 +128,7 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 
 		log.Printf("\n\n\n\n======>>>>>>>> maxZOrderIndex: before")
 
-		maxZOrderIndex, err := indexing.CalculateZOrderIndex(endTime, maxLat, maxLon, "max")
+		maxZOrderIndex, err := indexing.CalculateZOrderIndex(startTime, maxLat, maxLon, "max")
     if err != nil {
         return nil, fmt.Errorf("error calculating max z-order index: %v", err)
     }

@@ -156,7 +156,7 @@ func mapFloatToSortableInt32(floatValue float32) uint32 {
 
 func mapFloatToSortableBinaryString(floatValue float64) string {
     // Convert float64 to bits
-    floatValue += 1000;
+    floatValue += 2000;
     bits := math.Float64bits(floatValue)
 
     log.Println("\n\n\n>>>> floatValue:", floatValue)
