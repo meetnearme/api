@@ -1,7 +1,7 @@
 package indexing
 
 import (
-	"encoding/binary"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"math"
@@ -13,15 +13,14 @@ import (
 
 // IMPORTANT:
 // ================================
-// Tather right-padding with zeros to the max 64 bit length, we're
+// Rather right-padding with zeros to the max 64 bit length, we're
 // left-padding with zeros to accommodate up to 35 integer precision
 // which is roughly the year 3,000. If we used 32 bits, we would run
 // into "The 2038 problem" around 14 years from the time of this writing
 // if we used the full 64 bits, our index precision would be diluted by
 // the large span of 292 billion years that 64 bit unix time can represent
 
-func ConvertUnixTimeToBinary(unixTime int64) string {
-
+func ConvertUnixTimeToShiftedBinary(unixTime int64) string {
     // Create a 35-character base of zeroes
     base := strings.Repeat("0", 35)
 
@@ -52,7 +51,7 @@ func CalculateZOrderIndex(tm time.Time, lat, lon float64, indexType string) (str
     tmUnix := tm.Unix()
 
     // Convert dimensions to binary representations
-    tmBin := ConvertUnixTimeToBinary(tmUnix)
+    tmBin := ConvertUnixTimeToShiftedBinary(tmUnix)
     log.Println("tmBin: ", tmBin)
 
     log.Println("lon: ", lon)
@@ -100,32 +99,6 @@ func CalculateZOrderIndex(tm time.Time, lat, lon float64, indexType string) (str
     return zIndexBin, nil
 }
 
-
-func mapFloatToSortableInt32(floatValue float32) uint32 {
-    // Convert float64 to byte slice
-    floatBytes := make([]byte, 8)
-    binary.BigEndian.PutUint32(floatBytes, math.Float32bits(floatValue))
-
-    var sortableBytes []byte
-
-    if floatValue >= 0 {
-        // XOR op for flipping first bit to make unsigned int representation of positive float after negative
-        sortableBytes = make([]byte, 8)
-        sortableBytes[0] = floatBytes[0] ^ 0x80
-        copy(sortableBytes[1:], floatBytes[1:])
-    } else {
-        // XOR to flit all bits, makes negative float come first as int
-        sortableBytes = make([]byte, 8)
-        for i, b := range floatBytes {
-            sortableBytes[i] = b ^ 0xFF
-        }
-    }
-    // Convert mapped bytes to an unsigned integer
-    sortableInt :=  binary.BigEndian.Uint32(sortableBytes)
-
-    return sortableInt
-}
-
 func mapFloatToSortableBinaryString(floatValue float64) string {
     // Convert float64 to bits
     floatValue += 2000;
@@ -147,27 +120,58 @@ func mapFloatToSortableBinaryString(floatValue float64) string {
     return retVal
 }
 
-func mapFloatToSortableInt64(floatValue float64) uint64 {
-    // Convert float64 to byte slice
-    floatBytes := make([]byte, 8)
-    binary.LittleEndian.PutUint64(floatBytes, math.Float64bits(floatValue))
-
-    var sortableBytes []byte
-
-    if floatValue >= 0 {
-        // XOR op for flipping first bit to make unsigned int representation of positive float after negative
-        sortableBytes = make([]byte, 8)
-        sortableBytes[0] = floatBytes[0] ^ 0x80
-        copy(sortableBytes[1:], floatBytes[1:])
-    } else {
-        // XOR to flip all bits, makes negative float come first as int
-        sortableBytes = make([]byte, 8)
-        for i, b := range floatBytes {
-            sortableBytes[i] = b ^ 0xFF
-        }
+func DecodeZOrderIndex(zOrderIndex string) (tm time.Time, lat, lon float64, trailingBits string) {
+    // Convert the base64 input string to a byte array
+    byteArray, err := base64.StdEncoding.DecodeString(zOrderIndex)
+    if err != nil {
+        log.Printf("Error decoding base64 string: %v", err)
+        return
     }
-    // Convert mapped bytes to an unsigned integer
-    sortableInt := binary.LittleEndian.Uint64(sortableBytes)
 
-    return sortableInt
+    log.Printf("Decoded byte array: %v", byteArray)
+
+    binaryString := ""
+    for _, b := range byteArray {
+        binaryString += fmt.Sprintf("%08b", b)
+    }
+
+    log.Printf("Binary string: %s", binaryString)
+
+    // "Unzip" the first 192 characters, 64 each for tm, lon, lat
+    tmBin := ""
+    lonBin := ""
+    latBin := ""
+    for i := 0; i < 192; i += 3 {
+        tmBin += string(binaryString[i])
+        lonBin += string(binaryString[i+1])
+        latBin += string(binaryString[i+2])
+    }
+
+    // Reverse the bit-shifting in ConvertUnixTimeToShiftedBinary()
+    unshiftedTmBin := tmBin[35:] + tmBin[:35]
+    tmUnix, _ := strconv.ParseInt(unshiftedTmBin, 2, 64)
+    tm = time.Unix(tmUnix, 0)
+
+    lon = binaryStringToFloat64(lonBin)
+    lat = binaryStringToFloat64(latBin)
+
+    // the remainder are trailingBits we've appended to the end of the zOrderIndex
+    trailingBits = binaryString[192:]
+
+    return tm, lat, lon, trailingBits
+}
+
+// Helper function to convert binary string to float64
+func binaryStringToFloat64(binaryStr string) float64 {
+    // Flip the sign bit back
+    binaryStr = "0" + binaryStr[1:]
+
+    // Convert binary string to uint64
+    bits, _ := strconv.ParseUint(binaryStr, 2, 64)
+
+    // Convert uint64 to float64
+    floatValue := math.Float64frombits(bits)
+
+    // Subtract 2000 to reverse the addition in mapFloatToSortableBinaryString
+    return floatValue - 2000
 }

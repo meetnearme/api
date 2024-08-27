@@ -160,8 +160,22 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 	minZOrderIndexBytes, _ := helpers.BinaryStringToBinary(minZOrderIndex)
 	log.Println("minZOrderIndex: ", minZOrderIndexBytes)
 
+	minZOrderIndexB64, _ := helpers.ConvertBinaryStringToBase64(minZOrderIndex)
+	log.Println("minZOrderIndex Base 64: ", minZOrderIndexB64)
+
+	_tm, _lat, _lon, _trailingBits := indexing.DecodeZOrderIndex(minZOrderIndexB64)
+
+	log.Println("decodedZorder tm: ", _tm)
+	log.Println("decodedZorder lat: ", _lat)
+	log.Println("decodedZorder lon: ", _lon)
+	log.Println("decodedZorder trailingBits: ", _trailingBits)
+
 	maxZOrderIndexBytes, _ := helpers.BinaryStringToBinary(maxZOrderIndex)
 	log.Println("maxZOrderIndex: ", maxZOrderIndexBytes)
+
+	maxZOrderIndexB64, _ := helpers.ConvertBinaryStringToBase64(maxZOrderIndex)
+	log.Println("maxZOrderIndex Base 64: ", maxZOrderIndexB64)
+
 
     scanInput := &dynamodb.ScanInput{
         TableName: aws.String(eventsTableName),
