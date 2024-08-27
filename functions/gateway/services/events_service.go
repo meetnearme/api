@@ -180,7 +180,7 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 	log.Println("DC Bocce Ball, base64: \n", "tm: ", tm, "\n", "lat: ", lat, "\n", "lon: ", lon, "\n", "trailingBits: ", trailingBits)
 
 
-	tm, lat, lon, trailingBits 	= indexing.DecodeZOrderIndex("bAkA8H7ZtuCePGFzCBJIKJaQRRCBZYZCAAAAAGbNAQw")
+	tm, lat, lon, trailingBits 	= indexing.DecodeZOrderIndex("bAkA8H7ZtuCePGFzCBJIKJaQRRCBZYZCAAAAAGbNAQw=")
 	log.Println("World Trivia NYC, base64: \n", "tm: ", tm, "\n", "lat: ", lat, "\n", "lon: ", lon, "\n", "trailingBits: ", trailingBits)
 
 
