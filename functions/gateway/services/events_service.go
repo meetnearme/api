@@ -176,6 +176,19 @@ func GetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTi
 	maxZOrderIndexB64, _ := helpers.ConvertBinaryStringToBase64(maxZOrderIndex)
 	log.Println("maxZOrderIndex Base 64: ", maxZOrderIndexB64)
 
+	tm, lat, lon, trailingBits := indexing.DecodeZOrderIndex("bAkA8Hb5ph8feHVUYTRDSTKCCKYKYTKBAAAAAGbNAQQ=")
+	log.Println("DC Bocce Ball, base64: \n", "tm: ", tm, "\n", "lat: ", lat, "\n", "lon: ", lon, "\n", "trailingBits: ", trailingBits)
+
+
+	tm, lat, lon, trailingBits 	= indexing.DecodeZOrderIndex("bAkA8H7ZtuCePGFzCBJIKJaQRRCBZYZCAAAAAGbNAQw")
+	log.Println("World Trivia NYC, base64: \n", "tm: ", tm, "\n", "lat: ", lat, "\n", "lon: ", lon, "\n", "trailingBits: ", trailingBits)
+
+
+	tm, lat, lon, trailingBits 	= indexing.DecodeZOrderIndex("bAkA8jbLZnZ/UXhJDbQKSQLCYCbSJRTIAAAAAGbNAQg=")
+	log.Println("Denver Karaoke Night, base64:\n", "tm: ", tm, "\n", "lat: ", lat, "\n", "lon: ", lon, "\n", "trailingBits: ", trailingBits)
+
+
+
 
     scanInput := &dynamodb.ScanInput{
         TableName: aws.String(eventsTableName),

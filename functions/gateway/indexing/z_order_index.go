@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// IMPORTANT:
+// !!! IMPORTANT !!!
 // ================================
 // Rather right-padding with zeros to the max 64 bit length, we're
 // left-padding with zeros to accommodate up to 35 integer precision
@@ -29,6 +29,10 @@ func ConvertUnixTimeToShiftedBinary(unixTime int64) string {
 
     // Right-align the binaryStr within the 35-character precision limit
     // (year 3,000) and right-pad with 29 zeroes to ensure 64-bit length
+    log.Println("starting base: ", base)
+    log.Println("converting unix binaryStr: ", binaryStr)
+    log.Println("len binaryStr: ", len(binaryStr))
+    log.Println("base[:35-len(binaryStr)]: ", base[:35-len(binaryStr)])
     alignedStr := base[:35-len(binaryStr)] + binaryStr
 
     result := alignedStr + strings.Repeat("0", 29)
@@ -145,6 +149,14 @@ func DecodeZOrderIndex(zOrderIndex string) (tm time.Time, lat, lon float64, trai
         tmBin += string(binaryString[i])
         lonBin += string(binaryString[i+1])
         latBin += string(binaryString[i+2])
+        // TODO: debugging, delete this
+        // somewhere in this range a bit goes wrong,
+        if i >= 36 && i <= 39 {
+            log.Println("idx position", i, "\n\n\n")
+            log.Println("tmBin ", tmBin)
+            log.Println("lonBin ", lonBin)
+            log.Println("latBin ", latBin)
+        }
     }
 
     // Reverse the bit-shifting in ConvertUnixTimeToShiftedBinary()
