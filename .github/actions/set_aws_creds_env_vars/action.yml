@@ -32,6 +32,15 @@ inputs:
     description:
       'The site apex DEV URL, dynamic in lower environments, static in prod'
     required: true
+  CLOUDFLARE_API_TOKEN:
+    description: 'The API token for the Cloudflare API'
+    required: true
+  CLOUDFLARE_ACCOUNT_ID:
+    description: 'The account ID for the Cloudflare API'
+    required: true
+  CLOUDFLARE_KV_NAMESPACE_ID:
+    description: 'The KV namespace ID for the Cloudflare API'
+    required: true
 runs:
   using: composite
   steps:
