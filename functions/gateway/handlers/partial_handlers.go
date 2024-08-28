@@ -38,6 +38,52 @@ type SeshuSessionEventsPayload struct {
 	EventValidations [][]bool `json:"eventValidations" validate:"required"`
 }
 
+type SetSubdomainRequestPayload struct {
+	Subdomain string `json:"subdomain" validate:"required"`
+}
+
+
+func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+		var inputPayload SetSubdomainRequestPayload
+
+		authMw, _ := services.GetAuthMw()
+		authCtx := authMw.Context(r.Context())
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			return transport.SendHtmlError(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+		}
+		err = json.Unmarshal([]byte(body), &inputPayload)
+		if err != nil {
+			return transport.SendHtmlError(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
+		}
+		if authCtx == nil || authCtx.UserInfo == nil {
+				return transport.SendHtmlError(w, []byte("User not authenticated"), http.StatusInternalServerError)
+		}
+		userID := authCtx.UserInfo.GetSubject()
+
+		// Call Cloudflare KV store to save the subdomain
+		metadata := map[string]string{"": ""}
+		err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, metadata)
+		if err != nil {
+				if err.Error() == "key already exists in KV store" {
+						return transport.SendHtmlError(w, []byte("Subdomain already taken"), http.StatusInternalServerError)
+				} else {
+						return transport.SendHtmlError(w, []byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
+				}
+		}
+
+		var buf bytes.Buffer
+		successPartial := partials.SuccessBannerHTML(`Subdomain set successfully`)
+
+		err = successPartial.Render(r.Context(), &buf)
+		if err != nil {
+			return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+		}
+
+		return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+}
+
 func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	var inputPayload GeoLookupInputPayload

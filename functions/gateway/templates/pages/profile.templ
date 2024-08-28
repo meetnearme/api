@@ -1,131 +1,146 @@
 package pages
 
-import (
-  "github.com/meetnearme/api/functions/gateway/helpers"
-)
+import "github.com/meetnearme/api/functions/gateway/helpers"
 
 templ ProfilePage(userInfo helpers.UserInfo) {
 	<h1 class="text-3xl">Profile</h1>
 	<br/>
 	<br/>
-	<div class="grid grid-cols-7">
+	<div class="grid grid-cols-7" x-data="getProfileData()">
 		<div class="self-start sticky top-0 col-span-2 mr-5 card border-2 border-base-300 bg-base-200 rounded-box place-items-center ">
-      <ul class="menu bg-base-200 rounded-box w-56">
-        <li>
-          <a>Profile</a>
-          <ul>
-            <li><a>Settings</a></li>
-            <li><a>Karma</a></li>
-          </ul>
-        </li>
-        <li>
-          <a>Events</a>
-          <ul>
-            <li><a href="/admin/add-event-source">Event Sources</a></li>
-            <li><a>Add an Event (Soon)</a></li>
-          </ul>
-        </li>
-      </ul>
+			<ul class="menu bg-base-200 rounded-box w-56">
+				<li>
+					<a>Profile</a>
+					<ul>
+						<li><a>Settings</a></li>
+						<li><a>Karma</a></li>
+					</ul>
+				</li>
+				<li>
+					<a>Events</a>
+					<ul>
+						<li><a href="/admin/add-event-source">Event Sources</a></li>
+						<li><a>Add an Event (Soon)</a></li>
+					</ul>
+				</li>
+			</ul>
 		</div>
 		<div class="col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box">
-      <h2 class="text-3xl font-bold ">My Info</h2>
-
-      Name: {userInfo.Name}
-      <br/>
-      Email: {userInfo.Email}
-      <br/>
-      Verified:
-      if userInfo.EmailVerified {
-        Yes
-      } else {
-        No
-      }
-      <br/>
-      ID: {userInfo.Sub}
-      <br/>
-      Locale: {userInfo.Locale}
-      <br/>
-      <br/>
+			<h2 class="text-3xl font-bold ">My Info</h2>
+			Name: { userInfo.Name }
+			<br/>
+			Email: { userInfo.Email }
+			<br/>
+			Verified:
+			if userInfo.EmailVerified {
+				Yes
+			} else {
+				No
+			}
+			<br/>
+			ID: { userInfo.Sub }
+			<br/>
+			Locale: { userInfo.Locale }
+			<br/>
+			<br/>
+			<h3 class="text-2xl font-bold">My Subdomain</h3>
+			<form class="group" novalidate hx-post="/api/user/set-subdomain" hx-ext="json-enc" hx-target="#subdomain-result" hx-disabled-elt="button[type='submit']" @submit.prevent="" @htmx:after-request="handleSubdomainPostRes(event)">
+				<label for="subdomain">Set Subdomain</label>
+				<input name="subdomain" type="text" class="input input-bordered input-sm w-full max-w-xs"/>
+				<button type="submit" class="btn btn-primary">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+			</form>
+			<div id="subdomain-result"></div>
+			<br/>
+			<br/>
 			<h2 class="text-3xl font-bold ">Events Owned by Me</h2>
-      // TODO: this is fake data, delete
-      <table class="table table-pin-rows table-pin-cols table-zebra">
-        <thead>
-            <tr>
-              <th>Event Name</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Location</th>
-              <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-              <td>
-                  <div class="flex items-center gap-3">
-                    <div>
-                        <div class="font-bold">Chess Club at Roseland Park</div>
-                        <div class="text-sm opacity-50">United States</div>
-                    </div>
-                  </div>
-              </td>
-              <td>Mar 13, 2024 (Wed)<br /><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-              <td>3:07pm</td>
-              <td>15 Chess Street</td>
-              <th><a class="btn btn-primary btn-xs" href="/events/ecefe260-0f6c-41f5-b731-0e9767938f4a">details</a></th>
-            </tr>
-            <tr>
-              <td>
-                  <div class="flex items-center gap-3">
-                    <div>
-                        <div class="font-bold">Monthly Permaculture Meetup</div>
-                        <div class="text-sm opacity-50">United States</div>
-                    </div>
-                  </div>
-              </td>
-              <td>Mar 13, 2024 (Wed)<br /><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-              <td>3:07pm</td>
-              <td>15 Chess Street</td>
-              <th><a class="btn btn-primary btn-xs" href="/events/7bb12e44-f344-469d-820d-fdff1c060f05">details</a></th>
-            </tr>
-            <tr>
-              <td>
-                  <div class="flex items-center gap-3">
-                    <div>
-                        <div class="font-bold">Bocce Club of DC @ Highland Brewing</div>
-                        <div class="text-sm opacity-50">United States</div>
-                    </div>
-                  </div>
-              </td>
-              <td>Mar 13, 2024 (Wed)<br /><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-              <td>3:07pm</td>
-              <td>15 Chess Street</td>
-              <th><a class="btn btn-primary btn-xs" href="/events/d44d2dac-f5be-4c83-a0bd-3fa45475b0e7">details</a></th>
-            </tr>
-            <tr>
-              <td>
-                  <div class="flex items-center gap-3">
-                    <div>
-                        <div class="font-bold">Karate (Black Belt Level)</div>
-                        <div class="text-sm opacity-50">United States</div>
-                    </div>
-                  </div>
-              </td>
-              <td>Mar 13, 2024 (Wed)<br /><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-              <td>3:07pm</td>
-              <td>15 Chess Street</td>
-              <th><a class="btn btn-primary btn-xs" href="/events/88784dfd-a8cc-4b15-b65e-f6f47e56e66d">details</a></th>
-            </tr>
-        </tbody>
-        <tfoot>
-            <tr>
-              <th>Event Name</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Location</th>
-              <th></th>
-            </tr>
-        </tfoot>
-      </table>
+			// TODO: this is fake data, delete
+			<table class="table table-pin-rows table-pin-cols table-zebra">
+				<thead>
+					<tr>
+						<th>Event Name</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Location</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>
+							<div class="flex items-center gap-3">
+								<div>
+									<div class="font-bold">Chess Club at Roseland Park</div>
+									<div class="text-sm opacity-50">United States</div>
+								</div>
+							</div>
+						</td>
+						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+						<td>3:07pm</td>
+						<td>15 Chess Street</td>
+						<th><a class="btn btn-primary btn-xs" href="/events/ecefe260-0f6c-41f5-b731-0e9767938f4a">details</a></th>
+					</tr>
+					<tr>
+						<td>
+							<div class="flex items-center gap-3">
+								<div>
+									<div class="font-bold">Monthly Permaculture Meetup</div>
+									<div class="text-sm opacity-50">United States</div>
+								</div>
+							</div>
+						</td>
+						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+						<td>3:07pm</td>
+						<td>15 Chess Street</td>
+						<th><a class="btn btn-primary btn-xs" href="/events/7bb12e44-f344-469d-820d-fdff1c060f05">details</a></th>
+					</tr>
+					<tr>
+						<td>
+							<div class="flex items-center gap-3">
+								<div>
+									<div class="font-bold">Bocce Club of DC @ Highland Brewing</div>
+									<div class="text-sm opacity-50">United States</div>
+								</div>
+							</div>
+						</td>
+						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+						<td>3:07pm</td>
+						<td>15 Chess Street</td>
+						<th><a class="btn btn-primary btn-xs" href="/events/d44d2dac-f5be-4c83-a0bd-3fa45475b0e7">details</a></th>
+					</tr>
+					<tr>
+						<td>
+							<div class="flex items-center gap-3">
+								<div>
+									<div class="font-bold">Karate (Black Belt Level)</div>
+									<div class="text-sm opacity-50">United States</div>
+								</div>
+							</div>
+						</td>
+						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+						<td>3:07pm</td>
+						<td>15 Chess Street</td>
+						<th><a class="btn btn-primary btn-xs" href="/events/88784dfd-a8cc-4b15-b65e-f6f47e56e66d">details</a></th>
+					</tr>
+				</tbody>
+				<tfoot>
+					<tr>
+						<th>Event Name</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Location</th>
+						<th></th>
+					</tr>
+				</tfoot>
+			</table>
 		</div>
 	</div>
+	<script id="alpine-state">
+			function getProfileData() {
+          return {
+            handleSubdomainPostRes: function(event) {
+              console.log(event)
+            }
+          }
+      }
+  </script>
 }
