@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -61,9 +62,10 @@ func TestSendHtmlRes(t *testing.T) {
 
 func TestSendHtmlError(t *testing.T) {
 	rr := httptest.NewRecorder()
-	body := []byte("Error occurred")
+	body := []byte("This error has been logged with Request ID: ")
 	status := http.StatusOK
 
+	req := httptest.NewRequest("GET", "/", nil)
 	// Set up context with APIGatewayV2HTTPRequest
 	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		RequestContext: events.APIGatewayV2HTTPRequestContext{
@@ -73,13 +75,13 @@ func TestSendHtmlError(t *testing.T) {
 	req = req.WithContext(ctx)
 
 	handler := SendHtmlError(rr, body, status)
-	handler.ServeHTTP(rr, httptest.NewRequest("GET", "/", nil))
+	handler.ServeHTTP(rr, req)
 
 	if rr.Code != status {
 		t.Errorf("handler returned wrong status code: got %v want %v", rr.Code, status)
 	}
 
-	if rr.Body.String() != string(body) {
+	if !strings.Contains(rr.Body.String(), string(body)) {
 		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), string(body))
 	}
 
