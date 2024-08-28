@@ -7,9 +7,8 @@ export default {
 
     let subdomainValue = null;
     if (subdomain) {
-      subdomainValue = await env.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE.get(
-        subdomain,
-      );
+      console.log('subdomain: ', subdomain);
+      subdomainValue = await env.MNM_SUBDOMAIN_KV_NAMESPACE.get(subdomain);
     }
 
     console.log('subdomainValue: ', subdomainValue);
