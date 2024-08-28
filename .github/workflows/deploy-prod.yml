@@ -46,6 +46,6 @@ jobs:
           ZITADEL_INSTANCE_URL: ${{ secrets.ZITADEL_INSTANCE_URL }}
       - name: Generate Cloudflare locations Go file
         uses: './.github/actions/generate_cloudflare_locations_file'
-      - name: Deploy app
+      - name: Deploy AWS resources via SST
         run: |
           npm i && npx sst deploy --stage prod

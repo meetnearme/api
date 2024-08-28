@@ -1,10 +1,14 @@
 package transport
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
 func TestSendHtmlRes(t *testing.T) {
@@ -58,7 +62,15 @@ func TestSendHtmlRes(t *testing.T) {
 func TestSendHtmlError(t *testing.T) {
 	rr := httptest.NewRecorder()
 	body := []byte("Error occurred")
-	status := http.StatusBadRequest
+	status := http.StatusOK
+
+	// Set up context with APIGatewayV2HTTPRequest
+	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+	})
+	req = req.WithContext(ctx)
 
 	handler := SendHtmlError(rr, body, status)
 	handler.ServeHTTP(rr, httptest.NewRequest("GET", "/", nil))
