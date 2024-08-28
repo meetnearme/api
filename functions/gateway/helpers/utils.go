@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -47,6 +48,7 @@ func HashIDtoImgRange(id string) int {
 func GetImgUrlFromHash(id string) string {
 	return os.Getenv("STATIC_BASE_URL")+"/assets/img/"+fmt.Sprint(HashIDtoImgRange(id)) + ".png"
 }
+
 func SetCloudflareKV(key, value string, metadata map[string]string) error {
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
