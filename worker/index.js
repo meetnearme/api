@@ -1,35 +1,25 @@
 export default {
   async fetch(req, env) {
-    console.log('req: ', req);
     const url = new URL(req.url);
     const hostname = url.hostname;
-    const subdomain = hostname.split('.')[0];
+    const parts = hostname.split('.');
+    const subdomain = parts.slice(0, -2).join('.');
 
     let subdomainValue = null;
+
+    // Clone the original request
+    let newRequest = new Request(req);
+
     if (subdomain) {
-      console.log('subdomain: ', subdomain);
       subdomainValue = await env.MNM_SUBDOMAIN_KV_NAMESPACE.get(subdomain);
+
+      // Add custom headers
+      if (subdomainValue) {
+        newRequest.headers.set('X-Mnm-Subdomain-Value', subdomainValue);
+      }
     }
 
-    console.log('subdomainValue: ', subdomainValue);
-
-    const data =
-      req.cf !== undefined
-        ? req.cf
-        : { error: 'The `cf` object is not available inside the preview.' };
-
-    const headers = new Headers({
-      'content-type': 'application/json;charset=UTF-8',
-    });
-
-    // TODO: Remove, this is for testing
-    headers.set('mnm-subdomain', JSON.stringify({ 'test-key': 'test-value' }));
-    if (subdomainValue) {
-      headers.set('mnm-subdomain', JSON.stringify(subdomainValue));
-    }
-
-    return new Response(JSON.stringify(data, null, 2), {
-      headers: headers,
-    });
+    // Return the modified request without making a fetch call
+    return newRequest;
   },
 };
