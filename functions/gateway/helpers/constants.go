@@ -5,10 +5,9 @@ const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
 const EventsTablePrefix = "Events"
 const SeshuSessionTablePrefix = "SeshuSessions"
-
-const (
-	EVENT_ID_KEY string = "eventId"
-)
+const EVENT_ID_KEY string = "eventId"
+const SUBDOMAIN_KEY = "subdomain"
+const ERR_KV_KEY_EXISTS = "key already exists in KV store"
 
 type UserInfo struct {
 	Email string `json:"email"`

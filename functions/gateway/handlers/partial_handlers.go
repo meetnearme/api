@@ -42,7 +42,6 @@ type SetSubdomainRequestPayload struct {
 	Subdomain string `json:"subdomain" validate:"required"`
 }
 
-
 func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		var inputPayload SetSubdomainRequestPayload
 
@@ -64,9 +63,9 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 		// Call Cloudflare KV store to save the subdomain
 		metadata := map[string]string{"": ""}
-		err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, metadata)
+		err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
 		if err != nil {
-				if err.Error() == "key already exists in KV store" {
+				if err.Error() == helpers.ERR_KV_KEY_EXISTS {
 						return transport.SendHtmlError(w, []byte("Subdomain already taken"), http.StatusInternalServerError)
 				} else {
 						return transport.SendHtmlError(w, []byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)

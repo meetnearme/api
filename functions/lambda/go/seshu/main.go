@@ -345,7 +345,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf(fmt.Sprint(resp.StatusCode) + ": Completion API request not successful")
 	}
 	body, err := io.ReadAll(resp.Body)
