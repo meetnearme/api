@@ -19,7 +19,10 @@ inputs:
     description: 'The encryption key for zitadel auth'
     required: true
   ZITADEL_INSTANCE_HOST:
-    description: 'The client instance host for zitadel auth'
+    description: 'The client instance URL for zitadel auth'
+    required: true
+  ZITADEL_BOT_ADMIN_TOKEN:
+    description: 'The bot admin token for zitadel auth'
     required: true
   APEX_URL:
     description:
@@ -41,6 +44,7 @@ inputs:
   CLOUDFLARE_API_BASE_URL:
     description: 'The base URL for the Cloudflare API'
     required: true
+
 runs:
   using: composite
   steps:
@@ -57,6 +61,7 @@ runs:
         echo ZITADEL_CLIENT_ID=${{ inputs.ZITADEL_CLIENT_ID }} >> .env
         echo ZITADEL_ENCRYPTION_KEY=${{ inputs.ZITADEL_ENCRYPTION_KEY }} >> .env
         echo ZITADEL_INSTANCE_HOST=${{ inputs.ZITADEL_INSTANCE_HOST }} >> .env
+        echo ZITADEL_BOT_ADMIN_TOKEN=${{ inputs.ZITADEL_BOT_ADMIN_TOKEN }} >> .env
         echo CLOUDFLARE_ACCOUNT_ID=${{ inputs.CLOUDFLARE_ACCOUNT_ID }} >> .env
         echo CLOUDFLARE_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_KV_NAMESPACE_ID }} >> .env
         echo CLOUDFLARE_API_TOKEN=${{ inputs.CLOUDFLARE_API_TOKEN }} >> .env
