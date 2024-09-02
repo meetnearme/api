@@ -3,9 +3,6 @@ inputs:
   GIT_BRANCH_NAME:
     description: 'The name of the branch being deployed'
     required: false
-  MEETNEARME_TEST_SECRET:
-    description: 'The dummy secret for the MeetNearMe project'
-    required: true
   SCRAPINGBEE_API_KEY:
     description: 'The API key for the ScrapingBee API'
     required: true
@@ -52,15 +49,18 @@ runs:
       run: |
         touch .env
         echo GIT_BRANCH_NAME=${{ inputs.GIT_BRANCH_NAME }} >> .env
-        echo MEETNEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
+        echo APEX_URL=${{ inputs.APEX_URL }} >> .env
+        echo APEX_DEV_URL=${{ inputs.APEX_DEV_URL }} >> .env
         echo SCRAPINGBEE_API_KEY=${{ inputs.SCRAPINGBEE_API_KEY }} >> .env
         echo GOOGLE_API_KEY=${{ inputs.GOOGLE_API_KEY }} >> .env
         echo OPENAI_API_KEY=${{ inputs.OPENAI_API_KEY }} >> .env
         echo ZITADEL_CLIENT_ID=${{ inputs.ZITADEL_CLIENT_ID }} >> .env
         echo ZITADEL_ENCRYPTION_KEY=${{ inputs.ZITADEL_ENCRYPTION_KEY }} >> .env
         echo ZITADEL_INSTANCE_HOST=${{ inputs.ZITADEL_INSTANCE_HOST }} >> .env
-        echo APEX_URL=${{ inputs.APEX_URL }} >> .env
-        echo APEX_DEV_URL=${{ inputs.APEX_DEV_URL }} >> .env
+        echo CLOUDFLARE_ACCOUNT_ID=${{ inputs.CLOUDFLARE_ACCOUNT_ID }} >> .env
+        echo CLOUDFLARE_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_KV_NAMESPACE_ID }} >> .env
+        echo CLOUDFLARE_API_TOKEN=${{ inputs.CLOUDFLARE_API_TOKEN }} >> .env
+        echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
