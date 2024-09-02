@@ -57,8 +57,8 @@ func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata ma
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
 
 	// First, check if the key already exists
-	readURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s",
-		accountID, namespaceID, subdomainValue)
+	readURL := fmt.Sprintf("%s/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s",
+		os.Getenv("CLOUDFLARE_API_BASE_URL"), accountID, namespaceID, subdomainValue)
 
 	req, err := http.NewRequest("GET", readURL, nil)
 	if err != nil {
@@ -96,8 +96,8 @@ func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata ma
 	}
 
 	// If the key doesn't exist, proceed with writing
-	writeURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s",
-		accountID, namespaceID, subdomainValue)
+	writeURL := fmt.Sprintf("%s/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s",
+		os.Getenv("CLOUDFLARE_API_BASE_URL"), accountID, namespaceID, subdomainValue)
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -145,8 +145,8 @@ func DeleteCloudflareKV (subdomainValue, userID string) error {
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
 
-	readURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s",
-		accountID, namespaceID, subdomainValue)
+	readURL := fmt.Sprintf("%s/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s",
+		os.Getenv("CLOUDFLARE_API_BASE_URL"), accountID, namespaceID, subdomainValue)
 
 	req, err := http.NewRequest("DELETE", readURL, nil)
 	if err != nil {
@@ -170,7 +170,7 @@ func DeleteCloudflareKV (subdomainValue, userID string) error {
 }
 
 func GetUserMetadataByKey (userID, key string) (string, error) {
-	url := fmt.Sprintf("https://%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_URL"), userID, key)
+	url := fmt.Sprintf("https://%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "GET"
 
 	client := &http.Client{}
@@ -202,7 +202,7 @@ func GetUserMetadataByKey (userID, key string) (string, error) {
 }
 
 func UpdateUserMetadataKey (userID, key, value string) error {
-	url := fmt.Sprintf("https://%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_URL"), userID, key)
+	url := fmt.Sprintf("https://%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "POST"
 
 	payload := strings.NewReader(`{
