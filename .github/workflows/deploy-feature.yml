@@ -43,7 +43,8 @@ jobs:
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
         with:
-          MEETNEARME_TEST_SECRET: ${{ secrets.MEETNEARME_TEST_SECRET }}
+          APEX_URL: ${{ secrets.APEX_DEV_URL }}
+          APEX_DEV_URL: ${{ secrets.APEX_DEV_URL }}
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           GIT_BRANCH_NAME: ${{ steps.extract_branch.outputs.branch }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
