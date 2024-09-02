@@ -5,21 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
-	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
-
-// Mock the GetEventsZOrder function
-var originalGetEventsZOrder = services.GetEventsZOrder
-
-func mockGetEventsZOrder(ctx context.Context, db internal_types.DynamoDBAPI, startTime time.Time, endTime time.Time, lat float32, lon float32, radius float32) ([]services.EventSelect, error) {
-	return []services.EventSelect{}, nil
-}
 
 func TestGetHomePage(t *testing.T) {
     // Create a request
@@ -142,14 +132,23 @@ func TestGetMapEmbedPage(t *testing.T) {
 }
 
 func TestGetEventDetailsPage(t *testing.T) {
-	req, err := http.NewRequest("GET", "/events/123", nil)
+	const eventID = "123"
+	req, err := http.NewRequest("GET", "/events/" + eventID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Set up context with APIGatewayV2HTTPRequest
+	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+    PathParameters: map[string]string{
+        helpers.EVENT_ID_KEY: eventID,
+    },
+	})
+	req = req.WithContext(ctx)
+
 	// Set up router to extract variables
 	router := mux.NewRouter()
-	router.HandleFunc("/events/{eventId}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/events/{" + helpers.EVENT_ID_KEY + "}", func(w http.ResponseWriter, r *http.Request) {
 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
 	})
 

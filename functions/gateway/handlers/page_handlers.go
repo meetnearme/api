@@ -10,12 +10,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/zitadel-go/v3/pkg/authentication"
 	openid "github.com/zitadel/zitadel-go/v3/pkg/authentication/oidc"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
@@ -59,12 +59,14 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
   cfRay := GetCfRay(ctx)
   rayCode := ""
+	var cfLocation helpers.CdnLocation
   cfLocationLat := services.InitialEmptyLatLon
   cfLocationLon := services.InitialEmptyLatLon
   if len(cfRay) > 2 {
     rayCode = cfRay[len(cfRay)-3:]
-	  cfLocationLat = helpers.CfLocationMap[rayCode].Lat
-    cfLocationLon = helpers.CfLocationMap[rayCode].Lon
+		cfLocation = helpers.CfLocationMap[rayCode]
+	  cfLocationLat = cfLocation.Lat
+    cfLocationLon = cfLocation.Lon
   }
 
 	queryParameters := apiGwV2Req.QueryStringParameters
@@ -107,6 +109,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	// Call the GetEventsZOrder service to retrieve events
 	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
+
 	if err != nil {
     return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
 	}
@@ -123,7 +126,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
     return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
-	homePage := pages.HomePage(events)
+	homePage := pages.HomePage(events, cfLocation, latStr, lonStr)
 	layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
 	var buf bytes.Buffer
@@ -185,20 +188,22 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
- func GetCfRay (c context.Context) string {
+func GetCfRay (c context.Context) string {
   apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
   if (!ok) {
+		log.Println(("APIGatewayV2HTTPRequest not found in context"))
     return ""
   }
   if apiGwV2Req.Headers == nil {
+		log.Println(("Headers not found in APIGatewayV2HTTPRequest"))
     return ""
   }
   if cfRay := apiGwV2Req.Headers["cf-ray"]; cfRay != "" {
+		log.Println(("cf-ray found in APIGatewayV2HTTPRequest: " + fmt.Sprint(cfRay)))
     return cfRay
   }
   return ""
 }
-
 
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// TODO: Extract reading param values into a helper method.
@@ -209,11 +214,17 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		fmt.Println("No event ID provided. Redirecting to home page.")
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
+	db := transport.GetDB()
 	authCtx := mw.Context(ctx)
 
-	eventDetailsPage := pages.EventDetailsPage(eventId)
+	event, err := services.GetEventById(ctx, db, eventId)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	eventDetailsPage := pages.EventDetailsPage(*event)
 	userInfo := helpers.UserInfo{}
-	userInfo, err := setUserInfo(authCtx, userInfo)
+	userInfo, err = setUserInfo(authCtx, userInfo)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
