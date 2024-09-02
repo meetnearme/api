@@ -281,6 +281,7 @@ templ HomePage(events []services.EventSelect, cfLocation helpers.CdnLocation, la
 				}
 			}
 		</script>
+		// Source: https://www.penguinui.com/components/combobox
 		<div x-data="getLocationSearchData()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
 			<div class="relative px-4">
 				<!-- trigger button  -->

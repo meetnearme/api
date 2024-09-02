@@ -21,8 +21,8 @@ inputs:
   ZITADEL_ENCRYPTION_KEY:
     description: 'The encryption key for zitadel auth'
     required: true
-  ZITADEL_INSTANCE_URL:
-    description: 'The client instance URL for zitadel auth'
+  ZITADEL_INSTANCE_HOST:
+    description: 'The client instance host for zitadel auth'
     required: true
   APEX_URL:
     description:
@@ -31,6 +31,18 @@ inputs:
   APEX_DEV_URL:
     description:
       'The site apex DEV URL, dynamic in lower environments, static in prod'
+    required: true
+  CLOUDFLARE_API_TOKEN:
+    description: 'The API token for the Cloudflare API'
+    required: true
+  CLOUDFLARE_ACCOUNT_ID:
+    description: 'The account ID for the Cloudflare API'
+    required: true
+  CLOUDFLARE_KV_NAMESPACE_ID:
+    description: 'The KV namespace ID for the Cloudflare API'
+    required: true
+  CLOUDFLARE_API_BASE_URL:
+    description: 'The base URL for the Cloudflare API'
     required: true
 runs:
   using: composite
@@ -46,7 +58,7 @@ runs:
         echo OPENAI_API_KEY=${{ inputs.OPENAI_API_KEY }} >> .env
         echo ZITADEL_CLIENT_ID=${{ inputs.ZITADEL_CLIENT_ID }} >> .env
         echo ZITADEL_ENCRYPTION_KEY=${{ inputs.ZITADEL_ENCRYPTION_KEY }} >> .env
-        echo ZITADEL_INSTANCE_URL=${{ inputs.ZITADEL_INSTANCE_URL }} >> .env
+        echo ZITADEL_INSTANCE_HOST=${{ inputs.ZITADEL_INSTANCE_HOST }} >> .env
         echo APEX_URL=${{ inputs.APEX_URL }} >> .env
         echo APEX_DEV_URL=${{ inputs.APEX_DEV_URL }} >> .env
     - name: Configure AWS credentials
