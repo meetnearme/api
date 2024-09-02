@@ -2,7 +2,6 @@ import { Api, StackContext, use } from 'sst/constructs';
 import envVars from './shared/env';
 import { StaticSiteStack } from './StaticSiteStack';
 import { StorageStack } from './StorageStack';
-import { MarqoStack } from './MarqoStack';
 import { HostedZone } from 'aws-cdk-lib/aws-route53';
 import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { SeshuFunction } from './SeshuFunction';

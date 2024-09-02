@@ -21,7 +21,7 @@ type Event struct {
 	Longitude   float32 `json:"longitude" validate:"required"`
 }
 
-var marqoLbName = helpers.GetMarqoLB()
+var marqoEndpoint = helpers.GetMarqoEndpoint()
 
 // considered the best embedding model as of 8/15/2024
 var model = "hf/bge-large-en-v1.5"
@@ -31,10 +31,10 @@ func GetMarqoClient() (*marqo.Client, error) {
 	// Create a new Marqo client
 	var creatString string
 
-	if marqoLbName == "" {
+	if marqoEndpoint == "" {
 		creatString = "http://localhost:8882" //set to local host if no marqo lb is set
 	} else {
-		creatString = marqoLbName
+		creatString = marqoEndpoint
 	}
 	client, err := marqo.NewClient(creatString)
 	if err != nil {

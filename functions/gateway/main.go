@@ -53,13 +53,15 @@ func init() {
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
 		{"/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventDetailsPage, Check},
-		{"/api/event", "POST", handlers.CreateEventHandler, None},
+		// {"/api/event", "POST", handlers.CreateEventHandler, None},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo", "POST", handlers.GeoLookup, None},
 		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, None},
 		{"/api/html/seshu/session/location", "PATCH", handlers.GeoThenPatchSeshuSession, None},
 		{"/api/html/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents, None},
+        {"/api/events", "GET", handlers.GetEvents, None},
+        {"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEvents, None},
     }
 }
 
