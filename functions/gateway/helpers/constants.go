@@ -19,6 +19,7 @@ type UserInfo struct {
 	PreferredUsername string `json:"preferred_username"`
 	Sub string `json:"sub"`
 	UpdatedAt int `json:"updated_at"`
+	Metadata string `json:"metadata"`
 }
 
 type Category struct {
