@@ -4,13 +4,10 @@ export default {
     const hostname = url.hostname;
     const parts = hostname.split('.');
     const subdomain = parts.slice(0, -2).join('.');
-
-    console.log('req.cf: ', JSON.stringify(req.cf));
-
     let subdomainValue = null;
 
     // Clone the original request
-    let newRequest = new Request(req);
+    const newRequest = new Request(req);
 
     if (subdomain) {
       subdomainValue = await env.MNM_SUBDOMAIN_KV_NAMESPACE.get(subdomain);
