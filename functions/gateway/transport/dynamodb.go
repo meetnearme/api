@@ -73,22 +73,22 @@ func SetTestDB(db internal_types.DynamoDBAPI) {
 }
 
 func GetDB() internal_types.DynamoDBAPI {
-    if os.Getenv("GO_ENV") == "test" {
-        if testDB == nil {
-            log.Println("Creating mock DB for testing")
-            testDB = &test_helpers.MockDynamoDBClient{
-                ScanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
-                    return &dynamodb.ScanOutput{
-                        Items: []map[string]types.AttributeValue{},
-                    }, nil
-                },
-            }
-        }
-        log.Println("Returning mock DB for testing")
-        return testDB
-    }
+	if os.Getenv("GO_ENV") == "test" {
+		if testDB == nil {
+			log.Println("Creating mock DB for testing")
+			testDB = &test_helpers.MockDynamoDBClient{
+					ScanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+							return &dynamodb.ScanOutput{
+									Items: []map[string]types.AttributeValue{},
+							}, nil
+					},
+			}
+		}
+		log.Println("Returning mock DB for testing")
+		return testDB
+	}
 	once.Do(func() {
 		db = CreateDbClient()
 	})
 	return db
-}
+	}
