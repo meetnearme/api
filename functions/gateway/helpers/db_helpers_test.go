@@ -35,11 +35,6 @@ func TestIsRemoteDB(t *testing.T) {
 }
 
 func TestGetDbTableName(t *testing.T) {
-    originalEnv := os.Getenv("GO_ENV")
-    defer os.Setenv("GO_ENV", originalEnv)
-
-    os.Setenv("GO_ENV", "test")
-
     t.Run("Local DB", func(t *testing.T) {
         os.Setenv("USE_REMOTE_DB", "false")
         os.Setenv("SST_STAGE", "")

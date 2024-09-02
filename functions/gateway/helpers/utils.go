@@ -14,6 +14,20 @@ import (
 	"time"
 )
 
+var defaultProtocol string
+
+func InitDefaultProtocol() {
+	if os.Getenv("GO_ENV") == "test" {
+		defaultProtocol = "http://"
+	} else {
+		defaultProtocol = "https://"
+	}
+}
+
+func init() {
+	InitDefaultProtocol()
+}
+
 func FormatDate(d string) string {
 	date, err := time.Parse(time.RFC3339, d)
 	if err != nil {
@@ -170,7 +184,7 @@ func DeleteCloudflareKV (subdomainValue, userID string) error {
 }
 
 func GetUserMetadataByKey (userID, key string) (string, error) {
-	url := fmt.Sprintf("https://%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
+	url := fmt.Sprintf( defaultProtocol + "%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "GET"
 
 	client := &http.Client{}
@@ -198,11 +212,21 @@ func GetUserMetadataByKey (userID, key string) (string, error) {
 		return "", err
 	}
 
-	return respData["metadata"].(map[string]interface{})["value"].(string), nil
+	metadata, ok := respData["metadata"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("metadata is not of type map[string]interface{}")
+	}
+
+	value, ok := metadata["value"].(string)
+	if !ok {
+		return "", fmt.Errorf("value is not of type string")
+	}
+
+	return value, nil
 }
 
 func UpdateUserMetadataKey (userID, key, value string) error {
-	url := fmt.Sprintf("https://%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
+	url := fmt.Sprintf( defaultProtocol + "%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "POST"
 
 	payload := strings.NewReader(`{
