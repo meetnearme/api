@@ -6,9 +6,12 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"sync"
 
@@ -19,13 +22,16 @@ import (
 )
 
 var (
-	domain      = flag.String("domain", os.Getenv("ZITADEL_INSTANCE_URL"), "your ZITADEL instance domain (in the form: https://<instance>.zitadel.cloud or https://<yourdomain>)")
-	key         = flag.String("key", os.Getenv("ZITADEL_ENCRYPTION_KEY"), "encryption key")
-	clientID    = flag.String("clientID", os.Getenv("ZITADEL_CLIENT_ID"), "clientID provided by ZITADEL")
-	redirectURI = flag.String("redirectURI", string(os.Getenv("APEX_URL")+"/auth/callback"), "redirect URI registered with ZITADEL")
-	mw          *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
-	authN       *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
-	once        sync.Once
+	domain        = flag.String("domain", os.Getenv("ZITADEL_INSTANCE_URL"), "your ZITADEL instance domain (in the form: https://<instance>.zitadel.cloud or https://<yourdomain>)")
+	key           = flag.String("key", os.Getenv("ZITADEL_ENCRYPTION_KEY"), "encryption key")
+	clientID      = flag.String("clientID", os.Getenv("ZITADEL_CLIENT_ID"), "clientID provided by ZITADEL")
+	redirectURI   = flag.String("redirectURI", string(os.Getenv("APEX_URL")+"/auth/callback"), "redirect URI registered with ZITADEL")
+	authorizeURI  = flag.String("authorizeURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_URL")+"/oauth/v2/authorize"), "Zitadel authorizeURL")
+	tokenURI      = flag.String("tokenURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_URL")+"/oauth/v2/token"), "Zitadel endpoint to exchange code challenge and verifier for token")
+	endSessionURI = flag.String("endSessionURI", string(os.Getenv("ZITADEL_INSTANCE_URL")+"/oidc/v1/end_session"), "Zitadel logout URI")
+	mw            *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
+	authN         *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
+	once          sync.Once
 )
 
 func InitAuth() {
@@ -70,20 +76,62 @@ func randomBytesInHex(count int) (string, error) {
 	return hex.EncodeToString(buf), nil
 }
 
-// GenerateCodeVerifier generates a cryptographically secure random string
-func GenerateCodeVerifier() (string, error) {
-	verifier, err := randomBytesInHex(32) // Length in bytes
+func GenerateCodeChallengeAndVerifier() (string, string, error) {
+	codeVerifier, err := randomBytesInHex(32) // Length in bytes
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return verifier, nil
-	// Encode with URL encoding and remove padding
-}
 
-// GenerateCodeChallenge generates a code challenge from the code verifier
-func GenerateCodeChallenge(codeVerifier string) string {
 	sha2 := sha256.New()
 	io.WriteString(sha2, codeVerifier)
+
 	codeChallenge := base64.RawURLEncoding.EncodeToString(sha2.Sum(nil))
-	return codeChallenge
+
+	return codeChallenge, codeVerifier, nil
+}
+
+func BuildAuthorizeRequest(codeChallenge string) (*url.URL, error) {
+	authURL, err := url.Parse(*authorizeURI)
+	if err != nil {
+		log.Printf("Failed to parse Zitadel authorize URI: %v", err)
+		return nil, err
+	}
+
+	query := authURL.Query()
+	query.Set("client_id", *clientID)
+	query.Set("redirect_uri", *redirectURI)
+	query.Set("response_type", "code") // 'code' for authorization code grant
+	query.Set("scope", "oidc profile email offline_access")
+	query.Set("code_challenge", codeChallenge)
+	query.Set("code_challenge_method", "S256")
+
+	authURL.RawQuery = query.Encode()
+	log.Printf("Auth URL: %v", authURL)
+
+	return authURL, nil
+}
+
+func GetAuthToken(code string, codeVerifier string) (map[string]interface{}, error) {
+	data := url.Values{}
+	data.Set("grant_type", "authorization_code")
+	data.Set("code", code)
+	data.Set("redirect_uri", *redirectURI)
+	data.Set("client_id", *clientID)
+	data.Set("code_verifier", codeVerifier)
+
+	resp, err := http.PostForm(*tokenURI, data)
+	if err != nil {
+		log.Printf("Failed to get tokens: %v", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Handle the token response
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	// Handle the token response
+	log.Printf("Tokens: %v", result)
+
+	return result, nil
 }

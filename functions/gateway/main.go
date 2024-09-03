@@ -2,13 +2,10 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
-	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -40,22 +37,13 @@ type Route struct {
 	Auth    AuthType
 }
 
-var (
-	authorizeURI = string(os.Getenv("ZITADEL_INSTANCE_URL") + "/oauth/v2/authorize")
-	tokenURI     = "https://" + string(os.Getenv("ZITADEL_INSTANCE_URL")+"/oauth/v2/token")
-	redirectURI  = string(os.Getenv("APEX_URL") + "/auth/callback")
-	clientID     = string(os.Getenv("ZITADEL_CLIENT_ID"))
-)
-
 var Routes []Route
 var codeVerifier string
 var codeChallenge string
-var err error
 
 func init() {
 	Routes = []Route{
 		{"/", "GET", handlers.GetHomePage, Check},
-		// {"/login", "GET", handlers.GetLoginPage, Check},
 		{"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
 		{"/admin/profile", "GET", handlers.GetProfilePage, Require},
 		{"/map-embed", "GET", handlers.GetMapEmbedPage, None},
@@ -74,19 +62,12 @@ func init() {
 		{"/api/html/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents, None},
 	}
 
-	codeVerifier, err = services.GenerateCodeVerifier()
+	var err error
+	codeChallenge, codeVerifier, err = services.GenerateCodeChallengeAndVerifier()
 	if err != nil {
-		fmt.Println("Error generating code verifier:", err)
+		fmt.Println("Error generating code verifier and challenge:", err)
 		return
 	}
-	log.Printf("Code verifier: %v", codeVerifier)
-
-	codeChallenge = services.GenerateCodeChallenge(codeVerifier)
-	if err != nil {
-		fmt.Println("Error generating code challenge:", err)
-		return
-	}
-	log.Printf("Code challenge: %v", codeChallenge)
 }
 
 type App struct {
@@ -126,13 +107,16 @@ func (app *App) addRoute(route Route) {
 				route.Handler(w, r).ServeHTTP(w, r)
 				return
 			}
+
 			app.Mw.RequireAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if authentication.IsAuthenticated(r.Context()) {
-					route.Handler(w, r).ServeHTTP(w, r)
-				} else {
+				authState := app.Mw.Context(r.Context())
+				if authState == nil {
 					http.Redirect(w, r, "/login", http.StatusFound)
+					return
 				}
 
+				log.Printf("Auth State: %v", authState.UserInfo)
+				route.Handler(w, r).ServeHTTP(w, r)
 			})).ServeHTTP(w, r)
 		}
 	case Check:
@@ -152,38 +136,13 @@ func (app *App) addRoute(route Route) {
 
 func (app *App) SetupAuthRoutes() {
 	app.Router.Handle("/login", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Construct the ZITADEL authorization URL
-		authURL, err := url.Parse("https://" + authorizeURI)
+		authURL, err := services.BuildAuthorizeRequest(codeChallenge)
 		if err != nil {
-			log.Printf("Failed to parse Zitadel authorize URI: %v", err)
+			http.Error(w, "Failed to authorize request", http.StatusBadRequest)
 			return
 		}
 
-		log.Printf("Code challenge verifier in auth: %v", codeChallenge+" | "+codeVerifier)
-		query := authURL.Query()
-		query.Set("client_id", clientID)
-		query.Set("redirect_uri", redirectURI)
-		query.Set("response_type", "code") // 'code' for authorization code grant
-		query.Set("scope", "oidc profile email offline_access")
-		query.Set("code_challenge", codeChallenge)
-		query.Set("code_challenge_method", "S256")
-
-		// Get incoming request query parameters
-		incomingParams := req.URL.Query()
-		for key, values := range incomingParams {
-			// Append each incoming parameter to the query
-			for _, value := range values {
-				query.Add(key, value)
-			}
-		}
-
-		// Set the combined query parameters back to the authorization URL
-		authURL.RawQuery = query.Encode()
-		log.Printf("Auth URL: %v", authURL)
-
-		// Redirect the user to the ZITADEL login page
 		http.Redirect(w, req, authURL.String(), http.StatusFound)
-		// app.AuthN.Authenticate(w, req, req.URL.Path+query)
 	}))
 
 	app.Router.Handle("/auth/callback", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -193,46 +152,28 @@ func (app *App) SetupAuthRoutes() {
 			return
 		}
 
-		// Construct the ZITADEL authorization URL
-		log.Printf("Code challenge verifier in token: %v", codeChallenge+" | "+codeVerifier)
-
-		data := url.Values{}
-		data.Set("grant_type", "authorization_code")
-		data.Set("code", code)
-		data.Set("redirect_uri", redirectURI)
-		data.Set("client_id", clientID)
-		data.Set("code_verifier", codeVerifier)
-
-		resp, err := http.PostForm(tokenURI, data)
+		tokens, err := services.GetAuthToken(code, codeVerifier)
 		if err != nil {
-			log.Printf("Token error: %v", err)
-			http.Error(w, "Failed to exchange code for token", http.StatusInternalServerError)
+			log.Printf("Authentication Failed: %v", err)
+			http.Error(w, "Authentication failed", http.StatusUnauthorized)
 			return
 		}
-		defer resp.Body.Close()
-
-		// Handle the token response
-		var result map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&result)
-
-		// Handle the token response
-		log.Printf("Tokens: %v", result)
 
 		// Store the access token and refresh token securely
-		accessToken, ok := result["access_token"].(string)
+		accessToken, ok := tokens["access_token"].(string)
 		if !ok {
 			http.Error(w, "Failed to get access token", http.StatusInternalServerError)
 			return
 		}
 
-		refreshToken, ok := result["refresh_token"].(string)
+		refreshToken, ok := tokens["refresh_token"].(string)
 		if !ok {
 			fmt.Printf("Refresh token error: %v", ok)
 			http.Error(w, "Failed to get refresh token", http.StatusInternalServerError)
 			return
 		}
 
-		// Example: Store tokens in a session or secure cookie
+		// Store tokens in a session or secure cookie
 		http.SetCookie(w, &http.Cookie{
 			Name:  "access_token",
 			Value: accessToken,
@@ -248,6 +189,7 @@ func (app *App) SetupAuthRoutes() {
 		// Redirect or respond to the user
 		http.Redirect(w, req, "/", http.StatusSeeOther)
 	}))
+
 	app.Router.Handle("/auth/logout", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		app.AuthN.Logout(w, req)
 	}))
