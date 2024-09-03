@@ -39,33 +39,33 @@ func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.User
 }
 
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-  // Extract parameter values from the request query parameters
-  ctx := r.Context()
+	// Extract parameter values from the request query parameters
+	ctx := r.Context()
 
-  db := transport.GetDB()
-  apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-  if !ok {
-    log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
-    // For testing or non-API gateway envs
-    apiGwV2Req = events.APIGatewayV2HTTPRequest{
-      RequestContext: events.APIGatewayV2HTTPRequestContext{
-        HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
-          Method: r.Method,
-          Path: r.URL.Path,
-        },
-      },
-    }
-  }
+	db := transport.GetDB()
+	apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	if !ok {
+		log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
+		// For testing or non-API gateway envs
+		apiGwV2Req = events.APIGatewayV2HTTPRequest{
+			RequestContext: events.APIGatewayV2HTTPRequestContext{
+				HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
+					Method: r.Method,
+					Path:   r.URL.Path,
+				},
+			},
+		}
+	}
 
-  cfRay := GetCfRay(ctx)
-  rayCode := ""
-  cfLocationLat := services.InitialEmptyLatLon
-  cfLocationLon := services.InitialEmptyLatLon
-  if len(cfRay) > 2 {
-    rayCode = cfRay[len(cfRay)-3:]
-	  cfLocationLat = helpers.CfLocationMap[rayCode].Lat
-    cfLocationLon = helpers.CfLocationMap[rayCode].Lon
-  }
+	cfRay := GetCfRay(ctx)
+	// rayCode := ""
+	cfLocationLat := services.InitialEmptyLatLon
+	cfLocationLon := services.InitialEmptyLatLon
+	if len(cfRay) > 2 {
+		// rayCode = cfRay[len(cfRay)-3:]
+		//   cfLocationLat = helpers.CfLocationMap[rayCode].Lat
+		// cfLocationLon = helpers.CfLocationMap[rayCode].Lon
+	}
 
 	queryParameters := apiGwV2Req.QueryStringParameters
 	startTimeStr := queryParameters["start_time"]
@@ -83,45 +83,45 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	// Parse parameter values if provided
 	if startTimeStr != "" {
-			startTime, _ = time.Parse(time.RFC3339, startTimeStr)
+		startTime, _ = time.Parse(time.RFC3339, startTimeStr)
 	}
 	if endTimeStr != "" {
-			endTime, _ = time.Parse(time.RFC3339, endTimeStr)
+		endTime, _ = time.Parse(time.RFC3339, endTimeStr)
 	}
 	if latStr != "" {
-			lat64, _ := strconv.ParseFloat(latStr, 32)
-			lat = float32(lat64)
-	} else if cfLocationLat != services.InitialEmptyLatLon  {
-      lat = float32(cfLocationLat)
-  }
+		lat64, _ := strconv.ParseFloat(latStr, 32)
+		lat = float32(lat64)
+	} else if cfLocationLat != services.InitialEmptyLatLon {
+		lat = float32(cfLocationLat)
+	}
 	if lonStr != "" {
-			lon64, _ := strconv.ParseFloat(lonStr, 32)
-			lon = float32(lon64)
+		lon64, _ := strconv.ParseFloat(lonStr, 32)
+		lon = float32(lon64)
 	} else if cfLocationLon != services.InitialEmptyLatLon {
-      lon = float32(cfLocationLon)
-  }
+		lon = float32(cfLocationLon)
+	}
 	if radiusStr != "" {
-			radius64, _ := strconv.ParseFloat(radiusStr, 32)
-			radius = float32(radius64)
+		radius64, _ := strconv.ParseFloat(radiusStr, 32)
+		radius = float32(radius64)
 	}
 
 	// Call the GetEventsZOrder service to retrieve events
 	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
 	if err != nil {
-    return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-  var authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]
-  if mw != nil {
-    authCtx = mw.Context(r.Context())
-  } else {
-    authCtx = &openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]{}
-  }
+	var authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]
+	if mw != nil {
+		authCtx = mw.Context(r.Context())
+	} else {
+		authCtx = &openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]{}
+	}
 
 	userInfo := helpers.UserInfo{}
 	userInfo, err = setUserInfo(authCtx, userInfo)
 	if err != nil {
-    return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 	homePage := pages.HomePage(events)
 	layoutTemplate := pages.Layout("Home", userInfo, homePage)
@@ -150,8 +150,8 @@ func GetLoginPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-  mw, _ := services.GetAuthMw()
-  userInfoCtx := mw.Context(ctx)
+	mw, _ := services.GetAuthMw()
+	userInfoCtx := mw.Context(ctx)
 
 	userInfo := helpers.UserInfo{}
 	userInfo, err := setUserInfo(userInfoCtx, userInfo)
@@ -185,20 +185,19 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
- func GetCfRay (c context.Context) string {
-  apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-  if (!ok) {
-    return ""
-  }
-  if apiGwV2Req.Headers == nil {
-    return ""
-  }
-  if cfRay := apiGwV2Req.Headers["cf-ray"]; cfRay != "" {
-    return cfRay
-  }
-  return ""
+func GetCfRay(c context.Context) string {
+	apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	if !ok {
+		return ""
+	}
+	if apiGwV2Req.Headers == nil {
+		return ""
+	}
+	if cfRay := apiGwV2Req.Headers["cf-ray"]; cfRay != "" {
+		return cfRay
+	}
+	return ""
 }
-
 
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// TODO: Extract reading param values into a helper method.
@@ -220,7 +219,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 	layoutTemplate := pages.Layout("Event Details", userInfo, eventDetailsPage)
 	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf,)
+	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
