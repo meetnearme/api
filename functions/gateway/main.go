@@ -71,6 +71,7 @@ func init() {
 		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, None},
 		{"/api/html/seshu/session/location", "PATCH", handlers.GeoThenPatchSeshuSession, None},
 		{"/api/html/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents, None},
+		{"/api/db/tables", "GET", handlers.GetDatabaseTablesHandler, None},
     }
 }
 
