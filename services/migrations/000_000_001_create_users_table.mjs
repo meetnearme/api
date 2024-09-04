@@ -6,8 +6,8 @@ export async function up(db) {
     .createTable("users")
     .addColumn("id", "uuid", (col) => col.primaryKey())
     .addColumn("name", "varchar(255)", (col) => col.notNull())
-    .addColumn("email", "varchar(255)", (col) => col.notNull().unique())
-    .addColumn("password_hash", "varchar(255)", (col) => col.notNull()) // Assuming you'll store hashed passwords
+    // .addColumn("email", "varchar(255)", (col) => col.notNull().unique())
+    .addColumn("email", "varchar(255)", (col) => col.notNull())
     .addColumn("address_street", "varchar(255)")
     .addColumn("address_city", "varchar(255)")
     .addColumn("address_zip_code", "varchar(20)")
@@ -28,30 +28,30 @@ export async function up(db) {
     .execute();
 
   // Optionally, add a check constraint for role to mimic enum behavior
-  await db.schema
-    .alterTable("users")
-    .addConstraint(
-      "users_role_check",
-      sql`CHECK (role IN ('standard_user', 'organization_user', 'suborganization_user'))`
-    )
-    .execute();
+  // await db.schema
+  //   .alterTable("users")
+  //   .addConstraint(
+  //     "users_role_check",
+  //     sql`CHECK (role IN ('standard_user', 'organization_user', 'suborganization_user'))`
+  //   )
+  //   .execute();
 
   // Add foreign key constraint
-  await db.schema
-    .alterTable("users")
-    .addForeignKeyConstraint("users_organization_user_fk", {
-      columns: ["organization_user_id"],
-      referencedTable: "users",
-      referencedColumns: ["id"],
-      onDelete: "SET NULL", // Adjust behavior as needed
-      condition: sql`role = 'suborganization_user'`
-    })
-    .execute();
+  // await db.schema
+  //   .alterTable("users")
+  //   .addForeignKeyConstraint("users_organization_user_fk", {
+  //     columns: ["organization_user_id"],
+  //     referencedTable: "users",
+  //     referencedColumns: ["id"],
+  //     onDelete: "SET NULL", // Adjust behavior as needed
+  //     condition: sql`role = 'suborganization_user'`
+  //   })
+  //   .execute();
 }
 
 export async function down(db) {
   // Drop the foreign key constraint before dropping the column
-  await db.schema.dropForeignKeyConstraint("users_organization_user_fk").execute();
+  // await db.schema.dropForeignKeyConstraint("users_organization_user_fk").execute();
 
   // Drop the index before dropping the table
   await db.schema.dropIndex("users_email_index").execute();
