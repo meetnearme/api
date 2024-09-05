@@ -90,19 +90,14 @@ func (s *UserService) InsertUser(ctx context.Context, rdsClient internal_types.R
         return nil, fmt.Errorf("failed to insert user: %w", err)
     }
 
-    log.Printf("Result from execStatement for insert user: %v", result)
-
-    if len(result.Records) == 0 {
-        return nil, fmt.Errorf("no user returned after insert")
-    }
-
     // Extract the inserted user data
-    insertedUser, err := extractAndMapSingleUser(result.ColumnMetadata, result.Records[0])
+    insertedUser, err := extractAndMapSingleUserFromJSON(*result.FormattedRecords)
     if err != nil {
         return nil, fmt.Errorf("failed to map user after insert: %w", err)
     }
 
-    return insertedUser, nil
+    // return user, nil
+	return insertedUser, nil
 }
 
 
