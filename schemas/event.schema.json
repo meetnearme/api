@@ -1,50 +1,9 @@
 {
   "$id": "https://github.com/meetnearme/api/architecture/Event.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "definitions": {
-    "registrationFields": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string",
-          "enum": [
-            "text",
-            "url",
-            "email",
-            "phone",
-            "number",
-            "select",
-            "checkbox",
-            "radio"
-          ]
-        },
-        "options": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "required": {
-          "type": "boolean"
-        },
-        "default": {
-          "type": "string"
-        },
-        "placeholder": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        }
-      }
-    }
-  },
   "type": "object",
   "properties": {
-    "id": {
+    "_id": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
     },
     "eventSourceId": {
@@ -52,6 +11,13 @@
     },
     "eventSourceType": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/EventSourceType"
+    },
+    "eventOwners": {
+      "type": "array",
+      "items": {
+        "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/UUID"
+      },
+      "minItems": 1
     },
     "name": {
       "type": "string"
@@ -68,16 +34,11 @@
     "recurrenceRule": {
       "type": "string"
     },
-    "registrationFields": {
-      "$ref": "#/definitions/registrationFields",
-      "default": []
+    "hasRegistrationFields": {
+      "type": "boolean"
     },
-    "purchasable": {
-      "type": "array",
-      "items": {
-        "$ref": "https://github.com/meetnearme/api/architecture/Purchasable.json"
-      },
-      "default": []
+    "hasPurchasable": {
+      "type": "boolean"
     },
     "url": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
@@ -108,9 +69,6 @@
       },
       "default": []
     },
-    "zOrderIndex": {
-      "type": "string"
-    },
     "externalEventUrl": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
     },
@@ -128,6 +86,7 @@
     "id",
     "eventSourceId",
     "eventSourceType",
+    "eventOwners",
     "name",
     "startTime",
     "url",
