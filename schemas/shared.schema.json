@@ -17,6 +17,10 @@
       "type": "string",
       "format": "uuid"
     },
+    "EventOwnerType": {
+      "type": "string",
+      "enum": ["user", "org"]
+    },
     "EventSourceType": {
       "type": "string",
       "enum": ["internalRecurrence", "internalSingle", "seshuJob"]
