@@ -40,9 +40,6 @@
     "hasPurchasable": {
       "type": "boolean"
     },
-    "url": {
-      "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
-    },
     "imageUrl": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
     },
@@ -69,7 +66,7 @@
       },
       "default": []
     },
-    "externalUrl": {
+    "sourceUrl": {
       "$ref": "https://github.com/meetnearme/api/architecture/Shared.json#definitions/Url"
     },
     "createdAt": {
