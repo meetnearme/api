@@ -3,17 +3,20 @@ import { RDS, StackContext } from "sst/constructs";
 export function RdsStack({ stack }: StackContext) {
   const DATABASE = "MeetnearmeRdsDB";
 
+
   const cluster = new RDS(stack, "Cluster", {
     engine: "postgresql13.9",
     defaultDatabaseName: DATABASE,
     migrations: "services/migrations",
   });
 
+
   stack.addOutputs({
     SecretArn: cluster.secretArn,
     ClusterIdentifier: cluster.clusterIdentifier,
     ClusterArn: cluster.clusterArn,
   });
+
 
   return {
     cluster
