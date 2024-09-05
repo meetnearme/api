@@ -17,6 +17,7 @@ import (
 	openid "github.com/zitadel/zitadel-go/v3/pkg/authentication/oidc"
 
 	"github.com/meetnearme/api/functions/gateway/handlers"
+	"github.com/meetnearme/api/functions/gateway/handlers/rds_handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -71,8 +72,36 @@ func init() {
 		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, None},
 		{"/api/html/seshu/session/location", "PATCH", handlers.GeoThenPatchSeshuSession, None},
 		{"/api/html/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents, None},
-		{"/api/db/tables", "GET", handlers.GetDatabaseTablesHandler, None},
-    }
+
+		// TODO: assign proper require, check authorizations
+		// User routes
+		{"/api/users", "GET", rds_handlers.GetUsersHandler, None},                // Get all users
+		{"/api/users/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetUserHandler, None}, // Get a specific user
+		{"/api/users", "POST", rds_handlers.CreateUserHandler, None},           // Create a new user
+		{"/api/users/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateUserHandler, None}, // Update an existing user
+		{"/api/users/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteUserHandler, None}, // Delete a user
+
+		// Transactions routes
+		// {"/api/transactions", "GET", handlers.GetTransactionsHandler, Check}, // Get all transactions
+		// {"/api/transactions/{id:[0-9a-fA-F-]+}", "GET", handlers.GetTransactionHandler, Check}, // Get a specific transaction
+		// {"/api/transactions", "POST", handlers.CreateTransactionHandler, Require}, // Create a new transaction
+		// {"/api/transactions/{id:[0-9a-fA-F-]+}", "PUT", handlers.UpdateTransactionHandler, Require}, // Update an existing transaction
+		// {"/api/transactions/{id:[0-9a-fA-F-]+}", "DELETE", handlers.DeleteTransactionHandler, Require}, // Delete a transaction
+
+		// // Purchasables routes
+		// {"/api/purchasables", "GET", handlers.GetPurchasablesHandler, Check}, // Get all purchasables
+		// {"/api/purchasables/{id:[0-9a-fA-F-]+}", "GET", handlers.GetPurchasableHandler, Check}, // Get a specific purchasable
+		// {"/api/purchasables", "POST", handlers.CreatePurchasableHandler, Require}, // Create a new purchasable
+		// {"/api/purchasables/{id:[0-9a-fA-F-]+}", "PUT", handlers.UpdatePurchasableHandler, Require}, // Update an existing purchasable
+		// {"/api/purchasables/{id:[0-9a-fA-F-]+}", "DELETE", handlers.DeletePurchasableHandler, Require}, // Delete a purchasable
+
+		// // Event RSVPs routes
+		// {"/api/event-rsvps", "GET", handlers.GetEventRsvpsHandler, Check}, // Get all event RSVPs
+		// {"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "GET", handlers.GetEventRsvpHandler, Check}, // Get a specific event RSVP
+		// {"/api/event-rsvps", "POST", handlers.CreateEventRsvpHandler, Require}, // Create a new event RSVP
+		// {"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "PUT", handlers.UpdateEventRsvpHandler, Require}, // Update an existing event RSVP
+		// {"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "DELETE", handlers.DeleteEventRsvpHandler, Require}, // Delete an event RSVP
+	}
 }
 
 
