@@ -9,7 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/rdsdata"
-	"github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
+	rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
@@ -67,7 +67,7 @@ ORDER BY table_schema, table_name;`
 		var schemaName, tableName string
 		for j, field := range record {
 			switch v := field.(type) {
-			case *types.FieldMemberStringValue:
+			case *rds_types.FieldMemberStringValue:
 				if j == 0 {
 					schemaName = v.Value
 				} else if j == 1 {
@@ -98,13 +98,15 @@ type RDSDataClient struct {
 	database   string
 }
 
-// ExecStatement executes a SQL statement using the RDS Data API
-func (r *RDSDataClient) ExecStatement(ctx context.Context, sql string) (*rdsdata.ExecuteStatementOutput, error) {
+func (r *RDSDataClient) ExecStatement(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
+	// Build and execute the SQL statement
 	input := &rdsdata.ExecuteStatementInput{
 		ResourceArn: &r.clusterArn,
 		SecretArn:   &r.secretArn,
 		Database:    &r.database,
 		Sql:         &sql,
+		FormatRecordsAs: "JSON",
+		Parameters:  params,
 	}
 
 	return r.client.ExecuteStatement(ctx, input)
