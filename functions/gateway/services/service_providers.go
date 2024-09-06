@@ -10,7 +10,7 @@ import (
 )
 
 var (
-    geoService interfaces.GeoServiceInterface 
+    geoService interfaces.GeoServiceInterface
     geoServiceOnce sync.Once
 
     seshuService interfaces.SeshuServiceInterface
@@ -46,7 +46,7 @@ func GetSeshuService() interfaces.SeshuServiceInterface {
 type RealGeoService struct {}
 type RealSeshuService struct{}
 
-func (s *RealSeshuService) GetSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSession) (*internal_types.SeshuSession, error) {
+func (s *RealSeshuService) GetSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionGet) (*internal_types.SeshuSession, error) {
     return GetSeshuSession(ctx, db, seshuPayload)
 }
 

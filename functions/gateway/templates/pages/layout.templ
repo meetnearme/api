@@ -12,14 +12,15 @@ templ Layout(title string, userInfo helpers.UserInfo, pageContent templ.Componen
 	<html data-theme="cyberpunk">
 		<head>
 			<title>Meet Near Me - { title }</title>
-			<link rel="icon" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+			<link rel="icon" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logomark.svg") }/>
 			<link rel="preconnect" href="https://fonts.googleapis.com"/>
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-			<link href="https://fonts.googleapis.com/css2?family=Grandstander:wght@100..900&family=Red+Hat+Mono:wght@300..700&display=swap" rel="stylesheet"/>
+			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet"/>
 			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.css") }/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
+			<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
 			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 		</head>
 		<body>
@@ -33,7 +34,7 @@ templ Layout(title string, userInfo helpers.UserInfo, pageContent templ.Componen
 			<footer class="footer footer-center p-10 mt-60 bg-primary text-primary-content">
 				<aside>
 					<a href="/" class="btn btn-ghost text-xl">
-						<img class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+						<img class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logomark.svg") }/>
 					</a>
 					<p>
 						<br/>
@@ -74,6 +75,6 @@ templ Layout(title string, userInfo helpers.UserInfo, pageContent templ.Componen
 				</nav>
 			</footer>
 		</body>
-		<img class="main-bg" alt="Illustration: A diverse group of whimsical-looking people" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/meet_near_me_home_bg_full.webp") }/>
+		// <img class="main-bg" alt="Illustration: A diverse group of whimsical-looking people" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/meet_near_me_home_bg_full.webp") }/>
 	</html>
 }
