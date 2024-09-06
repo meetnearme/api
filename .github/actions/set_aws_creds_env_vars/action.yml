@@ -44,6 +44,12 @@ inputs:
   CLOUDFLARE_API_BASE_URL:
     description: 'The base URL for the Cloudflare API'
     required: true
+  MARQO_API_KEY:
+    description: 'The API key for the Marqo API'
+    required: true
+  MARQO_API_BASE_URL:
+    description: 'The base URL for the Marqo API'
+    required: true
 
 runs:
   using: composite
@@ -66,6 +72,8 @@ runs:
         echo CLOUDFLARE_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_KV_NAMESPACE_ID }} >> .env
         echo CLOUDFLARE_API_TOKEN=${{ inputs.CLOUDFLARE_API_TOKEN }} >> .env
         echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
+        echo MARQO_API_KEY=${{ inputs.MARQO_API_KEY }} >> .env
+        echo MARQO_API_BASE_URL=${{ inputs.MARQO_API_BASE_URL }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
