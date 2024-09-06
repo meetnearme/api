@@ -115,6 +115,10 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// TODO: Use startTime / endTime in query and remove this log before merging
 	log.Println(fmt.Sprintf("startTime: %v, endTime: %v, lat: %v, long: %v, radius: %v", startTime, endTime, lat, long, radius))
 	userLocation := []float64{lat, long}
+
+	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+	log.Println("Subdomain value: " + subdomainValue)
+
 	events, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
