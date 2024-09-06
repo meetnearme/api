@@ -117,11 +117,15 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userLocation := []float64{lat, long}
 
 	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
-	log.Println("Subdomain value: " + subdomainValue)
 
-	events, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius)
+	ownerIds := []string{}
+	if subdomainValue != "" {
+		ownerIds = append(ownerIds, subdomainValue)
+	}
+
+	events, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, ownerIds)
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
   var authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]

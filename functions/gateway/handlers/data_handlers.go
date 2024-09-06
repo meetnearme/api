@@ -190,7 +190,7 @@ func (h *EventHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
         res = append(res, event)
     } else {
         // TODO: get user location from input payload, hardcoding for now
-        res, err = services.SearchMarqoEvents(marqoClient, query, []float64{38.8951, -77.0364}, 300)
+        res, err = services.SearchMarqoEvents(marqoClient, query, []float64{38.8951, -77.0364}, 300, []string{})
     }
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to search marqo events: "+err.Error()), http.StatusInternalServerError, err)

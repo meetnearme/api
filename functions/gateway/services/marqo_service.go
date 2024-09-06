@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"strings"
 
 	"github.com/ganeshdipdumbare/marqo-go" // marqo-go is an unofficial Go client library for Marqo
 	"github.com/google/uuid"
@@ -13,9 +14,10 @@ import (
 
 type Event struct {
 	Id          string  `json:"id"`
-	Name        string  `json:"name"`
+	EventOwners []string  `json:"event_owners"` // Add this line
+	Name        string  `json:"name" validate:"required"`
 	Description string  `json:"description"`
-	StartTime    string  `json:"start_time"`
+	StartTime    string  `json:"start_time" validate:"required"`
 	Address     string  `json:"address"`
 	Latitude    float64 `json:"lat" validate:"required"`
 	Longitude   float64 `json:"long" validate:"required"`
@@ -137,6 +139,7 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []EventInsert) (*marqo.
 		_uuid := uuid.NewString()
 		document := map[string]interface{}{
 			"_id": 			_uuid,
+			"eventOwners": event.EventOwners,
 			"name":        event.Name,
 			"description": event.Description,
 			"startTime":    event.StartTime,
@@ -164,7 +167,7 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []EventInsert) (*marqo.
 // SearchMarqoEvents searches for events based on the given query, user location, and maximum distance.
 // It returns a list of events that match the search criteria.
 // EX : SearchMarqoEvents(client, "music", []float64{37.7749, -122.4194}, 10)
-func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64) ([]Event, error) {
+func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, ownerIds []string) ([]Event, error) {
 	// Calculate the maximum and minimum latitude and longitude based on the user's location and maximum distance
 	maxLat := userLocation[0] + kmToLat(maxDistance)
 	maxLong := userLocation[1] + kmToLong(maxDistance, userLocation[0])
@@ -173,8 +176,11 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 
 	// Search for events based on the query
 	searchMethod := "HYBRID"
-	filter := fmt.Sprintf("long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]", maxLong, minLong, maxLat, minLat)
-
+	var ownerFilter string
+	if len(ownerIds) > 0 {
+		ownerFilter = fmt.Sprintf("eventOwners IN (%s) AND ", strings.Join(ownerIds, ","))
+	}
+	filter := fmt.Sprintf("%s long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]", ownerFilter, maxLong, minLong, maxLat, minLat)
 	searchRequest := marqo.SearchRequest{
 		IndexName:    indexName,
 		Q:            &query,
@@ -197,6 +203,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	for _, doc := range searchResp.Hits {
 		event := Event{
 			Id:          getString(doc, "_id"),
+			EventOwners: getStringSlice(doc, "eventOwners"),
 			Name:        getString(doc, "name"),
 			Description: getString(doc, "description"),
 			StartTime:   getString(doc, "startTime"),
@@ -206,17 +213,22 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		}
 		events = append(events, event)
 	}
+
 	return events, nil
 }
 
 func GetMarqoEventByID(client *marqo.Client, docId string) (Event, error) {
 	docIds := []string{docId}
-	event, err := BulkGetMarqoEventByID(client, docIds)
+	events, err := BulkGetMarqoEventByID(client, docIds)
 	if err != nil {
 		log.Printf("Error getting event by id: %v", err)
 		return Event{}, err
 	}
-	return event[0], nil
+	if len(events) == 0 {
+		return Event{}, fmt.Errorf("no event found with id: %s", docId)
+	}
+	event := events[0]
+	return event, nil
 }
 
 func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]Event, error) {
@@ -234,6 +246,7 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]Event, erro
 	for _, result := range res.Results {
 		event := Event{
 			Id:          getString(result, "_id"),
+			EventOwners: getStringSlice(result, "eventOwners"),
 			Name:        getString(result, "name"),
 			Description: getString(result, "description"),
 			StartTime:   getString(result, "startTime"),
@@ -273,4 +286,19 @@ func getFloat64(doc map[string]interface{}, key string) float64 {
 		}
 	}
 	return 0
+}
+
+func getStringSlice(doc map[string]interface{}, key string) []string {
+	if value, ok := doc[key]; ok && value != nil {
+		if slice, ok := value.([]interface{}); ok {
+			var result []string
+			for _, item := range slice {
+				if str, ok := item.(string); ok {
+					result = append(result, str)
+				}
+			}
+			return result
+		}
+	}
+	return nil
 }

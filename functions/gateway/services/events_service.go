@@ -19,6 +19,7 @@ import (
 
 type EventSelect struct {
 	Id          string `json:"id" validate:"required"`
+	EventOwners []string `json:"event_owners"`
 	Name        string `json:"name" validate:"required"`
 	Description string `json:"description"`
 	StartTime    string `json:"start_time" validate:"required"`
@@ -30,6 +31,7 @@ type EventSelect struct {
 
 type EventInsert struct {
 	Id          string `json:"id"`
+	EventOwners []string `json:"eventOwners"`
 	Name        string `json:"name" validate:"required"`
 	Description string `json:"description" validate:"required"`
 	StartTime   string `json:"startTime" validate:"required"`
