@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/ganeshdipdumbare/marqo-go"
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/indexing"
@@ -17,28 +18,25 @@ import (
 )
 
 type EventSelect struct {
-	Id          string `json:"id" dynamodbav:"id"`
-	Name        string `json:"name" dynamodbav:"name"`
-	Description string `json:"description" dynamodbav:"description"`
-	Datetime    string `json:"datetime" dynamodbav:"datetime"`
-	Address     string `json:"address" dynamodbav:"address"`
-	ZipCode     string `json:"zip_code" dynamodbav:"zip_code"`
-	Country     string `json:"country" validate:"required"`
-	Latitude 		float32 `json:"latitude" validate:"required"`
-	Longitude		float32 `json:"longitude" validate:"required"`
-	ZOrderIndex []byte `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
+	Id          string `json:"id" validate:"required"`
+	Name        string `json:"name" validate:"required"`
+	Description string `json:"description"`
+	StartTime    string `json:"start_time" validate:"required"`
+	Address     string `json:"address"`
+	Lat			 		float64 `json:"lat" validate:"required"`
+	Long				float64 `json:"long" validate:"required"`
+	// ZOrderIndex []byte `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
 }
 
 type EventInsert struct {
+	Id          string `json:"id"`
 	Name        string `json:"name" validate:"required"`
 	Description string `json:"description" validate:"required"`
-	Datetime    string `json:"datetime" validate:"required"`
+	StartTime   string `json:"startTime" validate:"required"`
 	Address     string `json:"address" validate:"required"`
-	ZipCode     string `json:"zip_code" validate:"required"`
-	Country     string `json:"country" validate:"required"`
-	Latitude 		float32 `json:"latitude" validate:"required"`
-	Longitude		float32 `json:"longitude" validate:"required"`
-	ZOrderIndex []byte `json:"z_order_index" dynamodbav:"zOrderIndex,B"`
+	Lat    			float64 `json:"lat" validate:"required"`
+	Long    		float64 `json:"long" validate:"required"`
+	// ZOrderIndex []byte `json:"z_order_index"`
 }
 
 var eventsTableName = helpers.GetDbTableName(helpers.EventsTablePrefix)
@@ -154,25 +152,24 @@ func GetEventById(ctx context.Context, db internal_types.DynamoDBAPI, eventId st
 
 
 func InsertEvent(ctx context.Context, db internal_types.DynamoDBAPI, createEvent EventInsert) (*EventSelect, error) {
-    startTime, err := time.Parse(time.RFC3339, createEvent.Datetime)
-    if err != nil {
-        return nil, fmt.Errorf("invalid datetime format: %v", err)
-    }
+    // startTime, err := time.Parse(time.RFC3339, createEvent.StartTime)
+    // if err != nil {
+    //     return nil, fmt.Errorf("invalid datetime format: %v", err)
+    // }
 
-    zOrderIndex, err := indexing.CalculateZOrderIndex(startTime, createEvent.Latitude, createEvent.Longitude, "default")
-    if err != nil {
-        return nil, fmt.Errorf("failed to calculate Z Order index: %v", err)
-    }
+    // zOrderIndex, err := indexing.CalculateZOrderIndex(startTime, createEvent.Lat, createEvent.Long, "default")
+    // if err != nil {
+    //     return nil, fmt.Errorf("failed to calculate Z Order index: %v", err)
+    // }
 
 	newEvent := EventSelect{
 		Name:        createEvent.Name,
 		Description: createEvent.Description,
-		Datetime:    createEvent.Datetime,
+		StartTime:    createEvent.StartTime,
 		Address:     createEvent.Address,
-		ZipCode:     createEvent.ZipCode,
-        Latitude: createEvent.Latitude,
-        Longitude: createEvent.Longitude,
-        ZOrderIndex: zOrderIndex,
+        Lat: createEvent.Lat,
+        Long: createEvent.Long,
+
 		Id:          uuid.NewString(),
 	}
 
@@ -201,3 +198,29 @@ func InsertEvent(ctx context.Context, db internal_types.DynamoDBAPI, createEvent
 	return &newEvent, nil
 }
 
+func InsertEventToMarqo(eventToCreate EventInsert) (*marqo.UpsertDocumentsResponse, error) {
+	newEvent := EventInsert{
+		Name:        eventToCreate.Name,
+		Description: eventToCreate.Description,
+		StartTime:    eventToCreate.StartTime,
+		Address:     eventToCreate.Address,
+		Lat: eventToCreate.Lat,
+		Long: eventToCreate.Long,
+		Id:          uuid.NewString(),
+	}
+
+	marqoClient, err := GetMarqoClient()
+	if err != nil {
+		return nil, err
+	}
+
+	item, err := UpsertEventToMarqo(marqoClient, newEvent)
+	if err != nil {
+		log.Println(">>> error upserting event to marqo", err)
+		return nil, err
+	}
+
+	log.Println("item after upsert", item)
+
+	return item, nil
+}

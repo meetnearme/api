@@ -41,8 +41,6 @@ func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.User
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
   // Extract parameter values from the request query parameters
   ctx := r.Context()
-
-  db := transport.GetDB()
   apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
   if !ok {
     log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
@@ -60,8 +58,8 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
   cfRay := GetCfRay(ctx)
   rayCode := ""
 	var cfLocation helpers.CdnLocation
-  cfLocationLat := services.InitialEmptyLatLon
-  cfLocationLon := services.InitialEmptyLatLon
+  cfLocationLat := services.InitialEmptyLatLong
+  cfLocationLon := services.InitialEmptyLatLong
   if len(cfRay) > 2 {
     rayCode = cfRay[len(cfRay)-3:]
 		cfLocation = helpers.CfLocationMap[rayCode]
@@ -73,15 +71,16 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	startTimeStr := queryParameters["start_time"]
 	endTimeStr := queryParameters["end_time"]
 	latStr := queryParameters["lat"]
-	lonStr := queryParameters["lon"]
+	longStr := queryParameters["lon"]
 	radiusStr := queryParameters["radius"]
+	q := queryParameters["q"]
 
 	// Set default values if query parameters are not provided
 	startTime := time.Now()
 	endTime := startTime.AddDate(100, 0, 0)
-	lat := float32(39.8283)
-	lon := float32(-98.5795)
-	radius := float32(2500.0)
+	lat := float64(39.8283)
+	long := float64(-98.5795)
+	radius := float64(2500.0)
 
 	// Parse parameter values if provided
 	if startTimeStr != "" {
@@ -92,26 +91,33 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 	if latStr != "" {
 			lat64, _ := strconv.ParseFloat(latStr, 32)
-			lat = float32(lat64)
-	} else if cfLocationLat != services.InitialEmptyLatLon  {
-      lat = float32(cfLocationLat)
+			lat = float64(lat64)
+	} else if cfLocationLat != services.InitialEmptyLatLong  {
+      lat = float64(cfLocationLat)
   }
-	if lonStr != "" {
-			lon64, _ := strconv.ParseFloat(lonStr, 32)
-			lon = float32(lon64)
-	} else if cfLocationLon != services.InitialEmptyLatLon {
-      lon = float32(cfLocationLon)
+	if longStr != "" {
+			long64, _ := strconv.ParseFloat(longStr, 32)
+			long = float64(long64)
+	} else if cfLocationLon != services.InitialEmptyLatLong {
+      long = float64(cfLocationLon)
   }
 	if radiusStr != "" {
 			radius64, _ := strconv.ParseFloat(radiusStr, 32)
-			radius = float32(radius64)
+			radius = float64(radius64)
 	}
 
-	// Call the GetEventsZOrder service to retrieve events
-	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
-
+	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
-    return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
+			return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	// startTime, endTime, lat, lon, radius
+	// TODO: Use startTime / endTime in query and remove this log before merging
+	log.Println(fmt.Sprintf("startTime: %v, endTime: %v, lat: %v, long: %v, radius: %v", startTime, endTime, lat, long, radius))
+	userLocation := []float64{lat, long}
+	events, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
   var authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]
@@ -126,7 +132,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
     return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
-	homePage := pages.HomePage(events, cfLocation, latStr, lonStr)
+	homePage := pages.HomePage(events, cfLocation, latStr, longStr)
 	layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
 	var buf bytes.Buffer
@@ -214,15 +220,18 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		fmt.Println("No event ID provided. Redirecting to home page.")
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
-	db := transport.GetDB()
 	authCtx := mw.Context(ctx)
 
-	event, err := services.GetEventById(ctx, db, eventId)
+	marqoClient, err := services.GetMarqoClient()
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+	}
+	event, err := services.GetMarqoEventByID(marqoClient, eventId)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	eventDetailsPage := pages.EventDetailsPage(*event)
+	eventDetailsPage := pages.EventDetailsPage(event)
 	userInfo := helpers.UserInfo{}
 	userInfo, err = setUserInfo(authCtx, userInfo)
 	if err != nil {

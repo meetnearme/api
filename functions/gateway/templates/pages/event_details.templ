@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-templ EventDetailsPage(event services.EventSelect) {
+templ EventDetailsPage(event services.Event) {
 	<div class="max-w-prose mx-auto">
 		<h2 class="text-3xl mt-2">{ event.Name }</h2>
 		// <h3>Event Id: { eventId }</h3>
@@ -15,10 +15,10 @@ templ EventDetailsPage(event services.EventSelect) {
 			<img style="display: inline-block;" alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/location.svg") }/> <strong>Location:</strong> { event.Address }
 			<br/>
 			<br/>
-			<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> { helpers.FormatDate(event.Datetime) }
+			<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> { helpers.FormatDate(event.StartTime) }
 			<br/>
 			<br/>
-			<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/clock.svg") }/><strong>Time:</strong> { helpers.FormatTime(event.Datetime) }
+			<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/clock.svg") }/><strong>Time:</strong> { helpers.FormatTime(event.StartTime) }
 			<br/>
 			<br/>
 			<strong>Price:</strong> $10.00
@@ -30,10 +30,12 @@ templ EventDetailsPage(event services.EventSelect) {
 			{ event.Description }
 		</p>
 		<div class="bottom-drawer">
-			<button class="btn btn-block btn-primary">RSVP</button>
-			<br/>
-			<br/>
-			<button class="btn btn-block btn-primary btn-outline text-neutral-content">Interested, can't make it!</button>
+			<div class="container mx-auto">
+				<button class="btn btn-block btn-primary">RSVP</button>
+				<br/>
+				<br/>
+				<button class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Interested, can't make it!</button>
+			</div>
 		</div>
 	</div>
 	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event.Id)) }/>

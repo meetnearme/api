@@ -18,7 +18,7 @@ func TestGetEventsZOrder(t *testing.T) {
     tests := []struct {
         name string
         mockScanOutput *dynamodb.ScanOutput
-        mockScanError error 
+        mockScanError error
         startTime time.Time
         endTime time.Time
         lat float32
@@ -87,12 +87,10 @@ func TestInsertEvent(t *testing.T) {
     createEvent := EventInsert{
         Name:        "New Event",
         Description: "New Description",
-        Datetime:    eventTime.Format(time.RFC3339),
+        StartTime:    eventTime.Format(time.RFC3339),
         Address:     "New Address",
-        ZipCode:     "12345",
-        Country:     "New Country",
-        Latitude:    float32(51.5074),
-        Longitude:   float32(-0.1278),
+        Lat:    float32(51.5074),
+        Long:   float32(-0.1278),
     }
 
     newEvent, err := InsertEvent(context.Background(), mockDB, createEvent)

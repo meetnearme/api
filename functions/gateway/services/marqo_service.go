@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
 
 	"github.com/ganeshdipdumbare/marqo-go" // marqo-go is an unofficial Go client library for Marqo
+	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
@@ -13,36 +15,97 @@ type Event struct {
 	Id          string  `json:"id"`
 	Name        string  `json:"name"`
 	Description string  `json:"description"`
-	Datetime    string  `json:"datetime"`
+	StartTime    string  `json:"start_time"`
 	Address     string  `json:"address"`
-	ZipCode     string  `json:"zip_code"`
-	Country     string  `json:"country" validate:"required"`
-	Latitude    float32 `json:"latitude" validate:"required"`
-	Longitude   float32 `json:"longitude" validate:"required"`
+	Latitude    float64 `json:"lat" validate:"required"`
+	Longitude   float64 `json:"long" validate:"required"`
 }
 
 var marqoEndpoint = helpers.GetMarqoEndpoint()
 
 // considered the best embedding model as of 8/15/2024
 var model = "hf/bge-large-en-v1.5"
-var indexName = "search-index"
+var indexName = "events-search-index"
 
 func GetMarqoClient() (*marqo.Client, error) {
 	// Create a new Marqo client
-	var creatString string
+	var createString string
 
 	if marqoEndpoint == "" {
-		creatString = "http://localhost:8882" //set to local host if no marqo lb is set
+		createString = "http://localhost:8882" //set to local host if no marqo lb is set
 	} else {
-		creatString = marqoEndpoint
+		createString = marqoEndpoint
 	}
-	client, err := marqo.NewClient(creatString)
+
+	// Get the bearer token from an environment variable
+	marqoApiKey := os.Getenv("MARQO_API_KEY")
+	client, err := marqo.NewClient(createString, marqo.WithMarqoCloudAuth(marqoApiKey))
 	if err != nil {
-		log.Printf("Error creating marqo client: %v", err)
-		return nil, err
+			log.Printf("Error creating marqo client: %v", err)
+			return nil, err
 	}
 	return client, nil
 }
+
+// TODO: this is potentially not possible programmatically via Marqo Cloud, open slack
+// question to their team here:
+// https://marqo-community.slack.com/archives/C03S65BEQC9/p1725456760772439
+
+// Default index settings JSON for index creation at
+// https://cloud.marqo.ai/indexes/create/
+
+// Our first instance: https://events-search-index-di32q8-g2amp25x.dp1.marqo.ai
+
+// {
+//   "type": "structured",
+//   "vectorNumericType": "float",
+//   "model": "hf/bge-large-en-v1.5",
+//   "normalizeEmbeddings": true,
+//   "textPreprocessing": {
+//     "splitLength": 2,
+//     "splitOverlap": 0,
+//     "splitMethod": "sentence"
+//   },
+//   "imagePreprocessing": {
+//     "patchMethod": null
+//   },
+//   "annParameters": {
+//     "spaceType": "prenormalized-angular",
+//     "parameters": {
+//       "efConstruction": 512,
+//       "m": 16
+//     }
+//   },
+//   "tensorFields": ["name_description_address"],
+//   "allFields": [
+//    {
+//      "name": "name_description_address",
+//      "type": "multimodal_combination",
+//      "dependentFields": {"name": 0.3, "address": 0.2, "description": 0.5}
+//    },
+//    {"name": "eventOwners", "type": "array<text>", "features": ["filter"]},
+//    {"name": "tags", "type": "array<text>", "features": ["filter", "lexical_search"]},
+//    {"name": "categories", "type": "array<text>", "features": ["filter", "lexical_search"]},
+// 		{"name": "eventSourceId", "type": "text"},
+// 		{"name": "eventSourceType", "type": "text"},
+// 		{"name": "name", "type": "text", "features": ["lexical_search"]},
+// 		{"name": "description", "type": "text", "features": ["lexical_search"]},
+// 		{"name": "startTime", "type": "text", "features": ["lexical_search"]},
+// 		{"name": "endTime", "type": "text", "features": ["lexical_search"]},
+// 		{"name": "recurrenceRule", "type": "text", "features": ["lexical_search"]},
+// 		{"name": "hasRegistrationFields", "type": "text", "features": ["lexical_search"]},
+// 		{"name": "hasPurchasable", "type": "text", "features": ["lexical_search"]},
+// 		{"name": "imageUrl", "type": "text"},
+// 		{"name": "lat", "type": "double", "features": ["filter"]},
+// 		{"name": "long", "type": "double", "features": ["filter"]},
+// 		{"name": "address", "type": "text", "features": ["lexical_search", "filter"]},
+// 		{"name": "sourceUrl", "type": "text"},
+// 		{"name": "createdAt", "type": "text"},
+// 		{"name": "updatedAt", "type": "text"},
+// 		{"name": "updatedBy", "type": "text"}
+//   ]
+// }
+
 
 func CreateMarqoIndex(client *marqo.Client) (*marqo.CreateIndexResponse, error) {
 	// Create a new index
@@ -60,58 +123,43 @@ func CreateMarqoIndex(client *marqo.Client) (*marqo.CreateIndexResponse, error) 
 	return res, nil
 }
 
-func UpsertEventToMarqo(client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error) {
+func UpsertEventToMarqo(client *marqo.Client, event EventInsert) (*marqo.UpsertDocumentsResponse, error) {
 	// Insert an event
 
-	events := []Event{event}
+	events := []EventInsert{event}
 	return BulkUpsertEventToMarqo(client, events)
 }
 
-func BulkUpsertEventToMarqo(client *marqo.Client, events []Event) (*marqo.UpsertDocumentsResponse, error) {
+func BulkUpsertEventToMarqo(client *marqo.Client, events []EventInsert) (*marqo.UpsertDocumentsResponse, error) {
 	// Bulk upsert multiple events
-
+	log.Println(fmt.Sprintf("events: %+v", events))
 	var documents []interface{}
 	for _, event := range events {
+		_uuid := uuid.NewString()
 		document := map[string]interface{}{
-			"ID": event.Id,
-			"Fields": map[string]interface{}{
-				"name":        event.Name,
-				"description": event.Description,
-				"datetime":    event.Datetime,
-				"address":     event.Address,
-				"zip_code":    event.ZipCode,
-				"country":     event.Country,
-				"latitude":    event.Latitude,
-				"longitude":   event.Longitude,
-			},
-			"Mappings": map[string]interface{}{
-				"name_description_address": map[string]interface{}{
-					"type": "multimodal_combination",
-					"weights": map[string]float64{
-						"description": 0.5,
-						"address":     0.2,
-						"name":        0.3,
-					},
-				},
-			},
-			"TensorFields": []string{
-				"name_description_address",
-			},
-			"Index": indexName,
+			"_id": 			_uuid,
+			"name":        event.Name,
+			"description": event.Description,
+			"startTime":    event.StartTime,
+			"address":     event.Address,
+			"lat":    float64(event.Lat),
+			"long":   float64(event.Long),
 		}
 		documents = append(documents, document)
 	}
 
 	req := marqo.UpsertDocumentsRequest{
 		Documents: documents,
+		IndexName: indexName,
 	}
-	err, res := client.UpsertDocuments(&req)
+	res, err := client.UpsertDocuments(&req)
+
 	if err != nil {
 		log.Printf("Error upserting events: %v", err)
-		return err, nil
+		return nil, err
 	}
-	fmt.Printf("UpsertDocumentsResponse: %+v\n", res)
-	return nil, res
+
+	return res, nil
 }
 
 // SearchMarqoEvents searches for events based on the given query, user location, and maximum distance.
@@ -129,7 +177,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	filter := fmt.Sprintf("long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]", maxLong, minLong, maxLat, minLat)
 
 	searchRequest := marqo.SearchRequest{
-		Index:        &indexName,
+		IndexName:    indexName,
 		Q:            &query,
 		SearchMethod: &searchMethod,
 		Filter:       &filter,
@@ -145,23 +193,48 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		log.Printf("Error searching documents: %v", err)
 		return nil, err
 	}
-
+	// log.Println(fmt.Sprintf("searchResp: %+v", searchResp.Hits))
 	// Extract the events from the search response
 	var events []Event
 	for _, doc := range searchResp.Hits {
 		event := Event{
-			Id:          doc["ID"].(string),
-			Name:        doc["name"].(string),
-			Description: doc["description"].(string),
-			Datetime:    doc["datetime"].(string),
-			Address:     doc["address"].(string),
-			ZipCode:     doc["zip_code"].(string),
-			Latitude:    float32(doc["latitude"].(float64)),
-			Longitude:   float32(doc["longitude"].(float64)),
+			Id:          getString(doc, "_id"),
+			Name:        getString(doc, "name"),
+			Description: getString(doc, "description"),
+			StartTime:   getString(doc, "startTime"),
+			Address:     getString(doc, "address"),
+			Latitude:    getFloat64(doc, "lat"),
+			Longitude:   getFloat64(doc, "long"),
 		}
 		events = append(events, event)
 	}
 	return events, nil
+}
+
+func GetMarqoEventByID(client *marqo.Client, id string) (Event, error) {
+	searchRequest := marqo.SearchRequest{
+		IndexName: indexName,
+		Q: &id,
+	}
+	searchResp, err := client.Search(&searchRequest)
+	if err != nil {
+		log.Printf("Error searching documents: %v", err)
+		return Event{}, err
+	}
+
+	var event Event
+	for _, doc := range searchResp.Hits {
+		event = Event{
+			Id:          getString(doc, "_id"),
+			Name:        getString(doc, "name"),
+			Description: getString(doc, "description"),
+			StartTime:   getString(doc, "startTime"),
+			Address:     getString(doc, "address"),
+			Latitude:    getFloat64(doc, "lat"),
+			Longitude:   getFloat64(doc, "long"),
+		}
+	}
+	return event, nil
 }
 
 // kmToLat converts kilometers to latitude
@@ -172,4 +245,23 @@ func kmToLat(km float64) float64 {
 // kmToLong converts kilometers to longitude
 func kmToLong(km float64, latitude float64) float64 {
 	return km / (math.Cos(latitude*math.Pi/180) * 6371)
+}
+
+func getString(doc map[string]interface{}, key string) string {
+	if value, ok := doc[key]; ok && value != nil {
+		if str, ok := value.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
+func getFloat64(doc map[string]interface{}, key string) float64 {
+	if value, ok := doc[key]; ok && value != nil {
+		switch v := value.(type) {
+		case float64:
+			return float64(v)
+		}
+	}
+	return 0
 }

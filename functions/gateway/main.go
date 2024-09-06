@@ -55,8 +55,18 @@ func init() {
 		{"/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventDetailsPage, Check},
 
         // API routes
-        {"/api/events", "GET", handlers.GetEvents, None},
-        {"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEvents, None},
+        // TODO: wire up as data handler
+
+        // {"/api/events", "GET", handlers.GetEvents, None},
+        // {"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEvent, None},
+
+        // == START == need to expose these via permanent key for headless clients
+        {"/api/event", "POST", handlers.PostEventHandler, None},
+        {"/api/events", "POST", handlers.PostBatchEventsHandler, None},
+        {"/api/events", "GET", handlers.SearchEventsHandler, None},
+        {"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.PostEventHandler, None},
+        //  == END == need to expose these via permanent key for headless clients
+
 		// {"/api/event", "POST", handlers.CreateEventHandler, None},
         {"/api/user/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
 		// TODO: delete this comment once user location is implemented in profile,

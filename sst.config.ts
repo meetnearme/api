@@ -4,7 +4,6 @@ import { StorageStack } from './stacks/StorageStack';
 import { ApiStack } from './stacks/ApiStack';
 import { StaticSiteStack } from './stacks/StaticSiteStack';
 import { SeshuFunction } from './stacks/SeshuFunction';
-import { MarqoStack } from './stacks/MarqoStack';
 
 export default {
   config(_input) {
@@ -25,7 +24,6 @@ export default {
       .stack(StaticSiteStack)
       .stack(StorageStack)
       .stack(SeshuFunction)
-      .stack(MarqoStack)
       .stack((stackContext) => ApiStack({ ...stackContext, app }));
     app.addDefaultFunctionPermissions(['dynamodb:*']);
   },
