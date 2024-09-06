@@ -132,7 +132,6 @@ func UpsertEventToMarqo(client *marqo.Client, event EventInsert) (*marqo.UpsertD
 
 func BulkUpsertEventToMarqo(client *marqo.Client, events []EventInsert) (*marqo.UpsertDocumentsResponse, error) {
 	// Bulk upsert multiple events
-	log.Println(fmt.Sprintf("events: %+v", events))
 	var documents []interface{}
 	for _, event := range events {
 		_uuid := uuid.NewString()
@@ -193,7 +192,6 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		log.Printf("Error searching documents: %v", err)
 		return nil, err
 	}
-	// log.Println(fmt.Sprintf("searchResp: %+v", searchResp.Hits))
 	// Extract the events from the search response
 	var events []Event
 	for _, doc := range searchResp.Hits {
@@ -211,30 +209,41 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	return events, nil
 }
 
-func GetMarqoEventByID(client *marqo.Client, id string) (Event, error) {
-	searchRequest := marqo.SearchRequest{
-		IndexName: indexName,
-		Q: &id,
-	}
-	searchResp, err := client.Search(&searchRequest)
+func GetMarqoEventByID(client *marqo.Client, docId string) (Event, error) {
+	docIds := []string{docId}
+	event, err := BulkGetMarqoEventByID(client, docIds)
 	if err != nil {
-		log.Printf("Error searching documents: %v", err)
+		log.Printf("Error getting event by id: %v", err)
 		return Event{}, err
 	}
+	return event[0], nil
+}
 
-	var event Event
-	for _, doc := range searchResp.Hits {
-		event = Event{
-			Id:          getString(doc, "_id"),
-			Name:        getString(doc, "name"),
-			Description: getString(doc, "description"),
-			StartTime:   getString(doc, "startTime"),
-			Address:     getString(doc, "address"),
-			Latitude:    getFloat64(doc, "lat"),
-			Longitude:   getFloat64(doc, "long"),
-		}
+func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]Event, error) {
+
+	getDocumentsReq := &marqo.GetDocumentsRequest{
+		IndexName: indexName,
+		DocumentIDs: docIds,
 	}
-	return event, nil
+	res, err := client.GetDocuments(getDocumentsReq)
+	if err != nil {
+	    log.Printf("Failed to get documents: %v", err)
+	}
+
+	var events []Event
+	for _, result := range res.Results {
+		event := Event{
+			Id:          getString(result, "_id"),
+			Name:        getString(result, "name"),
+			Description: getString(result, "description"),
+			StartTime:   getString(result, "startTime"),
+			Address:     getString(result, "address"),
+			Latitude:    getFloat64(result, "lat"),
+			Longitude:   getFloat64(result, "long"),
+		}
+		events = append(events, event)
+	}
+	return events, nil
 }
 
 // kmToLat converts kilometers to latitude
