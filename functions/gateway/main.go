@@ -106,9 +106,73 @@ func (app *App) addRoute(route Route) {
 			// Get the access token from cookies
 			cookie, err = r.Cookie("access_token")
 			if err != nil {
-				services.HandleLogout(w, r)
+				cookie, err = r.Cookie("refresh_token")
+				if err != nil {
+					services.HandleLogout(w, r)
+					return
+				}
+
+				tokens, err := services.RefreshAccessToken(cookie.Value)
+				if err != nil {
+					log.Printf("Authentication Failed: %v", err)
+					http.Error(w, "Authentication failed", http.StatusUnauthorized)
+					return
+				}
+
+				// Store the access token and refresh token securely
+				accessToken, ok := tokens["access_token"].(string)
+				if !ok {
+					http.Error(w, "Failed to get access token", http.StatusInternalServerError)
+					return
+				}
+
+				refreshToken, ok := tokens["refresh_token"].(string)
+				if !ok {
+					fmt.Printf("Refresh token error: %v", ok)
+					http.Error(w, "Failed to get refresh token", http.StatusInternalServerError)
+					return
+				}
+
+				// Store tokens in a session or secure cookie
+				http.SetCookie(w, &http.Cookie{
+					Name:  "access_token",
+					Value: accessToken,
+					Path:  "/",
+				})
+
+				http.SetCookie(w, &http.Cookie{
+					Name:  "refresh_token",
+					Value: refreshToken,
+					Path:  "/",
+				})
+
+				// Use the Authorizer to introspect the access token
+				authCtx, err := app.AuthZ.CheckAuthorization(r.Context(), "Bearer "+accessToken)
+
+				if err != nil {
+					http.Error(w, "Unauthorized: Invalid access token", http.StatusUnauthorized)
+					return
+				}
+
+				userInfo := helpers.UserInfo{}
+				data, err := json.MarshalIndent(authCtx, "", "	")
+				if err != nil {
+					http.Error(w, "Unauthorized: Unable to fetch user information", http.StatusUnauthorized)
+					return
+				}
+				err = json.Unmarshal(data, &userInfo)
+				log.Printf("User info %v", userInfo)
+				if err != nil {
+					http.Error(w, "Unauthorized: Unable to fetch user information", http.StatusUnauthorized)
+					return
+				}
+				ctx := context.WithValue(r.Context(), "userInfo", userInfo)
+				r = r.WithContext(ctx)
+				route.Handler(w, r).ServeHTTP(w, r)
+
 				return
 			}
+
 			accessToken := "Bearer " + cookie.Value
 			log.Printf("Access token from cookie: %v", accessToken)
 

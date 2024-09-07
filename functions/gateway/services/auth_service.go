@@ -51,26 +51,6 @@ func InitAuth() {
 	})
 }
 
-// // AuthMiddleware checks the access token in cookies and introspects it.
-// func AuthMiddleware(next http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		// Get the access token from cookies
-// 		cookie, err := r.Cookie("access_token")
-// 		if err != nil {
-// 			http.Error(w, "Unauthorized: No access token", http.StatusUnauthorized)
-// 			return
-// 		}
-// 		accessToken := cookie.Value
-
-// 		// Use the Authorizer to introspect the access token
-// 		authCtx, err := authZ.CheckAuthorization(r.Context(), accessToken)
-// 		if err != nil {
-// 			http.Error(w, "Unauthorized: Invalid access token", http.StatusUnauthorized)
-// 			return
-// 		}
-// 	})
-// }
-
 func GetAuthMw() *authorization.Authorizer[*oauth.IntrospectionContext] {
 	InitAuth()
 	return authZ
@@ -132,6 +112,31 @@ func GetAuthToken(code string, codeVerifier string) (map[string]interface{}, err
 	resp, err := http.PostForm(*tokenURI, data)
 	if err != nil {
 		log.Printf("Failed to get tokens: %v", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Handle the token response
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	// Handle the token response
+	log.Printf("Tokens: %v", result)
+
+	return result, nil
+}
+
+func RefreshAccessToken(refreshToken string) (map[string]interface{}, error) {
+	data := url.Values{}
+	data.Set("grant_type", "refresh_token")
+	data.Set("refresh_token", refreshToken)
+	data.Set("redirect_uri", *redirectURI)
+	data.Set("client_id", *clientID)
+	data.Set("client_secret", *clientSecret)
+
+	resp, err := http.PostForm(*tokenURI, data)
+	if err != nil {
+		log.Printf("Failed to refresh access_token: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
