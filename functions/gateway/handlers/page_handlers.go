@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,9 +10,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/zitadel/oidc/v3/pkg/oidc"
-	"github.com/zitadel/zitadel-go/v3/pkg/authentication"
-	openid "github.com/zitadel/zitadel-go/v3/pkg/authentication/oidc"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -21,22 +17,6 @@ import (
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/transport"
 )
-
-var mw *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
-
-func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo], userInfo helpers.UserInfo) (helpers.UserInfo, error) {
-	if authCtx != nil && authCtx.UserInfo != nil {
-		data, err := json.MarshalIndent(authCtx.UserInfo, "", "	")
-		if err != nil {
-			return userInfo, err
-		}
-		err = json.Unmarshal(data, &userInfo)
-		if err != nil {
-			return userInfo, err
-		}
-	}
-	return userInfo, nil
-}
 
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
@@ -188,7 +168,6 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
 	db := transport.GetDB()
-	authCtx := mw.Context(ctx)
 
 	event, err := services.GetEventById(ctx, db, eventId)
 	if err != nil {
@@ -196,8 +175,10 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	}
 
 	eventDetailsPage := pages.EventDetailsPage(*event)
-	userInfo := helpers.UserInfo{}
-	userInfo, err = setUserInfo(authCtx, userInfo)
+	var userInfo helpers.UserInfo
+	if ctx.Value("userInfo") != nil {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
