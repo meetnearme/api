@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -11,10 +12,8 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/awslabs/aws-lambda-go-api-proxy/gorillamux"
 	"github.com/gorilla/mux"
-
-	"github.com/zitadel/oidc/v3/pkg/oidc"
-	"github.com/zitadel/zitadel-go/v3/pkg/authentication"
-	openid "github.com/zitadel/zitadel-go/v3/pkg/authentication/oidc"
+	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
+	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
 
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -53,7 +52,7 @@ func init() {
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
 		{"/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventDetailsPage, Check},
-        {"/api/user/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
+		{"/api/user/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
 		{"/api/event", "POST", handlers.CreateEventHandler, None},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
@@ -73,8 +72,7 @@ func init() {
 
 type App struct {
 	Router *mux.Router
-	Mw     *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
-	AuthN  *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
+	AuthZ  *authorization.Authorizer[*oauth.IntrospectionContext]
 }
 
 func NewApp() *App {
@@ -89,7 +87,7 @@ func NewApp() *App {
 
 func (app *App) InitializeAuth() {
 	services.InitAuth()
-	app.Mw, app.AuthN = services.GetAuthMw()
+	app.AuthZ = services.GetAuthMw()
 }
 
 func (app *App) SetupRoutes(routes []Route) {
@@ -103,28 +101,41 @@ func (app *App) addRoute(route Route) {
 	switch route.Auth {
 	case Require:
 		handler = func(w http.ResponseWriter, r *http.Request) {
-			if app.Mw == nil {
-				log.Println("Warning: app.Mw is nil, skipping authentication")
-				route.Handler(w, r).ServeHTTP(w, r)
+			// Get the access token from cookies
+			cookie, err := r.Cookie("access_token")
+			if err != nil {
+				http.Error(w, "Unauthorized: No access token", http.StatusUnauthorized)
+				return
+			}
+			accessToken := "Bearer " + cookie.Value
+			log.Printf("Access token from cookie: %v", accessToken)
+
+			// Use the Authorizer to introspect the access token
+			authCtx, err := app.AuthZ.CheckAuthorization(r.Context(), accessToken)
+			if err != nil {
+				http.Error(w, "Unauthorized: Invalid access token", http.StatusUnauthorized)
 				return
 			}
 
-			app.Mw.RequireAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				authState := app.Mw.Context(r.Context())
-				if authState == nil {
-					http.Redirect(w, r, "/login", http.StatusFound)
-					return
-				}
-
-				log.Printf("Auth State: %v", authState.UserInfo)
-				route.Handler(w, r).ServeHTTP(w, r)
-			})).ServeHTTP(w, r)
+			userInfo := helpers.UserInfo{}
+			data, err := json.MarshalIndent(authCtx, "", "	")
+			if err != nil {
+				http.Error(w, "Unauthorized: Unable to fetch user information", http.StatusUnauthorized)
+				return
+			}
+			err = json.Unmarshal(data, &userInfo)
+			log.Printf("User info %v", userInfo)
+			if err != nil {
+				http.Error(w, "Unauthorized: Unable to fetch user information", http.StatusUnauthorized)
+				return
+			}
+			ctx := context.WithValue(r.Context(), "userInfo", userInfo)
+			r = r.WithContext(ctx)
+			route.Handler(w, r).ServeHTTP(w, r)
 		}
 	case Check:
 		handler = func(w http.ResponseWriter, r *http.Request) {
-			app.Mw.CheckAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				route.Handler(w, r).ServeHTTP(w, r)
-			})).ServeHTTP(w, r)
+			route.Handler(w, r).ServeHTTP(w, r)
 		}
 	default:
 		handler = func(w http.ResponseWriter, r *http.Request) {
@@ -191,9 +202,9 @@ func (app *App) SetupAuthRoutes() {
 		http.Redirect(w, req, "/", http.StatusSeeOther)
 	}))
 
-	app.Router.Handle("/auth/logout", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		app.AuthN.Logout(w, req)
-	}))
+	// app.Router.Handle("/auth/logout", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	// 	app.AuthN.Logout(w, req)
+	// }))
 }
 
 func (app *App) SetupNotFoundHandler() {

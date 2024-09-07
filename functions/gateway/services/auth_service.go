@@ -15,9 +15,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/zitadel/oidc/v3/pkg/oidc"
-	"github.com/zitadel/zitadel-go/v3/pkg/authentication"
-	openid "github.com/zitadel/zitadel-go/v3/pkg/authentication/oidc"
+	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
+	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
 	"github.com/zitadel/zitadel-go/v3/pkg/zitadel"
 )
 
@@ -25,12 +24,12 @@ var (
 	domain        = flag.String("domain", os.Getenv("ZITADEL_INSTANCE_URL"), "your ZITADEL instance domain (in the form: https://<instance>.zitadel.cloud or https://<yourdomain>)")
 	key           = flag.String("key", os.Getenv("ZITADEL_ENCRYPTION_KEY"), "encryption key")
 	clientID      = flag.String("clientID", os.Getenv("ZITADEL_CLIENT_ID"), "clientID provided by ZITADEL")
+	clientSecret  = flag.String("clientSecret", os.Getenv("ZITADEL_CLIENT_SECRET"), "clientSecret provided by ZITADEL")
 	redirectURI   = flag.String("redirectURI", string(os.Getenv("APEX_URL")+"/auth/callback"), "redirect URI registered with ZITADEL")
 	authorizeURI  = flag.String("authorizeURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_URL")+"/oauth/v2/authorize"), "Zitadel authorizeURL")
 	tokenURI      = flag.String("tokenURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_URL")+"/oauth/v2/token"), "Zitadel endpoint to exchange code challenge and verifier for token")
 	endSessionURI = flag.String("endSessionURI", string(os.Getenv("ZITADEL_INSTANCE_URL")+"/oidc/v1/end_session"), "Zitadel logout URI")
-	mw            *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
-	authN         *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
+	authZ         *authorization.Authorizer[*oauth.IntrospectionContext]
 	once          sync.Once
 )
 
@@ -38,32 +37,41 @@ func InitAuth() {
 	once.Do(func() {
 		ctx := context.Background()
 
-		log.Printf("Initializing authentication with domain: %s, clientID: %s, redirectURI: %s", *domain, *clientID, *redirectURI)
+		// Initialize introspection authentication using client secret
+		introspectionAuth := oauth.ClientIDSecretIntrospectionAuthentication(*clientID, *clientSecret)
 
+		// Initialize the authZ with introspection authentication
 		var err error
-		authN, err = authentication.New(ctx, zitadel.New(*domain), *key,
-			openid.DefaultAuthentication(*clientID, *redirectURI, *key),
-		)
+		authZ, err = authorization.New(ctx, zitadel.New(*domain), oauth.WithIntrospection[*oauth.IntrospectionContext](introspectionAuth))
 		if err != nil {
-			log.Printf("Failed to initialize Zitadel authentication: %v", err)
-			return
-		}
-
-		mw = authentication.Middleware[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]](authN)
-
-		if mw == nil {
-			log.Println("Warning: middleware (mw) is nil after initialization")
-		}
-
-		if authN == nil {
-			log.Println("Warning: authenticator (authN) is nil after initialization")
+			log.Fatalf("failed to initialize authorizer: %v", err)
 		}
 	})
 }
 
-func GetAuthMw() (*authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]], *authentication.Authenticator[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]) {
+// // AuthMiddleware checks the access token in cookies and introspects it.
+// func AuthMiddleware(next http.Handler) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		// Get the access token from cookies
+// 		cookie, err := r.Cookie("access_token")
+// 		if err != nil {
+// 			http.Error(w, "Unauthorized: No access token", http.StatusUnauthorized)
+// 			return
+// 		}
+// 		accessToken := cookie.Value
+
+// 		// Use the Authorizer to introspect the access token
+// 		authCtx, err := authZ.CheckAuthorization(r.Context(), accessToken)
+// 		if err != nil {
+// 			http.Error(w, "Unauthorized: Invalid access token", http.StatusUnauthorized)
+// 			return
+// 		}
+// 	})
+// }
+
+func GetAuthMw() *authorization.Authorizer[*oauth.IntrospectionContext] {
 	InitAuth()
-	return mw, authN
+	return authZ
 }
 
 func randomBytesInHex(count int) (string, error) {

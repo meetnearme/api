@@ -39,35 +39,35 @@ func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.User
 }
 
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-  // Extract parameter values from the request query parameters
-  ctx := r.Context()
+	// Extract parameter values from the request query parameters
+	ctx := r.Context()
 
-  db := transport.GetDB()
-  apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-  if !ok {
-    log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
-    // For testing or non-API gateway envs
-    apiGwV2Req = events.APIGatewayV2HTTPRequest{
-      RequestContext: events.APIGatewayV2HTTPRequestContext{
-        HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
-          Method: r.Method,
-          Path: r.URL.Path,
-        },
-      },
-    }
-  }
+	db := transport.GetDB()
+	apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	if !ok {
+		log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
+		// For testing or non-API gateway envs
+		apiGwV2Req = events.APIGatewayV2HTTPRequest{
+			RequestContext: events.APIGatewayV2HTTPRequestContext{
+				HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
+					Method: r.Method,
+					Path:   r.URL.Path,
+				},
+			},
+		}
+	}
 
-  cfRay := GetCfRay(ctx)
-  rayCode := ""
+	// cfRay := GetCfRay(ctx)
+	// rayCode := ""
 	var cfLocation helpers.CdnLocation
-  cfLocationLat := services.InitialEmptyLatLon
-  cfLocationLon := services.InitialEmptyLatLon
-  if len(cfRay) > 2 {
-    rayCode = cfRay[len(cfRay)-3:]
-		cfLocation = helpers.CfLocationMap[rayCode]
-	  cfLocationLat = cfLocation.Lat
-    cfLocationLon = cfLocation.Lon
-  }
+	cfLocationLat := services.InitialEmptyLatLon
+	cfLocationLon := services.InitialEmptyLatLon
+	//   if len(cfRay) > 2 {
+	//     rayCode = cfRay[len(cfRay)-3:]
+	// 		cfLocation = helpers.CfLocationMap[rayCode]
+	// 	  cfLocationLat = cfLocation.Lat
+	//     cfLocationLon = cfLocation.Lon
+	//   }
 
 	queryParameters := apiGwV2Req.QueryStringParameters
 	startTimeStr := queryParameters["start_time"]
@@ -153,10 +153,10 @@ func GetLoginPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-	mw, _ := services.GetAuthMw()
+	// mw, _ := services.GetAuthMw()
 	userInfoCtx := mw.Context(ctx)
 
-	userInfo := helpers.UserInfo{}
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
 	userInfo, err := setUserInfo(userInfoCtx, userInfo)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
@@ -188,21 +188,21 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GetCfRay (c context.Context) string {
-  apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-  if (!ok) {
+func GetCfRay(c context.Context) string {
+	apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	if !ok {
 		log.Println(("APIGatewayV2HTTPRequest not found in context"))
-    return ""
-  }
-  if apiGwV2Req.Headers == nil {
+		return ""
+	}
+	if apiGwV2Req.Headers == nil {
 		log.Println(("Headers not found in APIGatewayV2HTTPRequest"))
-    return ""
-  }
-  if cfRay := apiGwV2Req.Headers["cf-ray"]; cfRay != "" {
+		return ""
+	}
+	if cfRay := apiGwV2Req.Headers["cf-ray"]; cfRay != "" {
 		log.Println(("cf-ray found in APIGatewayV2HTTPRequest: " + fmt.Sprint(cfRay)))
-    return cfRay
-  }
-  return ""
+		return cfRay
+	}
+	return ""
 }
 
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
