@@ -98,13 +98,15 @@ func (app *App) SetupRoutes(routes []Route) {
 
 func (app *App) addRoute(route Route) {
 	var handler http.HandlerFunc
+	var cookie *http.Cookie
+	var err error
 	switch route.Auth {
 	case Require:
 		handler = func(w http.ResponseWriter, r *http.Request) {
 			// Get the access token from cookies
-			cookie, err := r.Cookie("access_token")
+			cookie, err = r.Cookie("access_token")
 			if err != nil {
-				http.Error(w, "Unauthorized: No access token", http.StatusUnauthorized)
+				services.HandleLogout(w, r)
 				return
 			}
 			accessToken := "Bearer " + cookie.Value
@@ -135,6 +137,38 @@ func (app *App) addRoute(route Route) {
 		}
 	case Check:
 		handler = func(w http.ResponseWriter, r *http.Request) {
+			// Get the access token from cookies
+			cookie, err = r.Cookie("access_token")
+			if err != nil {
+				route.Handler(w, r).ServeHTTP(w, r)
+				return
+			}
+
+			accessToken := "Bearer " + cookie.Value
+			log.Printf("Access token from cookie: %v", accessToken)
+
+			// Use the Authorizer to introspect the access token
+			authCtx, err := app.AuthZ.CheckAuthorization(r.Context(), accessToken)
+			if err != nil {
+				route.Handler(w, r).ServeHTTP(w, r)
+				return
+			}
+
+			userInfo := helpers.UserInfo{}
+			data, err := json.MarshalIndent(authCtx, "", "	")
+			if err != nil {
+				route.Handler(w, r).ServeHTTP(w, r)
+				return
+			}
+
+			err = json.Unmarshal(data, &userInfo)
+			log.Printf("User info %v", userInfo)
+			if err != nil {
+				route.Handler(w, r).ServeHTTP(w, r)
+				return
+			}
+			ctx := context.WithValue(r.Context(), "userInfo", userInfo)
+			r = r.WithContext(ctx)
 			route.Handler(w, r).ServeHTTP(w, r)
 		}
 	default:
@@ -202,9 +236,9 @@ func (app *App) SetupAuthRoutes() {
 		http.Redirect(w, req, "/", http.StatusSeeOther)
 	}))
 
-	// app.Router.Handle("/auth/logout", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-	// 	app.AuthN.Logout(w, req)
-	// }))
+	app.Router.Handle("/auth/logout", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		services.HandleLogout(w, req)
+	}))
 }
 
 func (app *App) SetupNotFoundHandler() {

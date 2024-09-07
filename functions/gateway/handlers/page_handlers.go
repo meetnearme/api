@@ -114,17 +114,9 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	var authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]
-	if mw != nil {
-		authCtx = mw.Context(r.Context())
-	} else {
-		authCtx = &openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]{}
-	}
-
-	userInfo := helpers.UserInfo{}
-	userInfo, err = setUserInfo(authCtx, userInfo)
-	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+	var userInfo helpers.UserInfo
+	if ctx.Value("userInfo") != nil {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	homePage := pages.HomePage(events, cfLocation, latStr, lonStr)
 	layoutTemplate := pages.Layout("Home", userInfo, homePage)
@@ -137,34 +129,15 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GetLoginPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-	loginPage := pages.LoginPage()
-	layoutTemplate := pages.Layout("Login", helpers.UserInfo{}, loginPage)
-	var buf bytes.Buffer
-	err := layoutTemplate.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
-	}
-
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
-}
-
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-	// mw, _ := services.GetAuthMw()
-	userInfoCtx := mw.Context(ctx)
-
 	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
-	userInfo, err := setUserInfo(userInfoCtx, userInfo)
-	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
-	}
+
 	adminPage := pages.ProfilePage(userInfo)
 	layoutTemplate := pages.Layout("Admin", userInfo, adminPage)
 	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
+	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}

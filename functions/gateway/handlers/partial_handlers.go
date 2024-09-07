@@ -45,9 +45,6 @@ type SetSubdomainRequestPayload struct {
 func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	var inputPayload SetSubdomainRequestPayload
 
-	// authMw, _ := services.GetAuthMw()
-	// authCtx := authMw.Context(r.Context())
-
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return transport.SendHtmlError(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
@@ -56,14 +53,14 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return transport.SendHtmlError(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
 	}
-	// if authCtx == nil || authCtx.UserInfo == nil {
-	// 	return transport.SendHtmlError(w, []byte("User not authenticated"), http.StatusInternalServerError)
-	// }
-	// userID := authCtx.UserInfo.GetSubject()
+	ctx := r.Context()
+
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userID := userInfo.ID
 
 	// Call Cloudflare KV store to save the subdomain
-	// metadata := map[string]string{"": ""}
-	// err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
+	metadata := map[string]string{"": ""}
+	err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
 	if err != nil {
 		if err.Error() == helpers.ERR_KV_KEY_EXISTS {
 			return transport.SendHtmlError(w, []byte("Subdomain already taken"), http.StatusInternalServerError)

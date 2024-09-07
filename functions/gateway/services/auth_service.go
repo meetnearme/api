@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
@@ -26,9 +27,10 @@ var (
 	clientID      = flag.String("clientID", os.Getenv("ZITADEL_CLIENT_ID"), "clientID provided by ZITADEL")
 	clientSecret  = flag.String("clientSecret", os.Getenv("ZITADEL_CLIENT_SECRET"), "clientSecret provided by ZITADEL")
 	redirectURI   = flag.String("redirectURI", string(os.Getenv("APEX_URL")+"/auth/callback"), "redirect URI registered with ZITADEL")
+	loginPageURI  = flag.String("loginPageURI", string(os.Getenv("APEX_URL")), "App login page URI")
 	authorizeURI  = flag.String("authorizeURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_URL")+"/oauth/v2/authorize"), "Zitadel authorizeURL")
 	tokenURI      = flag.String("tokenURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_URL")+"/oauth/v2/token"), "Zitadel endpoint to exchange code challenge and verifier for token")
-	endSessionURI = flag.String("endSessionURI", string(os.Getenv("ZITADEL_INSTANCE_URL")+"/oidc/v1/end_session"), "Zitadel logout URI")
+	endSessionURI = flag.String("endSessionURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_URL")+"/oidc/v1/end_session"), "Zitadel logout URI")
 	authZ         *authorization.Authorizer[*oauth.IntrospectionContext]
 	once          sync.Once
 )
@@ -142,4 +144,41 @@ func GetAuthToken(code string, codeVerifier string) (map[string]interface{}, err
 	log.Printf("Tokens: %v", result)
 
 	return result, nil
+}
+
+func HandleLogout(w http.ResponseWriter, r *http.Request) {
+	// Clear local cookies
+	clearCookie(w, "access_token")
+	clearCookie(w, "refresh_token")
+
+	logoutURL, err := url.Parse(*endSessionURI)
+	if err != nil {
+		log.Printf("Failed to parse Zitadel End Session URI: %v", err)
+		return
+	}
+
+	postLogoutURI, err := url.Parse(*loginPageURI)
+	if err != nil {
+		log.Printf("Failed to parse Zitadel End Session URI: %v", err)
+		return
+	}
+
+	query := logoutURL.Query()
+	query.Set("post_logout_redirect_uri", postLogoutURI.String())
+	query.Set("client_id", *clientID)
+
+	logoutURL.RawQuery = query.Encode()
+	http.Redirect(w, r, logoutURL.String(), http.StatusFound)
+}
+
+func clearCookie(w http.ResponseWriter, cookieName string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0), // Expire the cookie
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+	})
 }
