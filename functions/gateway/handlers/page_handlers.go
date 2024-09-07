@@ -214,16 +214,14 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	authCtx := mw.Context(ctx)
-	userInfo := helpers.UserInfo{}
-	userInfo, err := setUserInfo(authCtx, userInfo)
-	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+	var userInfo helpers.UserInfo
+	if ctx.Value("userInfo") != nil {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	adminPage := pages.AddEventSource()
 	layoutTemplate := pages.Layout("Admin", userInfo, adminPage)
 	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
+	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
