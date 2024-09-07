@@ -24,30 +24,30 @@ export async function up(db) {
     .execute();
 
   // Optionally, add a check constraint for role to mimic enum behavior
-  // await db.schema
-  //   .alterTable("users")
-  //   .addConstraint(
-  //     "users_role_check",
-  //     sql`CHECK (role IN ('standard_user', 'organization_user', 'suborganization_user'))`
-  //   )
-  //   .execute();
+  await db.schema
+    .alterTable("users")
+    .addConstraint(
+      "users_role_check",
+      sql`CHECK (role IN ('standard_user', 'organization_user', 'suborganization_user'))`
+    )
+    .execute();
 
   // Add foreign key constraint
-  // await db.schema
-  //   .alterTable("users")
-  //   .addForeignKeyConstraint("users_organization_user_fk", {
-  //     columns: ["organization_user_id"],
-  //     referencedTable: "users",
-  //     referencedColumns: ["id"],
-  //     onDelete: "SET NULL", // Adjust behavior as needed
-  //     condition: sql`role = 'suborganization_user'`
-  //   })
-  //   .execute();
+  await db.schema
+    .alterTable("users")
+    .addForeignKeyConstraint("users_organization_user_fk", {
+      columns: ["organization_user_id"],
+      referencedTable: "users",
+      referencedColumns: ["id"],
+      onDelete: "SET NULL", // Adjust behavior as needed
+      condition: sql`role = 'suborganization_user'`
+    })
+    .execute();
 }
 
 export async function down(db) {
   // Drop the foreign key constraint before dropping the column
-  // await db.schema.dropForeignKeyConstraint("users_organization_user_fk").execute();
+  await db.schema.dropForeignKeyConstraint("users_organization_user_fk").execute();
 
   // Drop the index before dropping the table
   await db.schema.dropIndex("users_email_index").execute();
