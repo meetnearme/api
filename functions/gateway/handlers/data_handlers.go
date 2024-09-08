@@ -16,15 +16,15 @@ import (
 var validate *validator.Validate = validator.New()
 
 
-type EventHandler struct {
-    EventService services.EventServiceInterface
+type MarqoHandler struct {
+    MarqoService services.MarqoServiceInterface
 }
 
-func NewEventHandler(eventService services.EventServiceInterface) *EventHandler {
-    return &EventHandler{EventService: eventService}
+func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler {
+    return &MarqoHandler{MarqoService: MarqoService}
 }
 
-func (h *EventHandler) PostEvents(w http.ResponseWriter, r *http.Request) {
+func (h *MarqoHandler) PostEvents(w http.ResponseWriter, r *http.Request) {
     var createEvent services.Event
     body, err := io.ReadAll(r.Body)
     if err != nil {
@@ -66,15 +66,15 @@ func (h *EventHandler) PostEvents(w http.ResponseWriter, r *http.Request) {
     transport.SendServerRes(w, json, http.StatusCreated, nil)
 }
 
-func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-    eventService := services.NewEventService()
-    handler := NewEventHandler(eventService)
+func PostMarqoHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+    marqoService := services.NewMarqoService()
+    handler := NewMarqoHandler(marqoService)
     return func(w http.ResponseWriter, r *http.Request) {
         handler.PostEvents(w, r)
     }
 }
 
-func (h *EventHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
+func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
     var payload struct {
         Events []services.Event `json:"events"`
     }
@@ -119,8 +119,8 @@ func (h *EventHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostBatchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-    eventService := services.NewEventService()
-    handler := NewEventHandler(eventService)
+    marqoService := services.NewMarqoService()
+    handler := NewMarqoHandler(marqoService)
     return func(w http.ResponseWriter, r *http.Request) {
         handler.PostBatchEvents(w, r)
     }
@@ -128,7 +128,7 @@ func PostBatchEventsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 
 // func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64) ([]Event, error) {
 
-func (h *EventHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
+func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
     marqoClient, err := services.GetMarqoClient()
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
@@ -160,8 +160,8 @@ func (h *EventHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func SearchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-    eventService := services.NewEventService()
-    handler := NewEventHandler(eventService)
+    marqoService := services.NewMarqoService()
+    handler := NewMarqoHandler(marqoService)
     return func(w http.ResponseWriter, r *http.Request) {
         handler.SearchEvents(w, r)
     }

@@ -4,30 +4,30 @@ import (
 	"github.com/ganeshdipdumbare/marqo-go"
 )
 
-// EventServiceInterface defines the methods we need from the services package
-type EventServiceInterface interface {
+// MarqoServiceInterface defines the methods we need from the services package
+type MarqoServiceInterface interface {
     UpsertEventToMarqo(
         client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error)
 }
 
-type EventService struct{}
+type MarqoService struct{}
 
-func (e *EventService) UpsertEventToMarqo(
+func (e *MarqoService) UpsertEventToMarqo(
     client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error) {
     // Implement the method logic here
     return nil, nil
 }
 
-func NewEventService() EventServiceInterface {
-    return &EventService{}
+func NewMarqoService() MarqoServiceInterface {
+    return &MarqoService{}
 }
 
-type MockEventService struct {
+type MockMarqoService struct {
     UpsertEventToMarqoFunc func(
         client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error)
 }
 
-func (m *MockEventService) UpsertEventToMarqo(
+func (m *MockMarqoService) UpsertEventToMarqo(
     client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error) {
     return m.UpsertEventToMarqoFunc(client, event)
 }
