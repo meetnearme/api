@@ -220,13 +220,12 @@ func GetSelectedOptionAttr(cfLocation helpers.CdnLocation, latStr string, lonStr
 templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr string, lonStr string) {
 	<div class="header-hero">
 		<h1 class="text-2xl md:text-5xl text-center mb-5">
-			Push Your Boundaries.
-			<br/>
-			Explore Your World.
+			In an Ocean of Humanity Hidden Behind Screens... Find YOUR Tribe!
 		</h1>
 	</div>
 	<div class="min-h-screen">
-		<header class="flex justify-between p-4 bg-black border-b border-gray-700">
+		<div class="flex w-full flex-col border-opacity-50 bg-base-300"></div>
+		<header class="flex justify-between p-4">
 			<nav class="flex space-x-4">
 				<button href="#" class="text-sm md:text-xl font-bold border-b-2 border-white">
 					EVENTS
@@ -354,7 +353,7 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr s
 				</div>
 			</div>
 		</div>
-		<div class="flex p-4 bg-black">
+		<div class="flex p-4">
 			<div class="flex flex-auto space-x-2">
 				<button class="grow px-4 py-2 text-md md:text-xl btn btn-primary">TODAY</button>
 				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">TOMORROW</button>
@@ -380,7 +379,7 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr s
 								style="opacity: 0.3; aspect-ratio: 400 / 200; object-fit: cover;"
 							/>
 						</a>
-						<div class="flex flex-col justify-between w-full md:w-1/2 p-4 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0 md:relative">
+						<div class="flex flex-col justify-between w-full md:w-1/2 p-4 bg-gradient-to-t from-white/70 from-80% to-transparent absolute bottom-0 left-0 md:relative">
 							<div class="mb-2">
 								<h2 class="text-xl">{ ev.Name }</h2>
 								<p class="text-sm">{ ev.Address } | { helpers.FormatDate(ev.StartTime) } | { helpers.FormatTime(ev.StartTime) }</p>

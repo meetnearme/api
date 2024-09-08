@@ -89,12 +89,13 @@ export default {
     },
   ],
   daisyui: {
-    darkTheme: 'meetnearme',
+    lightTheme: 'meetnearme',
     themes: [
       {
         meetnearme: {
-          ...require('daisyui/src/theming/themes')['dark'],
-          'color-scheme': 'dark',
+          ...require('daisyui/src/theming/themes')['cupcake'],
+          // ...require('daisyui/src/theming/themes')['dark'],
+          'color-scheme': 'light',
           fontFamily:
             'Ubuntu Mono,ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace',
           // '--rounded-box': '1rem', // border radius rounded-box utility class, used in card and other large boxes
@@ -105,26 +106,48 @@ export default {
           '--rounded-btn': '0.25rem',
           '--rounded-badge': '1rem',
           '--tab-radius': '0.25rem',
-          primary: '#39FF14',
-          'primary-content': '#011600',
-          secondary: '#FF4500',
-          'secondary-content': '#160200',
-          accent: '#FF69B4',
-          'accent-content': '#16040c',
-          neutral: '#a8a29e',
-          'neutral-content': '#000000',
-          'base-100': '#000000',
-          'base-200': '#000000',
-          'base-300': '#000000',
-          'base-content': '#F5F5F5',
+
+          // BEGIN light theme colors
+          primary: '#00ceff',
+          secondary: '#5eead4',
+          accent: '#f0abfc',
+          neutral: '#190c04',
+          'neutral-content': '#00ceff',
+          'base-100': '#fffbe6',
           info: '#7cbbee',
-          'info-content': '#000000',
           success: '#74ea62',
-          'success-content': '#000000',
           warning: '#ffc458',
-          'warning-content': '#000000',
-          error: '#e11d48',
-          'error-content': '#000000',
+          error: '#ff7f7f',
+          primary: '#00ceff',
+          secondary: '#5eead4',
+          accent: '#f0abfc',
+          neutral: '#190c04',
+          // END light theme colors
+
+          // BEGIN dark theme colors
+
+          // primary: '#39FF14',
+          // 'primary-content': '#011600',
+          // secondary: '#FF4500',
+          // 'secondary-content': '#160200',
+          // accent: '#FF69B4',
+          // 'accent-content': '#16040c',
+          // neutral: '#a8a29e',
+          // 'neutral-content': '#000',
+          // 'base-100': '#fffbe6',
+          // 'base-200': '#fffbe6',
+          // 'base-300': '#fffbe6',
+          // 'base-content': '#000',
+          // info: '#7cbbee',
+          // 'info-content': '#fff',
+          // success: '#74ea62',
+          // 'success-content': '#fff',
+          // warning: '#ffc458',
+          // 'warning-content': '#fff',
+          // error: '#e11d48',
+          // 'error-content': '#fff',
+
+          // END dark theme colors
         },
       },
     ],

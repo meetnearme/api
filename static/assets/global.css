@@ -11,13 +11,14 @@
   h4,
   h5,
   h6 {
-    font-family: 'Outfit', 'Helvetica', 'Arial', 'sans-serif';
-    font-weight: 400;
+    /* font-family: 'Outfit', 'Helvetica', 'Arial', 'sans-serif'; */
+    font-family: Grandstander, Helvetica, Arial, 'sans-serif';
+    font-weight: 600;
   }
 }
 
 .brand {
-  width: 13.5rem;
+  width: 3rem;
   height: 4.5rem;
 }
 
