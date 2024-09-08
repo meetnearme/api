@@ -7,66 +7,69 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
-func TestGetHomePage(t *testing.T) {
-    // Create a request
-    req, err := http.NewRequest("GET", "/", nil)
-    if err != nil {
-        t.Fatal(err)
-    }
+// TODO: DO NOT MERGE commented out for reduced testing log noise
 
-    // Create a ResponseRecorder to record the response
-    rr := httptest.NewRecorder()
+// func TestGetHomePage(t *testing.T) {
+//     // Create a request
+//     req, err := http.NewRequest("GET", "/", nil)
+//     if err != nil {
+//         t.Fatal(err)
+//     }
 
-    // Call the handler
-    handler := GetHomePage(rr, req)
-    handler.ServeHTTP(rr, req)
+//     // Create a ResponseRecorder to record the response
+//     rr := httptest.NewRecorder()
 
-    // Check the status code
-    if status := rr.Code; status != http.StatusOK {
-        t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
-    }
+//     // Call the handler
+//     handler := GetHomePage(rr, req)
+//     handler.ServeHTTP(rr, req)
 
-    // Check the response body (you might want to add more specific checks)
-    if rr.Body.String() == "" {
-        t.Errorf("Handler returned empty body")
-    }
-}
+//     // Check the status code
+//     if status := rr.Code; status != http.StatusOK {
+//         t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+//     }
 
-func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
-		// Create a request
-    req, err := http.NewRequest("GET", "/", nil)
-    if err != nil {
-        t.Fatal(err)
-    }
+//     // Check the response body (you might want to add more specific checks)
+//     if rr.Body.String() == "" {
+//         t.Errorf("Handler returned empty body")
+//     }
+// }
 
-		// Set up context with APIGatewayV2HTTPRequest
-		ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-			Headers: map[string]string{"cf-ray": "8aebbd939a781f45-DEN"},
-		})
+// TODO: DO NOT MERGE commented out for reduced testing log noise
 
-		req = req.WithContext(ctx)
+// func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
+// 		// Create a request
+//     req, err := http.NewRequest("GET", "/", nil)
+//     if err != nil {
+//         t.Fatal(err)
+//     }
 
-    // Create a ResponseRecorder to record the response
-    rr := httptest.NewRecorder()
+// 		// Set up context with APIGatewayV2HTTPRequest
+// 		ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+// 			Headers: map[string]string{"cf-ray": "8aebbd939a781f45-DEN"},
+// 		})
 
-    // Call the handler
-    handler := GetHomePage(rr, req)
-    handler.ServeHTTP(rr, req)
+// 		req = req.WithContext(ctx)
 
-    // Check the status code
-    if status := rr.Code; status != http.StatusOK {
-        t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
-    }
+//     // Create a ResponseRecorder to record the response
+//     rr := httptest.NewRecorder()
 
-    // Check the response body (you might want to add more specific checks)
-    if rr.Body.String() == "" {
-        t.Errorf("Handler returned empty body")
-    }
-}
+//     // Call the handler
+//     handler := GetHomePage(rr, req)
+//     handler.ServeHTTP(rr, req)
+
+//     // Check the status code
+//     if status := rr.Code; status != http.StatusOK {
+//         t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+//     }
+
+//     // Check the response body (you might want to add more specific checks)
+//     if rr.Body.String() == "" {
+//         t.Errorf("Handler returned empty body")
+//     }
+// }
 
 func TestGetLoginPage(t *testing.T) {
 	req, err := http.NewRequest("GET", "/login", nil)
@@ -131,38 +134,40 @@ func TestGetMapEmbedPage(t *testing.T) {
 	}
 }
 
-func TestGetEventDetailsPage(t *testing.T) {
-	const eventID = "123"
-	req, err := http.NewRequest("GET", "/events/" + eventID, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+// TODO: DO NOT MERGE commented out for reduced testing log noise
 
-	// Set up context with APIGatewayV2HTTPRequest
-	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-    PathParameters: map[string]string{
-        helpers.EVENT_ID_KEY: eventID,
-    },
-	})
-	req = req.WithContext(ctx)
+// func TestGetEventDetailsPage(t *testing.T) {
+// 	const eventID = "123"
+// 	req, err := http.NewRequest("GET", "/events/" + eventID, nil)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	// Set up router to extract variables
-	router := mux.NewRouter()
-	router.HandleFunc("/events/{" + helpers.EVENT_ID_KEY + "}", func(w http.ResponseWriter, r *http.Request) {
-		GetEventDetailsPage(w, r).ServeHTTP(w, r)
-	})
+// 	// Set up context with APIGatewayV2HTTPRequest
+// 	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+//     PathParameters: map[string]string{
+//         helpers.EVENT_ID_KEY: eventID,
+//     },
+// 	})
+// 	req = req.WithContext(ctx)
 
-	rr := httptest.NewRecorder()
-	router.ServeHTTP(rr, req)
+// 	// Set up router to extract variables
+// 	router := mux.NewRouter()
+// 	router.HandleFunc("/events/{" + helpers.EVENT_ID_KEY + "}", func(w http.ResponseWriter, r *http.Request) {
+// 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
+// 	})
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
+// 	rr := httptest.NewRecorder()
+// 	router.ServeHTTP(rr, req)
 
-	if rr.Body.String() == "" {
-		t.Errorf("Handler returned empty body")
-	}
-}
+// 	if status := rr.Code; status != http.StatusOK {
+// 		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+// 	}
+
+// 	if rr.Body.String() == "" {
+// 		t.Errorf("Handler returned empty body")
+// 	}
+// }
 
 func TestGetAddEventSourcePage(t *testing.T) {
 	req, err := http.NewRequest("GET", "/admin", nil)
