@@ -66,7 +66,7 @@ func (h *MarqoHandler) PostEvents(w http.ResponseWriter, r *http.Request) {
     transport.SendServerRes(w, json, http.StatusCreated, nil)
 }
 
-func PostMarqoHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     marqoService := services.NewMarqoService()
     handler := NewMarqoHandler(marqoService)
     return func(w http.ResponseWriter, r *http.Request) {
