@@ -21,7 +21,7 @@ type MarqoHandler struct {
 }
 
 func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler {
-    return &MarqoHandler{MarqoService: MarqoService}
+    return &MarqoHandler{MarqoService: marqoService}
 }
 
 func (h *MarqoHandler) PostEvents(w http.ResponseWriter, r *http.Request) {
