@@ -9,21 +9,18 @@ import (
 
 	"github.com/ganeshdipdumbare/marqo-go" // marqo-go is an unofficial Go client library for Marqo
 	"github.com/google/uuid"
-	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
 type Event struct {
-	Id          string  `json:"id"`
-	EventOwners []string  `json:"event_owners"` // Add this line
-	Name        string  `json:"name" validate:"required"`
-	Description string  `json:"description"`
-	StartTime    string  `json:"start_time" validate:"required"`
-	Address     string  `json:"address"`
-	Latitude    float64 `json:"lat" validate:"required"`
-	Longitude   float64 `json:"long" validate:"required"`
+	Id          string `json:"id"`
+	EventOwners []string `json:"eventOwners" validate:"required,min=1"`
+	Name        string `json:"name" validate:"required"`
+	Description string `json:"description" validate:"required"`
+	StartTime   string `json:"startTime" validate:"required"`
+	Address     string `json:"address" validate:"required"`
+	Lat    			float64 `json:"lat" validate:"required"`
+	Long    		float64 `json:"long" validate:"required"`
 }
-
-var marqoEndpoint = helpers.GetMarqoEndpoint()
 
 // considered the best embedding model as of 8/15/2024
 var model = "hf/bge-large-en-v1.5"
@@ -31,17 +28,19 @@ var indexName = "events-search-index"
 
 func GetMarqoClient() (*marqo.Client, error) {
 	// Create a new Marqo client
-	var createString string
+	var apiBaseUrl string
 
-	if marqoEndpoint == "" {
-		createString = "http://localhost:8882" //set to local host if no marqo lb is set
+	if os.Getenv("MARQO_API_BASE_URL") != "" {
+		apiBaseUrl = os.Getenv("MARQO_API_BASE_URL")
 	} else {
-		createString = marqoEndpoint
+		// set to local host if no marqo lb is set
+		apiBaseUrl = "http://localhost:8882"
 	}
 
 	// Get the bearer token from an environment variable
 	marqoApiKey := os.Getenv("MARQO_API_KEY")
-	client, err := marqo.NewClient(createString, marqo.WithMarqoCloudAuth(marqoApiKey))
+
+	client, err := marqo.NewClient(apiBaseUrl, marqo.WithMarqoCloudAuth(marqoApiKey))
 	if err != nil {
 			log.Printf("Error creating marqo client: %v", err)
 			return nil, err
@@ -125,14 +124,14 @@ func CreateMarqoIndex(client *marqo.Client) (*marqo.CreateIndexResponse, error) 
 	return res, nil
 }
 
-func UpsertEventToMarqo(client *marqo.Client, event EventInsert) (*marqo.UpsertDocumentsResponse, error) {
+func UpsertEventToMarqo(client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error) {
 	// Insert an event
 
-	events := []EventInsert{event}
+	events := []Event{event}
 	return BulkUpsertEventToMarqo(client, events)
 }
 
-func BulkUpsertEventToMarqo(client *marqo.Client, events []EventInsert) (*marqo.UpsertDocumentsResponse, error) {
+func BulkUpsertEventToMarqo(client *marqo.Client, events []Event) (*marqo.UpsertDocumentsResponse, error) {
 	// Bulk upsert multiple events
 	var documents []interface{}
 	for _, event := range events {
@@ -149,7 +148,6 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []EventInsert) (*marqo.
 		}
 		documents = append(documents, document)
 	}
-
 	req := marqo.UpsertDocumentsRequest{
 		Documents: documents,
 		IndexName: indexName,
@@ -201,6 +199,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	// Extract the events from the search response
 	var events []Event
 	for _, doc := range searchResp.Hits {
+		// log.Printf("Event: %v", doc)
 		event := Event{
 			Id:          getString(doc, "_id"),
 			EventOwners: getStringSlice(doc, "eventOwners"),
@@ -208,8 +207,8 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 			Description: getString(doc, "description"),
 			StartTime:   getString(doc, "startTime"),
 			Address:     getString(doc, "address"),
-			Latitude:    getFloat64(doc, "lat"),
-			Longitude:   getFloat64(doc, "long"),
+			Lat:    getFloat64(doc, "lat"),
+			Long:   getFloat64(doc, "long"),
 		}
 		events = append(events, event)
 	}
@@ -241,7 +240,7 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]Event, erro
 	if err != nil {
 	    log.Printf("Failed to get documents: %v", err)
 	}
-
+	log.Printf("Res: %v", res)
 	var events []Event
 	for _, result := range res.Results {
 		event := Event{
@@ -249,10 +248,12 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]Event, erro
 			EventOwners: getStringSlice(result, "eventOwners"),
 			Name:        getString(result, "name"),
 			Description: getString(result, "description"),
+			// TODO: These need converting to unix and a new index deployed
+			// in order to support marqo's unix search time range query
 			StartTime:   getString(result, "startTime"),
 			Address:     getString(result, "address"),
-			Latitude:    getFloat64(result, "lat"),
-			Longitude:   getFloat64(result, "long"),
+			Lat:    getFloat64(result, "lat"),
+			Long:   getFloat64(result, "long"),
 		}
 		events = append(events, event)
 	}
@@ -301,4 +302,28 @@ func getStringSlice(doc map[string]interface{}, key string) []string {
 		}
 	}
 	return nil
+}
+
+func InsertEventToMarqo(eventToCreate Event) (*marqo.UpsertDocumentsResponse, error) {
+	newEvent := Event{
+		Name:        eventToCreate.Name,
+		Description: eventToCreate.Description,
+		StartTime:    eventToCreate.StartTime,
+		Address:     eventToCreate.Address,
+		Lat: eventToCreate.Lat,
+		Long: eventToCreate.Long,
+		Id:          uuid.NewString(),
+	}
+
+	marqoClient, err := GetMarqoClient()
+	if err != nil {
+		return nil, err
+	}
+
+	item, err := UpsertEventToMarqo(marqoClient, newEvent)
+	if err != nil {
+		log.Println("error upserting event to marqo", err)
+		return nil, err
+	}
+	return item, nil
 }

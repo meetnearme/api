@@ -35,8 +35,4 @@ func GetDbTableName(tableName string) string {
 	return SST_Table_tableName
 }
 
-func GetMarqoEndpoint() string {
-    marqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
-    return marqoEndpoint
-}
 

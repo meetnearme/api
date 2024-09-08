@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-    os.Setenv("GO_ENV", "test")
+    os.Setenv("GO_ENV", GO_TEST_ENV)
 }
 
 

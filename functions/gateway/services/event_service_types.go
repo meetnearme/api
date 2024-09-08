@@ -1,32 +1,33 @@
 package services
 
 import (
-	"context"
-
-	"github.com/meetnearme/api/functions/gateway/types"
+	"github.com/ganeshdipdumbare/marqo-go"
 )
 
 // EventServiceInterface defines the methods we need from the services package
 type EventServiceInterface interface {
-    InsertEvent(ctx context.Context, db types.DynamoDBAPI, createEvent EventInsert) (*EventSelect, error)
+    UpsertEventToMarqo(
+        client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error)
 }
 
 type EventService struct{}
+
+func (e *EventService) UpsertEventToMarqo(
+    client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error) {
+    // Implement the method logic here
+    return nil, nil
+}
 
 func NewEventService() EventServiceInterface {
     return &EventService{}
 }
 
-func (s *EventService) InsertEvent(ctx context.Context, db types.DynamoDBAPI, createEvent EventInsert) (*EventSelect, error) {
-    // This method should contain the actual implementation of InsertEvent
-    // For now, we'll just call the existing function
-    return InsertEvent(ctx, db, createEvent)
-}
-
 type MockEventService struct {
-    InsertEventFunc func(ctx context.Context, db types.DynamoDBAPI, createEvent EventInsert) (*EventSelect, error)
+    UpsertEventToMarqoFunc func(
+        client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error)
 }
 
-func (m *MockEventService) InsertEvent(ctx context.Context, db types.DynamoDBAPI, createEvent EventInsert) (*EventSelect, error) {
-    return m.InsertEventFunc(ctx, db, createEvent)
+func (m *MockEventService) UpsertEventToMarqo(
+    client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error) {
+    return m.UpsertEventToMarqoFunc(client, event)
 }
