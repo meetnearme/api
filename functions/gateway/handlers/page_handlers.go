@@ -113,7 +113,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	// startTime, endTime, lat, lon, radius
 	// TODO: Use startTime / endTime in query and remove this log before merging
- 	// log.Println(fmt.Sprintf("startTime: %v, endTime: %v, lat: %v, long: %v, radius: %v", startTime, endTime, lat, long, radius))
+ 	log.Printf("startTime: %v, endTime: %v, lat: %v, long: %v, radius: %v", startTime, endTime, lat, long, radius)
 	userLocation := []float64{lat, long}
 
 	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
