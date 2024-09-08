@@ -28,7 +28,7 @@ func TestCreateEvent(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := "http://localhost:8999"
+	testMarqoEndpoint := helpers.MOCK_MARQO_URL
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
 
@@ -255,7 +255,7 @@ func TestCreateEvent(t *testing.T) {
 
 // 	// Set test environment variables
 // 	testMarqoApiKey := "test-marqo-api-key"
-// 	testMarqoEndpoint := "http://localhost:8999"
+// 	testMarqoEndpoint := MOCK_MARQO_URL
 // 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 // 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
 

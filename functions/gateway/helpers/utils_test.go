@@ -98,9 +98,6 @@ func TestGetImgUrlFromHash(t *testing.T) {
 
 func TestSetCloudFlareKV(t *testing.T) {
 	InitDefaultProtocol()
-	const mockCloudflareUrl = "http://localhost:8999"
-	const mockZitadelHost = "localhost:8998"
-
 	// Save original environment variables
 	originalAccountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	originalNamespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
@@ -112,8 +109,8 @@ func TestSetCloudFlareKV(t *testing.T) {
 	os.Setenv("CLOUDFLARE_ACCOUNT_ID", "test-account-id")
 	os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", "test-namespace-id")
 	os.Setenv("CLOUDFLARE_API_TOKEN", "test-api-token")
-	os.Setenv("CLOUDFLARE_API_BASE_URL", mockCloudflareUrl)
-	os.Setenv("ZITADEL_INSTANCE_HOST", mockZitadelHost)
+	os.Setenv("CLOUDFLARE_API_BASE_URL", MOCK_CLOUDFLARE_URL)
+	os.Setenv("ZITADEL_INSTANCE_HOST", MOCK_ZITADEL_HOST)
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("CLOUDFLARE_ACCOUNT_ID", originalAccountID)
@@ -150,7 +147,7 @@ func TestSetCloudFlareKV(t *testing.T) {
 	// Set the mock Cloudflare server URL
 	mockCloudflareServer.Listener.Close()
 	var err error
-	mockCloudflareServer.Listener, err = net.Listen("tcp", mockCloudflareUrl[len("http://"):])
+	mockCloudflareServer.Listener, err = net.Listen("tcp", MOCK_CLOUDFLARE_URL[len("http://"):])
 	if err != nil {
 		t.Fatalf("Failed to start mock Cloudflare server: %v", err)
 	}
@@ -178,7 +175,7 @@ func TestSetCloudFlareKV(t *testing.T) {
 
 	// Set the mock Zitadel server URL
 	mockZitadelServer.Listener.Close()
-	mockZitadelServer.Listener, err = net.Listen("tcp", mockZitadelHost)
+	mockZitadelServer.Listener, err = net.Listen("tcp", MOCK_ZITADEL_HOST)
 	if err != nil {
 		t.Fatalf("Failed to start mock Zitadel server: %v", err)
 	}
