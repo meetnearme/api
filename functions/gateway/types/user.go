@@ -10,11 +10,11 @@ type UserInsert struct {
     ID            string `json:"id"` // UUID format validation
     Name          string `json:"name" validate:"required"`
     Email         string `json:"email" validate:"required,email"` // Validate as email
-    Address		  string `json:"addressStreet"`
+    Address		  string `json:"address"`
     Phone         string `json:"phone"`
     ProfilePictureURL string `json:"profilePictureUrl"`
-    CreatedAt     string `json:"createdAt"` // Adjust based on your date format
-    UpdatedAt     string `json:"updatedAt"` // Adjust based on your date format
+    CreatedAt     string `json:"created_at"` // Adjust based on your date format
+    UpdatedAt     string `json:"updated_at"` // Adjust based on your date format
     Role          string `json:"role" validate:"required"`
     OrganizationUserID string `json:"organizationUserId"`
 }
@@ -25,7 +25,7 @@ type User struct {
 	ID                string    `json:"id"`
 	Name              string    `json:"name"`
 	Email             string    `json:"email"`
-	Address     string    `json:"address_street,omitempty"`
+	Address     string    `json:"address,omitempty"`
 	Phone             string    `json:"phone,omitempty"`
 	ProfilePictureURL string    `json:"profile_picture_url,omitempty"`
 	Role              string    `json:"role"`
@@ -38,7 +38,7 @@ type User struct {
 type UserUpdate struct {
 	Name              string `json:"name"`
 	Email             string `json:"email"`
-	Address     string `json:"address_street,omitempty"`
+	Address     string `json:"address,omitempty"`
 	Phone             string `json:"phone,omitempty"`
 	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
 	Role              string `json:"role,omitempty" validate:"omitempty,oneof=standard_user organization_user suborganization_user"`

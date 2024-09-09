@@ -13,8 +13,8 @@ type TransactionInsert struct {
 	TransactionType string `json:"transaction_type" validate:"required"`
 	Status string `json:"status" validate:"required"`
 	Description string `json:"description"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+    CreatedAt     string `json:"created_at"` // Adjust based on your date format
+    UpdatedAt     string `json:"updated_at"` // Adjust based on your date format
 }
 
 type Transaction struct {
@@ -24,8 +24,8 @@ type Transaction struct {
 	TransactionType string `json:"transaction_type" validate:"required"`
 	Status string `json:"status" `
 	Description string `json:"description"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+    CreatedAt     string `json:"created_at"` // Adjust based on your date format
+    UpdatedAt     string `json:"updated_at"` // Adjust based on your date format
 }
 
 type TransactionUpdate struct {
