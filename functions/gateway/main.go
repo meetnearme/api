@@ -82,11 +82,11 @@ func init() {
 		{"/api/users/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteUserHandler, None}, // Delete a user
 
 		// Transactions routes
-		// {"/api/transactions", "GET", handlers.GetTransactionsHandler, Check}, // Get all transactions
-		// {"/api/transactions/{id:[0-9a-fA-F-]+}", "GET", handlers.GetTransactionHandler, Check}, // Get a specific transaction
-		// {"/api/transactions", "POST", handlers.CreateTransactionHandler, Require}, // Create a new transaction
-		// {"/api/transactions/{id:[0-9a-fA-F-]+}", "PUT", handlers.UpdateTransactionHandler, Require}, // Update an existing transaction
-		// {"/api/transactions/{id:[0-9a-fA-F-]+}", "DELETE", handlers.DeleteTransactionHandler, Require}, // Delete a transaction
+		{"/api/transactions/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetTransactionsHandler, None}, // Get all transactions for a user
+		{"/api/transactions/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetTransactionHandler, None}, // Get a specific transaction
+		{"/api/transactions", "POST", rds_handlers.CreateTransactionHandler, None}, // Create a new transaction
+		{"/api/transactions/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateTransactionHandler, None}, // Update an existing transaction
+		{"/api/transactions/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteTransactionHandler, None}, // Delete a transaction
 
 		// // Purchasables routes
 		// {"/api/purchasables", "GET", handlers.GetPurchasablesHandler, Check}, // Get all purchasables
