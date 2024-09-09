@@ -9,10 +9,8 @@ export async function up(db) {
     .addColumn("amount", "numeric", (col) => col.notNull())
     .addColumn("currency", "varchar(3)", (col) => col.notNull()) // ISO 4217 currency code
     .addColumn("transaction_type", "varchar(50)", (col) => col.notNull())
-    .addColumn("transaction_date", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn("status", "varchar(50)", (col) => col.notNull())
     .addColumn("description", "text")
-    .addColumn("reference_id", "varchar(255)")
     .addColumn("created_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn("updated_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .addCheckConstraint(
@@ -21,7 +19,7 @@ export async function up(db) {
     )
     .addCheckConstraint(
       "transactions_status_check",
-      sql`status IN ('completed', 'pending', 'failed')`
+      sql`status IN ('completed', 'pending', 'failed', 'refunded')`
     )
     .execute();
 
