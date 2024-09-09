@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -162,33 +161,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 
 	// Create a mock HTTP server for Marqo
 	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check the authorization header
-		// authHeader := r.Header.Get("x-api-key")
-    //     // we do nothing here because the underlying implementation of marqo go
-    //     // library implements `WithMarqoCloudAuth` as an option expected in our
-    //     // implementation, so omitting the auth header will result a lib failure
-		// if authHeader == "" {
-    //         return
-		// }
-
-//  TODO: here is search schema
-
-// type SearchResponse struct {
-// 	// Hits is the list of hits
-// 	Hits []map[string]interface{} `json:"hits"`
-// 	// Limit is the number of results to return (default: 20)
-// 	Limit int `json:"limit"`
-// 	// Offset is the number of results to skip (default: 0)
-// 	Offset int `json:"offset"`
-// 	// ProcessingTimeMS is the processing time in milliseconds
-// 	ProcessingTimeMS float64 `json:"processingTimeMs"`
-// 	// Query is the query string
-// 	Query string `json:"query"`
-// }
-
-log.Printf("\n\n\n mock server hit... req= >>>> %+v", r)
 		// Mock the response
-
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
