@@ -108,21 +108,25 @@ func GetMarqoClient() (*marqo.Client, error) {
 // }
 
 
-func CreateMarqoIndex(client *marqo.Client) (*marqo.CreateIndexResponse, error) {
-	// Create a new index
-	req := marqo.CreateIndexRequest{
-		IndexName: indexName,
-		IndexDefaults: &marqo.IndexDefaults{
-			Model: &model,
-		},
-	}
-	res, err := client.CreateIndex(&req)
-	if err != nil {
-		log.Printf("Error creating index: %v", err)
-		return nil, err
-	}
-	return res, nil
-}
+// NOTE: it's possible to programatically create index, but this is an expensive
+// mistake to do programmatically, as each index costs at minimum ~$250 / mo
+// hence we're commenting this out for now
+
+// func CreateMarqoIndex(client *marqo.Client) (*marqo.CreateIndexResponse, error) {
+// 	// Create a new index
+// 	req := marqo.CreateIndexRequest{
+// 		IndexName: indexName,
+// 		IndexDefaults: &marqo.IndexDefaults{
+// 			Model: &model,
+// 		},
+// 	}
+// 	res, err := client.CreateIndex(&req)
+// 	if err != nil {
+// 		log.Printf("Error creating index: %v", err)
+// 		return nil, err
+// 	}
+// 	return res, nil
+// }
 
 func UpsertEventToMarqo(client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error) {
 	// Insert an event
@@ -240,7 +244,6 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]Event, erro
 	if err != nil {
 	    log.Printf("Failed to get documents: %v", err)
 	}
-	log.Printf("Res: %v", res)
 	var events []Event
 	for _, result := range res.Results {
 		event := Event{
@@ -304,26 +307,3 @@ func getStringSlice(doc map[string]interface{}, key string) []string {
 	return nil
 }
 
-func InsertEventToMarqo(eventToCreate Event) (*marqo.UpsertDocumentsResponse, error) {
-	newEvent := Event{
-		Name:        eventToCreate.Name,
-		Description: eventToCreate.Description,
-		StartTime:    eventToCreate.StartTime,
-		Address:     eventToCreate.Address,
-		Lat: eventToCreate.Lat,
-		Long: eventToCreate.Long,
-		Id:          uuid.NewString(),
-	}
-
-	marqoClient, err := GetMarqoClient()
-	if err != nil {
-		return nil, err
-	}
-
-	item, err := UpsertEventToMarqo(marqoClient, newEvent)
-	if err != nil {
-		log.Println("error upserting event to marqo", err)
-		return nil, err
-	}
-	return item, nil
-}
