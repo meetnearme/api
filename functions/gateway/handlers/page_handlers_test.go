@@ -17,30 +17,97 @@ import (
 
 // TODO: DO NOT MERGE commented out for reduced testing log noise
 
-// func TestGetHomePage(t *testing.T) {
-//     // Create a request
-//     req, err := http.NewRequest("GET", "/", nil)
-//     if err != nil {
-//         t.Fatal(err)
-//     }
+func TestGetHomePage(t *testing.T) {
 
-//     // Create a ResponseRecorder to record the response
-//     rr := httptest.NewRecorder()
+	// Save original environment variables
+	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
+	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
-//     // Call the handler
-//     handler := GetHomePage(rr, req)
-//     handler.ServeHTTP(rr, req)
+	// Set test environment variables
+	testMarqoApiKey := "test-marqo-api-key"
+	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
 
-//     // Check the status code
-//     if status := rr.Code; status != http.StatusOK {
-//         t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
-//     }
+	// Defer resetting environment variables
+	defer func() {
+		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
+		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+	}()
 
-//     // Check the response body (you might want to add more specific checks)
-//     if rr.Body.String() == "" {
-//         t.Errorf("Handler returned empty body")
-//     }
-// }
+	// Create a mock HTTP server for Marqo
+	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Mock the response
+		response := map[string]interface{}{
+			"Hits": []map[string]interface{}{
+				{
+					"id":          "123",
+					"eventOwners": []interface{}{"789"},
+					"name":        "First Test Event",
+					"description": "Description of the first event",
+				},
+				{
+					"id":          "456",
+					"eventOwners": []interface{}{"012"},
+					"name":        "Second Test Event",
+					"description": "Description of the second event",
+				},
+			},
+		}
+		responseBytes, err := json.Marshal(response)
+
+		if err != nil {
+			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(responseBytes)
+	}))
+
+	// Set the mock Marqo server URL
+	mockMarqoServer.Listener.Close()
+	var err error
+	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	if err != nil {
+		t.Fatalf("Failed to start mock Marqo server: %v", err)
+	} else {
+		t.Log("Started mock Marqo server")
+	}
+	mockMarqoServer.Start()
+	defer mockMarqoServer.Close()
+
+
+    // Create a request
+    req, err := http.NewRequest("GET", "/", nil)
+    if err != nil {
+        t.Fatal(err)
+    }
+
+	// Create a ResponseRecorder to record the response
+	rr := httptest.NewRecorder()
+
+	// Call the handler
+	handler := GetHomePage(rr, req)
+	handler.ServeHTTP(rr, req)
+
+	// Check the status code
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Check the response body (you might want to add more specific checks)
+	if rr.Body.String() == "" {
+		t.Errorf("Handler returned empty body")
+	}
+
+	if !strings.Contains(rr.Body.String(), ">First Test Event") {
+		t.Errorf("First event title is missing from the page")
+	}
+
+	if !strings.Contains(rr.Body.String(), ">Second Test Event") {
+		t.Errorf("First event title is missing from the page")
+	}
+}
 
 // TODO: DO NOT MERGE commented out for reduced testing log noise
 
@@ -169,7 +236,6 @@ func TestGetEventDetailsPage(t *testing.T) {
 					"eventOwners": []interface{}{"789"},
 					"name":        "Test Event",
 					"description": "This is a test event",
-					// Add other fields as needed
 				},
 			},
 		}
@@ -192,11 +258,10 @@ func TestGetEventDetailsPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start mock Marqo server: %v", err)
 	} else {
-        t.Log("Started mock Marqo server")
-    }
+		t.Log("Started mock Marqo server")
+	}
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
-
 
 	const eventID = "123"
 	req, err := http.NewRequest("GET", "/events/" + eventID, nil)
