@@ -15,7 +15,6 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
-// TODO: DO NOT MERGE commented out for reduced testing log noise
 
 func TestGetHomePage(t *testing.T) {
 
@@ -77,11 +76,11 @@ func TestGetHomePage(t *testing.T) {
 	defer mockMarqoServer.Close()
 
 
-    // Create a request
-    req, err := http.NewRequest("GET", "/", nil)
-    if err != nil {
-        t.Fatal(err)
-    }
+	// Create a request
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+			t.Fatal(err)
+	}
 
 	// Create a ResponseRecorder to record the response
 	rr := httptest.NewRecorder()
@@ -109,39 +108,96 @@ func TestGetHomePage(t *testing.T) {
 	}
 }
 
-// TODO: DO NOT MERGE commented out for reduced testing log noise
+func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 
-// func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
-// 		// Create a request
-//     req, err := http.NewRequest("GET", "/", nil)
-//     if err != nil {
-//         t.Fatal(err)
-//     }
+	// Save original environment variables
+	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
+	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
-// 		// Set up context with APIGatewayV2HTTPRequest
-// 		ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-// 			Headers: map[string]string{"cf-ray": "8aebbd939a781f45-DEN"},
-// 		})
+	// Set test environment variables
+	testMarqoApiKey := "test-marqo-api-key"
+	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
 
-// 		req = req.WithContext(ctx)
+	// Defer resetting environment variables
+	defer func() {
+		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
+		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+	}()
 
-//     // Create a ResponseRecorder to record the response
-//     rr := httptest.NewRecorder()
+	// Create a mock HTTP server for Marqo
+	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Mock the response
+		response := map[string]interface{}{
+			"Hits": []map[string]interface{}{
+				{
+					"id":          "123",
+					"eventOwners": []interface{}{"789"},
+					"name":        "First Test Event",
+					"description": "Description of the first event",
+				},
+				{
+					"id":          "456",
+					"eventOwners": []interface{}{"012"},
+					"name":        "Second Test Event",
+					"description": "Description of the second event",
+				},
+			},
+		}
+		responseBytes, err := json.Marshal(response)
 
-//     // Call the handler
-//     handler := GetHomePage(rr, req)
-//     handler.ServeHTTP(rr, req)
+		if err != nil {
+			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(responseBytes)
+	}))
 
-//     // Check the status code
-//     if status := rr.Code; status != http.StatusOK {
-//         t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
-//     }
+	// Set the mock Marqo server URL
+	mockMarqoServer.Listener.Close()
+	var err error
+	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	if err != nil {
+		t.Fatalf("Failed to start mock Marqo server: %v", err)
+	} else {
+		t.Log("Started mock Marqo server")
+	}
+	mockMarqoServer.Start()
+	defer mockMarqoServer.Close()
 
-//     // Check the response body (you might want to add more specific checks)
-//     if rr.Body.String() == "" {
-//         t.Errorf("Handler returned empty body")
-//     }
-// }
+
+		// Create a request
+    req, err := http.NewRequest("GET", "/", nil)
+    if err != nil {
+        t.Fatal(err)
+    }
+
+		// Set up context with APIGatewayV2HTTPRequest
+		ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			Headers: map[string]string{"cf-ray": "8aebbd939a781f45-DEN"},
+		})
+
+		req = req.WithContext(ctx)
+
+    // Create a ResponseRecorder to record the response
+    rr := httptest.NewRecorder()
+
+    // Call the handler
+    handler := GetHomePage(rr, req)
+    handler.ServeHTTP(rr, req)
+
+    // Check the status code
+    if status := rr.Code; status != http.StatusOK {
+        t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+    }
+
+    // Check the response body (you might want to add more specific checks)
+    if rr.Body.String() == "" {
+        t.Errorf("Handler returned empty body")
+    }
+}
 
 func TestGetLoginPage(t *testing.T) {
 	req, err := http.NewRequest("GET", "/login", nil)
@@ -206,7 +262,6 @@ func TestGetMapEmbedPage(t *testing.T) {
 	}
 }
 
-// TODO: DO NOT MERGE commented out for reduced testing log noise
 
 func TestGetEventDetailsPage(t *testing.T) {
 
