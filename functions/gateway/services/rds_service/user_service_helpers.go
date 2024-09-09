@@ -93,7 +93,7 @@ func buildSqlUserParams(parameters map[string]interface{}) ([]rds_types.SqlParam
 	}
 
 	// Optional Fields (address_street, address_city, address_zip_code, address_country, phone, profile_picture_url)
-	addressFields := []string{"address_street", "address_city", "address_zip_code", "address_country", "phone", "profile_picture_url"}
+	addressFields := []string{"address", "phone", "profile_picture_url"}
 
 	for _, field := range addressFields {
 		value, ok := parameters[field].(string)
@@ -109,26 +109,6 @@ func buildSqlUserParams(parameters map[string]interface{}) ([]rds_types.SqlParam
 		params = append(params, param)
 	}
 
-	// Organization_user_id (UUID, optional)
-	if orgUserIdValue, ok := parameters["organization_user_id"].(string); ok && orgUserIdValue != "" {
-		orgUserId := rds_types.SqlParameter{
-			Name:     aws.String("organization_user_id"),
-			TypeHint: "UUID",
-			Value: &rds_types.FieldMemberStringValue{
-				Value: orgUserIdValue,
-			},
-		}
-		params = append(params, orgUserId)
-	} else {
-		// If organization_user_id is not provided or is an empty string, set it to NULL
-		orgUserId := rds_types.SqlParameter{
-			Name: aws.String("organization_user_id"),
-			Value: &rds_types.FieldMemberIsNull{
-				Value: true, // Set to NULL in the query
-			},
-		}
-		params = append(params, orgUserId)
-	}
 
 	return params, nil
 }
@@ -176,29 +156,12 @@ func extractAndMapSingleUser(columnMetadata []rds_types.ColumnMetadata, record [
         return nil, fmt.Errorf("missing column 'email'")
     }
 
-    if addressStreetIndex, ok := columnIndex["address_street"]; ok {
-        if field, ok := record[addressStreetIndex].(*rds_types.FieldMemberStringValue); ok {
-            user.AddressStreet = field.Value
+    if addressIndex, ok := columnIndex["address"]; ok {
+        if field, ok := record[addressIndex].(*rds_types.FieldMemberStringValue); ok {
+			user.Address = field.Value
         }
     }
 
-    if addressCityIndex, ok := columnIndex["address_city"]; ok {
-        if field, ok := record[addressCityIndex].(*rds_types.FieldMemberStringValue); ok {
-            user.AddressCity = field.Value
-        }
-    }
-
-    if addressZipCodeIndex, ok := columnIndex["address_zip_code"]; ok {
-        if field, ok := record[addressZipCodeIndex].(*rds_types.FieldMemberStringValue); ok {
-            user.AddressZipCode = field.Value
-        }
-    }
-
-    if addressCountryIndex, ok := columnIndex["address_country"]; ok {
-        if field, ok := record[addressCountryIndex].(*rds_types.FieldMemberStringValue); ok {
-            user.AddressCountry = field.Value
-        }
-    }
 
     if phoneIndex, ok := columnIndex["phone"]; ok {
         if field, ok := record[phoneIndex].(*rds_types.FieldMemberStringValue); ok {
@@ -269,10 +232,7 @@ func extractAndMapSingleUserFromJSON(formattedRecords string) (*internal_types.U
         ID:                  getString(record, "id"),
         Name:                getString(record, "name"),
         Email:               getString(record, "email"),
-        AddressStreet:       getString(record, "address_street"),
-        AddressCity:         getString(record, "address_city"),
-        AddressZipCode:      getString(record, "address_zip_code"),
-        AddressCountry:      getString(record, "address_country"),
+        Address:       getString(record, "address"),
         Phone:               getString(record, "phone"),
         ProfilePictureURL:   getString(record, "profile_picture_url"),
         Role:                getString(record, "role"),
@@ -282,31 +242,6 @@ func extractAndMapSingleUserFromJSON(formattedRecords string) (*internal_types.U
     }
 
     return &user, nil
-}
-
-func getString(record map[string]interface{}, key string) string {
-    if val, ok := record[key].(string); ok {
-        return val
-    }
-    return ""
-}
-
-func getOptionalString(record map[string]interface{}, key string) *string {
-    if val, ok := record[key].(string); ok {
-        return &val
-    }
-    return nil
-}
-
-func getTime(record map[string]interface{}, key string) time.Time {
-    if val, ok := record[key].(string); ok {
-        t, err := time.Parse("2006-01-02 15:04:05", val)
-        if err != nil {
-            return time.Time{} // Return zero value if parsing fails
-        }
-        return t
-    }
-    return time.Time{} // Return zero value if field is not present
 }
 
 
@@ -337,20 +272,8 @@ func extractUsersFromJson(formattedRecords string) ([]internal_types.User, error
             user.Email = email
         }
 
-        if addressStreet, ok := record["address_street"].(string); ok {
-            user.AddressStreet = addressStreet
-        }
-
-        if addressCity, ok := record["address_city"].(string); ok {
-            user.AddressCity = addressCity
-        }
-
-        if addressZipCode, ok := record["address_zip_code"].(string); ok {
-            user.AddressZipCode = addressZipCode
-        }
-
-        if addressCountry, ok := record["address_country"].(string); ok {
-            user.AddressCountry = addressCountry
+        if addressStreet, ok := record["address"].(string); ok {
+            user.Address = addressStreet
         }
 
         if phone, ok := record["phone"].(string); ok {

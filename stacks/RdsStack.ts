@@ -17,7 +17,6 @@ export function RdsStack({ stack }: StackContext) {
     ClusterArn: cluster.clusterArn,
   });
 
-
   return {
     cluster
   };

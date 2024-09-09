@@ -50,17 +50,8 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
     }
 
     // Default optional fields to empty strings if not provided
-    if createUser.AddressStreet == "" {
-        createUser.AddressStreet = ""
-    }
-    if createUser.AddressCity == "" {
-        createUser.AddressCity = ""
-    }
-    if createUser.AddressZipCode == "" {
-        createUser.AddressZipCode = ""
-    }
-    if createUser.AddressCountry == "" {
-        createUser.AddressCountry = ""
+    if createUser.Address == "" {
+        createUser.Address = ""
     }
     if createUser.Phone == "" {
         createUser.Phone = ""

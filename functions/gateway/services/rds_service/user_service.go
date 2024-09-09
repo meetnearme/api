@@ -47,17 +47,14 @@ func (s *UserService) InsertUser(ctx context.Context, rdsClient internal_types.R
     // Construct the SQL query
     query := `
         INSERT INTO users (
-            id, name, email, address_street, address_city, address_zip_code,
-            address_country, phone, profile_picture_url, role, organization_user_id,
+            id, name, email, address, phone, profile_picture_url, role,
             created_at, updated_at
         )
         VALUES (
-            :id, :name, :email, :address_street, :address_city, :address_zip_code,
-            :address_country, :phone, :profile_picture_url, :role, :organization_user_id,
+            :id, :name, :email, :address, :phone, :profile_picture_url, :role,
             :created_at, :updated_at
         )
-        RETURNING id, name, email, address_street, address_city, address_zip_code,
-                  address_country, phone, profile_picture_url, role, organization_user_id,
+        RETURNING id, name, email, address, phone, profile_picture_url, role,
                   created_at, updated_at
     `
 
@@ -66,14 +63,10 @@ func (s *UserService) InsertUser(ctx context.Context, rdsClient internal_types.R
         "id":                  user.ID,
         "name":                user.Name,
         "email":               user.Email,
-        "address_street":      user.AddressStreet,
-        "address_city":        user.AddressCity,
-        "address_zip_code":    user.AddressZipCode,
-        "address_country":     user.AddressCountry,
+        "address":      user.Address,
         "phone":               user.Phone,
         "profile_picture_url": user.ProfilePictureURL,
         "role":                user.Role,
-        "organization_user_id": user.OrganizationUserID,
         "created_at":          user.CreatedAt,
         "updated_at":          user.UpdatedAt,
     }
@@ -143,7 +136,7 @@ func (s *UserService) GetUserByID(ctx context.Context, rdsClient internal_types.
 
 func (s *UserService) GetUsers(ctx context.Context, rdsClient internal_types.RDSDataAPI) ([]internal_types.User, error) {
     // Updated query to limit to 10 records
-    query := "SELECT id, name, email, address_street, address_city, address_zip_code, address_country, phone, profile_picture_url, role, organization_user_id, created_at, updated_at FROM users LIMIT 10"
+    query := "SELECT id, name, email, address, phone, profile_picture_url, role, created_at, updated_at FROM users LIMIT 10"
     var params []rds_types.SqlParameter
 
     // Execute the SQL query
@@ -174,27 +167,21 @@ func (s *UserService) UpdateUser(ctx context.Context, rdsClient internal_types.R
         SET
             name = :name,
             email = :email,
-            address_street = :address_street,
-            address_city = :address_city,
-            address_zip_code = :address_zip_code,
-            address_country = :address_country,
+            address = :address,
             phone = :phone,
             profile_picture_url = :profile_picture_url,
             role = :role,
             organization_user_id = :organization_user_id,
             updated_at = now()
         WHERE id = :id
-        RETURNING id, name, email, address_street, address_city, address_zip_code, address_country, phone, profile_picture_url, role, organization_user_id, created_at, updated_at`
+        RETURNING id, name, email, address, phone, profile_picture_url, role, organization_user_id, created_at, updated_at`
 
     // Build SQL parameters from UserUpdate struct
     params := map[string]interface{}{
         "id":                    id,
         "name":                  user.Name,
         "email":                 user.Email,
-        "address_street":        user.AddressStreet,
-        "address_city":          user.AddressCity,
-        "address_zip_code":      user.AddressZipCode,
-        "address_country":       user.AddressCountry,
+        "address":        user.Address,
         "phone":                 user.Phone,
         "profile_picture_url":   user.ProfilePictureURL,
         "role":                  user.Role,

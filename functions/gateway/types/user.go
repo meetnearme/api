@@ -10,10 +10,7 @@ type UserInsert struct {
     ID            string `json:"id"` // UUID format validation
     Name          string `json:"name" validate:"required"`
     Email         string `json:"email" validate:"required,email"` // Validate as email
-    AddressStreet string `json:"addressStreet"`
-    AddressCity   string `json:"addressCity"`
-    AddressZipCode string `json:"addressZipCode"`
-    AddressCountry string `json:"addressCountry"`
+    Address		  string `json:"addressStreet"`
     Phone         string `json:"phone"`
     ProfilePictureURL string `json:"profilePictureUrl"`
     CreatedAt     string `json:"createdAt"` // Adjust based on your date format
@@ -28,26 +25,20 @@ type User struct {
 	ID                string    `json:"id"`
 	Name              string    `json:"name"`
 	Email             string    `json:"email"`
-	AddressStreet     string    `json:"address_street,omitempty"`
-	AddressCity       string    `json:"address_city,omitempty"`
-	AddressZipCode    string    `json:"address_zip_code,omitempty"`
-	AddressCountry    string    `json:"address_country,omitempty"`
+	Address     string    `json:"address_street,omitempty"`
 	Phone             string    `json:"phone,omitempty"`
 	ProfilePictureURL string    `json:"profile_picture_url,omitempty"`
 	Role              string    `json:"role"`
 	OrganizationUserID *string  `json:"organization_user_id,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at,omitempty"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 // UserUpdate represents the data required to update a user
 type UserUpdate struct {
 	Name              string `json:"name"`
 	Email             string `json:"email"`
-	AddressStreet     string `json:"address_street,omitempty"`
-	AddressCity       string `json:"address_city,omitempty"`
-	AddressZipCode    string `json:"address_zip_code,omitempty"`
-	AddressCountry    string `json:"address_country,omitempty"`
+	Address     string `json:"address_street,omitempty"`
 	Phone             string `json:"phone,omitempty"`
 	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
 	Role              string `json:"role,omitempty" validate:"omitempty,oneof=standard_user organization_user suborganization_user"`
