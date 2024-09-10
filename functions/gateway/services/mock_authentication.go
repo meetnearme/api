@@ -44,7 +44,7 @@ func (m *MockInterceptor) Context(ctx context.Context) *openid.UserInfoContext[*
     return &openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]{
        UserInfo: &oidc.UserInfo{
            Subject: "test-subject",
-       },
+       }, 
     }
 }
 
