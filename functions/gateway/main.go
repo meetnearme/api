@@ -98,19 +98,62 @@ func (app *App) SetupRoutes(routes []Route) {
 
 func (app *App) addRoute(route Route) {
 	var handler http.HandlerFunc
-	var cookie *http.Cookie
+	var accessTokenCookie *http.Cookie
+	var refreshTokenCookie *http.Cookie
 	var err error
+	var refreshTokenCookieErr error
 	switch route.Auth {
 	case Require:
 		handler = func(w http.ResponseWriter, r *http.Request) {
 			// Get the access token from cookies
-			cookie, err = r.Cookie("access_token")
+			accessTokenCookie, err = r.Cookie("access_token")
 			if err != nil {
-				http.Redirect(w, r, "/login"+"?redirect="+route.Path, http.StatusFound)
+				refreshTokenCookie, refreshTokenCookieErr = r.Cookie("refresh_token")
+				if refreshTokenCookieErr != nil {
+					http.Redirect(w, r, "/login"+"?redirect="+route.Path, http.StatusFound)
+					return
+				}
+
+				tokens, refreshAccessTokenErr := services.RefreshAccessToken(refreshTokenCookie.Value)
+				if refreshAccessTokenErr != nil {
+					log.Printf("Authentication Failed: %v", err)
+					http.Error(w, "Authentication failed", http.StatusUnauthorized)
+					return
+				}
+
+				// Store the access token and refresh token securely
+				accessToken, ok := tokens["access_token"].(string)
+				if !ok {
+					http.Error(w, "Failed to get access token", http.StatusInternalServerError)
+					return
+				}
+
+				refreshToken, ok := tokens["refresh_token"].(string)
+				if !ok {
+					fmt.Printf("Refresh token error: %v", ok)
+					http.Error(w, "Failed to get refresh token", http.StatusInternalServerError)
+					return
+				}
+
+				// Store tokens in a session or secure cookie
+				http.SetCookie(w, &http.Cookie{
+					Name:  "access_token",
+					Value: accessToken,
+					Path:  "/",
+				})
+
+				http.SetCookie(w, &http.Cookie{
+					Name:  "refresh_token",
+					Value: refreshToken,
+					Path:  "/",
+				})
+
+				var userRedirectURL string = route.Path
+				http.Redirect(w, r, userRedirectURL, http.StatusFound)
 				return
 			}
 
-			accessToken := "Bearer " + cookie.Value
+			accessToken := "Bearer " + accessTokenCookie.Value
 			log.Printf("Access token from cookie: %v", accessToken)
 
 			// Use the Authorizer to introspect the access token
@@ -139,13 +182,13 @@ func (app *App) addRoute(route Route) {
 	case Check:
 		handler = func(w http.ResponseWriter, r *http.Request) {
 			// Get the access token from cookies
-			cookie, err = r.Cookie("access_token")
+			accessTokenCookie, err = r.Cookie("access_token")
 			if err != nil {
 				route.Handler(w, r).ServeHTTP(w, r)
 				return
 			}
 
-			accessToken := "Bearer " + cookie.Value
+			accessToken := "Bearer " + accessTokenCookie.Value
 			log.Printf("Access token from cookie: %v", accessToken)
 
 			// Use the Authorizer to introspect the access token
