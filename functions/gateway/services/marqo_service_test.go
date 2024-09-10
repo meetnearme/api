@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 
@@ -324,7 +325,124 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 }
 
 func TestSearchMarqoEvents(t *testing.T) {
+	// Save original environment variables
+	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
+	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
+	// Set test environment variables
+	testMarqoApiKey := "test-marqo-api-key"
+	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+
+	// Defer resetting environment variables
+	defer func() {
+		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
+		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+	}()
+
+	// Create a mock HTTP server for Marqo
+	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query().Get("q")
+		decodedQuery, err := url.QueryUnescape(query)
+		if err != nil {
+			http.Error(w, "Failed to decode query", http.StatusBadRequest)
+			return
+		}
+
+		response := map[string]interface{}{
+			"hits": []map[string]interface{}{
+				{
+					"_id":         "123",
+					"eventOwners": []interface{}{"789"},
+					"name":        "First Test Event",
+					"description": "Description of the first event",
+				},
+				{
+					"_id":         "456",
+					"eventOwners": []interface{}{"012"},
+					"name":        "Second Test Event",
+					"description": "Description of the second event",
+				},
+			},
+			"query": decodedQuery,
+		}
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(responseBytes)
+	}))
+
+	// Set the mock Marqo server URL
+	mockMarqoServer.Listener.Close()
+	var err error
+	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	if err != nil {
+		t.Fatalf("Failed to start mock Marqo server: %v", err)
+	}
+	mockMarqoServer.Start()
+	defer mockMarqoServer.Close()
+
+	tests := []struct {
+		name           string
+		query          string
+		userLocation   []float64
+		maxDistance    float64
+		ownerIds       []string
+		expectedEvents int
+		expectedError  bool
+	}{
+		{
+			name:           "Valid search",
+			query:          "test search",
+			userLocation:   []float64{51.5074, -0.1278},
+			maxDistance:    10000,
+			ownerIds:       []string{},
+			expectedEvents: 2,
+			expectedError:  false,
+		},
+		{
+			name:           "Empty query",
+			query:          "",
+			userLocation:   []float64{51.5074, -0.1278},
+			maxDistance:    10000,
+			ownerIds:       []string{},
+			expectedEvents: 2,
+			expectedError:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, err := GetMarqoClient()
+			if err != nil {
+				t.Fatalf("Failed to get Marqo client: %v", err)
+			}
+
+			result, err := SearchMarqoEvents(client, tt.query, tt.userLocation, tt.maxDistance, tt.ownerIds)
+
+			if tt.expectedError && err == nil {
+				t.Errorf("Expected an error, but got none")
+			}
+
+			if !tt.expectedError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			if len(result.Events) != tt.expectedEvents {
+				t.Errorf("Expected %d events, but got %d", tt.expectedEvents, len(result.Events))
+			}
+
+			if result.Query != tt.query {
+				t.Errorf("Expected query to be '%s', but got '%s'", tt.query, result.Query)
+			}
+
+			// Add more specific checks for the returned events if needed
+		})
+	}
 }
 
 func TestGetMarqoEventByID(t *testing.T) {
