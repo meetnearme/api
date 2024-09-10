@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"
@@ -126,7 +127,35 @@ func PostBatchEventsHandler(w http.ResponseWriter, r *http.Request) http.Handler
     }
 }
 
-// func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64) ([]Event, error) {
+func (h *MarqoHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
+    marqoClient, err := services.GetMarqoClient()
+    if err != nil {
+        transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+        return
+    }
+    eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+    var event *services.Event
+    event, err = services.GetMarqoEventByID(marqoClient, eventId)
+    if err != nil {
+        transport.SendServerRes(w, []byte("Failed to get marqo event: "+err.Error()), http.StatusInternalServerError, err)
+        return
+    }
+
+    json, err := json.Marshal(event)
+    if err != nil {
+        transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+        return
+    }
+    transport.SendServerRes(w, json, http.StatusOK, nil)
+}
+
+func GetOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+    marqoService := services.NewMarqoService()
+    handler := NewMarqoHandler(marqoService)
+    return func(w http.ResponseWriter, r *http.Request) {
+        handler.GetOneEvent(w, r)
+    }
+}
 
 func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
     marqoClient, err := services.GetMarqoClient()
@@ -134,19 +163,27 @@ func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
         transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
         return
     }
-    eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
-    // Get the 'q' query parameter value
-    query := r.URL.Query().Get("q")
 
-    var res []services.Event
-    if eventId != "" {
-        var event services.Event
-        event, err = services.GetMarqoEventByID(marqoClient, eventId)
-        res = append(res, event)
-    } else {
-        // TODO: get user location from input payload, hardcoding for now
-        res, err = services.SearchMarqoEvents(marqoClient, query, []float64{38.8951, -77.0364}, 300, []string{})
+    // NOTE: these defaults are random, we should fix
+    latFloat := float64(38.8951)
+    longFloat := float64(-77.0364)
+    maxDistance := float64(300)
+
+    query := r.URL.Query().Get("q")
+    lat := r.URL.Query().Get("lat")
+    if lat != "" {
+        latFloat, _ = strconv.ParseFloat(lat, 64)
     }
+    long := r.URL.Query().Get("lon")
+    if long != "" {
+        longFloat, _ = strconv.ParseFloat(long, 64)
+    }
+
+    // TODO: add start time here,
+    // need to convert marqo DB index to unix for `startTime` / `endTime`
+
+    var res services.EventSearchResponse
+    res, err = services.SearchMarqoEvents(marqoClient, query, []float64{latFloat, longFloat}, maxDistance, []string{})
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to search marqo events: "+err.Error()), http.StatusInternalServerError, err)
         return

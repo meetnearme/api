@@ -25,7 +25,7 @@ func NewMarqoService() MarqoServiceInterface {
 type MockMarqoService struct {
     UpsertEventToMarqoFunc func(
         client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error)
-    SearchEventsFunc       func(client *marqo.Client, query string) (*marqo.SearchResponse, error)
+    SearchEventsFunc       func(client *marqo.Client, query string, userLocation []float64, maxDistance float64, ownerIds []string) (EventSearchResponse, error)
 }
 
 func (m *MockMarqoService) UpsertEventToMarqo(
@@ -33,6 +33,6 @@ func (m *MockMarqoService) UpsertEventToMarqo(
     return m.UpsertEventToMarqoFunc(client, event)
 }
 
-func (m *MockMarqoService) SearchEvents(client *marqo.Client, query string) (*marqo.SearchResponse, error) {
-	return m.SearchEventsFunc(client, query)
+func (m *MockMarqoService) SearchEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, ownerIds []string) (EventSearchResponse, error) {
+	return m.SearchEventsFunc(client, query, userLocation, maxDistance, ownerIds)
 }

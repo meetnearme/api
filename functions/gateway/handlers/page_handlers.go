@@ -123,10 +123,12 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		ownerIds = append(ownerIds, subdomainValue)
 	}
 
-	events, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, ownerIds)
+	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, ownerIds)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 	}
+
+	events := res.Events
 
   var authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]
   if mw != nil {
@@ -235,11 +237,10 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 	event, err := services.GetMarqoEventByID(marqoClient, eventId)
-	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
+	if err != nil || event.Id == "" {
+		event = &services.Event{}
 	}
-
-	eventDetailsPage := pages.EventDetailsPage(event)
+	eventDetailsPage := pages.EventDetailsPage(*event)
 	userInfo := helpers.UserInfo{}
 	userInfo, err = setUserInfo(authCtx, userInfo)
 	if err != nil {
@@ -248,7 +249,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 	layoutTemplate := pages.Layout("Event Details", userInfo, eventDetailsPage)
 	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf,)
+	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}

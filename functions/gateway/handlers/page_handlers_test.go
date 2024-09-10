@@ -65,6 +65,7 @@ func TestGetHomePage(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
+
 	var err error
 	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
 	if err != nil {
@@ -287,7 +288,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
-					"id":          "123",
+					"_id":          "123",
 					"eventOwners": []interface{}{"789"},
 					"name":        "Test Event",
 					"description": "This is a test event",
@@ -295,8 +296,6 @@ func TestGetEventDetailsPage(t *testing.T) {
 			},
 		}
 		responseBytes, err := json.Marshal(response)
-
-
 
 		if err != nil {
 			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)

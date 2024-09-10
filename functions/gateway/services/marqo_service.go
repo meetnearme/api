@@ -26,8 +26,15 @@ type Event struct {
 	Long    		float64 `json:"long" validate:"required"`
 }
 
+type EventSearchResponse struct {
+	Events			[]Event `json:"events"`
+	Filter 			string 	`json:"filter"`
+	Query						string	`json:"query"`
+}
+
 // considered the best embedding model as of 8/15/2024
-var model = "hf/bge-large-en-v1.5"
+// var model = "hf/bge-large-en-v1.5"
+
 var indexName = "events-search-index"
 
 func GetMarqoClient() (*marqo.Client, error) {
@@ -173,7 +180,7 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []Event) (*marqo.Upsert
 // SearchMarqoEvents searches for events based on the given query, user location, and maximum distance.
 // It returns a list of events that match the search criteria.
 // EX : SearchMarqoEvents(client, "music", []float64{37.7749, -122.4194}, 10)
-func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, ownerIds []string) ([]Event, error) {
+func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, ownerIds []string) (EventSearchResponse, error) {
 	// Calculate the maximum and minimum latitude and longitude based on the user's location and maximum distance
 	maxLat := userLocation[0] + miToLat(maxDistance)
 	maxLong := userLocation[1] + miToLong(maxDistance, userLocation[0])
@@ -197,12 +204,14 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 			RankingMethod:   "rrf",
 		},
 	}
-
 	searchResp, err := client.Search(&searchRequest)
-
 	if err != nil {
 		log.Printf("Error searching documents: %v", err)
-		return nil, err
+		return EventSearchResponse{
+			Query:  query,
+			Filter: filter,
+			Events: []Event{},
+		}, err
 	}
 	// Extract the events from the search response
 	var events []Event
@@ -221,34 +230,46 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		events = append(events, event)
 	}
 
-	return events, nil
+	return EventSearchResponse{
+		Query: query,
+		Filter: filter,
+		Events: events,
+	}, nil
 }
 
-func GetMarqoEventByID(client *marqo.Client, docId string) (Event, error) {
+func GetMarqoEventByID(client *marqo.Client, docId string) (*Event, error) {
 	docIds := []string{docId}
 	events, err := BulkGetMarqoEventByID(client, docIds)
 	if err != nil {
 		log.Printf("Error getting event by id: %v", err)
-		return Event{}, err
+		return nil, err
 	}
 	if len(events) == 0 {
-		return Event{}, fmt.Errorf("no event found with id: %s", docId)
+		return nil, fmt.Errorf("no event found with id: %s", docId)
 	}
-	event := events[0]
-	return event, nil
+	return events[0], nil
 }
 
-func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]Event, error) {
-
+func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*Event, error) {
 	getDocumentsReq := &marqo.GetDocumentsRequest{
 		IndexName: indexName,
 		DocumentIDs: docIds,
 	}
 	res, err := client.GetDocuments(getDocumentsReq)
 	if err != nil {
-	    log.Printf("Failed to get documents: %v", err)
+		log.Printf("Failed to get documents: %v", err)
+		return nil, err
 	}
-	var events []Event
+
+	// Check if no documents were found
+	if len(res.Results) == 1 && res.Results[0]["_found"] == false {
+		log.Printf("No documents found for the given IDs")
+		return []*Event{}, nil
+	}
+
+	var events []*Event
+	log.Printf("res.Results: %+v", res)
+
 	for _, result := range res.Results {
 		event := Event{
 			Id:          getString(result, "_id"),
@@ -262,7 +283,7 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]Event, erro
 			Lat:    getFloat64(result, "lat"),
 			Long:   getFloat64(result, "long"),
 		}
-		events = append(events, event)
+		events = append(events, &event)
 	}
 	return events, nil
 }
