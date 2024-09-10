@@ -29,7 +29,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 								if userInfo.Email != "" {
 									<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
 								} else {
-									<li><a href="/login" class="btn btn-primary">Add an Event</a></li>
+									<li><a href="/auth/login" class="btn btn-primary">Add an Event</a></li>
 								}
 							</ul>
 							if userInfo.Email != "" {

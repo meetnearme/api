@@ -37,12 +37,13 @@ type Route struct {
 }
 
 var Routes []Route
-var codeVerifier string
-var codeChallenge string
 
 func init() {
 	Routes = []Route{
 		{"/", "GET", handlers.GetHomePage, Check},
+		{"/auth/login", "GET", handlers.HandleLogin, None},
+		{"/auth/callback", "GET", handlers.HandleCallback, None},
+		{"/auth/logout", "GET", handlers.HandleLogout, None},
 		{"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
 		{"/admin/profile", "GET", handlers.GetProfilePage, Require},
 		{"/map-embed", "GET", handlers.GetMapEmbedPage, None},
@@ -60,13 +61,6 @@ func init() {
 		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, None},
 		{"/api/html/seshu/session/location", "PATCH", handlers.GeoThenPatchSeshuSession, None},
 		{"/api/html/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents, None},
-	}
-
-	var err error
-	codeChallenge, codeVerifier, err = services.GenerateCodeChallengeAndVerifier()
-	if err != nil {
-		fmt.Println("Error generating code verifier and challenge:", err)
-		return
 	}
 }
 
@@ -105,12 +99,11 @@ func (app *App) addRoute(route Route) {
 	switch route.Auth {
 	case Require:
 		handler = func(w http.ResponseWriter, r *http.Request) {
-			// Get the access token from cookies
 			accessTokenCookie, err = r.Cookie("access_token")
 			if err != nil {
 				refreshTokenCookie, refreshTokenCookieErr = r.Cookie("refresh_token")
 				if refreshTokenCookieErr != nil {
-					http.Redirect(w, r, "/login"+"?redirect="+route.Path, http.StatusFound)
+					http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
 					return
 				}
 
@@ -189,7 +182,6 @@ func (app *App) addRoute(route Route) {
 			}
 
 			accessToken := "Bearer " + accessTokenCookie.Value
-			log.Printf("Access token from cookie: %v", accessToken)
 
 			// Use the Authorizer to introspect the access token
 			authCtx, err := app.AuthZ.CheckAuthorization(r.Context(), accessToken)
@@ -224,16 +216,6 @@ func (app *App) addRoute(route Route) {
 	app.Router.HandleFunc(route.Path, handler).Methods(route.Method).Name(route.Path)
 }
 
-func (app *App) SetupAuthRoutes() {
-	app.Router.Handle("/login", http.HandlerFunc(handlers.HandleLogin))
-
-	app.Router.Handle("/auth/callback", http.HandlerFunc(handlers.HandleCallback))
-
-	app.Router.Handle("/auth/logout", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		services.HandleLogout(w, req)
-	}))
-}
-
 func (app *App) SetupNotFoundHandler() {
 	app.Router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Not found", r.RequestURI)
@@ -266,7 +248,6 @@ func main() {
 	flag.Parse()
 	app := NewApp()
 	app.InitializeAuth()
-	app.SetupAuthRoutes()
 	app.SetupNotFoundHandler()
 
 	// This is the package level instance of Db in handlers
