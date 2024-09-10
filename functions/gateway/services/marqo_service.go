@@ -11,6 +11,10 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	earthRadiusKm = 6371.0
+	milesPerKm    = 0.621371
+)
 type Event struct {
 	Id          string `json:"id"`
 	EventOwners []string `json:"eventOwners" validate:"required,min=1"`
@@ -171,10 +175,10 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []Event) (*marqo.Upsert
 // EX : SearchMarqoEvents(client, "music", []float64{37.7749, -122.4194}, 10)
 func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, ownerIds []string) ([]Event, error) {
 	// Calculate the maximum and minimum latitude and longitude based on the user's location and maximum distance
-	maxLat := userLocation[0] + kmToLat(maxDistance)
-	maxLong := userLocation[1] + kmToLong(maxDistance, userLocation[0])
-	minLat := userLocation[0] - kmToLat(maxDistance)
-	minLong := userLocation[1] - kmToLong(maxDistance, userLocation[0])
+	maxLat := userLocation[0] + miToLat(maxDistance)
+	maxLong := userLocation[1] + miToLong(maxDistance, userLocation[0])
+	minLat := userLocation[0] - miToLat(maxDistance)
+	minLong := userLocation[1] - miToLong(maxDistance, userLocation[0])
 
 	// Search for events based on the query
 	searchMethod := "HYBRID"
@@ -263,14 +267,14 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]Event, erro
 	return events, nil
 }
 
-// kmToLat converts kilometers to latitude
-func kmToLat(km float64) float64 {
-	return km / 110.574
+// miToLat converts miles to latitude offset
+func miToLat(mi float64) float64 {
+	return (mi * milesPerKm) / earthRadiusKm * (180 / math.Pi)
 }
 
-// kmToLong converts kilometers to longitude
-func kmToLong(km float64, latitude float64) float64 {
-	return km / (math.Cos(latitude*math.Pi/180) * 6371)
+// miToLong converts kilometers to longitude
+func miToLong(mi float64, lat float64) float64 {
+	return (mi * milesPerKm) / (earthRadiusKm * math.Cos(lat*math.Pi/180)) * (180 / math.Pi)
 }
 
 func getString(doc map[string]interface{}, key string) string {
