@@ -23,7 +23,7 @@ func init() {
     os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
 }
 
-func TestCreateEvent(t *testing.T) {
+func TestPostEvents(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
