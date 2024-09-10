@@ -80,7 +80,7 @@ func GenerateCodeChallengeAndVerifier() (string, string, error) {
 	return codeChallenge, codeVerifier, nil
 }
 
-func BuildAuthorizeRequest(codeChallenge string) (*url.URL, error) {
+func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string) (*url.URL, error) {
 	authURL, err := url.Parse(*authorizeURI)
 	if err != nil {
 		log.Printf("Failed to parse Zitadel authorize URI: %v", err)
@@ -94,6 +94,7 @@ func BuildAuthorizeRequest(codeChallenge string) (*url.URL, error) {
 	query.Set("scope", "oidc profile email offline_access")
 	query.Set("code_challenge", codeChallenge)
 	query.Set("code_challenge_method", "S256")
+	query.Set("state", userRedirectURL)
 
 	authURL.RawQuery = query.Encode()
 	log.Printf("Auth URL: %v", authURL)
