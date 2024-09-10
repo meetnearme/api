@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -25,7 +26,7 @@ func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler 
     return &MarqoHandler{MarqoService: marqoService}
 }
 
-func (h *MarqoHandler) PostEvents(w http.ResponseWriter, r *http.Request) {
+func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
     var createEvent services.Event
     body, err := io.ReadAll(r.Body)
     if err != nil {
@@ -53,7 +54,7 @@ func (h *MarqoHandler) PostEvents(w http.ResponseWriter, r *http.Request) {
 
     res, err := services.UpsertEventToMarqo(marqoClient, createEvent)
     if err != nil {
-        transport.SendServerRes(w, []byte("Failed to upsert event to marqo: "+err.Error()), http.StatusInternalServerError, err)
+        transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
         return
     }
 
@@ -71,13 +72,13 @@ func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     marqoService := services.NewMarqoService()
     handler := NewMarqoHandler(marqoService)
     return func(w http.ResponseWriter, r *http.Request) {
-        handler.PostEvents(w, r)
+        handler.PostEvent(w, r)
     }
 }
 
 func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
     var payload struct {
-        Events []services.Event `json:"events"`
+        Events []services.Event
     }
     body, err := io.ReadAll(r.Body)
     if err != nil {
@@ -97,6 +98,14 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    // Additional validation for EventOwners
+    for i, event := range payload.Events {
+        if len(event.EventOwners) == 0 {
+            transport.SendServerRes(w, []byte(fmt.Sprintf("Invalid body: Event at index %d is missing EventOwners", i)), http.StatusBadRequest, nil)
+            return
+        }
+    }
+
     marqoClient, err := services.GetMarqoClient()
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
@@ -105,7 +114,7 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 
     res, err := services.BulkUpsertEventToMarqo(marqoClient, payload.Events)
     if err != nil {
-        transport.SendServerRes(w, []byte("Failed to upsert event to marqo: "+err.Error()), http.StatusInternalServerError, err)
+        transport.SendServerRes(w, []byte("Failed to upsert events: "+err.Error()), http.StatusInternalServerError, err)
         return
     }
 
