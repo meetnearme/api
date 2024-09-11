@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/ganeshdipdumbare/marqo-go"
@@ -24,16 +25,26 @@ func init() {
     os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
 }
 
+var portCounter int32 = 8000
+
+// NOTE: this is due to an issue where github auto paralellizes these
+// test to run in serial, which causes port collisions
+func getNextPort() int {
+    return int(atomic.AddInt32(&portCounter, 1))
+}
+
 func TestPostEvent(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
 	// Set test environment variables
-	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
+    os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+
+    testMarqoApiKey := "test-marqo-api-key"
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+
 
 	// Defer resetting environment variables
 	defer func() {
@@ -235,11 +246,13 @@ func TestPostBatchEvents(t *testing.T) {
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
-	// Set test environment variables
-	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
-	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+    // Set test environment variables
+    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
+    os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+
+    testMarqoApiKey := "test-marqo-api-key"
+    os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+
 
 	// Defer resetting environment variables
 	defer func() {
@@ -449,10 +462,11 @@ func TestSearchEvents(t *testing.T) {
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
 	// Set test environment variables
-	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
+    os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+
+    testMarqoApiKey := "test-marqo-api-key"
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
 
 	// Defer resetting environment variables
 	defer func() {
