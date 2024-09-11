@@ -39,10 +39,8 @@ func InitAuth() {
 	once.Do(func() {
 		ctx := context.Background()
 
-		// Initialize introspection authentication using client secret
 		introspectionAuth := oauth.ClientIDSecretIntrospectionAuthentication(*clientID, *clientSecret)
 
-		// Initialize the authZ with introspection authentication
 		var err error
 		authZ, err = authorization.New(ctx, zitadel.New(*domain), oauth.WithIntrospection[*oauth.IntrospectionContext](introspectionAuth))
 		if err != nil {

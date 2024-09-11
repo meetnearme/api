@@ -74,6 +74,20 @@ func TestGetProfilePage(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	mockUserInfo := helpers.UserInfo{
+		Email:             "test@domain.com",
+		EmailVerified:     true,
+		GivenName:         "Demo",
+		FamilyName:        "User",
+		Name:              "Demo User",
+		PreferredUsername: "test@domain.com",
+		Sub:               "",
+		UpdatedAt:         123234234,
+		ID:                "testID",
+	}
+	ctx := context.WithValue(req.Context(), "userInfo", mockUserInfo)
+	req = req.WithContext(ctx)
+
 	rr := httptest.NewRecorder()
 	handler := GetProfilePage(rr, req)
 	handler.ServeHTTP(rr, req)
