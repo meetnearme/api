@@ -108,6 +108,7 @@ func (r *RDSDataClient) ExecStatement(ctx context.Context, sql string, params []
 		FormatRecordsAs: "JSON",
 		Parameters:  params,
 	}
+
 	log.Printf("params in exec: %v", params)
 
 	return r.client.ExecuteStatement(ctx, input)

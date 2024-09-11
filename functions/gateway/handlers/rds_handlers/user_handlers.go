@@ -59,9 +59,6 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
     if createUser.ProfilePictureURL == "" {
         createUser.ProfilePictureURL = ""
     }
-    if createUser.OrganizationUserID == "" {
-        createUser.OrganizationUserID = ""
-    }
 
     now := time.Now().UTC().Format(time.RFC3339)
     createUser.CreatedAt = now

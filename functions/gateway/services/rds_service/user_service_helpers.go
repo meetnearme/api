@@ -114,105 +114,99 @@ func buildSqlUserParams(parameters map[string]interface{}) ([]rds_types.SqlParam
 }
 
 
-func extractAndMapSingleUser(columnMetadata []rds_types.ColumnMetadata, record []rds_types.Field) (*internal_types.User, error) {
-    var user internal_types.User
+// func extractAndMapSingleUser(columnMetadata []rds_types.ColumnMetadata, record []rds_types.Field) (*internal_types.User, error) {
+//     var user internal_types.User
 
-    // Create a map to associate column names with their indices
-    columnIndex := make(map[string]int)
-    for i, metadata := range columnMetadata {
-        columnName := *metadata.Name
-        columnIndex[columnName] = i
-    }
-	log.Printf("Column indexes: %v", columnMetadata)
+//     // Create a map to associate column names with their indices
+//     columnIndex := make(map[string]int)
+//     for i, metadata := range columnMetadata {
+//         columnName := *metadata.Name
+//         columnIndex[columnName] = i
+//     }
+// 	log.Printf("Column indexes: %v", columnMetadata)
 
-    // Extract fields from the record based on the columnIndex map
-    if idIndex, ok := columnIndex["id"]; ok {
-        if field, ok := record[idIndex].(*rds_types.FieldMemberStringValue); ok {
-            user.ID = field.Value
-        } else {
-            return nil, fmt.Errorf("error extracting user ID")
-        }
-    } else {
-        return nil, fmt.Errorf("missing column 'id'")
-    }
+//     // Extract fields from the record based on the columnIndex map
+//     if idIndex, ok := columnIndex["id"]; ok {
+//         if field, ok := record[idIndex].(*rds_types.FieldMemberStringValue); ok {
+//             user.ID = field.Value
+//         } else {
+//             return nil, fmt.Errorf("error extracting user ID")
+//         }
+//     } else {
+//         return nil, fmt.Errorf("missing column 'id'")
+//     }
 
-    if nameIndex, ok := columnIndex["name"]; ok {
-        if field, ok := record[nameIndex].(*rds_types.FieldMemberStringValue); ok {
-            user.Name = field.Value
-        } else {
-            return nil, fmt.Errorf("error extracting user Name")
-        }
-    } else {
-        return nil, fmt.Errorf("missing column 'name'")
-    }
+//     if nameIndex, ok := columnIndex["name"]; ok {
+//         if field, ok := record[nameIndex].(*rds_types.FieldMemberStringValue); ok {
+//             user.Name = field.Value
+//         } else {
+//             return nil, fmt.Errorf("error extracting user Name")
+//         }
+//     } else {
+//         return nil, fmt.Errorf("missing column 'name'")
+//     }
 
-    if emailIndex, ok := columnIndex["email"]; ok {
-        if field, ok := record[emailIndex].(*rds_types.FieldMemberStringValue); ok {
-            user.Email = field.Value
-        } else {
-            return nil, fmt.Errorf("error extracting user Email")
-        }
-    } else {
-        return nil, fmt.Errorf("missing column 'email'")
-    }
+//     if emailIndex, ok := columnIndex["email"]; ok {
+//         if field, ok := record[emailIndex].(*rds_types.FieldMemberStringValue); ok {
+//             user.Email = field.Value
+//         } else {
+//             return nil, fmt.Errorf("error extracting user Email")
+//         }
+//     } else {
+//         return nil, fmt.Errorf("missing column 'email'")
+//     }
 
-    if addressIndex, ok := columnIndex["address"]; ok {
-        if field, ok := record[addressIndex].(*rds_types.FieldMemberStringValue); ok {
-			user.Address = field.Value
-        }
-    }
+//     if addressIndex, ok := columnIndex["address"]; ok {
+//         if field, ok := record[addressIndex].(*rds_types.FieldMemberStringValue); ok {
+// 			user.Address = field.Value
+//         }
+//     }
 
 
-    if phoneIndex, ok := columnIndex["phone"]; ok {
-        if field, ok := record[phoneIndex].(*rds_types.FieldMemberStringValue); ok {
-            user.Phone = field.Value
-        }
-    }
+//     if phoneIndex, ok := columnIndex["phone"]; ok {
+//         if field, ok := record[phoneIndex].(*rds_types.FieldMemberStringValue); ok {
+//             user.Phone = field.Value
+//         }
+//     }
 
-    if profilePictureURLIndex, ok := columnIndex["profile_picture_url"]; ok {
-        if field, ok := record[profilePictureURLIndex].(*rds_types.FieldMemberStringValue); ok {
-            user.ProfilePictureURL = field.Value
-        }
-    }
+//     if profilePictureURLIndex, ok := columnIndex["profile_picture_url"]; ok {
+//         if field, ok := record[profilePictureURLIndex].(*rds_types.FieldMemberStringValue); ok {
+//             user.ProfilePictureURL = field.Value
+//         }
+//     }
 
-    if roleIndex, ok := columnIndex["role"]; ok {
-        if field, ok := record[roleIndex].(*rds_types.FieldMemberStringValue); ok {
-            user.Role = field.Value
-        }
-    } else {
-        return nil, fmt.Errorf("missing column 'role'")
-    }
+//     if roleIndex, ok := columnIndex["role"]; ok {
+//         if field, ok := record[roleIndex].(*rds_types.FieldMemberStringValue); ok {
+//             user.Role = field.Value
+//         }
+//     } else {
+//         return nil, fmt.Errorf("missing column 'role'")
+//     }
 
-    if organizationUserIDIndex, ok := columnIndex["organization_user_id"]; ok {
-        if field, ok := record[organizationUserIDIndex].(*rds_types.FieldMemberStringValue); ok {
-            user.OrganizationUserID = &field.Value
-        }
-    }
+//     if createdAtIndex, ok := columnIndex["created_at"]; ok {
+//         if field, ok := record[createdAtIndex].(*rds_types.FieldMemberStringValue); ok {
+//             createdAt, err := time.Parse("2006-01-02 15:04:05", field.Value)
+//             if err != nil {
+//                 return nil, fmt.Errorf("error parsing CreatedAt: %v", err)
+//             }
+//             user.CreatedAt = createdAt
+//         } else {
+//             return nil, fmt.Errorf("error extracting user CreatedAt")
+//         }
+//     }
 
-    if createdAtIndex, ok := columnIndex["created_at"]; ok {
-        if field, ok := record[createdAtIndex].(*rds_types.FieldMemberStringValue); ok {
-            createdAt, err := time.Parse("2006-01-02 15:04:05", field.Value)
-            if err != nil {
-                return nil, fmt.Errorf("error parsing CreatedAt: %v", err)
-            }
-            user.CreatedAt = createdAt
-        } else {
-            return nil, fmt.Errorf("error extracting user CreatedAt")
-        }
-    }
+//     if updatedAtIndex, ok := columnIndex["updated_at"]; ok {
+//         if field, ok := record[updatedAtIndex].(*rds_types.FieldMemberStringValue); ok {
+//             updatedAt, err := time.Parse("2006-01-02 15:04:05", field.Value)
+//             if err != nil {
+//                 return nil, fmt.Errorf("error parsing UpdatedAt: %v", err)
+//             }
+//             user.UpdatedAt = updatedAt
+//         }
+//     }
 
-    if updatedAtIndex, ok := columnIndex["updated_at"]; ok {
-        if field, ok := record[updatedAtIndex].(*rds_types.FieldMemberStringValue); ok {
-            updatedAt, err := time.Parse("2006-01-02 15:04:05", field.Value)
-            if err != nil {
-                return nil, fmt.Errorf("error parsing UpdatedAt: %v", err)
-            }
-            user.UpdatedAt = updatedAt
-        }
-    }
-
-    return &user, nil
-}
+//     return &user, nil
+// }
 
 func extractAndMapSingleUserFromJSON(formattedRecords string) (*internal_types.User, error) {
 	log.Printf("formatted records from JSON: %v", formattedRecords)
@@ -236,7 +230,6 @@ func extractAndMapSingleUserFromJSON(formattedRecords string) (*internal_types.U
         Phone:               getString(record, "phone"),
         ProfilePictureURL:   getString(record, "profile_picture_url"),
         Role:                getString(record, "role"),
-        OrganizationUserID:  getOptionalString(record, "organization_user_id"),
         CreatedAt:           getTime(record, "created_at"),
         UpdatedAt:           getTime(record, "updated_at"),
     }
@@ -288,9 +281,6 @@ func extractUsersFromJson(formattedRecords string) ([]internal_types.User, error
             user.Role = role
         }
 
-        if organizationUserID, ok := record["organization_user_id"].(string); ok {
-            user.OrganizationUserID = &organizationUserID
-        }
 
         if createdAtStr, ok := record["created_at"].(string); ok {
             createdAt, err := time.Parse("2006-01-02 15:04:05", createdAtStr)

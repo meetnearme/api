@@ -21,15 +21,16 @@ type Transaction struct {
 	ID string `json:"id"`
 	UserID string `json:"user_id"`
 	Currency string `json:"currency" `
-	TransactionType string `json:"transaction_type" validate:"required"`
+	Amount float64 `json:"amount"`
+	TransactionType string `json:"transaction_type"`
 	Status string `json:"status" `
 	Description string `json:"description"`
-    CreatedAt     string `json:"created_at"` // Adjust based on your date format
-    UpdatedAt     string `json:"updated_at"` // Adjust based on your date format
+    CreatedAt     time.Time `json:"created_at"` // Adjust based on your date format
+    UpdatedAt     time.Time `json:"updated_at"` // Adjust based on your date format
 }
 
 type TransactionUpdate struct {
-	UserID string `json:"user_id"`
+	UserID string `json:"user_id" validate:"required"`
 	Amount string `json:"amount"`
 	Currency string `json:"currency" `
 	TransactionType string `json:"transaction_type"`

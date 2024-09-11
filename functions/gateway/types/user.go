@@ -16,7 +16,6 @@ type UserInsert struct {
     CreatedAt     string `json:"created_at"` // Adjust based on your date format
     UpdatedAt     string `json:"updated_at"` // Adjust based on your date format
     Role          string `json:"role" validate:"required"`
-    OrganizationUserID string `json:"organizationUserId"`
 }
 
 
@@ -29,7 +28,6 @@ type User struct {
 	Phone             string    `json:"phone,omitempty"`
 	ProfilePictureURL string    `json:"profile_picture_url,omitempty"`
 	Role              string    `json:"role"`
-	OrganizationUserID *string  `json:"organization_user_id,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
 }
@@ -42,7 +40,6 @@ type UserUpdate struct {
 	Phone             string `json:"phone,omitempty"`
 	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
 	Role              string `json:"role,omitempty" validate:"omitempty,oneof=standard_user organization_user suborganization_user"`
-	OrganizationUserID *string `json:"organization_user_id,omitempty" validate:"omitempty,uuid4"`
 }
 
 // UserServiceInterface defines the methods for user-related operations using the RDSDataAPI

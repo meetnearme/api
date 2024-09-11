@@ -185,7 +185,6 @@ func (s *UserService) UpdateUser(ctx context.Context, rdsClient internal_types.R
         "phone":                 user.Phone,
         "profile_picture_url":   user.ProfilePictureURL,
         "role":                  user.Role,
-        "organization_user_id":  user.OrganizationUserID,
     }
 
     // Convert parameters to RDS types
