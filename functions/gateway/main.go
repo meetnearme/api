@@ -89,11 +89,11 @@ func init() {
 		{"/api/transactions/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteTransactionHandler, None}, // Delete a transaction
 
 		// // Purchasables routes
-		// {"/api/purchasables", "GET", handlers.GetPurchasablesHandler, Check}, // Get all purchasables
-		// {"/api/purchasables/{id:[0-9a-fA-F-]+}", "GET", handlers.GetPurchasableHandler, Check}, // Get a specific purchasable
-		// {"/api/purchasables", "POST", handlers.CreatePurchasableHandler, Require}, // Create a new purchasable
-		// {"/api/purchasables/{id:[0-9a-fA-F-]+}", "PUT", handlers.UpdatePurchasableHandler, Require}, // Update an existing purchasable
-		// {"/api/purchasables/{id:[0-9a-fA-F-]+}", "DELETE", handlers.DeletePurchasableHandler, Require}, // Delete a purchasable
+		{"/api/purchasables/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetPurchasablesHandler, None}, // Get all purchasables
+		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetPurchasableHandler, None}, // Get a specific purchasable
+		{"/api/purchasables", "POST", rds_handlers.CreatePurchasableHandler, None}, // Create a new purchasable
+		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdatePurchasableHandler, None}, // Update an existing purchasable
+		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeletePurchasableHandler, None}, // Delete a purchasable
 
 		// // Event RSVPs routes
 		// {"/api/event-rsvps", "GET", handlers.GetEventRsvpsHandler, Check}, // Get all event RSVPs
