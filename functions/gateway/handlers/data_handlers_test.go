@@ -25,12 +25,12 @@ func init() {
     os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
 }
 
-var portCounter int32 = 8000
+var PortCounter int32 = 8000
 
 // NOTE: this is due to an issue where github auto paralellizes these
 // test to run in serial, which causes port collisions
 func getNextPort() int {
-    return int(atomic.AddInt32(&portCounter, 1))
+    return int(atomic.AddInt32(&PortCounter, 1))
 }
 
 func TestPostEvent(t *testing.T) {
@@ -44,7 +44,6 @@ func TestPostEvent(t *testing.T) {
 
     testMarqoApiKey := "test-marqo-api-key"
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-
 
 	// Defer resetting environment variables
 	defer func() {

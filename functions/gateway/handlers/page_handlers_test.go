@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -15,18 +16,17 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
-
 func TestGetHomePage(t *testing.T) {
-
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
 	// Set test environment variables
-	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
-	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+
+	testMarqoApiKey := "test-marqo-api-key"
+	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 
 	// Defer resetting environment variables
 	defer func() {
@@ -116,10 +116,11 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
 	// Set test environment variables
-	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
-	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+
+	testMarqoApiKey := "test-marqo-api-key"
+	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 
 	// Defer resetting environment variables
 	defer func() {
@@ -271,10 +272,11 @@ func TestGetEventDetailsPage(t *testing.T) {
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
 	// Set test environment variables
-	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
-	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+
+	testMarqoApiKey := "test-marqo-api-key"
+	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 
 	// Defer resetting environment variables
 	defer func() {
