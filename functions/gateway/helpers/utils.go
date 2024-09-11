@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -28,19 +29,34 @@ func init() {
 	InitDefaultProtocol()
 }
 
-func FormatDate(d string) string {
-	date, err := time.Parse(time.RFC3339, d)
-	if err != nil {
-		return "Invalid date"
+func UtcOrUnixToUnix64(t interface{}) (int64, error) {
+	switch v := t.(type) {
+	case int64:
+			// Validate that the timestamp is within 100 years of now
+			now := time.Now().Unix()
+			hundredYearsInSeconds := int64(100 * 365.25 * 24 * 60 * 60)
+			if v < int64(now - hundredYearsInSeconds) || v > int64(now+hundredYearsInSeconds) {
+					return 0, fmt.Errorf("unix timestamp must be within 100 years of the current time")
+			}
+			return v, nil
+	case string:
+			parsedTime, err := time.Parse(time.RFC3339, v)
+			if err != nil {
+					return 0, fmt.Errorf("invalid date format, must be RFC3339: %v", err)
+			}
+			return int64(parsedTime.Unix()), nil
+	default:
+			return 0, fmt.Errorf("unsupported time format")
 	}
+}
+
+func FormatDate(unixTimestamp int64) string {
+	date := time.Unix(unixTimestamp, 0).UTC()
 	return date.Format("Jan 2, 2006 (Mon)")
 }
 
-func FormatTime(t string) string {
-	_time, err := time.Parse(time.RFC3339, t)
-	if err != nil {
-		return "Invalid time"
-	}
+func FormatTime(unixTimestamp int64) string {
+	_time := time.Unix(unixTimestamp, 0).UTC()
 	return _time.Format("3:04pm")
 }
 

@@ -11,6 +11,11 @@ import (
 )
 
 func TestEventDetailsPage(t *testing.T) {
+	tm := "2099-05-01T12:00:00Z"
+	validEventStartTime, err := helpers.UtcOrUnixToUnix64(tm)
+	if err != nil {
+		t.Logf("Failed to convert unix time to UTC: %v", tm)
+	}
 	tests := []struct {
 		name     string
 		event    services.Event
@@ -23,13 +28,13 @@ func TestEventDetailsPage(t *testing.T) {
 				Name:        "Test Event",
 				Description: "This is a test event",
 				Address:     "123 Test St",
-				StartTime:   "2023-05-01T12:00:00Z",
+				StartTime:   validEventStartTime,
 			},
 			expected: []string{
 				"Test Event",
 				"This is a test event",
 				"123 Test St",
-				"May 1, 2023",
+				"May 1, 2099",
 				"12:00pm",
 			},
 		},

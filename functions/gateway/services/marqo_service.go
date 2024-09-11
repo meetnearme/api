@@ -20,7 +20,8 @@ type Event struct {
 	EventOwners []string `json:"eventOwners" validate:"required,min=1"`
 	Name        string `json:"name" validate:"required"`
 	Description string `json:"description" validate:"required"`
-	StartTime   string `json:"startTime" validate:"required"`
+	StartTime   int64 `json:"startTime" validate:"required"`
+	EndTime     int64 `json:"endTime"`
 	Address     string `json:"address" validate:"required"`
 	Lat    			float64 `json:"lat" validate:"required"`
 	Long    		float64 `json:"long" validate:"required"`
@@ -35,7 +36,14 @@ type EventSearchResponse struct {
 // considered the best embedding model as of 8/15/2024
 // var model = "hf/bge-large-en-v1.5"
 
-var indexName = "events-search-index"
+func GetMarqoIndexName () string {
+	sstStage := os.Getenv("SST_STAGE")
+	if sstStage == "prod" {
+		return os.Getenv("PROD_MARQO_INDEX_NAME")
+	} else {
+		return os.Getenv("DEV_MARQO_INDEX_NAME")
+	}
+}
 
 func GetMarqoClient() (*marqo.Client, error) {
 	// Create a new Marqo client
@@ -69,51 +77,52 @@ func GetMarqoClient() (*marqo.Client, error) {
 // Our first instance: https://events-search-index-di32q8-g2amp25x.dp1.marqo.ai
 
 // {
-//   "type": "structured",
-//   "vectorNumericType": "float",
-//   "model": "hf/bge-large-en-v1.5",
-//   "normalizeEmbeddings": true,
-//   "textPreprocessing": {
-//     "splitLength": 2,
-//     "splitOverlap": 0,
-//     "splitMethod": "sentence"
-//   },
-//   "imagePreprocessing": {
-//     "patchMethod": null
-//   },
-//   "annParameters": {
-//     "spaceType": "prenormalized-angular",
-//     "parameters": {
-//       "efConstruction": 512,
-//       "m": 16
-//     }
-//   },
-//   "tensorFields": ["name_description_address"],
-//   "allFields": [
-//    {
-//      "name": "name_description_address",
-//      "type": "multimodal_combination",
-//      "dependentFields": {"name": 0.3, "address": 0.2, "description": 0.5}
-//    },
-//    {"name": "eventOwners", "type": "array<text>", "features": ["filter"]},
-//    {"name": "tags", "type": "array<text>", "features": ["filter", "lexical_search"]},
-//    {"name": "categories", "type": "array<text>", "features": ["filter", "lexical_search"]},
+// 	"type": "structured",
+// 	"vectorNumericType": "float",
+// 	"model": "hf/bge-large-en-v1.5",
+// 	"normalizeEmbeddings": true,
+// 	"textPreprocessing": {
+// 		"splitLength": 2,
+// 		"splitOverlap": 0,
+// 		"splitMethod": "sentence"
+// 	},
+// 	"imagePreprocessing": {
+// 		"patchMethod": null
+// 	},
+// 	"annParameters": {
+// 		"spaceType": "prenormalized-angular",
+// 		"parameters": {
+// 			"efConstruction": 512,
+// 			"m": 16
+// 		}
+// 	},
+// 	"tensorFields": ["name_description_address"],
+// 	"allFields": [
+// 		{
+// 			"name": "name_description_address",
+// 			"type": "multimodal_combination",
+// 			"dependentFields": {"name": 0.3, "address": 0.2, "description": 0.5}
+// 		},
+// 		{"name": "eventOwners", "type": "array<text>", "features": ["filter"]},
+// 		{"name": "tags", "type": "array<text>", "features": ["filter", "lexical_search"]},
+// 		{"name": "categories", "type": "array<text>", "features": ["filter", "lexical_search"]},
 // 		{"name": "eventSourceId", "type": "text"},
 // 		{"name": "eventSourceType", "type": "text"},
 // 		{"name": "name", "type": "text", "features": ["lexical_search"]},
 // 		{"name": "description", "type": "text", "features": ["lexical_search"]},
-// 		{"name": "startTime", "type": "text", "features": ["lexical_search"]},
-// 		{"name": "endTime", "type": "text", "features": ["lexical_search"]},
-// 		{"name": "recurrenceRule", "type": "text", "features": ["lexical_search"]},
-// 		{"name": "hasRegistrationFields", "type": "text", "features": ["lexical_search"]},
-// 		{"name": "hasPurchasable", "type": "text", "features": ["lexical_search"]},
+// 		{"name": "startTime", "type": "long", "features": ["filter"]},
+// 		{"name": "endTime", "type": "long", "features": ["filter"]},
+// 		{"name": "recurrenceRule", "type": "text"},
+// 		{"name": "hasRegistrationFields", "type": "bool", "features": ["filter"]},
+// 		{"name": "hasPurchasable", "type": "bool", "features": ["filter"]},
+// 		{"name": "payeeId", "type": "text"},
 // 		{"name": "imageUrl", "type": "text"},
 // 		{"name": "lat", "type": "double", "features": ["filter"]},
 // 		{"name": "long", "type": "double", "features": ["filter"]},
 // 		{"name": "address", "type": "text", "features": ["lexical_search", "filter"]},
 // 		{"name": "sourceUrl", "type": "text"},
-// 		{"name": "createdAt", "type": "text"},
-// 		{"name": "updatedAt", "type": "text"},
+// 		{"name": "createdAt", "type": "long"},
+// 		{"name": "updatedAt", "type": "long"},
 // 		{"name": "updatedBy", "type": "text"}
 //   ]
 // }
@@ -157,12 +166,14 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []Event) (*marqo.Upsert
 			"name":        event.Name,
 			"description": event.Description,
 			"startTime":    event.StartTime,
+			"endTime":    	event.EndTime,
 			"address":     event.Address,
 			"lat":    float64(event.Lat),
 			"long":   float64(event.Long),
 		}
 		documents = append(documents, document)
 	}
+	indexName := GetMarqoIndexName()
 	req := marqo.UpsertDocumentsRequest{
 		Documents: documents,
 		IndexName: indexName,
@@ -194,6 +205,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		ownerFilter = fmt.Sprintf("eventOwners IN (%s) AND ", strings.Join(ownerIds, ","))
 	}
 	filter := fmt.Sprintf("%s long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]", ownerFilter, maxLong, minLong, maxLat, minLat)
+	indexName := GetMarqoIndexName()
 	searchRequest := marqo.SearchRequest{
 		IndexName:    indexName,
 		Q:            &query,
@@ -218,14 +230,15 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	for _, doc := range searchResp.Hits {
 		// log.Printf("Event: %v", doc)
 		event := Event{
-			Id:          getString(doc, "_id"),
+			Id:          getValue[string](doc, "_id"),
 			EventOwners: getStringSlice(doc, "eventOwners"),
-			Name:        getString(doc, "name"),
-			Description: getString(doc, "description"),
-			StartTime:   getString(doc, "startTime"),
-			Address:     getString(doc, "address"),
-			Lat:    getFloat64(doc, "lat"),
-			Long:   getFloat64(doc, "long"),
+			Name:        getValue[string](doc, "name"),
+			Description: getValue[string](doc, "description"),
+			StartTime:   getValue[int64](doc, "startTime"),
+			EndTime:     getValue[int64](doc, "endTime"),
+			Address:     getValue[string](doc, "address"),
+			Lat:         getValue[float64](doc, "lat"),
+			Long:        getValue[float64](doc, "long"),
 		}
 		events = append(events, event)
 	}
@@ -251,6 +264,7 @@ func GetMarqoEventByID(client *marqo.Client, docId string) (*Event, error) {
 }
 
 func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*Event, error) {
+	indexName := GetMarqoIndexName()
 	getDocumentsReq := &marqo.GetDocumentsRequest{
 		IndexName: indexName,
 		DocumentIDs: docIds,
@@ -272,16 +286,17 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*Event, err
 
 	for _, result := range res.Results {
 		event := Event{
-			Id:          getString(result, "_id"),
+			Id:          getValue[string](result, "_id"),
 			EventOwners: getStringSlice(result, "eventOwners"),
-			Name:        getString(result, "name"),
-			Description: getString(result, "description"),
+			Name:        getValue[string](result, "name"),
+			Description: getValue[string](result, "description"),
 			// TODO: These need converting to unix and a new index deployed
 			// in order to support marqo's unix search time range query
-			StartTime:   getString(result, "startTime"),
-			Address:     getString(result, "address"),
-			Lat:    getFloat64(result, "lat"),
-			Long:   getFloat64(result, "long"),
+			StartTime:   getValue[int64](result, "startTime"),
+			EndTime:     getValue[int64](result, "endTime"),
+			Address:     getValue[string](result, "address"),
+			Lat:         getValue[float64](result, "lat"),
+			Long:        getValue[float64](result, "long"),
 		}
 		events = append(events, &event)
 	}
@@ -298,23 +313,15 @@ func miToLong(mi float64, lat float64) float64 {
 	return (mi * milesPerKm) / (earthRadiusKm * math.Cos(lat*math.Pi/180)) * (180 / math.Pi)
 }
 
-func getString(doc map[string]interface{}, key string) string {
-	if value, ok := doc[key]; ok && value != nil {
-		if str, ok := value.(string); ok {
-			return str
-		}
-	}
-	return ""
-}
-
-func getFloat64(doc map[string]interface{}, key string) float64 {
+func getValue[T string | float64 | int64](doc map[string]interface{}, key string) T {
 	if value, ok := doc[key]; ok && value != nil {
 		switch v := value.(type) {
-		case float64:
-			return float64(v)
+		case T:
+			return v
 		}
 	}
-	return 0
+	var zero T
+	return zero
 }
 
 func getStringSlice(doc map[string]interface{}, key string) []string {

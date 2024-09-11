@@ -26,17 +26,53 @@ func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler 
     return &MarqoHandler{MarqoService: marqoService}
 }
 
+type rawEvent struct {
+    services.Event
+    StartTime interface{} `json:"startTime" validate:"required"`
+    EndTime   interface{} `json:"endTime"`
+}
+
+func convertRawEventToEvent(raw rawEvent) (services.Event, error) {
+    event := raw.Event
+
+    if raw.StartTime == nil {
+        return services.Event{}, fmt.Errorf("startTime is required")
+    }
+    startTime, err := helpers.UtcOrUnixToUnix64(raw.StartTime)
+    if err != nil {
+        return services.Event{}, fmt.Errorf("invalid StartTime: %w", err)
+    }
+    event.StartTime = startTime
+
+    if raw.EndTime != nil {
+        endTime, err := helpers.UtcOrUnixToUnix64(raw.EndTime)
+        if err != nil {
+            return services.Event{}, fmt.Errorf("invalid EndTime: %w", err)
+        }
+        event.EndTime = endTime
+    }
+
+    return event, nil
+}
+
 func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
-    var createEvent services.Event
+    var raw rawEvent
+
     body, err := io.ReadAll(r.Body)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
         return
     }
 
-    err = json.Unmarshal(body, &createEvent)
+    err = json.Unmarshal(body, &raw)
     if err != nil {
         transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
+        return
+    }
+
+    createEvent, err := convertRawEventToEvent(raw)
+    if err != nil {
+        transport.SendServerRes(w, []byte(err.Error()), http.StatusBadRequest, err)
         return
     }
 
@@ -68,6 +104,7 @@ func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
     transport.SendServerRes(w, json, http.StatusCreated, nil)
 }
 
+
 func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     marqoService := services.NewMarqoService()
     handler := NewMarqoHandler(marqoService)
@@ -78,7 +115,7 @@ func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
     var payload struct {
-        Events []services.Event
+        Events []rawEvent `json:"events"`
     }
     body, err := io.ReadAll(r.Body)
     if err != nil {
@@ -106,13 +143,23 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
         }
     }
 
+    events := make([]services.Event, len(payload.Events))
+    for i, rawEvent := range payload.Events {
+        event, err := convertRawEventToEvent(rawEvent)
+        if err != nil {
+            transport.SendServerRes(w, []byte(fmt.Sprintf("Invalid event at index %d: %s", i, err.Error())), http.StatusBadRequest, err)
+            return
+        }
+        events[i] = event
+    }
+
     marqoClient, err := services.GetMarqoClient()
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
         return
     }
 
-    res, err := services.BulkUpsertEventToMarqo(marqoClient, payload.Events)
+    res, err := services.BulkUpsertEventToMarqo(marqoClient, events)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to upsert events: "+err.Error()), http.StatusInternalServerError, err)
         return

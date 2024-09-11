@@ -18,7 +18,6 @@ import (
 	"github.com/ganeshdipdumbare/marqo-go"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
-	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
 
 func init() {
@@ -29,18 +28,22 @@ func TestPostEvent(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
-    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
-    os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	testMarqoApiKey := "test-marqo-api-key"
+	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoIndexName := "testing-index"
 
-    testMarqoApiKey := "test-marqo-api-key"
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
 		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
 	// Create a mock HTTP server for Marqo
@@ -166,20 +169,32 @@ func TestPostEvent(t *testing.T) {
             },
         },
         {
-            name:           "Missing required field",
-            requestBody:    `{"description":"A test event"}`,
+            name:           "Missing start time field",
+            requestBody:    `{"description":"A test event", "eventOwners":["123"],"lat":51.5074,"long":-0.1278}`,
             mockUpsertFunc: nil,
             expectedStatus: http.StatusBadRequest,
             expectedBodyCheck: func(body string) error {
-                if !strings.Contains(body, "Invalid body") {
-                    return fmt.Errorf("expected 'Invalid body', got '%s'", body)
+                if !strings.Contains(body, "startTime is required") {
+                    return fmt.Errorf("expected 'startTime is required', got '%s'", body)
                 }
                 return nil
             },
         },
         {
-            name:        "Service error",
-            requestBody: `{"name":"Test Event","description":"A test event","startTime":"2023-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+            name:           "Missing name field",
+            requestBody:    `{"eventOwners":["123"],"startTime":"2099-05-01T12:00:00Z","description":"A test event","lat":51.5074,"long":-0.1278}`,
+            mockUpsertFunc: nil,
+            expectedStatus: http.StatusBadRequest,
+            expectedBodyCheck: func(body string) error {
+                if !strings.Contains(body, "Field validation for 'Name' failed on the 'required' tag") {
+                    return fmt.Errorf(`expected "Field validation for 'Name' failed on the 'required' tag", got '%s'`, body)
+                }
+                return nil
+            },
+        },
+        {
+            name:        "Missing eventOwners field",
+            requestBody: `{"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
             mockUpsertFunc: nil,
             expectedStatus: http.StatusBadRequest,
             expectedBodyCheck: func(body string) error {
@@ -236,19 +251,22 @@ func TestPostBatchEvents(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
-    // Set test environment variables
-    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
-    os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	// Set test environment variables
+	testMarqoApiKey := "test-marqo-api-key"
+	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoIndexName := "testing-index"
 
-    testMarqoApiKey := "test-marqo-api-key"
-    os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-
+	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
 		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
 	// Create a mock HTTP server for Marqo
@@ -451,18 +469,22 @@ func TestSearchEvents(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
-    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
-    os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	testMarqoApiKey := "test-marqo-api-key"
+	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoIndexName := "testing-index"
 
-    testMarqoApiKey := "test-marqo-api-key"
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
 		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
 	// Create a mock HTTP server for Marqo

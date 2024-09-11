@@ -18,17 +18,22 @@ func TestGetMarqoClient(t *testing.T){
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
 	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoIndexName := "testing-index"
+
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
 		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
 	const eventId = "123"
@@ -87,17 +92,22 @@ func TestUpsertEventToMarqo(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
 	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoIndexName := "testing-index"
+
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
 		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
 	// Create a mock HTTP server for Marqo
@@ -140,6 +150,11 @@ func TestUpsertEventToMarqo(t *testing.T) {
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
+	tm := "2099-05-01T12:00:00Z"
+	validEventStartTime, err := helpers.UtcOrUnixToUnix64(tm)
+	if err != nil {
+		t.Logf("failed to convert UTC to unix, %v", tm)
+	}
 	tests := []struct {
 		name string
 		event Event
@@ -150,7 +165,7 @@ func TestUpsertEventToMarqo(t *testing.T) {
 				EventOwners: []string{"123"},
 				Name:        "Test Event",
 				Description: "A test event",
-				StartTime:   "2099-05-01T12:00:00Z",
+				StartTime:   validEventStartTime,
 				Address:     "123 Test St",
 				Lat:         51.5074,
 				Long:        -0.1278,
@@ -191,17 +206,22 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
 	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoIndexName := "testing-index"
+
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
 		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
 	// Create a mock HTTP server for Marqo
@@ -254,6 +274,10 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
+	startTime1, err := helpers.UtcOrUnixToUnix64("2099-05-01T12:00:00Z")
+	startTime2, err := helpers.UtcOrUnixToUnix64("2099-06-01T14:00:00Z")
+	startTime3, err := helpers.UtcOrUnixToUnix64("2099-07-01T16:00:00Z")
+
 	tests := []struct {
 		name   string
 		events []Event
@@ -265,7 +289,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 					EventOwners: []string{"123"},
 					Name:        "Test Event 1",
 					Description: "A test event 1",
-					StartTime:   "2099-05-01T12:00:00Z",
+					StartTime:   startTime1,
 					Address:     "123 Test St",
 					Lat:         51.5074,
 					Long:        -0.1278,
@@ -274,7 +298,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 					EventOwners: []string{"456"},
 					Name:        "Test Event 2",
 					Description: "A test event 2",
-					StartTime:   "2099-06-01T14:00:00Z",
+					StartTime:   startTime2,
 					Address:     "456 Test Ave",
 					Lat:         40.7128,
 					Long:        -74.0060,
@@ -283,7 +307,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 					EventOwners: []string{"789"},
 					Name:        "Test Event 3",
 					Description: "A test event 3",
-					StartTime:   "2099-07-01T16:00:00Z",
+					StartTime:   startTime3,
 					Address:     "789 Test Blvd",
 					Lat:         34.0522,
 					Long:        -118.2437,
@@ -328,17 +352,22 @@ func TestSearchMarqoEvents(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
 	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoIndexName := "testing-index"
+
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
 		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
 	// Create a mock HTTP server for Marqo
@@ -449,17 +478,22 @@ func TestGetMarqoEventByID(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
 	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoIndexName := "testing-index"
+
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
 		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
 	const (
@@ -467,9 +501,12 @@ func TestGetMarqoEventByID(t *testing.T) {
 		testEventOwnerID     = "789"
 		testEventName        = "Test Event"
 		testEventDescription = "This is a test event"
-		testEventStartTime        = "2099-05-01T12:00:00Z"
 	)
 
+	testEventStartTime, tmErr := helpers.UtcOrUnixToUnix64("2099-05-01T12:00:00Z")
+	if tmErr != nil {
+		t.Logf("tmError converting UTC to unix: %v", tmErr)
+	}
 	// Create a mock HTTP server for Marqo
 	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Mock the response
@@ -485,8 +522,6 @@ func TestGetMarqoEventByID(t *testing.T) {
 			},
 		}
 		responseBytes, err := json.Marshal(response)
-
-
 
 		if err != nil {
 			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)

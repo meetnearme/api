@@ -28,7 +28,11 @@ func TestFormatDate(t *testing.T) {
 
 	for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-					result := FormatDate(tt.input)
+					date, err := UtcOrUnixToUnix64(tt.input)
+					if (err != nil) {
+						t.Errorf("Failed convert UTC date to unix")
+					}
+					result := FormatDate(date)
 					if result != tt.expected {
 							t.Errorf("FormatDate(%q) = %q, want %q", tt.input, result, tt.expected)
 					}
