@@ -1,21 +1,30 @@
 import { Kysely, sql } from 'kysely';
 
 export async function up(db) {
-  // Create the purchasables table
+  // Create the purchasables table with check constraints
   await db.schema
     .createTable("purchasables")
     .addColumn("id", "uuid", (col) => col.primaryKey())
+    .addColumn("user_id", "uuid", (col) => col.notNull())
     .addColumn("name", "varchar(255)", (col) => col.notNull())
-    .addColumn("item_type", "varchar(50)", (col) => col.notNull()) // Enum values: 'ticket', 'membership', 'donation', 'partialDonation', 'merchandise'
+    .addColumn("item_type", "varchar(50)", (col) => col.notNull())
     .addColumn("cost", "numeric", (col) => col.notNull())
     .addColumn("currency", "varchar(3)", (col) => col.notNull()) // ISO 4217 currency code
     .addColumn("donation_ratio", "numeric")
     .addColumn("inventory", "integer")
-    .addColumn("charge_recurrence_interval", "varchar(20)") // Enum values: 'day', 'week', 'month', 'year'
+    .addColumn("charge_recurrence_interval", "varchar(20)")
     .addColumn("charge_recurrence_interval_count", "integer")
     .addColumn("charge_recurrence_end_date", "timestamp")
     .addColumn("created_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn("updated_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
+    .addCheckConstraint(
+      "purchasables_item_type_check",
+      sql`item_type IN ('ticket', 'membership', 'donation', 'partialDonation', 'merchandise')`
+    )
+    .addCheckConstraint(
+      "purchasables_charge_recurrence_interval_check",
+      sql`charge_recurrence_interval IN ('day', 'week', 'month', 'year')`
+    )
     .execute();
 
   // Create an index on item_type for better query performance
@@ -25,30 +34,16 @@ export async function up(db) {
     .column("item_type")
     .execute();
 
-  // Optionally, add a check constraint for item_type to mimic enum behavior
   await db.schema
-    .alterTable("purchasables")
-    .addConstraint(
-      "purchasables_item_type_check",
-      sql`CHECK (item_type IN ('ticket', 'membership', 'donation', 'partialDonation', 'merchandise'))`
-    )
-    .execute();
-
-  // Optionally, add a check constraint for charge_recurrence_interval to mimic enum behavior
-  await db.schema
-    .alterTable("purchasables")
-    .addConstraint(
-      "purchasables_charge_recurrence_interval_check",
-      sql`CHECK (charge_recurrence_interval IN ('day', 'week', 'month', 'year'))`
-    )
+    .createIndex("purchasable_user_id_index")
+    .on("purchasables")
+    .column("user_id")
     .execute();
 }
 
 export async function down(db) {
-  // Drop the indexes and constraints before dropping the table
+  // Drop the index before dropping the table
   await db.schema.dropIndex("purchasables_item_type_index").execute();
-  await db.schema.dropConstraint("purchasables_item_type_check").execute();
-  await db.schema.dropConstraint("purchasables_charge_recurrence_interval_check").execute();
 
   // Drop the purchasables table
   await db.schema.dropTable("purchasables").execute();
