@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
 
 func TestGetHomePage(t *testing.T) {
@@ -22,7 +23,7 @@ func TestGetHomePage(t *testing.T) {
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
 	// Set test environment variables
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
 
 	testMarqoApiKey := "test-marqo-api-key"
@@ -116,7 +117,7 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
 	// Set test environment variables
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
 
 	testMarqoApiKey := "test-marqo-api-key"
@@ -272,7 +273,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
 	// Set test environment variables
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
 
 	testMarqoApiKey := "test-marqo-api-key"

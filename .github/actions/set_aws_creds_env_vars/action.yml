@@ -12,6 +12,9 @@ inputs:
   OPENAI_API_KEY:
     description: 'The API key for the OpenAI environment'
     required: true
+  OPENAI_API_BASE_URL:
+    description: 'The API Base URL for OpenAI'
+    required: true
   ZITADEL_CLIENT_ID:
     description: 'The client ID for zitadel auth'
     required: true
@@ -64,6 +67,7 @@ runs:
         echo SCRAPINGBEE_API_KEY=${{ inputs.SCRAPINGBEE_API_KEY }} >> .env
         echo GOOGLE_API_KEY=${{ inputs.GOOGLE_API_KEY }} >> .env
         echo OPENAI_API_KEY=${{ inputs.OPENAI_API_KEY }} >> .env
+        echo OPENAI_API_BASE_URL=${{ inputs.OPENAI_API_BASE_URL }} >> .env
         echo ZITADEL_CLIENT_ID=${{ inputs.ZITADEL_CLIENT_ID }} >> .env
         echo ZITADEL_ENCRYPTION_KEY=${{ inputs.ZITADEL_ENCRYPTION_KEY }} >> .env
         echo ZITADEL_INSTANCE_HOST=${{ inputs.ZITADEL_INSTANCE_HOST }} >> .env

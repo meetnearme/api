@@ -13,24 +13,16 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync/atomic"
 	"testing"
 
 	"github.com/ganeshdipdumbare/marqo-go"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
 
 func init() {
     os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
-}
-
-var PortCounter int32 = 8000
-
-// NOTE: this is due to an issue where github auto paralellizes these
-// test to run in serial, which causes port collisions
-func getNextPort() int {
-    return int(atomic.AddInt32(&PortCounter, 1))
 }
 
 func TestPostEvent(t *testing.T) {
@@ -39,7 +31,7 @@ func TestPostEvent(t *testing.T) {
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
 	// Set test environment variables
-    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
+    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
     os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
 
     testMarqoApiKey := "test-marqo-api-key"
@@ -246,7 +238,7 @@ func TestPostBatchEvents(t *testing.T) {
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
     // Set test environment variables
-    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
+    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
     os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
 
     testMarqoApiKey := "test-marqo-api-key"
@@ -461,7 +453,7 @@ func TestSearchEvents(t *testing.T) {
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
 
 	// Set test environment variables
-    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", getNextPort())
+    testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
     os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
 
     testMarqoApiKey := "test-marqo-api-key"

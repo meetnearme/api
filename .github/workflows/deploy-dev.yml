@@ -42,6 +42,7 @@ jobs:
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE_URL: ${{ secrets.OPENAI_API_KEY }}
           ZITADEL_CLIENT_ID: ${{ secrets.ZITADEL_CLIENT_ID }}
           ZITADEL_ENCRYPTION_KEY: ${{ secrets.ZITADEL_ENCRYPTION_KEY }}
           ZITADEL_INSTANCE_HOST: ${{ secrets.ZITADEL_INSTANCE_HOST }}

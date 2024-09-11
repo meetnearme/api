@@ -134,9 +134,11 @@ The input is:
 const textStrings = `
 
 var db types.DynamoDBAPI
+var scrapingService services.ScrapingService
 
 func init() {
 	db = transport.CreateDbClient()
+	scrapingService = &services.RealScrapingService{}
 }
 
 func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
@@ -144,13 +146,13 @@ func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.La
     case "POST":
 				req.Headers["Access-Control-Allow-Origin"] = "*"
 				req.Headers["Access-Control-Allow-Credentials"] = "true"
-				return handlePost(ctx, req)
+				return handlePost(ctx, req, scrapingService)
     default:
         return clientError(http.StatusMethodNotAllowed)
     }
 }
 
-func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scraper services.ScrapingService) (events.LambdaFunctionURLResponse, error) {
 	var inputPayload SeshuInputPayload
 
 	err := json.Unmarshal([]byte(req.Body), &inputPayload)
@@ -169,7 +171,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 			return serverError(err)
 	}
 
-	htmlString, err := services.GetHTMLFromURL(inputPayload.Url, 4500, true)
+	htmlString, err := scraper.GetHTMLFromURL(inputPayload.Url, 4500, true)
 	if err != nil {
 		return SendHTMLError(err, ctx, req)
 	}
@@ -331,7 +333,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", err
 	}
 
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequest("POST", os.Getenv("OPENAI_API_BASE_URL") + "/chat/completions", bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return "", "", err
 	}
@@ -370,12 +372,12 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 
 	// TODO: figure out why this isn't working
   // Use regex to remove incomplete JSON that OpenAI sometimes returns
-	unpaddedJSON := unpadJSON(messageContentArray)
+	unpaddedJSON := UnpadJSON(messageContentArray)
 
 	return sessionId, unpaddedJSON, nil
 }
 
-func unpadJSON(jsonStr string) string {
+func UnpadJSON(jsonStr string) string {
     buffer := new(bytes.Buffer)
     if err := json.Compact(buffer, []byte(jsonStr)); err != nil {
         log.Println("Error unpadding JSON: ", err)
