@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-    os.Setenv("GO_ENV", "test")
+    os.Setenv("GO_ENV", GO_TEST_ENV)
 }
 
 
@@ -20,16 +20,20 @@ func TestFormatDate(t *testing.T) {
 			name string
 			input string
 			expected string
+			expectedError string
 	}{
-			{"Valid date", "2099-05-01T12:00:00Z", "May 1, 2099 (Fri)"},
-			{"Invalid date", "invalid-date", "Invalid date"},
-			{"Empty string", "", "Invalid date"},
+			{"Valid date", "2099-05-01T12:00:00Z", "May 1, 2099 (Fri)", ""},
+			{"Invalid date", "invalid-date", "", "not a valid unix timestamp"},
+			{"Empty string", "", "", "not a valid unix timestamp"},
 	}
 
 	for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-					result := FormatDate(tt.input)
-					if result != tt.expected {
+					date, err := UtcOrUnixToUnix64(tt.input)
+					result, err := FormatDate(date)
+					if tt.expectedError!= "" && !strings.Contains(err.Error(), tt.expectedError) {
+							t.Errorf("Expected err to have: %v, got: %v", tt.expectedError, err)
+					} else if result != tt.expected {
 							t.Errorf("FormatDate(%q) = %q, want %q", tt.input, result, tt.expected)
 					}
 			})
@@ -41,16 +45,20 @@ func TestFormatTime(t *testing.T) {
 			name string
 			input string
 			expected string
+			expectedError string
 	}{
-			{"Valid time", "2023-05-01T14:30:00Z", "2:30pm"},
-			{"Invalid time", "invalid-time", "Invalid time"},
-			{"Empty string", "", "Invalid time"},
+			{"Valid time", "2099-05-01T14:30:00Z", "2:30pm", ""},
+			{"Invalid time", "invalid-time", "", "not a valid unix timestamp"},
+			{"Empty string", "", "", "not a valid unix timestamp"},
 	}
 
 	for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-					result := FormatTime(tt.input)
-					if result != tt.expected {
+				  tm, err := UtcOrUnixToUnix64(tt.input)
+					result, err := FormatTime(tm)
+					if tt.expectedError!= "" && !strings.Contains(err.Error(), tt.expectedError) {
+							t.Errorf("Expected err to have: %v, got: %v", tt.expectedError, err)
+					} else if result != tt.expected {
 							t.Errorf("FormatTime(%q) = %q, want %q", tt.input, result, tt.expected)
 					}
 			})
@@ -98,9 +106,6 @@ func TestGetImgUrlFromHash(t *testing.T) {
 
 func TestSetCloudFlareKV(t *testing.T) {
 	InitDefaultProtocol()
-	const mockCloudflareUrl = "http://localhost:8999"
-	const mockZitadelHost = "localhost:8998"
-
 	// Save original environment variables
 	originalAccountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	originalNamespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
@@ -112,8 +117,8 @@ func TestSetCloudFlareKV(t *testing.T) {
 	os.Setenv("CLOUDFLARE_ACCOUNT_ID", "test-account-id")
 	os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", "test-namespace-id")
 	os.Setenv("CLOUDFLARE_API_TOKEN", "test-api-token")
-	os.Setenv("CLOUDFLARE_API_BASE_URL", mockCloudflareUrl)
-	os.Setenv("ZITADEL_INSTANCE_HOST", mockZitadelHost)
+	os.Setenv("CLOUDFLARE_API_BASE_URL", MOCK_CLOUDFLARE_URL)
+	os.Setenv("ZITADEL_INSTANCE_HOST", MOCK_ZITADEL_HOST)
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("CLOUDFLARE_ACCOUNT_ID", originalAccountID)
@@ -150,7 +155,7 @@ func TestSetCloudFlareKV(t *testing.T) {
 	// Set the mock Cloudflare server URL
 	mockCloudflareServer.Listener.Close()
 	var err error
-	mockCloudflareServer.Listener, err = net.Listen("tcp", mockCloudflareUrl[len("http://"):])
+	mockCloudflareServer.Listener, err = net.Listen("tcp", MOCK_CLOUDFLARE_URL[len("http://"):])
 	if err != nil {
 		t.Fatalf("Failed to start mock Cloudflare server: %v", err)
 	}
@@ -178,7 +183,7 @@ func TestSetCloudFlareKV(t *testing.T) {
 
 	// Set the mock Zitadel server URL
 	mockZitadelServer.Listener.Close()
-	mockZitadelServer.Listener, err = net.Listen("tcp", mockZitadelHost)
+	mockZitadelServer.Listener, err = net.Listen("tcp", MOCK_ZITADEL_HOST)
 	if err != nil {
 		t.Fatalf("Failed to start mock Zitadel server: %v", err)
 	}

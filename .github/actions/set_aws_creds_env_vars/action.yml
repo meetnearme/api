@@ -12,6 +12,9 @@ inputs:
   OPENAI_API_KEY:
     description: 'The API key for the OpenAI environment'
     required: true
+  OPENAI_API_BASE_URL:
+    description: 'The API Base URL for OpenAI'
+    required: true
   ZITADEL_CLIENT_ID:
     description: 'The client ID for zitadel auth'
     required: true
@@ -44,6 +47,21 @@ inputs:
   CLOUDFLARE_API_BASE_URL:
     description: 'The base URL for the Cloudflare API'
     required: true
+  MARQO_API_KEY:
+    description: 'The API key for the Marqo API'
+    required: true
+  PROD_MARQO_API_BASE_URL:
+    description: 'The base URL for the Marqo API in production'
+    required: true
+  DEV_MARQO_API_BASE_URL:
+    description: 'The base URL for the Marqo API in development'
+    required: true
+  PROD_MARQO_INDEX_NAME:
+    description: 'The marqo index name for production'
+    required: true
+  DEV_MARQO_INDEX_NAME:
+    description: 'The marqo index name for dev / non-prod environments'
+    required: true
 
 runs:
   using: composite
@@ -58,6 +76,7 @@ runs:
         echo SCRAPINGBEE_API_KEY=${{ inputs.SCRAPINGBEE_API_KEY }} >> .env
         echo GOOGLE_API_KEY=${{ inputs.GOOGLE_API_KEY }} >> .env
         echo OPENAI_API_KEY=${{ inputs.OPENAI_API_KEY }} >> .env
+        echo OPENAI_API_BASE_URL=${{ inputs.OPENAI_API_BASE_URL }} >> .env
         echo ZITADEL_CLIENT_ID=${{ inputs.ZITADEL_CLIENT_ID }} >> .env
         echo ZITADEL_ENCRYPTION_KEY=${{ inputs.ZITADEL_ENCRYPTION_KEY }} >> .env
         echo ZITADEL_INSTANCE_HOST=${{ inputs.ZITADEL_INSTANCE_HOST }} >> .env
@@ -66,6 +85,11 @@ runs:
         echo CLOUDFLARE_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_KV_NAMESPACE_ID }} >> .env
         echo CLOUDFLARE_API_TOKEN=${{ inputs.CLOUDFLARE_API_TOKEN }} >> .env
         echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
+        echo MARQO_API_KEY=${{ inputs.MARQO_API_KEY }} >> .env
+        echo PROD_MARQO_API_BASE_URL=${{ inputs.PROD_MARQO_API_BASE_URL }} >> .env
+        echo DEV_MARQO_API_BASE_URL=${{ inputs.DEV_MARQO_API_BASE_URL }} >> .env
+        echo PROD_MARQO_INDEX_NAME=${{ inputs.PROD_MARQO_INDEX_NAME }} >> .env
+        echo DEV_MARQO_INDEX_NAME=${{ inputs.DEV_MARQO_INDEX_NAME }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

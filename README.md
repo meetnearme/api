@@ -55,9 +55,9 @@ callback URLs
 
 ### API Example Curl Requests
 
-`curl <AWS URL from npm run dev>/api/event` - list table Events
-`curl -X POST -H 'Content-Type: application/json' -d '{"name": "Chess Tournament", "description": "Join the junior chess tournament to test your abilities", "datetime": "2024-03-13T15:07:00", "address": "15 Chess Street", "zip_code": "84322", "country": "USA"}' <AWS URL from npm run dev>/api/event` -
-insert new event
+- Add a new event - `curl <AWS URL from npm run dev>/api/event` - list table
+  Events
+  `curl -X POST -H 'Content-Type: application/json' --data-raw $'{"events":[{"eventOwners":["123"],"name":"Espanola Lowriders Good Friday Rally & Bar Crawl","description":"Join us in the low rider capital of the world while we hit up all TWO of our local bars\u0021 You haven\'t seen a real lowrider if you haven\'t visited Espanola\u0021","startTime":"2025-02-15T18:30:00Z","address":"Espanola, NM","lat": 36.015303,"long":-106.066063}]}' <AWS URL from npm run dev>/api/event`
 
 ### Reference for interacting with dynamodb from aws cli v2
 

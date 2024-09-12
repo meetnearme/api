@@ -11,6 +11,19 @@ import (
 
 const URLEscapedErrorMsg = "ERR: URL must not be encoded, it should look like this 'https://example.com/path?query=value'"
 
+// Add this interface at the top of the file
+type ScrapingService interface {
+	GetHTMLFromURL(unescapedURL string, timeout int, jsRender bool) (string, error)
+}
+
+// Modify the existing function to be a method on a struct
+type RealScrapingService struct{}
+
+func (s *RealScrapingService) GetHTMLFromURL(unescapedURL string, timeout int, jsRender bool) (string, error) {
+	defaultBaseURL := os.Getenv("SCRAPINGBEE_API_URL_BASE")
+	return GetHTMLFromURLWithBase(defaultBaseURL, unescapedURL, timeout, jsRender)
+}
+
 func GetHTMLFromURLWithBase(baseURL, unescapedURL string, timeout int, jsRender bool) (string, error) {
 
 	// TODO: Escaping twice, thrice or more is unlikely, but this just makes sure the URL isn't
@@ -62,6 +75,6 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, timeout int, jsRender 
 }
 
 func GetHTMLFromURL(unescapedURL string, timeout int, jsRender bool) (string, error) {
-	defaultBaseURL := "https://app.scrapingbee.com/api/v1"
+	defaultBaseURL := os.Getenv("SCRAPINGBEE_API_URL_BASE")
 	return GetHTMLFromURLWithBase(defaultBaseURL, unescapedURL, timeout, jsRender)
 }
