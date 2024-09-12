@@ -53,6 +53,8 @@ jobs:
           CLOUDFLARE_API_BASE_URL: ${{ secrets.CLOUDFLARE_API_BASE_URL }}
           MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
           MARQO_API_BASE_URL: ${{ secrets.MARQO_API_BASE_URL }}
+          PROD_MARQO_INDEX_NAME: ${{ secrets.PROD_MARQO_INDEX_NAME }}
+          DEV_MARQO_INDEX_NAME: ${{ secrets.DEV_MARQO_INDEX_NAME }}
       - name: Generate Cloudflare locations Go file
         uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Deploy AWS resources via SST

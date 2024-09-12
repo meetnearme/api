@@ -53,6 +53,12 @@ inputs:
   MARQO_API_BASE_URL:
     description: 'The base URL for the Marqo API'
     required: true
+  PROD_MARQO_INDEX_NAME:
+    description: 'The marqo index name for production'
+    required: true
+  DEV_MARQO_INDEX_NAME:
+    description: 'The marqo index name for dev / non-prod environments'
+    required: true
 
 runs:
   using: composite
