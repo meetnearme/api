@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"reflect"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -14,7 +15,7 @@ import (
 func buildSqlEventRsvpParams(parameters map[string]interface{}) ([]rds_types.SqlParameter, error) {
 	var params []rds_types.SqlParameter
 
-	log.Printf("parameters event rsvps: %v", parameters["description"])
+	log.Printf("parameters event rsvps: %v", parameters)
 	// ID (UUID)
 	idValue, ok := parameters["id"].(string)
 	if !ok {
@@ -69,6 +70,7 @@ func buildSqlEventRsvpParams(parameters map[string]interface{}) ([]rds_types.Sql
 	}
 	params = append(params, status)
 
+	log.Printf("event source type: %v", reflect.TypeOf(parameters["event_source_type"]))
 	// EventSourceType
 	eventSourceTypeValue, ok := parameters["event_source_type"].(string)
 	if !ok {
@@ -125,7 +127,7 @@ func extractAndMapSingleEventRsvpFromJSON(formattedRecords string) (*internal_ty
 	record := records[0]
 
 
-	purchasable := internal_types.EventRsvp{
+	eventRsvp := internal_types.EventRsvp{
 		ID:                           getString(record, "id"),
 		UserID:                       getString(record, "user_id"),
 		EventID:                       getString(record, "event_id"),
@@ -136,9 +138,9 @@ func extractAndMapSingleEventRsvpFromJSON(formattedRecords string) (*internal_ty
 	}
 
 
-	log.Printf("EventRsvp item from extractions: %v", purchasable)
+	log.Printf("EventRsvp item from extractions: %v", eventRsvp)
 
-	return &purchasable, nil
+	return &eventRsvp, nil
 }
 
 func extractEventRsvpsFromJson(formattedRecords string) ([]internal_types.EventRsvp, error) {
@@ -175,11 +177,13 @@ func buildUpdateEventRsvpQuery(params map[string]interface{}) (string, map[strin
 
     // Iterate through the params map
     for key, value := range params {
-        if value != nil {
+        if value != nil && value != "" {
             // Build the SET clause dynamically
             setClauses = append(setClauses, fmt.Sprintf("%s = :%s", key, key))
             sqlParams[key] = value
-        }
+        } else {
+			sqlParams[key] = ""
+		}
     }
 
     // If no fields are provided, return an error or an empty query
@@ -193,7 +197,7 @@ func buildUpdateEventRsvpQuery(params map[string]interface{}) (string, map[strin
         SET %s,
             updated_at = now()
         WHERE id = :id
-        RETURNING id, user_id, event_id, event_source_type, status
+        RETURNING id, user_id, event_id, event_source_type, status,
 			created_at, updated_at`,
         strings.Join(setClauses, ", "))
 

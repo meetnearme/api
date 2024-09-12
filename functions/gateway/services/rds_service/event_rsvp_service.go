@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 
 	"github.com/google/uuid"
 
@@ -210,12 +211,13 @@ func (s *EventRsvpService) UpdateEventRsvp(ctx context.Context, rdsClient intern
 		"event_source_type": eventRsvp.EventSourceType,
 		"status": eventRsvp.Status,
     }
+	log.Printf("params in updtae rsvp: %v", reflect.TypeOf(params["user_id"]))
 
-	query, sqlParams := buildUpdateQuery(params)
+	query, sqlParams := buildUpdateEventRsvpQuery(params)
     if query == "" {
         return nil, fmt.Errorf("no fields provided for update")
     }
-	log.Printf("sqlParams return: %v", query)
+	log.Printf("sqlParams return: %v", sqlParams)
 
     // Convert parameters to RDS types
 	rdsParams, err := buildSqlEventRsvpParams(sqlParams)
