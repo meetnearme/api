@@ -47,12 +47,14 @@ func TestGetHomePage(t *testing.T) {
 					"eventOwners": []interface{}{"789"},
 					"name":        "First Test Event",
 					"description": "Description of the first event",
+					"startTime":   "2099-05-01T12:00:00Z",
 				},
 				{
 					"id":          "456",
 					"eventOwners": []interface{}{"012"},
 					"name":        "Second Test Event",
 					"description": "Description of the second event",
+					"startTime":   "2099-05-01T17:00:00Z",
 				},
 			},
 		}

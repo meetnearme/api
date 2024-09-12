@@ -16,12 +16,12 @@ const (
 	milesPerKm    = 0.621371
 )
 type Event struct {
-	Id          string `json:"id"`
+	Id          string `json:"id,omitempty"`
 	EventOwners []string `json:"eventOwners" validate:"required,min=1"`
 	Name        string `json:"name" validate:"required"`
 	Description string `json:"description" validate:"required"`
 	StartTime   int64 `json:"startTime" validate:"required"`
-	EndTime     int64 `json:"endTime"`
+	EndTime     *int64 `json:"endTime,omitempty"`
 	Address     string `json:"address" validate:"required"`
 	Lat    			float64 `json:"lat" validate:"required"`
 	Long    		float64 `json:"long" validate:"required"`
@@ -29,8 +29,8 @@ type Event struct {
 
 type EventSearchResponse struct {
 	Events			[]Event `json:"events"`
-	Filter 			string 	`json:"filter"`
-	Query						string	`json:"query"`
+	Filter 			string 	`json:"filter,omitempty"`
+	Query				string	`json:"query,omitempty"`
 }
 
 // considered the best embedding model as of 8/15/2024
@@ -166,11 +166,15 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []Event) (*marqo.Upsert
 			"name":        event.Name,
 			"description": event.Description,
 			"startTime":    event.StartTime,
-			"endTime":    	event.EndTime,
 			"address":     event.Address,
 			"lat":    float64(event.Lat),
 			"long":   float64(event.Long),
 		}
+		// because nil and zero (int64 unix timestamp for jan 1, 1970) are conflated we must be careful
+		if event.EndTime != nil {
+			document["endTime"] = event.EndTime
+		}
+
 		documents = append(documents, document)
 	}
 	indexName := GetMarqoIndexName()
@@ -228,19 +232,10 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	// Extract the events from the search response
 	var events []Event
 	for _, doc := range searchResp.Hits {
-		// log.Printf("Event: %v", doc)
-		event := Event{
-			Id:          getValue[string](doc, "_id"),
-			EventOwners: getStringSlice(doc, "eventOwners"),
-			Name:        getValue[string](doc, "name"),
-			Description: getValue[string](doc, "description"),
-			StartTime:   getValue[int64](doc, "startTime"),
-			EndTime:     getValue[int64](doc, "endTime"),
-			Address:     getValue[string](doc, "address"),
-			Lat:         getValue[float64](doc, "lat"),
-			Long:        getValue[float64](doc, "long"),
+		event := NormalizeMarqoDocOrSearchRes(doc)
+		if event != nil {
+			events = append(events, *event)
 		}
-		events = append(events, event)
 	}
 
 	return EventSearchResponse{
@@ -263,6 +258,36 @@ func GetMarqoEventByID(client *marqo.Client, docId string) (*Event, error) {
 	return events[0], nil
 }
 
+func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *Event) {
+	// NOTE: this appears to be a bug in marqo, which appears to send
+	// a `float64` for startTime when the index has `startTime.type = "long"`
+	// explicitly delcared
+	startTimeFloat := getValue[float64](doc, "startTime")
+	startTimeInt := int64(startTimeFloat)
+
+	event = &Event{
+		Id:          getValue[string](doc, "_id"),
+		EventOwners: getStringSlice(doc, "eventOwners"),
+		Name:        getValue[string](doc, "name"),
+		Description: getValue[string](doc, "description"),
+		StartTime:   startTimeInt,
+		Address:     getValue[string](doc, "address"),
+		Lat:         getValue[float64](doc, "lat"),
+		Long:        getValue[float64](doc, "long"),
+	}
+
+	// NOTE: this appears to be a bug in marqo, which appears to send
+	// a `float64` for startTime when the index has `startTime.type = "long"`
+	// explicitly delcared
+	if getValue[*int64](doc, "endTime") != nil {
+		endTimeFloat := getValue[float64](doc, "endTime")
+		endTimeInt := int64(endTimeFloat)
+		event.EndTime = &endTimeInt
+	}
+
+	return event
+}
+
 func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*Event, error) {
 	indexName := GetMarqoIndexName()
 	getDocumentsReq := &marqo.GetDocumentsRequest{
@@ -282,23 +307,10 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*Event, err
 	}
 
 	var events []*Event
-	log.Printf("res.Results: %+v", res)
 
 	for _, result := range res.Results {
-		event := Event{
-			Id:          getValue[string](result, "_id"),
-			EventOwners: getStringSlice(result, "eventOwners"),
-			Name:        getValue[string](result, "name"),
-			Description: getValue[string](result, "description"),
-			// TODO: These need converting to unix and a new index deployed
-			// in order to support marqo's unix search time range query
-			StartTime:   getValue[int64](result, "startTime"),
-			EndTime:     getValue[int64](result, "endTime"),
-			Address:     getValue[string](result, "address"),
-			Lat:         getValue[float64](result, "lat"),
-			Long:        getValue[float64](result, "long"),
-		}
-		events = append(events, &event)
+		event := NormalizeMarqoDocOrSearchRes(result)
+		events = append(events, event)
 	}
 	return events, nil
 }
@@ -313,11 +325,17 @@ func miToLong(mi float64, lat float64) float64 {
 	return (mi * milesPerKm) / (earthRadiusKm * math.Cos(lat*math.Pi/180)) * (180 / math.Pi)
 }
 
-func getValue[T string | float64 | int64](doc map[string]interface{}, key string) T {
+func getValue[T string | float64 | int64 | *int64](doc map[string]interface{}, key string) T {
 	if value, ok := doc[key]; ok && value != nil {
 		switch v := value.(type) {
 		case T:
 			return v
+		default:
+			log.Println(fmt.Errorf("key: %s, Unexpected Type: %T, Value: %v", key, value, value))
+			// Attempt type conversion
+			if converted, ok := value.(T); ok {
+				return converted
+			}
 		}
 	}
 	var zero T

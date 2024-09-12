@@ -13,7 +13,7 @@ import (
 func TestEventDetailsPage(t *testing.T) {
 	tm := "2099-05-01T12:00:00Z"
 	validEventStartTime, err := helpers.UtcOrUnixToUnix64(tm)
-	if err != nil {
+	if err != nil || validEventStartTime == 0 {
 		t.Logf("Failed to convert unix time to UTC: %v", tm)
 	}
 	tests := []struct {

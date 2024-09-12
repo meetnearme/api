@@ -32,10 +32,10 @@ templ EventDetailsPage(event services.Event) {
 				<img style="display: inline-block;" alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/location.svg") }/> <strong>Location:</strong> { event.Address }
 				<br/>
 				<br/>
-				<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> { helpers.FormatDate(event.StartTime) }
+				<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> { GetDateOrShowNone(event.StartTime) }
 				<br/>
 				<br/>
-				<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/clock.svg") }/><strong>Time:</strong> { helpers.FormatTime(event.StartTime) }
+				<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/clock.svg") }/><strong>Time:</strong> { GetTimeOrShowNone(event.StartTime) }
 				<br/>
 				<br/>
 				<strong>Price:</strong> $10.00

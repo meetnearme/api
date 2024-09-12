@@ -26,32 +26,50 @@ func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler 
     return &MarqoHandler{MarqoService: marqoService}
 }
 
-type rawEvent struct {
-    services.Event
-    StartTime interface{} `json:"startTime" validate:"required"`
-    EndTime   interface{} `json:"endTime"`
+// Create a new struct for raw JSON operations
+type rawEventData struct {
+    Id          string        `json:"id"`
+    EventOwners []string      `json:"eventOwners" validate:"required,min=1"`
+    Name        string        `json:"name" validate:"required"`
+    Description string        `json:"description"`
+    Address     string        `json:"address"`
+    Lat         float64       `json:"lat"`
+    Long        float64       `json:"long"`
 }
 
-func convertRawEventToEvent(raw rawEvent) (services.Event, error) {
-    event := raw.Event
+type rawEvent struct {
+    rawEventData
+    StartTime interface{} `json:"startTime" validate:"required"`
+    EndTime   interface{} `json:"endTime,omitempty"`
+}
 
+func ConvertRawEventToEvent(raw rawEvent) (services.Event, error) {
+    event := services.Event{
+        Id:          raw.Id,
+        EventOwners: raw.EventOwners,
+        Name:        raw.Name,
+        Description: raw.Description,
+        Address:     raw.Address,
+        Lat:         raw.Lat,
+        Long:        raw.Long,
+    }
     if raw.StartTime == nil {
         return services.Event{}, fmt.Errorf("startTime is required")
     }
     startTime, err := helpers.UtcOrUnixToUnix64(raw.StartTime)
-    if err != nil {
+    if err != nil || startTime == 0 {
         return services.Event{}, fmt.Errorf("invalid StartTime: %w", err)
     }
     event.StartTime = startTime
 
     if raw.EndTime != nil {
         endTime, err := helpers.UtcOrUnixToUnix64(raw.EndTime)
-        if err != nil {
+        if err != nil || endTime == 0 {
             return services.Event{}, fmt.Errorf("invalid EndTime: %w", err)
+        } else {
+            event.EndTime = nil
         }
-        event.EndTime = endTime
     }
-
     return event, nil
 }
 
@@ -70,7 +88,7 @@ func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    createEvent, err := convertRawEventToEvent(raw)
+    createEvent, err := ConvertRawEventToEvent(raw)
     if err != nil {
         transport.SendServerRes(w, []byte(err.Error()), http.StatusBadRequest, err)
         return
@@ -142,10 +160,9 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
             return
         }
     }
-
     events := make([]services.Event, len(payload.Events))
     for i, rawEvent := range payload.Events {
-        event, err := convertRawEventToEvent(rawEvent)
+        event, err := ConvertRawEventToEvent(rawEvent)
         if err != nil {
             transport.SendServerRes(w, []byte(fmt.Sprintf("Invalid event at index %d: %s", i, err.Error())), http.StatusBadRequest, err)
             return

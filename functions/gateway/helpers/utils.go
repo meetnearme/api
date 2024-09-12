@@ -31,32 +31,38 @@ func init() {
 func UtcOrUnixToUnix64(t interface{}) (int64, error) {
 	switch v := t.(type) {
 	case int64:
-			// Validate that the timestamp is within 100 years of now
-			now := time.Now().Unix()
-			hundredYearsInSeconds := int64(100 * 365.25 * 24 * 60 * 60)
-			if v < int64(now - hundredYearsInSeconds) || v > int64(now+hundredYearsInSeconds) {
-					return 0, fmt.Errorf("unix timestamp must be within 100 years of the current time")
-			}
-			return v, nil
+		// Validate that the timestamp is within 100 years of now
+		now := time.Now().Unix()
+		hundredYearsInSeconds := int64(100 * 365.25 * 24 * 60 * 60)
+		if v < now-hundredYearsInSeconds || v > now+hundredYearsInSeconds {
+			return 0, fmt.Errorf("unix timestamp must be within 100 years of the current time")
+		}
+		return v, nil
 	case string:
-			parsedTime, err := time.Parse(time.RFC3339, v)
-			if err != nil {
-					return 0, fmt.Errorf("invalid date format, must be RFC3339: %v", err)
-			}
-			return int64(parsedTime.Unix()), nil
+		parsedTime, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return 0, fmt.Errorf("invalid date format, must be RFC3339: %v", err)
+		}
+		return parsedTime.Unix(), nil
 	default:
-			return 0, fmt.Errorf("unsupported time format")
+		return 0, fmt.Errorf("unsupported time format")
 	}
 }
 
-func FormatDate(unixTimestamp int64) string {
+func FormatDate(unixTimestamp int64) (string, error) {
+	if (unixTimestamp == 0) {
+		return "", fmt.Errorf("not a valid unix timestamp: %v", unixTimestamp)
+	}
 	date := time.Unix(unixTimestamp, 0).UTC()
-	return date.Format("Jan 2, 2006 (Mon)")
+	return date.Format("Jan 2, 2006 (Mon)"), nil
 }
 
-func FormatTime(unixTimestamp int64) string {
+func FormatTime(unixTimestamp int64) (string, error) {
+	if (unixTimestamp == 0) {
+		return "", fmt.Errorf("not a valid unix timestamp: %v", unixTimestamp)
+	}
 	_time := time.Unix(unixTimestamp, 0).UTC()
-	return _time.Format("3:04pm")
+	return _time.Format("3:04pm"), nil
 }
 
 func TruncateStringByBytes(str string, limit int) (s string, exceededLimit bool) {

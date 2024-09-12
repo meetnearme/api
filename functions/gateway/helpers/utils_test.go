@@ -20,20 +20,20 @@ func TestFormatDate(t *testing.T) {
 			name string
 			input string
 			expected string
+			expectedError string
 	}{
-			{"Valid date", "2099-05-01T12:00:00Z", "May 1, 2099 (Fri)"},
-			{"Invalid date", "invalid-date", "Invalid date"},
-			{"Empty string", "", "Invalid date"},
+			{"Valid date", "2099-05-01T12:00:00Z", "May 1, 2099 (Fri)", ""},
+			{"Invalid date", "invalid-date", "", "not a valid unix timestamp"},
+			{"Empty string", "", "", "not a valid unix timestamp"},
 	}
 
 	for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 					date, err := UtcOrUnixToUnix64(tt.input)
-					if (err != nil) {
-						t.Errorf("Failed convert UTC date to unix")
-					}
-					result := FormatDate(date)
-					if result != tt.expected {
+					result, err := FormatDate(date)
+					if tt.expectedError!= "" && !strings.Contains(err.Error(), tt.expectedError) {
+							t.Errorf("Expected err to have: %v, got: %v", tt.expectedError, err)
+					} else if result != tt.expected {
 							t.Errorf("FormatDate(%q) = %q, want %q", tt.input, result, tt.expected)
 					}
 			})
@@ -45,16 +45,20 @@ func TestFormatTime(t *testing.T) {
 			name string
 			input string
 			expected string
+			expectedError string
 	}{
-			{"Valid time", "2023-05-01T14:30:00Z", "2:30pm"},
-			{"Invalid time", "invalid-time", "Invalid time"},
-			{"Empty string", "", "Invalid time"},
+			{"Valid time", "2099-05-01T14:30:00Z", "2:30pm", ""},
+			{"Invalid time", "invalid-time", "", "not a valid unix timestamp"},
+			{"Empty string", "", "", "not a valid unix timestamp"},
 	}
 
 	for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-					result := FormatTime(tt.input)
-					if result != tt.expected {
+				  tm, err := UtcOrUnixToUnix64(tt.input)
+					result, err := FormatTime(tm)
+					if tt.expectedError!= "" && !strings.Contains(err.Error(), tt.expectedError) {
+							t.Errorf("Expected err to have: %v, got: %v", tt.expectedError, err)
+					} else if result != tt.expected {
 							t.Errorf("FormatTime(%q) = %q, want %q", tt.input, result, tt.expected)
 					}
 			})
