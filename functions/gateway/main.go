@@ -55,10 +55,6 @@ func init() {
 		{"/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventDetailsPage, Check},
 
         // API routes
-        // TODO: wire up as data handler
-
-        // {"/api/events", "GET", handlers.GetEvents, None},
-        // {"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEvent, None},
 
         // == START == need to expose these via permanent key for headless clients
         {"/api/event", "POST", handlers.PostEventHandler, None},

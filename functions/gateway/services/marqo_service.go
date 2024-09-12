@@ -67,7 +67,6 @@ func GetMarqoClient() (*marqo.Client, error) {
 	return client, nil
 }
 
-// TODO: this is potentially not possible programmatically via Marqo Cloud, open slack
 // question to their team here:
 // https://marqo-community.slack.com/archives/C03S65BEQC9/p1725456760772439
 
