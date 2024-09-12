@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -580,7 +581,7 @@ func TestGetMarqoEventByID(t *testing.T) {
 		t.Errorf("expected event description %s, got %s", testEventDescription, event.Description)
 	}
 	if event.StartTime != testEventStartTime {
-		t.Errorf("expected event description %s, got %s", testEventStartTime, event.Description)
+		t.Errorf("expected event description %v, got %s", testEventStartTime, event.Description)
 	}
 }
 
@@ -588,19 +589,36 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
 	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoIndexName := "testing-index"
+
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
 		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
+	testEventStartTime1, _err := helpers.UtcOrUnixToUnix64("2099-05-01T12:00:00Z")
+	if _err != nil {
+		log.Printf("failed to convert UTC to unix 64, err: %v", _err)
+	}
+
+	testEventStartTime2, _err := helpers.UtcOrUnixToUnix64("2099-06-01T14:00:00Z")
+	if _err != nil {
+		log.Printf("failed to convert UTC to unix 64, err: %v", _err)
+	}
+
+	// NOTE: start times need to be generated from a helper to be human readable,
+	// this is done above
 	const (
 		testEventID1          = "123"
 		testEventID2          = "456"
@@ -610,13 +628,12 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 		testEventName2        = "Test Event 2"
 		testEventDescription1 = "This is test event 1"
 		testEventDescription2 = "This is test event 2"
-		testEventStartTime1   = "2099-05-01T12:00:00Z"
-		testEventStartTime2   = "2099-06-01T14:00:00Z"
 	)
 
 	// Create a mock HTTP server for Marqo
 	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Mock the response
+
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
@@ -678,7 +695,7 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 		ownerID     string
 		name        string
 		description string
-		startTime   string
+		startTime   int64
 	}{
 		{testEventID1, testEventOwnerID1, testEventName1, testEventDescription1, testEventStartTime1},
 		{testEventID2, testEventOwnerID2, testEventName2, testEventDescription2, testEventStartTime2},
@@ -699,7 +716,7 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 			t.Errorf("expected event description %s, got %s", expectedEvent.description, event.Description)
 		}
 		if event.StartTime != expectedEvent.startTime {
-			t.Errorf("expected event start time %s, got %s", expectedEvent.startTime, event.StartTime)
+			t.Errorf("expected event start time %v, got %v", expectedEvent.startTime, event.StartTime)
 		}
 	}
 }
