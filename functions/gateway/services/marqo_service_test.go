@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -13,9 +14,13 @@ import (
 	// marqo-go is an unofficial Go client library for Marqo
 	"github.com/ganeshdipdumbare/marqo-go"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
 
 func TestGetMarqoClient(t *testing.T){
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	defer os.Unsetenv("GO_ENV")
+
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
@@ -23,7 +28,7 @@ func TestGetMarqoClient(t *testing.T){
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -90,6 +95,8 @@ func TestGetMarqoClient(t *testing.T){
 }
 
 func TestUpsertEventToMarqo(t *testing.T) {
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	defer os.Unsetenv("GO_ENV")
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
@@ -97,7 +104,7 @@ func TestUpsertEventToMarqo(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -205,6 +212,9 @@ func TestUpsertEventToMarqo(t *testing.T) {
 }
 
 func TestBulkUpsertEventToMarqo(t *testing.T) {
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	defer os.Unsetenv("GO_ENV")
+
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
@@ -212,7 +222,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -362,6 +372,8 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 }
 
 func TestSearchMarqoEvents(t *testing.T) {
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	defer os.Unsetenv("GO_ENV")
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
@@ -369,7 +381,7 @@ func TestSearchMarqoEvents(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -488,6 +500,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 }
 
 func TestGetMarqoEventByID(t *testing.T) {
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	defer os.Unsetenv("GO_ENV")
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
@@ -495,7 +509,7 @@ func TestGetMarqoEventByID(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -586,6 +600,8 @@ func TestGetMarqoEventByID(t *testing.T) {
 }
 
 func TestBulkGetMarqoEventByID(t *testing.T) {
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	defer os.Unsetenv("GO_ENV")
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
@@ -593,7 +609,7 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := helpers.MOCK_MARQO_URL
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)

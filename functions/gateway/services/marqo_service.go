@@ -53,10 +53,18 @@ func GetMarqoClient() (*marqo.Client, error) {
 
 	sstStage := os.Getenv("SST_STAGE")
 	if sstStage == "prod" {
+		log.Println("ONE !")
 		apiBaseUrl = os.Getenv("PROD_MARQO_API_BASE_URL")
-	} else if sstStage != "" || os.Getenv("GO_ENV") == helpers.GO_TEST_ENV {
+	// IMPORTANT: This assumes we don't set `SST_STAGE`
+	// in unit tests, we assume this is a non-prod deployment
+	} else if sstStage != "" {
+		log.Println("TWO !")
+		apiBaseUrl = os.Getenv("DEV_MARQO_API_BASE_URL")
+	} else if os.Getenv("GO_ENV") == helpers.GO_TEST_ENV {
+		log.Println("THREE !")
 		apiBaseUrl = os.Getenv("DEV_MARQO_API_BASE_URL")
 	} else {
+		log.Println("FOUR !")
 		// set to local host if no marqo lb is set
 		apiBaseUrl = "http://localhost:8882"
 	}
