@@ -9,6 +9,7 @@ import (
 
 	"github.com/ganeshdipdumbare/marqo-go" // marqo-go is an unofficial Go client library for Marqo
 	"github.com/google/uuid"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
 const (
@@ -53,7 +54,7 @@ func GetMarqoClient() (*marqo.Client, error) {
 	sstStage := os.Getenv("SST_STAGE")
 	if sstStage == "prod" {
 		apiBaseUrl = os.Getenv("PROD_MARQO_API_BASE_URL")
-	} else if sstStage != "" {
+	} else if sstStage != "" || os.Getenv("GO_ENV") == helpers.GO_TEST_ENV {
 		apiBaseUrl = os.Getenv("DEV_MARQO_API_BASE_URL")
 	} else {
 		// set to local host if no marqo lb is set
