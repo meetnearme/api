@@ -96,11 +96,18 @@ func init() {
 		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeletePurchasableHandler, None}, // Delete a purchasable
 
 		// // Event RSVPs routes
-		// {"/api/event-rsvps", "GET", handlers.GetEventRsvpsHandler, Check}, // Get all event RSVPs
-		// {"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "GET", handlers.GetEventRsvpHandler, Check}, // Get a specific event RSVP
-		// {"/api/event-rsvps", "POST", handlers.CreateEventRsvpHandler, Require}, // Create a new event RSVP
-		// {"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "PUT", handlers.UpdateEventRsvpHandler, Require}, // Update an existing event RSVP
-		// {"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "DELETE", handlers.DeleteEventRsvpHandler, Require}, // Delete an event RSVP
+		{"/api/event-rsvps/event/{event_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpsByEventIDHandler, None}, // Get all event RSVPs
+		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpHandler, None}, // Get a specific event RSVP
+		{"/api/event-rsvps/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpsByUserIDHandler, None}, // Get a specific event RSVP
+		{"/api/event-rsvps", "POST", rds_handlers.CreateEventRsvpHandler, None}, // Create a new event RSVP
+		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateEventRsvpHandler, None}, // Update an existing event RSVP
+		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteEventRsvpHandler, None}, // Delete an event RSVP
+
+		// // Event Registration Fields routes
+		{"/api/registration-fields/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetRegistrationFieldsHandler, None}, // Get a specific event RSVP
+		{"/api/registration-fields", "POST", rds_handlers.CreateRegistrationFieldsHandler, None}, // Create a new event RSVP
+		{"/api/registration-fields/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateRegistrationFieldsHandler, None}, // Update an existing event RSVP
+		{"/api/registration-fields/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteRegistrationFieldsHandler, None}, // Delete an event RSVP
 	}
 }
 
