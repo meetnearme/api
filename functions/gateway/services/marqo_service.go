@@ -38,11 +38,15 @@ type EventSearchResponse struct {
 
 func GetMarqoIndexName () string {
 	sstStage := os.Getenv("SST_STAGE")
+	log.Println(fmt.Errorf("SST_STAGE : %s", sstStage))
 	if sstStage == "prod" {
+		log.Println(fmt.Errorf("PROD_MARQO_INDEX_NAME : %s", os.Getenv("PROD_MARQO_INDEX_NAME")))
 		return os.Getenv("PROD_MARQO_INDEX_NAME")
 	} else {
+		log.Println(fmt.Errorf("DEV_MARQO_INDEX_NAME : %s", os.Getenv("DEV_MARQO_INDEX_NAME")))
 		return os.Getenv("DEV_MARQO_INDEX_NAME")
 	}
+
 }
 
 func GetMarqoClient() (*marqo.Client, error) {
