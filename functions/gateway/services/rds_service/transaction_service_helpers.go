@@ -184,6 +184,7 @@ func extractTransactionsFromJson(formattedRecords string) ([]internal_types.Tran
 		transaction.ID = getString(record, "id")
 		transaction.UserID = getString(record, "user_id")
 		transaction.Currency = getString(record, "currency")
+		transaction.Amount = getFloat64(record, "amount")
 		transaction.TransactionType = getString(record, "transactiontype")
 		transaction.Status = getString(record, "status")
 		transaction.Description = getString(record, "description")

@@ -292,7 +292,7 @@ func extractPurchasablesFromJson(formattedRecords string) ([]internal_types.Purc
 }
 
 
-func buildUpdateQuery(params map[string]interface{}) (string, map[string]interface{}) {
+func buildUpdatePurchasablesQuery(params map[string]interface{}) (string, map[string]interface{}) {
     // Initialize the SQL query parts
     setClauses := []string{}
     sqlParams := map[string]interface{}{}

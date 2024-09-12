@@ -166,7 +166,6 @@ func (s *PurchasableService) GetPurchasablesByUserID(ctx context.Context, rdsCli
         if err != nil {
             return nil, fmt.Errorf("error extracting purchasables from JSON: %w", err)
         }
-		log.Printf("purchasables form get all by user id: %v", purchasables)
     } else {
         return nil, fmt.Errorf("no formatted records found")
     }
@@ -189,7 +188,7 @@ func (s *PurchasableService) UpdatePurchasable(ctx context.Context, rdsClient in
 		"donation_ratio": purchasable.DonationRatio,
     }
 
-	query, sqlParams := buildUpdateQuery(params)
+	query, sqlParams := buildUpdatePurchasablesQuery(params)
     if query == "" {
         return nil, fmt.Errorf("no fields provided for update")
     }
