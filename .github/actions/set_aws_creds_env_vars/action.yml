@@ -84,6 +84,8 @@ runs:
         echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
         echo MARQO_API_KEY=${{ inputs.MARQO_API_KEY }} >> .env
         echo MARQO_API_BASE_URL=${{ inputs.MARQO_API_BASE_URL }} >> .env
+        echo PROD_MARQO_INDEX_NAME=${{ inputs.PROD_MARQO_INDEX_NAME }} >> .env
+        echo DEV_MARQO_INDEX_NAME=${{ inputs.DEV_MARQO_INDEX_NAME }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
