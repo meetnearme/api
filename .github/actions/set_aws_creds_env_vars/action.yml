@@ -50,8 +50,11 @@ inputs:
   MARQO_API_KEY:
     description: 'The API key for the Marqo API'
     required: true
-  MARQO_API_BASE_URL:
-    description: 'The base URL for the Marqo API'
+  PROD_MARQO_API_BASE_URL:
+    description: 'The base URL for the Marqo API in production'
+    required: true
+  DEV_MARQO_API_BASE_URL:
+    description: 'The base URL for the Marqo API in development'
     required: true
   PROD_MARQO_INDEX_NAME:
     description: 'The marqo index name for production'
@@ -83,7 +86,8 @@ runs:
         echo CLOUDFLARE_API_TOKEN=${{ inputs.CLOUDFLARE_API_TOKEN }} >> .env
         echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
         echo MARQO_API_KEY=${{ inputs.MARQO_API_KEY }} >> .env
-        echo MARQO_API_BASE_URL=${{ inputs.MARQO_API_BASE_URL }} >> .env
+        echo PROD_MARQO_API_BASE_URL=${{ inputs.PROD_MARQO_API_BASE_URL }} >> .env
+        echo DEV_MARQO_API_BASE_URL=${{ inputs.DEV_MARQO_API_BASE_URL }} >> .env
         echo PROD_MARQO_INDEX_NAME=${{ inputs.PROD_MARQO_INDEX_NAME }} >> .env
         echo DEV_MARQO_INDEX_NAME=${{ inputs.DEV_MARQO_INDEX_NAME }} >> .env
     - name: Configure AWS credentials

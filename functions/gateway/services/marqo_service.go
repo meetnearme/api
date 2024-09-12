@@ -50,8 +50,11 @@ func GetMarqoClient() (*marqo.Client, error) {
 	// Create a new Marqo client
 	var apiBaseUrl string
 
-	if os.Getenv("MARQO_API_BASE_URL") != "" {
-		apiBaseUrl = os.Getenv("MARQO_API_BASE_URL")
+	sstStage := os.Getenv("SST_STAGE")
+	if sstStage == "prod" {
+		apiBaseUrl = os.Getenv("PROD_MARQO_API_BASE_URL")
+	} else if sstStage != "" {
+		apiBaseUrl = os.Getenv("DEV_MARQO_API_BASE_URL")
 	} else {
 		// set to local host if no marqo lb is set
 		apiBaseUrl = "http://localhost:8882"

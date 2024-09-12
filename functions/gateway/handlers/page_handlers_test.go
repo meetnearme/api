@@ -18,7 +18,7 @@ import (
 func TestGetHomePage(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
-	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
 	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
@@ -27,13 +27,13 @@ func TestGetHomePage(t *testing.T) {
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
-		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_API_BASE_URL", originalMarqoEndpoint)
 		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
@@ -117,7 +117,7 @@ func TestGetHomePage(t *testing.T) {
 func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
-	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
 	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
@@ -126,13 +126,13 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
-		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_API_BASE_URL", originalMarqoEndpoint)
 		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
@@ -276,7 +276,7 @@ func TestGetMapEmbedPage(t *testing.T) {
 func TestGetEventDetailsPage(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
-	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
 	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
@@ -285,13 +285,13 @@ func TestGetEventDetailsPage(t *testing.T) {
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
-		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_API_BASE_URL", originalMarqoEndpoint)
 		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 

@@ -27,7 +27,7 @@ func init() {
 func TestPostEvent(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
-	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
 	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
@@ -36,13 +36,13 @@ func TestPostEvent(t *testing.T) {
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
-		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_API_BASE_URL", originalMarqoEndpoint)
 		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
@@ -250,7 +250,7 @@ func TestPostEvent(t *testing.T) {
 func TestPostBatchEvents(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
-	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
 	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
@@ -259,13 +259,13 @@ func TestPostBatchEvents(t *testing.T) {
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
-		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_API_BASE_URL", originalMarqoEndpoint)
 		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
@@ -468,7 +468,7 @@ func TestPostBatchEvents(t *testing.T) {
 func TestSearchEvents(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
-	originalMarqoEndpoint := os.Getenv("MARQO_API_BASE_URL")
+	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
 	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
 	// Set test environment variables
@@ -477,13 +477,13 @@ func TestSearchEvents(t *testing.T) {
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
-		os.Setenv("MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_API_BASE_URL", originalMarqoEndpoint)
 		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
