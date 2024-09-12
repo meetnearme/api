@@ -257,6 +257,33 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	}, nil
 }
 
+func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*Event, error) {
+	indexName := GetMarqoIndexName()
+	getDocumentsReq := &marqo.GetDocumentsRequest{
+		IndexName: indexName,
+		DocumentIDs: docIds,
+	}
+	res, err := client.GetDocuments(getDocumentsReq)
+	if err != nil {
+		log.Printf("Failed to get documents: %v", err)
+		return nil, err
+	}
+
+	// Check if no documents were found
+	if len(res.Results) == 1 && res.Results[0]["_found"] == false {
+		log.Printf("No documents found for the given IDs")
+		return []*Event{}, nil
+	}
+
+	var events []*Event
+
+	for _, result := range res.Results {
+		event := NormalizeMarqoDocOrSearchRes(result)
+		events = append(events, event)
+	}
+	return events, nil
+}
+
 func GetMarqoEventByID(client *marqo.Client, docId string) (*Event, error) {
 	docIds := []string{docId}
 	events, err := BulkGetMarqoEventByID(client, docIds)
@@ -298,33 +325,6 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *Event) {
 	}
 
 	return event
-}
-
-func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*Event, error) {
-	indexName := GetMarqoIndexName()
-	getDocumentsReq := &marqo.GetDocumentsRequest{
-		IndexName: indexName,
-		DocumentIDs: docIds,
-	}
-	res, err := client.GetDocuments(getDocumentsReq)
-	if err != nil {
-		log.Printf("Failed to get documents: %v", err)
-		return nil, err
-	}
-
-	// Check if no documents were found
-	if len(res.Results) == 1 && res.Results[0]["_found"] == false {
-		log.Printf("No documents found for the given IDs")
-		return []*Event{}, nil
-	}
-
-	var events []*Event
-
-	for _, result := range res.Results {
-		event := NormalizeMarqoDocOrSearchRes(result)
-		events = append(events, event)
-	}
-	return events, nil
 }
 
 // miToLat converts miles to latitude offset
