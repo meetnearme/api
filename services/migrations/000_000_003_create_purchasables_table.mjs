@@ -25,6 +25,10 @@ export async function up(db) {
       "purchasables_charge_recurrence_interval_check",
       sql`charge_recurrence_interval IN ('day', 'week', 'month', 'year')`
     )
+    .addCheckConstraint(
+      "purchasables_partial_donation_ratio_check",
+      sql`(item_type = 'partialDonation' AND donation_ratio IS NOT NULL) OR item_type != 'partialDonation'`
+    )
     .execute();
 
   // Create an index on item_type for better query performance
