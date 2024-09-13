@@ -10,7 +10,7 @@ type RegistrationFieldsInsert struct {
     ID            string `json:"id"` // UUID format validation
 	Name string `json:"name" validate:"required"`
 	Type string `json:"type" validate:"required"`
-	Options string `json:"options"`
+	Options []string `json:"options"`
 	Default string `json:"default"`
 	Placeholder string `json:"placeholder"`
 	Description string `json:"description"`
@@ -25,7 +25,7 @@ type RegistrationFields struct {
     ID            string `json:"id"` // UUID format validation
 	Name string `json:"name"`
 	Type string `json:"type"`
-	Options string `json:"options"`
+	Options []string `json:"options"`
 	Default string `json:"default"`
 	Placeholder string `json:"placeholder"`
 	Description string `json:"description"`
@@ -39,7 +39,7 @@ type RegistrationFieldsUpdate struct {
     ID            string `json:"id"` // UUID format validation
 	Name string `json:"name"`
 	Type string `json:"type"`
-	Options string `json:"options"`
+	Options []string `json:"options"`
 	Default string `json:"default"`
 	Placeholder string `json:"placeholder"`
 	Description string `json:"description"`
