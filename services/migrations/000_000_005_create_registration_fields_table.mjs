@@ -7,13 +7,17 @@ export async function up(db) {
     .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`gen_random_uuid()`))
     .addColumn('name', 'varchar(255)', (col) => col.notNull())
     .addColumn('type', 'varchar(50)', (col) => col.notNull())
-    .addColumn('options', 'varchar(255)')
+    .addColumn('options', 'text[]')
     .addColumn('required', 'boolean', (col) => col.notNull().defaultTo(false))
     .addColumn('default_val', 'varchar(255)')
     .addColumn('placeholder', 'varchar(255)')
     .addColumn('description', 'text')
     .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('updated_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
+    .addCheckConstraint(
+      "registration_fields_type_check",
+      sql`type IN ('text', 'url', 'email', 'phone', 'number', 'select', 'checkbox', 'radio')`
+    )
     .execute()
 
   // Optionally, you can add an index for faster lookups if needed
