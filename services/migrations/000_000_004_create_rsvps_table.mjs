@@ -7,8 +7,7 @@ export async function up(db) {
     .addColumn("id", "uuid", (col) => col.primaryKey())
     .addColumn("user_id", "uuid", (col) => col.notNull())
     .addColumn("event_id", "uuid", (col) => col.notNull())
-  // TODO: is event source id needed? It was in
-    // .addColumn("event_source_id", "uuid", (col) => col.notNull())
+    .addColumn("event_source_id", "uuid", (col) => col.notNull())
     .addColumn("event_source_type", "varchar(50)", (col) => col.notNull())
     .addColumn("status", "varchar(50)", (col) => col.notNull())
     .addColumn("created_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
