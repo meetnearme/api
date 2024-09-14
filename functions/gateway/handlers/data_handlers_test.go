@@ -404,8 +404,8 @@ func TestPostBatchEvents(t *testing.T) {
             mockUpsertFunc: nil,
             expectedStatus: http.StatusUnprocessableEntity,
             expectedBodyCheck: func(body string) error {
-                if !strings.Contains(body, "Invalid JSON payload") {
-                    return fmt.Errorf("expected 'Invalid JSON payload', got '%s'", body)
+                if !strings.Contains(body, "invalid JSON payload") {
+                    return fmt.Errorf("expected 'invalid JSON payload', got '%s'", body)
                 }
                 return nil
             },
@@ -416,8 +416,8 @@ func TestPostBatchEvents(t *testing.T) {
             mockUpsertFunc: nil,
             expectedStatus: http.StatusBadRequest,
             expectedBodyCheck: func(body string) error {
-                if !strings.Contains(body, "Event at index 0 is missing EventOwners") {
-                    return fmt.Errorf("expected 'Event at index 0 is missing EventOwners, got '%s'", body)
+                if !strings.Contains(body, "Event at index 0 is missing eventOwners") {
+                    return fmt.Errorf("expected 'Event at index 0 is missing eventOwners, got '%s'", body)
                 }
                 return nil
             },

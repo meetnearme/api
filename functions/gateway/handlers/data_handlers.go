@@ -131,43 +131,48 @@ func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     }
 }
 
-func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
+func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request) ([]services.Event, int, error) {
     var payload struct {
         Events []rawEvent `json:"events"`
     }
     body, err := io.ReadAll(r.Body)
     if err != nil {
-        transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
-        return
+        return nil, http.StatusBadRequest, fmt.Errorf("failed to read request body: %w", err)
     }
 
     err = json.Unmarshal(body, &payload)
     if err != nil {
-        transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
-        return
+        return nil, http.StatusUnprocessableEntity, fmt.Errorf("invalid JSON payload: %w", err)
     }
 
     err = validate.Struct(&payload)
     if err != nil {
-        transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
-        return
+        return nil, http.StatusBadRequest, fmt.Errorf("invalid body: %w", err)
     }
 
-    // Additional validation for EventOwners
-    for i, event := range payload.Events {
-        if len(event.EventOwners) == 0 {
-            transport.SendServerRes(w, []byte(fmt.Sprintf("Invalid body: Event at index %d is missing EventOwners", i)), http.StatusBadRequest, nil)
-            return
-        }
-    }
     events := make([]services.Event, len(payload.Events))
     for i, rawEvent := range payload.Events {
+        if len(rawEvent.EventOwners) == 0 {
+            return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d is missing eventOwners", i)
+        }
         event, err := ConvertRawEventToEvent(rawEvent)
         if err != nil {
-            transport.SendServerRes(w, []byte(fmt.Sprintf("Invalid event at index %d: %s", i, err.Error())), http.StatusBadRequest, err)
-            return
+            return nil, http.StatusBadRequest, fmt.Errorf("invalid event at index %d: %s", i, err.Error())
         }
         events[i] = event
+    }
+
+    return events, http.StatusOK, nil
+}
+
+func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
+    // TODO: use this in BatchUpdateEvent / UpdateOneEvent  handler but add conditional logic to check for ID which is required in Update and Forbidden in PostBatchEvents
+    events, status, err := HandleBatchEventValidation(w, r)
+
+    // TODO: handle err with status via SendServerRes here with `status`
+    if err != nil {
+        transport.SendServerRes(w, []byte(err.Error()), status, err)
+        return
     }
 
     marqoClient, err := services.GetMarqoClient()
