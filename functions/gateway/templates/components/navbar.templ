@@ -1,8 +1,8 @@
 package components
 
 import (
-	"os"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"os"
 )
 
 templ Navbar(userInfo helpers.UserInfo) {
@@ -14,7 +14,8 @@ templ Navbar(userInfo helpers.UserInfo) {
 				<div class="container mx-auto flex items-center">
 					<div class="flex-1">
 						<a href="/" class="btn btn-ghost text-xl">
-							<img alt="Meen Near Me" class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+							<img class="brand" alt="Logo: 4 faces laughing, looking inward at a compass" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+							<img style="width: 3.9rem" alt="Meet Near Me" class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
 						</a>
 					</div>
 					<div class="flex-none lg:hidden" onclick="document.getElementById('flyout-tab-nav').click();">
