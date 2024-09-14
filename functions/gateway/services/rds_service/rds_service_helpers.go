@@ -3,7 +3,10 @@ package rds_service
 import (
 	"log"
 	"strconv"
+	"strings"
 	"time"
+
+	rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
 )
 
 func getString(record map[string]interface{}, key string) string {
@@ -61,3 +64,34 @@ func getInt64(record map[string]interface{}, key string) int64 {
     }
     return 0 // Return 0 if value is not present or not an int64
 }
+
+func buildArrayString(array []string) []*rds_types.FieldMemberStringValue {
+    var result []*rds_types.FieldMemberStringValue
+    for _, val := range array {
+        result = append(result, &rds_types.FieldMemberStringValue{Value: val})
+    }
+    return result
+}
+
+// Retrieves a comma-separated string from the record and converts it to a slice of strings
+func getStringSlice(record map[string]interface{}, key string) []string {
+    if val, ok := record[key].(string); ok {
+        // Split the comma-separated string into a slice of strings
+        return strings.Split(val, ",")
+    }
+    return nil
+}
+
+// Converts a slice of strings into a comma-separated string
+func sliceToCommaSeparatedString(slice []string) string {
+    return strings.Join(slice, ",")
+}
+
+// Converts a comma-separated string into a slice of strings
+func commaSeparatedStringToSlice(commaStr string) []string {
+    if commaStr == "" {
+        return []string{} // Return an empty slice if the string is empty
+    }
+    return strings.Split(commaStr, ",")
+}
+

@@ -55,14 +55,15 @@ func buildSqlRegistrationFieldsParams(parameters map[string]interface{}) ([]rds_
 	}
 	params = append(params, typeField)
 
-	optionsValue, ok := parameters["options"].(string)
+	optionsValue, ok := parameters["options"].([]string)
+	optionsValueString := sliceToCommaSeparatedString(optionsValue)
 	if !ok {
 		return nil, fmt.Errorf("options is not a valid string")
 	}
 	options := rds_types.SqlParameter{
 		Name: aws.String("options"),
 		Value: &rds_types.FieldMemberStringValue{
-			Value: optionsValue,
+			Value: optionsValueString,
 		},
 	}
 	params = append(params, options)
@@ -162,7 +163,7 @@ func extractAndMapSingleRegistrationFieldsFromJSON(formattedRecords string) (*in
 		ID:                           getString(record, "id"),
 		Name:                           getString(record, "name"),
 		Type:                           getString(record, "type"),
-		Options:                           getString(record, "options"),
+		Options:                           getStringSlice(record, "options"),
 		Default:                           getString(record, "default_val"),
 		Placeholder:                           getString(record, "placeholder"),
 		Description:                           getString(record, "description"),
@@ -192,7 +193,7 @@ func extractRegistrationFieldssFromJson(formattedRecords string) ([]internal_typ
 		registrationFields.ID = getString(record, "id")
 		registrationFields.Name = getString(record, "name")
 		registrationFields.Type = getString(record, "type")
-		registrationFields.Options = getString(record, "options")
+		registrationFields.Options = getStringSlice(record, "options")
 		registrationFields.Default = getString(record, "default")
 		registrationFields.Placeholder = getString(record, "placeholder")
 		registrationFields.Description = getString(record, "description")

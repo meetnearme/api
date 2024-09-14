@@ -7,7 +7,7 @@ export async function up(db) {
     .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`gen_random_uuid()`))
     .addColumn('name', 'varchar(255)', (col) => col.notNull())
     .addColumn('type', 'varchar(50)', (col) => col.notNull())
-    .addColumn('options', 'text[]')
+    .addColumn('options', 'text')
     .addColumn('required', 'boolean', (col) => col.notNull().defaultTo(false))
     .addColumn('default_val', 'varchar(255)')
     .addColumn('placeholder', 'varchar(255)')
