@@ -37,17 +37,17 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 	}
 
-	// cfRay := GetCfRay(ctx)
-	// rayCode := ""
+	cfRay := GetCfRay(ctx)
+	rayCode := ""
 	var cfLocation helpers.CdnLocation
 	cfLocationLat := services.InitialEmptyLatLon
 	cfLocationLon := services.InitialEmptyLatLon
-	//   if len(cfRay) > 2 {
-	//     rayCode = cfRay[len(cfRay)-3:]
-	// 		cfLocation = helpers.CfLocationMap[rayCode]
-	// 	  cfLocationLat = cfLocation.Lat
-	//     cfLocationLon = cfLocation.Lon
-	//   }
+	if len(cfRay) > 2 {
+		rayCode = cfRay[len(cfRay)-3:]
+		cfLocation = helpers.CfLocationMap[rayCode]
+		cfLocationLat = cfLocation.Lat
+		cfLocationLon = cfLocation.Lon
+	}
 
 	queryParameters := apiGwV2Req.QueryStringParameters
 	startTimeStr := queryParameters["start_time"]
