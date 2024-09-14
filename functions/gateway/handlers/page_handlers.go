@@ -21,8 +21,6 @@ import (
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	ctx := r.Context()
-
-	db := transport.GetDB()
 	apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
 	if !ok {
 		log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
@@ -37,30 +35,13 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 	}
 
-func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-  // Extract parameter values from the request query parameters
-  ctx := r.Context()
-  apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-  if !ok {
-    log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
-    // For testing or non-API gateway envs
-    apiGwV2Req = events.APIGatewayV2HTTPRequest{
-      RequestContext: events.APIGatewayV2HTTPRequestContext{
-        HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
-          Method: r.Method,
-          Path: r.URL.Path,
-        },
-      },
-    }
-  }
-
-  cfRay := GetCfRay(ctx)
-  rayCode := ""
+	cfRay := GetCfRay(ctx)
+	rayCode := ""
 	var cfLocation helpers.CdnLocation
-  cfLocationLat := services.InitialEmptyLatLong
-  cfLocationLon := services.InitialEmptyLatLong
-  if len(cfRay) > 2 {
-    rayCode = cfRay[len(cfRay)-3:]
+	cfLocationLat := services.InitialEmptyLatLong
+	cfLocationLon := services.InitialEmptyLatLong
+	if len(cfRay) > 2 {
+		rayCode = cfRay[len(cfRay)-3:]
 		cfLocation = helpers.CfLocationMap[rayCode]
 		cfLocationLat = cfLocation.Lat
 		cfLocationLon = cfLocation.Lon
@@ -89,30 +70,30 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		endTime, _ = time.Parse(time.RFC3339, endTimeStr)
 	}
 	if latStr != "" {
-			lat64, _ := strconv.ParseFloat(latStr, 32)
-			lat = float64(lat64)
-	} else if cfLocationLat != services.InitialEmptyLatLong  {
-      lat = float64(cfLocationLat)
-  }
+		lat64, _ := strconv.ParseFloat(latStr, 32)
+		lat = float64(lat64)
+	} else if cfLocationLat != services.InitialEmptyLatLong {
+		lat = float64(cfLocationLat)
+	}
 	if longStr != "" {
-			long64, _ := strconv.ParseFloat(longStr, 32)
-			long = float64(long64)
+		long64, _ := strconv.ParseFloat(longStr, 32)
+		long = float64(long64)
 	} else if cfLocationLon != services.InitialEmptyLatLong {
-      long = float64(cfLocationLon)
-  }
+		long = float64(cfLocationLon)
+	}
 	if radiusStr != "" {
-			radius64, _ := strconv.ParseFloat(radiusStr, 32)
-			radius = float64(radius64)
+		radius64, _ := strconv.ParseFloat(radiusStr, 32)
+		radius = float64(radius64)
 	}
 
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
-			return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	// startTime, endTime, lat, lon, radius
 	// TODO: Use startTime / endTime in query and remove this log before merging
- 	log.Printf("startTime: %v, endTime: %v, lat: %v, long: %v, radius: %v", startTime, endTime, lat, long, radius)
+	log.Printf("startTime: %v, endTime: %v, lat: %v, long: %v, radius: %v", startTime, endTime, lat, long, radius)
 	userLocation := []float64{lat, long}
 
 	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
@@ -129,19 +110,19 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	events := res.Events
 
-  var userInfo helpers.UserInfo
+	var userInfo helpers.UserInfo
 	if ctx.Value("userInfo") != nil {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
-  }
-  homePage := pages.HomePage(events, cfLocation, latStr, longStr)
-  layoutTemplate := pages.Layout("Home", userInfo, homePage)
+	}
+	homePage := pages.HomePage(events, cfLocation, latStr, longStr)
+	layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
-  var buf bytes.Buffer
-  err = layoutTemplate.Render(ctx, &buf)
-  if err != nil {
-    return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
-  }
-  return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	var buf bytes.Buffer
+	err = layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
