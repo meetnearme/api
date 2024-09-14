@@ -37,13 +37,30 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 	}
 
-	cfRay := GetCfRay(ctx)
-	rayCode := ""
+func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+  // Extract parameter values from the request query parameters
+  ctx := r.Context()
+  apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+  if !ok {
+    log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
+    // For testing or non-API gateway envs
+    apiGwV2Req = events.APIGatewayV2HTTPRequest{
+      RequestContext: events.APIGatewayV2HTTPRequestContext{
+        HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
+          Method: r.Method,
+          Path: r.URL.Path,
+        },
+      },
+    }
+  }
+
+  cfRay := GetCfRay(ctx)
+  rayCode := ""
 	var cfLocation helpers.CdnLocation
-	cfLocationLat := services.InitialEmptyLatLon
-	cfLocationLon := services.InitialEmptyLatLon
-	if len(cfRay) > 2 {
-		rayCode = cfRay[len(cfRay)-3:]
+  cfLocationLat := services.InitialEmptyLatLong
+  cfLocationLon := services.InitialEmptyLatLong
+  if len(cfRay) > 2 {
+    rayCode = cfRay[len(cfRay)-3:]
 		cfLocation = helpers.CfLocationMap[rayCode]
 		cfLocationLat = cfLocation.Lat
 		cfLocationLon = cfLocation.Lon
@@ -53,15 +70,16 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	startTimeStr := queryParameters["start_time"]
 	endTimeStr := queryParameters["end_time"]
 	latStr := queryParameters["lat"]
-	lonStr := queryParameters["lon"]
+	longStr := queryParameters["lon"]
 	radiusStr := queryParameters["radius"]
+	q := queryParameters["q"]
 
 	// Set default values if query parameters are not provided
 	startTime := time.Now()
 	endTime := startTime.AddDate(100, 0, 0)
-	lat := float32(39.8283)
-	lon := float32(-98.5795)
-	radius := float32(2500.0)
+	lat := float64(39.8283)
+	long := float64(-98.5795)
+	radius := float64(2500.0)
 
 	// Parse parameter values if provided
 	if startTimeStr != "" {
@@ -71,42 +89,59 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		endTime, _ = time.Parse(time.RFC3339, endTimeStr)
 	}
 	if latStr != "" {
-		lat64, _ := strconv.ParseFloat(latStr, 32)
-		lat = float32(lat64)
-	} else if cfLocationLat != services.InitialEmptyLatLon {
-		lat = float32(cfLocationLat)
-	}
-	if lonStr != "" {
-		lon64, _ := strconv.ParseFloat(lonStr, 32)
-		lon = float32(lon64)
-	} else if cfLocationLon != services.InitialEmptyLatLon {
-		lon = float32(cfLocationLon)
-	}
+			lat64, _ := strconv.ParseFloat(latStr, 32)
+			lat = float64(lat64)
+	} else if cfLocationLat != services.InitialEmptyLatLong  {
+      lat = float64(cfLocationLat)
+  }
+	if longStr != "" {
+			long64, _ := strconv.ParseFloat(longStr, 32)
+			long = float64(long64)
+	} else if cfLocationLon != services.InitialEmptyLatLong {
+      long = float64(cfLocationLon)
+  }
 	if radiusStr != "" {
-		radius64, _ := strconv.ParseFloat(radiusStr, 32)
-		radius = float32(radius64)
+			radius64, _ := strconv.ParseFloat(radiusStr, 32)
+			radius = float64(radius64)
 	}
 
-	// Call the GetEventsZOrder service to retrieve events
-	events, err := services.GetEventsZOrder(ctx, db, startTime, endTime, lat, lon, radius)
-
+	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get events by ZOrder: "+err.Error()), http.StatusInternalServerError, err)
+			return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	var userInfo helpers.UserInfo
+	// startTime, endTime, lat, lon, radius
+	// TODO: Use startTime / endTime in query and remove this log before merging
+ 	log.Printf("startTime: %v, endTime: %v, lat: %v, long: %v, radius: %v", startTime, endTime, lat, long, radius)
+	userLocation := []float64{lat, long}
+
+	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+
+	ownerIds := []string{}
+	if subdomainValue != "" {
+		ownerIds = append(ownerIds, subdomainValue)
+	}
+
+	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, ownerIds)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	events := res.Events
+
+  var userInfo helpers.UserInfo
 	if ctx.Value("userInfo") != nil {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
-	}
-	homePage := pages.HomePage(events, cfLocation, latStr, lonStr)
-	layoutTemplate := pages.Layout("Home", userInfo, homePage)
+  }
+  homePage := pages.HomePage(events, cfLocation, latStr, longStr)
+  layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
-	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
-	}
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+  var buf bytes.Buffer
+  err = layoutTemplate.Render(ctx, &buf)
+  if err != nil {
+    return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+  }
+  return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -167,13 +202,14 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		fmt.Println("No event ID provided. Redirecting to home page.")
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
-	db := transport.GetDB()
-
-	event, err := services.GetEventById(ctx, db, eventId)
+	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
 	}
-
+	event, err := services.GetMarqoEventByID(marqoClient, eventId)
+	if err != nil || event.Id == "" {
+		event = &services.Event{}
+	}
 	eventDetailsPage := pages.EventDetailsPage(*event)
 	var userInfo helpers.UserInfo
 	if ctx.Value("userInfo") != nil {

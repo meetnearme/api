@@ -407,12 +407,12 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			log.Println("Failed to get SeshuSession. ID: ", session, err)
 		}
 
-		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLon`
+		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLong`
 		// which is an intentionally invalid placeholder
 
 		hasDefaultLat := false
 		latMatch, err := regexp.MatchString(services.LatitudeRegex, fmt.Sprint(session.LocationLatitude))
-		if session.LocationLatitude == services.InitialEmptyLatLon {
+		if session.LocationLatitude == services.InitialEmptyLatLong {
 			hasDefaultLat = false
 		} else if err != nil || !latMatch {
 			hasDefaultLat = true
@@ -420,9 +420,9 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 		hasDefaultLon := false
 		lonMatch, err := regexp.MatchString(services.LongitudeRegex, fmt.Sprint(session.LocationLongitude))
-		if session.LocationLongitude == services.InitialEmptyLatLon {
+		if session.LocationLongitude == services.InitialEmptyLatLong {
 			hasDefaultLon = false
-		} else if err != nil || !lonMatch || session.LocationLongitude == services.InitialEmptyLatLon {
+		} else if (err != nil || !lonMatch || session.LocationLongitude == services.InitialEmptyLatLong) {
 			hasDefaultLon = true
 		}
 

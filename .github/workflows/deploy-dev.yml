@@ -42,6 +42,7 @@ jobs:
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE_URL: ${{ secrets.OPENAI_API_KEY }}
           ZITADEL_CLIENT_ID: ${{ secrets.ZITADEL_CLIENT_ID }}
           ZITADEL_ENCRYPTION_KEY: ${{ secrets.ZITADEL_ENCRYPTION_KEY }}
           ZITADEL_INSTANCE_HOST: ${{ secrets.ZITADEL_INSTANCE_HOST }}
@@ -50,6 +51,11 @@ jobs:
           CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_API_BASE_URL: ${{ secrets.CLOUDFLARE_API_BASE_URL }}
+          MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
+          PROD_MARQO_API_BASE_URL: ${{ secrets.PROD_MARQO_API_BASE_URL }}
+          DEV_MARQO_API_BASE_URL: ${{ secrets.DEV_MARQO_API_BASE_URL }}
+          PROD_MARQO_INDEX_NAME: ${{ secrets.PROD_MARQO_INDEX_NAME }}
+          DEV_MARQO_INDEX_NAME: ${{ secrets.DEV_MARQO_INDEX_NAME }}
       - name: Generate Cloudflare locations Go file
         uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Deploy AWS resources via SST

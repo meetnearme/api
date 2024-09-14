@@ -52,9 +52,19 @@ func init() {
 		// the complexity is we might want "in the middle", which would be "auto-refresh
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
-		{"/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventDetailsPage, Check},
-		{"/api/user/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
-		{"/api/event", "POST", handlers.CreateEventHandler, None},
+		{"/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventDetailsPage, Check}
+
+    // API routes
+
+    // == START == need to expose these via permanent key for headless clients
+    {"/api/event", "POST", handlers.PostEventHandler, None},
+    {"/api/events", "POST", handlers.PostBatchEventsHandler, None},
+    {"/api/events", "GET", handlers.SearchEventsHandler, None},
+    {"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
+    //  == END == need to expose these via permanent key for headless clients
+
+// {"/api/event", "POST", handlers.CreateEventHandler, None},
+    {"/api/user/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo", "POST", handlers.GeoLookup, None},

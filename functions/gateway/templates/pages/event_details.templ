@@ -6,35 +6,55 @@ import (
 	"os"
 )
 
-templ EventDetailsPage(event services.EventSelect) {
+templ EventDetailsPage(event services.Event) {
 	<div class="max-w-prose mx-auto">
-		<h2 class="text-3xl mt-2">{ event.Name }</h2>
-		// <h3>Event Id: { eventId }</h3>
-		<br/>
-		<p>
-			<img style="display: inline-block;" alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/location.svg") }/> <strong>Location:</strong> { event.Address }
+		if event.Id == "" {
 			<br/>
 			<br/>
-			<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> { helpers.FormatDate(event.Datetime) }
 			<br/>
 			<br/>
-			<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/clock.svg") }/><strong>Time:</strong> { helpers.FormatTime(event.Datetime) }
+			<br/>
+			<h2 class="text-3xl mt-2 text-center">404 - Can't Find That Event</h2>
 			<br/>
 			<br/>
-			<strong>Price:</strong> $10.00
 			<br/>
 			<br/>
-			<h3 class="text-xl">EVENT DESCRIPTION</h3>
 			<br/>
 			<br/>
-			{ event.Description }
-		</p>
-		<div class="bottom-drawer">
-			<button class="btn btn-block btn-primary">RSVP</button>
 			<br/>
 			<br/>
-			<button class="btn btn-block btn-primary btn-outline text-neutral-content">Interested, can't make it!</button>
-		</div>
+			<br/>
+		} else {
+			<h2 class="text-3xl mt-2">{ event.Name }</h2>
+			// <h3>Event Id: { eventId }</h3>
+			<br/>
+			<p>
+				<img style="display: inline-block;" alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/location.svg") }/> <strong>Location:</strong> { event.Address }
+				<br/>
+				<br/>
+				<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> { GetDateOrShowNone(event.StartTime) }
+				<br/>
+				<br/>
+				<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/clock.svg") }/><strong>Time:</strong> { GetTimeOrShowNone(event.StartTime) }
+				<br/>
+				<br/>
+				<strong>Price:</strong> $10.00
+				<br/>
+				<br/>
+				<h3 class="text-xl">EVENT DESCRIPTION</h3>
+				<br/>
+				<br/>
+				{ event.Description }
+			</p>
+			<div class="bottom-drawer">
+				<div class="container mx-auto">
+					<button class="btn btn-block btn-primary">RSVP</button>
+					<br/>
+					<br/>
+					<button class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Interested, can't make it!</button>
+				</div>
+			</div>
+		}
 	</div>
 	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event.Id)) }/>
 }
