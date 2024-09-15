@@ -398,8 +398,8 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr s
 						</a>
 						<div class="flex flex-col justify-between w-full p-4 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
 							<div class="mb-2">
-								<h2 class="text-xl">{ ev.Name }</h2>
-								<p class="text-sm">{ ev.Address } | { GetDateOrShowNone(ev.StartTime) } | { GetTimeOrShowNone(ev.StartTime) }</p>
+								<h2 class="text-2xl">{ ev.Name }</h2>
+								<p class="text-sm md:text-lg">{ ev.Address } | { GetDateOrShowNone(ev.StartTime) } | { GetTimeOrShowNone(ev.StartTime) }</p>
 							</div>
 							<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block">
 								LEARN MORE
