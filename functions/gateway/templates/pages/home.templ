@@ -235,10 +235,10 @@ func GetTimeOrShowNone(time int64) string {
 
 templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr string, lonStr string) {
 	<div class="header-hero">
-		<h1 class="text-2xl md:text-5xl text-center mb-5">
-			Push Your Boundaries.
+		<h1 class="title text-xl md:text-5xl text-center mb-5">
+			Push Your Boundaries
 			<br/>
-			Explore Your World.
+			Through Local Events
 		</h1>
 	</div>
 	<div class="min-h-screen">
@@ -385,8 +385,8 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr s
 		} else {
 			<main class="p-4 space-y-4 md:grid md:grid-cols-1 md:gap-4 md:space-y-0">
 				for _, ev := range events {
-					<div class="md:flex md:flex-row overflow-hidden relative">
-						<a class="flex w-full md:w-1/2 h-96 md:h-72" href={ templ.URL("/events/" + ev.Id) }>
+					<div class="overflow-hidden relative">
+						<a class="flex w-full h-96" href={ templ.URL("/events/" + ev.Id) }>
 							<img
 								src={ templ.EscapeString(helpers.GetImgUrlFromHash(ev.Id)) }
 								alt=""
@@ -396,7 +396,7 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr s
 								style="opacity: 0.3; aspect-ratio: 400 / 200; object-fit: cover;"
 							/>
 						</a>
-						<div class="flex flex-col justify-between w-full md:w-1/2 p-4 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0 md:relative">
+						<div class="flex flex-col justify-between w-full p-4 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
 							<div class="mb-2">
 								<h2 class="text-xl">{ ev.Name }</h2>
 								<p class="text-sm">{ ev.Address } | { GetDateOrShowNone(ev.StartTime) } | { GetTimeOrShowNone(ev.StartTime) }</p>
