@@ -16,9 +16,13 @@
   }
 }
 
-.brand {
+.brand-logo {
   width: 3rem;
   height: 4.5rem;
+}
+
+.brand-type {
+  width: 8.2rem;
 }
 
 .drawer-end .drawer-toggle ~ .drawer-side {
