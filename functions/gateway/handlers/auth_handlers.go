@@ -19,8 +19,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return http.HandlerFunc(nil)
 	}
 
-	http.Redirect(w, r, authURL.String(), http.StatusFound)
-	return http.HandlerFunc(nil)
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, authURL.String(), http.StatusFound)
+	}
 }
 
 func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -76,11 +77,14 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if appState != "" {
 		userRedirectURL = appState
 	}
-	http.Redirect(w, r, userRedirectURL, http.StatusFound)
-	return http.HandlerFunc(nil)
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, userRedirectURL, http.StatusFound)
+	}
 }
 
 func HandleLogout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	services.HandleLogout(w, r)
-	return http.HandlerFunc(nil)
+	return func(w http.ResponseWriter, r *http.Request) {
+		services.HandleLogout(w, r)
+	}
 }
