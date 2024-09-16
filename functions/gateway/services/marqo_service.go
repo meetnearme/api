@@ -40,8 +40,10 @@ type EventSearchResponse struct {
 func GetMarqoIndexName () string {
 	sstStage := os.Getenv("SST_STAGE")
 	if sstStage == "prod" {
+		log.Printf("returning PROD_MARQO_INDEX_NAME: %v", os.Getenv("PROD_MARQO_INDEX_NAME"))
 		return os.Getenv("PROD_MARQO_INDEX_NAME")
 	} else {
+		log.Printf("returning DEV_MARQO_INDEX_NAME: %v", os.Getenv("DEV_MARQO_INDEX_NAME"))
 		return os.Getenv("DEV_MARQO_INDEX_NAME")
 	}
 
@@ -53,20 +55,21 @@ func GetMarqoClient() (*marqo.Client, error) {
 
 	sstStage := os.Getenv("SST_STAGE")
 	if sstStage == "prod" {
-		log.Println("ONE !")
+
 		apiBaseUrl = os.Getenv("PROD_MARQO_API_BASE_URL")
+		log.Printf("ONE ! .. apiBaseUrl: %v", apiBaseUrl)
 	// IMPORTANT: This assumes we don't set `SST_STAGE`
 	// in unit tests, we assume this is a non-prod deployment
 	} else if sstStage != "" {
-		log.Println("TWO !")
 		apiBaseUrl = os.Getenv("DEV_MARQO_API_BASE_URL")
+		log.Printf("TWO ! .. apiBaseUrl: %v", apiBaseUrl)
 	} else if os.Getenv("GO_ENV") == helpers.GO_TEST_ENV {
-		log.Println("THREE !")
 		apiBaseUrl = os.Getenv("DEV_MARQO_API_BASE_URL")
+		log.Printf("THREE ! .. apiBaseUrl: %v", apiBaseUrl)
 	} else {
-		log.Println("FOUR !")
 		// set to local host if no marqo lb is set
 		apiBaseUrl = "http://localhost:8882"
+		log.Printf("FOUR ! .. apiBaseUrl: %v", apiBaseUrl)
 	}
 
 	// Get the bearer token from an environment variable
@@ -127,7 +130,7 @@ func GetMarqoClient() (*marqo.Client, error) {
 // 		{"name": "recurrenceRule", "type": "text"},
 // 		{"name": "hasRegistrationFields", "type": "bool", "features": ["filter"]},
 // 		{"name": "hasPurchasable", "type": "bool", "features": ["filter"]},
-// 		{"name": "payeeId", "type": "text"},
+// 		{"name": "payeeId", "type": "text", "features": ["filter"]},
 // 		{"name": "imageUrl", "type": "text"},
 // 		{"name": "lat", "type": "double", "features": ["filter"]},
 // 		{"name": "long", "type": "double", "features": ["filter"]},
