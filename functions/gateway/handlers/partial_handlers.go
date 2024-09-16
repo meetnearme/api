@@ -57,7 +57,6 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
 	userID := userInfo.Sub
-	log.Printf("UserInfo in set subdomain: %v", userID)
 
 	// Call Cloudflare KV store to save the subdomain
 	metadata := map[string]string{"": ""}

@@ -157,7 +157,6 @@ func (app *App) addRoute(route Route) {
 			}
 
 			accessToken := "Bearer " + accessTokenCookie.Value
-			log.Printf("Access token from cookie: %v", accessToken)
 
 			// Use the Authorizer to introspect the access token
 			authCtx, err := app.AuthZ.CheckAuthorization(r.Context(), accessToken)
@@ -198,7 +197,6 @@ func (app *App) addRoute(route Route) {
 				route.Handler(w, r).ServeHTTP(w, r)
 				return
 			}
-			log.Printf("User ID: %v", authCtx.Subject)
 
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
