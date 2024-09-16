@@ -11,87 +11,86 @@ import (
 )
 
 func init() {
-    os.Setenv("GO_ENV", GO_TEST_ENV)
+	os.Setenv("GO_ENV", GO_TEST_ENV)
 }
-
 
 func TestFormatDate(t *testing.T) {
 	tests := []struct {
-			name string
-			input string
-			expected string
-			expectedError string
+		name          string
+		input         string
+		expected      string
+		expectedError string
 	}{
-			{"Valid date", "2099-05-01T12:00:00Z", "May 1, 2099 (Fri)", ""},
-			{"Invalid date", "invalid-date", "", "not a valid unix timestamp"},
-			{"Empty string", "", "", "not a valid unix timestamp"},
+		{"Valid date", "2099-05-01T12:00:00Z", "May 1, 2099 (Fri)", ""},
+		{"Invalid date", "invalid-date", "", "not a valid unix timestamp"},
+		{"Empty string", "", "", "not a valid unix timestamp"},
 	}
 
 	for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-					date, err := UtcOrUnixToUnix64(tt.input)
-					result, err := FormatDate(date)
-					if tt.expectedError!= "" && !strings.Contains(err.Error(), tt.expectedError) {
-							t.Errorf("Expected err to have: %v, got: %v", tt.expectedError, err)
-					} else if result != tt.expected {
-							t.Errorf("FormatDate(%q) = %q, want %q", tt.input, result, tt.expected)
-					}
-			})
+		t.Run(tt.name, func(t *testing.T) {
+			date, err := UtcOrUnixToUnix64(tt.input)
+			result, err := FormatDate(date)
+			if tt.expectedError != "" && !strings.Contains(err.Error(), tt.expectedError) {
+				t.Errorf("Expected err to have: %v, got: %v", tt.expectedError, err)
+			} else if result != tt.expected {
+				t.Errorf("FormatDate(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
 	}
 }
 
 func TestFormatTime(t *testing.T) {
 	tests := []struct {
-			name string
-			input string
-			expected string
-			expectedError string
+		name          string
+		input         string
+		expected      string
+		expectedError string
 	}{
-			{"Valid time", "2099-05-01T14:30:00Z", "2:30pm", ""},
-			{"Invalid time", "invalid-time", "", "not a valid unix timestamp"},
-			{"Empty string", "", "", "not a valid unix timestamp"},
+		{"Valid time", "2099-05-01T14:30:00Z", "2:30pm", ""},
+		{"Invalid time", "invalid-time", "", "not a valid unix timestamp"},
+		{"Empty string", "", "", "not a valid unix timestamp"},
 	}
 
 	for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				  tm, err := UtcOrUnixToUnix64(tt.input)
-					result, err := FormatTime(tm)
-					if tt.expectedError!= "" && !strings.Contains(err.Error(), tt.expectedError) {
-							t.Errorf("Expected err to have: %v, got: %v", tt.expectedError, err)
-					} else if result != tt.expected {
-							t.Errorf("FormatTime(%q) = %q, want %q", tt.input, result, tt.expected)
-					}
-			})
+		t.Run(tt.name, func(t *testing.T) {
+			tm, err := UtcOrUnixToUnix64(tt.input)
+			result, err := FormatTime(tm)
+			if tt.expectedError != "" && !strings.Contains(err.Error(), tt.expectedError) {
+				t.Errorf("Expected err to have: %v, got: %v", tt.expectedError, err)
+			} else if result != tt.expected {
+				t.Errorf("FormatTime(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
 	}
 }
 
 func TestTruncateStringByBytes(t *testing.T) {
 	tests := []struct {
-			name string
-			input1 string
-			input2 int
-			expected string
+		name     string
+		input1   string
+		input2   int
+		expected string
 	}{
-			{"Truncate exceeds by one", "123456789012345678901", 20, "12345678901234567890"},
+		{"Truncate exceeds by one", "123456789012345678901", 20, "12345678901234567890"},
 	}
 
 	for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-					result, _ := TruncateStringByBytes(tt.input1, tt.input2)
-					if result != tt.expected {
-							t.Errorf("TruncateStringByBytes(%q) = %q, want %q", tt.input1, result, tt.expected)
-					}
-			})
+		t.Run(tt.name, func(t *testing.T) {
+			result, _ := TruncateStringByBytes(tt.input1, tt.input2)
+			if result != tt.expected {
+				t.Errorf("TruncateStringByBytes(%q) = %q, want %q", tt.input1, result, tt.expected)
+			}
+		})
 	}
 }
 
 func TestGetImgUrlFromHash(t *testing.T) {
 	tests := []struct {
-			name string
-			input string
-			expected string
+		name     string
+		input    string
+		expected string
 	}{
-			{"Valid hash", "1234567890", "/assets/img/0.png"},
+		{"Valid hash", "1234567890", "/assets/img/0.png"},
 	}
 
 	for _, tt := range tests {
@@ -192,28 +191,28 @@ func TestSetCloudFlareKV(t *testing.T) {
 
 	// Test cases
 	tests := []struct {
-		name           string
-		subdomainValue string
-		userID         string
+		name            string
+		subdomainValue  string
+		userID          string
 		userMetadataKey string
-		metadata       map[string]string
-		expectedError  error
+		metadata        map[string]string
+		expectedError   error
 	}{
 		{
-			name:           "Successful KV set",
-			subdomainValue: "test-subdomain",
-			userID:         "test-user-id",
+			name:            "Successful KV set",
+			subdomainValue:  "test-subdomain",
+			userID:          "test-user-id",
 			userMetadataKey: "test-metadata-key",
-			metadata:       map[string]string{"key": "value"},
-			expectedError:  nil,
+			metadata:        map[string]string{"key": "value"},
+			expectedError:   nil,
 		},
 		{
-			name:           "Key already exists",
-			subdomainValue: "existing-subdomain",
-			userID:         "test-user-id",
+			name:            "Key already exists",
+			subdomainValue:  "existing-subdomain",
+			userID:          "test-user-id",
 			userMetadataKey: "test-metadata-key",
-			metadata:       map[string]string{"key": "value"},
-			expectedError:  fmt.Errorf(ERR_KV_KEY_EXISTS),
+			metadata:        map[string]string{"key": "value"},
+			expectedError:   fmt.Errorf(ERR_KV_KEY_EXISTS),
 		},
 	}
 

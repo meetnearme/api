@@ -22,15 +22,15 @@ import (
 )
 
 var (
-	domain        = flag.String("domain", os.Getenv("ZITADEL_INSTANCE_URL"), "your ZITADEL instance domain (in the form: https://<instance>.zitadel.cloud or https://<yourdomain>)")
+	domain        = flag.String("domain", os.Getenv("ZITADEL_INSTANCE_HOST"), "your ZITADEL instance domain (in the form: https://<instance>.zitadel.cloud or https://<yourdomain>)")
 	key           = flag.String("key", os.Getenv("ZITADEL_ENCRYPTION_KEY"), "encryption key")
 	clientID      = flag.String("clientID", os.Getenv("ZITADEL_CLIENT_ID"), "clientID provided by ZITADEL")
 	clientSecret  = flag.String("clientSecret", os.Getenv("ZITADEL_CLIENT_SECRET"), "clientSecret provided by ZITADEL")
 	redirectURI   = flag.String("redirectURI", string(os.Getenv("APEX_URL")+"/auth/callback"), "redirect URI registered with ZITADEL")
 	loginPageURI  = flag.String("loginPageURI", string(os.Getenv("APEX_URL")), "App login page URI")
-	authorizeURI  = flag.String("authorizeURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_URL")+"/oauth/v2/authorize"), "Zitadel authorizeURL")
-	tokenURI      = flag.String("tokenURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_URL")+"/oauth/v2/token"), "Zitadel endpoint to exchange code challenge and verifier for token")
-	endSessionURI = flag.String("endSessionURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_URL")+"/oidc/v1/end_session"), "Zitadel logout URI")
+	authorizeURI  = flag.String("authorizeURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_HOST")+"/oauth/v2/authorize"), "Zitadel authorizeURL")
+	tokenURI      = flag.String("tokenURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_HOST")+"/oauth/v2/token"), "Zitadel endpoint to exchange code challenge and verifier for token")
+	endSessionURI = flag.String("endSessionURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_HOST")+"/oidc/v1/end_session"), "Zitadel logout URI")
 	authZ         *authorization.Authorizer[*oauth.IntrospectionContext]
 	once          sync.Once
 )

@@ -206,7 +206,7 @@ func DeleteCloudflareKV(subdomainValue, userID string) error {
 }
 
 func GetUserMetadataByKey(userID, key string) (string, error) {
-	url := fmt.Sprintf(defaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_URL"), userID, key)
+	url := fmt.Sprintf(defaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "GET"
 
 	client := &http.Client{}
@@ -253,7 +253,7 @@ func GetUserMetadataByKey(userID, key string) (string, error) {
 }
 
 func UpdateUserMetadataKey(userID, key, value string) error {
-	url := fmt.Sprintf(defaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_URL"), userID, key)
+	url := fmt.Sprintf(defaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "POST"
 
 	payload := strings.NewReader(`{
