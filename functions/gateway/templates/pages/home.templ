@@ -383,10 +383,10 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr s
 				No events found, try enabling geolocation or changing your location, date, or time
 			</p>
 		} else {
-			<main class="p-4 space-y-4 md:grid md:grid-cols-1 md:gap-4 md:space-y-0">
+			<main class="p-4 space-y-4 md:grid md:grid-cols-1 md:gap-4 md:space-y-0 md:justify-items-center">
 				for _, ev := range events {
-					<div class="overflow-hidden relative">
-						<a class="flex w-full h-96" href={ templ.URL("/events/" + ev.Id) }>
+					<div class="overflow-hidden relative md:max-w-screen-lg">
+						<a class="flex w-full" href={ templ.URL("/events/" + ev.Id) }>
 							<img
 								src={ templ.EscapeString(helpers.GetImgUrlFromHash(ev.Id)) }
 								alt=""
