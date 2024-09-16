@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/rdsdata"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -93,4 +94,18 @@ func GetNextPort() int {
 }
 
 
+// MockRdsDataClient is a mock implementation of an RDS Data API client
+type MockRdsDataClient struct {
+	ExecStatementFunc func(ctx context.Context, sql string) (*rdsdata.ExecuteStatementOutput, error)
+}
 
+// ExecStatement simulates the execution of a SQL statement.
+func (m *MockRdsDataClient) ExecStatement(ctx context.Context, sql string) (*rdsdata.ExecuteStatementOutput, error) {
+	if m.ExecStatementFunc != nil {
+		return m.ExecStatementFunc(ctx, sql)
+	}
+	return nil, fmt.Errorf("ExecStatementFunc not set")
+}
+
+// Ensure MockRdsDataClient implements the RDSDataAPI interface
+var _ types.RDSDataAPI = (*MockRdsDataClient)(nil)
