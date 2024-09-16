@@ -222,12 +222,23 @@ curl -X DELETE https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/event-
 ## Registration Fields
 1. Create Registration Fields
 ```bash
+curl -X POST http://localhost:3000/api/registration-fields \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "Some Field",
+  "type": "dropdown",
+  "required": true,
+  "default": "Option 1",
+  "placeholder": "Select an option",
+  "description": "A field for selecting options"
+}'
+
 curl -X POST https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/registration-fields \
 -H "Content-Type: application/json" \
 -d '{
   "name": "Gaming Night",
   "type": "game event",
-  "options": "",
+  "options": ["Option 1", "Option 2", "Option 3"],
   "required": true,
   "default": "",
   "placeholder": "Enter your email",
