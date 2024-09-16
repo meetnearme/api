@@ -3,10 +3,12 @@ package test_helpers
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/rdsdata"
+	rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -96,13 +98,13 @@ func GetNextPort() int {
 
 // MockRdsDataClient is a mock implementation of an RDS Data API client
 type MockRdsDataClient struct {
-	ExecStatementFunc func(ctx context.Context, sql string) (*rdsdata.ExecuteStatementOutput, error)
+	ExecStatementFunc func(ctx context.Context, sql string, parameters []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error)
 }
 
 // ExecStatement simulates the execution of a SQL statement.
-func (m *MockRdsDataClient) ExecStatement(ctx context.Context, sql string) (*rdsdata.ExecuteStatementOutput, error) {
+func (m *MockRdsDataClient) ExecStatement(ctx context.Context, sql string, parameters []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
 	if m.ExecStatementFunc != nil {
-		return m.ExecStatementFunc(ctx, sql)
+		return m.ExecStatementFunc(ctx, sql, parameters)
 	}
 	return nil, fmt.Errorf("ExecStatementFunc not set")
 }
