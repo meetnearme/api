@@ -235,6 +235,10 @@ func GetUserMetadataByKey(userID, key string) (string, error) {
 	}
 
 	log.Printf("metadata: %v", respData)
+	if len(respData) == 0 || respData["metadata"] == nil {
+		log.Printf("respData is empty or nil")
+		return "", nil
+	}
 	metadata, ok := respData["metadata"].(map[string]interface{})
 	if !ok {
 		return "", fmt.Errorf("metadata is not of type map[string]interface{}")
