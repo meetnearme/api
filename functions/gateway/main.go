@@ -173,7 +173,6 @@ func (app *App) addRoute(route Route) {
 				return
 			}
 			err = json.Unmarshal(data, &userInfo)
-			log.Printf("User info %v", userInfo)
 			if err != nil {
 				http.Error(w, "Unauthorized: Unable to fetch user information", http.StatusUnauthorized)
 				return
@@ -199,6 +198,7 @@ func (app *App) addRoute(route Route) {
 				route.Handler(w, r).ServeHTTP(w, r)
 				return
 			}
+			log.Printf("User ID: %v", authCtx.Subject)
 
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")

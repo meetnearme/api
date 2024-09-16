@@ -22,10 +22,9 @@ type UserInfo struct {
 	Locale            string `json:"locale"`
 	Name              string `json:"name"`
 	PreferredUsername string `json:"preferred_username"`
-	Sub               string `json:"sub"`
+	Sub               string `json:"sub"` // This is the userID
 	UpdatedAt         int    `json:"updated_at"`
 	Metadata          string `json:"metadata"`
-	ID                string `json:"id"`
 }
 
 type Category struct {

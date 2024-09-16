@@ -56,7 +56,8 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
 	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
-	userID := userInfo.ID
+	userID := userInfo.Sub
+	log.Printf("UserInfo in set subdomain: %v", userID)
 
 	// Call Cloudflare KV store to save the subdomain
 	metadata := map[string]string{"": ""}
@@ -422,7 +423,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		lonMatch, err := regexp.MatchString(services.LongitudeRegex, fmt.Sprint(session.LocationLongitude))
 		if session.LocationLongitude == services.InitialEmptyLatLong {
 			hasDefaultLon = false
-		} else if (err != nil || !lonMatch || session.LocationLongitude == services.InitialEmptyLatLong) {
+		} else if err != nil || !lonMatch || session.LocationLongitude == services.InitialEmptyLatLong {
 			hasDefaultLon = true
 		}
 

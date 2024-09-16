@@ -222,9 +222,8 @@ func TestGetProfilePage(t *testing.T) {
 		FamilyName:        "User",
 		Name:              "Demo User",
 		PreferredUsername: "test@domain.com",
-		Sub:               "",
+		Sub:               "testID",
 		UpdatedAt:         123234234,
-		ID:                "testID",
 	}
 	ctx := context.WithValue(req.Context(), "userInfo", mockUserInfo)
 	req = req.WithContext(ctx)

@@ -89,7 +89,7 @@ func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string) (*url.U
 	query.Set("client_id", *clientID)
 	query.Set("redirect_uri", *redirectURI)
 	query.Set("response_type", "code") // 'code' for authorization code grant
-	query.Set("scope", "oidc profile email offline_access")
+	query.Set("scope", "openid oidc profile email offline_access")
 	query.Set("code_challenge", codeChallenge)
 	query.Set("code_challenge_method", "S256")
 	query.Set("state", userRedirectURL)
