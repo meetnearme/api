@@ -126,7 +126,7 @@ Do not truncate the response with an ellipsis ` + "`...`" + `, list the full eve
 
 
 ` + "```" + `
-[{"event_title": "Fake Event Title 1", "event_location": "Nowhere City, NM 11111", "event_date": "Sep 26, 5:30-7:30pm", "event_url": "http://example.com/events/12345"},{"event_title": "Fake Event Title 2", "event_location": "Nowhere City, NM 11111", "event_date": "Oct 13, 6:30-7:30am", "event_url": "http://example.com/events/98765"}]
+[{"event_title": "` + services.FakeEventTitle1 +`", "event_location": "` + services.FakeCity + `", "event_start_time": "` + services.FakeStartTime1 +`", "event_end_time": "` + services.FakeEndTime1 + `", event_url": "` + services.FakeUrl1 + `"},{"event_title": "` + services.FakeEventTitle2 + `", "event_location": "` + services.FakeCity + `", "event_start_time": "` + services.FakeStartTime2 + `", "event_end_time": "` + services.FakeEndTime2 + `", "event_url": "` + services.FakeUrl2 + `"}]
 ` + "```" + `
 
 The input is:
@@ -134,9 +134,11 @@ The input is:
 const textStrings = `
 
 var db types.DynamoDBAPI
+var scrapingService services.ScrapingService
 
 func init() {
 	db = transport.CreateDbClient()
+	scrapingService = &services.RealScrapingService{}
 }
 
 func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
@@ -144,13 +146,13 @@ func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.La
     case "POST":
 				req.Headers["Access-Control-Allow-Origin"] = "*"
 				req.Headers["Access-Control-Allow-Credentials"] = "true"
-				return handlePost(ctx, req)
+				return handlePost(ctx, req, scrapingService)
     default:
         return clientError(http.StatusMethodNotAllowed)
     }
 }
 
-func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scraper services.ScrapingService) (events.LambdaFunctionURLResponse, error) {
 	var inputPayload SeshuInputPayload
 
 	err := json.Unmarshal([]byte(req.Body), &inputPayload)
@@ -169,7 +171,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 			return serverError(err)
 	}
 
-	htmlString, err := services.GetHTMLFromURL(inputPayload.Url, 4500, true)
+	htmlString, err := scraper.GetHTMLFromURL(inputPayload.Url, 4500, true)
 	if err != nil {
 		return SendHTMLError(err, ctx, req)
 	}
@@ -267,6 +269,11 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 				UrlPath: path,
 				UrlQueryParams: queryParams,
 				Html: truncatedHTMLStr,
+				// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
+				// when we create a new session, we can't allow it to be `0` because that is
+				// a valid value for both latitdue and longitude (see "null island")
+				LocationLatitude: services.InitialEmptyLatLong,
+				LocationLongitude: services.InitialEmptyLatLong,
 				EventCandidates: eventsFound,
 				CreatedAt: currentTime.Unix(),
 				UpdatedAt: currentTime.Unix(),
@@ -312,7 +319,7 @@ func SendHTMLError(err error, ctx context.Context, req events.LambdaFunctionURLR
 func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	client := &http.Client{}
 	payload := CreateChatSessionPayload{
-		Model: "gpt-3.5-turbo-16k",
+		Model: "gpt-4o-mini",
 		Messages: []Message{
 			{
 				Role: "user",
@@ -326,7 +333,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", err
 	}
 
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequest("POST", os.Getenv("OPENAI_API_BASE_URL") + "/chat/completions", bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return "", "", err
 	}
@@ -340,7 +347,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf(fmt.Sprint(resp.StatusCode) + ": Completion API request not successful")
 	}
 	body, err := io.ReadAll(resp.Body)
@@ -365,12 +372,12 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 
 	// TODO: figure out why this isn't working
   // Use regex to remove incomplete JSON that OpenAI sometimes returns
-	unpaddedJSON := unpadJSON(messageContentArray)
+	unpaddedJSON := UnpadJSON(messageContentArray)
 
 	return sessionId, unpaddedJSON, nil
 }
 
-func unpadJSON(jsonStr string) string {
+func UnpadJSON(jsonStr string) string {
     buffer := new(bytes.Buffer)
     if err := json.Compact(buffer, []byte(jsonStr)); err != nil {
         log.Println("Error unpadding JSON: ", err)

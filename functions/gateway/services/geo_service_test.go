@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/interfaces"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
@@ -12,10 +13,10 @@ import (
 func TestGetGeo(t *testing.T) {
 	// Save the original environment variable
 	origEnv := os.Getenv("GO_ENV")
-	
+
 	// Set the environment to "test"
-	os.Setenv("GO_ENV", "test")
-	
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+
 	// Ensure we reset the environment after the test
 	defer os.Setenv("GO_ENV", origEnv)
 

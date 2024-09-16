@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	domain      = flag.String("domain", os.Getenv("ZITADEL_INSTANCE_URL"), "your ZITADEL instance domain (in the form: https://<instance>.zitadel.cloud or https://<yourdomain>)")
+	domain      = flag.String("domain", os.Getenv("ZITADEL_INSTANCE_HOST"), "your ZITADEL instance domain (in the form: https://<instance>.zitadel.cloud or https://<yourdomain>)")
 	key         = flag.String("key", os.Getenv("ZITADEL_ENCRYPTION_KEY"), "encryption key")
 	clientID    = flag.String("clientID", os.Getenv("ZITADEL_CLIENT_ID"), "clientID provided by ZITADEL")
 	redirectURI = flag.String("redirectURI", string( os.Getenv("APEX_URL") + "/auth/callback"), "redirect URI registered with ZITADEL")

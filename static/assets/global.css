@@ -11,14 +11,14 @@
   h4,
   h5,
   h6 {
-    font-family: 'Grandstander', 'Helvetica', 'Arial', 'sans-serif';
-    font-weight: 700;
+    font-family: 'Outfit', 'Helvetica', 'Arial', 'sans-serif';
+    font-weight: 400;
   }
 }
 
 .brand {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 13.5rem;
+  height: 4.5rem;
 }
 
 .drawer-end .drawer-toggle ~ .drawer-side {
@@ -157,3 +157,31 @@
 }
 
 /* END seshu ingestion "add event source" section */
+
+.bottom-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 999;
+  height: auto;
+  background: white;
+  padding: 20px;
+}
+
+.btn.btn-bold-outline {
+  border: 5px solid oklch(var(--p));
+}
+
+.btn-outline.btn-primary.text-neutral-content {
+  color: var(--fallback-nc, oklch(var(--nc) / var(--tw-text-opacity)));
+}
+
+.drawer .collapse-content :where(.menu li) {
+  flex-direction: inherit;
+}
+
+.tab:is(input[type='radio']) {
+  width: max-content;
+}

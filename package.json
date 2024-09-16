@@ -10,13 +10,10 @@
     "dev": "concurrently \"npm:dev:*\"",
     "dev-tab": "concurrently \"npm:tab:*\"",
     "build": "sst build",
-    "dev:dynamodb": "docker compose up",
-    "dev-remote-db": "concurrently \"npm:dev:*(!dynamodb)\"",
     "dev:sst": "sst dev",
     "dev:serve-static": "npx http-server -o /static -a localhost -p 3001 --cors",
     "dev:tailwind": "tailwindcss -i ./static/assets/global.css -o ./static/assets/styles.css --watch",
     "dev:templ": "node scripts/watchTempl.js ./functions/gateway/templates ./functions/lambda/go/seshu/templates",
-    "tab:dynamodb": "ttab -t 'dynamodb dev' npm run dev:dynamodb",
     "tab:sst": "ttab -t 'sst dev' npm run dev:sst",
     "tab:serve-static": "ttab -t 'local static asset server' npm run dev:serve-static",
     "tab:tailwind": "ttab -t 'tailwind dev' npm run dev:tailwind",
@@ -29,23 +26,20 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@tailwindcss/typography": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.14",
     "@tsconfig/node18": "^18.2.2",
     "aws-cdk-lib": "2.110.1",
     "concurrently": "^8.2.2",
     "constructs": "10.3.0",
-    "daisyui": "^4.8.0",
+    "daisyui": "^4.12.10",
     "node-watch": "^0.7.4",
     "sst": "2.39.5",
-    "tailwindcss": "^3.4.1",
+    "tailwindcss": "^3.4.9",
     "ttab": "^0.8.0",
     "typescript": "^5.3.3"
   },
   "workspaces": [],
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "node-html-markdown": "^1.3.0",
-    "openai": "^4.32.1",
-    "zenrows": "^1.3.2"
+    "dotenv": "^16.4.5"
   }
 }

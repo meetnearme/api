@@ -3,9 +3,6 @@ inputs:
   GIT_BRANCH_NAME:
     description: 'The name of the branch being deployed'
     required: false
-  MEETNEARME_TEST_SECRET:
-    description: 'The dummy secret for the MeetNearMe project'
-    required: true
   SCRAPINGBEE_API_KEY:
     description: 'The API key for the ScrapingBee API'
     required: true
@@ -15,14 +12,20 @@ inputs:
   OPENAI_API_KEY:
     description: 'The API key for the OpenAI environment'
     required: true
+  OPENAI_API_BASE_URL:
+    description: 'The API Base URL for OpenAI'
+    required: true
   ZITADEL_CLIENT_ID:
     description: 'The client ID for zitadel auth'
     required: true
   ZITADEL_ENCRYPTION_KEY:
     description: 'The encryption key for zitadel auth'
     required: true
-  ZITADEL_INSTANCE_URL:
+  ZITADEL_INSTANCE_HOST:
     description: 'The client instance URL for zitadel auth'
+    required: true
+  ZITADEL_BOT_ADMIN_TOKEN:
+    description: 'The bot admin token for zitadel auth'
     required: true
   APEX_URL:
     description:
@@ -32,6 +35,34 @@ inputs:
     description:
       'The site apex DEV URL, dynamic in lower environments, static in prod'
     required: true
+  CLOUDFLARE_API_TOKEN:
+    description: 'The API token for the Cloudflare API'
+    required: true
+  CLOUDFLARE_ACCOUNT_ID:
+    description: 'The account ID for the Cloudflare API'
+    required: true
+  CLOUDFLARE_KV_NAMESPACE_ID:
+    description: 'The KV namespace ID for the Cloudflare API'
+    required: true
+  CLOUDFLARE_API_BASE_URL:
+    description: 'The base URL for the Cloudflare API'
+    required: true
+  MARQO_API_KEY:
+    description: 'The API key for the Marqo API'
+    required: true
+  PROD_MARQO_API_BASE_URL:
+    description: 'The base URL for the Marqo API in production'
+    required: true
+  DEV_MARQO_API_BASE_URL:
+    description: 'The base URL for the Marqo API in development'
+    required: true
+  PROD_MARQO_INDEX_NAME:
+    description: 'The marqo index name for production'
+    required: true
+  DEV_MARQO_INDEX_NAME:
+    description: 'The marqo index name for dev / non-prod environments'
+    required: true
+
 runs:
   using: composite
   steps:
@@ -40,15 +71,25 @@ runs:
       run: |
         touch .env
         echo GIT_BRANCH_NAME=${{ inputs.GIT_BRANCH_NAME }} >> .env
-        echo MEETNEARME_TEST_SECRET=${{ inputs.MEETNEARME_TEST_SECRET }} >> .env
+        echo APEX_URL=${{ inputs.APEX_URL }} >> .env
+        echo APEX_DEV_URL=${{ inputs.APEX_DEV_URL }} >> .env
         echo SCRAPINGBEE_API_KEY=${{ inputs.SCRAPINGBEE_API_KEY }} >> .env
         echo GOOGLE_API_KEY=${{ inputs.GOOGLE_API_KEY }} >> .env
         echo OPENAI_API_KEY=${{ inputs.OPENAI_API_KEY }} >> .env
+        echo OPENAI_API_BASE_URL=${{ inputs.OPENAI_API_BASE_URL }} >> .env
         echo ZITADEL_CLIENT_ID=${{ inputs.ZITADEL_CLIENT_ID }} >> .env
         echo ZITADEL_ENCRYPTION_KEY=${{ inputs.ZITADEL_ENCRYPTION_KEY }} >> .env
-        echo ZITADEL_INSTANCE_URL=${{ inputs.ZITADEL_INSTANCE_URL }} >> .env
-        echo APEX_URL=${{ inputs.APEX_URL }} >> .env
-        echo APEX_DEV_URL=${{ inputs.APEX_DEV_URL }} >> .env
+        echo ZITADEL_INSTANCE_HOST=${{ inputs.ZITADEL_INSTANCE_HOST }} >> .env
+        echo ZITADEL_BOT_ADMIN_TOKEN=${{ inputs.ZITADEL_BOT_ADMIN_TOKEN }} >> .env
+        echo CLOUDFLARE_ACCOUNT_ID=${{ inputs.CLOUDFLARE_ACCOUNT_ID }} >> .env
+        echo CLOUDFLARE_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_KV_NAMESPACE_ID }} >> .env
+        echo CLOUDFLARE_API_TOKEN=${{ inputs.CLOUDFLARE_API_TOKEN }} >> .env
+        echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
+        echo MARQO_API_KEY=${{ inputs.MARQO_API_KEY }} >> .env
+        echo PROD_MARQO_API_BASE_URL=${{ inputs.PROD_MARQO_API_BASE_URL }} >> .env
+        echo DEV_MARQO_API_BASE_URL=${{ inputs.DEV_MARQO_API_BASE_URL }} >> .env
+        echo PROD_MARQO_INDEX_NAME=${{ inputs.PROD_MARQO_INDEX_NAME }} >> .env
+        echo DEV_MARQO_INDEX_NAME=${{ inputs.DEV_MARQO_INDEX_NAME }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

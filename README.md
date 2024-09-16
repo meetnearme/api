@@ -18,19 +18,10 @@
    [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
    through Lambda to your local
 1. Create a `.env` file in the root directory with the necessary environment
-   variables. Here's an example:
-
-```
-MEETNEARME_TEST_SECRET=anything
-SCRAPINGBEE_API_KEY=ask_for_key
-STATIC_BASE_URL='http://localhost:3001/static'
-USE_REMOTE_DB=true
-```
-
-1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally, proxied
-   through Lambda to your local
-1. Alternatively, you can run `npm run dev-remote-db` to run the project with a
-   remote DynamoDB instance instead of the local Docker container.
+   variables found in [.env.example](.env.example). Here's an example:
+1. Run `npm run dev-remote-db` to run the Go Lambda Gateway V2 server locally,
+   proxied through Lambda to your local, and using SST deployed AWS resources
+   for DB, etc.
 
 ### Generate Go templates from \*.templ files
 
@@ -64,9 +55,9 @@ callback URLs
 
 ### API Example Curl Requests
 
-`curl <AWS URL from npm run dev>/api/event` - list table Events
-`curl -X POST -H 'Content-Type: application/json' -d '{"name": "Chess Tournament", "description": "Join the junior chess tournament to test your abilities", "datetime": "2024-03-13T15:07:00", "address": "15 Chess Street", "zip_code": "84322", "country": "USA"}' <AWS URL from npm run dev>/api/event` -
-insert new event
+- Add a new event - `curl <AWS URL from npm run dev>/api/event` - list table
+  Events
+  `curl -X POST -H 'Content-Type: application/json' --data-raw $'{"events":[{"eventOwners":["123"],"name":"Espanola Lowriders Good Friday Rally & Bar Crawl","description":"Join us in the low rider capital of the world while we hit up all TWO of our local bars\u0021 You haven\'t seen a real lowrider if you haven\'t visited Espanola\u0021","startTime":"2025-02-15T18:30:00Z","address":"Espanola, NM","lat": 36.015303,"long":-106.066063}]}' <AWS URL from npm run dev>/api/event`
 
 ### Reference for interacting with dynamodb from aws cli v2
 
@@ -83,6 +74,9 @@ you need to update the `templ` go binary
 1. `go install github.com/a-h/templ/cmd/templ@latest`
 
 ### Updating env vars
+
+For an overview of our current env vars with an explanation of each, look at
+[.env.example](.env.example)
 
 When updating env vars, the changes need to be made in 4 places:
 

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
 
@@ -18,7 +19,7 @@ func TestCreateDbClient(t *testing.T) {
 
 func TestGetDB(t *testing.T) {
 	// Test with GO_ENV=test
-	os.Setenv("GO_ENV", "test")
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
 
 	db1 := GetDB()
@@ -49,7 +50,7 @@ func TestSetTestDB(t *testing.T) {
 
 	SetTestDB(mockDB)
 
-	os.Setenv("GO_ENV", "test")
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
 
 	retrievedDB := GetDB()

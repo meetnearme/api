@@ -1,23 +1,7 @@
 import { StackContext, Table } from 'sst/constructs';
 
 export function StorageStack({ stack }: StackContext) {
-  // Create the `Events` table
-  const eventsTable = new Table(stack, 'Events', {
-    fields: {
-      id: 'string',
-      name: 'string',
-      description: 'string',
-      datetime: 'string',
-      address: 'string',
-      zipCode: 'string',
-      country: 'string',
-      latitude: 'number',
-      longitude: 'number',
-      zOrderIndex: 'binary',
-    },
-    primaryIndex: { partitionKey: 'zOrderIndex', sortKey: 'datetime' },
-  });
-
+  // Create the `SeshuSessions` table
   const seshuSessionsTable = new Table(stack, 'SeshuSessions', {
     fields: {
       ownerId: 'string',
@@ -41,7 +25,6 @@ export function StorageStack({ stack }: StackContext) {
   });
 
   return {
-    eventsTable,
     seshuSessionsTable,
   };
 }

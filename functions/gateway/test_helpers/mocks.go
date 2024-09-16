@@ -1,9 +1,9 @@
 package test_helpers
 
-
 import (
 	"bytes"
 	"context"
+	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -55,7 +55,7 @@ func (m *MockSeshuService) UpdateSeshuSession(ctx context.Context, db types.Dyna
     return &update, nil
 }
 
-func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSession) (*types.SeshuSession, error) {
+func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionGet) (*types.SeshuSession, error) {
     // Return mock data
     return &types.SeshuSession{
         OwnerId: "mockOwner",
@@ -83,5 +83,14 @@ func (m *MockTemplateRenderer) Render(ctx context.Context, buf *bytes.Buffer) er
     _, err := buf.WriteString("<div>Mock rendered template</div>")
     return err
 }
+
+var PortCounter int32 = 8000
+
+// NOTE: this is due to an issue where github auto paralellizes these
+// test to run in serial, which causes port collisions
+func GetNextPort() int {
+    return int(atomic.AddInt32(&PortCounter, 1))
+}
+
 
 

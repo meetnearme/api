@@ -23,7 +23,7 @@ func TestGetSeshuSession(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	seshuPayload := internal_types.SeshuSession{Url: "https://test.com"}
+	seshuPayload := internal_types.SeshuSessionGet{Url: "https://test.com"}
 
 	result, err := GetSeshuSession(ctx, mockDB, seshuPayload)
 
@@ -51,10 +51,16 @@ func TestInsertSeshuSession(t *testing.T) {
 	ctx := context.Background()
 	seshuPayload := internal_types.SeshuSessionInput{
 		SeshuSession: internal_types.SeshuSession{
-			OwnerId: "testowner",
-			Url:     "https://test.com",
-			UrlDomain: "test.com",
-			Html:    "<html></html>",
+			OwnerId:           "testowner",
+			Url:               "https://test.com",
+			UrlDomain:         "test.com",
+			Html:              "<html></html>",
+			EventValidations:  [][]bool{{true, false}, {true, false}},
+			EventCandidates: []internal_types.EventInfo{{EventTitle: "Test Event", EventLocation: "Nowhere", EventStartTime: "1234567890"}},
+			LocationAddress: "1234 Nowhere St",
+			LocationLatitude: 39.8616981506,
+			LocationLongitude: -104.672996521,
+			UrlQueryParams: 	map[string][]string{"test": {"value"}},
 		},
 	}
 
@@ -88,6 +94,12 @@ func TestUpdateSeshuSession(t *testing.T) {
 	seshuPayload := internal_types.SeshuSessionUpdate{
 		Url:    "https://test.com",
 		Status: "completed",
+		EventValidations:  [][]bool{{true, false}, {true, false}},
+		EventCandidates: []internal_types.EventInfo{{EventTitle: "Test Event", EventLocation: "Nowhere", EventStartTime: "1234567890"}},
+		LocationAddress: "1234 Nowhere St",
+		LocationLatitude: 39.8616981506,
+		LocationLongitude: -104.672996521,
+		UrlQueryParams: 	map[string][]string{"test": {"value"}},
 	}
 
 	_, err := UpdateSeshuSession(ctx, mockDB, seshuPayload)

@@ -3,12 +3,15 @@ package helpers
 type AWSReqKey string
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
-const EventsTablePrefix = "Events"
 const SeshuSessionTablePrefix = "SeshuSessions"
+const EVENT_ID_KEY string = "eventId"
+const SUBDOMAIN_KEY = "subdomain"
+const ERR_KV_KEY_EXISTS = "key already exists in KV store"
+const GO_TEST_ENV = "test"
 
-const (
-	EVENT_ID_KEY string = "eventId"
-)
+const MOCK_CLOUDFLARE_URL = "http://localhost:8999"
+const MOCK_ZITADEL_HOST = "localhost:8998"
+const MOCK_MARQO_URL = "http://localhost:8997"
 
 type UserInfo struct {
 	Email string `json:"email"`
@@ -20,6 +23,7 @@ type UserInfo struct {
 	PreferredUsername string `json:"preferred_username"`
 	Sub string `json:"sub"`
 	UpdatedAt int `json:"updated_at"`
+	Metadata string `json:"metadata"`
 }
 
 type Category struct {
