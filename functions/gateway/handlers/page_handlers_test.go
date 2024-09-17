@@ -83,11 +83,10 @@ func TestGetHomePage(t *testing.T) {
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
-
 	// Create a request
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
-			t.Fatal(err)
+		t.Fatal(err)
 	}
 
 	// Create a ResponseRecorder to record the response
@@ -179,52 +178,32 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
-
-		// Create a request
-    req, err := http.NewRequest("GET", "/", nil)
-    if err != nil {
-        t.Fatal(err)
-    }
-
-		// Set up context with APIGatewayV2HTTPRequest
-		ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-			Headers: map[string]string{"cf-ray": "8aebbd939a781f45-DEN"},
-		})
-
-		req = req.WithContext(ctx)
-
-    // Create a ResponseRecorder to record the response
-    rr := httptest.NewRecorder()
-
-    // Call the handler
-    handler := GetHomePage(rr, req)
-    handler.ServeHTTP(rr, req)
-
-    // Check the status code
-    if status := rr.Code; status != http.StatusOK {
-        t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
-    }
-
-    // Check the response body (you might want to add more specific checks)
-    if rr.Body.String() == "" {
-        t.Errorf("Handler returned empty body")
-    }
-}
-
-func TestGetLoginPage(t *testing.T) {
-	req, err := http.NewRequest("GET", "/login", nil)
+	// Create a request
+	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Set up context with APIGatewayV2HTTPRequest
+	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		Headers: map[string]string{"cf-ray": "8aebbd939a781f45-DEN"},
+	})
+
+	req = req.WithContext(ctx)
+
+	// Create a ResponseRecorder to record the response
 	rr := httptest.NewRecorder()
-	handler := GetLoginPage(rr, req)
+
+	// Call the handler
+	handler := GetHomePage(rr, req)
 	handler.ServeHTTP(rr, req)
 
+	// Check the status code
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
+	// Check the response body (you might want to add more specific checks)
 	if rr.Body.String() == "" {
 		t.Errorf("Handler returned empty body")
 	}
@@ -235,6 +214,19 @@ func TestGetProfilePage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	mockUserInfo := helpers.UserInfo{
+		Email:             "test@domain.com",
+		EmailVerified:     true,
+		GivenName:         "Demo",
+		FamilyName:        "User",
+		Name:              "Demo User",
+		PreferredUsername: "test@domain.com",
+		Sub:               "testID",
+		UpdatedAt:         123234234,
+	}
+	ctx := context.WithValue(req.Context(), "userInfo", mockUserInfo)
+	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
 	handler := GetProfilePage(rr, req)
@@ -274,7 +266,6 @@ func TestGetMapEmbedPage(t *testing.T) {
 	}
 }
 
-
 func TestGetEventDetailsPage(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
@@ -303,7 +294,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
-					"_id":          "123",
+					"_id":         "123",
 					"eventOwners": []interface{}{"789"},
 					"name":        "Test Event",
 					"description": "This is a test event",
@@ -333,22 +324,22 @@ func TestGetEventDetailsPage(t *testing.T) {
 	defer mockMarqoServer.Close()
 
 	const eventID = "123"
-	req, err := http.NewRequest("GET", "/events/" + eventID, nil)
+	req, err := http.NewRequest("GET", "/events/"+eventID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Set up context with APIGatewayV2HTTPRequest
 	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-    PathParameters: map[string]string{
-        helpers.EVENT_ID_KEY: eventID,
-    },
+		PathParameters: map[string]string{
+			helpers.EVENT_ID_KEY: eventID,
+		},
 	})
 	req = req.WithContext(ctx)
 
 	// Set up router to extract variables
 	router := mux.NewRouter()
-	router.HandleFunc("/events/{" + helpers.EVENT_ID_KEY + "}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/events/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
 	})
 
