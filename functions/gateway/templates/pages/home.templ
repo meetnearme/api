@@ -372,10 +372,10 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr s
 		</div>
 		<div class="flex p-4 bg-black">
 			<div class="flex flex-auto space-x-2">
-				<button class="grow px-4 py-2 text-md md:text-xl btn btn-primary">TODAY</button>
+				<button class="grow px-4 py-2 text-md md:text-xl btn btn-primary">THIS MONTH</button>
+				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">TODAY</button>
 				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">TOMORROW</button>
 				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">THIS WEEK</button>
-				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">CUSTOM</button>
 			</div>
 		</div>
 		if (len(events) < 1) {
