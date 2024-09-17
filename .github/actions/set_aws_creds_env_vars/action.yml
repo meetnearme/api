@@ -21,6 +21,9 @@ inputs:
   ZITADEL_CLIENT_SECRET:
     description: 'The client Secret for zitadel auth'
     required: true
+  ZITADEL_PROJECT_ID:
+    description: 'The project ID for zitadel auth'
+    required: true
   ZITADEL_ENCRYPTION_KEY:
     description: 'The encryption key for zitadel auth'
     required: true
@@ -82,6 +85,7 @@ runs:
         echo OPENAI_API_BASE_URL=${{ inputs.OPENAI_API_BASE_URL }} >> .env
         echo ZITADEL_CLIENT_ID=${{ inputs.ZITADEL_CLIENT_ID }} >> .env
         echo ZITADEL_CLIENT_SECRET=${{ inputs.ZITADEL_CLIENT_SECRET }} >> .env
+        echo ZITADEL_PROJECT_ID=${{ inputs.ZITADEL_PROJECT_ID }} >> .env
         echo ZITADEL_ENCRYPTION_KEY=${{ inputs.ZITADEL_ENCRYPTION_KEY }} >> .env
         echo ZITADEL_INSTANCE_HOST=${{ inputs.ZITADEL_INSTANCE_HOST }} >> .env
         echo ZITADEL_BOT_ADMIN_TOKEN=${{ inputs.ZITADEL_BOT_ADMIN_TOKEN }} >> .env

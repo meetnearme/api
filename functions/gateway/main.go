@@ -165,6 +165,9 @@ func (app *App) addRoute(route Route) {
 				return
 			}
 
+			claims := authCtx.Claims
+			roleClaims := services.ExtractRoleClaims(claims)
+
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
 			if err != nil {
@@ -177,6 +180,10 @@ func (app *App) addRoute(route Route) {
 				return
 			}
 			ctx := context.WithValue(r.Context(), "userInfo", userInfo)
+
+			if roleClaims != nil {
+				ctx = context.WithValue(ctx, "roleClaims", roleClaims)
+			}
 			r = r.WithContext(ctx)
 			route.Handler(w, r).ServeHTTP(w, r)
 		}
@@ -198,6 +205,9 @@ func (app *App) addRoute(route Route) {
 				return
 			}
 
+			claims := authCtx.Claims
+			roleClaims := services.ExtractRoleClaims(claims)
+
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
 			if err != nil {
@@ -206,12 +216,14 @@ func (app *App) addRoute(route Route) {
 			}
 
 			err = json.Unmarshal(data, &userInfo)
-			log.Printf("User info %v", userInfo)
 			if err != nil {
 				route.Handler(w, r).ServeHTTP(w, r)
 				return
 			}
 			ctx := context.WithValue(r.Context(), "userInfo", userInfo)
+			if roleClaims != nil {
+				ctx = context.WithValue(ctx, "roleClaims", roleClaims)
+			}
 			r = r.WithContext(ctx)
 			route.Handler(w, r).ServeHTTP(w, r)
 		}
