@@ -12,20 +12,38 @@ import (
 func TestProfilePage(t *testing.T) {
 	// Create mock user info
 	mockUserInfo := helpers.UserInfo{
-		Email:         "test@example.com",
-		EmailVerified: true,
-		FamilyName:    "Doe",
-		GivenName:     "John",
-		Locale:        "en-US",
-		Name:          "John Doe",
+		Email:             "test@example.com",
+		EmailVerified:     true,
+		FamilyName:        "Doe",
+		GivenName:         "John",
+		Locale:            "en-US",
+		Name:              "John Doe",
 		PreferredUsername: "johndoe",
-		Sub:           "user123",
-		UpdatedAt:     1234567890,
-		Metadata:      "",
+		Sub:               "user123",
+		UpdatedAt:         1234567890,
+		Metadata:          "",
+	}
+
+	mockRoleClaims := []helpers.RoleClaim{
+		{
+			Role:        "orgAdmin",
+			ProjectID:   "273256875624060581",
+			ProjectName: "meetnearme.zitadel.cloud",
+		},
+		{
+			Role:        "superAdmin",
+			ProjectID:   "273256875624060581",
+			ProjectName: "meetnearme.zitadel.cloud",
+		},
+		{
+			Role:        "sysAdmin",
+			ProjectID:   "273256875624060581",
+			ProjectName: "meetnearme.zitadel.cloud",
+		},
 	}
 
 	// Call the ProfilePage function
-	profilePage := ProfilePage(mockUserInfo)
+	profilePage := ProfilePage(mockUserInfo, mockRoleClaims)
 
 	// Create a layout template
 	layoutTemplate := Layout("Profile", mockUserInfo, profilePage)

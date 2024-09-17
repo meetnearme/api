@@ -129,8 +129,9 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
 	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
 
-	adminPage := pages.ProfilePage(userInfo)
+	adminPage := pages.ProfilePage(userInfo, roleClaims)
 	layoutTemplate := pages.Layout("Admin", userInfo, adminPage)
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)

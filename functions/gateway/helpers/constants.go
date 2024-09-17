@@ -14,6 +14,8 @@ const MOCK_CLOUDFLARE_URL = "http://localhost:8999"
 const MOCK_ZITADEL_HOST = "localhost:8998"
 const MOCK_MARQO_URL = "http://localhost:8997"
 
+const PROJECT_ID_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
+
 type UserInfo struct {
 	Email             string `json:"email"`
 	EmailVerified     bool   `json:"email_verified"`
@@ -25,6 +27,13 @@ type UserInfo struct {
 	Sub               string `json:"sub"` // This is the userID
 	UpdatedAt         int    `json:"updated_at"`
 	Metadata          string `json:"metadata"`
+}
+
+// RoleClaim represents a formatted role claim.
+type RoleClaim struct {
+	Role        string `json:"role"`
+	ProjectID   string `json:"project_id"`
+	ProjectName string `json:"project_name"`
 }
 
 type Category struct {
