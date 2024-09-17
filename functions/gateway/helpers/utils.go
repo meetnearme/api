@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -50,7 +51,7 @@ func UtcOrUnixToUnix64(t interface{}) (int64, error) {
 }
 
 func FormatDate(unixTimestamp int64) (string, error) {
-	if (unixTimestamp == 0) {
+	if unixTimestamp == 0 {
 		return "", fmt.Errorf("not a valid unix timestamp: %v", unixTimestamp)
 	}
 	date := time.Unix(unixTimestamp, 0).UTC()
@@ -58,7 +59,7 @@ func FormatDate(unixTimestamp int64) (string, error) {
 }
 
 func FormatTime(unixTimestamp int64) (string, error) {
-	if (unixTimestamp == 0) {
+	if unixTimestamp == 0 {
 		return "", fmt.Errorf("not a valid unix timestamp: %v", unixTimestamp)
 	}
 	_time := time.Unix(unixTimestamp, 0).UTC()
@@ -84,7 +85,7 @@ func HashIDtoImgRange(id string) int {
 }
 
 func GetImgUrlFromHash(id string) string {
-	return os.Getenv("STATIC_BASE_URL")+"/assets/img/"+fmt.Sprint(HashIDtoImgRange(id)) + ".png"
+	return os.Getenv("STATIC_BASE_URL") + "/assets/img/" + fmt.Sprint(HashIDtoImgRange(id)) + ".png"
 }
 
 func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata map[string]string) error {
@@ -176,7 +177,7 @@ func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata ma
 	return nil
 }
 
-func DeleteCloudflareKV (subdomainValue, userID string) error {
+func DeleteCloudflareKV(subdomainValue, userID string) error {
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
 
@@ -204,8 +205,8 @@ func DeleteCloudflareKV (subdomainValue, userID string) error {
 	return nil
 }
 
-func GetUserMetadataByKey (userID, key string) (string, error) {
-	url := fmt.Sprintf( defaultProtocol + "%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
+func GetUserMetadataByKey(userID, key string) (string, error) {
+	url := fmt.Sprintf(defaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "GET"
 
 	client := &http.Client{}
@@ -215,7 +216,7 @@ func GetUserMetadataByKey (userID, key string) (string, error) {
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", "Bearer " + os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -233,6 +234,11 @@ func GetUserMetadataByKey (userID, key string) (string, error) {
 		return "", err
 	}
 
+	log.Printf("metadata: %v", respData)
+	if len(respData) == 0 || respData["metadata"] == nil {
+		log.Printf("respData is empty or nil")
+		return "", nil
+	}
 	metadata, ok := respData["metadata"].(map[string]interface{})
 	if !ok {
 		return "", fmt.Errorf("metadata is not of type map[string]interface{}")
@@ -246,8 +252,8 @@ func GetUserMetadataByKey (userID, key string) (string, error) {
 	return value, nil
 }
 
-func UpdateUserMetadataKey (userID, key, value string) error {
-	url := fmt.Sprintf( defaultProtocol + "%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
+func UpdateUserMetadataKey(userID, key, value string) error {
+	url := fmt.Sprintf(defaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "POST"
 
 	payload := strings.NewReader(`{
@@ -263,7 +269,7 @@ func UpdateUserMetadataKey (userID, key, value string) error {
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", "Bearer " + os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
 
 	res, err := client.Do(req)
 	if err != nil {

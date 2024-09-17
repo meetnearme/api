@@ -1,6 +1,7 @@
 package helpers
 
 type AWSReqKey string
+
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
 const SeshuSessionTablePrefix = "SeshuSessions"
@@ -14,21 +15,21 @@ const MOCK_ZITADEL_HOST = "localhost:8998"
 const MOCK_MARQO_URL = "http://localhost:8997"
 
 type UserInfo struct {
-	Email string `json:"email"`
-	EmailVerified bool `json:"email_verified"`
-	FamilyName string `json:"family_name"`
-	GivenName string `json:"given_name"`
-	Locale string `json:"locale"`
-	Name string `json:"name"`
+	Email             string `json:"email"`
+	EmailVerified     bool   `json:"email_verified"`
+	FamilyName        string `json:"family_name"`
+	GivenName         string `json:"given_name"`
+	Locale            string `json:"locale"`
+	Name              string `json:"name"`
 	PreferredUsername string `json:"preferred_username"`
-	Sub string `json:"sub"`
-	UpdatedAt int `json:"updated_at"`
-	Metadata string `json:"metadata"`
+	Sub               string `json:"sub"` // This is the userID
+	UpdatedAt         int    `json:"updated_at"`
+	Metadata          string `json:"metadata"`
 }
 
 type Category struct {
 	Name, Desc, Slug string
-	Items []Subcategory
+	Items            []Subcategory
 }
 
 type Subcategory struct {
@@ -44,7 +45,7 @@ type CdnLocation struct {
 	City   string  `json:"city"`
 }
 
-var Categories = []Category {
+var Categories = []Category{
 	{
 		Name: "Academic & Career Development",
 		Desc: "Add description later",
