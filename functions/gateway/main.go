@@ -216,7 +216,6 @@ func (app *App) addRoute(route Route) {
 			}
 
 			err = json.Unmarshal(data, &userInfo)
-			log.Printf("User info %v", userInfo)
 			if err != nil {
 				route.Handler(w, r).ServeHTTP(w, r)
 				return

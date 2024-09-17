@@ -27,18 +27,18 @@ func TestProfilePage(t *testing.T) {
 	mockRoleClaims := []helpers.RoleClaim{
 		{
 			Role:        "orgAdmin",
-			ProjectID:   "273256875624060581",
-			ProjectName: "meetnearme.zitadel.cloud",
+			ProjectID:   "project-id",
+			ProjectName: "myapp.zitadel.cloud",
 		},
 		{
 			Role:        "superAdmin",
-			ProjectID:   "273256875624060581",
-			ProjectName: "meetnearme.zitadel.cloud",
+			ProjectID:   "project-id",
+			ProjectName: "myapp.zitadel.cloud",
 		},
 		{
 			Role:        "sysAdmin",
-			ProjectID:   "273256875624060581",
-			ProjectName: "meetnearme.zitadel.cloud",
+			ProjectID:   "project-id",
+			ProjectName: "myapp.zitadel.cloud",
 		},
 	}
 
