@@ -2,7 +2,7 @@ package pages
 
 import "github.com/meetnearme/api/functions/gateway/helpers"
 
-templ ProfilePage(userInfo helpers.UserInfo) {
+templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim) {
 	<h1 class="text-3xl">Profile</h1>
 	<br/>
 	<br/>
@@ -43,6 +43,14 @@ templ ProfilePage(userInfo helpers.UserInfo) {
 			Locale: { userInfo.Locale }
 			<br/>
 			<br/>
+			<h3 class="text-2xl font-bold">My Roles</h3>
+			<div class="flex space-x-4">
+				for _, roleClaim := range roleClaims {
+					<span class="badge badge-lg badge-primary">{roleClaim.Role}</span>
+				}
+			</div>
+			<br/>
+			<br/>
 			<h3 class="text-2xl font-bold">My Subdomain</h3>
 			<form class="group" novalidate hx-post="/api/user/set-subdomain" hx-ext="json-enc" hx-target="#subdomain-result" hx-disabled-elt="button[type='submit']" @submit.prevent="" @htmx:after-request="handleSubdomainPostRes(event)">
 				<label for="subdomain">Set Subdomain</label>
@@ -51,7 +59,7 @@ templ ProfilePage(userInfo helpers.UserInfo) {
 			</form>
 			<div id="subdomain-result" class="margins-when-children my-8"></div>
 			<br/>
-			<br/>
+
 			<h2 class="text-3xl font-bold ">Events Owned by Me</h2>
 			// TODO: this is fake data, delete
 			<table class="table table-pin-rows table-pin-cols table-zebra">

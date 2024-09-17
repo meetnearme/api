@@ -8,14 +8,17 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
 	"github.com/zitadel/zitadel-go/v3/pkg/zitadel"
@@ -26,6 +29,7 @@ var (
 	key           = flag.String("key", os.Getenv("ZITADEL_ENCRYPTION_KEY"), "encryption key")
 	clientID      = flag.String("clientID", os.Getenv("ZITADEL_CLIENT_ID"), "clientID provided by ZITADEL")
 	clientSecret  = flag.String("clientSecret", os.Getenv("ZITADEL_CLIENT_SECRET"), "clientSecret provided by ZITADEL")
+	projectID     = flag.String("projectID", os.Getenv("ZITADEL_PROJECT_ID"), "zitadel project ID for MeetNearMe")
 	redirectURI   = flag.String("redirectURI", string(os.Getenv("APEX_URL")+"/auth/callback"), "redirect URI registered with ZITADEL")
 	loginPageURI  = flag.String("loginPageURI", string(os.Getenv("APEX_URL")), "App login page URI")
 	authorizeURI  = flag.String("authorizeURI", string("https://"+os.Getenv("ZITADEL_INSTANCE_HOST")+"/oauth/v2/authorize"), "Zitadel authorizeURL")
@@ -52,6 +56,33 @@ func InitAuth() {
 func GetAuthMw() *authorization.Authorizer[*oauth.IntrospectionContext] {
 	InitAuth()
 	return authZ
+}
+
+// Extract and format roles from the claims.
+func ExtractRoleClaims(claims map[string]interface{}) []helpers.RoleClaim {
+	var roles []helpers.RoleClaim
+
+	roleKey := strings.Replace(helpers.PROJECT_ID_ROLE_CLAIMS_KEY, "<project-id>", *projectID, 1)
+	// Check if the claims contain the specified key
+	if roleMap, ok := claims[roleKey].(map[string]interface{}); ok {
+		for role, projects := range roleMap {
+			// Iterate over the project map for each role
+			if projectMap, ok := projects.(map[string]interface{}); ok {
+				for projectID, projectName := range projectMap {
+					// Add the role, project ID, and project name to the list
+					roles = append(roles, helpers.RoleClaim{
+						Role:        role,
+						ProjectID:   projectID,
+						ProjectName: fmt.Sprintf("%v", projectName), // Ensure it's a string
+					})
+				}
+			}
+		}
+	} else {
+		return nil
+	}
+
+	return roles
 }
 
 func randomBytesInHex(count int) (string, error) {
@@ -81,7 +112,6 @@ func GenerateCodeChallengeAndVerifier() (string, string, error) {
 func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string) (*url.URL, error) {
 	authURL, err := url.Parse(*authorizeURI)
 	if err != nil {
-		log.Printf("Failed to parse Zitadel authorize URI: %v", err)
 		return nil, err
 	}
 
@@ -95,7 +125,6 @@ func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string) (*url.U
 	query.Set("state", userRedirectURL)
 
 	authURL.RawQuery = query.Encode()
-	log.Printf("Auth URL: %v", authURL)
 
 	return authURL, nil
 }
@@ -119,9 +148,6 @@ func GetAuthToken(code string, codeVerifier string) (map[string]interface{}, err
 	var result map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&result)
 
-	// Handle the token response
-	log.Printf("Tokens: %v", result)
-
 	return result, nil
 }
 
@@ -143,9 +169,6 @@ func RefreshAccessToken(refreshToken string) (map[string]interface{}, error) {
 	// Handle the token response
 	var result map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&result)
-
-	// Handle the token response
-	log.Printf("Tokens: %v", result)
 
 	return result, nil
 }

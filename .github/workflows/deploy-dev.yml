@@ -45,6 +45,7 @@ jobs:
           OPENAI_API_BASE_URL: ${{ secrets.OPENAI_API_KEY }}
           ZITADEL_CLIENT_ID: ${{ secrets.ZITADEL_CLIENT_ID }}
           ZITADEL_CLIENT_SECRET: ${{ secrets.ZITADEL_CLIENT_SECRET }}
+          ZITADEL_PROJECT_ID: ${{ secrets.ZITADEL_PROJECT_ID }}
           ZITADEL_ENCRYPTION_KEY: ${{ secrets.ZITADEL_ENCRYPTION_KEY }}
           ZITADEL_INSTANCE_HOST: ${{ secrets.ZITADEL_INSTANCE_HOST }}
           ZITADEL_BOT_ADMIN_TOKEN: ${{ secrets.ZITADEL_BOT_ADMIN_TOKEN }}
