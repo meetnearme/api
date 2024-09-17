@@ -157,18 +157,22 @@ func GetMarqoClient() (*marqo.Client, error) {
 // 	return res, nil
 // }
 
-func UpsertEventToMarqo(client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error) {
+func UpsertEventToMarqo(client *marqo.Client, event Event, hasId bool) (*marqo.UpsertDocumentsResponse, error) {
 	// Insert an event
 
 	events := []Event{event}
-	return BulkUpsertEventToMarqo(client, events)
+	return BulkUpsertEventToMarqo(client, events, hasId)
 }
 
-func BulkUpsertEventToMarqo(client *marqo.Client, events []Event) (*marqo.UpsertDocumentsResponse, error) {
-	// Bulk upsert multiple events
-	var documents []interface{}
+func ConvertEventsToDocuments(events []Event, hasIds bool) (documents []interface{}){
 	for _, event := range events {
-		_uuid := uuid.NewString()
+		var _uuid string
+		if !hasIds {
+			_uuid = uuid.NewString()
+		} else {
+			_uuid = event.Id
+		}
+
 		document := map[string]interface{}{
 			"_id": 			_uuid,
 			"eventOwners": event.EventOwners,
@@ -186,6 +190,13 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []Event) (*marqo.Upsert
 
 		documents = append(documents, document)
 	}
+
+	return documents
+}
+
+func BulkUpsertEventToMarqo(client *marqo.Client, events []Event, hasIds bool) (*marqo.UpsertDocumentsResponse, error) {
+	// Bulk upsert multiple events
+	documents := ConvertEventsToDocuments(events, hasIds)
 	indexName := GetMarqoIndexName()
 	req := marqo.UpsertDocumentsRequest{
 		Documents: documents,
@@ -254,6 +265,33 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	}, nil
 }
 
+func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*Event, error) {
+	indexName := GetMarqoIndexName()
+	getDocumentsReq := &marqo.GetDocumentsRequest{
+		IndexName: indexName,
+		DocumentIDs: docIds,
+	}
+	res, err := client.GetDocuments(getDocumentsReq)
+	if err != nil {
+		log.Printf("Failed to get documents: %v", err)
+		return nil, err
+	}
+
+	// Check if no documents were found
+	if len(res.Results) == 1 && res.Results[0]["_found"] == false {
+		log.Printf("No documents found for the given IDs")
+		return []*Event{}, nil
+	}
+
+	var events []*Event
+
+	for _, result := range res.Results {
+		event := NormalizeMarqoDocOrSearchRes(result)
+		events = append(events, event)
+	}
+	return events, nil
+}
+
 func GetMarqoEventByID(client *marqo.Client, docId string) (*Event, error) {
 	docIds := []string{docId}
 	events, err := BulkGetMarqoEventByID(client, docIds)
@@ -265,6 +303,27 @@ func GetMarqoEventByID(client *marqo.Client, docId string) (*Event, error) {
 		return nil, fmt.Errorf("no event found with id: %s", docId)
 	}
 	return events[0], nil
+}
+
+func BulkUpdateMarqoEventByID(client *marqo.Client, events []Event) (*marqo.UpsertDocumentsResponse, error) {
+	// Validate that each event has an ID
+	for i, event := range events {
+		if event.Id == "" {
+			return nil, fmt.Errorf("event at index %d is missing an ID", i)
+		}
+	}
+
+	// If all events have IDs, proceed with the bulk upsert
+	return BulkUpsertEventToMarqo(client, events, true)
+}
+
+func UpdateMarqoEventByID(client *marqo.Client, eventId string, event Event) (*marqo.UpsertDocumentsResponse, error) {
+	if eventId == "" {
+		return &marqo.UpsertDocumentsResponse{}, fmt.Errorf("event ID is required")
+	}
+
+	event.Id = eventId
+	return UpsertEventToMarqo(client, event, true)
 }
 
 func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *Event) {
@@ -295,33 +354,6 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *Event) {
 	}
 
 	return event
-}
-
-func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*Event, error) {
-	indexName := GetMarqoIndexName()
-	getDocumentsReq := &marqo.GetDocumentsRequest{
-		IndexName: indexName,
-		DocumentIDs: docIds,
-	}
-	res, err := client.GetDocuments(getDocumentsReq)
-	if err != nil {
-		log.Printf("Failed to get documents: %v", err)
-		return nil, err
-	}
-
-	// Check if no documents were found
-	if len(res.Results) == 1 && res.Results[0]["_found"] == false {
-		log.Printf("No documents found for the given IDs")
-		return []*Event{}, nil
-	}
-
-	var events []*Event
-
-	for _, result := range res.Results {
-		event := NormalizeMarqoDocOrSearchRes(result)
-		events = append(events, event)
-	}
-	return events, nil
 }
 
 // miToLat converts miles to latitude offset

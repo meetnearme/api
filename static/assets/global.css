@@ -16,9 +16,25 @@
   }
 }
 
-.brand {
-  width: 13.5rem;
+@layer base {
+  h1.title,
+  h2.title,
+  h3.title,
+  h4.title,
+  h5.title,
+  h6.title {
+    letter-spacing: 0.15rem;
+    text-transform: uppercase;
+  }
+}
+
+.brand-logo {
+  width: 3rem;
   height: 4.5rem;
+}
+
+.brand-type {
+  width: 8.2rem;
 }
 
 .drawer-end .drawer-toggle ~ .drawer-side {

@@ -237,7 +237,7 @@ func GetTimeOrShowNone(time int64) string {
 
 templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr string, lonStr string) {
 	<div class="header-hero">
-		<h1 class="text-2xl md:text-5xl text-center mb-5">
+		<h1 class="text-xl md:text-4xl text-center mb-5">
 			Push Your Boundaries.
 			<br/>
 			Explore Your World.
@@ -374,10 +374,10 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr s
 		</div>
 		<div class="flex p-4 bg-black">
 			<div class="flex flex-auto space-x-2">
-				<button class="grow px-4 py-2 text-md md:text-xl btn btn-primary">TODAY</button>
+				<button class="grow px-4 py-2 text-md md:text-xl btn btn-primary">THIS MONTH</button>
+				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">TODAY</button>
 				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">TOMORROW</button>
 				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">THIS WEEK</button>
-				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">CUSTOM</button>
 			</div>
 		</div>
 		if (len(events) < 1) {
@@ -385,24 +385,25 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr s
 				No events found, try enabling geolocation or changing your location, date, or time
 			</p>
 		} else {
-			<main class="p-4 space-y-4 md:grid md:grid-cols-1 md:gap-4 md:space-y-0">
+			<main>
 				for _, ev := range events {
-					<div class="md:flex md:flex-row overflow-hidden relative">
-						<a class="flex w-full md:w-1/2 h-96 md:h-72" href={ templ.URL("/events/" + ev.Id) }>
+					<div class="flex w-full relative">
+						<a class="flex w-full" href={ templ.URL("/events/" + ev.Id) }>
 							<img
 								src={ templ.EscapeString(helpers.GetImgUrlFromHash(ev.Id)) }
 								alt=""
-								class="object-cover w-full"
+								class="object-cover w-full aspect-[4/3] md:aspect-[16/9]"
 								width="400"
 								height="200"
-								style="opacity: 0.3; aspect-ratio: 400 / 200; object-fit: cover;"
+								style="opacity: 0.3; object-fit: cover;"
 							/>
 						</a>
-						<div class="flex flex-col justify-between w-full md:w-1/2 p-4 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0 md:relative">
+						<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
 							<div class="mb-2">
-								<h2 class="text-xl">{ ev.Name }</h2>
-								<p class="text-sm">{ ev.Address } | { GetDateOrShowNone(ev.StartTime) } | { GetTimeOrShowNone(ev.StartTime) }</p>
+								<h2 class="text-2xl md:text-3xl">{ ev.Name }</h2>
+								<p class="text-sm md:text-base">{ GetDateOrShowNone(ev.StartTime) } | { GetTimeOrShowNone(ev.StartTime) } &commat; { ev.Address }</p>
 							</div>
+							<br/>
 							<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block">
 								LEARN MORE
 								&rarr;
