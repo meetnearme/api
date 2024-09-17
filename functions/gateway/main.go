@@ -46,6 +46,7 @@ func init() {
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
 		{"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
 		{"/admin/profile", "GET", handlers.GetProfilePage, Require},
+		{"/admin/profile/settings", "GET", handlers.GetProfileSettingsPage, Require},
 		{"/map-embed", "GET", handlers.GetMapEmbedPage, None},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...

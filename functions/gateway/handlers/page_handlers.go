@@ -141,6 +141,23 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
+func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	// roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
+
+	settingsPage := pages.ProfileSettingsPage()
+	layoutTemplate := pages.Layout("Settings", userInfo, settingsPage)
+
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
+	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+}
+
 func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)

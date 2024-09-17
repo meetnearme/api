@@ -1,30 +1,16 @@
 package pages
 
-import "github.com/meetnearme/api/functions/gateway/helpers"
+import (
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
+	) 
 
 templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim) {
 	<h1 class="text-3xl">Profile</h1>
 	<br/>
 	<br/>
 	<div class="grid grid-cols-7" x-data="getProfileData()">
-		<div class="self-start sticky top-0 col-span-2 mr-5 card border-2 border-base-300 bg-base-200 rounded-box place-items-center ">
-			<ul class="menu bg-base-200 rounded-box w-56">
-				<li>
-					<a>Profile</a>
-					<ul>
-						<li><a>Settings</a></li>
-						<li><a>Karma</a></li>
-					</ul>
-				</li>
-				<li>
-					<a>Events</a>
-					<ul>
-						<li><a href="/admin/add-event-source">Event Sources</a></li>
-						<li><a>Add an Event (Soon)</a></li>
-					</ul>
-				</li>
-			</ul>
-		</div>
+		@components.ProfileNav()
 		<div class="col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box">
 			<h2 class="text-3xl font-bold ">My Info</h2>
 			Name: { userInfo.Name }

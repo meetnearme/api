@@ -1,0 +1,22 @@
+package components
+
+templ ProfileNav() {
+    <div class="self-start sticky top-0 col-span-2 mr-5 card border-2 border-base-300 bg-base-200 rounded-box place-items-center ">
+        <ul class="menu bg-base-200 rounded-box w-56">
+            <li>
+                <a href="/admin/profile">Profile</a>
+                <ul>
+                    <li><a href="/admin/profile/settings">Settings</a></li>
+                    <li><a>Karma</a></li>
+                </ul>
+            </li>
+            <li>
+                <a>Events</a>
+                <ul>
+                    <li><a href="/admin/add-event-source">Event Sources</a></li>
+                    <li><a>Add an Event (Soon)</a></li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+}
