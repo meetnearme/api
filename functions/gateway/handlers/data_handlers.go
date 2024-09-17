@@ -169,7 +169,6 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
     // TODO: use this in BatchUpdateEvent / UpdateOneEvent  handler but add conditional logic to check for ID which is required in Update and Forbidden in PostBatchEvents
     events, status, err := HandleBatchEventValidation(w, r)
 
-    // TODO: handle err with status via SendServerRes here with `status`
     if err != nil {
         transport.SendServerRes(w, []byte(err.Error()), status, err)
         return
