@@ -60,7 +60,9 @@ func init() {
 		{"/api/event", "POST", handlers.PostEventHandler, None},
 		{"/api/events", "POST", handlers.PostBatchEventsHandler, None},
 		{"/api/events", "GET", handlers.SearchEventsHandler, None},
+		{"/api/events", "PATCH", handlers.BulkUpdateEventsHandler, None},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
+		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PATCH", handlers.UpdateOneEventHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
 
 		// {"/api/event", "POST", handlers.CreateEventHandler, None},

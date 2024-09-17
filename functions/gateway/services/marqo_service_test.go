@@ -189,7 +189,7 @@ func TestUpsertEventToMarqo(t *testing.T) {
 				t.Fatalf("Failed to get Marqo client: %v", err)
 			}
 
-			res, err := UpsertEventToMarqo(client, tt.event)
+			res, err := UpsertEventToMarqo(client, tt.event, false)
 
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
@@ -346,7 +346,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 				t.Fatalf("Failed to get Marqo client: %v", err)
 			}
 
-			res, err := BulkUpsertEventToMarqo(client, tt.events)
+			res, err := BulkUpsertEventToMarqo(client, tt.events, false)
 
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)

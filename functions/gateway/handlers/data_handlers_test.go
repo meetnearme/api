@@ -104,7 +104,7 @@ func TestPostEvent(t *testing.T) {
             name:        "Valid event",
             requestBody: `{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
             mockUpsertFunc: func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error) {
-                res, err := services.UpsertEventToMarqo(client, event)
+                res, err := services.UpsertEventToMarqo(client, event, false)
                 if err != nil {
                     log.Printf("mocked request to upsert event failed: %v", err)
                 }
@@ -143,7 +143,7 @@ func TestPostEvent(t *testing.T) {
             expectMissingAuthHeader: true,
             requestBody: `{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
             mockUpsertFunc: func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error) {
-                res, err := services.UpsertEventToMarqo(client, event)
+                res, err := services.UpsertEventToMarqo(client, event, false)
                 if err != nil {
                     log.Printf("mocked request to upsert event failed: %v", err)
                 }
@@ -163,8 +163,8 @@ func TestPostEvent(t *testing.T) {
             mockUpsertFunc: nil,
             expectedStatus: http.StatusUnprocessableEntity,
             expectedBodyCheck: func(body string) error {
-                if !strings.Contains(body, "Invalid JSON payload") {
-                    return fmt.Errorf("expected 'Invalid JSON payload', got '%s'", body)
+                if !strings.Contains(strings.ToLower(body), "failed to extract event from payload: invalid json payload") {
+                    return fmt.Errorf("expected 'failed to extract event from payload: invalid json payload', got '%s'", body)
                 }
                 return nil
             },
@@ -345,7 +345,7 @@ func TestPostBatchEvents(t *testing.T) {
             name:        "Valid events",
             requestBody: `{"events":[{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278},{"eventOwners":["456"],"name":"Another Test Event","description":"Another test event","startTime":"2099-05-02T12:00:00Z","address":"456 Test St","lat":51.5075,"long":-0.1279}]}`,
             mockUpsertFunc: func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error) {
-                res, err := services.BulkUpsertEventToMarqo(client, events)
+                res, err := services.BulkUpsertEventToMarqo(client, events, false)
                 if err != nil {
                     log.Printf("mocked request to upsert events failed: %v", err)
                 }
@@ -384,7 +384,7 @@ func TestPostBatchEvents(t *testing.T) {
             expectMissingAuthHeader: true,
             requestBody: `{"events":[{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278},{"eventOwners":["456"],"name":"Another Test Event","description":"Another test event","startTime":"2099-05-02T12:00:00Z","address":"456 Test St","lat":51.5075,"long":-0.1279}]}`,
             mockUpsertFunc: func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error) {
-                res, err := services.BulkUpsertEventToMarqo(client, events)
+                res, err := services.BulkUpsertEventToMarqo(client, events, false)
                 if err != nil {
                     log.Printf("mocked request to upsert events failed: %v", err)
                 }
@@ -617,3 +617,410 @@ func TestSearchEvents(t *testing.T) {
 	}
 }
 
+func TestBulkUpdateEvents(t *testing.T) {
+	// Save original environment variables
+	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
+	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
+
+	// Set test environment variables
+	testMarqoApiKey := "test-marqo-api-key"
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	testMarqoIndexName := "testing-index"
+
+	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
+
+	// Defer resetting environment variables
+	defer func() {
+		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
+		os.Setenv("DEV_MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
+	}()
+
+    // Create a mock HTTP server for Marqo
+    mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check the authorization header
+		authHeader := r.Header.Get("x-api-key")
+        // we do nothing here because the underlying implementation of marqo go
+        // library implements `WithMarqoCloudAuth` as an option expected in our
+        // implementation, so omitting the auth header will result a lib failure
+
+        body, err := io.ReadAll(r.Body)
+        if err != nil {
+            log.Printf("error reading body in mock: %v", err)
+        }
+
+        var createEvent map[string]interface{}
+        err = json.Unmarshal(body, &createEvent)
+        if err != nil {
+            log.Printf("error unmarshaling body in mock: %v", err)
+        }
+
+		if authHeader == "" {
+            http.Error(w, "Unauthorized, missing x-api-key header", http.StatusUnauthorized)
+            return
+		}
+
+		// Mock the response
+		response := &marqo.UpsertDocumentsResponse{
+			Errors: false,
+			IndexName: "mock-events-search",
+			Items: []marqo.Item{
+				{
+					ID: "123",
+					Result: "",
+					Status: 200,
+				},
+				{
+					ID: "456",
+					Result: "",
+					Status: 200,
+				},
+			},
+			ProcessingTimeMS: 0.38569063499744516,
+		}
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(responseBytes)
+	}))
+
+	// Set the mock Marqo server URL
+	mockMarqoServer.Listener.Close()
+	var err error
+	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	if err != nil {
+		t.Fatalf("Failed to start mock Marqo server: %v", err)
+	}
+	mockMarqoServer.Start()
+	defer mockMarqoServer.Close()
+
+    tests := []struct {
+		name           string
+		payload        string
+		expectedStatus int
+		expectedBody   string
+        expectMissingAuthHeader bool
+        mockUpsertFunc    func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error)
+	}{
+		{
+			name:           "Invalid payload (missing ID in one event)",
+			payload:        `{"events":[{"id":"abc","eventOwners":["123"],"name":"DC Bocce Ball Semifinals","description":"DC Bocce event description","startTime":"2099-02-15T18:30:00Z","address":"National Mall, Washington, DC","lat":38.8951,"long":-77.0364},{"eventOwners":["456"],"name":"New York City Marathon","description":"NYC Marathon event description","startTime":"2099-11-02T08:00:00Z","address":"Fort Wadsworth, Staten Island, NY","lat":40.6075,"long":-74.0544}]}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   `Failed to extract event from payload: invalid body: Event at index 1 has no id`,
+            expectMissingAuthHeader: false,
+            mockUpsertFunc: nil,
+		},
+		{
+			name:           "Valid payload, missing auth header",
+			payload:        `{"events":[{"id":"abc","eventOwners":["123"],"name":"DC Bocce Ball Semifinals","description":"DC Bocce event description","startTime":"2099-02-15T18:30:00Z","address":"National Mall, Washington, DC","lat":38.8951,"long":-77.0364},{"id":"xyz","eventOwners":["456"],"name":"New York City Marathon","description":"NYC Marathon event description","startTime":"2099-11-02T08:00:00Z","address":"Fort Wadsworth, Staten Island, NY","lat":40.6075,"long":-74.0544}]}`,
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   `Failed to get marqo event: error upserting documents: status code: 401`,
+            expectMissingAuthHeader: true,
+            mockUpsertFunc: nil,
+		},
+		{
+			name:           "Valid payload",
+			payload:        `{"events":[{"id":"abc","eventOwners":["123"],"name":"DC Bocce Ball Semifinals","description":"DC Bocce event description","startTime":"2099-02-15T18:30:00Z","address":"National Mall, Washington, DC","lat":38.8951,"long":-77.0364},{"id":"xyz","eventOwners":["456"],"name":"New York City Marathon","description":"NYC Marathon event description","startTime":"2099-11-02T08:00:00Z","address":"Fort Wadsworth, Staten Island, NY","lat":40.6075,"long":-74.0544}]}`,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `"errors":false`,
+            expectMissingAuthHeader: false,
+            mockUpsertFunc: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+            if tt.expectMissingAuthHeader {
+                originalApiKey := os.Getenv("MARQO_API_KEY")
+                os.Setenv("MARQO_API_KEY", "")
+                defer os.Setenv("MARQO_API_KEY", originalApiKey)
+            }
+
+            marqoClient, err := services.GetMarqoClient()
+            if err != nil {
+                log.Println("failed to get marqo client")
+            }
+
+            mockService := &services.MockMarqoService{
+                UpsertEventToMarqoFunc: func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error) {
+                    return tt.mockUpsertFunc(marqoClient, event)
+                },
+            }
+
+			req, err := http.NewRequestWithContext(context.Background(), "PATCH", "/api/events", strings.NewReader(tt.payload))
+			if err != nil {
+				t.Fatalf("Failed to create request: %v", err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler := NewMarqoHandler(mockService)
+
+			handler.BulkUpdateEvents(rr, req)
+
+			if status := rr.Code; status != tt.expectedStatus {
+				t.Errorf("Handler returned wrong status code: got %v want %v", status, tt.expectedStatus)
+			}
+
+			if !strings.Contains(strings.ToLower(rr.Body.String()), strings.ToLower(tt.expectedBody))  {
+				t.Errorf("Handler returned unexpected body: got: %v want %v", rr.Body.String(), tt.expectedBody)
+			}
+		})
+	}
+}
+
+func TestUpdateOneEvent(t *testing.T) {
+	// Save original environment variables
+	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
+	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
+
+	// Set test environment variables
+	testMarqoApiKey := "test-marqo-api-key"
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	testMarqoIndexName := "testing-index"
+
+	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
+
+	// Defer resetting environment variables
+	defer func() {
+		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
+		os.Setenv("DEV_MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
+	}()
+
+	// Create a mock HTTP server for Marqo
+	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check the authorization header
+		authHeader := r.Header.Get("x-api-key")
+        // we do nothing here because the underlying implementation of marqo go
+        // library implements `WithMarqoCloudAuth` as an option expected in our
+        // implementation, so omitting the auth header will result a lib failure
+		if authHeader == "" {
+            return
+		}
+
+		// Mock the response
+		response := &marqo.UpsertDocumentsResponse{
+			Errors: false,
+			IndexName: "mock-events-search",
+			Items: []marqo.Item{
+				{
+					ID: "123",
+					Result: "",
+					Status: 200,
+				},
+			},
+			ProcessingTimeMS: 0.38569063499744516,
+		}
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(responseBytes)
+	}))
+
+	// Set the mock Marqo server URL
+	mockMarqoServer.Listener.Close()
+	var err error
+	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	if err != nil {
+		t.Fatalf("Failed to start mock Marqo server: %v", err)
+	} else {
+        t.Log("Started mock Marqo server")
+    }
+	mockMarqoServer.Start()
+	defer mockMarqoServer.Close()
+
+    tests := []struct {
+        name string
+        apiPath string
+        requestBody string
+        mockUpsertFunc    func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error)
+        expectedStatus int
+        expectedBodyCheck func(body string) error
+        expectMissingAuthHeader bool
+    }{
+        {
+            name:        "Valid event",
+            apiPath:        `/test-id`,
+            requestBody: `{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+            mockUpsertFunc: func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error) {
+                res, err := services.UpsertEventToMarqo(client, event, false)
+                if err != nil {
+                    log.Printf("mocked request to upsert event failed: %v", err)
+                }
+                return &marqo.UpsertDocumentsResponse{}, fmt.Errorf("mocked request to upsert event res: %v", res)
+            },
+            expectedStatus: http.StatusCreated,
+            expectedBodyCheck: func(body string) error {
+                var response map[string]interface{}
+                if err := json.Unmarshal([]byte(body), &response); err != nil {
+                    return fmt.Errorf("failed to unmarshal response body: %v", err)
+                }
+                items, ok := response["items"].([]interface{})
+                if !ok || len(items) == 0 {
+                    return fmt.Errorf("expected non-empty Items array, got '%v'", items)
+                }
+
+                firstItem, ok := items[0].(map[string]interface{})
+                if !ok {
+                    return fmt.Errorf("expected first item to be a map, got '%v'", items[0])
+                }
+
+                id, ok := firstItem["_id"].(string)
+                if !ok || id == "" {
+                    return fmt.Errorf("expected non-empty ID, got '%v'", id)
+                }
+
+                if id != "123" {
+                    return fmt.Errorf("expected id to be %v, got %v", "123", id)
+                }
+
+                return nil
+            },
+        },
+        {
+            name:        "Valid payload, missing event path parameter",
+            apiPath:        `/`,
+            expectMissingAuthHeader: true,
+            requestBody: `{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+            mockUpsertFunc: func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error) {
+                res, err := services.UpsertEventToMarqo(client, event, false)
+                if err != nil {
+                    log.Printf("mocked request to upsert event failed: %v", err)
+                }
+                return res, nil
+            },
+            expectedStatus: http.StatusInternalServerError,
+            expectedBodyCheck: func(body string) error {
+                if strings.Contains(body, "ERR: Failed to upsert event") {
+                    return nil
+                }
+                return fmt.Errorf("Expected error message, but none present")
+            },
+        },
+        {
+            name:        "Valid payload, missing auth header",
+            apiPath:        `/test-id`,
+            expectMissingAuthHeader: true,
+            requestBody: `{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+            mockUpsertFunc: func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error) {
+                res, err := services.UpsertEventToMarqo(client, event, false)
+                if err != nil {
+                    log.Printf("mocked request to upsert event failed: %v", err)
+                }
+                return res, nil
+            },
+            expectedStatus: http.StatusInternalServerError,
+            expectedBodyCheck: func(body string) error {
+                if strings.Contains(body, "ERR: Failed to upsert event") {
+                    return nil
+                }
+                return fmt.Errorf("Expected error message, but none present")
+            },
+        },
+        {
+            name:           "Invalid JSON",
+            apiPath:        `/test-id`,
+            requestBody:    `{"name":"Test Event","description":}`,
+            mockUpsertFunc: nil,
+            expectedStatus: http.StatusUnprocessableEntity,
+            expectedBodyCheck: func(body string) error {
+                if !strings.Contains(strings.ToLower(body), "failed to extract event from payload: invalid json payload") {
+                    return fmt.Errorf("expected 'failed to extract event from payload: invalid json payload', got '%s'", body)
+                }
+                return nil
+            },
+        },
+        {
+            name:           "Missing start time field",
+            apiPath:        `/test-id`,
+            requestBody:    `{"description":"A test event", "eventOwners":["123"],"lat":51.5074,"long":-0.1278}`,
+            mockUpsertFunc: nil,
+            expectedStatus: http.StatusBadRequest,
+            expectedBodyCheck: func(body string) error {
+                if !strings.Contains(body, "startTime is required") {
+                    return fmt.Errorf("expected 'startTime is required', got '%s'", body)
+                }
+                return nil
+            },
+        },
+        {
+            name:           "Missing name field",
+            apiPath:        `/test-id`,
+            requestBody:    `{"eventOwners":["123"],"startTime":"2099-05-01T12:00:00Z","description":"A test event","lat":51.5074,"long":-0.1278}`,
+            mockUpsertFunc: nil,
+            expectedStatus: http.StatusBadRequest,
+            expectedBodyCheck: func(body string) error {
+                if !strings.Contains(body, "Field validation for 'Name' failed on the 'required' tag") {
+                    return fmt.Errorf(`expected "Field validation for 'Name' failed on the 'required' tag", got '%s'`, body)
+                }
+                return nil
+            },
+        },
+        {
+            name:        "Missing eventOwners field",
+            apiPath:        `/test-id`,
+            requestBody: `{"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+            mockUpsertFunc: nil,
+            expectedStatus: http.StatusBadRequest,
+            expectedBodyCheck: func(body string) error {
+                if !strings.Contains(body, `Field validation for 'EventOwners' failed on the 'required' tag`) {
+                    return fmt.Errorf("expected `Field validation for 'EventOwners' failed on the 'required' tag`, got '%s'", body)
+                }
+                return nil
+            },
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+
+            if tt.expectMissingAuthHeader {
+                originalApiKey := os.Getenv("MARQO_API_KEY")
+                os.Setenv("MARQO_API_KEY", "")
+                defer os.Setenv("MARQO_API_KEY", originalApiKey)
+            }
+
+            marqoClient, err := services.GetMarqoClient()
+            if err != nil {
+                log.Println("failed to get marqo client")
+            }
+
+            mockService := &services.MockMarqoService{
+                UpsertEventToMarqoFunc: func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error) {
+                    return tt.mockUpsertFunc(marqoClient, event)
+                },
+            }
+
+            req, err := http.NewRequestWithContext(context.Background(), "PATCH", "/events/" + tt.apiPath, bytes.NewBufferString(tt.requestBody))
+            if err != nil {
+                t.Fatalf("Unexpected error: %v", err)
+            }
+
+            rr := httptest.NewRecorder()
+            handler := NewMarqoHandler(mockService)
+
+            handler.PostEvent(rr, req)
+
+            if status := rr.Code; status != tt.expectedStatus {
+                t.Errorf("Handler returned wrong status code: got %v want %v", status, tt.expectedStatus)
+            }
+
+            if err := tt.expectedBodyCheck(rr.Body.String()); err != nil {
+                t.Errorf("Body check failed: %v", err)
+            }
+        })
+    }
+}
