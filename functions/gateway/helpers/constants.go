@@ -1,6 +1,7 @@
 package helpers
 
 type AWSReqKey string
+
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
 const SeshuSessionTablePrefix = "SeshuSessions"
@@ -13,22 +14,31 @@ const MOCK_CLOUDFLARE_URL = "http://localhost:8999"
 const MOCK_ZITADEL_HOST = "localhost:8998"
 const MOCK_MARQO_URL = "http://localhost:8997"
 
+const PROJECT_ID_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
+
 type UserInfo struct {
-	Email string `json:"email"`
-	EmailVerified bool `json:"email_verified"`
-	FamilyName string `json:"family_name"`
-	GivenName string `json:"given_name"`
-	Locale string `json:"locale"`
-	Name string `json:"name"`
+	Email             string `json:"email"`
+	EmailVerified     bool   `json:"email_verified"`
+	FamilyName        string `json:"family_name"`
+	GivenName         string `json:"given_name"`
+	Locale            string `json:"locale"`
+	Name              string `json:"name"`
 	PreferredUsername string `json:"preferred_username"`
-	Sub string `json:"sub"`
-	UpdatedAt int `json:"updated_at"`
-	Metadata string `json:"metadata"`
+	Sub               string `json:"sub"` // This is the userID
+	UpdatedAt         int    `json:"updated_at"`
+	Metadata          string `json:"metadata"`
+}
+
+// RoleClaim represents a formatted role claim.
+type RoleClaim struct {
+	Role        string `json:"role"`
+	ProjectID   string `json:"project_id"`
+	ProjectName string `json:"project_name"`
 }
 
 type Category struct {
 	Name, Desc, Slug string
-	Items []Subcategory
+	Items            []Subcategory
 }
 
 type Subcategory struct {
@@ -44,7 +54,7 @@ type CdnLocation struct {
 	City   string  `json:"city"`
 }
 
-var Categories = []Category {
+var Categories = []Category{
 	{
 		Name: "Academic & Career Development",
 		Desc: "Add description later",

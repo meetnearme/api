@@ -127,6 +127,7 @@ func GetMarqoClient() (*marqo.Client, error) {
 // 		{"name": "imageUrl", "type": "text"},
 // 		{"name": "lat", "type": "double", "features": ["filter"]},
 // 		{"name": "long", "type": "double", "features": ["filter"]},
+// 		{"name": "timezone", "type": "text"},
 // 		{"name": "address", "type": "text", "features": ["lexical_search", "filter"]},
 // 		{"name": "sourceUrl", "type": "text"},
 // 		{"name": "createdAt", "type": "long"},
