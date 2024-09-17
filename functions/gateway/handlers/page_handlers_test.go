@@ -225,7 +225,27 @@ func TestGetProfilePage(t *testing.T) {
 		Sub:               "testID",
 		UpdatedAt:         123234234,
 	}
+
+	mockRoleClaims := []helpers.RoleClaim{
+		{
+			Role:        "orgAdmin",
+			ProjectID:   "project-id",
+			ProjectName: "myapp.zitadel.cloud",
+		},
+		{
+			Role:        "superAdmin",
+			ProjectID:   "project-id",
+			ProjectName: "myapp.zitadel.cloud",
+		},
+		{
+			Role:        "sysAdmin",
+			ProjectID:   "project-id",
+			ProjectName: "myapp.zitadel.cloud",
+		},
+	}
+
 	ctx := context.WithValue(req.Context(), "userInfo", mockUserInfo)
+	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
 	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
