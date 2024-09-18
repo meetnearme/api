@@ -81,12 +81,6 @@ func init() {
 		{"/api/users/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateUserHandler, None}, // Update an existing user
 		{"/api/users/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteUserHandler, None}, // Delete a user
 
-		// Transactions routes
-		{"/api/transactions/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetTransactionsHandler, None}, // Get all transactions for a user
-		{"/api/transactions/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetTransactionHandler, None}, // Get a specific transaction
-		{"/api/transactions", "POST", rds_handlers.CreateTransactionHandler, None}, // Create a new transaction
-		{"/api/transactions/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateTransactionHandler, None}, // Update an existing transaction
-		{"/api/transactions/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteTransactionHandler, None}, // Delete a transaction
 
 		// // Purchasables routes
 		{"/api/purchasables/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetPurchasablesHandler, None}, // Get all purchasables
@@ -102,12 +96,6 @@ func init() {
 		{"/api/event-rsvps", "POST", rds_handlers.CreateEventRsvpHandler, None}, // Create a new event RSVP
 		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateEventRsvpHandler, None}, // Update an existing event RSVP
 		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteEventRsvpHandler, None}, // Delete an event RSVP
-
-		// // Event Registration Fields routes
-		{"/api/registration-fields/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetRegistrationFieldsHandler, None}, // Get a specific event RSVP
-		{"/api/registration-fields", "POST", rds_handlers.CreateRegistrationFieldsHandler, None}, // Create a new event RSVP
-		{"/api/registration-fields/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateRegistrationFieldsHandler, None}, // Update an existing event RSVP
-		{"/api/registration-fields/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteRegistrationFieldsHandler, None}, // Delete an event RSVP
 	}
 }
 
