@@ -254,31 +254,47 @@ func (s *PurchasableService) DeletePurchasable(ctx context.Context, rdsClient in
 }
 
 type MockPurchasableService struct {
-	InsertPurchasableFunc  func(ctx context.Context, rdsClient internal_types.RDSDataAPI, purchasable internal_types.PurchasableInsert) (*internal_types.Purchasable, error)
-	GetPurchasableByIDFunc func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string) (*internal_types.Purchasable, error)
-	UpdatePurchasableFunc  func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string, purchasable internal_types.PurchasableUpdate) (*internal_types.Purchasable, error)
-	DeletePurchasableFunc  func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string)  error
-	GetPurchasablesFunc    func(ctx context.Context, rdsClient internal_types.RDSDataAPI) ([]internal_types.Purchasable, error) // New function
+	InsertPurchasableFunc        func(ctx context.Context, rdsClient internal_types.RDSDataAPI, user internal_types.PurchasableInsert) (*internal_types.Purchasable, error)
+	GetPurchasableByIDFunc       func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string) (*internal_types.Purchasable, error)
+	GetPurchasablesByUserIDFunc  func(ctx context.Context, rdsClient internal_types.RDSDataAPI, userID string) ([]internal_types.Purchasable, error)
+	UpdatePurchasableFunc        func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string, user internal_types.PurchasableUpdate) (*internal_types.Purchasable, error)
+	DeletePurchasableFunc        func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string) error
 }
 
-func (m *MockPurchasableService) InsertPurchasable(ctx context.Context, rdsClient internal_types.RDSDataAPI, purchasable internal_types.PurchasableInsert) (*internal_types.Purchasable, error) {
-	return m.InsertPurchasableFunc(ctx, rdsClient, purchasable)
+// Implement the required methods
+
+func (m *MockPurchasableService) InsertPurchasable(ctx context.Context, rdsClient internal_types.RDSDataAPI, user internal_types.PurchasableInsert) (*internal_types.Purchasable, error) {
+	if m.InsertPurchasableFunc != nil {
+		return m.InsertPurchasableFunc(ctx, rdsClient, user)
+	}
+	return nil, nil
 }
 
 func (m *MockPurchasableService) GetPurchasableByID(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string) (*internal_types.Purchasable, error) {
-	return m.GetPurchasableByIDFunc(ctx, rdsClient, id)
+	if m.GetPurchasableByIDFunc != nil {
+		return m.GetPurchasableByIDFunc(ctx, rdsClient, id)
+	}
+	return nil, nil
 }
 
-func (m *MockPurchasableService) UpdatePurchasable(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string, purchasable internal_types.PurchasableUpdate) (*internal_types.Purchasable, error) {
-	return m.UpdatePurchasableFunc(ctx, rdsClient, id, purchasable)
+func (m *MockPurchasableService) GetPurchasablesByUserID(ctx context.Context, rdsClient internal_types.RDSDataAPI, userID string) ([]internal_types.Purchasable, error) {
+	if m.GetPurchasablesByUserIDFunc != nil {
+		return m.GetPurchasablesByUserIDFunc(ctx, rdsClient, userID)
+	}
+	return nil, nil
 }
 
-func (m *MockPurchasableService) DeletePurchasable(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string)  error {
-	return m.DeletePurchasableFunc(ctx, rdsClient, id)
+func (m *MockPurchasableService) UpdatePurchasable(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string, user internal_types.PurchasableUpdate) (*internal_types.Purchasable, error) {
+	if m.UpdatePurchasableFunc != nil {
+		return m.UpdatePurchasableFunc(ctx, rdsClient, id, user)
+	}
+	return nil, nil
 }
 
-func (m *MockPurchasableService) GetPurchasablesByUserID(ctx context.Context, rdsClient internal_types.RDSDataAPI) ([]internal_types.Purchasable, error) {
-	return m.GetPurchasablesFunc(ctx, rdsClient)
+func (m *MockPurchasableService) DeletePurchasable(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string) error {
+	if m.DeletePurchasableFunc != nil {
+		return m.DeletePurchasableFunc(ctx, rdsClient, id)
+	}
+	return nil
 }
-
 
