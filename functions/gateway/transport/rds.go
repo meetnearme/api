@@ -19,13 +19,6 @@ var (
 	testRdsData   internal_types.RDSDataAPI
 )
 
-func init() {
-	// Ensure that the client is only initialized once
-	onceRds.Do(func() {
-		rdsDataClient = CreateRDSClient()
-	})
-}
-
 // CreateRDSClient initializes and returns an RDS Data API client
 func CreateRDSClient() internal_types.RDSDataAPI {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(os.Getenv("AWS_REGION")))
@@ -91,4 +84,3 @@ func GetRdsDB() internal_types.RDSDataAPI {
 	}
 	return rdsDataClient
 }
-
