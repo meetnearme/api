@@ -5,7 +5,7 @@
 ```bash
 
 # example of all fields
-curl -X POST https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/users \
+curl -X POST https://vze2jkkcn5.execute-api.us-east-1.amazonaws.com/api/users \
  -H "Content-Type: application/json" \
  -d '{
      "name": "B Doe",
@@ -17,7 +17,7 @@ curl -X POST https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/users \
  }'
 
  # only required fields
- curl -X POST  https://qnu7q7ch56.execute-api.us-east-1.amazonaws.com/api/users \
+ curl -X POST  https://vze2jkkcn5.execute-api.us-east-1.amazonaws.com/api/users \
  -H "Content-Type: application/json" \
  -d '{
      "name": "John Doe",
@@ -43,7 +43,7 @@ curl -X GET https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/users
 
 3. Update user
 ```bash
-curl -X PUT https://qnu7q7ch56.execute-api.us-east-1.amazonaws.com/api/users/bb165e53-31c8-4085-9382-578ac7df6812 \
+curl -X PUT https://https://vze2jkkcn5.execute-api.us-east-1.amazonaws.com/api/users/bb165e53-31c8-4085-9382-578ac7df6812 \
 -H "Content-Type: application/json" \
 -d '{
     "name": "New name",
@@ -62,53 +62,6 @@ curl -X PUT https://qnu7q7ch56.execute-api.us-east-1.amazonaws.com/api/users/bb1
 4. Delete User
 ```bash
 curl -X DELETE https://qnu7q7ch56.execute-api.us-east-1.amazonaws.com/api/users/bb165e53-31c8-4085-9382-578ac7df6812 \
-```
-
-##Transactions
-
-1. Create Transaction
-```bash
-curl -X POST https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/transactions \
--H "Content-Type: application/json" \
--d '{
-  "userId": "ea49a5f8-e27c-47b0-8237-6f6f380a048c",
-  "amount": "100.00",
-  "currency": "USD",
-  "transaction_type": "credit",
-  "status": "completed",
-  "description": "Car repair"
-}'
-
-```
-
-2. Update Transaction
-
-<!-- must use new user id -->
-```bash
-curl -X PUT https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/transactions \
--H "Content-Type: application/json" \
--d '{
-  "userId": "5648e67b-2e00-4f2d-8498-651382a6ddee",
-  "amount": "150.00",
-  "currency": "USD",
-  "transaction_type": "debit",
-  "status": "failed",
-  "description": "Payment for services refunded"
-}'
-```
-3. Delete transaction
-```bash
-curl -X DELETE https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/transactions/cbe40f6b-10c6-4e8c-a54d-01d2cfde16d7
-```
-
-4. Get Transaction by ID
-```bash
-curl -X GET https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/transactions/cbe40f6b-10c6-4e8c-a54d-01d2cfde16d7
-```
-
-5. Get Transactions by UserID
-```bash
-curl -X GET https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/transactions/user/ea49a5f8-e27c-47b0-8237-6f6f380a048c
 ```
 
 ## Purchasables
@@ -217,57 +170,4 @@ curl -X PUT https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/event-rsv
 curl -X DELETE https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/event-rsvps/32bf7a56-3267-4456-a325-eb90adbc2935 \
   -H "Content-Type: application/json"
 
-```
-
-## Registration Fields
-1. Create Registration Fields
-```bash
-curl -X POST http://localhost:3000/api/registration-fields \
--H "Content-Type: application/json" \
--d '{
-  "name": "Some Field",
-  "type": "dropdown",
-  "required": true,
-  "default": "Option 1",
-  "placeholder": "Select an option",
-  "description": "A field for selecting options"
-}'
-
-curl -X POST https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/registration-fields \
--H "Content-Type: application/json" \
--d '{
-  "name": "Gaming Night",
-  "type": "game event",
-  "options": ["Option 1", "Option 2", "Option 3"],
-  "required": true,
-  "default": "",
-  "placeholder": "Enter your email",
-  "description": "User email for registration"
-}'
-
-```
-2. Get Registration Fields
-```bash
-curl -X GET https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/registration-fields/c0e7fcdc-8ca6-4018-9f72-e8394b566c1f  \
--H "Content-Type: application/json"
-
-```
-3. Update Registration Fields
-```bash
-curl -X PUT https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/registration-fields/c0e7fcdc-8ca6-4018-9f72-e8394b566c1f \
--H "Content-Type: application/json" \
--d '{
-  "name": "username",
-  "type": "text",
-  "options": "here are some cool options",
-  "required": false,
-  "default": "this is now default",
-  "placeholder": "Enter your username",
-  "description": "User username for registration"
-}'
-```
-4. Delette Registration Fields
-```bash
-curl -X DELETE https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/registration-fields/c0e7fcdc-8ca6-4018-9f72-e8394b566c1f \
--H "Content-Type: application/json"
 ```
