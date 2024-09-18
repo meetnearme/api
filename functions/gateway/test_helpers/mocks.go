@@ -3,7 +3,7 @@ package test_helpers
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"encoding/json"
 	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -95,18 +95,28 @@ func GetNextPort() int {
     return int(atomic.AddInt32(&PortCounter, 1))
 }
 
-
-// MockRdsDataClient is a mock implementation of an RDS Data API client
 type MockRdsDataClient struct {
-	ExecStatementFunc func(ctx context.Context, sql string, parameters []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error)
+	ExecStatementFunc func(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error)
 }
 
-// ExecStatement simulates the execution of a SQL statement.
-func (m *MockRdsDataClient) ExecStatement(ctx context.Context, sql string, parameters []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
+func (m *MockRdsDataClient) ExecStatement(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
 	if m.ExecStatementFunc != nil {
-		return m.ExecStatementFunc(ctx, sql, parameters)
+		return m.ExecStatementFunc(ctx, sql, params)
 	}
-	return nil, fmt.Errorf("ExecStatementFunc not set")
+	return nil, nil
+}
+
+func NewMockRdsDataClientWithJSONRecords(records []map[string]interface{}) *MockRdsDataClient {
+	recordsJSON, _ := json.Marshal(records)
+	recordsString := string(recordsJSON) // Convert to string
+
+	return &MockRdsDataClient{
+		ExecStatementFunc: func(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
+			return &rdsdata.ExecuteStatementOutput{
+				FormattedRecords: &recordsString, // Use pointer to string
+			}, nil
+		},
+	}
 }
 
 // Ensure MockRdsDataClient implements the RDSDataAPI interface

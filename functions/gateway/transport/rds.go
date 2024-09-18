@@ -2,7 +2,6 @@ package transport
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -21,7 +20,10 @@ var (
 )
 
 func init() {
-	rdsDataClient = CreateRDSClient()
+	// Ensure that the client is only initialized once
+	onceRds.Do(func() {
+		rdsDataClient = CreateRDSClient()
+	})
 }
 
 // CreateRDSClient initializes and returns an RDS Data API client
@@ -31,56 +33,15 @@ func CreateRDSClient() internal_types.RDSDataAPI {
 		log.Fatalf("Error loading AWS configuration: %v", err)
 	}
 
-	client := rdsdata.NewFromConfig(cfg)
-
 	clusterArn := os.Getenv("RDS_CLUSTER_ARN")
 	secretArn := os.Getenv("RDS_SECRET_ARN")
 	databaseName := os.Getenv("DATABASE_NAME")
 
-	if clusterArn == "" || secretArn == "" {
-		log.Fatalf("Missing RDS cluster or secret ARN in environment variables")
+	if clusterArn == "" || secretArn == "" || databaseName == "" {
+		log.Fatalf("Missing RDS cluster, secret ARN, or database name in environment variables")
 	}
 
-	log.Println("Create RDS Data API client successful.")
-
-	// Verify the connection by running a simple query
-
-	verifyQuery := `SELECT table_schema, table_name
-FROM information_schema.tables
-WHERE table_schema NOT IN ('information_schema', 'pg_catalog')
-  AND table_type = 'BASE TABLE'
-ORDER BY table_schema, table_name;`
-	exOutput, err := client.ExecuteStatement(context.TODO(), &rdsdata.ExecuteStatementInput{
-		ResourceArn: &clusterArn,
-		SecretArn:   &secretArn,
-		Database:    &databaseName,
-		Sql:         &verifyQuery,
-	})
-
-	if err != nil {
-		log.Fatalf("Error executing verify query: %v", err)
-	}
-
-	// Print the table names
-	fmt.Println("User-created tables in the database:")
-	for _, record := range exOutput.Records {
-		var schemaName, tableName string
-		for j, field := range record {
-			switch v := field.(type) {
-			case *rds_types.FieldMemberStringValue:
-				if j == 0 {
-					schemaName = v.Value
-				} else if j == 1 {
-					tableName = v.Value
-				}
-			}
-		}
-		if tableName != "" {
-			fmt.Printf(" - %s.%s\n", schemaName, tableName)
-		}
-	}
-
-	log.Println("Database connection verified successfully.")
+	client := rdsdata.NewFromConfig(cfg)
 
 	return &RDSDataClient{
 		client:     client,
@@ -99,18 +60,13 @@ type RDSDataClient struct {
 }
 
 func (r *RDSDataClient) ExecStatement(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
-	// Build and execute the SQL statement
 	input := &rdsdata.ExecuteStatementInput{
 		ResourceArn: &r.clusterArn,
 		SecretArn:   &r.secretArn,
 		Database:    &r.database,
 		Sql:         &sql,
-		FormatRecordsAs: "JSON",
 		Parameters:  params,
 	}
-
-	log.Printf("params in exec: %v", params)
-
 	return r.client.ExecuteStatement(ctx, input)
 }
 
@@ -124,14 +80,15 @@ func GetRdsDB() internal_types.RDSDataAPI {
 	if os.Getenv("GO_ENV") == "test" {
 		if testRdsData == nil {
 			log.Println("Creating mock RDS Data API client for testing")
-			testRdsData = &test_helpers.MockRdsDataClient{} // Implement MockRdsDataClient for testing
+			testRdsData = &test_helpers.MockRdsDataClient{
+				ExecStatementFunc: func(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
+					return &rdsdata.ExecuteStatementOutput{}, nil
+				},
+			}
 		}
 		log.Println("Returning mock RDS Data API client for testing")
 		return testRdsData
 	}
-	onceRds.Do(func() {
-		rdsDataClient = CreateRDSClient()
-	})
 	return rdsDataClient
 }
 
