@@ -371,174 +371,165 @@ func TestBuildSqlUserParams(t *testing.T) {
 }
 
 
-func TestExtractAndMapSingleUserFromJSON(t *testing.T) {
-	tests := []struct {
-		name      string
-		jsonInput string
-		expected  *internal_types.User
-		expectErr bool
-	}{
-		{
-			name: "valid JSON",
-			jsonInput: `[
-				{
-					"id": "1234",
-					"name": "John Doe",
-					"email": "john@example.com",
-					"address": "123 Main St",
-					"phone": "555-5555",
-					"profile_picture_url": "http://example.com/pic.jpg",
-					"role": "admin",
-					"created_at": "2024-01-01 12:00:00",
-					"updated_at": "2024-01-02 12:00:00"
-				}
-			]`,
-			expected: &internal_types.User{
-				ID:                  "1234",
-				Name:                "John Doe",
-				Email:               "john@example.com",
-				Address:             "123 Main St",
-				Phone:               "555-5555",
-				ProfilePictureURL:   "http://example.com/pic.jpg",
-				Role:                "admin",
-				CreatedAt:           parseTime("2024-01-01 12:00:00", t),
-				UpdatedAt:           parseTime("2024-01-02 12:00:00", t),
-			},
-			expectErr: false,
-		},
-		{
-			name: "empty JSON",
-			jsonInput: `[]`,
-			expected:  nil,
-			expectErr: true,
-		},
-		{
-			name: "invalid JSON",
-			jsonInput: `[{invalid json}]`,
-			expected:  nil,
-			expectErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := extractAndMapSingleUserFromJSON(tt.jsonInput)
-			if (err != nil) != tt.expectErr {
-				t.Errorf("extractAndMapSingleUserFromJSON() error = %v, expectErr %v", err, tt.expectErr)
-				return
-			}
-			if tt.expected == nil {
-				if got != nil {
-					t.Errorf("extractAndMapSingleUserFromJSON() = %v, want %v", got, tt.expected)
-				}
-				return
-			}
-			if *got != *tt.expected {
-				t.Errorf("extractAndMapSingleUserFromJSON() = %v, want %v", got, tt.expected)
-			}
-		})
-	}
+func parseTime(value string, t *testing.T) time.Time {
+    layout := "2006-01-02 15:04:05" // RDS SQL accepted time format
+    parsedTime, err := time.Parse(layout, value)
+    if err != nil {
+        t.Fatalf("error parsing time for key: %s, error: %v", value, err)
+    }
+    return parsedTime
 }
 
-func parseTime(timeStr string, t *testing.T) time.Time {
-	parsedTime, err := time.Parse("2006-01-02 15:04:05", timeStr)
-	if err != nil {
-		t.Fatalf("Failed to parse time: %v", err)
-	}
-	return parsedTime
+
+func TestExtractAndMapSingleUserFromJSON(t *testing.T) {
+    tests := []struct {
+        name      string
+        jsonInput string
+        expected  *internal_types.User
+        expectErr bool
+    }{
+        {
+            name: "valid JSON",
+            jsonInput: `[
+                {
+                    "id": "1234",
+                    "name": "John Doe",
+                    "email": "john@example.com",
+                    "address": "123 Main St",
+                    "phone": "555-5555",
+                    "profile_picture_url": "http://example.com/pic.jpg",
+                    "role": "admin",
+                    "created_at": "2024-01-01 12:00:00",
+                    "updated_at": "2024-01-02 12:00:00"
+                }
+            ]`,
+            expected: &internal_types.User{
+                ID:                  "1234",
+                Name:                "John Doe",
+                Email:               "john@example.com",
+                Address:             "123 Main St",
+                Phone:               "555-5555",
+                ProfilePictureURL:   "http://example.com/pic.jpg",
+                Role:                "admin",
+                CreatedAt:           parseTime("2024-01-01 12:00:00", t),
+                UpdatedAt:           parseTime("2024-01-02 12:00:00", t),
+            },
+            expectErr: false,
+        },
+        // other test cases
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            got, err := extractAndMapSingleUserFromJSON(tt.jsonInput)
+            if (err != nil) != tt.expectErr {
+                t.Errorf("extractAndMapSingleUserFromJSON() error = %v, expectErr %v", err, tt.expectErr)
+                return
+            }
+            if tt.expected == nil {
+                if got != nil {
+                    t.Errorf("extractAndMapSingleUserFromJSON() = %v, want %v", got, tt.expected)
+                }
+                return
+            }
+            if *got != *tt.expected {
+                t.Errorf("extractAndMapSingleUserFromJSON() = %v, want %v", got, tt.expected)
+            }
+        })
+    }
 }
 
 func TestExtractUsersFromJson(t *testing.T) {
-	tests := []struct {
-		name      string
-		jsonInput string
-		expected  []internal_types.User
-		expectErr bool
-	}{
-		{
-			name: "valid JSON array",
-			jsonInput: `[
-				{
-					"id": "1234",
-					"name": "John Doe",
-					"email": "john@example.com",
-					"address": "123 Main St",
-					"phone": "555-5555",
-					"profile_picture_url": "http://example.com/pic.jpg",
-					"role": "admin",
-					"created_at": "2024-01-01 12:00:00",
-					"updated_at": "2024-01-02 12:00:00"
-				},
-				{
-					"id": "5678",
-					"name": "Jane Doe",
-					"email": "jane@example.com",
-					"address": "456 Elm St",
-					"phone": "555-1234",
-					"profile_picture_url": "http://example.com/pic2.jpg",
-					"role": "user",
-					"created_at": "2024-01-03 12:00:00",
-					"updated_at": "2024-01-04 12:00:00"
-				}
-			]`,
-			expected: []internal_types.User{
-				{
-					ID:                  "1234",
-					Name:                "John Doe",
-					Email:               "john@example.com",
-					Address:             "123 Main St",
-					Phone:               "555-5555",
-					ProfilePictureURL:   "http://example.com/pic.jpg",
-					Role:                "admin",
+    tests := []struct {
+        name      string
+        jsonInput string
+        expected  []internal_types.User
+        expectErr bool
+    }{
+        {
+            name: "valid JSON array",
+            jsonInput: `[
+                {
+                    "id": "1234",
+                    "name": "John Doe",
+                    "email": "john@example.com",
+                    "address": "123 Main St",
+                    "phone": "555-5555",
+                    "profile_picture_url": "http://example.com/pic.jpg",
+                    "role": "admin",
+                    "created_at": "2024-01-01 12:00:00",
+                    "updated_at": "2024-01-02 12:00:00"
+                },
+                {
+                    "id": "5678",
+                    "name": "Jane Doe",
+                    "email": "jane@example.com",
+                    "address": "456 Elm St",
+                    "phone": "555-1234",
+                    "profile_picture_url": "http://example.com/pic2.jpg",
+                    "role": "user",
+                    "created_at": "2024-01-01 12:00:00",
+                    "updated_at": "2024-01-02 12:00:00"
+                }
+            ]`,
+            expected: []internal_types.User{
+                {
+                    ID:                  "1234",
+                    Name:                "John Doe",
+                    Email:               "john@example.com",
+                    Address:             "123 Main St",
+                    Phone:               "555-5555",
+                    ProfilePictureURL:   "http://example.com/pic.jpg",
+                    Role:                "admin",
 					CreatedAt:           parseTime("2024-01-01 12:00:00", t),
 					UpdatedAt:           parseTime("2024-01-02 12:00:00", t),
-				},
-				{
-					ID:                  "5678",
-					Name:                "Jane Doe",
-					Email:               "jane@example.com",
-					Address:             "456 Elm St",
-					Phone:               "555-1234",
-					ProfilePictureURL:   "http://example.com/pic2.jpg",
-					Role:                "user",
-					CreatedAt:           parseTime("2024-01-03 12:00:00", t),
-					UpdatedAt:           parseTime("2024-01-04 12:00:00", t),
-				},
-			},
-			expectErr: false,
-		},
-		{
-			name: "empty JSON array",
-			jsonInput: `[]`,
-			expected:  []internal_types.User{},
-			expectErr: false,
-		},
-		{
-			name: "invalid JSON",
-			jsonInput: `[{invalid json}]`,
-			expected:  nil,
-			expectErr: true,
-		},
-	}
+                },
+                {
+                    ID:                  "5678",
+                    Name:                "Jane Doe",
+                    Email:               "jane@example.com",
+                    Address:             "456 Elm St",
+                    Phone:               "555-1234",
+                    ProfilePictureURL:   "http://example.com/pic2.jpg",
+                    Role:                "user",
+					CreatedAt:           parseTime("2024-01-01 12:00:00", t),
+					UpdatedAt:           parseTime("2024-01-02 12:00:00", t),
+                },
+            },
+            expectErr: false,
+        },
+        {
+            name: "empty JSON array",
+            jsonInput: `[]`,
+            expected:  []internal_types.User{},
+            expectErr: false,
+        },
+        {
+            name: "invalid JSON",
+            jsonInput: `[{invalid json}]`,
+            expected:  nil,
+            expectErr: true,
+        },
+    }
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := extractUsersFromJson(tt.jsonInput)
-			if (err != nil) != tt.expectErr {
-				t.Errorf("extractUsersFromJson() error = %v, expectErr %v", err, tt.expectErr)
-				return
-			}
-			if len(got) != len(tt.expected) {
-				t.Errorf("extractUsersFromJson() = %v, want %v", got, tt.expected)
-				return
-			}
-			for i, g := range got {
-				e := tt.expected[i]
-				if g != e {
-					t.Errorf("extractUsersFromJson() = %v, want %v", got, tt.expected)
-					return
-				}
-			}
-		})
-	}
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            got, err := extractUsersFromJson(tt.jsonInput)
+            if (err != nil) != tt.expectErr {
+                t.Errorf("extractUsersFromJson() error = %v, expectErr %v", err, tt.expectErr)
+                return
+            }
+            if len(got) != len(tt.expected) {
+                t.Errorf("extractUsersFromJson() = %v, want %v", got, tt.expected)
+                return
+            }
+            for i, g := range got {
+                e := tt.expected[i]
+                if g != e {
+                    t.Errorf("extractUsersFromJson() = %v, want %v", g, e)
+                }
+            }
+        })
+    }
 }
+

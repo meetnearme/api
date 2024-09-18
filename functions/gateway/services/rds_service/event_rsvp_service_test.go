@@ -233,3 +233,207 @@ func TestGetEventRsvpsByUserID(t *testing.T) {
 	}
 }
 
+func TestBuildSqlEventRsvpParams(t *testing.T) {
+	tests := []struct {
+		name      string
+		parameters map[string]interface{}
+		expected  []rds_types.SqlParameter
+		expectErr bool
+	}{
+		{
+			name: "valid parameters",
+			parameters: map[string]interface{}{
+				"id":                 "1234",
+				"user_id":            "5678",
+				"event_id":           "abcd",
+				"status":             "attending",
+				"event_source_type":  "web",
+				"created_at":         "2024-01-01 12:00:00",
+				"updated_at":         "2024-01-02 12:00:00",
+			},
+			expected: []rds_types.SqlParameter{
+				{
+					Name:     aws.String("id"),
+					TypeHint: "UUID",
+					Value: &rds_types.FieldMemberStringValue{
+						Value: "1234",
+					},
+				},
+				{
+					Name:     aws.String("user_id"),
+					TypeHint: "UUID",
+					Value: &rds_types.FieldMemberStringValue{
+						Value: "5678",
+					},
+				},
+				{
+					Name:     aws.String("event_id"),
+					TypeHint: "UUID",
+					Value: &rds_types.FieldMemberStringValue{
+						Value: "abcd",
+					},
+				},
+				{
+					Name: aws.String("status"),
+					Value: &rds_types.FieldMemberStringValue{
+						Value: "attending",
+					},
+				},
+				{
+					Name: aws.String("event_source_type"),
+					Value: &rds_types.FieldMemberStringValue{
+						Value: "web",
+					},
+				},
+				{
+					Name:     aws.String("created_at"),
+					TypeHint: "TIMESTAMP",
+					Value: &rds_types.FieldMemberStringValue{
+						Value: "2024-01-01 12:00:00",
+					},
+				},
+				{
+					Name:     aws.String("updated_at"),
+					TypeHint: "TIMESTAMP",
+					Value: &rds_types.FieldMemberStringValue{
+						Value: "2024-01-02 12:00:00",
+					},
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name: "missing id",
+			parameters: map[string]interface{}{
+				"user_id":           "5678",
+				"event_id":          "abcd",
+				"status":            "attending",
+				"event_source_type": "web",
+			},
+			expected:  nil,
+			expectErr: true,
+		},
+		{
+			name: "non-string id",
+			parameters: map[string]interface{}{
+				"id":                 1234,
+				"user_id":            "5678",
+				"event_id":           "abcd",
+				"status":             "attending",
+				"event_source_type":  "web",
+			},
+			expected:  nil,
+			expectErr: true,
+		},
+		{
+			name: "missing status",
+			parameters: map[string]interface{}{
+				"id":        "1234",
+				"user_id":   "5678",
+				"event_id":  "abcd",
+				"event_source_type": "web",
+			},
+			expected:  nil,
+			expectErr: true,
+		},
+		{
+			name: "non-string status",
+			parameters: map[string]interface{}{
+				"id":                 "1234",
+				"user_id":            "5678",
+				"event_id":           "abcd",
+				"status":             0,
+				"event_source_type":  "web",
+			},
+			expected:  nil,
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildSqlEventRsvpParams(tt.parameters)
+			if (err != nil) != tt.expectErr {
+				t.Errorf("buildSqlEventRsvpParams() error = %v, expectErr %v", err, tt.expectErr)
+				return
+			}
+			if len(got) != len(tt.expected) {
+				t.Errorf("buildSqlEventRsvpParams() = %v, want %v", got, tt.expected)
+				return
+			}
+			for i, g := range got {
+				e := tt.expected[i]
+				if *g.Name != *e.Name || g.TypeHint != e.TypeHint || g.Value.(*rds_types.FieldMemberStringValue).Value != e.Value.(*rds_types.FieldMemberStringValue).Value {
+					t.Errorf("buildSqlEventRsvpParams() = %v, want %v", got, tt.expected)
+					return
+				}
+			}
+		})
+	}
+}
+
+func TestExtractAndMapSingleEventRsvpFromJSON(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonInput string
+		expected  *internal_types.EventRsvp
+		expectErr bool
+	}{
+		{
+			name: "valid JSON",
+			jsonInput: `[
+				{
+					"id": "1234",
+					"user_id": "5678",
+					"event_id": "abcd",
+					"event_source_type": "web",
+					"status": "attending",
+					"created_at": "2024-01-01 12:00:00",
+					"updated_at": "2024-01-02 12:00:00"
+				}
+			]`,
+			expected: &internal_types.EventRsvp{
+				ID:                "1234",
+				UserID:            "5678",
+				EventID:           "abcd",
+				EventSourceType:   "web",
+				Status:            "attending",
+				CreatedAt:         parseTime("2024-01-01 12:00:00", t),
+				UpdatedAt:         parseTime("2024-01-02 12:00:00", t),
+			},
+			expectErr: false,
+		},
+		{
+			name: "empty JSON",
+			jsonInput: `[]`,
+			expected:  nil,
+			expectErr: true,
+		},
+		{
+			name: "invalid JSON",
+			jsonInput: `[{invalid json}]`,
+			expected:  nil,
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := extractAndMapSingleEventRsvpFromJSON(tt.jsonInput)
+			if (err != nil) != tt.expectErr {
+				t.Errorf("extractAndMapSingleEventRsvpFromJSON() error = %v, expectErr %v", err, tt.expectErr)
+				return
+			}
+			if tt.expected == nil {
+				if got != nil {
+					t.Errorf("extractAndMapSingleEventRsvpFromJSON() = %v, want %v", got, tt.expected)
+				}
+				return
+			}
+			if *got != *tt.expected {
+				t.Errorf("extractAndMapSingleEventRsvpFromJSON() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+

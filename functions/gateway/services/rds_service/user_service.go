@@ -52,7 +52,7 @@ func (s *UserService) InsertUser(ctx context.Context, rdsClient internal_types.R
         )
         VALUES (
             :id, :name, :email, :address, :phone, :profile_picture_url, :role,
-            :created_at, :updated_at
+            NOW(), NOW()
         )
         RETURNING id, name, email, address, phone, profile_picture_url, role,
                   created_at, updated_at
