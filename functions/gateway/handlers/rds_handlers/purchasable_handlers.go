@@ -126,13 +126,13 @@ func (h *PurchasableHandler) GetPurchasablesByUserID(w http.ResponseWriter, r *h
     }
 
     db := transport.GetRdsDB()
-    users, err := h.PurchasableService.GetPurchasablesByUserID(r.Context(), db, id)
+    purchasables, err := h.PurchasableService.GetPurchasablesByUserID(r.Context(), db, id)
     if err != nil {
-        transport.SendServerRes(w, []byte("Failed to get user's purchasables: "+err.Error()), http.StatusInternalServerError, err)
+        transport.SendServerRes(w, []byte("Failed to get user's purchasables: "+err.Error()), http.StatusNotFound, err)
         return
     }
 
-    response, err := json.Marshal(users)
+    response, err := json.Marshal(purchasables)
     if err != nil {
         transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
         return
