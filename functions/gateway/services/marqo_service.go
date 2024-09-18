@@ -178,14 +178,14 @@ func ConvertEventsToDocuments(events []Event, hasIds bool) (documents []interfac
 			"eventOwners": event.EventOwners,
 			"name":        event.Name,
 			"description": event.Description,
-			"startTime":    event.StartTime,
+			"startTime":    int64(event.StartTime),
 			"address":     event.Address,
 			"lat":    float64(event.Lat),
 			"long":   float64(event.Long),
 		}
 		// because nil and zero (int64 unix timestamp for jan 1, 1970) are conflated we must be careful
 		if event.EndTime != nil {
-			document["endTime"] = event.EndTime
+			document["endTime"] = int64(*event.EndTime)
 		}
 
 		documents = append(documents, document)
