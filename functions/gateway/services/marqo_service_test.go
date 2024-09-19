@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"testing"
+	"time"
 
 	// marqo-go is an unofficial Go client library for Marqo
 	"github.com/ganeshdipdumbare/marqo-go"
@@ -445,6 +446,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 		query          string
 		userLocation   []float64
 		maxDistance    float64
+		startTime      int64
+		endTime        int64
 		ownerIds       []string
 		expectedEvents int
 		expectedError  bool
@@ -454,6 +457,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 			query:          "test search",
 			userLocation:   []float64{51.5074, -0.1278},
 			maxDistance:    10000,
+			startTime: 			time.Now().Unix(),
+			endTime:        time.Now().AddDate(1,0,0).Unix(),
 			ownerIds:       []string{},
 			expectedEvents: 2,
 			expectedError:  false,
@@ -463,6 +468,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 			query:          "",
 			userLocation:   []float64{51.5074, -0.1278},
 			maxDistance:    10000,
+			startTime: 			time.Now().Unix(),
+			endTime:        time.Now().AddDate(1,0,0).Unix(),
 			ownerIds:       []string{},
 			expectedEvents: 2,
 			expectedError:  false,
@@ -476,7 +483,7 @@ func TestSearchMarqoEvents(t *testing.T) {
 				t.Fatalf("Failed to get Marqo client: %v", err)
 			}
 
-			result, err := SearchMarqoEvents(client, tt.query, tt.userLocation, tt.maxDistance, tt.ownerIds)
+			result, err := SearchMarqoEvents(client, tt.query, tt.userLocation, tt.maxDistance, tt.startTime, tt.endTime, tt.ownerIds)
 
 			if tt.expectedError && err == nil {
 				t.Errorf("Expected an error, but got none")

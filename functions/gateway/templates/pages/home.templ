@@ -205,6 +205,37 @@ var cityStateArray = []string{
 
 var cityStateJsonString, err = templ.JSONString(cityStateArray)
 
+templ EventsInner(events []services.Event) {
+	if (len(events) < 1) {
+		<p class="text-md md:text-lg text-center mt-5">
+			No events found, try enabling geolocation or changing your filters like location, date, and time
+		</p>
+	} else {
+		for _, ev := range events {
+			<div class="flex w-full relative">
+				<a class="flex w-full" href={ templ.URL("/events/" + ev.Id) }>
+					<img
+						src={ templ.EscapeString(helpers.GetImgUrlFromHash(ev.Id)) }
+						alt=""
+						class="object-cover w-full aspect-[4/3] md:aspect-[16/9] opacity-30 hover:opacity-75 transition-all"
+					/>
+				</a>
+				<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
+					<div class="mb-2">
+						<h2 class="text-2xl md:text-3xl">{ ev.Name }</h2>
+						<p class="text-sm md:text-base">{ GetDateOrShowNone(ev.StartTime) } | { GetTimeOrShowNone(ev.StartTime) } &commat; { ev.Address }</p>
+					</div>
+					<br/>
+					<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block">
+						LEARN MORE
+						&rarr;
+					</a>
+				</div>
+			</div>
+		}
+	}
+}
+
 func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr string, lonStr string) string {
 	if latStr != "" && lonStr != "" {
 		return "Geocoordinates: " + latStr + ", " + lonStr
@@ -261,44 +292,6 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr s
 				FILTER <svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96" fill="#FFFFFF"></path></svg>
 			</button>
 		</header>
-		<script id="alpine-state" data-maps-default-list={ cityStateJsonString }>
-			function getLocationSearchData() {
-				return {
-					allOptions: JSON.parse(
-						document.querySelector('#alpine-state').getAttribute('data-maps-default-list')
-						).map((cityState) => ({
-							label: cityState,
-							value: cityState,
-						})),
-					options: [],
-					isOpen: false,
-					openedWithKeyboard: false,
-					selectedOption: null,
-					setSelectedOption(option) {
-							this.selectedOption = option
-							this.isOpen = false
-							this.openedWithKeyboard = false
-							this.$refs.hiddenTextField.value = option.value
-					},
-					getFilteredOptions(query) {
-							this.options = this.allOptions.filter((option) =>
-									option.label.toLowerCase().includes(query.toLowerCase()),
-							)
-							if (this.options.length === 0) {
-									this.$refs.noResultsMessage.classList.remove('hidden')
-							} else {
-									this.$refs.noResultsMessage.classList.add('hidden')
-							}
-					},
-					handleKeydownOnOptions(event) {
-							// if the user presses backspace or the alpha-numeric keys, focus on the search field
-							if ((event.keyCode >= 65 && event.keyCode <= 90) || (event.keyCode >= 48 && event.keyCode <= 57) || event.keyCode === 8) {
-									this.$refs.searchField.focus()
-							}
-					},
-				}
-			}
-		</script>
 		// Source: https://www.penguinui.com/components/combobox
 		<div x-data="getLocationSearchData()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
 			<div class="relative px-4">
@@ -372,46 +365,183 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr s
 				</div>
 			</div>
 		</div>
-		<div class="flex p-4 bg-black">
-			<div class="flex flex-auto space-x-2">
-				<button class="grow px-4 py-2 text-md md:text-xl btn btn-primary">THIS MONTH</button>
-				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">TODAY</button>
-				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">TOMORROW</button>
-				<button class="grow px-4 py-2 text-md md:text-xl btn hover:text-black hover:bg-gray-500 text-black bg-gray-200">THIS WEEK</button>
-			</div>
+		<div x-data="getHomeState()" class="p-4">
+			<form class="flex" novalidate hx-get="/api/html/events" hx-params="*" hx-indicator="#events-container" hx-ext="json-enc" hx-target="#events-container-inner" hx-disabled-elt="button[type='submit']" @submit.prevent="">
+				<input
+					x-model="start_time"
+					name="start_time"
+					id="start_time"
+					type="hidden"
+				/>
+				<input
+					x-model="end_time"
+					name="end_time"
+					id="end_time"
+					type="hidden"
+				/>
+				<input
+					x-model="q"
+					name="q"
+					id="q"
+					type="hidden"
+				/>
+				<input
+					x-model="radius"
+					name="radius"
+					id="radius"
+					type="hidden"
+				/>
+				<input
+					x-model="lat"
+					name="lat"
+					id="lat"
+					type="hidden"
+				/>
+				<input
+					x-model="lon"
+					name="lon"
+					id="lon"
+					type="hidden"
+				/>
+				<div class="flex flex-auto space-x-2">
+					<button
+						type="submit"
+						:class="{
+							'btn-primary': start_time === 'this_month',
+							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'this_month'
+						}"
+						class="btn grow px-4 py-2 text-md md:text-xl "
+						@click="pushToQueryParams('start_time', 'this_month')"
+					>
+						THIS MONTH
+					</button>
+					<button
+						type="submit"
+						:class="{
+							'btn-primary': start_time === 'today',
+							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'today'
+						}"
+						class="btn grow px-4 py-2 text-md md:text-xl "
+						@click="pushToQueryParams('start_time', 'today')"
+					>
+						TODAY
+					</button>
+					<button
+						type="submit"
+						:class="{
+							'btn-primary': start_time === 'tomorrow',
+							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'tomorrow'
+						}"
+						class="btn grow px-4 py-2 text-md md:text-xl "
+						@click="pushToQueryParams('start_time', 'tomorrow')"
+					>
+						TOMORROW
+					</button>
+					<button
+						type="submit"
+						:class="{
+							'btn-primary': start_time === 'this_week',
+							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'this_week'
+						}"
+						class="btn grow px-4 py-2 text-md md:text-xl "
+						@click="pushToQueryParams('start_time', 'this_week')"
+					>
+						THIS WEEK
+					</button>
+				</div>
+			</form>
 		</div>
-		if (len(events) < 1) {
-			<p class="text-md md:text-lg text-center mt-5">
-				No events found, try enabling geolocation or changing your location, date, or time
-			</p>
-		} else {
-			<main>
-				for _, ev := range events {
-					<div class="flex w-full relative">
-						<a class="flex w-full" href={ templ.URL("/events/" + ev.Id) }>
-							<img
-								src={ templ.EscapeString(helpers.GetImgUrlFromHash(ev.Id)) }
-								alt=""
-								class="object-cover w-full aspect-[4/3] md:aspect-[16/9]"
-								width="400"
-								height="200"
-								style="opacity: 0.3; object-fit: cover;"
-							/>
-						</a>
-						<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
-							<div class="mb-2">
-								<h2 class="text-2xl md:text-3xl">{ ev.Name }</h2>
-								<p class="text-sm md:text-base">{ GetDateOrShowNone(ev.StartTime) } | { GetTimeOrShowNone(ev.StartTime) } &commat; { ev.Address }</p>
-							</div>
-							<br/>
-							<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block">
-								LEARN MORE
-								&rarr;
-							</a>
-						</div>
-					</div>
-				}
-			</main>
-		}
+		<main id="events-container">
+			<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
+				<span class="loading loading-spinner loading-lg text-primary"></span>
+			</div>
+			<div id="events-container-inner">
+				@EventsInner(events)
+			</div>
+		</main>
 	</div>
+	<script id="alpine-state" data-maps-default-list={ cityStateJsonString }>
+		function getLocationSearchData() {
+			return {
+				allOptions: JSON.parse(
+					document.querySelector('#alpine-state').getAttribute('data-maps-default-list')
+					).map((cityState) => ({
+						label: cityState,
+						value: cityState,
+					})),
+				options: [],
+				isOpen: false,
+				openedWithKeyboard: false,
+				selectedOption: null,
+				setSelectedOption(option) {
+						this.selectedOption = option
+						this.isOpen = false
+						this.openedWithKeyboard = false
+						this.$refs.hiddenTextField.value = option.value
+				},
+				getFilteredOptions(query) {
+						this.options = this.allOptions.filter((option) =>
+								option.label.toLowerCase().includes(query.toLowerCase()),
+						)
+						if (this.options.length === 0) {
+								this.$refs.noResultsMessage.classList.remove('hidden')
+						} else {
+								this.$refs.noResultsMessage.classList.add('hidden')
+						}
+				},
+				handleKeydownOnOptions(event) {
+						// if the user presses backspace or the alpha-numeric keys, focus on the search field
+						if ((event.keyCode >= 65 && event.keyCode <= 90) || (event.keyCode >= 48 && event.keyCode <= 57) || event.keyCode === 8) {
+								this.$refs.searchField.focus()
+						}
+				},
+			}
+		}
+
+		function getHomeState() {
+				const url = new URL(window.location.href);
+				const params = new URLSearchParams(url.search);
+
+				return {
+						start_time: params.get('start_time') ?? 'this_month',
+						end_time: params.get('end_time') ?? '',
+						q: params.get('q') ?? '',
+						radius: params.get('radius') ?? '',
+						lat: params.get('lat') ?? '',
+						lon: params.get('lon') ?? '',
+						allParams: [
+							'start_time',
+							'end_time',
+							'q',
+							'radius',
+							'lat',
+							'lon',
+						],
+						pushToQueryParams(param, selected) {
+								// Get current URL and parse its query parameters
+								const url = new URL(window.location.href);
+								const params = new URLSearchParams(url.search);
+
+								this.allParams.forEach(key => {
+									if ( key !== param && this[key] !== '' && this[key] !== null ) {
+										params.set(key, this[key])
+									}
+								})
+
+								this[param] = selected;
+								params.set(param, selected);
+
+								window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
+						},
+						updateHasEvents(event) {
+							if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
+								this.hasEvents = true;
+							} else {
+								this.hasEvents = false;
+							}
+							console.log('this.hasEvents', this.hasEvents)
+						},
+			}
+		}
+	</script>
 }

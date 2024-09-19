@@ -70,6 +70,7 @@ func init() {
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo", "POST", handlers.GeoLookup, None},
+		{"/api/html/events", "GET", handlers.GetEventsPartial, None},
 		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, None},
 		{"/api/html/seshu/session/location", "PATCH", handlers.GeoThenPatchSeshuSession, None},
 		{"/api/html/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents, None},

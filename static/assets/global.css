@@ -90,6 +90,10 @@
   display: inherit;
 }
 
+.htmx-request .htmx-indicator.flex {
+  display: flex;
+}
+
 .htmx-show-in-flight {
   display: none;
 }
