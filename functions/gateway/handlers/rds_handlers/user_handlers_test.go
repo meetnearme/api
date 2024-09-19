@@ -535,3 +535,35 @@ func (br *brokenReader) Close() error {
 	return nil
 }
 
+func TestDeleteUser_Success(t *testing.T) {
+	// Mock user service
+	mockUserService := &rds_service.MockUserService{}
+	mockUserService.DeleteUserFunc = func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string) error {
+		return nil // Simulate successful deletion
+	}
+
+	// Create a UserHandler with the mock service
+	userHandler := NewUserHandler(mockUserService)
+
+	// Create a request with a valid user ID
+	req := httptest.NewRequest("DELETE", "/user/123", nil)
+	req = mux.SetURLVars(req, map[string]string{"id": "123"})
+
+	// Use httptest to create a response recorder
+	rr := httptest.NewRecorder()
+
+	// Call the DeleteUser handler
+	userHandler.DeleteUser(rr, req)
+
+	// Check the status code (should be 200 OK)
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Check the response body (should contain success message)
+	expected := "User successfully deleted"
+	if rr.Body.String() != expected {
+		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
+	}
+}
+
