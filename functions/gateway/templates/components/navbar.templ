@@ -116,7 +116,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 						checked="checked"
 					/>
 					<div role="tabpanel" class="tab-content p-2">
-						@NestedCheckboxList(false)
+						@NestedCheckboxList(&NestedCheckboxListOptions{IsInDropdown: false})
 					</div>
 					<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
 					<div role="tabpanel" class="tab-content p-2">Idea here is that the cart is only sometimes visible</div>

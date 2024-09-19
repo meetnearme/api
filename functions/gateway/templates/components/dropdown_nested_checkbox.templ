@@ -1,40 +1,89 @@
 package components
 
-import "github.com/meetnearme/api/functions/gateway/helpers"
+import (
+	"strings"
+
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	)
+
+type NestedCheckboxListOptions struct {
+	IsInDropdown bool
+	UseChangeTrigger bool
+	ChangeHandler string // HTMX for async form submission: hx-post
+	ResponseTarget string // Target element to update with response: hx-target
+	ShowSubCategories bool
+}
+
+func (options *NestedCheckboxListOptions) validate() string {
+	if options.UseChangeTrigger && options.ChangeHandler == "" {
+		panic("NestedCheckboxListOptions: options.ChangeHandler is required")
+	}
+
+	if !strings.HasPrefix(options.ChangeHandler, "/") {
+		options.ChangeHandler = "/" + options.ChangeHandler
+	}
+
+	return ""
+}
 
 templ DropdownNestedCheckbox() {
 	<details class="dropdown">
-		@NestedCheckboxList(true)
+		@NestedCheckboxList(&NestedCheckboxListOptions{IsInDropdown: true})
 	</details>
 }
 
-templ NestedCheckboxList(isInDropdown bool) {
-	if isInDropdown {
+templ NestedCheckboxList(options *NestedCheckboxListOptions) {
+	<div>{options.validate()}</div>
+	if options.IsInDropdown {
 		<summary class="m-1 btn">Categories</summary>
 	}
-	<ul
-		if isInDropdown {
+	<ul 
+		if options.IsInDropdown {
 			class="p-2 shadow menu dropdown-content z-[1] bg-base-100 rounded-box"
 		} else {
 			class="p-2 shadow menu bg-base-100 rounded-box"
+		}
+		if options.UseChangeTrigger {
+			hx-trigger="change"
+			hx-cache="false"
+			hx-post={options.ChangeHandler}
+		}
+		if options.ResponseTarget != "" {
+			hx-target={options.ResponseTarget}
 		}
 	>
 		for _, cat := range helpers.Categories {
 			<li>
 				<div class="collapse bg-base-200">
-					<input type="checkbox" class="peer"/>
+					<input 
+						type="checkbox"
+						class="peer"
+					/>
 					<div class="collapse-title peer-checked:bg-secondary peer-checked:text-secondary-content">
 						<div class="form-control flex-none">
 							<label class="label cursor-pointer justify-start">
-								<input type="checkbox" class="z-[9] checkbox checkbox-tertiary mr-5"/>
-								<span class="label-text">{ cat.Name }</span>
+								<input 
+									name="category" 
+									value={cat.Name}
+									type="checkbox" 
+									class="z-[9] checkbox checkbox-tertiary mr-5"
+								/>
+								<span class="label-text">{cat.Name}</span>
 							</label>
 						</div>
 					</div>
 					<div class="collapse-content bg-base-200 peer-checked:bg-base-200">
 						<ul>
-							for _, cat := range cat.Items {
-								<li><input type="checkbox" class="z-[9] checkbox checkbox-xs checkbox-tertiary mr-5 my-1"/>{ cat.Name }</li>
+							for _, item := range cat.Items {
+								<li>
+									<input 
+										name="subCategory" 
+										value={item.Name}
+										type="checkbox"
+										class="z-[9] checkbox checkbox-xs checkbox-tertiary mr-5 my-1"
+									/>
+									{item.Name}
+								</li>
 							}
 						</ul>
 					</div>

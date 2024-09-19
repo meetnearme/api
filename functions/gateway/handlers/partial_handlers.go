@@ -483,3 +483,19 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
+
+func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	r.ParseForm()
+	ctx := r.Context()
+
+	categories := r.Form
+	log.Printf("Categories: %v", categories)
+	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`)
+	var buf bytes.Buffer
+	err = successPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+}
