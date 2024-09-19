@@ -66,7 +66,6 @@ func (r *RDSDataClient) ExecStatement(ctx context.Context, sql string, params []
 	return r.client.ExecuteStatement(ctx, input)
 }
 
-
 // SetTestRdsDB sets a mock RDS Data API client for testing
 func SetTestRdsDB(db internal_types.RDSDataAPI) {
 	testRdsData = db
@@ -91,3 +90,4 @@ func GetRdsDB() internal_types.RDSDataAPI {
 	})
 	return rdsDataClient
 }
+
