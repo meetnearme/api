@@ -5,6 +5,7 @@ CREATE TABLE users (
   email VARCHAR(255) NOT NULL UNIQUE,
   address VARCHAR(255),
   phone VARCHAR(20),
+  category_preferences VARCHAR(510),
   profile_picture_url VARCHAR(255),
   created_at TIMESTAMP NOT NULL DEFAULT now(),
   updated_at TIMESTAMP NOT NULL DEFAULT now(),

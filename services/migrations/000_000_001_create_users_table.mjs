@@ -10,6 +10,7 @@ export async function up(db) {
     .addColumn("address", "varchar(255)")
     .addColumn("phone", "varchar(20)")
     .addColumn("profile_picture_url", "varchar(255)")
+    .addColumn('category_preferences', 'varchar(510)')
     .addColumn("created_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn("updated_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn("role", "varchar(50)", (col) => col.notNull())
