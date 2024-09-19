@@ -13,6 +13,7 @@ type UserInsert struct {
     Address		  string `json:"address"`
     Phone         string `json:"phone"`
     ProfilePictureURL string `json:"profilePictureUrl"`
+	CategoryPreferences string `json:"category_preferences"`
     CreatedAt     string `json:"created_at"` // Adjust based on your date format
     UpdatedAt     string `json:"updated_at"` // Adjust based on your date format
     Role          string `json:"role" validate:"required"`
@@ -27,6 +28,7 @@ type User struct {
 	Address     string    `json:"address,omitempty"`
 	Phone             string    `json:"phone,omitempty"`
 	ProfilePictureURL string    `json:"profile_picture_url,omitempty"`
+	CategoryPreferences []string `json:"category_preferences"`
 	Role              string    `json:"role"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
@@ -38,6 +40,7 @@ type UserUpdate struct {
 	Email             string `json:"email"`
 	Address     string `json:"address,omitempty"`
 	Phone             string `json:"phone,omitempty"`
+	CategoryPreferences string `json:"category_preferences"`
 	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
 	Role              string `json:"role,omitempty" validate:"omitempty,oneof=standard_user organization_user suborganization_user"`
 }

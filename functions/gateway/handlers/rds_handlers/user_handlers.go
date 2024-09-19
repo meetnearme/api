@@ -39,6 +39,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
         transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
         return
     }
+	log.Printf("createUser category, %v", createUser.CategoryPreferences)
 
     err = validate.Struct(&createUser)
     if err != nil {

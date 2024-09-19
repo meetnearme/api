@@ -108,15 +108,15 @@ func (m *MockRdsDataClient) ExecStatement(ctx context.Context, sql string, param
 
 func NewMockRdsDataClientWithJSONRecords(records []map[string]interface{}) *MockRdsDataClient {
 	recordsJSON, _ := json.Marshal(records)
-	recordsString := string(recordsJSON) // Convert to string
-
-	return &MockRdsDataClient{
-		ExecStatementFunc: func(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
-			return &rdsdata.ExecuteStatementOutput{
-				FormattedRecords: &recordsString, // Use pointer to string
-			}, nil
-		},
-	}
+	recordsString := string(recordsJSON)
+    return &MockRdsDataClient{
+        ExecStatementFunc: func(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
+            // Convert records to AWS SDK's expected format
+            return &rdsdata.ExecuteStatementOutput{
+                FormattedRecords: &recordsString, // Directly return JSON bytes
+            }, nil
+        },
+    }
 }
 
 // Ensure MockRdsDataClient implements the RDSDataAPI interface

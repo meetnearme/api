@@ -70,6 +70,18 @@ func buildSqlUserParams(parameters map[string]interface{}) ([]rds_types.SqlParam
 	}
 	params = append(params, role)
 
+	categoryPreferencesValue, ok := parameters["category_preferences"].(string)
+	if !ok {
+		return nil, fmt.Errorf("category_preferences is not a valid string")
+	}
+	categoryPreferences := rds_types.SqlParameter{
+		Name: aws.String("category_preferences"),
+		Value: &rds_types.FieldMemberStringValue{
+			Value: categoryPreferencesValue,
+		},
+	}
+	params = append(params, categoryPreferences)
+
 	// Optional Fields (address_street, address_city, address_zip_code, address_country, phone, profile_picture_url)
 	addressFields := []string{"address", "phone", "profile_picture_url"}
 
@@ -105,6 +117,23 @@ func extractAndMapSingleUserFromJSON(formattedRecords string) (*internal_types.U
 
     record := records[0]
 
+	log.Printf("c pref: %v", record["category_preferences"].(string))
+
+
+	// Extract category_preferences and convert to []string if present
+	var categoryPreferences []string
+    if categoryPrefStr, ok := record["category_preferences"].(string); ok {
+		// cleanedString := strings.ReplaceAll(categoryPrefStr, "\\", "")
+        // First, check if it's a JSON array string and try to unmarshal it directly
+        err := json.Unmarshal([]byte(categoryPrefStr), &categoryPreferences)
+		log.Printf("cat after unmarshal: %v", categoryPrefStr)
+        if err != nil {
+            return nil, fmt.Errorf("error unmarshaling category_preferences field: %v", err)
+        }
+    } else {
+        return nil, fmt.Errorf("category_preferences field is not a string")
+    }
+
     user := internal_types.User{
         ID:                  getString(record, "id"),
         Name:                getString(record, "name"),
@@ -112,6 +141,7 @@ func extractAndMapSingleUserFromJSON(formattedRecords string) (*internal_types.U
         Address:       getString(record, "address"),
         Phone:               getString(record, "phone"),
         ProfilePictureURL:   getString(record, "profile_picture_url"),
+		CategoryPreferences: categoryPreferences,
         Role:                getString(record, "role"),
         CreatedAt:           getTime(record, "created_at"),
         UpdatedAt:           getTime(record, "updated_at"),
@@ -160,6 +190,16 @@ func extractUsersFromJson(formattedRecords string) ([]internal_types.User, error
             user.ProfilePictureURL = profilePictureURL
         }
 
+		if categoryPreferences, ok := record["category_preferences"].(string); ok {
+			var categoryPreferencesSlice []string
+			err := json.Unmarshal([]byte(record["category_preferences"].(string)), &categoryPreferences)
+			if err != nil {
+				return nil, fmt.Errorf("error unmarshalling category_preferences field")
+			}
+
+			user.CategoryPreferences = categoryPreferencesSlice
+		}
+
         if role, ok := record["role"].(string); ok {
             user.Role = role
         }
@@ -193,9 +233,20 @@ func buildUpdateUserQuery(params map[string]interface{}) (string, map[string]int
     // Iterate through the params map
     for key, value := range params {
         if value != nil && value != "" {
-            // Build the SET clause dynamically for non-empty values
-            setClauses = append(setClauses, fmt.Sprintf("%s = :%s", key, key))
-            sqlParams[key] = value
+            // Special case for category_preferences: treat as a string (just like in the insertion)
+            if key == "category_preferences" {
+                categoryPreferencesValue, ok := value.(string)
+                if !ok {
+                    continue // Skip this field if it's not a valid string
+                }
+                // Treat as a string, as it should be stored as a JSON-encoded string in the database
+                setClauses = append(setClauses, fmt.Sprintf("%s = :%s", key, key))
+                sqlParams[key] = categoryPreferencesValue
+            } else {
+                // Handle all other fields normally
+                setClauses = append(setClauses, fmt.Sprintf("%s = :%s", key, key))
+                sqlParams[key] = value
+            }
         }
     }
 
@@ -215,7 +266,7 @@ func buildUpdateUserQuery(params map[string]interface{}) (string, map[string]int
         SET %s,
             updated_at = now()
         WHERE id = :id
-        RETURNING id, name, email, address, phone, profile_picture_url, role, created_at, updated_at`,
+        RETURNING id, name, email, address, phone, profile_picture_url, category_preferences, role, created_at, updated_at`,
         strings.Join(setClauses, ", "))
 
     return query, sqlParams

@@ -47,14 +47,14 @@ func (s *UserService) InsertUser(ctx context.Context, rdsClient internal_types.R
     // Construct the SQL query
     query := `
         INSERT INTO users (
-            id, name, email, address, phone, profile_picture_url, role,
+            id, name, email, address, phone, profile_picture_url, category_preferences, role,
             created_at, updated_at
         )
         VALUES (
-            :id, :name, :email, :address, :phone, :profile_picture_url, :role,
+			:id, :name, :email, :address, :phone, :profile_picture_url, :category_preferences, :role,
             NOW(), NOW()
         )
-        RETURNING id, name, email, address, phone, profile_picture_url, role,
+        RETURNING id, name, email, address, phone, profile_picture_url, category_preferences, role,
                   created_at, updated_at
     `
 
@@ -67,6 +67,7 @@ func (s *UserService) InsertUser(ctx context.Context, rdsClient internal_types.R
         "phone":               user.Phone,
         "profile_picture_url": user.ProfilePictureURL,
         "role":                user.Role,
+		"category_preferences": user.CategoryPreferences,
     }
 
 	paramsRdsFormat, err := buildSqlUserParams(params)
@@ -158,6 +159,13 @@ func (s *UserService) GetUsers(ctx context.Context, rdsClient internal_types.RDS
 }
 
 func (s *UserService) UpdateUser(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string, user internal_types.UserUpdate) (*internal_types.User, error) {
+	// categoryPreferencesByteSlice, err := json.Marshal(user.CategoryPreferences)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("Error marshalling to JSON")
+	// }
+
+	// Convert the JSON byte slice to a string
+	// categoryPreferencesString := string(categoryPreferencesByteSlice)
 
     // Build SQL parameters from UserUpdate struct
     params := map[string]interface{}{
@@ -167,7 +175,9 @@ func (s *UserService) UpdateUser(ctx context.Context, rdsClient internal_types.R
         "address":        user.Address,
         "phone":                 user.Phone,
         "profile_picture_url":   user.ProfilePictureURL,
+		// "category_preferences": categoryPreferencesString,
         "role":                  user.Role,
+		"category_preferences": user.CategoryPreferences,
     }
 
 	query, sqlParams := buildUpdateUserQuery(params)

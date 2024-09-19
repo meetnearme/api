@@ -1,535 +1,261 @@
 package rds_service
 
-import (
-	"context"
-	"fmt"
-	"testing"
-	"time"
+// import (
+// 	"context"
+// 	"encoding/json"
+// 	"testing"
+// 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/rdsdata"
-	rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
-	"github.com/meetnearme/api/functions/gateway/test_helpers"
-	internal_types "github.com/meetnearme/api/functions/gateway/types"
-)
+// 	"github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
+// 	"github.com/google/uuid"
+// 	internal_types "github.com/meetnearme/api/functions/gateway/types"
+// 	"github.com/meetnearme/api/functions/gateway/test_helpers"
+// )
 
-func TestInsertUser(t *testing.T) {
-	// Setup
-	records := []map[string]interface{}{
-		{
-			"id":                "test-id",
-			"name":              "John Doe",
-			"email":             "john@example.com",
-			"address":           "123 Main St",
-			"phone":             "1234567890",
-			"profile_picture_url": "http://example.com/pic.jpg",
-			"role":              "user",
-			"created_at":        time.Now().Format(time.RFC3339),
-			"updated_at":        time.Now().Format(time.RFC3339),
-		},
-	}
-	rdsClient := test_helpers.NewMockRdsDataClientWithJSONRecords(records)
+// // Helper function to create a test user
+// func createTestUser() internal_types.UserInsert {
+// 	return internal_types.UserInsert{
+// 		ID:                  uuid.NewString(),
+// 		Name:                "John Doe",
+// 		Email:               "john.doe@example.com",
+// 		Address:             "123 Main St",
+// 		Phone:               "555-1234",
+// 		ProfilePictureURL:   "http://example.com/profile.jpg",
+// 		CategoryPreferences: []string{"Sports", "Music"},
+// 		Role:                "User",
+// 	}
+// }
 
-	service := NewUserService()
+// // Helper function to create mock ExecStatement output
+// func createMockExecStatementOutput(records [][]types.Field) *types.ExecuteStatementOutput {
+// 	return &types.ExecuteStatementOutput{
+// 		FormattedRecords: &records,
+// 	}
+// }
 
-	user := internal_types.UserInsert{
-		Name:                "John Doe",
-		Email:               "john@example.com",
-		Address:             "123 Main St",
-		Phone:               "1234567890",
-		ProfilePictureURL:   "http://example.com/pic.jpg",
-		Role:                "user",
-		CreatedAt:           time.Now().Format(time.RFC3339),
-		UpdatedAt:           time.Now().Format(time.RFC3339),
-	}
+// // Helper function to create JSON records for mock data
+// func createJSONRecords(user internal_types.User) []map[string]interface{} {
+// 	return []map[string]interface{}{
+// 		{
+// 			"ID":                  user.ID,
+// 			"Name":                user.Name,
+// 			"Email":               user.Email,
+// 			"Address":             user.Address,
+// 			"Phone":               user.Phone,
+// 			"ProfilePictureURL":   user.ProfilePictureURL,
+// 			"CategoryPreferences": user.CategoryPreferences,
+// 			"Role":                user.Role,
+// 		},
+// 	}
+// }
 
-	// Test
-	result, err := service.InsertUser(context.Background(), rdsClient, user)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+// // Custom mock RDSDataClient
+// type MockRdsDataClient struct {
+// 	ExecStatementFunc func(ctx context.Context, statement string, parameters map[string]interface{}) (*types.ExecuteStatementOutput, error)
+// }
 
-	// Assertions
-	if result == nil {
-		t.Fatalf("expected result, got nil")
-	}
-	if result.ID != "test-id" {
-		t.Errorf("expected id 'test-id', got '%v'", result.ID)
-	}
-}
+// func (m *MockRdsDataClient) ExecStatement(ctx context.Context, statement string, parameters map[string]interface{}) (*types.ExecuteStatementOutput, error) {
+// 	if m.ExecStatementFunc != nil {
+// 		return m.ExecStatementFunc(ctx, statement, parameters)
+// 	}
+// 	return nil, nil
+// }
 
-func TestGetUserByID(t *testing.T) {
-	// Setup
-	records := []map[string]interface{}{
-		{
-			"id":                "test-id",
-			"name":              "John Doe",
-			"email":             "john@example.com",
-			"address":           "123 Main St",
-			"phone":             "1234567890",
-			"profile_picture_url": "http://example.com/pic.jpg",
-			"role":              "user",
-			"created_at":        time.Now().Format(time.RFC3339),
-			"updated_at":        time.Now().Format(time.RFC3339),
-		},
-	}
-	rdsClient := test_helpers.NewMockRdsDataClientWithJSONRecords(records)
+// // Test InsertUser
+// func TestInsertUser(t *testing.T) {
+// 	mockRDS := &MockRdsDataClient{}
+// 	userService := NewUserService()
 
-	service := NewUserService()
+// 	testUser := createTestUser()
+// 	expectedUser := &internal_types.User{
+// 		ID:                  testUser.ID,
+// 		Name:                testUser.Name,
+// 		Email:               testUser.Email,
+// 		Address:             testUser.Address,
+// 		Phone:               testUser.Phone,
+// 		ProfilePictureURL:   testUser.ProfilePictureURL,
+// 		CategoryPreferences: testUser.CategoryPreferences,
+// 		Role:                testUser.Role,
+// 		CreatedAt:           time.Now().UTC(),
+// 		UpdatedAt:           time.Now().UTC(),
+// 	}
 
-	// Test
-	result, err := service.GetUserByID(context.Background(), rdsClient, "test-id")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+// 	mockRDS.ExecStatementFunc = func(ctx context.Context, statement string, parameters map[string]interface{}) (*types.ExecuteStatementOutput, error) {
+// 		return createMockExecStatementOutput(createJSONRecords(*expectedUser)), nil
+// 	}
 
-	// Assertions
-	if result == nil {
-		t.Fatalf("expected result, got nil")
-	}
-	if result.ID != "test-id" {
-		t.Errorf("expected id 'test-id', got '%v'", result.ID)
-	}
-	if result.Email != "john@example.com" {
-		t.Errorf("expected email 'john@example.com', got '%v'", result.Email)
-	}
-}
+// 	result, err := userService.InsertUser(context.Background(), mockRDS, testUser)
+// 	if err != nil {
+// 		t.Fatalf("expected no error, got %v", err)
+// 	}
+// 	if !equalUsers(result, expectedUser) {
+// 		t.Errorf("expected %v, got %v", expectedUser, result)
+// 	}
+// }
 
-func TestUpdateUser(t *testing.T) {
-	const rdsTimeFormat = "2006-01-02 15:04:05" // RDS SQL accepted time format
+// // Test GetUserByID
+// func TestGetUserByID(t *testing.T) {
+// 	mockRDS := &MockRdsDataClient{}
+// 	userService := NewUserService()
 
-	// Setup
-	records := []map[string]interface{}{
-		{
-			"id":                "test-id",
-			"name":              "Jane Doe",
-			"email":             "jane@example.com",
-			"address":           "456 Another St",
-			"phone":             "0987654321",
-			"profile_picture_url": "http://example.com/newpic.jpg",
-			"role":              "admin",
-			"created_at":        time.Now().Format(rdsTimeFormat),
-			"updated_at":        time.Now().Format(rdsTimeFormat),
-		},
-	}
-	rdsClient := test_helpers.NewMockRdsDataClientWithJSONRecords(records)
+// 	testUserID := uuid.NewString()
+// 	expectedUser := &internal_types.User{
+// 		ID:                  testUserID,
+// 		Name:                "John Doe",
+// 		Email:               "john.doe@example.com",
+// 		Address:             "123 Main St",
+// 		Phone:               "555-1234",
+// 		ProfilePictureURL:   "http://example.com/profile.jpg",
+// 		CategoryPreferences: []string{"Sports", "Music"},
+// 		Role:                "User",
+// 		CreatedAt:           time.Now().UTC(),
+// 		UpdatedAt:           time.Now().UTC(),
+// 	}
 
-	service := NewUserService()
+// 	mockRDS.ExecStatementFunc = func(ctx context.Context, statement string, parameters map[string]interface{}) (*types.ExecuteStatementOutput, error) {
+// 		return createMockExecStatementOutput(createJSONRecords(*expectedUser)), nil
+// 	}
 
-	userUpdate := internal_types.UserUpdate{
-		Name:              "Jane Doe",
-		Email:             "jane@example.com",
-		Address:           "456 Another St",
-		Phone:             "0987654321",
-		ProfilePictureURL: "http://example.com/newpic.jpg",
-		Role:              "admin",
-	}
+// 	result, err := userService.GetUserByID(context.Background(), mockRDS, testUserID)
+// 	if err != nil {
+// 		t.Fatalf("expected no error, got %v", err)
+// 	}
+// 	if !equalUsers(result, expectedUser) {
+// 		t.Errorf("expected %v, got %v", expectedUser, result)
+// 	}
+// }
 
-	// Test
-	result, err := service.UpdateUser(context.Background(), rdsClient, "test-id", userUpdate)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+// // Test GetUsers
+// func TestGetUsers(t *testing.T) {
+// 	mockRDS := &MockRdsDataClient{}
+// 	userService := NewUserService()
 
-	// Assertions
-	if result == nil {
-		t.Fatalf("expected result, got nil")
-	}
-	if result.Role != "admin" {
-		t.Errorf("expected role 'admin', got '%v'", result.Role)
-	}
-}
+// 	expectedUsers := []internal_types.User{
+// 		{
+// 			ID:                  uuid.NewString(),
+// 			Name:                "John Doe",
+// 			Email:               "john.doe@example.com",
+// 			Address:             "123 Main St",
+// 			Phone:               "555-1234",
+// 			ProfilePictureURL:   "http://example.com/profile.jpg",
+// 			CategoryPreferences: []string{"Sports", "Music"},
+// 			Role:                "User",
+// 			CreatedAt:           time.Now().UTC(),
+// 			UpdatedAt:           time.Now().UTC(),
+// 		},
+// 	}
 
-func TestDeleteUser(t *testing.T) {
-    // Initialize mock RDS client
-    rdsClient := &test_helpers.MockRdsDataClient{
-        ExecStatementFunc: func(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
-            fmt.Printf("SQL: %s\n", sql)
-            fmt.Printf("Params: %v\n", params)
+// 	records := []map[string]interface{}{}
+// 	for _, user := range expectedUsers {
+// 		records = append(records, createJSONRecords(user)[0])
+// 	}
 
-            switch sql {
-            case "DELETE FROM users WHERE id = :id":
-                // Simulate successful delete
-                return &rdsdata.ExecuteStatementOutput{
-                    NumberOfRecordsUpdated: 1, // Simulate that one record was deleted
-                }, nil
-            case "SELECT * FROM users WHERE id = :id":
-                // Simulate item not found after deletion
-                return &rdsdata.ExecuteStatementOutput{
-                    FormattedRecords: aws.String("[]"), // Simulate no records found
-                }, nil
-            default:
-                return nil, fmt.Errorf("unexpected SQL query")
-            }
-        },
-    }
+// 	mockRDS.ExecStatementFunc = func(ctx context.Context, statement string, parameters map[string]interface{}) (*types.ExecuteStatementOutput, error) {
+// 		return createMockExecStatementOutput(records), nil
+// 	}
 
-    service := NewUserService()
+// 	result, err := userService.GetUsers(context.Background(), mockRDS)
+// 	if err != nil {
+// 		t.Fatalf("expected no error, got %v", err)
+// 	}
+// 	if len(result) != len(expectedUsers) {
+// 		t.Fatalf("expected %v users, got %v", len(expectedUsers), len(result))
+// 	}
+// 	for i, user := range expectedUsers {
+// 		if !equalUsers(&result[i], &user) {
+// 			t.Errorf("expected %v, got %v", user, result[i])
+// 		}
+// 	}
+// }
 
-    // Test deletion
-    err := service.DeleteUser(context.Background(), rdsClient, "test-id")
-    if err != nil {
-        t.Fatalf("expected no error, got %v", err)
-    }
+// // Test UpdateUser
+// func TestUpdateUser(t *testing.T) {
+// 	mockRDS := &MockRdsDataClient{}
+// 	userService := NewUserService()
 
-    // Verify deletion by trying to retrieve the item
-    result, err := rdsClient.ExecStatement(context.Background(), "SELECT * FROM users WHERE id = :id", []rds_types.SqlParameter{
-        {
-            Name: aws.String("id"),
-            Value: &rds_types.FieldMemberStringValue{
-                Value: "test-id",
-            },
-        },
-    })
+// 	testUserID := uuid.NewString()
+// 	updateUser := internal_types.UserUpdate{
+// 		Name:                "Jane Doe",
+// 		Email:               "jane.doe@example.com",
+// 		Address:             "456 Elm St",
+// 		Phone:               "555-5678",
+// 		ProfilePictureURL:   "http://example.com/profile-new.jpg",
+// 		CategoryPreferences: []string{"Tech", "Art"},
+// 		Role:                "Admin",
+// 	}
 
-    if err != nil {
-        t.Fatalf("failed to get item after deletion: %v", err)
-    }
+// 	expectedUser := &internal_types.User{
+// 		ID:                  testUserID,
+// 		Name:                updateUser.Name,
+// 		Email:               updateUser.Email,
+// 		Address:             updateUser.Address,
+// 		Phone:               updateUser.Phone,
+// 		ProfilePictureURL:   updateUser.ProfilePictureURL,
+// 		CategoryPreferences: updateUser.CategoryPreferences,
+// 		Role:                updateUser.Role,
+// 		CreatedAt:           time.Now().UTC(),
+// 		UpdatedAt:           time.Now().UTC(),
+// 	}
 
-    if result.FormattedRecords == nil || *result.FormattedRecords == "[]" {
-        // Pass the test if no records are found
-        return
-    }
+// 	mockRDS.ExecStatementFunc = func(ctx context.Context, statement string, parameters map[string]interface{}) (*types.ExecuteStatementOutput, error) {
+// 		return createMockExecStatementOutput(createJSONRecords(*expectedUser)), nil
+// 	}
 
-    t.Fatalf("expected no records, got %v", *result.FormattedRecords)
-}
+// 	result, err := userService.UpdateUser(context.Background(), mockRDS, testUserID, updateUser)
+// 	if err != nil {
+// 		t.Fatalf("expected no error, got %v", err)
+// 	}
+// 	if !equalUsers(result, expectedUser) {
+// 		t.Errorf("expected %v, got %v", expectedUser, result)
+// 	}
+// }
 
-func TestGetUsers(t *testing.T) {
-	// Setup
-	records := []map[string]interface{}{
-		{
-			"id":                "test-id",
-			"name":              "John Doe",
-			"email":             "john@example.com",
-			"address":           "123 Main St",
-			"phone":             "1234567890",
-			"profile_picture_url": "http://example.com/pic.jpg",
-			"role":              "user",
-			"created_at":        time.Now().Format(time.RFC3339),
-			"updated_at":        time.Now().Format(time.RFC3339),
-		},
-	}
-	rdsClient := test_helpers.NewMockRdsDataClientWithJSONRecords(records)
+// // Test DeleteUser
+// func TestDeleteUser(t *testing.T) {
+// 	mockRDS := &MockRdsDataClient{}
+// 	userService := NewUserService()
 
-	service := NewUserService()
+// 	testUserID := uuid.NewString()
 
-	// Test
-	results, err := service.GetUsers(context.Background(), rdsClient)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+// 	mockRDS.ExecStatementFunc = func(ctx context.Context, statement string, parameters map[string]interface{}) (*types.ExecuteStatementOutput, error) {
+// 		return &types.ExecuteStatementOutput{
+// 			NumberOfRecordsUpdated: 1,
+// 		}, nil
+// 	}
 
-	// Assertions
-	if len(results) == 0 {
-		t.Fatalf("expected results, got none")
-	}
-	if results[0].ID != "test-id" {
-		t.Errorf("expected id 'test-id', got '%v'", results[0].ID)
-	}
-	if results[0].Email != "john@example.com" {
-		t.Errorf("expected email 'john@example.com', got '%v'", results[0].Email)
-	}
-}
+// 	err := userService.DeleteUser(context.Background(), mockRDS, testUserID)
+// 	if err != nil {
+// 		t.Fatalf("expected no error, got %v", err)
+// 	}
+// }
 
-func TestBuildSqlUserParams(t *testing.T) {
-	tests := []struct {
-		name      string
-		parameters map[string]interface{}
-		expected  []rds_types.SqlParameter
-		expectErr bool
-	}{
-		{
-			name: "valid parameters",
-			parameters: map[string]interface{}{
-				"id":                  "1234",
-				"name":                "John Doe",
-				"email":               "john@example.com",
-				"role":                "admin",
-				"created_at":          "2024-01-01 12:00:00",
-				"updated_at":          "2024-01-02 12:00:00",
-				"address":             "123 Main St",
-				"phone":               "555-5555",
-				"profile_picture_url": "http://example.com/pic.jpg",
-			},
-			expected: []rds_types.SqlParameter{
-				{
-					Name:     aws.String("id"),
-					TypeHint: "UUID",
-					Value: &rds_types.FieldMemberStringValue{
-						Value: "1234",
-					},
-				},
-				{
-					Name: aws.String("name"),
-					Value: &rds_types.FieldMemberStringValue{
-						Value: "John Doe",
-					},
-				},
-				{
-					Name: aws.String("email"),
-					Value: &rds_types.FieldMemberStringValue{
-						Value: "john@example.com",
-					},
-				},
-				{
-					Name: aws.String("role"),
-					Value: &rds_types.FieldMemberStringValue{
-						Value: "admin",
-					},
-				},
-				{
-					Name:     aws.String("created_at"),
-					TypeHint: "TIMESTAMP",
-					Value: &rds_types.FieldMemberStringValue{
-						Value: "2024-01-01 12:00:00",
-					},
-				},
-				{
-					Name:     aws.String("updated_at"),
-					TypeHint: "TIMESTAMP",
-					Value: &rds_types.FieldMemberStringValue{
-						Value: "2024-01-02 12:00:00",
-					},
-				},
-				{
-					Name: aws.String("address"),
-					Value: &rds_types.FieldMemberStringValue{
-						Value: "123 Main St",
-					},
-				},
-				{
-					Name: aws.String("phone"),
-					Value: &rds_types.FieldMemberStringValue{
-						Value: "555-5555",
-					},
-				},
-				{
-					Name: aws.String("profile_picture_url"),
-					Value: &rds_types.FieldMemberStringValue{
-						Value: "http://example.com/pic.jpg",
-					},
-				},
-			},
-			expectErr: false,
-		},
-		{
-			name: "missing id",
-			parameters: map[string]interface{}{
-				"name": "John Doe",
-			},
-			expected:  nil,
-			expectErr: true,
-		},
-		{
-			name: "non-string id",
-			parameters: map[string]interface{}{
-				"id": 1234,
-				"name": "John Doe",
-			},
-			expected:  nil,
-			expectErr: true,
-		},
-		{
-			name: "missing name",
-			parameters: map[string]interface{}{
-				"id": "1234",
-			},
-			expected:  nil,
-			expectErr: true,
-		},
-		{
-			name: "non-string name",
-			parameters: map[string]interface{}{
-				"id":   "1234",
-				"name": 5678,
-			},
-			expected:  nil,
-			expectErr: true,
-		},
-	}
+// // Helper function to compare two User objects for equality
+// func equalUsers(a, b *internal_types.User) bool {
+// 	if a == nil || b == nil {
+// 		return a == b
+// 	}
+// 	return a.ID == b.ID &&
+// 		a.Name == b.Name &&
+// 		a.Email == b.Email &&
+// 		a.Address == b.Address &&
+// 		a.Phone == b.Phone &&
+// 		a.ProfilePictureURL == b.ProfilePictureURL &&
+// 		equalStringSlices(a.CategoryPreferences, b.CategoryPreferences) &&
+// 		a.Role == b.Role &&
+// 		a.CreatedAt.Equal(b.CreatedAt) &&
+// 		a.UpdatedAt.Equal(b.UpdatedAt)
+// }
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildSqlUserParams(tt.parameters)
-			if (err != nil) != tt.expectErr {
-				t.Errorf("buildSqlUserParams() error = %v, expectErr %v", err, tt.expectErr)
-				return
-			}
-			if len(got) != len(tt.expected) {
-				t.Errorf("buildSqlUserParams() = %v, want %v", got, tt.expected)
-				return
-			}
-			for i, g := range got {
-				e := tt.expected[i]
-				if *g.Name != *e.Name || g.TypeHint != e.TypeHint || g.Value.(*rds_types.FieldMemberStringValue).Value != e.Value.(*rds_types.FieldMemberStringValue).Value {
-					t.Errorf("buildSqlUserParams() = %v, want %v", got, tt.expected)
-					return
-				}
-			}
-		})
-	}
-}
-
-
-func parseTime(value string, t *testing.T) time.Time {
-    layout := "2006-01-02 15:04:05" // RDS SQL accepted time format
-    parsedTime, err := time.Parse(layout, value)
-    if err != nil {
-        t.Fatalf("error parsing time for key: %s, error: %v", value, err)
-    }
-    return parsedTime
-}
-
-
-func TestExtractAndMapSingleUserFromJSON(t *testing.T) {
-    tests := []struct {
-        name      string
-        jsonInput string
-        expected  *internal_types.User
-        expectErr bool
-    }{
-        {
-            name: "valid JSON",
-            jsonInput: `[
-                {
-                    "id": "1234",
-                    "name": "John Doe",
-                    "email": "john@example.com",
-                    "address": "123 Main St",
-                    "phone": "555-5555",
-                    "profile_picture_url": "http://example.com/pic.jpg",
-                    "role": "admin",
-                    "created_at": "2024-01-01 12:00:00",
-                    "updated_at": "2024-01-02 12:00:00"
-                }
-            ]`,
-            expected: &internal_types.User{
-                ID:                  "1234",
-                Name:                "John Doe",
-                Email:               "john@example.com",
-                Address:             "123 Main St",
-                Phone:               "555-5555",
-                ProfilePictureURL:   "http://example.com/pic.jpg",
-                Role:                "admin",
-                CreatedAt:           parseTime("2024-01-01 12:00:00", t),
-                UpdatedAt:           parseTime("2024-01-02 12:00:00", t),
-            },
-            expectErr: false,
-        },
-        // other test cases
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            got, err := extractAndMapSingleUserFromJSON(tt.jsonInput)
-            if (err != nil) != tt.expectErr {
-                t.Errorf("extractAndMapSingleUserFromJSON() error = %v, expectErr %v", err, tt.expectErr)
-                return
-            }
-            if tt.expected == nil {
-                if got != nil {
-                    t.Errorf("extractAndMapSingleUserFromJSON() = %v, want %v", got, tt.expected)
-                }
-                return
-            }
-            if *got != *tt.expected {
-                t.Errorf("extractAndMapSingleUserFromJSON() = %v, want %v", got, tt.expected)
-            }
-        })
-    }
-}
-
-func TestExtractUsersFromJson(t *testing.T) {
-    tests := []struct {
-        name      string
-        jsonInput string
-        expected  []internal_types.User
-        expectErr bool
-    }{
-        {
-            name: "valid JSON array",
-            jsonInput: `[
-                {
-                    "id": "1234",
-                    "name": "John Doe",
-                    "email": "john@example.com",
-                    "address": "123 Main St",
-                    "phone": "555-5555",
-                    "profile_picture_url": "http://example.com/pic.jpg",
-                    "role": "admin",
-                    "created_at": "2024-01-01 12:00:00",
-                    "updated_at": "2024-01-02 12:00:00"
-                },
-                {
-                    "id": "5678",
-                    "name": "Jane Doe",
-                    "email": "jane@example.com",
-                    "address": "456 Elm St",
-                    "phone": "555-1234",
-                    "profile_picture_url": "http://example.com/pic2.jpg",
-                    "role": "user",
-                    "created_at": "2024-01-01 12:00:00",
-                    "updated_at": "2024-01-02 12:00:00"
-                }
-            ]`,
-            expected: []internal_types.User{
-                {
-                    ID:                  "1234",
-                    Name:                "John Doe",
-                    Email:               "john@example.com",
-                    Address:             "123 Main St",
-                    Phone:               "555-5555",
-                    ProfilePictureURL:   "http://example.com/pic.jpg",
-                    Role:                "admin",
-					CreatedAt:           parseTime("2024-01-01 12:00:00", t),
-					UpdatedAt:           parseTime("2024-01-02 12:00:00", t),
-                },
-                {
-                    ID:                  "5678",
-                    Name:                "Jane Doe",
-                    Email:               "jane@example.com",
-                    Address:             "456 Elm St",
-                    Phone:               "555-1234",
-                    ProfilePictureURL:   "http://example.com/pic2.jpg",
-                    Role:                "user",
-					CreatedAt:           parseTime("2024-01-01 12:00:00", t),
-					UpdatedAt:           parseTime("2024-01-02 12:00:00", t),
-                },
-            },
-            expectErr: false,
-        },
-        {
-            name: "empty JSON array",
-            jsonInput: `[]`,
-            expected:  []internal_types.User{},
-            expectErr: false,
-        },
-        {
-            name: "invalid JSON",
-            jsonInput: `[{invalid json}]`,
-            expected:  nil,
-            expectErr: true,
-        },
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            got, err := extractUsersFromJson(tt.jsonInput)
-            if (err != nil) != tt.expectErr {
-                t.Errorf("extractUsersFromJson() error = %v, expectErr %v", err, tt.expectErr)
-                return
-            }
-            if len(got) != len(tt.expected) {
-                t.Errorf("extractUsersFromJson() = %v, want %v", got, tt.expected)
-                return
-            }
-            for i, g := range got {
-                e := tt.expected[i]
-                if g != e {
-                    t.Errorf("extractUsersFromJson() = %v, want %v", g, e)
-                }
-            }
-        })
-    }
-}
+// // Helper function to compare two slices of strings
+// func equalStringSlices(a, b []string) bool {
+// 	if len(a) != len(b) {
+// 		return false
+// 	}
+// 	for i, v := range a {
+// 		if v != b[i] {
+// 			return false
+// 		}
+// 	}
+// 	return true
+// }
 

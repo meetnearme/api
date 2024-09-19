@@ -2,7 +2,6 @@ package transport
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -27,11 +26,13 @@ func CreateRDSClient() internal_types.RDSDataAPI {
 		log.Fatalf("Error loading AWS configuration: %v", err)
 	}
 
+
+	goEnv := os.Getenv("GO_ENV")
 	clusterArn := os.Getenv("RDS_CLUSTER_ARN")
 	secretArn := os.Getenv("RDS_SECRET_ARN")
 	databaseName := os.Getenv("DATABASE_NAME")
 
-	if clusterArn == "" || secretArn == "" || databaseName == "" {
+	if goEnv != "test" && clusterArn == "" || secretArn == "" || databaseName == "" {
 		log.Fatalf("Missing RDS cluster, secret ARN, or database name in environment variables")
 	}
 
