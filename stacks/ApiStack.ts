@@ -27,12 +27,8 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
           SESHU_FN_URL: process.env.SESHU_FN_URL ?? seshuFn.url,
           SST_STAGE: app.stage,
           DATABASE_NAME: "MeetnearmeRdsDB",
-          // DBUSER: "postgres",
-          // DBPASSWORD: "",
           RDS_CLUSTER_ARN: cluster.clusterArn,
           RDS_SECRET_ARN: cluster.secretArn,
-          // DBHOST: cluster.clusterEndpoint.hostname,
-          // PORT: cluster.clusterEndpoint.port.toString(),
           // ----- END -----
         },
       },
