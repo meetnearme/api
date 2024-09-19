@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -68,29 +69,6 @@ func buildSqlUserParams(parameters map[string]interface{}) ([]rds_types.SqlParam
 		},
 	}
 	params = append(params, role)
-
-	// Convert string timestamps to SQL parameters if they are provided
-	if createdAtValue, ok := parameters["created_at"].(string); ok && createdAtValue != "" {
-		createdAt := rds_types.SqlParameter{
-			Name:     aws.String("created_at"),
-			TypeHint: "TIMESTAMP",
-			Value: &rds_types.FieldMemberStringValue{
-				Value: createdAtValue,
-			},
-		}
-		params = append(params, createdAt)
-	}
-
-	if updatedAtValue, ok := parameters["updated_at"].(string); ok && updatedAtValue != "" {
-		updatedAt := rds_types.SqlParameter{
-			Name:     aws.String("updated_at"),
-			TypeHint: "TIMESTAMP",
-			Value: &rds_types.FieldMemberStringValue{
-				Value: updatedAtValue,
-			},
-		}
-		params = append(params, updatedAt)
-	}
 
 	// Optional Fields (address_street, address_city, address_zip_code, address_country, phone, profile_picture_url)
 	addressFields := []string{"address", "phone", "profile_picture_url"}
@@ -206,3 +184,40 @@ func extractUsersFromJson(formattedRecords string) ([]internal_types.User, error
 
     return users, nil
 }
+
+func buildUpdateUserQuery(params map[string]interface{}) (string, map[string]interface{}) {
+    // Initialize the SQL query parts
+    setClauses := []string{}
+    sqlParams := map[string]interface{}{}
+
+    // Iterate through the params map
+    for key, value := range params {
+        if value != nil && value != "" {
+            // Build the SET clause dynamically for non-empty values
+            setClauses = append(setClauses, fmt.Sprintf("%s = :%s", key, key))
+            sqlParams[key] = value
+        }
+    }
+
+    // If no fields are provided, return an error or an empty query
+    if len(setClauses) == 0 {
+        return "", nil
+    }
+
+    // Ensure 'id' is always included in the parameters
+    if _, ok := sqlParams["id"]; !ok {
+        return "", nil // 'id' is required for the update operation
+    }
+
+    // Construct the full SQL query
+    query := fmt.Sprintf(`
+        UPDATE users
+        SET %s,
+            updated_at = now()
+        WHERE id = :id
+        RETURNING id, name, email, address, phone, profile_picture_url, role, created_at, updated_at`,
+        strings.Join(setClauses, ", "))
+
+    return query, sqlParams
+}
+

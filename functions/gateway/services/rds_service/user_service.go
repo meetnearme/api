@@ -67,10 +67,7 @@ func (s *UserService) InsertUser(ctx context.Context, rdsClient internal_types.R
         "phone":               user.Phone,
         "profile_picture_url": user.ProfilePictureURL,
         "role":                user.Role,
-        "created_at":          user.CreatedAt,
-        "updated_at":          user.UpdatedAt,
     }
-
 
 	paramsRdsFormat, err := buildSqlUserParams(params)
 	if err != nil {
@@ -161,20 +158,6 @@ func (s *UserService) GetUsers(ctx context.Context, rdsClient internal_types.RDS
 }
 
 func (s *UserService) UpdateUser(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string, user internal_types.UserUpdate) (*internal_types.User, error) {
-    // Build the SQL query to update user information
-    query := `
-        UPDATE users
-        SET
-            name = :name,
-            email = :email,
-            address = :address,
-            phone = :phone,
-            profile_picture_url = :profile_picture_url,
-            role = :role,
-            organization_user_id = :organization_user_id,
-            updated_at = now()
-        WHERE id = :id
-        RETURNING id, name, email, address, phone, profile_picture_url, role, organization_user_id, created_at, updated_at`
 
     // Build SQL parameters from UserUpdate struct
     params := map[string]interface{}{
@@ -187,8 +170,13 @@ func (s *UserService) UpdateUser(ctx context.Context, rdsClient internal_types.R
         "role":                  user.Role,
     }
 
+	query, sqlParams := buildUpdateUserQuery(params)
+	if query == "" {
+		return nil, fmt.Errorf("no fields provided for update of user")
+	}
+
     // Convert parameters to RDS types
-	rdsParams, err := buildSqlUserParams(params)
+	rdsParams, err := buildSqlUserParams(sqlParams)
 	if err != nil {
 		return nil, fmt.Errorf("Error in building RDS formatted SQL Parameters: %w", err)
 	}

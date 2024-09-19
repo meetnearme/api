@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/go-playground/validator"
@@ -41,8 +40,6 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    log.Printf("Create user: %v", createUser)
-
     err = validate.Struct(&createUser)
     if err != nil {
         transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
@@ -60,32 +57,6 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
         createUser.ProfilePictureURL = ""
     }
 
-    now := time.Now().UTC().Format(time.RFC3339)
-    createUser.CreatedAt = now
-    createUser.UpdatedAt = now
-
-	// Parse timestamps
-	createdAtTime, err := time.Parse(time.RFC3339, createUser.CreatedAt)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Invalid created_at timestamp: "+err.Error()), http.StatusBadRequest, err)
-		return
-	}
-
-	updatedAtTime := createdAtTime // Default to the same value if not provided
-	if createUser.UpdatedAt != "" {
-		updatedAtTime, err = time.Parse(time.RFC3339, createUser.UpdatedAt)
-		if err != nil {
-			transport.SendServerRes(w, []byte("Invalid updated_at timestamp: "+err.Error()), http.StatusBadRequest, err)
-			return
-		}
-	}
-
-	const rdsTimeFormat = "2006-01-02 15:04:05" // RDS SQL accepted time format
-
-	// Format timestamps for RDS
-	createUser.CreatedAt = createdAtTime.Format(rdsTimeFormat)
-	createUser.UpdatedAt = updatedAtTime.Format(rdsTimeFormat)
-
     db := transport.GetRdsDB()
     res, err := h.UserService.InsertUser(r.Context(), db, createUser)
     if err != nil {
@@ -99,7 +70,6 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    log.Printf("Inserted new user: %+v", res)
     transport.SendServerRes(w, response, http.StatusCreated, nil)
 }
 
