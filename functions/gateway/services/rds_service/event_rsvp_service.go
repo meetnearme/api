@@ -34,15 +34,15 @@ func (s *EventRsvpService) InsertEventRsvp(ctx context.Context, rdsClient intern
     // Construct the SQL query
     query := `
         INSERT INTO event_rsvps (
-            id, user_id, event_id, event_source_type, status,
+            id, user_id, event_id, event_source_type, event_source_id, status,
 			created_at, updated_at
         )
         VALUES (
-			:id, :user_id, :event_id, :event_source_type, :status,
+			:id, :user_id, :event_id, :event_source_type, :event_source_id, :status,
 			NOW(), NOW()
         )
         RETURNING
-            id, user_id, event_id, event_source_type, status,
+            id, user_id, event_id, event_source_type, event_source_id, status,
 			created_at, updated_at
     `
 
@@ -52,6 +52,7 @@ func (s *EventRsvpService) InsertEventRsvp(ctx context.Context, rdsClient intern
 		"user_id": eventRsvp.UserID,
 		"event_id": eventRsvp.EventID,
 		"event_source_type": eventRsvp.EventSourceType,
+		"event_source_id": eventRsvp.EventSourceID,
 		"status": eventRsvp.Status,
     }
 

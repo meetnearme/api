@@ -11,6 +11,7 @@ type EventRsvpInsert struct {
 	UserID string `json:"user_id" validate:"required"`
 	EventID string `json:"event_id" validate:"required"`
     EventSourceType         string `json:"event_source_type" validate:"required"` // Validate as email
+    EventSourceID         string `json:"event_source_id" validate:"required"` // Validate as email
     Status         string `json:"status" validate:"required"`
     CreatedAt     string `json:"created_at"` // Adjust based on your date format
     UpdatedAt     string `json:"updated_at"` // Adjust based on your date format
@@ -23,6 +24,7 @@ type EventRsvp struct {
 	UserID string `json:"user_id" `
 	EventID string `json:"event_id" `
     EventSourceType         string `json:"event_source_type"` // Validate as email
+    EventSourceID         string `json:"event_source_id"` // Validate as email
 	Status string `json:"status"`
     CreatedAt     time.Time `json:"created_at"` // Adjust based on your date format
     UpdatedAt     time.Time `json:"updated_at"` // Adjust based on your date format
@@ -33,6 +35,7 @@ type EventRsvpUpdate struct {
     ID            string `json:"id"` // UUID format validation
 	UserID string `json:"user_id" `
 	EventID string `json:"event_id" `
+    EventSourceID         string `json:"event_source_id"` // Validate as email
     EventSourceType         string `json:"event_source_type" ` // Validate as email
 	Status string `json:"status"`
 }

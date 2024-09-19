@@ -56,6 +56,17 @@ func buildSqlEventRsvpParams(parameters map[string]interface{}) ([]rds_types.Sql
 		params = append(params, eventID)
 	}
 
+	if eventSourceIdValue, ok := parameters["event_source_id"].(string); ok && eventSourceIdValue != "" {
+		eventSourceID := rds_types.SqlParameter{
+			Name:     aws.String("event_source_id"),
+			TypeHint: "UUID",
+			Value: &rds_types.FieldMemberStringValue{
+				Value: eventSourceIdValue,
+			},
+		}
+		params = append(params, eventSourceID)
+	}
+
 	// TODO: do we need check in enum before DB?
 	// Status
 	statusValue, ok := parameters["status"].(string)
@@ -111,7 +122,6 @@ func buildSqlEventRsvpParams(parameters map[string]interface{}) ([]rds_types.Sql
 }
 
 func extractAndMapSingleEventRsvpFromJSON(formattedRecords string) (*internal_types.EventRsvp, error) {
-	log.Printf("formatted records from JSON: %v", formattedRecords)
 	var records []map[string]interface{}
 	if err := json.Unmarshal([]byte(formattedRecords), &records); err != nil {
 		return nil, fmt.Errorf("error unmarshaling JSON records: %v", err)
@@ -122,8 +132,6 @@ func extractAndMapSingleEventRsvpFromJSON(formattedRecords string) (*internal_ty
 		return nil, fmt.Errorf("no records found")
 	}
 
-	log.Printf("recordSSSSSSSS: %v", records)
-
 	record := records[0]
 
 
@@ -132,6 +140,7 @@ func extractAndMapSingleEventRsvpFromJSON(formattedRecords string) (*internal_ty
 		UserID:                       getString(record, "user_id"),
 		EventID:                       getString(record, "event_id"),
 		EventSourceType:                       getString(record, "event_source_type"),
+		EventSourceID:                       getString(record, "event_source_id"),
 		Status:                       getString(record, "status"),
 		CreatedAt:                    getTime(record, "created_at"),
 		UpdatedAt:                    getTime(record, "updated_at"),
@@ -159,6 +168,7 @@ func extractEventRsvpsFromJson(formattedRecords string) ([]internal_types.EventR
 		purchasable.UserID = getString(record, "user_id")
 		purchasable.EventID = getString(record, "event_id")
 		purchasable.EventSourceType = getString(record, "event_source_type")
+		purchasable.EventSourceID = getString(record, "event_source_id")
 		purchasable.Status = getString(record, "status")
 		purchasable.CreatedAt = getTime(record, "createdAt")
 		purchasable.UpdatedAt = getTime(record, "updatedAt")
@@ -197,7 +207,7 @@ func buildUpdateEventRsvpQuery(params map[string]interface{}) (string, map[strin
         SET %s,
             updated_at = now()
         WHERE id = :id
-        RETURNING id, user_id, event_id, event_source_type, status,
+        RETURNING id, user_id, event_id, event_source_type, event_source_id, status,
 			created_at, updated_at`,
         strings.Join(setClauses, ", "))
 
