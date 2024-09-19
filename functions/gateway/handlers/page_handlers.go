@@ -2,11 +2,10 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -18,26 +17,75 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
-func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	// Extract parameter values from the request query parameters
-	ctx := r.Context()
-	apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-	if !ok {
-		log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
-		// For testing or non-API gateway envs
-		apiGwV2Req = events.APIGatewayV2HTTPRequest{
-			RequestContext: events.APIGatewayV2HTTPRequestContext{
-				HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
-					Method: r.Method,
-					Path:   r.URL.Path,
-				},
-			},
-		}
+func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTimeUnix int64) {
+	var startTime time.Time
+	var endTime time.Time
+
+	var startTimeUnix int64
+	var endTimeUnix int64
+
+	// NOTE: This assumes the UI home page default is "THIS MONTH" and the absence
+	// of an explicit start_time query param ...
+	if (startTimeStr == "" && endTimeStr == "" )|| strings.ToLower(startTimeStr) == "this_month" {
+		startTime = time.Now()
+		endTime = startTime.AddDate(0,1,0)
+	} else if strings.ToLower(startTimeStr) == "today" {
+		startTime = time.Now()
+		endTime = startTime.AddDate(0,0,1)
+	// NOTE: "tomorrow" is a time-bound concept that should eventually be timezone relative
+	// to the user, this is currently simplistic and is just 24 - 48hrs from the current time
+	} else if strings.ToLower(startTimeStr) == "tomorrow" {
+		startTime = time.Now().AddDate(0,0,1)
+		endTime = startTime.AddDate(0,0,1)
+	} else if strings.ToLower(startTimeStr) == "this_week" {
+		startTime = time.Now()
+		endTime = startTime.AddDate(0,0,7)
 	}
 
-	cfRay := GetCfRay(ctx)
+	// return early if one of the above are found
+	if !startTime.IsZero() && !endTime.IsZero() {
+		return startTime.Unix(), endTime.Unix()
+	}
+
+	// convert startTime either UTC / time.RFC3339 or integer
+	// string (presumed unix) to int64
+	if	_, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
+		startTime, _ = time.Parse(time.RFC3339, startTimeStr)
+	} else if startTimeUnix, err = strconv.ParseInt(startTimeStr, 10, 64); err == nil {
+		startTime = time.Unix(startTimeUnix, 0)
+	// default wrong query string usage to NOW for startTime
+	} else {
+		startTime = time.Now()
+	}
+
+	// convert endTime either UTC / time.RFC3339 or integer
+	// string (presumed unix) to int64
+	if	_, err = time.Parse(time.RFC3339, endTimeStr); err == nil {
+		endTime, _ = time.Parse(time.RFC3339, endTimeStr)
+	} else if endTimeUnix, err = strconv.ParseInt(endTimeStr, 10, 64); err == nil {
+		endTime = time.Unix(endTimeUnix, 0)
+		endTime = endTime.Add(24 * time.Hour) // Set end time to 24 hours after start time
+	// default wrong query string usage to PLUS ONE MONTH for endTime
+	} else {
+		endTime = startTime.AddDate(0,1,0)
+	}
+
+	startTimeUnix = startTime.Unix()
+	endTimeUnix = endTime.Unix()
+
+	return startTimeUnix, endTimeUnix
+}
+
+func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation)  {
+	startTimeStr := r.URL.Query().Get("start_time")
+	endTimeStr := r.URL.Query().Get("end_time")
+	latStr := r.URL.Query().Get("lat")
+	longStr := r.URL.Query().Get("lon")
+	radiusStr := r.URL.Query().Get("radius")
+	q := r.URL.Query().Get("q")
+	cfRay := GetCfRay(r)
 	rayCode := ""
-	var cfLocation helpers.CdnLocation
+
 	cfLocationLat := services.InitialEmptyLatLong
 	cfLocationLon := services.InitialEmptyLatLong
 	if len(cfRay) > 2 {
@@ -47,28 +95,11 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		cfLocationLon = cfLocation.Lon
 	}
 
-	queryParameters := apiGwV2Req.QueryStringParameters
-	startTimeStr := queryParameters["start_time"]
-	endTimeStr := queryParameters["end_time"]
-	latStr := queryParameters["lat"]
-	longStr := queryParameters["lon"]
-	radiusStr := queryParameters["radius"]
-	q := queryParameters["q"]
-
-	// Set default values if query parameters are not provided
-	startTime := time.Now()
-	endTime := startTime.AddDate(100, 0, 0)
 	lat := float64(39.8283)
 	long := float64(-98.5795)
 	radius := float64(2500.0)
 
 	// Parse parameter values if provided
-	if startTimeStr != "" {
-		startTime, _ = time.Parse(time.RFC3339, startTimeStr)
-	}
-	if endTimeStr != "" {
-		endTime, _ = time.Parse(time.RFC3339, endTimeStr)
-	}
 	if latStr != "" {
 		lat64, _ := strconv.ParseFloat(latStr, 32)
 		lat = float64(lat64)
@@ -86,15 +117,20 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		radius = float64(radius64)
 	}
 
+	startTimeUnix, endTimeUnix := ParseStartEndTime(startTimeStr, endTimeStr)
+
+	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation
+}
+
+func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	// Extract parameter values from the request query parameters
+	ctx := r.Context()
+	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation := GetSearchParamsFromReq(r)
+
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
 	}
-
-	// startTime, endTime, lat, lon, radius
-	// TODO: Use startTime / endTime in query and remove this log before merging
-	log.Printf("startTime: %v, endTime: %v, lat: %v, long: %v, radius: %v", startTime, endTime, lat, long, radius)
-	userLocation := []float64{lat, long}
 
 	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
 
@@ -103,7 +139,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		ownerIds = append(ownerIds, subdomainValue)
 	}
 
-	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, ownerIds)
+	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 	}
@@ -114,7 +150,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if ctx.Value("userInfo") != nil {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
-	homePage := pages.HomePage(events, cfLocation, latStr, longStr)
+	homePage := pages.HomePage(events, cfLocation, fmt.Sprint(userLocation[0]), fmt.Sprint(userLocation[1]))
 	layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
 	var buf bytes.Buffer
@@ -158,18 +194,8 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GetCfRay(c context.Context) string {
-	apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-	if !ok {
-		log.Println(("APIGatewayV2HTTPRequest not found in context"))
-		return ""
-	}
-	if apiGwV2Req.Headers == nil {
-		log.Println(("Headers not found in APIGatewayV2HTTPRequest"))
-		return ""
-	}
-	if cfRay := apiGwV2Req.Headers["cf-ray"]; cfRay != "" {
-		log.Println(("cf-ray found in APIGatewayV2HTTPRequest: " + fmt.Sprint(cfRay)))
+func GetCfRay(r *http.Request) string {
+	if cfRay := r.Header.Get("cf-ray"); cfRay != "" {
 		return cfRay
 	}
 	return ""

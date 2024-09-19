@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"
@@ -323,32 +322,17 @@ func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerF
 }
 
 func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
+    // Extract parameter values from the request query parameters
+    q, userLocation, radius, startTimeUnix, endTimeUnix, _ := GetSearchParamsFromReq(r)
+
     marqoClient, err := services.GetMarqoClient()
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
         return
     }
 
-    // NOTE: these defaults are random, we should fix
-    latFloat := float64(38.8951)
-    longFloat := float64(-77.0364)
-    maxDistance := float64(300)
-
-    query := r.URL.Query().Get("q")
-    lat := r.URL.Query().Get("lat")
-    if lat != "" {
-        latFloat, _ = strconv.ParseFloat(lat, 64)
-    }
-    long := r.URL.Query().Get("lon")
-    if long != "" {
-        longFloat, _ = strconv.ParseFloat(long, 64)
-    }
-
-    // TODO: add start time here,
-    // need to convert marqo DB index to unix for `startTime` / `endTime`
-
     var res services.EventSearchResponse
-    res, err = services.SearchMarqoEvents(marqoClient, query, []float64{latFloat, longFloat}, maxDistance, []string{})
+    res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, []string{})
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to search marqo events: "+err.Error()), http.StatusInternalServerError, err)
         return
