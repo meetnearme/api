@@ -97,9 +97,9 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 		cfLocationLon = cfLocation.Lon
 	}
 
+	// default lat / lon to geographic center of US
 	lat := float64(39.8283)
 	long := float64(-98.5795)
-	radius := float64(150.0)
 
 	// Parse parameter values if provided
 	if latStr != "" {
@@ -114,10 +114,29 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	} else if cfLocationLon != services.InitialEmptyLatLong {
 		long = float64(cfLocationLon)
 	}
+
+	var radius float64
+
 	if radiusStr != "" {
-		radius64, _ := strconv.ParseFloat(radiusStr, 32)
-		radius = float64(radius64)
+		radius64, err := strconv.ParseFloat(radiusStr, 32)
+		// only set the radius if string successfully converts to a float64
+		if err == nil {
+			radius = float64(radius64)
+		}
 	}
+
+	// we failed to get a radius string, set an implicit default, if cfLocationLat/Lon
+	// is not the initial empty value (can't use 0.0, a valid lat/lon) we assume
+	// cfLocation has given us a reasonable local guess
+	if radius == 0.0 && cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong {
+		radius = float64(150.0)
+	// we still don't have lat/lon, which means we'll be using "geographic center of US"
+	// which is in the middle of nowhere. Expand the radius to show all of the country
+	// showing events from anywhere
+	} else if radius == 0.0 {
+		radius = float64(2500.0)
+	}
+
 
 	startTimeUnix, endTimeUnix := ParseStartEndTime(startTimeStr, endTimeStr)
 

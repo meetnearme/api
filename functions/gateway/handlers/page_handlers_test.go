@@ -440,7 +440,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			cfRay:          "",
 			expectedQuery:  "",
 			expectedLoc:    []float64{39.8283, -98.5795},
-			expectedRadius: 150.0,
+			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
 			expectedEnd:    0, // This will be one month from now in Unix seconds
 			expectedCfLoc:  helpers.CdnLocation{},
@@ -469,7 +469,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			cfRay:          "",
 			expectedQuery:  "",
 			expectedLoc:    []float64{39.8283, -98.5795},
-			expectedRadius: 150.0,
+			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
 			expectedEnd:    0, // This will be 7 days from now in Unix seconds
 			expectedCfLoc:  helpers.CdnLocation{},
