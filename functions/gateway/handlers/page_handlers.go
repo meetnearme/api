@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -64,7 +65,7 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 		endTime, _ = time.Parse(time.RFC3339, endTimeStr)
 	} else if endTimeUnix, err = strconv.ParseInt(endTimeStr, 10, 64); err == nil {
 		endTime = time.Unix(endTimeUnix, 0)
-		endTime = endTime.Add(24 * time.Hour) // Set end time to 24 hours after start time
+	// Set end time to 24 hours after start time
 	// default wrong query string usage to PLUS ONE MONTH for endTime
 	} else {
 		endTime = startTime.AddDate(0,1,0)
@@ -88,6 +89,7 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 
 	cfLocationLat := services.InitialEmptyLatLong
 	cfLocationLon := services.InitialEmptyLatLong
+
 	if len(cfRay) > 2 {
 		rayCode = cfRay[len(cfRay)-3:]
 		cfLocation = helpers.CfLocationMap[rayCode]
@@ -97,7 +99,7 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 
 	lat := float64(39.8283)
 	long := float64(-98.5795)
-	radius := float64(2500.0)
+	radius := float64(150.0)
 
 	// Parse parameter values if provided
 	if latStr != "" {
@@ -195,7 +197,8 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 }
 
 func GetCfRay(r *http.Request) string {
-	if cfRay := r.Header.Get("cf-ray"); cfRay != "" {
+	log.Printf(`r.Header.Get("Cf-Ray"): %+v`,r.Header.Get("Cf-Ray"))
+	if cfRay := r.Header.Get("Cf-Ray"); cfRay != "" {
 		return cfRay
 	}
 	return ""
