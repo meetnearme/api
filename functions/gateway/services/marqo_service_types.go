@@ -27,7 +27,9 @@ type MockMarqoService struct {
         client *marqo.Client, event Event) (*marqo.UpsertDocumentsResponse, error)
     BulkUpsertEventToMarqoFunc func(
             client *marqo.Client, events []Event) (*marqo.UpsertDocumentsResponse, error)
-    SearchEventsFunc       func(client *marqo.Client, query string, userLocation []float64, maxDistance float64, ownerIds []string) (EventSearchResponse, error)
+    SearchEventsFunc       func(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, ownerIds []string) (EventSearchResponse, error)
+    UpdateOneEventFunc     func(client *marqo.Client, eventId string, event Event) (*marqo.UpsertDocumentsResponse, error)
+    BulkUpdateEventsFunc   func(client *marqo.Client, events []Event) (*marqo.UpsertDocumentsResponse, error)
 }
 
 func (m *MockMarqoService) UpsertEventToMarqo(
@@ -40,7 +42,14 @@ func (m *MockMarqoService) BulkUpsertEventToMarqo(
     return m.BulkUpsertEventToMarqoFunc(client, events)
 }
 
+func (m *MockMarqoService) SearchEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, ownerIds []string) (EventSearchResponse, error) {
+	return m.SearchEventsFunc(client, query, userLocation, maxDistance, startTime, endTime, ownerIds)
+}
 
-func (m *MockMarqoService) SearchEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, ownerIds []string) (EventSearchResponse, error) {
-	return m.SearchEventsFunc(client, query, userLocation, maxDistance, ownerIds)
+func (m *MockMarqoService) UpdateOneEvent(client *marqo.Client, eventId string, event Event) (*marqo.UpsertDocumentsResponse, error) {
+	return m.UpdateOneEventFunc(client, eventId, event)
+}
+
+func (m *MockMarqoService) BulkUpdateEvents(client *marqo.Client, events []Event) (*marqo.UpsertDocumentsResponse, error) {
+    return m.BulkUpdateEventsFunc(client, events)
 }

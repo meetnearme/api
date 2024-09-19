@@ -1,10 +1,10 @@
 package pages
 
 import (
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"os"
 	"time"
-	"github.com/meetnearme/api/functions/gateway/templates/components"
-	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
 templ Layout(title string, userInfo helpers.UserInfo, pageContent templ.Component) {
@@ -12,10 +12,10 @@ templ Layout(title string, userInfo helpers.UserInfo, pageContent templ.Componen
 	<html data-theme="cyberpunk">
 		<head>
 			<title>Meet Near Me - { title }</title>
-			<link rel="icon" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logomark.svg") }/>
+			<link rel="icon" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 			<link rel="preconnect" href="https://fonts.googleapis.com"/>
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet"/>
+			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&display=swap" rel="stylesheet"/>
 			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.css") }/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
@@ -26,15 +26,15 @@ templ Layout(title string, userInfo helpers.UserInfo, pageContent templ.Componen
 		<body>
 			@components.Navbar(userInfo) {
 				<div class="container mx-auto">
-					<div id="content">
+					<div id="content" class="p-4 space-y-4">
 						@pageContent
 					</div>
 				</div>
 			}
 			<footer class="footer footer-center p-10 mt-60 bg-primary text-primary-content">
 				<aside>
-					<a href="/" class="btn btn-ghost text-xl">
-						<img class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logomark.svg") }/>
+					<a href="/" class="btn btn-ghost h-auto text-xl bg-base-200">
+						<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 					</a>
 					<p>
 						<br/>

@@ -6,6 +6,7 @@ export default {
     fontSize: {
       sm: '0.8rem',
       base: '1rem',
+      lg: '1.15rem',
       xl: '1.25rem',
       '2xl': '1.563rem',
       '3xl': '1.953rem',
@@ -15,13 +16,16 @@ export default {
     container: {
       padding: {
         DEFAULT: '1rem',
-        // sm: '2rem',
-        // md: '3rem',
+        sm: '2rem',
+        md: '3rem',
         // lg: '8rem',
         // xl: '10rem',
         // '2xl': '12rem',
       },
     },
+  },
+  corePlugins: {
+    container: false,
   },
   plugins: [
     require('daisyui'),
@@ -30,17 +34,15 @@ export default {
       addComponents({
         '.container': {
           maxWidth: '100%',
+          width: '100%',
           '@screen sm': {
-            maxWidth: '95vw',
+            width: '100%',
           },
           '@screen md': {
-            maxWidth: '95vw',
+            width: '100%',
           },
           '@screen lg': {
-            maxWidth: '1280px',
-          },
-          '@screen xl': {
-            maxWidth: '1400px',
+            width: '960px',
           },
         },
         '.main-bg': {
