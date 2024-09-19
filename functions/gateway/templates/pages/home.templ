@@ -237,7 +237,8 @@ templ EventsInner(events []services.Event) {
 }
 
 func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr string, lonStr string) string {
-	if latStr != "" && lonStr != "" {
+	var emptyCfLocation = helpers.CdnLocation{}
+	if cfLocation == emptyCfLocation && latStr != "" && lonStr != "" {
 		return "Geocoordinates: " + latStr + ", " + lonStr
 	}
 	if cfLocation.City != "" && cfLocation.CCA2 != "" {

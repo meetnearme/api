@@ -216,7 +216,6 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 }
 
 func GetCfRay(r *http.Request) string {
-	log.Printf(`r.Header.Get("Cf-Ray"): %+v`,r.Header.Get("Cf-Ray"))
 	if cfRay := r.Header.Get("Cf-Ray"); cfRay != "" {
 		return cfRay
 	}
