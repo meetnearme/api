@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -12,6 +13,11 @@ import (
 )
 
 func TestGetEventRsvpsByUserID(t *testing.T) {
+	os.Setenv("AWS_REGION", "us-east-1") // Set to your region
+    os.Setenv("RDS_CLUSTER_ARN", "mock-cluster-arn")
+    os.Setenv("RDS_SECRET_ARN", "mock-secret-arn")
+    os.Setenv("DATABASE_NAME", "mock-database")
+
     mockService := &rds_service.MockEventRsvpService{
         GetEventRsvpsByUserIDFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, userID string) ([]internal_types.EventRsvp, error) {
             return []internal_types.EventRsvp{
@@ -32,6 +38,11 @@ func TestGetEventRsvpsByUserID(t *testing.T) {
     if res.StatusCode != http.StatusOK {
         t.Errorf("Expected status code 200, got %d", res.StatusCode)
     }
+
+	os.Unsetenv("AWS_REGION")
+    os.Unsetenv("RDS_CLUSTER_ARN")
+    os.Unsetenv("RDS_SECRET_ARN")
+    os.Unsetenv("DATABASE_NAME")
 }
 
 
