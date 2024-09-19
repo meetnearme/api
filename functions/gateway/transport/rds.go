@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -59,9 +60,11 @@ func (r *RDSDataClient) ExecStatement(ctx context.Context, sql string, params []
 		Database:    &r.database,
 		Sql:         &sql,
 		Parameters:  params,
+		FormatRecordsAs: "JSON",
 	}
 	return r.client.ExecuteStatement(ctx, input)
 }
+
 
 // SetTestRdsDB sets a mock RDS Data API client for testing
 func SetTestRdsDB(db internal_types.RDSDataAPI) {
@@ -82,5 +85,8 @@ func GetRdsDB() internal_types.RDSDataAPI {
 		log.Println("Returning mock RDS Data API client for testing")
 		return testRdsData
 	}
+	onceRds.Do(func() {
+		rdsDataClient = CreateRDSClient()
+	})
 	return rdsDataClient
 }
