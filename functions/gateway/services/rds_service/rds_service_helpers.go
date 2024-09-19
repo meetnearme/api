@@ -4,6 +4,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
 	rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
@@ -95,3 +96,12 @@ func commaSeparatedStringToSlice(commaStr string) []string {
     return strings.Split(commaStr, ",")
 }
 
+
+func parseTime(value string, t *testing.T) time.Time {
+    layout := "2006-01-02 15:04:05" // RDS SQL accepted time format
+    parsedTime, err := time.Parse(layout, value)
+    if err != nil {
+        t.Fatalf("error parsing time for key: %s, error: %v", value, err)
+    }
+    return parsedTime
+}
