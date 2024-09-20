@@ -56,8 +56,6 @@ func (s *EventRsvpService) InsertEventRsvp(ctx context.Context, rdsClient intern
 		"status": eventRsvp.Status,
     }
 
-	log.Printf("params in create eventRsvp: %v", params)
-
 	paramsRdsFormat, err := buildSqlEventRsvpParams(params)
 	if err != nil {
 		return nil, fmt.Errorf("Error in building RDS formatted SQL Parameters: %w", err)
@@ -106,9 +104,6 @@ func (s *EventRsvpService) GetEventRsvpByID(ctx context.Context, rdsClient inter
 		return nil, fmt.Errorf("failed to get eventRsvp: %w", err)
 	}
 
-	log.Printf("Result in getby id: %v", result)
-	log.Printf("Result formatted result: %v", result.FormattedRecords)
-
     // Extract the inserted eventRsvp data
     eventRsvp, err := extractAndMapSingleEventRsvpFromJSON(*result.FormattedRecords)
     if err != nil {
@@ -153,7 +148,6 @@ func (s *EventRsvpService) GetEventRsvpsByEventID(ctx context.Context, rdsClient
         if err != nil {
             return nil, fmt.Errorf("error extracting eventRsvps from JSON: %w", err)
         }
-		log.Printf("eventRsvps form get all by user id: %v", eventRsvps)
     } else {
         return nil, fmt.Errorf("no formatted records found")
     }
@@ -195,7 +189,6 @@ func (s *EventRsvpService) GetEventRsvpsByUserID(ctx context.Context, rdsClient 
         if err != nil {
             return nil, fmt.Errorf("error extracting eventRsvps from JSON: %w", err)
         }
-		log.Printf("this in service func eventRsvps form get all by user id: %v", eventRsvps)
     } else {
         return nil, fmt.Errorf("no formatted records found")
     }
@@ -212,13 +205,11 @@ func (s *EventRsvpService) UpdateEventRsvp(ctx context.Context, rdsClient intern
 		"event_source_type": eventRsvp.EventSourceType,
 		"status": eventRsvp.Status,
     }
-	log.Printf("params in updtae rsvp: %v", reflect.TypeOf(params["user_id"]))
 
 	query, sqlParams := buildUpdateEventRsvpQuery(params)
     if query == "" {
         return nil, fmt.Errorf("no fields provided for update")
     }
-	log.Printf("sqlParams return: %v", sqlParams)
 
     // Convert parameters to RDS types
 	rdsParams, err := buildSqlEventRsvpParams(sqlParams)
@@ -265,7 +256,6 @@ func (s *EventRsvpService) DeleteEventRsvp(ctx context.Context, rdsClient intern
 	paramsRdsFormat = append(paramsRdsFormat, idRds)
 
 	result, err := rdsClient.ExecStatement(ctx, query, paramsRdsFormat)
-	log.Printf("Err from exec delete: %v", err)
 	if err != nil {
 		return fmt.Errorf("failed to delete eventRsvp: %w", err)
 	}

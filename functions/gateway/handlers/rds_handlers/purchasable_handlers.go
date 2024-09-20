@@ -35,7 +35,6 @@ func (h *PurchasableHandler) CreatePurchasable(w http.ResponseWriter, r *http.Re
         transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
         return
 	}
-	log.Printf("body of purchasable insert: %v", createPurchasable)
 
 	err = validate.Struct(&createPurchasable)
 	if err != nil {
@@ -83,7 +82,6 @@ func (h *PurchasableHandler) CreatePurchasable(w http.ResponseWriter, r *http.Re
         return
     }
 
-    log.Printf("Inserted new purchasable: %+v", res)
     transport.SendServerRes(w, response, http.StatusCreated, nil)
 }
 
@@ -118,7 +116,6 @@ func (h *PurchasableHandler) GetPurchasable(w http.ResponseWriter, r *http.Reque
 
 func (h *PurchasableHandler) GetPurchasablesByUserID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	log.Printf("vars get by user id: %v", vars)
 	id := vars["user_id"]
     if id == "" {
         transport.SendServerRes(w, []byte("Missing user_id ID"), http.StatusBadRequest, nil)
@@ -191,7 +188,6 @@ func (h *PurchasableHandler) UpdatePurchasable(w http.ResponseWriter, r *http.Re
 
 func (h *PurchasableHandler) DeletePurchasable(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	log.Printf("Vars in delete: %v", vars)
 	id := vars["id"]
     if id == "" {
         transport.SendServerRes(w, []byte("Missing purchasable ID"), http.StatusBadRequest, nil)

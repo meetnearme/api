@@ -15,7 +15,6 @@ import (
 func buildSqlEventRsvpParams(parameters map[string]interface{}) ([]rds_types.SqlParameter, error) {
 	var params []rds_types.SqlParameter
 
-	log.Printf("parameters event rsvps: %v", parameters)
 	// ID (UUID)
 	idValue, ok := parameters["id"].(string)
 	if !ok {
@@ -81,7 +80,6 @@ func buildSqlEventRsvpParams(parameters map[string]interface{}) ([]rds_types.Sql
 	}
 	params = append(params, status)
 
-	log.Printf("event source type: %v", reflect.TypeOf(parameters["event_source_type"]))
 	// EventSourceType
 	eventSourceTypeValue, ok := parameters["event_source_type"].(string)
 	if !ok {
@@ -146,8 +144,6 @@ func extractAndMapSingleEventRsvpFromJSON(formattedRecords string) (*internal_ty
 		UpdatedAt:                    getTime(record, "updated_at"),
 	}
 
-
-	log.Printf("EventRsvp item from extractions: %v", eventRsvp)
 
 	return &eventRsvp, nil
 }

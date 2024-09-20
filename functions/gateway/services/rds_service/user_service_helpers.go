@@ -104,7 +104,6 @@ func buildSqlUserParams(parameters map[string]interface{}) ([]rds_types.SqlParam
 }
 
 func extractAndMapSingleUserFromJSON(formattedRecords string) (*internal_types.User, error) {
-	log.Printf("formatted records from JSON: %v", formattedRecords)
     var records []map[string]interface{}
     if err := json.Unmarshal([]byte(formattedRecords), &records); err != nil {
         return nil, fmt.Errorf("error unmarshaling JSON records: %v", err)
@@ -117,8 +116,6 @@ func extractAndMapSingleUserFromJSON(formattedRecords string) (*internal_types.U
 
     record := records[0]
 
-	log.Printf("c pref: %v", record["category_preferences"].(string))
-
 
 	// Extract category_preferences and convert to []string if present
 	var categoryPreferences []string
@@ -126,7 +123,6 @@ func extractAndMapSingleUserFromJSON(formattedRecords string) (*internal_types.U
 		// cleanedString := strings.ReplaceAll(categoryPrefStr, "\\", "")
         // First, check if it's a JSON array string and try to unmarshal it directly
         err := json.Unmarshal([]byte(categoryPrefStr), &categoryPreferences)
-		log.Printf("cat after unmarshal: %v", categoryPrefStr)
         if err != nil {
             return nil, fmt.Errorf("error unmarshaling category_preferences field: %v", err)
         }

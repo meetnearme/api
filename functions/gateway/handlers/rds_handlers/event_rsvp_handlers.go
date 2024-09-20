@@ -35,40 +35,12 @@ func (h *EventRsvpHandler) CreateEventRsvp(w http.ResponseWriter, r *http.Reques
         transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
         return
 	}
-	log.Printf("body of eventRsvp insert: %v", createEventRsvp)
 
 	err = validate.Struct(&createEventRsvp)
 	if err != nil {
         transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
         return
 	}
-
-	// TODO: check if these are redundant in all Insert functions because of NOW() from sql
-    now := time.Now().UTC().Format(time.RFC3339)
-    createEventRsvp.CreatedAt = now
-    createEventRsvp.UpdatedAt = now
-
-	// Parse timestamps
-	createdAtTime, err := time.Parse(time.RFC3339, createEventRsvp.CreatedAt)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Invalid created_at timestamp: "+err.Error()), http.StatusBadRequest, err)
-		return
-	}
-
-	updatedAtTime := createdAtTime // Default to the same value if not provided
-	if createEventRsvp.UpdatedAt != "" {
-		updatedAtTime, err = time.Parse(time.RFC3339, createEventRsvp.UpdatedAt)
-		if err != nil {
-			transport.SendServerRes(w, []byte("Invalid updated_at timestamp: "+err.Error()), http.StatusBadRequest, err)
-			return
-		}
-	}
-
-	const rdsTimeFormat = "2006-01-02 15:04:05" // RDS SQL accepted time format
-
-	// Format timestamps for RDS
-	createEventRsvp.CreatedAt = createdAtTime.Format(rdsTimeFormat)
-	createEventRsvp.UpdatedAt = updatedAtTime.Format(rdsTimeFormat)
 
     db := transport.GetRdsDB()
     res, err := h.EventRsvpService.InsertEventRsvp(r.Context(), db, createEventRsvp)
@@ -83,7 +55,6 @@ func (h *EventRsvpHandler) CreateEventRsvp(w http.ResponseWriter, r *http.Reques
         return
     }
 
-    log.Printf("Inserted new eventRsvp: %+v", res)
     transport.SendServerRes(w, response, http.StatusCreated, nil)
 }
 
@@ -118,7 +89,6 @@ func (h *EventRsvpHandler) GetEventRsvp(w http.ResponseWriter, r *http.Request) 
 
 func (h *EventRsvpHandler) GetEventRsvpsByUserID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	log.Printf("vars get by user id: %v", vars)
 	id := vars["user_id"]
     if id == "" {
         transport.SendServerRes(w, []byte("Missing user_id ID"), http.StatusBadRequest, nil)
@@ -143,7 +113,6 @@ func (h *EventRsvpHandler) GetEventRsvpsByUserID(w http.ResponseWriter, r *http.
 
 func (h *EventRsvpHandler) GetEventRsvpsByEventID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	log.Printf("vars get by event id: %v", vars)
 	id := vars["event_id"]
     if id == "" {
         transport.SendServerRes(w, []byte("Missing event_id ID"), http.StatusBadRequest, nil)
@@ -216,7 +185,6 @@ func (h *EventRsvpHandler) UpdateEventRsvp(w http.ResponseWriter, r *http.Reques
 
 func (h *EventRsvpHandler) DeleteEventRsvp(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	log.Printf("Vars in delete: %v", vars)
 	id := vars["id"]
     if id == "" {
         transport.SendServerRes(w, []byte("Missing eventRsvp ID"), http.StatusBadRequest, nil)

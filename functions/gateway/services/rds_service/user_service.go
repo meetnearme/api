@@ -119,8 +119,6 @@ func (s *UserService) GetUserByID(ctx context.Context, rdsClient internal_types.
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	log.Printf("Result in getby id: %v", result)
-	log.Printf("Result formatted result: %v", result.FormattedRecords)
 
     // Extract the inserted user data
     user, err := extractAndMapSingleUserFromJSON(*result.FormattedRecords)
@@ -230,7 +228,6 @@ func (s *UserService) DeleteUser(ctx context.Context, rdsClient internal_types.R
 	paramsRdsFormat = append(paramsRdsFormat, idRds)
 
 	result, err := rdsClient.ExecStatement(ctx, query, paramsRdsFormat)
-	log.Printf("Err from exec delete: %v", err)
 	if err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}

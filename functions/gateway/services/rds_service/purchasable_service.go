@@ -69,8 +69,6 @@ func (s *PurchasableService) InsertPurchasable(ctx context.Context, rdsClient in
 		"donation_ratio": purchasable.DonationRatio,
     }
 
-	log.Printf("params in create purchasable: %v", params)
-
 	paramsRdsFormat, err := buildSqlPurchasableParams(params)
 	if err != nil {
 		return nil, fmt.Errorf("Error in building RDS formatted SQL Parameters: %w", err)
@@ -118,9 +116,6 @@ func (s *PurchasableService) GetPurchasableByID(ctx context.Context, rdsClient i
 	if err != nil {
 		return nil, fmt.Errorf("failed to get purchasable: %w", err)
 	}
-
-	log.Printf("Result in getby id: %v", result)
-	log.Printf("Result formatted result: %v", result.FormattedRecords)
 
     // Extract the inserted purchasable data
     purchasable, err := extractAndMapSinglePurchasableFromJSON(*result.FormattedRecords)
@@ -192,7 +187,6 @@ func (s *PurchasableService) UpdatePurchasable(ctx context.Context, rdsClient in
     if query == "" {
         return nil, fmt.Errorf("no fields provided for update")
     }
-	log.Printf("sqlParams return: %v", query)
 
     // Convert parameters to RDS types
 	rdsParams, err := buildSqlPurchasableParams(sqlParams)
@@ -239,7 +233,6 @@ func (s *PurchasableService) DeletePurchasable(ctx context.Context, rdsClient in
 	paramsRdsFormat = append(paramsRdsFormat, idRds)
 
 	result, err := rdsClient.ExecStatement(ctx, query, paramsRdsFormat)
-	log.Printf("Err from exec delete: %v", err)
 	if err != nil {
 		return fmt.Errorf("failed to delete purchasable: %w", err)
 	}

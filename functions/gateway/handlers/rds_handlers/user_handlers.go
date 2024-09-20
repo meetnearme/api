@@ -39,7 +39,6 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
         transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
         return
     }
-	log.Printf("createUser category, %v", createUser.CategoryPreferences)
 
     err = validate.Struct(&createUser)
     if err != nil {
@@ -171,7 +170,6 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	log.Printf("Vars in delete: %v", vars)
 	id := vars["id"]
     if id == "" {
         transport.SendServerRes(w, []byte("Missing user ID"), http.StatusBadRequest, nil)

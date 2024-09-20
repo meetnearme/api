@@ -15,7 +15,6 @@ import (
 func buildSqlPurchasableParams(parameters map[string]interface{}) ([]rds_types.SqlParameter, error) {
 	var params []rds_types.SqlParameter
 
-	log.Printf("parameters purchasables: %v", parameters["description"])
 	// ID (UUID)
 	idValue, ok := parameters["id"].(string)
 	if !ok {
@@ -124,7 +123,6 @@ func buildSqlPurchasableParams(parameters map[string]interface{}) ([]rds_types.S
 
 	// Inventory
 	inventoryValue, ok := parameters["inventory"].(int64)
-	log.Printf("value of inventory: %v", inventoryValue)
 	if !ok {
 		return nil, fmt.Errorf("inventory is not a valid integer")
 	}
@@ -136,10 +134,6 @@ func buildSqlPurchasableParams(parameters map[string]interface{}) ([]rds_types.S
 		},
 	}
 	params = append(params, inventory)
-
-
-	log.Printf("charge count: %v", parameters["charge_recurrence_interval_count"])
-
 
 	// Charge Recurrence Interval Count
 	chargeRecurrenceIntervalCountValue, ok := parameters["charge_recurrence_interval_count"].(int64)
@@ -214,7 +208,6 @@ func buildSqlPurchasableParams(parameters map[string]interface{}) ([]rds_types.S
 }
 
 func extractAndMapSinglePurchasableFromJSON(formattedRecords string) (*internal_types.Purchasable, error) {
-	log.Printf("formatted records from JSON: %v", formattedRecords)
 	var records []map[string]interface{}
 	if err := json.Unmarshal([]byte(formattedRecords), &records); err != nil {
 		return nil, fmt.Errorf("error unmarshaling JSON records: %v", err)
@@ -224,8 +217,6 @@ func extractAndMapSinglePurchasableFromJSON(formattedRecords string) (*internal_
 	if len(records) == 0 {
 		return nil, fmt.Errorf("no records found")
 	}
-
-	log.Printf("recordSSSSSSSS: %v", records)
 
 	record := records[0]
 
@@ -249,8 +240,6 @@ func extractAndMapSinglePurchasableFromJSON(formattedRecords string) (*internal_
 	if inventory, ok := record["inventory"]; ok && inventory != nil {
 		purchasable.Inventory = int64(inventory.(float64))
 	}
-
-	log.Printf("Purchasable item from extractions: %v", purchasable)
 
 	return &purchasable, nil
 }

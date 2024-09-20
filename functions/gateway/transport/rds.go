@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rdsdata"
 	rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -73,7 +74,7 @@ func SetTestRdsDB(db internal_types.RDSDataAPI) {
 
 // GetRdsDB returns the singleton RDS Data API client
 func GetRdsDB() internal_types.RDSDataAPI {
-	if os.Getenv("GO_ENV") == "test" {
+	if os.Getenv("GO_ENV") == helpers.GO_TEST_ENV {
 		if testRdsData == nil {
 			log.Println("Creating mock RDS Data API client for testing")
 			testRdsData = &test_helpers.MockRdsDataClient{
