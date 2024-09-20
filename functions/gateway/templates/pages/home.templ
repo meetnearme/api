@@ -38,9 +38,9 @@ templ EventsInner(events []services.Event) {
 	}
 }
 
-func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr string, lonStr string) string {
-	if cfLocation.City == "" || latStr != "" && lonStr != "" {
-		return "Geocoordinates: " + latStr + ", " + lonStr
+func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLon string) string {
+	if cfLocation.City == "" && origLat != "" && origLon != "" {
+		return "Geocoordinates: " + origLat + ", " + origLat
 	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
 		return cfLocation.City + ", " + cfLocation.CCA2
 	}
@@ -86,7 +86,7 @@ func GetCitiesAsJsonStr() string {
 	return cityStateJsonString
 }
 
-templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr string, lonStr string) {
+templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong string) {
 	<div class="header-hero">
 		<h1 class="text-xl md:text-4xl text-center mb-5">
 			Push Your Boundaries.
