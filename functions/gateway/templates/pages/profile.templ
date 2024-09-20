@@ -36,15 +36,19 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 				}
 			</div>
 			<h3 class="text-2xl font-bold">My Interests</h3>
-			<div class="overflow-x-auto mb-4">
-				<ul>
-					for _, interest := range interests {
-					<li>
-						- {interest}
-					</li>
-					}
-				</ul>
-			</div>
+			if len(interests) > 1 {
+				<div class="mb-4">
+					<ul>
+						for _, interest := range interests {
+						<li>
+							- {interest}
+						</li>
+						}
+					</ul>
+				</div>
+			} else {
+				<p class="mb-4">Let us know about your hobbies and interests on the <a class="text-primary" href="/admin/profile/settings">settings page</a>.</p>
+			}
 			<h3 class="text-2xl font-bold">My Subdomain</h3>
 			<form class="group" novalidate hx-post="/api/user/set-subdomain" hx-ext="json-enc" hx-target="#subdomain-result" hx-disabled-elt="button[type='submit']" @submit.prevent="" @htmx:after-request="handleSubdomainPostRes(event)">
 				<label for="subdomain">Set Subdomain</label>
