@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
