@@ -308,7 +308,7 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 			</div>
 		</main>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr) }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) }>
 
     function sendParmsFromQs() {
 			const urlParams = new URLSearchParams(window.location.search);
