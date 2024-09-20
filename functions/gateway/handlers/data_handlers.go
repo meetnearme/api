@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"
@@ -278,6 +280,38 @@ func BulkUpdateEventsHandler(w http.ResponseWriter, r *http.Request) http.Handle
     }
 }
 
+func SearchLocationsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        query := r.URL.Query().Get("q")
+
+        // URL decode the query
+        decodedQuery, err := url.QueryUnescape(query)
+        if err != nil {
+            transport.SendServerRes(w, []byte("Failed to decode query"), http.StatusBadRequest, err)
+            return
+        }
+
+        // Search for matching cities
+        query = strings.ToLower(decodedQuery)
+        matches := helpers.SearchCitiesIndexed(query)
+
+        // Prepare the response
+        var jsonResponse []byte
+
+        if len(matches) < 1 {
+            jsonResponse = []byte("[]")
+        } else {
+            jsonResponse, err = json.Marshal(matches)
+            if err != nil {
+                transport.SendServerRes(w, []byte("Failed to create JSON response"), http.StatusInternalServerError, err)
+                return
+            }
+        }
+
+        w.Header().Set("Content-Type", "application/json")
+        transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
+    }
+}
 
 func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
     marqoClient, err := services.GetMarqoClient()
@@ -312,6 +346,7 @@ func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
     }
     transport.SendServerRes(w, json, http.StatusOK, nil)
 }
+
 
 func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     marqoService := services.NewMarqoService()
