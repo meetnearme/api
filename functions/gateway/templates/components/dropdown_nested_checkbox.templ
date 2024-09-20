@@ -1,55 +1,25 @@
 package components
 
 import (
-	"strings"
-
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	)
 
-type NestedCheckboxListOptions struct {
-	IsInDropdown bool
-	UseChangeTrigger bool
-	ChangeHandler string // HTMX for async form submission: hx-post
-	ResponseTarget string // Target element to update with response: hx-target
-	ShowSubCategories bool
-}
-
-func (options *NestedCheckboxListOptions) validate() string {
-	if options.UseChangeTrigger && options.ChangeHandler == "" {
-		panic("NestedCheckboxListOptions: options.ChangeHandler is required")
-	}
-
-	if !strings.HasPrefix(options.ChangeHandler, "/") {
-		options.ChangeHandler = "/" + options.ChangeHandler
-	}
-
-	return ""
-}
 
 templ DropdownNestedCheckbox() {
 	<details class="dropdown">
-		@NestedCheckboxList(&NestedCheckboxListOptions{IsInDropdown: true})
+		@NestedCheckboxList(true)
 	</details>
 }
 
-templ NestedCheckboxList(options *NestedCheckboxListOptions) {
-	<div>{options.validate()}</div>
-	if options.IsInDropdown {
+templ NestedCheckboxList(isInDropdown bool) {
+	if isInDropdown {
 		<summary class="m-1 btn">Categories</summary>
 	}
 	<ul 
-		if options.IsInDropdown {
+		if isInDropdown {
 			class="p-2 shadow menu dropdown-content z-[1] bg-base-100 rounded-box"
 		} else {
 			class="p-2 shadow menu bg-base-100 rounded-box"
-		}
-		if options.UseChangeTrigger {
-			hx-trigger="change"
-			hx-cache="false"
-			hx-post={options.ChangeHandler}
-		}
-		if options.ResponseTarget != "" {
-			hx-target={options.ResponseTarget}
 		}
 	>
 		for _, cat := range helpers.Categories {
@@ -63,6 +33,7 @@ templ NestedCheckboxList(options *NestedCheckboxListOptions) {
 						<div class="form-control flex-none">
 							<label class="label cursor-pointer justify-start">
 								<input 
+									id={cat.Name}
 									name="category" 
 									value={cat.Name}
 									type="checkbox" 
@@ -78,7 +49,7 @@ templ NestedCheckboxList(options *NestedCheckboxListOptions) {
 								<li>
 									<input 
 										name="subCategory" 
-										value={item.Name}
+										value={cat.Name + "|" + item.Name}
 										type="checkbox"
 										class="z-[9] checkbox checkbox-xs checkbox-tertiary mr-5 my-1"
 									/>

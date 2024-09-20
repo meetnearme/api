@@ -16,15 +16,12 @@ templ ProfileSettingsPage() {
 
 			<h2 class="text-3xl font-bold ">My Interests</h2>
             <div id="update-interests-result" class="margins-when-children my-8"></div>
-            @components.NestedCheckboxList(&components.NestedCheckboxListOptions{
-                IsInDropdown: false, 
-                UseChangeTrigger: true,
-                ChangeHandler: "/api/user/update-interests",
-                ResponseTarget: "#update-interests-result",
-            })
-            <div class="flex justify-end w-full mt-4">
-                <button class="btn btn-primary">Save My Interests</button>
-            </div>
+            <form hx-post="/api/user/update-interests" hx-target="#update-interests-result" hx-swap="outerHTML">
+                @components.NestedCheckboxList(false)
+                <div class="flex justify-end">
+                    <button class="btn btn-primary" type="submit">Save</button>
+                </div>
+            </form>
         </div>
     </div>
 }

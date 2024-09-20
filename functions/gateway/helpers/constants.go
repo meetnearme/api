@@ -7,6 +7,7 @@ const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 const SeshuSessionTablePrefix = "SeshuSessions"
 const EVENT_ID_KEY string = "eventId"
 const SUBDOMAIN_KEY = "subdomain"
+const INTERESTS_KEY = "interests"
 const ERR_KV_KEY_EXISTS = "key already exists in KV store"
 const GO_TEST_ENV = "test"
 
