@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,6 +17,9 @@ import (
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/transport"
 )
+
+const US_GEO_CENTER_LAT = float64(39.8283)
+const US_GEO_CENTER_LONG = float64(-98.5795)
 
 func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTimeUnix int64) {
 	var startTime time.Time
@@ -86,6 +90,8 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	cfRay := GetCfRay(r)
 	rayCode := ""
 
+
+
 	cfLocationLat := services.InitialEmptyLatLong
 	cfLocationLon := services.InitialEmptyLatLong
 
@@ -97,8 +103,8 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	}
 
 	// default lat / lon to geographic center of US
-	lat := float64(39.8283)
-	long := float64(-98.5795)
+	lat := US_GEO_CENTER_LAT
+	long := US_GEO_CENTER_LONG
 
 	// Parse parameter values if provided
 	if latStr != "" {
@@ -127,7 +133,10 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	// we failed to get a radius string, set an implicit default, if cfLocationLat/Lon
 	// is not the initial empty value (can't use 0.0, a valid lat/lon) we assume
 	// cfLocation has given us a reasonable local guess
-	if radius == 0.0 && cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong {
+
+	if radius < 0.0001 && (
+		cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong ||
+		lat != US_GEO_CENTER_LAT && long != US_GEO_CENTER_LONG) {
 		radius = float64(150.0)
 	// we still don't have lat/lon, which means we'll be using "geographic center of US"
 	// which is in the middle of nowhere. Expand the radius to show all of the country
@@ -135,7 +144,6 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	} else if radius == 0.0 {
 		radius = float64(2500.0)
 	}
-
 
 	startTimeUnix, endTimeUnix := ParseStartEndTime(startTimeStr, endTimeStr)
 
@@ -178,6 +186,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
+
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
