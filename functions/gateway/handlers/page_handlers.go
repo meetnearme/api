@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
@@ -27,20 +28,20 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 
 	// NOTE: This assumes the UI home page default is "THIS MONTH" and the absence
 	// of an explicit start_time query param ...
-	if (startTimeStr == "" && endTimeStr == "" )|| strings.ToLower(startTimeStr) == "this_month" {
+	if (startTimeStr == "" && endTimeStr == "") || strings.ToLower(startTimeStr) == "this_month" {
 		startTime = time.Now()
-		endTime = startTime.AddDate(0,1,0)
+		endTime = startTime.AddDate(0, 1, 0)
 	} else if strings.ToLower(startTimeStr) == "today" {
 		startTime = time.Now()
-		endTime = startTime.AddDate(0,0,1)
-	// NOTE: "tomorrow" is a time-bound concept that should eventually be timezone relative
-	// to the user, this is currently simplistic and is just 24 - 48hrs from the current time
+		endTime = startTime.AddDate(0, 0, 1)
+		// NOTE: "tomorrow" is a time-bound concept that should eventually be timezone relative
+		// to the user, this is currently simplistic and is just 24 - 48hrs from the current time
 	} else if strings.ToLower(startTimeStr) == "tomorrow" {
-		startTime = time.Now().AddDate(0,0,1)
-		endTime = startTime.AddDate(0,0,1)
+		startTime = time.Now().AddDate(0, 0, 1)
+		endTime = startTime.AddDate(0, 0, 1)
 	} else if strings.ToLower(startTimeStr) == "this_week" {
 		startTime = time.Now()
-		endTime = startTime.AddDate(0,0,7)
+		endTime = startTime.AddDate(0, 0, 7)
 	}
 
 	// return early if one of the above are found
@@ -50,25 +51,25 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 
 	// convert startTime either UTC / time.RFC3339 or integer
 	// string (presumed unix) to int64
-	if	_, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
+	if _, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
 		startTime, _ = time.Parse(time.RFC3339, startTimeStr)
 	} else if startTimeUnix, err = strconv.ParseInt(startTimeStr, 10, 64); err == nil {
 		startTime = time.Unix(startTimeUnix, 0)
-	// default wrong query string usage to NOW for startTime
+		// default wrong query string usage to NOW for startTime
 	} else {
 		startTime = time.Now()
 	}
 
 	// convert endTime either UTC / time.RFC3339 or integer
 	// string (presumed unix) to int64
-	if	_, err = time.Parse(time.RFC3339, endTimeStr); err == nil {
+	if _, err = time.Parse(time.RFC3339, endTimeStr); err == nil {
 		endTime, _ = time.Parse(time.RFC3339, endTimeStr)
 	} else if endTimeUnix, err = strconv.ParseInt(endTimeStr, 10, 64); err == nil {
 		endTime = time.Unix(endTimeUnix, 0)
-	// Set end time to 24 hours after start time
-	// default wrong query string usage to PLUS ONE MONTH for endTime
+		// Set end time to 24 hours after start time
+		// default wrong query string usage to PLUS ONE MONTH for endTime
 	} else {
-		endTime = startTime.AddDate(0,1,0)
+		endTime = startTime.AddDate(0, 1, 0)
 	}
 
 	startTimeUnix = startTime.Unix()
@@ -77,7 +78,7 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	return startTimeUnix, endTimeUnix
 }
 
-func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation)  {
+func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation) {
 	startTimeStr := r.URL.Query().Get("start_time")
 	endTimeStr := r.URL.Query().Get("end_time")
 	latStr := r.URL.Query().Get("lat")
@@ -130,13 +131,12 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	// cfLocation has given us a reasonable local guess
 	if radius == 0.0 && cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong {
 		radius = float64(150.0)
-	// we still don't have lat/lon, which means we'll be using "geographic center of US"
-	// which is in the middle of nowhere. Expand the radius to show all of the country
-	// showing events from anywhere
+		// we still don't have lat/lon, which means we'll be using "geographic center of US"
+		// which is in the middle of nowhere. Expand the radius to show all of the country
+		// showing events from anywhere
 	} else if radius == 0.0 {
 		radius = float64(2500.0)
 	}
-
 
 	startTimeUnix, endTimeUnix := ParseStartEndTime(startTimeStr, endTimeStr)
 
@@ -188,10 +188,26 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
 	roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
 
-	adminPage := pages.ProfilePage(userInfo, roleClaims)
+	var userInterests []string = []string{}
+	var interestMetadataBytes []byte
+
+	interestMetadataValue, err := helpers.GetUserMetadataByKey(userInfo.Sub, helpers.INTERESTS_KEY)
+	if err != nil {
+		log.Printf("Failed to fetch user interests metadata: %v", err)
+	} else {
+		interestMetadataBytes, err = base64.StdEncoding.DecodeString(interestMetadataValue)
+	}
+
+	if err != nil {
+		log.Printf("Failed to decode user interests metadata: %v", err)
+	} else {
+		userInterests = strings.Split(string(interestMetadataBytes), ",")
+	}
+
+	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests)
 	layoutTemplate := pages.Layout("Admin", userInfo, adminPage)
 	var buf bytes.Buffer
-	err := layoutTemplate.Render(ctx, &buf)
+	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
@@ -233,7 +249,7 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 }
 
 func GetCfRay(r *http.Request) string {
-	log.Printf(`r.Header.Get("Cf-Ray"): %+v`,r.Header.Get("Cf-Ray"))
+	log.Printf(`r.Header.Get("Cf-Ray"): %+v`, r.Header.Get("Cf-Ray"))
 	if cfRay := r.Header.Get("Cf-Ray"); cfRay != "" {
 		return cfRay
 	}
