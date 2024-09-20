@@ -3,7 +3,6 @@ package rds_service
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/go-playground/validator"
 	"github.com/google/uuid"

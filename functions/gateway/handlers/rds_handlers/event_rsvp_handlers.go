@@ -3,9 +3,7 @@ package rds_handlers
 import (
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/services/rds_service"

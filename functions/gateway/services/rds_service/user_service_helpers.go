@@ -3,7 +3,6 @@ package rds_service
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 

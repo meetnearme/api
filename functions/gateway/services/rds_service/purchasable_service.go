@@ -4,7 +4,6 @@ package rds_service
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/google/uuid"
 

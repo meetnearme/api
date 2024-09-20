@@ -3,8 +3,6 @@ package rds_service
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"reflect"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"

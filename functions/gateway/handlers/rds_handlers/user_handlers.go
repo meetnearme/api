@@ -3,7 +3,6 @@ package rds_handlers
 import (
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
