@@ -2,18 +2,13 @@ package handlers
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/zitadel/oidc/v3/pkg/oidc"
-	"github.com/zitadel/zitadel-go/v3/pkg/authentication"
-	openid "github.com/zitadel/zitadel-go/v3/pkg/authentication/oidc"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -22,99 +17,150 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
-var mw *authentication.Interceptor[*openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]]
+const US_GEO_CENTER_LAT = float64(39.8283)
+const US_GEO_CENTER_LONG = float64(-98.5795)
 
-func setUserInfo(authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo], userInfo helpers.UserInfo) (helpers.UserInfo, error) {
-	if authCtx != nil && authCtx.UserInfo != nil {
-		data, err := json.MarshalIndent(authCtx.UserInfo, "", "	")
-		if err != nil {
-			return userInfo, err
-		}
-		err = json.Unmarshal(data, &userInfo)
-		if err != nil {
-			return userInfo, err
+func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTimeUnix int64) {
+	var startTime time.Time
+	var endTime time.Time
+
+	var startTimeUnix int64
+	var endTimeUnix int64
+
+	// NOTE: This assumes the UI home page default is "THIS MONTH" and the absence
+	// of an explicit start_time query param ...
+	if (startTimeStr == "" && endTimeStr == "" )|| strings.ToLower(startTimeStr) == "this_month" {
+		startTime = time.Now()
+		endTime = startTime.AddDate(0,1,0)
+	} else if strings.ToLower(startTimeStr) == "today" {
+		startTime = time.Now()
+		endTime = startTime.AddDate(0,0,1)
+	// NOTE: "tomorrow" is a time-bound concept that should eventually be timezone relative
+	// to the user, this is currently simplistic and is just 24 - 48hrs from the current time
+	} else if strings.ToLower(startTimeStr) == "tomorrow" {
+		startTime = time.Now().AddDate(0,0,1)
+		endTime = startTime.AddDate(0,0,1)
+	} else if strings.ToLower(startTimeStr) == "this_week" {
+		startTime = time.Now()
+		endTime = startTime.AddDate(0,0,7)
+	}
+
+	// return early if one of the above are found
+	if !startTime.IsZero() && !endTime.IsZero() {
+		return startTime.Unix(), endTime.Unix()
+	}
+
+	// convert startTime either UTC / time.RFC3339 or integer
+	// string (presumed unix) to int64
+	if	_, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
+		startTime, _ = time.Parse(time.RFC3339, startTimeStr)
+	} else if startTimeUnix, err = strconv.ParseInt(startTimeStr, 10, 64); err == nil {
+		startTime = time.Unix(startTimeUnix, 0)
+	// default wrong query string usage to NOW for startTime
+	} else {
+		startTime = time.Now()
+	}
+
+	// convert endTime either UTC / time.RFC3339 or integer
+	// string (presumed unix) to int64
+	if	_, err = time.Parse(time.RFC3339, endTimeStr); err == nil {
+		endTime, _ = time.Parse(time.RFC3339, endTimeStr)
+	} else if endTimeUnix, err = strconv.ParseInt(endTimeStr, 10, 64); err == nil {
+		endTime = time.Unix(endTimeUnix, 0)
+	// Set end time to 24 hours after start time
+	// default wrong query string usage to PLUS ONE MONTH for endTime
+	} else {
+		endTime = startTime.AddDate(0,1,0)
+	}
+
+	startTimeUnix = startTime.Unix()
+	endTimeUnix = endTime.Unix()
+
+	return startTimeUnix, endTimeUnix
+}
+
+func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation)  {
+	startTimeStr := r.URL.Query().Get("start_time")
+	endTimeStr := r.URL.Query().Get("end_time")
+	latStr := r.URL.Query().Get("lat")
+	longStr := r.URL.Query().Get("lon")
+	radiusStr := r.URL.Query().Get("radius")
+	q := r.URL.Query().Get("q")
+	cfRay := GetCfRay(r)
+	rayCode := ""
+
+
+
+	cfLocationLat := services.InitialEmptyLatLong
+	cfLocationLon := services.InitialEmptyLatLong
+
+	if len(cfRay) > 2 {
+		rayCode = cfRay[len(cfRay)-3:]
+		cfLocation = helpers.CfLocationMap[rayCode]
+		cfLocationLat = cfLocation.Lat
+		cfLocationLon = cfLocation.Lon
+	}
+
+	// default lat / lon to geographic center of US
+	lat := US_GEO_CENTER_LAT
+	long := US_GEO_CENTER_LONG
+
+	// Parse parameter values if provided
+	if latStr != "" {
+		lat64, _ := strconv.ParseFloat(latStr, 32)
+		lat = float64(lat64)
+	} else if cfLocationLat != services.InitialEmptyLatLong {
+		lat = float64(cfLocationLat)
+	}
+	if longStr != "" {
+		long64, _ := strconv.ParseFloat(longStr, 32)
+		long = float64(long64)
+	} else if cfLocationLon != services.InitialEmptyLatLong {
+		long = float64(cfLocationLon)
+	}
+
+	var radius float64
+
+	if radiusStr != "" {
+		radius64, err := strconv.ParseFloat(radiusStr, 32)
+		// only set the radius if string successfully converts to a float64
+		if err == nil {
+			radius = float64(radius64)
 		}
 	}
-	return userInfo, nil
+
+	// we failed to get a radius string, set an implicit default, if cfLocationLat/Lon
+	// is not the initial empty value (can't use 0.0, a valid lat/lon) we assume
+	// cfLocation has given us a reasonable local guess
+
+	if radius < 0.0001 && (
+		cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong ||
+		lat != US_GEO_CENTER_LAT && long != US_GEO_CENTER_LONG) {
+		radius = float64(150.0)
+	// we still don't have lat/lon, which means we'll be using "geographic center of US"
+	// which is in the middle of nowhere. Expand the radius to show all of the country
+	// showing events from anywhere
+	} else if radius == 0.0 {
+		radius = float64(2500.0)
+	}
+
+	startTimeUnix, endTimeUnix := ParseStartEndTime(startTimeStr, endTimeStr)
+
+	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation
 }
 
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-  // Extract parameter values from the request query parameters
-  ctx := r.Context()
-  apiGwV2Req, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-  if !ok {
-    log.Println("APIGatewayV2HTTPRequest not found in context, creating default")
-    // For testing or non-API gateway envs
-    apiGwV2Req = events.APIGatewayV2HTTPRequest{
-      RequestContext: events.APIGatewayV2HTTPRequestContext{
-        HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
-          Method: r.Method,
-          Path: r.URL.Path,
-        },
-      },
-    }
-  }
+	// Extract parameter values from the request query parameters
+	ctx := r.Context()
+	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation := GetSearchParamsFromReq(r)
 
-  cfRay := GetCfRay(ctx)
-  rayCode := ""
-	var cfLocation helpers.CdnLocation
-  cfLocationLat := services.InitialEmptyLatLong
-  cfLocationLon := services.InitialEmptyLatLong
-  if len(cfRay) > 2 {
-    rayCode = cfRay[len(cfRay)-3:]
-		cfLocation = helpers.CfLocationMap[rayCode]
-	  cfLocationLat = cfLocation.Lat
-    cfLocationLon = cfLocation.Lon
-  }
-
-	queryParameters := apiGwV2Req.QueryStringParameters
-	startTimeStr := queryParameters["start_time"]
-	endTimeStr := queryParameters["end_time"]
-	latStr := queryParameters["lat"]
-	longStr := queryParameters["lon"]
-	radiusStr := queryParameters["radius"]
-	q := queryParameters["q"]
-
-	// Set default values if query parameters are not provided
-	startTime := time.Now()
-	endTime := startTime.AddDate(100, 0, 0)
-	lat := float64(39.8283)
-	long := float64(-98.5795)
-	radius := float64(2500.0)
-
-	// Parse parameter values if provided
-	if startTimeStr != "" {
-			startTime, _ = time.Parse(time.RFC3339, startTimeStr)
-	}
-	if endTimeStr != "" {
-			endTime, _ = time.Parse(time.RFC3339, endTimeStr)
-	}
-	if latStr != "" {
-			lat64, _ := strconv.ParseFloat(latStr, 32)
-			lat = float64(lat64)
-	} else if cfLocationLat != services.InitialEmptyLatLong  {
-      lat = float64(cfLocationLat)
-  }
-	if longStr != "" {
-			long64, _ := strconv.ParseFloat(longStr, 32)
-			long = float64(long64)
-	} else if cfLocationLon != services.InitialEmptyLatLong {
-      long = float64(cfLocationLon)
-  }
-	if radiusStr != "" {
-			radius64, _ := strconv.ParseFloat(radiusStr, 32)
-			radius = float64(radius64)
-	}
+	originalQueryLat := r.URL.Query().Get("lat")
+	originalQueryLong := r.URL.Query().Get("lon")
 
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
-			return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
 	}
-
-	// startTime, endTime, lat, lon, radius
-	// TODO: Use startTime / endTime in query and remove this log before merging
- 	log.Printf("startTime: %v, endTime: %v, lat: %v, long: %v, radius: %v", startTime, endTime, lat, long, radius)
-	userLocation := []float64{lat, long}
 
 	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
 
@@ -123,42 +169,29 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		ownerIds = append(ownerIds, subdomainValue)
 	}
 
-	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, ownerIds)
+	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	events := res.Events
 
-  var authCtx *openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]
-  if mw != nil {
-    authCtx = mw.Context(r.Context())
-  } else {
-    authCtx = &openid.UserInfoContext[*oidc.IDTokenClaims, *oidc.UserInfo]{}
-  }
-
-	userInfo := helpers.UserInfo{}
-	userInfo, err = setUserInfo(authCtx, userInfo)
-	if err != nil {
-    return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+	var userInfo helpers.UserInfo
+	if ctx.Value("userInfo") != nil {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
-	homePage := pages.HomePage(events, cfLocation, latStr, longStr)
+	homePage := pages.HomePage(
+		events,
+		cfLocation,
+		fmt.Sprint(userLocation[0]),
+		fmt.Sprint(userLocation[1]),
+		fmt.Sprint(originalQueryLat),
+		fmt.Sprint(originalQueryLong),
+	)
 	layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
-	}
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
-}
-
-func GetLoginPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-	loginPage := pages.LoginPage()
-	layoutTemplate := pages.Layout("Login", helpers.UserInfo{}, loginPage)
-	var buf bytes.Buffer
-	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
@@ -169,18 +202,13 @@ func GetLoginPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-  mw, _ := services.GetAuthMw()
-  userInfoCtx := mw.Context(ctx)
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
 
-	userInfo := helpers.UserInfo{}
-	userInfo, err := setUserInfo(userInfoCtx, userInfo)
-	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
-	}
-	adminPage := pages.ProfilePage(userInfo)
+	adminPage := pages.ProfilePage(userInfo, roleClaims)
 	layoutTemplate := pages.Layout("Admin", userInfo, adminPage)
 	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
+	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
@@ -204,21 +232,11 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
-func GetCfRay (c context.Context) string {
-  apiGwV2Req, ok := c.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-  if (!ok) {
-		log.Println(("APIGatewayV2HTTPRequest not found in context"))
-    return ""
-  }
-  if apiGwV2Req.Headers == nil {
-		log.Println(("Headers not found in APIGatewayV2HTTPRequest"))
-    return ""
-  }
-  if cfRay := apiGwV2Req.Headers["cf-ray"]; cfRay != "" {
-		log.Println(("cf-ray found in APIGatewayV2HTTPRequest: " + fmt.Sprint(cfRay)))
-    return cfRay
-  }
-  return ""
+func GetCfRay(r *http.Request) string {
+	if cfRay := r.Header.Get("Cf-Ray"); cfRay != "" {
+		return cfRay
+	}
+	return ""
 }
 
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -230,8 +248,6 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		fmt.Println("No event ID provided. Redirecting to home page.")
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
-	authCtx := mw.Context(ctx)
-
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
@@ -241,8 +257,10 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		event = &services.Event{}
 	}
 	eventDetailsPage := pages.EventDetailsPage(*event)
-	userInfo := helpers.UserInfo{}
-	userInfo, err = setUserInfo(authCtx, userInfo)
+	var userInfo helpers.UserInfo
+	if ctx.Value("userInfo") != nil {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
@@ -259,16 +277,14 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	authCtx := mw.Context(ctx)
-	userInfo := helpers.UserInfo{}
-	userInfo, err := setUserInfo(authCtx, userInfo)
-	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+	var userInfo helpers.UserInfo
+	if ctx.Value("userInfo") != nil {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	adminPage := pages.AddEventSource()
 	layoutTemplate := pages.Layout("Admin", userInfo, adminPage)
 	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
+	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}

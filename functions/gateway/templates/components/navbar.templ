@@ -1,20 +1,21 @@
 package components
 
 import (
-	"os"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"os"
 )
 
 templ Navbar(userInfo helpers.UserInfo) {
 	<div class="drawer drawer-end overflow-hidden">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
-		<div class="drawer-content flex flex-col">
+		<div class="drawer-content mt-24 flex flex-col">
 			<!-- Navbar -->
-			<div class="navbar w-full bg-base-100 shadow-md mb-5">
+			<div class="navbar fixed z-50 top-0 w-full bg-base-100 bg-opacity-75 shadow-md mb-5">
 				<div class="container mx-auto flex items-center">
-					<div class="flex-1">
-						<a href="/" class="btn btn-ghost text-xl">
-							<img alt="Meen Near Me" class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+					<div class="flex flex-1">
+						<a href="/" class="brand btn btn-ghost pl-2 text-xl flex flex-col">
+							<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+							<img class="brand-type" style="width: 8.2rem" alt="Meet Near Me" class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
 						</a>
 					</div>
 					<div class="flex-none lg:hidden" onclick="document.getElementById('flyout-tab-nav').click();">
@@ -26,7 +27,11 @@ templ Navbar(userInfo helpers.UserInfo) {
 						<div class="items-center lg:flex">
 							<ul class="menu menu-horizontal px-1">
 								<li><a href="/about" class="px-5 py-3">About</a></li>
-								<li><a href="/login" class="btn btn-primary">Add an Event</a></li>
+								if userInfo.Email != "" {
+									<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
+								} else {
+									<li><a href="/auth/login" class="btn btn-primary">Add an Event</a></li>
+								}
 							</ul>
 							if userInfo.Email != "" {
 								<div class="dropdown dropdown-end px-3">
@@ -34,11 +39,6 @@ templ Navbar(userInfo helpers.UserInfo) {
 										<div class="border-2 w-24 rounded-full">
 											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
 										</div>
-										// <div class="w-10 rounded-full">
-										// 	<img
-										// 		alt="Tailwind CSS Navbar component"
-										// 		src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg" />
-										// </div>
 									</div>
 									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
 										<strong>{ string(userInfo.Name) }</strong>
@@ -103,7 +103,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 					<div role="tabpanel" class="tab-content p-2">
 						<ul class="">
 							<!-- Sidebar content here -->
-							<li><a href="/login" class="btn btn-primary mb-5">Add an Event</a></li>
+							<li><a href="/admin/add-event-source" class="btn btn-primary mb-5">Add an Event</a></li>
 							<li><a href="/about">About</a></li>
 						</ul>
 					</div>
