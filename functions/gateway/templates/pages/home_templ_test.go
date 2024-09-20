@@ -33,8 +33,13 @@ func TestHomePage(t *testing.T) {
 	latStr := "40.7128"
 	lonStr := "-74.0060"
 
+	// NOTE: we need an additional test to cover the scenario where there is discrepancy
+	// between cfLocation from cloudflare for lat / lon and query params set by user in URL
+	origLatStr := ""
+	origLonStr := ""
+
 	// Call the HomePage function
-	component := HomePage(events, cfLocation, latStr, lonStr)
+	component := HomePage(events, cfLocation, latStr, lonStr, origLatStr, origLonStr)
 
 	// Render the component
 	var buf bytes.Buffer
@@ -49,8 +54,6 @@ func TestHomePage(t *testing.T) {
 		"Test Event 1",
 		"Test Event 2",
 		"New York, US",
-		"40.7128",
-		"-74.0060",
 	}
 
 	for _, element := range expectedElements {

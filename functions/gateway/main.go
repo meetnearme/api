@@ -63,9 +63,9 @@ func init() {
 		{"/api/events", "PATCH", handlers.BulkUpdateEventsHandler, None},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PATCH", handlers.UpdateOneEventHandler, None},
+		{"/api/locations", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
 
-		// {"/api/event", "POST", handlers.CreateEventHandler, None},
 		{"/api/user/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
