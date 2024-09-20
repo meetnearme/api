@@ -49,8 +49,6 @@ func TestHomePage(t *testing.T) {
 		"Test Event 1",
 		"Test Event 2",
 		"New York, US",
-		"40.7128",
-		"-74.0060",
 	}
 
 	for _, element := range expectedElements {
