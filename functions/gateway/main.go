@@ -45,7 +45,7 @@ func init() {
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
-		{"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
+		// {"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
 		{"/admin/profile", "GET", handlers.GetProfilePage, Require},
 		{"/admin/profile/settings", "GET", handlers.GetProfileSettingsPage, Require},
 		{"/map-embed", "GET", handlers.GetMapEmbedPage, None},

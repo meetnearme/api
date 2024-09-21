@@ -1,9 +1,6 @@
 package components
 
-import (
-	"github.com/meetnearme/api/functions/gateway/helpers"
-	)
-
+import "github.com/meetnearme/api/functions/gateway/helpers"
 
 templ DropdownNestedCheckbox() {
 	<details class="dropdown">
@@ -15,7 +12,7 @@ templ NestedCheckboxList(isInDropdown bool) {
 	if isInDropdown {
 		<summary class="m-1 btn">Categories</summary>
 	}
-	<ul 
+	<ul
 		if isInDropdown {
 			class="p-2 shadow menu dropdown-content z-[1] bg-base-100 rounded-box"
 		} else {
@@ -25,21 +22,21 @@ templ NestedCheckboxList(isInDropdown bool) {
 		for _, cat := range helpers.Categories {
 			<li>
 				<div class="collapse bg-base-200">
-					<input 
+					<input
 						type="checkbox"
 						class="peer"
 					/>
 					<div class="collapse-title peer-checked:bg-secondary peer-checked:text-secondary-content">
 						<div class="form-control flex-none">
 							<label class="label cursor-pointer justify-start">
-								<input 
-									id={cat.Name}
-									name="category" 
-									value={cat.Name}
-									type="checkbox" 
+								<input
+									id={ cat.Name }
+									name="category"
+									value={ cat.Name }
+									type="checkbox"
 									class="z-[9] checkbox checkbox-tertiary mr-5"
 								/>
-								<span class="label-text">{cat.Name}</span>
+								<span class="label-text">{ cat.Name }</span>
 							</label>
 						</div>
 					</div>
@@ -47,13 +44,13 @@ templ NestedCheckboxList(isInDropdown bool) {
 						<ul>
 							for _, item := range cat.Items {
 								<li>
-									<input 
-										name="subCategory" 
-										value={cat.Name + "|" + item.Name}
+									<input
+										name="subCategory"
+										value={ cat.Name + "|" + item.Name }
 										type="checkbox"
 										class="z-[9] checkbox checkbox-xs checkbox-tertiary mr-5 my-1"
 									/>
-									{item.Name}
+									{ item.Name }
 								</li>
 							}
 						</ul>

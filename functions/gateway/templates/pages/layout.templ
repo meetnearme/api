@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-templ Layout(title string, userInfo helpers.UserInfo, pageContent templ.Component) {
+templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component) {
 	<!DOCTYPE html>
 	<html data-theme="cyberpunk">
 		<head>
-			<title>Meet Near Me - { title }</title>
+			<title>Meet Near Me - { sitePage.Name }</title>
 			<link rel="icon" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 			<link rel="preconnect" href="https://fonts.googleapis.com"/>
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -24,7 +24,7 @@ templ Layout(title string, userInfo helpers.UserInfo, pageContent templ.Componen
 			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 		</head>
 		<body>
-			@components.Navbar(userInfo) {
+			@components.Navbar(userInfo, sitePage.SubnavItems) {
 				<div class="container mx-auto">
 					<div id="content" class="p-4 space-y-4">
 						@pageContent

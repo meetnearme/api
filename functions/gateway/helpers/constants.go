@@ -42,6 +42,34 @@ type Category struct {
 	Items            []Subcategory
 }
 
+type SubnavOption string
+
+const (
+	NvMain    SubnavOption = "main"
+	NvFilters SubnavOption = "filters"
+	NvCart    SubnavOption = "cart"
+)
+
+var SubnavItems = map[SubnavOption]string{
+	NvMain:    string(NvMain),
+	NvFilters: string(NvFilters),
+	NvCart:    string(NvCart),
+}
+
+type SitePage struct {
+	Slug        string
+	Name        string
+	SubnavItems []string
+}
+
+var SitePages = map[string]SitePage{
+	"home":          {Slug: "home", Name: "Home", SubnavItems: []string{SubnavItems[NvMain],SubnavItems[NvFilters]}},
+	"profile":         {Slug: "admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
+	"add-event-source": {Slug: "admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
+	"settings":      {Slug: "settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
+	"embed":         {Slug: "embed", Name: "Embed", SubnavItems: []string{SubnavItems[NvMain]}},
+	"events": 			 {Slug: "events", Name: "Event Details", SubnavItems: []string{SubnavItems[NvMain],SubnavItems[NvCart]}},
+}
 type Subcategory struct {
 	Name, Desc, Slug string
 }
