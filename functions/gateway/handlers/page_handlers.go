@@ -91,8 +91,6 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	cfRay := GetCfRay(r)
 	rayCode := ""
 
-
-
 	cfLocationLat := services.InitialEmptyLatLong
 	cfLocationLon := services.InitialEmptyLatLong
 
@@ -178,8 +176,8 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	events := res.Events
 
-	var userInfo helpers.UserInfo
-	if ctx.Value("userInfo") != nil {
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	homePage := pages.HomePage(
@@ -204,9 +202,8 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	aboutPage := pages.AboutPage()
 	ctx := r.Context()
-	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
 
-	layoutTemplate := pages.Layout(helpers.SitePages["about"], userInfo, aboutPage)
+	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage)
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -218,7 +215,11 @@ func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+
 	roleClaims := []helpers.RoleClaim{}
 	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
 		roleClaims = claims
@@ -253,7 +254,10 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
 	// roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
 
 	settingsPage := pages.ProfileSettingsPage()
@@ -309,8 +313,8 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		event = &services.Event{}
 	}
 	eventDetailsPage := pages.EventDetailsPage(*event)
-	var userInfo helpers.UserInfo
-	if ctx.Value("userInfo") != nil {
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 
@@ -326,8 +330,8 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	var userInfo helpers.UserInfo
-	if ctx.Value("userInfo") != nil {
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	adminPage := pages.AddEventSource()
