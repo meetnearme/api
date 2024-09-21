@@ -86,7 +86,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	ctx := r.Context()
 
-	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds := GetSearchParamsFromReq(r)
+	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories := GetSearchParamsFromReq(r)
 
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
@@ -102,7 +102,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 
-	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds)
+	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 	}
