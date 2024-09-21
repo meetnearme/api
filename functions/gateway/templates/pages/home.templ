@@ -14,12 +14,12 @@ templ EventsInner(events []services.Event) {
 		</p>
 	} else {
 		for _, ev := range events {
-			<div class="flex w-full relative">
+			<div class="flex w-full relative pb-24 md:pb-4">
 				<a class="flex w-full" href={ templ.URL("/events/" + ev.Id) }>
 					<img
 						src={ templ.EscapeString(helpers.GetImgUrlFromHash(ev.Id)) }
 						alt=""
-						class="object-cover w-full aspect-[4/3] md:aspect-[16/9] opacity-30 hover:opacity-75 transition-all"
+						class="object-cover w-full aspect-[4/3] md:aspect-[16/9] opacity-50 md:opacity-30 md:hover:opacity-75 transition-all"
 					/>
 				</a>
 				<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
@@ -28,7 +28,7 @@ templ EventsInner(events []services.Event) {
 						<p class="text-sm md:text-base">{ GetDateOrShowNone(ev.StartTime) } | { GetTimeOrShowNone(ev.StartTime) } &commat; { ev.Address }</p>
 					</div>
 					<br/>
-					<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block">
+					<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 						LEARN MORE
 						&rarr;
 					</a>
