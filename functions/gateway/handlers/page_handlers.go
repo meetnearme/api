@@ -19,6 +19,9 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
+const US_GEO_CENTER_LAT = float64(39.8283)
+const US_GEO_CENTER_LONG = float64(-98.5795)
+
 func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTimeUnix int64) {
 	var startTime time.Time
 	var endTime time.Time
@@ -88,6 +91,8 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	cfRay := GetCfRay(r)
 	rayCode := ""
 
+
+
 	cfLocationLat := services.InitialEmptyLatLong
 	cfLocationLon := services.InitialEmptyLatLong
 
@@ -99,8 +104,8 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	}
 
 	// default lat / lon to geographic center of US
-	lat := float64(39.8283)
-	long := float64(-98.5795)
+	lat := US_GEO_CENTER_LAT
+	long := US_GEO_CENTER_LONG
 
 	// Parse parameter values if provided
 	if latStr != "" {
@@ -129,7 +134,10 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	// we failed to get a radius string, set an implicit default, if cfLocationLat/Lon
 	// is not the initial empty value (can't use 0.0, a valid lat/lon) we assume
 	// cfLocation has given us a reasonable local guess
-	if radius == 0.0 && cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong {
+
+	if radius < 0.0001 && (
+		cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong ||
+		lat != US_GEO_CENTER_LAT && long != US_GEO_CENTER_LONG) {
 		radius = float64(150.0)
 		// we still don't have lat/lon, which means we'll be using "geographic center of US"
 		// which is in the middle of nowhere. Expand the radius to show all of the country
@@ -147,6 +155,9 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	ctx := r.Context()
 	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation := GetSearchParamsFromReq(r)
+
+	originalQueryLat := r.URL.Query().Get("lat")
+	originalQueryLong := r.URL.Query().Get("lon")
 
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
@@ -171,7 +182,14 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if ctx.Value("userInfo") != nil {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
-	homePage := pages.HomePage(events, cfLocation, fmt.Sprint(userLocation[0]), fmt.Sprint(userLocation[1]))
+	homePage := pages.HomePage(
+		events,
+		cfLocation,
+		fmt.Sprint(userLocation[0]),
+		fmt.Sprint(userLocation[1]),
+		fmt.Sprint(originalQueryLat),
+		fmt.Sprint(originalQueryLong),
+	)
 	layoutTemplate := pages.Layout("Home", userInfo, homePage)
 
 	var buf bytes.Buffer
@@ -179,6 +197,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
+
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
@@ -249,7 +268,6 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 }
 
 func GetCfRay(r *http.Request) string {
-	log.Printf(`r.Header.Get("Cf-Ray"): %+v`, r.Header.Get("Cf-Ray"))
 	if cfRay := r.Header.Get("Cf-Ray"); cfRay != "" {
 		return cfRay
 	}

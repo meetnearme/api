@@ -3,7 +3,7 @@ package pages
 import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
-	) 
+)
 
 templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, interests []string) {
 	<h1 class="text-3xl">Profile</h1>
@@ -32,7 +32,7 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 			<h3 class="text-2xl font-bold">My Roles</h3>
 			<div class="flex space-x-4 mb-4">
 				for _, roleClaim := range roleClaims {
-					<span class="badge badge-lg badge-primary">{roleClaim.Role}</span>
+					<span class="badge badge-lg badge-primary">{ roleClaim.Role }</span>
 				}
 			</div>
 			<h3 class="text-2xl font-bold">My Interests</h3>
@@ -40,9 +40,9 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 				<div class="mb-4">
 					<ul>
 						for _, interest := range interests {
-						<li>
-							- {interest}
-						</li>
+							<li>
+								- { interest }
+							</li>
 						}
 					</ul>
 				</div>
@@ -50,14 +50,13 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 				<p class="mb-4">Let us know about your hobbies and interests on the <a class="text-primary" href="/admin/profile/settings">settings page</a>.</p>
 			}
 			<h3 class="text-2xl font-bold">My Subdomain</h3>
-			<form class="group" novalidate hx-post="/api/user/set-subdomain" hx-ext="json-enc" hx-target="#subdomain-result" hx-disabled-elt="button[type='submit']" @submit.prevent="" @htmx:after-request="handleSubdomainPostRes(event)">
+			<form class="group" novalidate hx-post="/api/auth/users/set-subdomain" hx-ext="json-enc" hx-target="#subdomain-result" hx-disabled-elt="button[type='submit']" @submit.prevent="" @htmx:after-request="handleSubdomainPostRes(event)">
 				<label for="subdomain">Set Subdomain</label>
 				<input name="subdomain" type="text" class="input input-bordered input-sm w-full max-w-xs"/>
 				<button type="submit" class="btn btn-primary">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 			</form>
 			<div id="subdomain-result" class="margins-when-children my-8"></div>
 			<br/>
-
 			<h2 class="text-3xl font-bold ">Events Owned by Me</h2>
 			// TODO: this is fake data, delete
 			<table class="table table-pin-rows table-pin-cols table-zebra">

@@ -3,9 +3,12 @@ package test_helpers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/rdsdata"
+	rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -92,5 +95,29 @@ func GetNextPort() int {
     return int(atomic.AddInt32(&PortCounter, 1))
 }
 
+type MockRdsDataClient struct {
+	ExecStatementFunc func(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error)
+}
 
+func (m *MockRdsDataClient) ExecStatement(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
+	if m.ExecStatementFunc != nil {
+		return m.ExecStatementFunc(ctx, sql, params)
+	}
+	return nil, nil
+}
 
+func NewMockRdsDataClientWithJSONRecords(records []map[string]interface{}) *MockRdsDataClient {
+	recordsJSON, _ := json.Marshal(records)
+	recordsString := string(recordsJSON)
+    return &MockRdsDataClient{
+        ExecStatementFunc: func(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
+            // Convert records to AWS SDK's expected format
+            return &rdsdata.ExecuteStatementOutput{
+                FormattedRecords: &recordsString, // Directly return JSON bytes
+            }, nil
+        },
+    }
+}
+
+// Ensure MockRdsDataClient implements the RDSDataAPI interface
+var _ types.RDSDataAPI = (*MockRdsDataClient)(nil)

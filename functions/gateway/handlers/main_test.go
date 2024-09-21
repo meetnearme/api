@@ -11,6 +11,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/transport"
+	// rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
 )
 
 func TestMain(m *testing.M) {

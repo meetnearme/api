@@ -7,3 +7,4 @@ static/assets/styles.css
 coverage.out
 coverage.txt
 functions/gateway/helpers/cloudflare_locations.go
+cdk.context.json
