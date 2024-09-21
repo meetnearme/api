@@ -512,7 +512,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 				req.Header.Set("cf-ray", tt.cfRay)
 			}
 
-			query, loc, radius, start, end, cfLoc := GetSearchParamsFromReq(req)
+			query, loc, radius, start, end, cfLoc, _ := GetSearchParamsFromReq(req)
 
 			if query != tt.expectedQuery {
 				t.Errorf("Expected query %s, got %s", tt.expectedQuery, query)

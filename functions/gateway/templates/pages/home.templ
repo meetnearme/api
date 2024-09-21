@@ -14,12 +14,12 @@ templ EventsInner(events []services.Event) {
 		</p>
 	} else {
 		for _, ev := range events {
-			<div class="flex w-full relative">
+			<div class="flex w-full relative pb-24 md:pb-4">
 				<a class="flex w-full" href={ templ.URL("/events/" + ev.Id) }>
 					<img
 						src={ templ.EscapeString(helpers.GetImgUrlFromHash(ev.Id)) }
 						alt=""
-						class="object-cover w-full aspect-[4/3] md:aspect-[16/9] opacity-30 hover:opacity-75 transition-all"
+						class="object-cover w-full aspect-[4/3] md:aspect-[16/9] opacity-50 md:opacity-30 md:hover:opacity-75 transition-all"
 					/>
 				</a>
 				<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
@@ -28,7 +28,7 @@ templ EventsInner(events []services.Event) {
 						<p class="text-sm md:text-base">{ GetDateOrShowNone(ev.StartTime) } | { GetTimeOrShowNone(ev.StartTime) } &commat; { ev.Address }</p>
 					</div>
 					<br/>
-					<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block">
+					<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 						LEARN MORE
 						&rarr;
 					</a>
@@ -118,7 +118,7 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 				<!-- trigger button  -->
 				<button
 					type="button"
-					class="inline-flex w-full items-center justify-between gap-2 border border-zinc-300 rounded-md bg-zinc-100 mt-2 px-4 py-2 text-sm font-medium tracking-wide text-zinc-700 transition hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300 dark:focus-visible:outline-green-600"
+					class="inline-flex w-full items-center justify-between gap-2 border border-slate-300 rounded-md bg-slate-100 mt-2 px-4 py-2 text-sm font-medium tracking-wide text-slate-700 transition hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:focus-visible:outline-green-600"
 					role="combobox"
 					aria-controls="makesList"
 					aria-haspopup="listbox"
@@ -147,7 +147,7 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 				<div
 					x-show="isOpen || openedWithKeyboard"
 					:class="{'opacity-100': isOpen || openedWithKeyboard}"
-					class="w-full opacity-0 transition-all absolute left-4 top-12 z-10 overflow-hidden rounded-md border border-zinc-300 bg-zinc-100"
+					class="w-full opacity-0 transition-all absolute left-4 top-12 z-10 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
 					id="makesList"
 					role="listbox"
 					aria-label="locations list"
@@ -165,14 +165,14 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 							stroke="currentColor"
 							fill="none"
 							stroke-width="1.5"
-							class="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-zinc-700/50 dark:text-zinc-300/50"
+							class="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-700/50 dark:text-slate-300/50"
 							aria-hidden="true"
 						>
 							<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"></path>
 						</svg>
 						<input
 							type="text"
-							class="w-full border-b border-zinc-300 bg-zinc-100 py-2.5 pl-11 pr-4 text-sm text-zinc-700 focus:outline-none focus-visible:border-green-700 disabled:cursor-not-allowed disabled:opacity-75 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:focus-visible:border-green-600"
+							class="w-full border-b border-slate-300 bg-slate-100 py-2.5 pl-11 pr-4 text-sm text-slate-700 focus:outline-none focus-visible:border-green-700 disabled:cursor-not-allowed disabled:opacity-75 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus-visible:border-green-600"
 							name="loc_search"
 							aria-label="Search"
 							@input.throttle="fetchLocations($event.target.value)"
@@ -182,12 +182,12 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 					</div>
 					<!-- Options  -->
 					<ul class="flex max-h-44 flex-col overflow-y-auto">
-						<li class="hidden px-4 py-2 text-sm text-zinc-700 dark:text-zinc-300" x-ref="noResultsMessage">
+						<li class="hidden px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
 							<span>No matches found</span>
 						</li>
 						<template x-for="(item, index) in options" :key="index">
 							<li
-								class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-zinc-100 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-800/5 hover:text-black focus-visible:bg-zinc-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-100/5 dark:hover:text-white dark:focus-visible:bg-zinc-100/10 dark:focus-visible:text-white"
+								class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white"
 								role="option"
 								@click="setSelectedOption(item)"
 								@keydown.enter="setSelectedOption(item)"

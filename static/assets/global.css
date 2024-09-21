@@ -41,12 +41,19 @@
   z-index: 999;
 }
 
-.dropdown-content .collapse {
+.menu .collapse .collapse-title {
   padding: 0;
+  min-height: 1.75rem;
 }
-.dropdown-content .collapse .collapse-title {
-  padding: 0;
-  gap: 0;
+
+.menu .collapse-content {
+  padding-left: 0;
+  padding-right: 0;
+  overflow: initial;
+}
+
+.menu :where(.menu li) {
+  flex-wrap: nowrap;
 }
 
 .menu li > *:not(ul, .menu-title, details, .btn):active,
@@ -200,6 +207,10 @@
 
 .drawer .collapse-content :where(.menu li) {
   flex-direction: inherit;
+  align-items: center;
+}
+
+.peer:checked ~ .peer-checked\:text-secondary-content {
 }
 
 .tab:is(input[type='radio']) {

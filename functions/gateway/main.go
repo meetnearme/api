@@ -42,11 +42,13 @@ var Routes []Route
 func init() {
 	Routes = []Route{
 		{"/", "GET", handlers.GetHomePage, Check},
+		{"/about", "GET", handlers.GetAboutPage, Check},
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
-		{"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
+		// {"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
 		{"/admin/profile", "GET", handlers.GetProfilePage, Require},
+		{"/admin/profile/settings", "GET", handlers.GetProfileSettingsPage, Require},
 		{"/map-embed", "GET", handlers.GetMapEmbedPage, None},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...
@@ -67,7 +69,8 @@ func init() {
 		{"/api/locations", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
 
-		{"/api/user/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
+		{"/api/auth/users/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
+		{"/api/auth/users/update-interests", "POST", handlers.UpdateUserInterests, Require},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo", "POST", handlers.GeoLookup, None},

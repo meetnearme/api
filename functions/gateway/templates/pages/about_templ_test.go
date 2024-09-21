@@ -9,7 +9,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
-func TestProfilePage(t *testing.T) {
+func TestAboutPage(t *testing.T) {
 	// Create mock user info
 	mockUserInfo := helpers.UserInfo{
 		Email:             "test@example.com",
@@ -24,31 +24,11 @@ func TestProfilePage(t *testing.T) {
 		Metadata:          "",
 	}
 
-	mockRoleClaims := []helpers.RoleClaim{
-		{
-			Role:        "orgAdmin",
-			ProjectID:   "project-id",
-			ProjectName: "myapp.zitadel.cloud",
-		},
-		{
-			Role:        "superAdmin",
-			ProjectID:   "project-id",
-			ProjectName: "myapp.zitadel.cloud",
-		},
-		{
-			Role:        "sysAdmin",
-			ProjectID:   "project-id",
-			ProjectName: "myapp.zitadel.cloud",
-		},
-	}
-
-	interests := []string{"Concerts", "Photography"}
-
-	// Call the ProfilePage function
-	profilePage := ProfilePage(mockUserInfo, mockRoleClaims, interests)
+	// Call the AboutPage function
+	aboutPage := AboutPage()
 
 	// Create a layout template
-	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, profilePage)
+	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, aboutPage)
 
 	// Render the template
 	var buf bytes.Buffer
@@ -62,11 +42,7 @@ func TestProfilePage(t *testing.T) {
 	// Check if the rendered content contains expected information
 	renderedContent := buf.String()
 	expectedContent := []string{
-		mockUserInfo.Email,
-		mockUserInfo.Name,
-		mockUserInfo.Sub,
-		mockUserInfo.Locale,
-		"Yes", // mockUserInfo.EmailVerified yields a value "Yes" or "No"
+		"Our Why",
 	}
 
 	for _, element := range expectedContent {

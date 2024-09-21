@@ -5,7 +5,38 @@ import (
 	"os"
 )
 
-templ Navbar(userInfo helpers.UserInfo) {
+templ MiniProfileInNav(userInfo helpers.UserInfo) {
+	<strong>{ string(userInfo.Name) }</strong>
+	<br/>
+	{ string(userInfo.Email) }
+	<ul
+		tabindex="0"
+		class="menu menu-sm"
+	>
+		<li>
+			<a href="/admin/profile" class="justify-between">
+				Profile
+				// <span class="badge">New</span>
+			</a>
+		</li>
+		<li><a href="/auth/logout">Logout</a></li>
+	</ul>
+}
+
+templ NavListItems(userInfo helpers.UserInfo) {
+	<li><a href="/about" class="px-5 py-3">About</a></li>
+	if userInfo.Email == "" {
+		<li><a href="/auth/login" class="btn btn-primary">Sign Up</a></li>
+	}
+	// Change back to "Add an Event" when we release Seshu
+	// if userInfo.Email != "" {
+	// 	<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
+	// } else {
+	// 	<li><a href="/auth/login" class="btn btn-primary">Sign Up</a></li>
+	// }
+}
+
+templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 	<div class="drawer drawer-end overflow-hidden">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content mt-24 flex flex-col">
@@ -18,7 +49,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 							<img class="brand-type" style="width: 8.2rem" alt="Meet Near Me" class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
 						</a>
 					</div>
-					<div class="flex-none lg:hidden" onclick="document.getElementById('flyout-tab-nav').click();">
+					<div class="flex-none lg:hidden" onclick="document.getElementById('flyout-tab-main').click();">
 						<label for="main-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
 							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
 						</label>
@@ -26,12 +57,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 					<div class="navbar-end hidden lg:flex">
 						<div class="items-center lg:flex">
 							<ul class="menu menu-horizontal px-1">
-								<li><a href="/about" class="px-5 py-3">About</a></li>
-								if userInfo.Email != "" {
-									<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
-								} else {
-									<li><a href="/auth/login" class="btn btn-primary">Add an Event</a></li>
-								}
+								@NavListItems(userInfo)
 							</ul>
 							if userInfo.Email != "" {
 								<div class="dropdown dropdown-end px-3">
@@ -41,21 +67,7 @@ templ Navbar(userInfo helpers.UserInfo) {
 										</div>
 									</div>
 									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
-										<strong>{ string(userInfo.Name) }</strong>
-										<br/>
-										{ string(userInfo.Email) }
-										<ul
-											tabindex="0"
-											class="menu menu-sm"
-										>
-											<li>
-												<a href="/admin/profile" class="justify-between">
-													Profile
-													<span class="badge">New</span>
-												</a>
-											</li>
-											<li><a href="/auth/logout">Logout</a></li>
-										</ul>
+										@MiniProfileInNav(userInfo)
 									</div>
 								</div>
 							}
@@ -67,60 +79,56 @@ templ Navbar(userInfo helpers.UserInfo) {
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-			<div class="menu p-4 w-3/4 min-h-full bg-base-100">
+			<div class="menu p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
 				<dv class="block justify-end pb-5">
 					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click();"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
 				</dv>
 				if userInfo.Email != "" {
-					<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
-						<div class="border-2 w-24 rounded-full">
-							<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+					<div class="p-2 m-1 card bg-base-200">
+						<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
+							<div class="border-2 w-24 rounded-full">
+								<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+							</div>
+							// <div class="w-10 rounded-full">
+							// 	<img
+							// 		alt="Tailwind CSS Navbar component"
+							// 		src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg" />
+							// </div>
 						</div>
-						// <div class="w-10 rounded-full">
-						// 	<img
-						// 		alt="Tailwind CSS Navbar component"
-						// 		src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg" />
-						// </div>
+						<ul
+							tabindex="0"
+							class="menu menu-sm"
+						>
+							@MiniProfileInNav(userInfo)
+						</ul>
 					</div>
-					<strong>{ string(userInfo.Name) }</strong>
-					<br/>
-					{ string(userInfo.Email) }
-					<ul
-						tabindex="0"
-						class="menu menu-sm"
-					>
-						<li>
-							<a href="/admin/profile" class="justify-between">
-								Profile
-								<span class="badge">New</span>
-							</a>
-						</li>
-						<li><a href="/auth/logout">Logout</a></li>
-					</ul>
 				}
 				<div role="tablist" class="tabs tabs-bordered">
-					<input id="flyout-tab-nav" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
+					<input id="flyout-tab-main" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
 					<div role="tabpanel" class="tab-content p-2">
 						<ul class="">
 							<!-- Sidebar content here -->
-							<li><a href="/admin/add-event-source" class="btn btn-primary mb-5">Add an Event</a></li>
-							<li><a href="/about">About</a></li>
+							@NavListItems(userInfo)
 						</ul>
 					</div>
-					<input
-						id="flyout-tab-filters"
-						type="radio"
-						name="flyout-nav-tabs"
-						role="tab"
-						class="tab"
-						aria-label="Filters"
-						checked="checked"
-					/>
-					<div role="tabpanel" class="tab-content p-2">
-						@NestedCheckboxList(false)
-					</div>
-					<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
-					<div role="tabpanel" class="tab-content p-2">Idea here is that the cart is only sometimes visible</div>
+					if helpers.ArrContains(subnavTabs, helpers.SubnavItems[helpers.NvFilters]) {
+						<input
+							id="flyout-tab-filters"
+							type="radio"
+							name="flyout-nav-tabs"
+							role="tab"
+							class="tab"
+							aria-label="Filters"
+							checked="checked"
+						/>
+						<div role="tabpanel" class="tab-content">
+							@NestedCheckboxList(false)
+						</div>
+					}
+					if helpers.ArrContains(subnavTabs, helpers.SubnavItems[helpers.NvCart]) {
+						<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
+						<div role="tabpanel" class="tab-content p-2">Idea here is that the cart is only sometimes visible</div>
+					}
 				</div>
 			</div>
 		</div>

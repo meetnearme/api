@@ -296,3 +296,13 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	fmt.Println("saved user metadata body response: ", string(body))
 	return nil
 }
+
+
+func ArrContains(slice []string, item string) bool {
+	for _, s := range slice {
+			if s == item {
+					return true
+			}
+	}
+	return false
+}
