@@ -25,7 +25,10 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 
 templ NavListItems(userInfo helpers.UserInfo) {
 	<li><a href="/about" class="px-5 py-3">About</a></li>
-	// Bring this back when we release Seshu
+	if userInfo.Email == "" {
+		<li><a href="/auth/login" class="btn btn-primary">Sign Up</a></li>
+	}
+	// Change back to "Add an Event" when we release Seshu
 	// if userInfo.Email != "" {
 	// 	<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
 	// } else {

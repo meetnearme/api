@@ -214,7 +214,8 @@ func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-
+	// TODO: add a unit test that verifies each page handler works both WITH and also
+	// WITHOUT a user present in context
 	userInfo := helpers.UserInfo{}
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
