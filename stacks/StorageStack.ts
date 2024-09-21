@@ -1,7 +1,17 @@
 import { StackContext, Table } from 'sst/constructs';
 
 export function StorageStack({ stack }: StackContext) {
-  // Create the `SeshuSessions` table
+  // Create the `Registrations` table
+  const registrationsTable = new Table(stack, 'Registrations', {
+    fields: {
+      id: 'string',
+      eventID: 'string',
+      userID: 'string',
+      responses: 'string', // this is an array, no type for arrays
+    },
+    primaryIndex: { partitionKey: 'eventID', sortKey: 'userID' },
+  });
+
   const seshuSessionsTable = new Table(stack, 'SeshuSessions', {
     fields: {
       ownerId: 'string',
@@ -25,6 +35,7 @@ export function StorageStack({ stack }: StackContext) {
   });
 
   return {
+    registrationsTable,
     seshuSessionsTable,
   };
 }
