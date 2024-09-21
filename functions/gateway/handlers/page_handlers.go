@@ -201,6 +201,20 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
 
+func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	aboutPage := pages.AboutPage()
+	ctx := r.Context()
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+
+	layoutTemplate := pages.Layout(helpers.SitePages["about"], userInfo, aboutPage)
+	var buf bytes.Buffer
+	err = layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
+	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+}
+
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 

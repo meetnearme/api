@@ -64,6 +64,7 @@ type SitePage struct {
 
 var SitePages = map[string]SitePage{
 	"home":          {Slug: "home", Name: "Home", SubnavItems: []string{SubnavItems[NvMain],SubnavItems[NvFilters]}},
+	"about":          {Slug: "about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
 	"profile":         {Slug: "admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
 	"add-event-source": {Slug: "admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
 	"settings":      {Slug: "settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},

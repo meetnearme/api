@@ -23,6 +23,16 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 	</ul>
 }
 
+templ NavListItems(userInfo helpers.UserInfo) {
+	<li><a href="/about" class="px-5 py-3">About</a></li>
+	// Bring this back when we release Seshu
+	// if userInfo.Email != "" {
+	// 	<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
+	// } else {
+	// 	<li><a href="/auth/login" class="btn btn-primary">Sign Up</a></li>
+	// }
+}
+
 templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 	<div class="drawer drawer-end overflow-hidden">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
@@ -44,12 +54,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 					<div class="navbar-end hidden lg:flex">
 						<div class="items-center lg:flex">
 							<ul class="menu menu-horizontal px-1">
-								<li><a href="/about" class="px-5 py-3">About</a></li>
-								if userInfo.Email != "" {
-									<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
-								} else {
-									<li><a href="/auth/login" class="btn btn-primary">Sign Up</a></li>
-								}
+								@NavListItems(userInfo)
 							</ul>
 							if userInfo.Email != "" {
 								<div class="dropdown dropdown-end px-3">
@@ -100,8 +105,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 					<div role="tabpanel" class="tab-content p-2">
 						<ul class="">
 							<!-- Sidebar content here -->
-							<li><a href="/admin/add-event-source" class="btn btn-primary mb-5">Add an Event</a></li>
-							<li><a href="/about">About</a></li>
+							@NavListItems(userInfo)
 						</ul>
 					</div>
 					if helpers.ArrContains(subnavTabs, helpers.SubnavItems[helpers.NvFilters]) {

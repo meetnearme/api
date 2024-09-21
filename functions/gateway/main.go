@@ -42,6 +42,7 @@ var Routes []Route
 func init() {
 	Routes = []Route{
 		{"/", "GET", handlers.GetHomePage, Check},
+		{"/about", "GET", handlers.GetAboutPage, Check},
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
