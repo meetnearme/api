@@ -9,11 +9,13 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"net/http"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
 
@@ -75,6 +77,48 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	err = successPartial.Render(r.Context(), &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+}
+
+func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	// Extract parameter values from the request query parameters
+	ctx := r.Context()
+
+	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds := GetSearchParamsFromReq(r)
+
+	marqoClient, err := services.GetMarqoClient()
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+
+	// we override the `owners` query param here, because subdomains should always show only
+	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
+	if subdomainValue != "" {
+		ownerIds = []string{subdomainValue}
+	}
+
+
+	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	events := res.Events
+
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	eventListPartial := pages.EventsInner(events)
+
+	var buf bytes.Buffer
+	err = eventListPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
 	}
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
@@ -475,6 +519,48 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added. We will put it in the queue and let you know when it's imported.`)
 
+	var buf bytes.Buffer
+	err = successPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+}
+
+func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	r.ParseForm()
+	ctx := r.Context()
+
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userID := userInfo.Sub
+
+	categories := r.Form
+
+	// Use a map to track unique elements
+	uniqueItems := make(map[string]struct{})
+
+	// Flatten and split by "|", then add to the map to remove duplicates
+	for _, v := range categories["subCategory"] {
+		parts := strings.Split(v, "|")
+		for _, part := range parts {
+			uniqueItems[part] = struct{}{}
+		}
+	}
+
+	var flattenedCategories []string
+	for item := range uniqueItems {
+		flattenedCategories = append(flattenedCategories, item)
+	}
+
+	flattenedCategoriesString := strings.Join(flattenedCategories, ", ")
+
+	err := helpers.UpdateUserMetadataKey(userID, helpers.INTERESTS_KEY, flattenedCategoriesString)
+	if err != nil {
+		return transport.SendHtmlError(w, []byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`)
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
 	if err != nil {

@@ -592,8 +592,8 @@ func TestSearchEvents(t *testing.T) {
 			}
 
 			mockService := &services.MockMarqoService{
-				SearchEventsFunc: func(client *marqo.Client, query string, userLocation []float64, maxDistance float64, ownerIds []string) (services.EventSearchResponse, error) {
-                    return services.SearchMarqoEvents(client, query, userLocation, maxDistance, ownerIds)
+				SearchEventsFunc: func(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, ownerIds []string) (services.EventSearchResponse, error) {
+                    return services.SearchMarqoEvents(client, query, userLocation, maxDistance, startTime, endTime, ownerIds)
 				},
 			}
 

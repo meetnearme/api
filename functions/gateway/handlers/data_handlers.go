@@ -6,7 +6,8 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strconv"
+	"net/url"
+	"strings"
 
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"
@@ -279,6 +280,38 @@ func BulkUpdateEventsHandler(w http.ResponseWriter, r *http.Request) http.Handle
     }
 }
 
+func SearchLocationsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        query := r.URL.Query().Get("q")
+
+        // URL decode the query
+        decodedQuery, err := url.QueryUnescape(query)
+        if err != nil {
+            transport.SendServerRes(w, []byte("Failed to decode query"), http.StatusBadRequest, err)
+            return
+        }
+
+        // Search for matching cities
+        query = strings.ToLower(decodedQuery)
+        matches := helpers.SearchCitiesIndexed(query)
+
+        // Prepare the response
+        var jsonResponse []byte
+
+        if len(matches) < 1 {
+            jsonResponse = []byte("[]")
+        } else {
+            jsonResponse, err = json.Marshal(matches)
+            if err != nil {
+                transport.SendServerRes(w, []byte("Failed to create JSON response"), http.StatusInternalServerError, err)
+                return
+            }
+        }
+
+        w.Header().Set("Content-Type", "application/json")
+        transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
+    }
+}
 
 func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
     marqoClient, err := services.GetMarqoClient()
@@ -314,6 +347,7 @@ func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
     transport.SendServerRes(w, json, http.StatusOK, nil)
 }
 
+
 func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     marqoService := services.NewMarqoService()
     handler := NewMarqoHandler(marqoService)
@@ -323,32 +357,17 @@ func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerF
 }
 
 func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
+    // Extract parameter values from the request query parameters
+    q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds := GetSearchParamsFromReq(r)
+
     marqoClient, err := services.GetMarqoClient()
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
         return
     }
 
-    // NOTE: these defaults are random, we should fix
-    latFloat := float64(38.8951)
-    longFloat := float64(-77.0364)
-    maxDistance := float64(300)
-
-    query := r.URL.Query().Get("q")
-    lat := r.URL.Query().Get("lat")
-    if lat != "" {
-        latFloat, _ = strconv.ParseFloat(lat, 64)
-    }
-    long := r.URL.Query().Get("lon")
-    if long != "" {
-        longFloat, _ = strconv.ParseFloat(long, 64)
-    }
-
-    // TODO: add start time here,
-    // need to convert marqo DB index to unix for `startTime` / `endTime`
-
     var res services.EventSearchResponse
-    res, err = services.SearchMarqoEvents(marqoClient, query, []float64{latFloat, longFloat}, maxDistance, []string{})
+    res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to search marqo events: "+err.Error()), http.StatusInternalServerError, err)
         return

@@ -14,7 +14,7 @@ func TestAddEventSource(t *testing.T) {
 	component := AddEventSource()
 
 	// Create a layout template
-	layoutTemplate := Layout("Admin", helpers.UserInfo{}, component)
+	layoutTemplate := Layout(helpers.SitePages["add-event-source"], helpers.UserInfo{}, component)
 
 	// Render the template
 	var buf bytes.Buffer
