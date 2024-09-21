@@ -535,25 +535,29 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
 	userID := userInfo.Sub
 
+	// TODO: pretty sure the Form approach here makes it so that you can't submit this multiple
+	// times in succession when using the profile settings page
 	categories := r.Form
 
 	// Use a map to track unique elements
-	uniqueItems := make(map[string]struct{})
+	flattenedCategories := []string{}
 
 	// Flatten and split by "|", then add to the map to remove duplicates
-	for _, v := range categories["subCategory"] {
-		parts := strings.Split(v, "|")
-		for _, part := range parts {
-			uniqueItems[part] = struct{}{}
-		}
+	for key, values := range categories {
+    if strings.HasSuffix(key, "category") || strings.HasSuffix(key, "subCategory") {
+        for _, value := range values {
+            // Split by comma and trim spaces, in case there are multiple values
+            for _, item := range strings.Split(value, ",") {
+                trimmedItem := strings.TrimSpace(item)
+                if trimmedItem != "" {
+										flattenedCategories =	append(flattenedCategories, trimmedItem)
+                }
+            }
+        }
+    }
 	}
 
-	var flattenedCategories []string
-	for item := range uniqueItems {
-		flattenedCategories = append(flattenedCategories, item)
-	}
-
-	flattenedCategoriesString := strings.Join(flattenedCategories, ", ")
+	flattenedCategoriesString := strings.Join(flattenedCategories, "|")
 
 	err := helpers.UpdateUserMetadataKey(userID, helpers.INTERESTS_KEY, flattenedCategoriesString)
 	if err != nil {
