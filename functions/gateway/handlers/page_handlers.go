@@ -81,13 +81,14 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	return startTimeUnix, endTimeUnix
 }
 
-func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation) {
+func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation, ownerIds []string) {
 	startTimeStr := r.URL.Query().Get("start_time")
 	endTimeStr := r.URL.Query().Get("end_time")
 	latStr := r.URL.Query().Get("lat")
 	longStr := r.URL.Query().Get("lon")
 	radiusStr := r.URL.Query().Get("radius")
 	q := r.URL.Query().Get("q")
+	owners := r.URL.Query().Get("owners")
 	cfRay := GetCfRay(r)
 	rayCode := ""
 
@@ -146,13 +147,19 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 
 	startTimeUnix, endTimeUnix := ParseStartEndTime(startTimeStr, endTimeStr)
 
-	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation
+	// Handle owners query parameter
+	ownerIds = []string{}
+	if owners != "" {
+			ownerIds = strings.Split(owners, ",")
+	}
+
+	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds
 }
 
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	ctx := r.Context()
-	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation := GetSearchParamsFromReq(r)
+	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds := GetSearchParamsFromReq(r)
 
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
@@ -164,9 +171,10 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
 
-	ownerIds := []string{}
+	// we override the `owners` query param here, because subdomains should always show only
+	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
 	if subdomainValue != "" {
-		ownerIds = append(ownerIds, subdomainValue)
+		ownerIds = []string{subdomainValue}
 	}
 
 	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds)

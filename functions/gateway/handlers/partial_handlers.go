@@ -86,7 +86,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	ctx := r.Context()
 
-	q, userLocation, radius, startTimeUnix, endTimeUnix, _ := GetSearchParamsFromReq(r)
+	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds := GetSearchParamsFromReq(r)
 
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
@@ -95,10 +95,12 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
 
-	ownerIds := []string{}
+	// we override the `owners` query param here, because subdomains should always show only
+	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
 	if subdomainValue != "" {
-		ownerIds = append(ownerIds, subdomainValue)
+		ownerIds = []string{subdomainValue}
 	}
+
 
 	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds)
 	if err != nil {
