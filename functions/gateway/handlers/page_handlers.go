@@ -205,7 +205,10 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
 	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
-	roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
 
 	var userInterests []string = []string{}
 	var interestMetadataBytes []byte
