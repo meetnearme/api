@@ -358,7 +358,7 @@ func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
     // Extract parameter values from the request query parameters
-    q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds := GetSearchParamsFromReq(r)
+    q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories := GetSearchParamsFromReq(r)
 
     marqoClient, err := services.GetMarqoClient()
     if err != nil {
@@ -367,7 +367,7 @@ func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
     }
 
     var res services.EventSearchResponse
-    res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds)
+    res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to search marqo events: "+err.Error()), http.StatusInternalServerError, err)
         return
