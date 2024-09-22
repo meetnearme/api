@@ -483,7 +483,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 				t.Fatalf("Failed to get Marqo client: %v", err)
 			}
 
-			result, err := SearchMarqoEvents(client, tt.query, tt.userLocation, tt.maxDistance, tt.startTime, tt.endTime, tt.ownerIds)
+			// TODO: add meaningful test with categories
+			result, err := SearchMarqoEvents(client, tt.query, tt.userLocation, tt.maxDistance, tt.startTime, tt.endTime, tt.ownerIds, "")
 
 			if tt.expectedError && err == nil {
 				t.Errorf("Expected an error, but got none")

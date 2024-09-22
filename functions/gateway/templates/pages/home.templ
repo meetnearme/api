@@ -320,6 +320,7 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 				...(urlParams.get('radius')?.length > 1) ? { radius: urlParams.get('radius') } : {},
 				...(urlParams.get('lat')?.length > 1) ? { lat: urlParams.get('lat') } : {},
 				...(urlParams.get('lon')?.length > 1) ? { lon: urlParams.get('lon') } : {},
+				...(urlParams.get('categories')?.length > 1) ? { categories: urlParams.get('categories') } : {},
 			}
     }
 
@@ -415,6 +416,7 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 						radius: null,
 						lat: null,
 						lon: null,
+						categories: null,
 						allParams: [
 							'start_time',
 							'end_time',
@@ -449,6 +451,8 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 									form?.requestSubmit()
 								}, 250)
 						},
+						// TODO: on initial page load, the categories need to be searched by text
+						// label and selected for each in query string
 						sendCategoriesToQueryParams(event) {
 							const form = document.getElementById('category-search-form')
 							// Collect form values

@@ -233,7 +233,6 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		query = query + " [show matches for these categories(" + categories + ")]"
 	}
 
-	log.Printf("QUERY ==> %v", query)
 	filter := fmt.Sprintf("%s startTime:[%v TO %v] AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]", ownerFilter, startTime, endTime, maxLong, minLong, maxLat, minLat)
 	indexName := GetMarqoIndexName()
 	searchRequest := marqo.SearchRequest{
