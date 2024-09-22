@@ -1,6 +1,9 @@
 package components
 
-import "github.com/meetnearme/api/functions/gateway/helpers"
+import (
+	"fmt"
+	"github.com/meetnearme/api/functions/gateway/helpers"
+)
 
 templ DropdownNestedCheckbox() {
 	<details class="dropdown">
@@ -20,20 +23,20 @@ templ NestedCheckboxList(isInDropdown bool) {
 				class="p-2 shadow menu bg-base-100 rounded-box"
 			}
 		>
-			for _, cat := range helpers.Categories {
+			for idx, cat := range helpers.Categories {
 				<li>
 					<div class="collapse bg-base-200">
 						<input
 							type="checkbox"
 							class="peer"
 						/>
-						<div class="collapse-title peer-checked:bg-secondary peer-checked:text-secondary-content">
+						<div class="collapse-title">
 							<div class="form-control flex-none">
 								<label class="label cursor-pointer justify-between">
 									<div class="flex">
 										<input
 											id={ cat.Name }
-											name="category"
+											name={ "itm-" + fmt.Sprint(idx) + "-category" }
 											value={ cat.Name }
 											type="checkbox"
 											class="z-[9] checkbox checkbox-tertiary border-opacity-80 mr-5"
@@ -50,11 +53,11 @@ templ NestedCheckboxList(isInDropdown bool) {
 						</div>
 						<div class="collapse-content bg-base-200 peer-checked:bg-base-200">
 							<ul>
-								for _, item := range cat.Items {
+								for idx, item := range cat.Items {
 									<li>
 										<input
-											name="subCategory"
-											value={ cat.Name + "|" + item.Name }
+											name={ "itm-" + fmt.Sprint(idx) + "-subCategory" }
+											value={ item.Name }
 											type="checkbox"
 											class="z-[9] checkbox checkbox-xs checkbox-tertiary border-opacity-80 mr-5 my-1"
 										/>

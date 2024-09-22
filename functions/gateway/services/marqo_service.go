@@ -215,7 +215,7 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []Event, hasIds bool) (
 // SearchMarqoEvents searches for events based on the given query, user location, and maximum distance.
 // It returns a list of events that match the search criteria.
 // EX : SearchMarqoEvents(client, "music", []float64{37.7749, -122.4194}, 10)
-func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime, endTime int64, ownerIds []string) (EventSearchResponse, error) {
+func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime, endTime int64, ownerIds []string, categories string) (EventSearchResponse, error) {
 	// Calculate the maximum and minimum latitude and longitude based on the user's location and maximum distance
 	maxLat := userLocation[0] + miToLat(maxDistance)
 	maxLong := userLocation[1] + miToLong(maxDistance, userLocation[0])
@@ -228,6 +228,14 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	if len(ownerIds) > 0 {
 		ownerFilter = fmt.Sprintf("eventOwners IN (%s) AND ", strings.Join(ownerIds, ","))
 	}
+	if query != "" {
+		query = "keywords: { " + query + " }"
+	}
+
+	if categories != "" {
+		query = query + " {show matches for these categories(" + categories + ")}"
+	}
+
 	filter := fmt.Sprintf("%s startTime:[%v TO %v] AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]", ownerFilter, startTime, endTime, maxLong, minLong, maxLat, minLat)
 	indexName := GetMarqoIndexName()
 	searchRequest := marqo.SearchRequest{
