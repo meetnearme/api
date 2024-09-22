@@ -444,6 +444,7 @@ func TestSearchMarqoEvents(t *testing.T) {
 	tests := []struct {
 		name           string
 		query          string
+		expectedQuery  string
 		userLocation   []float64
 		maxDistance    float64
 		startTime      int64
@@ -455,6 +456,7 @@ func TestSearchMarqoEvents(t *testing.T) {
 		{
 			name:           "Valid search",
 			query:          "test search",
+			expectedQuery:  "keywords: { test search }",
 			userLocation:   []float64{51.5074, -0.1278},
 			maxDistance:    10000,
 			startTime: 			time.Now().Unix(),
@@ -466,6 +468,7 @@ func TestSearchMarqoEvents(t *testing.T) {
 		{
 			name:           "Empty query",
 			query:          "",
+			expectedQuery:  "",
 			userLocation:   []float64{51.5074, -0.1278},
 			maxDistance:    10000,
 			startTime: 			time.Now().Unix(),
@@ -498,8 +501,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 				t.Errorf("Expected %d events, but got %d", tt.expectedEvents, len(result.Events))
 			}
 
-			if result.Query != tt.query {
-				t.Errorf("Expected query to be '%s', but got '%s'", tt.query, result.Query)
+			if result.Query != tt.expectedQuery {
+				t.Errorf("Expected query to be '%s', but got '%s'", tt.expectedQuery, result.Query)
 			}
 
 			// Add more specific checks for the returned events if needed

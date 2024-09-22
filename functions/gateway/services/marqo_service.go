@@ -228,9 +228,12 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	if len(ownerIds) > 0 {
 		ownerFilter = fmt.Sprintf("eventOwners IN (%s) AND ", strings.Join(ownerIds, ","))
 	}
-	query = "keywords: | " + query
+	if query != "" {
+		query = "keywords: { " + query + " }"
+	}
+
 	if categories != "" {
-		query = query + " [show matches for these categories(" + categories + ")]"
+		query = query + " {show matches for these categories(" + categories + ")}"
 	}
 
 	filter := fmt.Sprintf("%s startTime:[%v TO %v] AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]", ownerFilter, startTime, endTime, maxLong, minLong, maxLat, minLat)

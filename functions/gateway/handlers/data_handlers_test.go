@@ -570,8 +570,8 @@ func TestSearchEvents(t *testing.T) {
                     t.Errorf("Expected first event to have Id 456, got %v", events[1].Id)
                 }
 
-                if res.Query != "test search" {
-                    t.Errorf("Expected query to be 'test search', got %v", res.Query)
+                if res.Query != "keywords: { test search }" {
+                    t.Errorf("Expected query to be 'keywords: { test search }', got %v", res.Query)
                 }
 
 			},
