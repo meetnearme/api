@@ -132,7 +132,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 								<button
 									type="submit"
 									class="btn btn-primary w-full self-start sticky top-0 z-[10]"
-									@click="sendCategoriesToQueryParams(this)"
+									@click="sendCategoriesToQueryParams(); document.getElementById('main-drawer').click();"
 								>
 									Apply Filters
 								</button>

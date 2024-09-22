@@ -453,7 +453,7 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 						},
 						// TODO: on initial page load, the categories need to be searched by text
 						// label and selected for each in query string
-						sendCategoriesToQueryParams(event) {
+						sendCategoriesToQueryParams() {
 							const form = document.getElementById('category-search-form')
 							// Collect form values
 							const formData = new FormData(form);
