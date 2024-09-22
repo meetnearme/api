@@ -4,12 +4,25 @@ export function StorageStack({ stack }: StackContext) {
   // Create the `Registrations` table
   const registrationsTable = new Table(stack, 'Registrations', {
     fields: {
-      id: 'string',
-      eventID: 'string',
-      userID: 'string',
+      eventId: 'string',
+      userId: 'string',
       responses: 'string', // this is an array, no type for arrays
+      createdAt: 'number',
+      updatedAt: 'number',
+      updatedBy: 'string',
     },
-    primaryIndex: { partitionKey: 'eventID', sortKey: 'userID' },
+    primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
+  });
+
+  const registrationFieldsTable = new Table(stack, 'RegistrationFields', {
+    fields: {
+      eventId: 'string',
+      fields: 'string', // this is an array of registrationFields
+      createdAt: 'number',
+      updatedAt: 'number',
+      updatedBy: 'string',
+    },
+    primaryIndex: { partitionKey: 'eventId' },
   });
 
   const seshuSessionsTable = new Table(stack, 'SeshuSessions', {
@@ -36,6 +49,7 @@ export function StorageStack({ stack }: StackContext) {
 
   return {
     registrationsTable,
+    registrationFieldsTable,
     seshuSessionsTable,
   };
 }

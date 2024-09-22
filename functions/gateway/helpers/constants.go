@@ -5,6 +5,8 @@ type AWSReqKey string
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
 const SeshuSessionTablePrefix = "SeshuSessions"
+const RegistrationsTablePrefix = "Registrations"
+const RegistrationFieldsTablePrefix = "RegistrationFields"
 const EVENT_ID_KEY string = "eventId"
 const SUBDOMAIN_KEY = "subdomain"
 const INTERESTS_KEY = "interests"
