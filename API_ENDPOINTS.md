@@ -5,7 +5,7 @@
 ```bash
 
 # example of all fields
-curl -X POST https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/users \
+curl -X POST https://devnear.me/api/users \
  -H "Content-Type: application/json" \
  -d '{
      "name": "a Doe",
@@ -18,7 +18,7 @@ curl -X POST https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/users \
  }'
 
  # only required fields
- curl -X POST  https://vze2jkkcn5.execute-api.us-east-1.amazonaws.com/api/users \
+ curl -X POST  https://devnear.me/api/users \
  -H "Content-Type: application/json" \
  -d '{
      "name": "John Doe",
@@ -31,21 +31,19 @@ curl -X POST https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/users \
 
 2. Get User by ID
 ```bash
-curl -X GET <instance_url>/users/<:id>
-
-curl -X GET https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/users/310266d0-196e-4c72-b10d-97616976f650
+curl -X GET https://devnear.me/api/users/<:user_id>
 
 ```
 
 3. Get Users
 ```bash
-curl -X GET https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/users
+curl -X GET https://devnear.me/api/users
 
 ```
 
 3. Update user
 ```bash
-curl -X PUT https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/users/c9413f71-bb0e-43c9-bc3a-fafc64c5c799 \
+curl -X PUT https://devnear.me/api/users/<:user_id> \
 -H "Content-Type: application/json" \
 -d '{
     "name": "New name",
@@ -64,14 +62,14 @@ curl -X PUT https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/users/c94
 
 4. Delete User
 ```bash
-curl -X DELETE https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/users/310266d0-196e-4c72-b10d-97616976f650 
+curl -X DELETE https://devnear.me/api/users/<:user_id> 
 ```
 
 ## Purchasables
 
 1. Create Purchasable
 ```bash
-curl -X POST https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/purchasables \
+curl -X POST https://devnear.me/api/purchasables \
      -H "Content-Type: application/json" \
      -d '{
            "user_id": "ea49a5f8-e27c-47b0-8237-6f6f380a048c",
@@ -90,7 +88,7 @@ curl -X POST https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/purchasa
 
 2. Update Purchasable
 ```bash
-curl -X PUT https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/purchasables/a8950a91-f353-4032-8c5d-03335ae2b0d9 \
+curl -X PUT https://devnear.me/api/purchasables/<:id> \
      -H "Content-Type: application/json" \
      -d '{
            "name": "Updated Item",
@@ -107,20 +105,18 @@ curl -X PUT https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/purchasab
 ```
 3. Get Purchasable by ID
 ```bash
-curl -X GET https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/purchasables/a8950a91-f353-4032-8c5d-03335ae2b0d9 \
+curl -X GET https://devnear.me/api/purchasables/<:id> \
      -H "Content-Type: application/json"
 
 ```
 4. Get Purchasables by UserID
 ```bash
-curl -X GET https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/purchasables/user/ea49a5f8-e27c-47b0-8237-6f6f380a048c \
-     -H "Content-Type: application/json"
-curl -X GET https://wxw9ojvrcl.execute-api.us-east-1.amazonaws.com/api/purchasables/user/40164b69-b2fe-4706-aa12-7d6ec3845c95 \
+curl -X GET https://devnear.me/api/purchasables/user/<:user_id> \
      -H "Content-Type: application/json"
 ```
 5. Delete Purchasable
 ```bash
-curl -X DELETE https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/purchasables/a8950a91-f353-4032-8c5d-03335ae2b0d9 \
+curl -X DELETE https://devnear.me/api/purchasables/<:id> \
      -H "Content-Type: application/json"
 
 ```
@@ -129,7 +125,7 @@ curl -X DELETE https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/purcha
 ## Event RSVPs
 1. Create EventRsvp
 ```bash
-curl -X POST https://4ektcpsj01.execute-api.us-east-1.amazonaws.com/api/event-rsvps \
+curl -X POST https://devnear.me/api/event-rsvps \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "ea49a5f8-e27c-47b0-8237-6f6f380a048c",
@@ -142,26 +138,26 @@ curl -X POST https://4ektcpsj01.execute-api.us-east-1.amazonaws.com/api/event-rs
 
 2. GET EventRsvp By ID
 ```bash
-curl -X GET https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/event-rsvps/b5c93f43-db5f-4c37-870b-0c2c4878e4fb \
+curl -X GET https://devnear.me/api/event-rsvps/<:id> \
   -H "Content-Type: application/json"
 
 ```
 
 3. GET EventRsvp By UserID
 ```bash
-curl -X GET https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/event-rsvps/user/ea49a5f8-e27c-47b0-8237-6f6f380a048c \
+curl -X GET https://devnear.me/api/event-rsvps/user/<:user_id> \
   -H "Content-Type: application/json"
 
 ```
 4. GET EventRsvp By EventID
 ```bash
-curl -X GET https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/event-rsvps/event/6ce1be30-f700-475c-b84a-49af0c73f337 \
+curl -X GET https://devnear.me/api/event-rsvps/event/<:event_id> \
   -H "Content-Type: application/json"
 ```
 
 5. Update EventRsvp
 ```bash
-curl -X PUT https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/event-rsvps/b5c93f43-db5f-4c37-870b-0c2c4878e4fb \
+curl -X PUT https://devnear.me/api/event-rsvps/<:id> \
   -H "Content-Type: application/json" \
   -d '{
     "status": "Maybe"
@@ -171,7 +167,7 @@ curl -X PUT https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/event-rsv
 
 6. Delete EventRsvp
 ```bash
-curl -X DELETE https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/event-rsvps/b5c93f43-db5f-4c37-870b-0c2c4878e4fb \
+curl -X DELETE https://devnear.me/api/event-rsvps/<:id> \
   -H "Content-Type: application/json"
 
 ```
@@ -181,7 +177,7 @@ curl -X DELETE https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/event-
 ## Registration Fields
 1. Create Registration Fields
 ```bash
-curl -X POST https://ljd19o7833.execute-api.us-east-1.amazonaws.com/api/registration-fields/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+curl -X POST https://devnear.me/api/registration-fields/<:event_id> \
 -H "Content-Type: application/json" \
 -d '{
   "updated_by": "Jim Bobby",
@@ -210,13 +206,13 @@ curl -X POST https://ljd19o7833.execute-api.us-east-1.amazonaws.com/api/registra
 
 2. Get Registration Fields
 ```bash
-curl -X GET https://ljd19o7833.execute-api.us-east-1.amazonaws.com/api/registration-fields/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+curl -X GET https://devnear.me/api/registration-fields/<:event_id> \
 -H "Content-Type: application/json"
 ```
 
 3. Update Registration Fields
 ```bash
-curl -X PUT https://ljd19o7833.execute-api.us-east-1.amazonaws.com/api/registration-fields/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+curl -X PUT https://devnear.me/api/registration-fields/<:event_id> \
 -H "Content-Type: application/json" \
 -d '{
   "updated_by": "Bobby Thyme",
@@ -253,9 +249,16 @@ curl -X PUT https://ljd19o7833.execute-api.us-east-1.amazonaws.com/api/registrat
 
 4. Delete Registration Fields
 ```bash
-curl -X DELETE https://ljd19o7833.execute-api.us-east-1.amazonaws.com/api/registration-fields/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+curl -X DELETE https://devnear.me/api/registration-fields/<:event_id> \
 -H "Content-Type: application/json"
 ```
 
 
 ## Registrations
+1. Create Registrations
+2. Get Registrations By EventId
+3. Get Registrations By UserId
+4. Update Registrations
+5. Delete Registrations
+
+
