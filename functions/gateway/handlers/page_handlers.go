@@ -256,7 +256,7 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		log.Printf("Failed to decode user interests metadata: %v", err)
 	} else {
-		userInterests = strings.Split(string(interestMetadataBytes), ",")
+		userInterests = strings.Split(string(interestMetadataBytes), "|")
 	}
 
 	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests)
