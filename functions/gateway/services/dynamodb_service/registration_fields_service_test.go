@@ -2,6 +2,7 @@ package dynamodb_service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -405,3 +406,98 @@ func TestDeleteRegistrationFields_Error(t *testing.T) {
 	}
 }
 
+func TestMockInsertRegistrationFields(t *testing.T) {
+	mockService := &MockRegistrationFieldsService{
+		InsertRegistrationFieldsFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registrationFields internal_types.RegistrationFieldsInsert) (*internal_types.RegistrationFields, error) {
+			return &internal_types.RegistrationFields{EventId: registrationFields.EventId}, nil
+		},
+	}
+
+	registrationFields := internal_types.RegistrationFieldsInsert{
+		EventId: "test-event-id",
+	}
+
+	result, err := mockService.InsertRegistrationFields(context.Background(), nil, registrationFields, "test-event-id")
+	if err != nil {
+		t.Errorf("InsertRegistrationFieldsFunc returned an error: %v", err)
+	}
+
+	if result.EventId != "test-event-id" {
+		t.Errorf("expected EventId to be %s, got %s", "test-event-id", result.EventId)
+	}
+}
+
+func TestMockGetRegistrationFieldsByEventID(t *testing.T) {
+	mockService := &MockRegistrationFieldsService{
+		GetRegistrationFieldsByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) (*internal_types.RegistrationFields, error) {
+			if eventId == "test-event-id" {
+				return &internal_types.RegistrationFields{EventId: eventId}, nil
+			}
+			return nil, errors.New("event not found")
+		},
+	}
+
+	result, err := mockService.GetRegistrationFieldsByEventID(context.Background(), nil, "test-event-id")
+	if err != nil {
+		t.Errorf("GetRegistrationFieldsByEventIDFunc returned an error: %v", err)
+	}
+
+	if result.EventId != "test-event-id" {
+		t.Errorf("expected EventId to be %s, got %s", "test-event-id", result.EventId)
+	}
+
+	// Test for a case where the event is not found
+	_, err = mockService.GetRegistrationFieldsByEventID(context.Background(), nil, "non-existent-id")
+	if err == nil {
+		t.Errorf("expected an error for non-existent event ID, got nil")
+	}
+}
+
+func TestMockUpdateRegistrationFields(t *testing.T) {
+	mockService := &MockRegistrationFieldsService{
+		UpdateRegistrationFieldsFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, registrationFields internal_types.RegistrationFieldsUpdate) (*internal_types.RegistrationFields, error) {
+			if eventId == "test-event-id" {
+				return &internal_types.RegistrationFields{EventId: eventId, Fields: registrationFields.Fields}, nil
+			}
+			return nil, errors.New("event not found")
+		},
+	}
+
+	updateFields := internal_types.RegistrationFieldsUpdate{
+		Fields: []internal_types.RegistrationField{
+			{Name: "field1", Type: "text", Required: true},
+		},
+	}
+
+	result, err := mockService.UpdateRegistrationFields(context.Background(), nil, "test-event-id", updateFields)
+	if err != nil {
+		t.Errorf("UpdateRegistrationFieldsFunc returned an error: %v", err)
+	}
+
+	if result.EventId != "test-event-id" {
+		t.Errorf("expected EventId to be %s, got %s", "test-event-id", result.EventId)
+	}
+}
+
+func TestMockDeleteRegistrationFields(t *testing.T) {
+	mockService := &MockRegistrationFieldsService{
+		DeleteRegistrationFieldsFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) error {
+			if eventId == "test-event-id" {
+				return nil
+			}
+			return errors.New("event not found")
+		},
+	}
+
+	// Test for successful deletion
+	err := mockService.DeleteRegistrationFields(context.Background(), nil, "test-event-id")
+	if err != nil {
+		t.Errorf("DeleteRegistrationFieldsFunc returned an error: %v", err)
+	}
+
+	// Test for event not found case
+	err = mockService.DeleteRegistrationFields(context.Background(), nil, "non-existent-id")
+	if err == nil {
+		t.Errorf("expected an error for non-existent event ID, got nil")
+	}
+}
