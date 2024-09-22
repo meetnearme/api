@@ -129,7 +129,7 @@ curl -X DELETE https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/purcha
 ## Event RSVPs
 1. Create EventRsvp
 ```bash
-curl -X POST https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/event-rsvps \
+curl -X POST https://4ektcpsj01.execute-api.us-east-1.amazonaws.com/api/event-rsvps \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "ea49a5f8-e27c-47b0-8237-6f6f380a048c",
@@ -175,3 +175,87 @@ curl -X DELETE https://u7euqonjl8.execute-api.us-east-1.amazonaws.com/api/event-
   -H "Content-Type: application/json"
 
 ```
+
+# DynamoDB Endpoints
+
+## Registration Fields
+1. Create Registration Fields
+```bash
+curl -X POST https://ljd19o7833.execute-api.us-east-1.amazonaws.com/api/registration-fields/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+-H "Content-Type: application/json" \
+-d '{
+  "updated_by": "Jim Bobby",
+  "fields": [
+    {
+      "name": "attendeeEmail",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "placeholder": "email@example.com",
+      "description": "We need your email to contact you if the event is cancelled"
+    },
+    {
+      "name": "tshirtSize",
+      "type": "select",
+      "required": true,
+      "default": "medium",
+      "placeholder": "",
+      "description": "We need your tshirt size to order your shirt",
+      "options": ["medium", "large", "XL"]
+    }
+  ]
+}'
+
+```
+
+2. Get Registration Fields
+```bash
+curl -X GET https://ljd19o7833.execute-api.us-east-1.amazonaws.com/api/registration-fields/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+-H "Content-Type: application/json"
+```
+
+3. Update Registration Fields
+```bash
+curl -X PUT https://ljd19o7833.execute-api.us-east-1.amazonaws.com/api/registration-fields/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+-H "Content-Type: application/json" \
+-d '{
+  "updated_by": "Bobby Thyme",
+  "fields": [
+    {
+      "name": "attendeeEmail",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "placeholder": "email@example.com",
+      "description": "We need your updated email in case of any changes"
+    },
+    {
+      "name": "tshirtSize",
+      "type": "select",
+      "required": true,
+      "default": "large",
+      "placeholder": "",
+      "description": "We need your updated tshirt size for the event",
+      "options": ["small", "medium", "large", "XL"]
+    },
+    {
+      "name": "sessionPreference",
+      "type": "select",
+      "required": true,
+      "default": "morning",
+      "placeholder": "",
+      "description": "Please choose your preferred session",
+      "options": ["morning", "evening"]
+    }
+  ]
+}'
+```
+
+4. Delete Registration Fields
+```bash
+curl -X DELETE https://ljd19o7833.execute-api.us-east-1.amazonaws.com/api/registration-fields/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+-H "Content-Type: application/json"
+```
+
+
+## Registrations
