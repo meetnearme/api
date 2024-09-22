@@ -510,6 +510,7 @@ func TestSearchMarqoEvents(t *testing.T) {
 	}
 }
 
+// TODO: check for invalid / required fields, validate 404 response for non existent document
 func TestGetMarqoEventByID(t *testing.T) {
 	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")

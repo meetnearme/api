@@ -193,6 +193,7 @@
   width: 100%;
   z-index: 999;
   height: auto;
+  /* TODO: FIX THIS! use tailwind variables */
   background: white;
   padding: 20px;
 }
