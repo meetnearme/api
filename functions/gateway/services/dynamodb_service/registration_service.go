@@ -238,31 +238,34 @@ func (s *RegistrationService) DeleteRegistration(ctx context.Context, dynamodbCl
 }
 
 type MockRegistrationService struct {
-	InsertRegistrationFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registration internal_types.RegistrationInsert) (*internal_types.Registration, error)
-	GetRegistrationByPkFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.Registration, error)
-	GetRegistrationsByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) (*internal_types.Registration, error)
-	GetRegistrationsByUserIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string) (*internal_types.Registration, error)
-	UpdateRegistrationFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string, registration internal_types.RegistrationUpdate) (*internal_types.Registration, error)
-	DeleteRegistrationFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string)  error
+    InsertRegistrationFunc          func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registration internal_types.RegistrationInsert, eventId, userId string) (*internal_types.Registration, error)
+    GetRegistrationByPkFunc         func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.Registration, error)
+    GetRegistrationsByEventIDFunc   func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.Registration, error)
+    GetRegistrationsByUserIDFunc    func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string) ([]internal_types.Registration, error)
+    UpdateRegistrationFunc          func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string, registration internal_types.RegistrationUpdate) (*internal_types.Registration, error)
+    DeleteRegistrationFunc          func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error
 }
 
-func (m *MockRegistrationService) InsertRegistration(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registration internal_types.RegistrationInsert, eventId string) (*internal_types.Registration, error) {
-	return m.InsertRegistrationFunc(ctx, dynamodbClient, registration)
+func (m *MockRegistrationService) InsertRegistration(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registration internal_types.RegistrationInsert, eventId, userId string) (*internal_types.Registration, error) {
+    return m.InsertRegistrationFunc(ctx, dynamodbClient, registration, eventId, userId)
 }
 
-func (m *MockRegistrationService) GetRegistrationByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.Registration, error) {
-	return m.GetRegistrationByPkFunc(ctx, dynamodbClient, eventId, userId)
+func (m *MockRegistrationService) GetRegistrationByPk(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.Registration, error) {
+    return m.GetRegistrationByPkFunc(ctx, dynamodbClient, eventId, userId)
 }
 
-func (m *MockRegistrationService) GetRegistrationsByUserID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string) (*internal_types.Registration, error) {
-	return m.GetRegistrationsByUserIDFunc(ctx, dynamodbClient, userId)
+func (m *MockRegistrationService) GetRegistrationsByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.Registration, error) {
+    return m.GetRegistrationsByEventIDFunc(ctx, dynamodbClient, eventId)
+}
+
+func (m *MockRegistrationService) GetRegistrationsByUserID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string) ([]internal_types.Registration, error) {
+    return m.GetRegistrationsByUserIDFunc(ctx, dynamodbClient, userId)
 }
 
 func (m *MockRegistrationService) UpdateRegistration(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string, registration internal_types.RegistrationUpdate) (*internal_types.Registration, error) {
-	return m.UpdateRegistrationFunc(ctx, dynamodbClient, eventId, userId, registration)
+    return m.UpdateRegistrationFunc(ctx, dynamodbClient, eventId, userId, registration)
 }
 
-func (m *MockRegistrationService) DeleteRegistration(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string)  error {
-	return m.DeleteRegistrationFunc(ctx, dynamodbClient, eventId, userId)
+func (m *MockRegistrationService) DeleteRegistration(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error {
+    return m.DeleteRegistrationFunc(ctx, dynamodbClient, eventId, userId)
 }
-
