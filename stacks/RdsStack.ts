@@ -5,8 +5,10 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 export function RdsStack({ stack, app }: StackContext) {
   const DATABASE = 'MeetnearmeRdsDB';
 
-  // Generate a unique identifier based on the stack name and stage
-  const clusterIdentifier = `${app.stage}-meetnearme-go-fullstack-cluster`
+  const clusterIdentifier =
+    app.stage == 'prod'
+      ? `prod-meetnearme-go-fullstack-cluster`
+      : `dev-meetnearme-go-fullstack-cluster`;
 
   // Create RDS cluster
   const cluster = new RDS(stack, 'Cluster', {
