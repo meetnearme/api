@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
 )
 
 func TestAddEventSource(t *testing.T) {
@@ -14,7 +15,7 @@ func TestAddEventSource(t *testing.T) {
 	component := AddEventSource()
 
 	// Create a layout template
-	layoutTemplate := Layout(helpers.SitePages["add-event-source"], helpers.UserInfo{}, component)
+	layoutTemplate := Layout(helpers.SitePages["add-event-source"], helpers.UserInfo{}, component, services.Event{})
 
 	// Render the template
 	var buf bytes.Buffer
