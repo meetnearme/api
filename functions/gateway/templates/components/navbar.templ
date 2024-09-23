@@ -250,7 +250,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 					},
 					validateOneField(field) {
 						if (field?.required) {
-							if (this?.formData?.[field?.name] === undefined) {
+							if ((field?.type === 'checkbox' && this?.formData?.[field?.name] === undefined ) || !this?.formData?.[field?.name] ) {
 								this.errors[field?.name] = `Response to '${field?.description}' is required`
 							} else {
 								delete this.errors[field?.name]
