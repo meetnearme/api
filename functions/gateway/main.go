@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/awslabs/aws-lambda-go-api-proxy/gorillamux"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
@@ -25,9 +26,10 @@ import (
 type AuthType string
 
 const (
-	None    AuthType = "none"
-	Check   AuthType = "check"
-	Require AuthType = "require"
+	None               AuthType = "none"
+	Check              AuthType = "check"
+	Require            AuthType = "require"
+	RequireServiceUser AuthType = "require_service_user"
 )
 
 type Route struct {
@@ -60,13 +62,13 @@ func init() {
 		// API routes
 
 		// == START == need to expose these via permanent key for headless clients
-		{"/api/event", "POST", handlers.PostEventHandler, None},
-		{"/api/events", "POST", handlers.PostBatchEventsHandler, None},
-		{"/api/events", "GET", handlers.SearchEventsHandler, None},
-		{"/api/events", "PATCH", handlers.BulkUpdateEventsHandler, None},
-		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
-		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PATCH", handlers.UpdateOneEventHandler, None},
-		{"/api/locations", "GET", handlers.SearchLocationsHandler, None},
+		{"/api/event", "POST", handlers.PostEventHandler, RequireServiceUser},
+		{"/api/events", "POST", handlers.PostBatchEventsHandler, RequireServiceUser},
+		{"/api/events", "GET", handlers.SearchEventsHandler, RequireServiceUser},
+		{"/api/events", "PATCH", handlers.BulkUpdateEventsHandler, RequireServiceUser},
+		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, RequireServiceUser},
+		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PATCH", handlers.UpdateOneEventHandler, RequireServiceUser},
+		{"/api/locations", "GET", handlers.SearchLocationsHandler, RequireServiceUser},
 		//  == END == need to expose these via permanent key for headless clients
 
 		{"/api/auth/users/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
@@ -81,27 +83,26 @@ func init() {
 
 		// TODO: assign proper require, check authorizations
 		// User routes
-		{"/api/users", "GET", rds_handlers.GetUsersHandler, None},                // Get all users
-		{"/api/users/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetUserHandler, None}, // Get a specific user
-		{"/api/users", "POST", rds_handlers.CreateUserHandler, None},           // Create a new user
-		{"/api/users/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateUserHandler, None}, // Update an existing user
+		{"/api/users", "GET", rds_handlers.GetUsersHandler, None},                         // Get all users
+		{"/api/users/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetUserHandler, None},       // Get a specific user
+		{"/api/users", "POST", rds_handlers.CreateUserHandler, None},                      // Create a new user
+		{"/api/users/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateUserHandler, None},    // Update an existing user
 		{"/api/users/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteUserHandler, None}, // Delete a user
-
 
 		// // Purchasables routes
 		{"/api/purchasables/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetPurchasablesHandler, None}, // Get all purchasables
-		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetPurchasableHandler, None}, // Get a specific purchasable
-		{"/api/purchasables", "POST", rds_handlers.CreatePurchasableHandler, None}, // Create a new purchasable
-		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdatePurchasableHandler, None}, // Update an existing purchasable
-		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeletePurchasableHandler, None}, // Delete a purchasable
+		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetPurchasableHandler, None},            // Get a specific purchasable
+		{"/api/purchasables", "POST", rds_handlers.CreatePurchasableHandler, None},                           // Create a new purchasable
+		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdatePurchasableHandler, None},         // Update an existing purchasable
+		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeletePurchasableHandler, None},      // Delete a purchasable
 
 		// // Event RSVPs routes
 		{"/api/event-rsvps/event/{event_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpsByEventIDHandler, None}, // Get all event RSVPs
-		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpHandler, None}, // Get a specific event RSVP
-		{"/api/event-rsvps/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpsByUserIDHandler, None}, // Get a specific event RSVP
-		{"/api/event-rsvps", "POST", rds_handlers.CreateEventRsvpHandler, None}, // Create a new event RSVP
-		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateEventRsvpHandler, None}, // Update an existing event RSVP
-		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteEventRsvpHandler, None}, // Delete an event RSVP
+		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpHandler, None},                       // Get a specific event RSVP
+		{"/api/event-rsvps/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpsByUserIDHandler, None},    // Get a specific event RSVP
+		{"/api/event-rsvps", "POST", rds_handlers.CreateEventRsvpHandler, None},                                      // Create a new event RSVP
+		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateEventRsvpHandler, None},                    // Update an existing event RSVP
+		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteEventRsvpHandler, None},                 // Delete an event RSVP
 	}
 }
 
@@ -256,6 +257,59 @@ func (app *App) addRoute(route Route) {
 				ctx = context.WithValue(ctx, "roleClaims", roleClaims)
 			}
 			r = r.WithContext(ctx)
+			route.Handler(w, r).ServeHTTP(w, r)
+		}
+	case RequireServiceUser:
+		handler = func(w http.ResponseWriter, r *http.Request) {
+			accessTokenCookie, err = r.Cookie("access_token")
+			if err != nil {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			tokenString := accessTokenCookie.Value
+
+			jwks, err := services.FetchJWKS()
+			if err != nil {
+				http.Error(w, "Error fetching JWKS", http.StatusInternalServerError)
+				return
+			}
+
+			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+				}
+
+				kid, ok := token.Header["kid"].(string)
+				if !ok {
+					return nil, fmt.Errorf("kid not found in token header")
+				}
+
+				return services.GetPublicKey(jwks, kid)
+			})
+
+			if err != nil || !token.Valid {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			// Extract claims
+			if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+				// Extract roles, metadata, and user information
+				userID := claims["sub"]
+
+				log.Printf("Claims: %v", claims)
+				log.Printf("User ID: %v", userID)
+
+				// Add extracted information to the request context
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, "userID", userID)
+				r = r.WithContext(ctx)
+			} else {
+				http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+				return
+			}
+
 			route.Handler(w, r).ServeHTTP(w, r)
 		}
 	default:

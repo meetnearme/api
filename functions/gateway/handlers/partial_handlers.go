@@ -101,7 +101,6 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		ownerIds = []string{subdomainValue}
 	}
 
-
 	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
@@ -544,17 +543,17 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 	// Flatten and split by "|", then add to the map to remove duplicates
 	for key, values := range categories {
-    if strings.HasSuffix(key, "category") || strings.HasSuffix(key, "subCategory") {
-        for _, value := range values {
-            // Split by comma and trim spaces, in case there are multiple values
-            for _, item := range strings.Split(value, ",") {
-                trimmedItem := strings.TrimSpace(item)
-                if trimmedItem != "" {
-										flattenedCategories =	append(flattenedCategories, trimmedItem)
-                }
-            }
-        }
-    }
+		if strings.HasSuffix(key, "category") || strings.HasSuffix(key, "subCategory") {
+			for _, value := range values {
+				// Split by comma and trim spaces, in case there are multiple values
+				for _, item := range strings.Split(value, ",") {
+					trimmedItem := strings.TrimSpace(item)
+					if trimmedItem != "" {
+						flattenedCategories = append(flattenedCategories, trimmedItem)
+					}
+				}
+			}
+		}
 	}
 
 	flattenedCategoriesString := strings.Join(flattenedCategories, "|")
