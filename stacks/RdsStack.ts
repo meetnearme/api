@@ -8,8 +8,13 @@ export function RdsStack({ stack, app }: StackContext) {
   // Generate a unique identifier based on the stack name and stage
   const uniqueId = `${app.name}-${app.stage}-${stack.stackName}`.toLowerCase();
 
-  // Ensure the identifier is not longer than the 63 character AWS clusteridentifier limit
-  const clusterIdentifier = `${uniqueId}-cluster`.slice(0, 63);
+  // Ensure the identifier is not longer than 63 characters, starts with a letter, and doesn't end with a hyphen
+  const clusterIdentifier = `rds-${uniqueId}`
+    .replace(/[^a-z0-9-]/g, '-') // Replace any non-alphanumeric characters with hyphens
+    .replace(/^[^a-z]/, 'rds') // Ensure it starts with a letter
+    .replace(/-+/g, '-') // Replace multiple consecutive hyphens with a single hyphen
+    .replace(/-$/, '') // Remove trailing hyphen if present
+    .slice(0, 63);
 
   // Create RDS cluster
   const cluster = new RDS(stack, 'Cluster', {
@@ -36,7 +41,9 @@ export function RdsStack({ stack, app }: StackContext) {
     timeout: 200,
     copyFiles: [
       { from: 'services/migrations_sql_test/001_create_event_rsvps_table.sql' },
-      { from: 'services/migrations_sql_test/003_create_purchasables_table.sql' },
+      {
+        from: 'services/migrations_sql_test/003_create_purchasables_table.sql',
+      },
       { from: 'services/migrations_sql_test/005_create_users_table.sql' },
     ],
   });
