@@ -55,11 +55,11 @@ templ EventDetailsPage(event services.Event) {
 			<div class="bottom-drawer">
 				<div class="container mx-auto">
 					if event.HasPurchasable {
-						<button @click="handleCtaClick('buy')" class="btn btn-block btn-primary">BUY TICKETS</button>
+						<button @click="handleCtaClick('cart')" class="btn btn-block btn-primary">BUY TICKETS</button>
 					} else if event.HasRegistrationFields {
-						<button @click="handleCtaClick('register')" class="btn btn-block btn-primary">REGISTER NOW</button>
+						<button @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
 					} else {
-						<button @click="handleCtaClick('rsvp')" class="btn btn-block btn-primary">RSVP</button>
+						<button @click="handleCtaClick()" class="btn btn-block btn-primary">RSVP</button>
 					}
 					<br/>
 					<br/>
@@ -78,8 +78,15 @@ templ EventDetailsPage(event services.Event) {
 				formData: {
 
 				},
-				handleCtaClick() {
-					document.getElementById('main-drawer').click()
+				handleCtaClick(tab) {
+					if (tab === undefined) {
+						// TODO: handle for calling RSVP endpoint here
+						return
+					}
+					// select the subnav item
+					document.getElementById(`flyout-tab-${tab}`).click();
+					// toggle the main drawer
+					document.getElementById(`main-drawer`).click();
 				}
 			}
 		}
