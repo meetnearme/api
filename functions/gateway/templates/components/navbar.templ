@@ -1,7 +1,9 @@
 package components
 
 import (
+	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
 	"os"
 )
 
@@ -25,8 +27,9 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 
 templ NavListItems(userInfo helpers.UserInfo) {
 	<li><a href="/about" class="px-5 py-3">About</a></li>
+	<li><a href="/auth/login" class="px-5 py-3">Login</a></li>
 	if userInfo.Email == "" {
-		<li><a href="/auth/login" class="btn btn-primary">Sign Up</a></li>
+		<li><a href="/auth/login" class="btn btn-primary update-text-if-cookie">Signup</a></li>
 	}
 	// Change back to "Add an Event" when we release Seshu
 	// if userInfo.Email != "" {
@@ -36,7 +39,7 @@ templ NavListItems(userInfo helpers.UserInfo) {
 	// }
 }
 
-templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
+templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Event) {
 	<div class="drawer drawer-end overflow-hidden">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content mt-24 flex flex-col">
@@ -49,18 +52,13 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 							<img class="brand-type" style="width: 8.2rem" alt="Meet Near Me" class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
 						</a>
 					</div>
-					<div class="flex-none lg:hidden" onclick="document.getElementById('flyout-tab-main').click();">
-						<label for="main-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
-							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-						</label>
-					</div>
-					<div class="navbar-end hidden lg:flex">
+					<div class="navbar-end flex">
 						<div class="items-center lg:flex">
-							<ul class="menu menu-horizontal px-1">
+							<ul class="menu menu-horizontal px-1 hidden lg:inline-flex">
 								@NavListItems(userInfo)
 							</ul>
 							if userInfo.Email != "" {
-								<div class="dropdown dropdown-end px-3">
+								<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 										<div class="border-2 w-24 rounded-full">
 											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
@@ -71,6 +69,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 									</div>
 								</div>
 							}
+							<div class="flex-none" onclick="document.getElementById('flyout-tab-main').click();">
+								<label for="main-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+								</label>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -84,7 +87,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click();"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
 				</dv>
 				if userInfo.Email != "" {
-					<div class="p-2 m-1 card bg-base-200">
+					<div class="p-2 m-1 card bg-base-200 lg:hidden">
 						<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 							<div class="border-2 w-24 rounded-full">
 								<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
@@ -129,6 +132,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 							>
 								<br/>
 								<br/>
+								// @click is a global shared from home_details.templ
 								<button
 									type="submit"
 									class="btn btn-primary w-full self-start sticky top-0 z-[10]"
@@ -144,10 +148,123 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 					}
 					if helpers.ArrContains(subnavTabs, helpers.SubnavItems[helpers.NvCart]) {
 						<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
-						<div role="tabpanel" class="tab-content p-2">Idea here is that the cart is only sometimes visible</div>
+						<div x-data="getCartRegistrationState()" role="tabpanel" class="tab-content p-2">
+							<template x-if="fields?.length">
+								<h3 class="text-lg my-3">Event Registration</h3>
+							</template>
+							<template x-for="(field, index) in fields" :key="index">
+								<label class="form-control w-full max-w-xs">
+									<div class="label">
+										<span class="label-text" x-text="field.description"></span>
+									</div>
+									<template x-if="field.type == 'text'">
+										<input
+											type="text"
+											x-model="formData[field.name]"
+											x-model.fill="field.default"
+											x-on:change="validateOneField(field)"
+											:name="field.name"
+											:value="field.name"
+											:placeholder="field.placeholder"
+											:required="field.required"
+											class="input input-bordered w-full border-opacity-100"
+										/>
+									</template>
+									<template x-if="field.type == 'checkbox'">
+										<input
+											type="checkbox"
+											class="z-[9] checkbox checkbox-xs checkbox-tertiary border-opacity-100 mr-5 my-1"
+											x-on:change="validateOneField(field)"
+											x-model="formData[field.name]"
+											x-model.fill="field.default"
+											:name="field.name"
+											:value="field.name"
+											:placeholder="field.placeholder"
+											:required="field.required"
+											class="input input-bordered w-full"
+										/>
+									</template>
+									<template x-if="field.type == 'select'">
+										<select
+											x-model="formData[field.name]"
+											x-model.fill="field.default"
+											x-on:change="validateOneField(field)"
+											:name="field.name"
+											:value="field.name"
+											:type="field.type"
+											:placeholder="field.placeholder"
+											:required="field.required"
+											class="select w-full max-w-xs select-bordered border-opacity-100"
+										>
+											<template x-if="field.placeholder">
+												<option disabled selected x-text="field.placeholder"></option>
+											</template>
+											<template x-for="(option, idx) in field.options" :key="idx">
+												<option x-text="option"></option>
+											</template>
+										</select>
+									</template>
+								</label>
+							</template>
+							<template x-if="errors">
+								<template x-for="(err, _id) in errors" :key="_id">
+									<div class="alert alert-error mt-2">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+										</svg>
+										<span x-text="err"></span>
+									</div>
+								</template>
+							</template>
+							<br/>
+							<br/>
+							<button class="btn btn-primary w-full" @click="validateRegistration()">Checkout</button>
+						</div>
 					}
 				</div>
 			</div>
 		</div>
 	</div>
+	<script id="registration-purchasable" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasable={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id }>
+			function getCartRegistrationState() {
+				return {
+					fields: null,
+					formData: {},
+					errors: {},
+					eventId: document.querySelector('#registration-purchasable').getAttribute('data-event-id'),
+					hasRegistration: document.querySelector('#registration-purchasable').getAttribute('data-has-registration') === "true",
+					hasPurchasable: document.querySelector('#registration-purchasable').getAttribute('data-has-purchasable') === "true",
+					async init() {
+							if (this.hasRegistration) {
+								this.options = await fetch(`/api/registration-fields/${this.eventId}`).then(res => {
+									return res.json()
+								}).then(json => {
+
+									if (json?.fields?.[1]?.default) {
+										json.fields[1].default = 'XL'
+									}
+
+									this.fields = json?.fields
+								});
+							}
+					},
+					validateOneField(field) {
+						if (field?.required) {
+							if (this?.formData?.[field?.name] === undefined) {
+								this.errors[field?.name] = `Response to '${field?.description}' is required`
+							} else {
+								delete this.errors[field?.name]
+							}
+						}
+					},
+					validateRegistration() {
+						this?.fields?.forEach(field => {
+							if (field?.required) {
+								this.validateOneField(field)
+							}
+						})
+					}
+				}
+			}
+	</script>
 }

@@ -2,12 +2,13 @@ package pages
 
 import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"os"
 	"time"
 )
 
-templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component) {
+templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event services.Event) {
 	<!DOCTYPE html>
 	<html data-theme="cyberpunk">
 		<head>
@@ -24,7 +25,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 		</head>
 		<body>
-			@components.Navbar(userInfo, sitePage.SubnavItems) {
+			@components.Navbar(userInfo, sitePage.SubnavItems, event) {
 				<div class="container mx-auto">
 					<div id="content" class="p-4 space-y-4">
 						@pageContent
