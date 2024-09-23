@@ -79,7 +79,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-			<div class="menu p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
+			<div class="menu border-2 border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
 				<dv class="block justify-end pb-5">
 					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click();"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
 				</dv>
@@ -121,8 +121,25 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string) {
 							aria-label="Filters"
 							checked="checked"
 						/>
-						<div role="tabpanel" class="tab-content">
-							@NestedCheckboxList(false)
+						<div x-data="getHomeState()" role="tabpanel" class="tab-content">
+							<form
+								id="category-search-form"
+								novalidate
+								@submit.prevent=""
+							>
+								<br/>
+								<br/>
+								<button
+									type="submit"
+									class="btn btn-primary w-full self-start sticky top-0 z-[10]"
+									@click="sendCategoriesToQueryParams(); document.getElementById('main-drawer').click();"
+								>
+									Apply Filters
+								</button>
+								<br/>
+								<br/>
+								@NestedCheckboxList(false)
+							</form>
 						</div>
 					}
 					if helpers.ArrContains(subnavTabs, helpers.SubnavItems[helpers.NvCart]) {
