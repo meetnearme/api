@@ -17,7 +17,6 @@ import (
 
 var validate *validator.Validate = validator.New()
 
-
 type MarqoHandler struct {
     MarqoService services.MarqoServiceInterface
 }
@@ -44,7 +43,15 @@ type rawEvent struct {
     StartingPrice   *int32    `json:"startingPrice,omitempty"`
     Currency        *string     `json:"currency,omitempty"`
     PayeeId         *string     `json:"payeeId,omitempty"`
+	HasRegistrationFields *bool `json:"hasRegistrationFields,omitempty"`
+	HasPurchasable *bool  `json:"hasPurchasable,omitempty"`
+	ImageUrl      *string `json:"imageUrl,omitempty"`
+	Timezone      *string `json:"timezone,omitempty"`
+	CreatedAt     *int64 `json:"createdAt,omitempty"`
+	UpdatedAt     *int64 `json:"updatedAt,omitempty"`
+	UpdatedBy     *string `json:"updatedBy,omitempty"`
 }
+
 func ConvertRawEventToEvent(raw rawEvent, requireId bool) (services.Event, error) {
     event := services.Event{
         Id:          raw.Id,
@@ -55,6 +62,40 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (services.Event, error
         Lat:         raw.Lat,
         Long:        raw.Long,
     }
+
+    // Safely assign pointer values
+    if raw.StartingPrice != nil {
+        event.StartingPrice = *raw.StartingPrice
+    }
+    if raw.Currency != nil {
+        event.Currency = *raw.Currency
+    }
+    if raw.PayeeId != nil {
+        event.PayeeId = *raw.PayeeId
+    }
+    if raw.HasRegistrationFields != nil {
+        event.HasRegistrationFields = *raw.HasRegistrationFields
+    }
+    if raw.HasPurchasable != nil {
+        event.HasPurchasable = *raw.HasPurchasable
+    }
+    if raw.ImageUrl != nil {
+        event.ImageUrl = *raw.ImageUrl
+    }
+    if raw.Timezone != nil {
+        event.Timezone = *raw.Timezone
+    }
+    if raw.CreatedAt != nil {
+        event.CreatedAt = *raw.CreatedAt
+    }
+    if raw.UpdatedAt != nil {
+        event.UpdatedAt = *raw.UpdatedAt
+    }
+    if raw.UpdatedBy != nil {
+        event.UpdatedBy = *raw.UpdatedBy
+    }
+
+
     if raw.StartTime == nil {
         return services.Event{}, fmt.Errorf("startTime is required")
     }
@@ -68,8 +109,6 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (services.Event, error
         endTime, err := helpers.UtcOrUnixToUnix64(raw.EndTime)
         if err != nil || endTime == 0 {
             return services.Event{}, fmt.Errorf("invalid EndTime: %w", err)
-        } else {
-            event.EndTime = nil
         }
     }
     if raw.PayeeId != nil || raw.StartingPrice != nil || raw.Currency != nil {
@@ -79,13 +118,13 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (services.Event, error
         }
 
         if raw.PayeeId != nil {
-            event.PayeeId = raw.PayeeId
+            event.PayeeId = *raw.PayeeId
         }
         if raw.Currency != nil {
-            event.Currency = raw.Currency
+            event.Currency = *raw.Currency
         }
         if raw.StartingPrice != nil {
-            event.StartingPrice = raw.StartingPrice
+            event.StartingPrice = *raw.StartingPrice
         }
     }
     return event, nil
@@ -184,6 +223,7 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
         if len(rawEvent.EventOwners) == 0 {
             return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d is missing eventOwners", i)
         }
+
         event, err := ConvertRawEventToEvent(rawEvent, requireIds)
         if err != nil {
             return nil, http.StatusBadRequest, fmt.Errorf("invalid event at index %d: %s", i, err.Error())

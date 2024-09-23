@@ -22,20 +22,20 @@ type Event struct {
 	Name        	string `json:"name" validate:"required"`
 	Description 	string `json:"description" validate:"required"`
 	StartTime   	int64 `json:"startTime" validate:"required"`
-	EndTime     	*int64 `json:"endTime,omitempty"`
+	EndTime     	int64 `json:"endTime,omitempty"`
 	Address     	string `json:"address" validate:"required"`
 	Lat    				float64 `json:"lat" validate:"required"`
 	Long    			float64 `json:"long" validate:"required"`
-	StartingPrice *int32 `json:"startingPrice,omitempty"`
-	Currency 			*string `json:"currency,omitempty"`
-	PayeeId  			*string `json:"payeeId,omitempty"`
-	HasRegistrationFields *bool `json:"hasRegistrationFields,omitempty"`
-	HasPurchasable *bool  `json:"hasPurchasable,omitempty"`
-	ImageUrl      *string `json:"imageUrl,omitempty"`
-	Timezone      *string `json:"timezone,omitempty"`
-	CreatedAt     *int64 `json:"createdAt,omitempty"`
-	UpdatedAt     *int64 `json:"updatedAt,omitempty"`
-	UpdatedBy     *string `json:"updatedBy,omitempty"`
+	StartingPrice int32 `json:"startingPrice,omitempty"`
+	Currency 			string `json:"currency,omitempty"`
+	PayeeId  			string `json:"payeeId,omitempty"`
+	HasRegistrationFields bool `json:"hasRegistrationFields,omitempty"`
+	HasPurchasable bool  `json:"hasPurchasable,omitempty"`
+	ImageUrl      string `json:"imageUrl,omitempty"`
+	Timezone      string `json:"timezone,omitempty"`
+	CreatedAt     int64 `json:"createdAt,omitempty"`
+	UpdatedAt     int64 `json:"updatedAt,omitempty"`
+	UpdatedBy     string `json:"updatedBy,omitempty"`
 }
 
 type EventSearchResponse struct {
@@ -322,38 +322,38 @@ func ConvertEventsToDocuments(events []Event, hasIds bool) (documents []interfac
 		}
 
 		// Add optional fields only if they are not nil
-		if event.EndTime != nil {
-			document["endTime"] = int64(*event.EndTime)
+		if event.EndTime != 0 {
+			document["endTime"] = int64(event.EndTime)
 		}
-		if event.StartingPrice != nil {
-			document["startingPrice"] = int32(*event.StartingPrice)
+		if event.StartingPrice != 0 {
+			document["startingPrice"] = int32(event.StartingPrice)
 		}
-		if event.Currency != nil {
-			document["currency"] = string(*event.Currency)
+		if event.Currency != "" {
+			document["currency"] = string(event.Currency)
 		}
-		if event.PayeeId != nil {
-			document["payeeId"] = string(*event.PayeeId)
+		if event.PayeeId != "" {
+			document["payeeId"] = string(event.PayeeId)
 		}
-		if event.HasRegistrationFields != nil {
-			document["hasRegistrationFields"] = bool(*event.HasRegistrationFields)
+		if event.HasRegistrationFields != false {
+			document["hasRegistrationFields"] = bool(event.HasRegistrationFields)
 		}
-		if event.HasPurchasable != nil {
-			document["hasPurchasable"] = bool(*event.HasPurchasable)
+		if event.HasPurchasable != false {
+			document["hasPurchasable"] = bool(event.HasPurchasable)
 		}
-		if event.ImageUrl != nil {
-			document["imageUrl"] = string(*event.ImageUrl)
+		if event.ImageUrl != "" {
+			document["imageUrl"] = string(event.ImageUrl)
 		}
-		if event.Timezone != nil {
-			document["timezone"] = string(*event.Timezone)
+		if event.Timezone != "" {
+			document["timezone"] = string(event.Timezone)
 		}
-		if event.CreatedAt != nil {
-			document["createdAt"] = int64(*event.CreatedAt)
+		if event.CreatedAt != 0 {
+			document["createdAt"] = int64(event.CreatedAt)
 		}
-		if event.UpdatedAt != nil {
-			document["updatedAt"] = int64(*event.UpdatedAt)
+		if event.UpdatedAt != 0 {
+			document["updatedAt"] = int64(event.UpdatedAt)
 		}
-		if event.UpdatedBy != nil {
-			document["updatedBy"] = string(*event.UpdatedBy)
+		if event.UpdatedBy != "" {
+			document["updatedBy"] = string(event.UpdatedBy)
 		}
 
 		documents = append(documents, document)
@@ -508,18 +508,78 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *Event) {
 		Address:     getValue[string](doc, "address"),
 		Lat:         getValue[float64](doc, "lat"),
 		Long:        getValue[float64](doc, "long"),
-		StartingPrice: getValue[*int32](doc, "startingPrice"),
-		Currency:    getValue[*string](doc, "currency"),
-		PayeeId:     getValue[*string](doc, "payeeId"),
-		HasRegistrationFields: getValue[*bool](doc, "hasRegistrationFields"),
 	}
 
-	// NOTE: seems to be a bug in Go that instantiates these `int64` values as
-	// `float64` when they are parsed / marshalled
-	if getValue[*int64](doc, "endTime") != nil {
-		endTimeFloat := getValue[float64](doc, "endTime")
-		endTimeInt := int64(endTimeFloat)
-		event.EndTime = &endTimeInt
+  // Handle optional fields
+	optionalFields := []struct {
+		key      string
+		setField func()
+		}{
+			{"endTime", func() {
+				if v := getValue[*float64](doc, "endTime"); v != nil {
+						endTime := int64(*v)
+						event.EndTime = endTime
+				}
+		}},
+		{"startingPrice", func() {
+				if v := getValue[float64](doc, "startingPrice"); v != 0 {
+						startingPrice := int32(v)
+						event.StartingPrice = startingPrice
+				}
+		}},
+		{"currency", func() {
+			if v := getValue[string](doc, "currency"); v != "" {
+					event.Currency = v
+			}
+		}},
+		{"payeeId", func() {
+				if v := getValue[string](doc, "payeeId"); v != "" {
+						event.PayeeId = v
+				}
+		}},
+		{"hasRegistrationFields", func() {
+				if v := getValue[bool](doc, "hasRegistrationFields"); v != false {
+						event.HasRegistrationFields = v
+				}
+		}},
+		{"hasPurchasable", func() {
+				if v := getValue[bool](doc, "hasPurchasable"); v != false {
+						event.HasPurchasable = v
+				}
+		}},
+		{"imageUrl", func() {
+				if v := getValue[string](doc, "imageUrl"); v != "" {
+						event.ImageUrl = v
+				}
+		}},
+		{"timezone", func() {
+				if v := getValue[string](doc, "timezone"); v != "" {
+						event.Timezone = v
+				}
+		}},
+		{"createdAt", func() {
+				if v := getValue[float64](doc, "createdAt"); v != 0 {
+						createdAt := int64(v)
+						event.CreatedAt = createdAt
+				}
+		}},
+		{"updatedAt", func() {
+				if v := getValue[float64](doc, "updatedAt"); v != 0 {
+						updatedAt := int64(v)
+						event.UpdatedAt = updatedAt
+				}
+		}},
+		{"updatedBy", func() {
+				if v := getValue[string](doc, "updatedBy"); v != "" {
+						event.UpdatedBy = v
+				}
+		}},
+	}
+
+	for _, field := range optionalFields {
+		if value, ok := doc[field.key]; ok && value != nil {
+			field.setField()
+		}
 	}
 
 	return event
@@ -537,16 +597,51 @@ func miToLong(mi float64, lat float64) float64 {
 
 func getValue[T string | *string | float64 | *float64 | int64 | *int64 | int32 | *int32 | bool | *bool](doc map[string]interface{}, key string) T {
 	if value, ok := doc[key]; ok && value != nil {
-		switch v := value.(type) {
-		case T:
-			return v
-		default:
-			log.Println(fmt.Errorf("key: %s, Unexpected Type: %T, Value: %v", key, value, value))
-			// Attempt type conversion
-			if converted, ok := value.(T); ok {
-				return converted
+			switch any((*new(T))).(type) {
+			case string:
+					if str, ok := value.(string); ok {
+							return any(str).(T)
+					}
+			case *string:
+					if str, ok := value.(string); ok {
+							return any(&str).(T)
+					}
+			case float64:
+					if f, ok := value.(float64); ok {
+							return any(f).(T)
+					}
+			case *float64:
+					if f, ok := value.(float64); ok {
+							return any(&f).(T)
+					}
+			case int64:
+					if i, ok := value.(float64); ok {
+							return any(int64(i)).(T)
+					}
+			case *int64:
+					if i, ok := value.(float64); ok {
+							i64 := int64(i)
+							return any(&i64).(T)
+					}
+			case int32:
+					if i, ok := value.(float64); ok {
+							return any(int32(i)).(T)
+					}
+			case *int32:
+					if i, ok := value.(float64); ok {
+							i32 := int32(i)
+							return any(&i32).(T)
+					}
+			case bool:
+					if b, ok := value.(bool); ok {
+							return any(b).(T)
+					}
+			case *bool:
+					if b, ok := value.(bool); ok {
+							return any(&b).(T)
+					}
 			}
-		}
+			log.Printf("key: %s, Unexpected Type: %T, Value: %v", key, value, value)
 	}
 	var zero T
 	return zero
