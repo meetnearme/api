@@ -36,9 +36,7 @@ export function RdsStack({ stack, app }: StackContext) {
     timeout: 200,
     copyFiles: [
       { from: 'services/migrations_sql_test/001_create_event_rsvps_table.sql' },
-      {
-        from: 'services/migrations_sql_test/003_create_purchasables_table.sql',
-      },
+      { from: 'services/migrations_sql_test/003_create_purchasables_table.sql' },
       { from: 'services/migrations_sql_test/005_create_users_table.sql' },
     ],
   });
