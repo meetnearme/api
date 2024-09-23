@@ -9,9 +9,11 @@ export function StorageStack({ stack }: StackContext) {
       responses: 'string', // this is an array, no type for arrays
       createdAt: 'number',
       updatedAt: 'number',
-      updatedBy: 'string',
     },
     primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
+    globalIndexes: {
+      "userIdGsi": { partitionKey: 'userId', sortKey: 'eventId' },
+    },
   });
 
   const registrationFieldsTable = new Table(stack, 'RegistrationFields', {
