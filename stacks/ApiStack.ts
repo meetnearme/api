@@ -8,7 +8,7 @@ import { SeshuFunction } from './SeshuFunction';
 import { RdsStack } from './RdsStack';
 
 export function ApiStack({ stack, app }: StackContext & { app: any }) {
-  const { seshuSessionsTable } = use(StorageStack);
+  const { seshuSessionsTable, registrationsTable, registrationFieldsTable } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
   const { seshuFn } = use(SeshuFunction);
   const { cluster } = use(RdsStack);
@@ -17,7 +17,7 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
     defaults: {
       function: {
         // Bind the eventsTable name to our API
-        bind: [ seshuSessionsTable, cluster],
+        bind: [ seshuSessionsTable, registrationsTable, registrationFieldsTable, cluster],
         environment: {
           ...envVars,
           // ----- BEGIN -----
