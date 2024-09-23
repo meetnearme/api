@@ -259,7 +259,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 							} else if ( !this?.formData?.[field?.name] ) {
 								this.errors[field?.name] = `Response to '${field?.description}' is required`
 							} else {
-
+								delete this.errors[field?.name]
 							}
 						}
 					},
