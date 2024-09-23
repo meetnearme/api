@@ -320,6 +320,7 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 				...(urlParams.get('radius')?.length > 1) ? { radius: urlParams.get('radius') } : {},
 				...(urlParams.get('lat')?.length > 1) ? { lat: urlParams.get('lat') } : {},
 				...(urlParams.get('lon')?.length > 1) ? { lon: urlParams.get('lon') } : {},
+				...(urlParams.get('categories')?.length > 1) ? { categories: urlParams.get('categories') } : {},
 			}
     }
 
@@ -383,10 +384,31 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 		function getHomeState() {
 				return {
 						init() {
-								this.updateParamsFromUrl();
-            		window.addEventListener('popstate', () => this.updateParamsFromUrl());
-								this.$watch('lat', value => this.pushToQueryParams('lat', value))
-								this.$watch('lon', value => this.pushToQueryParams('lon', value))
+								this.updateParamsFromUrl(false);
+
+								// enhance history.pushState with a listener and call it on every
+								// change of query params so that our URL can be the real source
+								// of truth while JS state simply follows that
+								((history) => {
+										var pushState = history.pushState;
+										history.pushState = function(state) {
+												if (typeof history.onpushstate == "function") {
+														history.onpushstate({state: state});
+												}
+												// whatever else you want to do
+												// maybe call onhashchange e.handler
+												return pushState.apply(history, arguments);
+										}
+								})(window.history);
+
+								window.onpopstate = history.onpushstate = (e) => {
+									this.updateParamsFromUrl();
+								};
+
+								// Also listen for popstate events for back/forward navigation
+								window.addEventListener('popstate', () => {
+										this.updateParamsFromUrl();
+								});
 						},
 						start_time: null,
 						end_time: null,
@@ -394,6 +416,7 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 						radius: null,
 						lat: null,
 						lon: null,
+						categories: null,
 						allParams: [
 							'start_time',
 							'end_time',
@@ -401,8 +424,9 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 							'radius',
 							'lat',
 							'lon',
+							'categories'
 						],
-						updateParamsFromUrl() {
+						updateParamsFromUrl (triggerSearch = true) {
 								const urlParams = new URLSearchParams(window.location.search);
 
 								this.start_time = urlParams.get('start_time') || '';
@@ -411,14 +435,13 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 								this.radius = urlParams.get('radius') || '';
 								this.lat = urlParams.get('lat') || '';
 								this.lon = urlParams.get('lon') || '';
-						},
-						handleLocationSelected(event) {
-								this.lat = event.detail.lat
-								this.lon = event.detail.lon
+								// these come from the sidebar
+								this.categories = urlParams.get('categories') || '';
 
-								document.getElementById('lat').value = event.detail.lat
-								document.getElementById('lon').value = event.detail.lon
-
+								// avoid re-triggering search for scenarios like initial page load
+								if (!triggerSearch) {
+									return;
+								}
 								// Submit the form
 								const form = document.getElementById('event-search-form')
 
@@ -427,7 +450,32 @@ templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, 
 								setTimeout(()=> {
 									form?.requestSubmit()
 								}, 250)
+						},
+						// TODO: on initial page load, the categories need to be searched by text
+						// label and selected for each in query string
+						sendCategoriesToQueryParams() {
+							const form = document.getElementById('category-search-form')
+							// Collect form values
+							const formData = new FormData(form);
+							const formValues = Object.fromEntries(formData.entries());
+							let formVals = []
+							Object.keys(formValues).forEach(itm => {
+								formVals.push(formValues?.[itm])
+							})
+							formVals = formVals.join(' | ')
 
+							// Get current URL and parse its query parameters
+							const url = new URL(window.location.href);
+							const params = new URLSearchParams(url.search);
+
+							this.pushToQueryParams('categories', formVals)
+						},
+						handleLocationSelected(event) {
+								this.lat = event.detail.lat
+								this.lon = event.detail.lon
+
+								this.pushToQueryParams('lat', event.detail.lat)
+								this.pushToQueryParams('lon', event.detail.lon)
 						},
 						pushToQueryParams(param, selected) {
 								// Get current URL and parse its query parameters
