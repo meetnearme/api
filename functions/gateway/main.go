@@ -63,13 +63,13 @@ func init() {
 		// API routes
 
 		// == START == need to expose these via permanent key for headless clients
-		{"/api/event", "POST", handlers.PostEventHandler, RequireServiceUser},
-		{"/api/events", "POST", handlers.PostBatchEventsHandler, RequireServiceUser},
-		{"/api/events", "GET", handlers.SearchEventsHandler, RequireServiceUser},
-		{"/api/events", "PATCH", handlers.BulkUpdateEventsHandler, RequireServiceUser},
-		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, RequireServiceUser},
-		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PATCH", handlers.UpdateOneEventHandler, RequireServiceUser},
-		{"/api/locations", "GET", handlers.SearchLocationsHandler, RequireServiceUser},
+		{"/api/event", "POST", handlers.PostEventHandler, None},
+		{"/api/events", "POST", handlers.PostBatchEventsHandler, None},
+		{"/api/events", "GET", handlers.SearchEventsHandler, None},
+		{"/api/events", "PATCH", handlers.BulkUpdateEventsHandler, None},
+		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
+		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PATCH", handlers.UpdateOneEventHandler, None},
+		{"/api/locations", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
 
 		{"/api/auth/users/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
