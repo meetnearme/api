@@ -18,6 +18,7 @@ import (
 
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/handlers/rds_handlers"
+	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -98,11 +99,25 @@ func init() {
 
 		// // Event RSVPs routes
 		{"/api/event-rsvps/event/{event_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpsByEventIDHandler, None}, // Get all event RSVPs
-		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpHandler, None},                       // Get a specific event RSVP
-		{"/api/event-rsvps/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpsByUserIDHandler, None},    // Get a specific event RSVP
-		{"/api/event-rsvps", "POST", rds_handlers.CreateEventRsvpHandler, None},                                      // Create a new event RSVP
-		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateEventRsvpHandler, None},                    // Update an existing event RSVP
-		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteEventRsvpHandler, None},                 // Delete an event RSVP
+		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpHandler, None}, // Get a specific event RSVP
+		{"/api/event-rsvps/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpsByUserIDHandler, None}, // Get a specific event RSVP
+		{"/api/event-rsvps", "POST", rds_handlers.CreateEventRsvpHandler, None}, // Create a new event RSVP
+		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateEventRsvpHandler, None}, // Update an existing event RSVP
+		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteEventRsvpHandler, None}, // Delete an event RSVP
+
+
+		// Registrations
+		// {"/api/registrations", "POST", dynamodb_handlers.CreateRegistration, None}, // Create a new event RSVP
+		// {"/api/registrations/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationByUserID, None}, // Get a specific event RSVP
+		// {"/api/registrations/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByEventIDHandler, None}, // Get all event RSVPs
+		// {"/api/registrations", "PUT", dynamodb_handlers.UpdateRegistration, None}, // Update an existing event RSVP
+		// {"/api/registrations", "DELETE", dynamodb_handlers.DeleteRegistration, None}, // Delete an event RSVP
+
+		// RegistrationFields
+		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, None}, // Create a new
+		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationFieldsByEventIDHandler, None}, // Get all
+		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationFieldsHandler, None}, // Update an existing
+		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationFieldsHandler, None}, // Delete an
 	}
 }
 
