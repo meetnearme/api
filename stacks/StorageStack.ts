@@ -22,7 +22,7 @@ export async function StorageStack({ stack }: StackContext) {
   // Create the `Registrations` table
   let registrationsTable;
   if (!registrationsTableExists) {
-    registrationsTable = new Table(stack, tableName, {
+    registrationsTable = new Table(stack, registrationsTableName, {
       fields: {
         eventId: 'string',
         userId: 'string',
