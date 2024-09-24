@@ -2,6 +2,8 @@ import { StackContext, Table } from 'sst/constructs';
 import { DynamoDBClient, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
 
 export async function StorageStack({ stack }: StackContext) {
+  const client = new DynamoDBClient({});
+
   async function tableExists(tableName: string) {
     try {
       await client.send(new DescribeTableCommand({ TableName: tableName }));
