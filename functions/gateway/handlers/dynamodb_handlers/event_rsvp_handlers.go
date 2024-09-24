@@ -1,12 +1,13 @@
-package rds_handlers
+package dynamodb_handlers
 
 import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/meetnearme/api/functions/gateway/services/rds_service"
+	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
@@ -21,6 +22,18 @@ func NewEventRsvpHandler(eventRsvpService internal_types.EventRsvpServiceInterfa
 
 
 func (h *EventRsvpHandler) CreateEventRsvp(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	eventId := vars["event_id"]
+    if eventId == "" {
+        transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
+        return
+    }
+	userId := vars["user_id"]
+    if userId == "" {
+        transport.SendServerRes(w, []byte("Missing user ID"), http.StatusBadRequest, nil)
+        return
+    }
+
 	var createEventRsvp internal_types.EventRsvpInsert
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -34,13 +47,18 @@ func (h *EventRsvpHandler) CreateEventRsvp(w http.ResponseWriter, r *http.Reques
         return
 	}
 
+	createEventRsvp.CreatedAt = time.Now()
+	createEventRsvp.UpdatedAt = time.Now()
+	createEventRsvp.EventID = eventId
+	createEventRsvp.UserID = userId
+
 	err = validate.Struct(&createEventRsvp)
 	if err != nil {
         transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
         return
 	}
 
-    db := transport.GetRdsDB()
+    db := transport.GetDB()
     res, err := h.EventRsvpService.InsertEventRsvp(r.Context(), db, createEventRsvp)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to create eventRsvp: "+err.Error()), http.StatusInternalServerError, err)
@@ -56,27 +74,32 @@ func (h *EventRsvpHandler) CreateEventRsvp(w http.ResponseWriter, r *http.Reques
     transport.SendServerRes(w, response, http.StatusCreated, nil)
 }
 
-func (h *EventRsvpHandler) GetEventRsvp(w http.ResponseWriter, r *http.Request) {
+func (h *EventRsvpHandler) GetEventRsvpByPk(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["id"]
-    if id == "" {
+	eventId := vars["event_id"]
+    if eventId == "" {
+        transport.SendServerRes(w, []byte("Missing eventRsvp ID"), http.StatusBadRequest, nil)
+        return
+    }
+	userId := vars["user_id"]
+    if userId == "" {
         transport.SendServerRes(w, []byte("Missing eventRsvp ID"), http.StatusBadRequest, nil)
         return
     }
 
-    db := transport.GetRdsDB()
-    user, err := h.EventRsvpService.GetEventRsvpByID(r.Context(), db, id)
+    db := transport.GetDB()
+    eventRsvp, err := h.EventRsvpService.GetEventRsvpByPk(r.Context(), db, eventId, userId)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to get user: "+err.Error()), http.StatusInternalServerError, err)
         return
     }
 
-    if user == nil {
+    if eventRsvp == nil {
         transport.SendServerRes(w, []byte("EventRsvp not found"), http.StatusNotFound, nil)
         return
     }
 
-    response, err := json.Marshal(user)
+    response, err := json.Marshal(eventRsvp)
     if err != nil {
         transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
         return
@@ -93,7 +116,7 @@ func (h *EventRsvpHandler) GetEventRsvpsByUserID(w http.ResponseWriter, r *http.
         return
     }
 
-    db := transport.GetRdsDB()
+    db := transport.GetDB()
     users, err := h.EventRsvpService.GetEventRsvpsByUserID(r.Context(), db, id)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to get user's eventRsvps: "+err.Error()), http.StatusInternalServerError, err)
@@ -117,7 +140,7 @@ func (h *EventRsvpHandler) GetEventRsvpsByEventID(w http.ResponseWriter, r *http
         return
     }
 
-    db := transport.GetRdsDB()
+    db := transport.GetDB()
     events, err := h.EventRsvpService.GetEventRsvpsByEventID(r.Context(), db, id)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to get user's eventRsvps: "+err.Error()), http.StatusInternalServerError, err)
@@ -135,8 +158,13 @@ func (h *EventRsvpHandler) GetEventRsvpsByEventID(w http.ResponseWriter, r *http
 
 func (h *EventRsvpHandler) UpdateEventRsvp(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["id"]
-    if id == "" {
+	eventId := vars["event_id"]
+    if eventId == "" {
+        transport.SendServerRes(w, []byte("Missing eventRsvp ID"), http.StatusBadRequest, nil)
+        return
+    }
+	userId := vars["user_id"]
+    if userId == "" {
         transport.SendServerRes(w, []byte("Missing eventRsvp ID"), http.StatusBadRequest, nil)
         return
     }
@@ -160,8 +188,8 @@ func (h *EventRsvpHandler) UpdateEventRsvp(w http.ResponseWriter, r *http.Reques
         return
     }
 
-    db := transport.GetRdsDB()
-    user, err := h.EventRsvpService.UpdateEventRsvp(r.Context(), db, id, updateEventRsvp)
+    db := transport.GetDB()
+    user, err := h.EventRsvpService.UpdateEventRsvp(r.Context(), db, eventId, userId, updateEventRsvp)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to update eventRsvp: "+err.Error()), http.StatusInternalServerError, err)
         return
@@ -183,14 +211,19 @@ func (h *EventRsvpHandler) UpdateEventRsvp(w http.ResponseWriter, r *http.Reques
 
 func (h *EventRsvpHandler) DeleteEventRsvp(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["id"]
-    if id == "" {
-        transport.SendServerRes(w, []byte("Missing eventRsvp ID"), http.StatusBadRequest, nil)
+	eventId := vars["event_id"]
+    if eventId == "" {
+        transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
+        return
+    }
+	userId := vars["user_id"]
+    if userId == "" {
+        transport.SendServerRes(w, []byte("Missing user ID"), http.StatusBadRequest, nil)
         return
     }
 
-    db := transport.GetRdsDB()
-    err := h.EventRsvpService.DeleteEventRsvp(r.Context(), db, id)
+    db := transport.GetDB()
+    err := h.EventRsvpService.DeleteEventRsvp(r.Context(), db, eventId, userId)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to delete eventRsvp: "+err.Error()), http.StatusInternalServerError, err)
         return
@@ -200,7 +233,7 @@ func (h *EventRsvpHandler) DeleteEventRsvp(w http.ResponseWriter, r *http.Reques
 }
 
 func CreateEventRsvpHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	eventRsvpService := rds_service.NewEventRsvpService()
+	eventRsvpService := dynamodb_service.NewEventRsvpService()
 	handler := NewEventRsvpHandler(eventRsvpService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.CreateEventRsvp(w, r)
@@ -209,17 +242,17 @@ func CreateEventRsvpHandler(w http.ResponseWriter, r *http.Request) http.Handler
 
 
 // GetEventRsvpHandler is a wrapper that creates the UserHandler and returns the handler function for getting a eventRsvp by ID
-func GetEventRsvpHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	eventRsvpService := rds_service.NewEventRsvpService()
+func GetEventRsvpByPkHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	eventRsvpService := dynamodb_service.NewEventRsvpService()
 	handler := NewEventRsvpHandler(eventRsvpService)
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler.GetEventRsvp(w, r)
+		handler.GetEventRsvpByPk(w, r)
 	}
 }
 
 // GetEventRsvpsHandler is a wrapper that creates the UserHandler and returns the handler function for getting all eventRsvps
 func GetEventRsvpsByEventIDHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	eventRsvpService := rds_service.NewEventRsvpService()
+	eventRsvpService := dynamodb_service.NewEventRsvpService()
 	handler := NewEventRsvpHandler(eventRsvpService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.GetEventRsvpsByEventID(w, r)
@@ -227,7 +260,7 @@ func GetEventRsvpsByEventIDHandler(w http.ResponseWriter, r *http.Request) http.
 }
 
 func GetEventRsvpsByUserIDHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	eventRsvpService := rds_service.NewEventRsvpService()
+	eventRsvpService := dynamodb_service.NewEventRsvpService()
 	handler := NewEventRsvpHandler(eventRsvpService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.GetEventRsvpsByUserID(w, r)
@@ -236,7 +269,7 @@ func GetEventRsvpsByUserIDHandler(w http.ResponseWriter, r *http.Request) http.H
 
 // UpdateEventRsvpHandler is a wrapper that creates the UserHandler and returns the handler function for updating a eventRsvp
 func UpdateEventRsvpHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	eventRsvpService := rds_service.NewEventRsvpService()
+	eventRsvpService := dynamodb_service.NewEventRsvpService()
 	handler := NewEventRsvpHandler(eventRsvpService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.UpdateEventRsvp(w, r)
@@ -245,9 +278,10 @@ func UpdateEventRsvpHandler(w http.ResponseWriter, r *http.Request) http.Handler
 
 // DeleteEventRsvpHandler is a wrapper that creates the UserHandler and returns the handler function for deleting a eventRsvp
 func DeleteEventRsvpHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	eventRsvpService := rds_service.NewEventRsvpService()
+	eventRsvpService := dynamodb_service.NewEventRsvpService()
 	handler := NewEventRsvpHandler(eventRsvpService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.DeleteEventRsvp(w, r)
 	}
 }
+
