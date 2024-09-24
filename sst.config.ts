@@ -4,7 +4,7 @@ import { StorageStack } from './stacks/StorageStack';
 import { ApiStack } from './stacks/ApiStack';
 import { StaticSiteStack } from './stacks/StaticSiteStack';
 import { SeshuFunction } from './stacks/SeshuFunction';
-import { RdsStack } from './stacks/RdsStack';
+// import { RdsStack } from './stacks/RdsStack';
 
 export default {
   config(_input) {
@@ -24,9 +24,9 @@ export default {
     app
       .stack(StaticSiteStack)
       .stack(StorageStack)
-      .stack(RdsStack)
       .stack(SeshuFunction)
       .stack((stackContext) => ApiStack({ ...stackContext, app }));
+    // .stack(RdsStack)
     app.addDefaultFunctionPermissions(['dynamodb:*']);
   },
 } satisfies SSTConfig;
