@@ -146,7 +146,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 							</form>
 						</div>
 					}
-					if helpers.ArrContains(subnavTabs, helpers.SubnavItems[helpers.NvCart]) {
+					if (event.HasPurchasable || event.HasRegistrationFields) && helpers.ArrContains(subnavTabs, helpers.SubnavItems[helpers.NvCart]) {
 						<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
 						<div x-data="getCartRegistrationState()" role="tabpanel" class="tab-content p-2">
 							<template x-if="fields?.length">
