@@ -114,7 +114,6 @@ func TestAddEventSource(t *testing.T) {
 			// Check if the rendered content contains expected information
 			renderedContent := buf.String()
 
-			// log.Printf("\n\nrendered\n\n %+v", renderedContent)
 			for _, expected := range tt.expectedContent {
 				if !strings.Contains(renderedContent, expected) {
 					t.Errorf("Expected rendered content to contain '%s', but it didn't", expected)
