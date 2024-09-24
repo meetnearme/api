@@ -16,6 +16,7 @@ type MockDynamoDBClient struct {
     ScanFunc func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
     PutItemFunc func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
     GetItemFunc func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
+    DeleteItemFunc func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
     UpdateItemFunc func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
 }
 
@@ -39,6 +40,13 @@ func (m *MockDynamoDBClient) UpdateItem(ctx context.Context, params *dynamodb.Up
         return m.UpdateItemFunc(ctx, params, optFns...)
     }
     return &dynamodb.UpdateItemOutput{}, nil
+}
+
+func (m *MockDynamoDBClient) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+	if m.DeleteItemFunc != nil {
+		return m.DeleteItemFunc(ctx, params, optFns...)
+	}
+	return &dynamodb.DeleteItemOutput{}, nil
 }
 
 

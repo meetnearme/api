@@ -2,6 +2,7 @@ package rds_service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -227,4 +228,125 @@ func TestDeletePurchasable(t *testing.T) {
 		t.Fatalf("expected no records after deletion, but found some")
 	}
 }
+func TestMockInsertPurchasable(t *testing.T) {
+	mockService := &MockPurchasableService{
+		InsertPurchasableFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, user internal_types.PurchasableInsert) (*internal_types.Purchasable, error) {
+			return &internal_types.Purchasable{ID: "purchasable-id"}, nil
+		},
+	}
 
+	userInsert := internal_types.PurchasableInsert{
+		// Fill in with appropriate fields
+	}
+
+	result, err := mockService.InsertPurchasable(context.Background(), nil, userInsert)
+	if err != nil {
+		t.Errorf("InsertPurchasableFunc returned an error: %v", err)
+	}
+
+	if result.ID != "purchasable-id" {
+		t.Errorf("expected ID to be %s, got %s", "purchasable-id", result.ID)
+	}
+}
+
+func TestMockGetPurchasableByID(t *testing.T) {
+	mockService := &MockPurchasableService{
+		GetPurchasableByIDFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string) (*internal_types.Purchasable, error) {
+			if id == "purchasable-id" {
+				return &internal_types.Purchasable{ID: id}, nil
+			}
+			return nil, errors.New("purchasable not found")
+		},
+	}
+
+	result, err := mockService.GetPurchasableByID(context.Background(), nil, "purchasable-id")
+	if err != nil {
+		t.Errorf("GetPurchasableByIDFunc returned an error: %v", err)
+	}
+
+	if result.ID != "purchasable-id" {
+		t.Errorf("expected ID to be %s, got %s", "purchasable-id", result.ID)
+	}
+
+	// Test for a case where the purchasable is not found
+	_, err = mockService.GetPurchasableByID(context.Background(), nil, "non-existent-id")
+	if err == nil {
+		t.Errorf("expected an error for non-existent purchasable ID, got nil")
+	}
+}
+
+func TestMockGetPurchasablesByUserID(t *testing.T) {
+	mockService := &MockPurchasableService{
+		GetPurchasablesByUserIDFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, userID string) ([]internal_types.Purchasable, error) {
+			if userID == "test-user-id" {
+				return []internal_types.Purchasable{
+					{ID: "purchasable-1"},
+					{ID: "purchasable-2"},
+				}, nil
+			}
+			return nil, errors.New("no purchasables found for user")
+		},
+	}
+
+	result, err := mockService.GetPurchasablesByUserID(context.Background(), nil, "test-user-id")
+	if err != nil {
+		t.Errorf("GetPurchasablesByUserIDFunc returned an error: %v", err)
+	}
+
+	if len(result) != 2 {
+		t.Errorf("expected 2 purchasables, got %d", len(result))
+	}
+
+	// Test for a case where no purchasables are found
+	_, err = mockService.GetPurchasablesByUserID(context.Background(), nil, "non-existent-user-id")
+	if err == nil {
+		t.Errorf("expected an error for non-existent user ID, got nil")
+	}
+}
+
+func TestMockUpdatePurchasable(t *testing.T) {
+	mockService := &MockPurchasableService{
+		UpdatePurchasableFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string, user internal_types.PurchasableUpdate) (*internal_types.Purchasable, error) {
+			if id == "purchasable-id" {
+				return &internal_types.Purchasable{ID: id}, nil
+			}
+			return nil, errors.New("purchasable not found")
+		},
+	}
+
+	updatePurchasable := internal_types.PurchasableUpdate{
+		// Fill in with appropriate fields
+	}
+
+	result, err := mockService.UpdatePurchasable(context.Background(), nil, "purchasable-id", updatePurchasable)
+	if err != nil {
+		t.Errorf("UpdatePurchasableFunc returned an error: %v", err)
+	}
+
+	if result.ID != "purchasable-id" {
+		t.Errorf("expected ID to be %s, got %s", "purchasable-id", result.ID)
+	}
+}
+
+func TestMockDeletePurchasable(t *testing.T) {
+	mockService := &MockPurchasableService{
+		DeletePurchasableFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string) error {
+			if id == "purchasable-id" {
+				return nil
+			}
+			return errors.New("purchasable not found")
+		},
+	}
+
+	// Test for successful deletion
+	err := mockService.DeletePurchasable(context.Background(), nil, "purchasable-id")
+	if err != nil {
+		t.Errorf("DeletePurchasableFunc returned an error: %v", err)
+	}
+
+	// Test for purchasable not found case
+	err = mockService.DeletePurchasable(context.Background(), nil, "non-existent-id")
+	if err == nil {
+		t.Errorf("expected an error for non-existent purchasable ID, got nil")
+	}
+}

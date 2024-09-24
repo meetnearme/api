@@ -2,6 +2,7 @@ package rds_service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -438,4 +439,154 @@ func TestExtractAndMapSingleEventRsvpFromJSON(t *testing.T) {
 		})
 	}
 }
+func TestMockInsertEventRsvp(t *testing.T) {
+	mockService := &MockEventRsvpService{
+		InsertEventRsvpFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventRsvp internal_types.EventRsvpInsert) (*internal_types.EventRsvp, error) {
+			return &internal_types.EventRsvp{ID: "rsvp-id"}, nil
+		},
+	}
 
+	eventRsvpInsert := internal_types.EventRsvpInsert{
+		// Fill in with appropriate fields
+	}
+
+	result, err := mockService.InsertEventRsvp(context.Background(), nil, eventRsvpInsert)
+	if err != nil {
+		t.Errorf("InsertEventRsvpFunc returned an error: %v", err)
+	}
+
+	if result.ID != "rsvp-id" {
+		t.Errorf("expected ID to be %s, got %s", "rsvp-id", result.ID)
+	}
+}
+
+func TestMockGetEventRsvpByID(t *testing.T) {
+	mockService := &MockEventRsvpService{
+		GetEventRsvpByIDFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string) (*internal_types.EventRsvp, error) {
+			if id == "rsvp-id" {
+				return &internal_types.EventRsvp{ID: id}, nil
+			}
+			return nil, errors.New("rsvp not found")
+		},
+	}
+
+	result, err := mockService.GetEventRsvpByID(context.Background(), nil, "rsvp-id")
+	if err != nil {
+		t.Errorf("GetEventRsvpByIDFunc returned an error: %v", err)
+	}
+
+	if result.ID != "rsvp-id" {
+		t.Errorf("expected ID to be %s, got %s", "rsvp-id", result.ID)
+	}
+
+	// Test for a case where the RSVP is not found
+	_, err = mockService.GetEventRsvpByID(context.Background(), nil, "non-existent-id")
+	if err == nil {
+		t.Errorf("expected an error for non-existent RSVP ID, got nil")
+	}
+}
+
+func TestMockUpdateEventRsvp(t *testing.T) {
+	mockService := &MockEventRsvpService{
+		UpdateEventRsvpFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string, eventRsvp internal_types.EventRsvpUpdate) (*internal_types.EventRsvp, error) {
+			if id == "rsvp-id" {
+				return &internal_types.EventRsvp{ID: id}, nil
+			}
+			return nil, errors.New("rsvp not found")
+		},
+	}
+
+	updateEventRsvp := internal_types.EventRsvpUpdate{
+		// Fill in with appropriate fields
+	}
+
+	result, err := mockService.UpdateEventRsvp(context.Background(), nil, "rsvp-id", updateEventRsvp)
+	if err != nil {
+		t.Errorf("UpdateEventRsvpFunc returned an error: %v", err)
+	}
+
+	if result.ID != "rsvp-id" {
+		t.Errorf("expected ID to be %s, got %s", "rsvp-id", result.ID)
+	}
+}
+
+func TestMockDeleteEventRsvp(t *testing.T) {
+	mockService := &MockEventRsvpService{
+		DeleteEventRsvpFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, id string) error {
+			if id == "rsvp-id" {
+				return nil
+			}
+			return errors.New("rsvp not found")
+		},
+	}
+
+	// Test for successful deletion
+	err := mockService.DeleteEventRsvp(context.Background(), nil, "rsvp-id")
+	if err != nil {
+		t.Errorf("DeleteEventRsvpFunc returned an error: %v", err)
+	}
+
+	// Test for RSVP not found case
+	err = mockService.DeleteEventRsvp(context.Background(), nil, "non-existent-id")
+	if err == nil {
+		t.Errorf("expected an error for non-existent RSVP ID, got nil")
+	}
+}
+
+func TestMockGetEventRsvpsByUserID(t *testing.T) {
+	mockService := &MockEventRsvpService{
+		GetEventRsvpsByUserIDFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, userID string) ([]internal_types.EventRsvp, error) {
+			if userID == "test-user-id" {
+				return []internal_types.EventRsvp{
+					{ID: "rsvp-1"},
+					{ID: "rsvp-2"},
+				}, nil
+			}
+			return nil, errors.New("no rsvps found for user")
+		},
+	}
+
+	result, err := mockService.GetEventRsvpsByUserID(context.Background(), nil, "test-user-id")
+	if err != nil {
+		t.Errorf("GetEventRsvpsByUserIDFunc returned an error: %v", err)
+	}
+
+	if len(result) != 2 {
+		t.Errorf("expected 2 RSVPs, got %d", len(result))
+	}
+
+	// Test for a case where no RSVPs are found
+	_, err = mockService.GetEventRsvpsByUserID(context.Background(), nil, "non-existent-user-id")
+	if err == nil {
+		t.Errorf("expected an error for non-existent user ID, got nil")
+	}
+}
+
+func TestMockGetEventRsvpsByEventID(t *testing.T) {
+	mockService := &MockEventRsvpService{
+		GetEventRsvpsByEventIDFunc: func(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventID string) ([]internal_types.EventRsvp, error) {
+			if eventID == "test-event-id" {
+				return []internal_types.EventRsvp{
+					{ID: "rsvp-1"},
+					{ID: "rsvp-2"},
+				}, nil
+			}
+			return nil, errors.New("no rsvps found for event")
+		},
+	}
+
+	result, err := mockService.GetEventRsvpsByEventID(context.Background(), nil, "test-event-id")
+	if err != nil {
+		t.Errorf("GetEventRsvpsByEventIDFunc returned an error: %v", err)
+	}
+
+	if len(result) != 2 {
+		t.Errorf("expected 2 RSVPs, got %d", len(result))
+	}
+
+	// Test for a case where no RSVPs are found
+	_, err = mockService.GetEventRsvpsByEventID(context.Background(), nil, "non-existent-event-id")
+	if err == nil {
+		t.Errorf("expected an error for non-existent event ID, got nil")
+	}
+}

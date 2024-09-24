@@ -5,19 +5,25 @@ import { StorageStack } from './StorageStack';
 import { HostedZone } from 'aws-cdk-lib/aws-route53';
 import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { SeshuFunction } from './SeshuFunction';
-import { RdsStack } from './RdsStack';
+// import { RdsStack } from './RdsStack';
 
 export function ApiStack({ stack, app }: StackContext & { app: any }) {
-  const { seshuSessionsTable } = use(StorageStack);
+  const { seshuSessionsTable, registrationsTable, registrationFieldsTable } =
+    use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
   const { seshuFn } = use(SeshuFunction);
-  const { cluster } = use(RdsStack);
+  // const { cluster } = use(RdsStack);
 
   const api = new Api(stack, 'api', {
     defaults: {
       function: {
         // Bind the eventsTable name to our API
-        bind: [ seshuSessionsTable, cluster],
+        bind: [
+          seshuSessionsTable,
+          registrationsTable,
+          registrationFieldsTable,
+          // cluster,
+        ],
         environment: {
           ...envVars,
           // ----- BEGIN -----
@@ -26,9 +32,9 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
           STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
           SESHU_FN_URL: process.env.SESHU_FN_URL ?? seshuFn.url,
           SST_STAGE: app.stage,
-          DATABASE_NAME: "MeetnearmeRdsDB",
-          RDS_CLUSTER_ARN: cluster.clusterArn,
-          RDS_SECRET_ARN: cluster.secretArn,
+          DATABASE_NAME: 'MeetnearmeRdsDB',
+          // RDS_CLUSTER_ARN: cluster.clusterArn,
+          // RDS_SECRET_ARN: cluster.secretArn,
           // ----- END -----
         },
       },
