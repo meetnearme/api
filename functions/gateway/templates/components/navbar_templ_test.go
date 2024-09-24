@@ -29,6 +29,8 @@ func TestAddEventSource(t *testing.T) {
 			},
 			doNotShowContent: []string{
 				"flyout-tab-cart",
+				">Checkout<",
+				">Register<",
 			},
 			event: services.Event{},
 		},
@@ -38,9 +40,25 @@ func TestAddEventSource(t *testing.T) {
 			expectedContent: []string{
 				"flyout-tab-cart",
 				"John Doe",
+				">Checkout<",
 			},
-			doNotShowContent: []string{},
+			doNotShowContent: []string{
+				">Register<",
+			},
 			event: services.Event{HasPurchasable: true},
+		},
+		{
+			name: string("Event Details, with registration"),
+			subnavItems: helpers.SitePages["events"].SubnavItems,
+			expectedContent: []string{
+				"flyout-tab-cart",
+				"John Doe",
+				">Register<",
+			},
+			doNotShowContent: []string{
+				">Checkout<",
+			},
+			event: services.Event{HasRegistrationFields: true},
 		},
 		{
 			name: string("About page"),
@@ -51,6 +69,18 @@ func TestAddEventSource(t *testing.T) {
 			doNotShowContent: []string{
 				"flyout-tab-cart",
 				"flyout-tab-filters",
+			},
+			event: services.Event{HasPurchasable: true},
+		},
+		{
+			name: string("Home / event search page"),
+			subnavItems: helpers.SitePages["home"].SubnavItems,
+			expectedContent: []string{
+				"John Doe",
+				"flyout-tab-filters",
+			},
+			doNotShowContent: []string{
+				"flyout-tab-cart",
 			},
 			event: services.Event{HasPurchasable: true},
 		},

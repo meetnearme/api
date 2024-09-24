@@ -218,7 +218,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 							</template>
 							<br/>
 							<br/>
-							<button class="btn btn-primary w-full" @click="validateRegistration()">Checkout</button>
+							if event.HasPurchasable {
+								<button class="btn btn-primary w-full" @click="validateRegistration()">Checkout</button>
+							} else if event.HasRegistrationFields {
+								<button class="btn btn-primary w-full" @click="validateRegistration()">Register</button>
+							}
 						</div>
 					}
 				</div>
