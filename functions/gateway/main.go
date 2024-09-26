@@ -17,7 +17,6 @@ import (
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
 
 	"github.com/meetnearme/api/functions/gateway/handlers"
-	"github.com/meetnearme/api/functions/gateway/handlers/rds_handlers"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -82,36 +81,28 @@ func init() {
 		{"/api/html/seshu/session/location", "PATCH", handlers.GeoThenPatchSeshuSession, None},
 		{"/api/html/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents, None},
 
-		// TODO: assign proper require, check authorizations
-		// User routes
-		{"/api/users", "GET", rds_handlers.GetUsersHandler, None},                         // Get all users
-		{"/api/users/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetUserHandler, None},       // Get a specific user
-		{"/api/users", "POST", rds_handlers.CreateUserHandler, None},                      // Create a new user
-		{"/api/users/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateUserHandler, None},    // Update an existing user
-		{"/api/users/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteUserHandler, None}, // Delete a user
-
 		// // Purchasables routes
-		{"/api/purchasables/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetPurchasablesHandler, None}, // Get all purchasables
-		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetPurchasableHandler, None},            // Get a specific purchasable
-		{"/api/purchasables", "POST", rds_handlers.CreatePurchasableHandler, None},                           // Create a new purchasable
-		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdatePurchasableHandler, None},         // Update an existing purchasable
-		{"/api/purchasables/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeletePurchasableHandler, None},      // Delete a purchasable
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, None}, // Create a new purchasable
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasableHandler, None}, // Get all purchasables
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchasableHandler, None}, // Update an existing purchasable
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchasableHandler, None}, // Delete a purchasable
 
 		// // Event RSVPs routes
-		{"/api/event-rsvps/event/{event_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpsByEventIDHandler, None}, // Get all event RSVPs
-		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpHandler, None}, // Get a specific event RSVP
-		{"/api/event-rsvps/user/{user_id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetEventRsvpsByUserIDHandler, None}, // Get a specific event RSVP
-		{"/api/event-rsvps", "POST", rds_handlers.CreateEventRsvpHandler, None}, // Create a new event RSVP
-		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateEventRsvpHandler, None}, // Update an existing event RSVP
-		{"/api/event-rsvps/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteEventRsvpHandler, None}, // Delete an event RSVP
+		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateEventRsvpHandler, None}, // Create a new event RSVP
+		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpByPkHandler, None}, // Get a specific event RSVP
+		{"/api/event-rsvps/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpsByEventIDHandler, None}, // Get all event RSVPs
+		{"/api/event-rsvps/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpsByUserIDHandler, None}, // Get a specific event RSVP
+		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateEventRsvpHandler, None}, // Update an existing event RSVP
+		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteEventRsvpHandler, None}, // Delete an event RSVP
 
 
 		// Registrations
-		// {"/api/registrations", "POST", dynamodb_handlers.CreateRegistration, None}, // Create a new event RSVP
-		// {"/api/registrations/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationByUserID, None}, // Get a specific event RSVP
-		// {"/api/registrations/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByEventIDHandler, None}, // Get all event RSVPs
-		// {"/api/registrations", "PUT", dynamodb_handlers.UpdateRegistration, None}, // Update an existing event RSVP
-		// {"/api/registrations", "DELETE", dynamodb_handlers.DeleteRegistration, None}, // Delete an event RSVP
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationHandler, None}, // Create a new event RSVP
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationByPkHandler, None}, // Get a registration by primary key
+		{"/api/registrations/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByUserIDHandler, None}, // Get a specific event RSVP
+		{"/api/registrations/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByEventIDHandler, None}, // Get all event RSVPs
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationHandler, None}, // Update an existing event RSVP
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationHandler, None}, // Delete an event RSVP
 
 		// RegistrationFields
 		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, None}, // Create a new
