@@ -20,6 +20,8 @@ const MOCK_CLOUDFLARE_URL = "http://localhost:8999"
 const MOCK_ZITADEL_HOST = "localhost:8998"
 const MOCK_MARQO_URL = "http://localhost:8997"
 
+const JWT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+
 const PROJECT_ID_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
 
 type UserInfo struct {
@@ -68,14 +70,15 @@ type SitePage struct {
 }
 
 var SitePages = map[string]SitePage{
-	"home":          {Slug: "home", Name: "Home", SubnavItems: []string{SubnavItems[NvMain],SubnavItems[NvFilters]}},
-	"about":          {Slug: "about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
-	"profile":         {Slug: "admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
+	"home":             {Slug: "home", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
+	"about":            {Slug: "about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
+	"profile":          {Slug: "admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
 	"add-event-source": {Slug: "admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
-	"settings":      {Slug: "settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
-	"embed":         {Slug: "embed", Name: "Embed", SubnavItems: []string{SubnavItems[NvMain]}},
-	"events": 			 {Slug: "events", Name: "Event Details", SubnavItems: []string{SubnavItems[NvMain],SubnavItems[NvCart]}},
+	"settings":         {Slug: "settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
+	"embed":            {Slug: "embed", Name: "Embed", SubnavItems: []string{SubnavItems[NvMain]}},
+	"events":           {Slug: "events", Name: "Event Details", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
 }
+
 type Subcategory struct {
 	Name, Desc, Slug string
 }

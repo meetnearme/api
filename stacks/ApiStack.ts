@@ -11,11 +11,14 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
   const { staticSite } = use(StaticSiteStack);
   const { seshuFn } = use(SeshuFunction);
 
+
   const api = new Api(stack, 'api', {
     defaults: {
       function: {
         // Bind the eventsTable name to our API
+
         bind: [ seshuSessionsTable, registrationsTable, registrationFieldsTable, purchasablesTable, eventRsvpsTable],
+
         environment: {
           ...envVars,
           // ----- BEGIN -----
@@ -24,6 +27,7 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
           STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
           SESHU_FN_URL: process.env.SESHU_FN_URL ?? seshuFn.url,
           SST_STAGE: app.stage,
+
           // ----- END -----
         },
       },

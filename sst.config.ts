@@ -5,6 +5,9 @@ import { ApiStack } from './stacks/ApiStack';
 import { StaticSiteStack } from './stacks/StaticSiteStack';
 import { SeshuFunction } from './stacks/SeshuFunction';
 
+// import { RdsStack } from './stacks/RdsStack';
+
+
 export default {
   config(_input) {
     return {
@@ -25,6 +28,7 @@ export default {
       .stack(StorageStack)
       .stack(SeshuFunction)
       .stack((stackContext) => ApiStack({ ...stackContext, app }));
+    // .stack(RdsStack)
     app.addDefaultFunctionPermissions(['dynamodb:*']);
   },
 } satisfies SSTConfig;

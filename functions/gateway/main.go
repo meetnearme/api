@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/awslabs/aws-lambda-go-api-proxy/gorillamux"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
@@ -25,9 +26,10 @@ import (
 type AuthType string
 
 const (
-	None    AuthType = "none"
-	Check   AuthType = "check"
-	Require AuthType = "require"
+	None               AuthType = "none"
+	Check              AuthType = "check"
+	Require            AuthType = "require"
+	RequireServiceUser AuthType = "require_service_user"
 )
 
 type Route struct {
@@ -261,6 +263,59 @@ func (app *App) addRoute(route Route) {
 				ctx = context.WithValue(ctx, "roleClaims", roleClaims)
 			}
 			r = r.WithContext(ctx)
+			route.Handler(w, r).ServeHTTP(w, r)
+		}
+	case RequireServiceUser:
+		handler = func(w http.ResponseWriter, r *http.Request) {
+			accessTokenCookie, err = r.Cookie("access_token")
+			if err != nil {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			tokenString := accessTokenCookie.Value
+
+			jwks, err := services.FetchJWKS()
+			if err != nil {
+				http.Error(w, "Error fetching JWKS", http.StatusInternalServerError)
+				return
+			}
+
+			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+				}
+
+				kid, ok := token.Header["kid"].(string)
+				if !ok {
+					return nil, fmt.Errorf("kid not found in token header")
+				}
+
+				return services.GetPublicKey(jwks, kid)
+			})
+
+			if err != nil || !token.Valid {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			// Extract claims
+			if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+				// Extract roles, metadata, and user information
+				userID := claims["sub"]
+
+				log.Printf("Claims: %v", claims)
+				log.Printf("User ID: %v", userID)
+
+				// Add extracted information to the request context
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, "userID", userID)
+				r = r.WithContext(ctx)
+			} else {
+				http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+				return
+			}
+
 			route.Handler(w, r).ServeHTTP(w, r)
 		}
 	default:
