@@ -33,7 +33,6 @@ func TestGetPurchasable(t *testing.T) {
 		GetPurchasablesByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) (*internal_types.Purchasable, error) { // Change to return []*Purchasable
 			return &internal_types.Purchasable{ // Return a pointer to Purchasable
 				EventId: eventId,
-				RegistrationFieldsNames: []string{"field1", "field2"},
 				PurchasableItems: []internal_types.PurchasableItemInsert{ // Corrected initialization of slice
 					{
 						Name:                      "Sample Item",
@@ -46,6 +45,7 @@ func TestGetPurchasable(t *testing.T) {
 						ChargeRecurrenceIntervalCount: 3,
 						ChargeRecurrenceEndDate:  eventTime.Format(time.RFC3339), // Format if necessary
 						DonationRatio:            0.1,
+						RegistrationFields: []string{"field1", "field2"},
 						CreatedAt:				"2024-09-01T12:00:00Z",  // Use time.Time type
 						UpdatedAt:              "2024-09-01T12:00:00Z", // Use time.Time type
 						},

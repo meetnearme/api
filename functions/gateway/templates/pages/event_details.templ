@@ -1,13 +1,14 @@
 package pages
 
 import (
+	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"os"
 )
 
 templ EventDetailsPage(event services.Event) {
-	<div class="max-w-prose mx-auto">
+	<div class="max-w-prose mx-auto" x-data="getEventDetailsData()">
 		if event.Id == "" {
 			<br/>
 			<br/>
@@ -26,19 +27,25 @@ templ EventDetailsPage(event services.Event) {
 			<br/>
 		} else {
 			<h2 class="text-3xl mt-2">{ event.Name }</h2>
-			// <h3>Event Id: { eventId }</h3>
 			<br/>
 			<p>
 				<img style="display: inline-block;" alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/location.svg") }/> <strong>Location:</strong> { event.Address }
 				<br/>
 				<br/>
-				<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> { GetDateOrShowNone(event.StartTime) }
+				if GetDateOrShowNone(event.StartTime) != "" {
+					<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> { GetDateOrShowNone(event.StartTime) }
+				}
 				<br/>
 				<br/>
-				<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/clock.svg") }/><strong>Time:</strong> { GetTimeOrShowNone(event.StartTime) }
+				if GetTimeOrShowNone(event.StartTime) != "" {
+					<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/clock.svg") }/><strong>Time:</strong> { GetTimeOrShowNone(event.StartTime) }
+				}
 				<br/>
 				<br/>
-				<strong>Price:</strong> $10.00
+				if event.StartingPrice > 0 {
+					// TODO: handle basecurrency
+					<img style="display: inline-block;" alt="Price Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/price.svg") }/><strong>Price:</strong> ${ fmt.Sprint(event.StartingPrice / 100) }
+				}
 				<br/>
 				<br/>
 				<h3 class="text-xl">EVENT DESCRIPTION</h3>
@@ -47,7 +54,13 @@ templ EventDetailsPage(event services.Event) {
 			</p>
 			<div class="bottom-drawer">
 				<div class="container mx-auto">
-					<button class="btn btn-block btn-primary">RSVP</button>
+					if event.HasPurchasable {
+						<button @click="handleCtaClick('cart')" class="btn btn-block btn-primary">BUY TICKETS</button>
+					} else if event.HasRegistrationFields {
+						<button @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
+					} else {
+						<button @click="handleCtaClick()" class="btn btn-block btn-primary">RSVP</button>
+					}
 					<br/>
 					<br/>
 					<button class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Interested, can't make it!</button>
@@ -56,4 +69,26 @@ templ EventDetailsPage(event services.Event) {
 		}
 	</div>
 	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event.Id)) }/>
+	<script>
+		function getEventDetailsData() {
+			return {
+				init() {
+
+				},
+				formData: {
+
+				},
+				handleCtaClick(tab) {
+					if (tab === undefined) {
+						// TODO: handle for calling RSVP endpoint here
+						return
+					}
+					// select the subnav item
+					document.getElementById(`flyout-tab-${tab}`).click();
+					// toggle the main drawer
+					document.getElementById(`main-drawer`).click();
+				}
+			}
+		}
+	</script>
 }

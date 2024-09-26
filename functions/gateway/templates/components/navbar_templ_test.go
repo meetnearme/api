@@ -2,91 +2,129 @@ package components
 
 import (
 	"bytes"
-	"html/template"
+	"context"
+	"strings"
 	"testing"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
 )
 
-// Mock user data for testing
-var mockUserWithEmail = helpers.UserInfo{
-	Name:  "John Doe",
-	Email: "john@example.com",
-}
+func TestAddEventSource(t *testing.T) {
 
-var mockUserWithoutEmail = helpers.UserInfo{
-	Name:  "Jane Doe",
-	Email: "",
-}
-
-// Define the templates needed for the tests
-func setupTemplates() *template.Template {
-	tmpl := template.New("testTemplates")
-
-	tmpl.Funcs(template.FuncMap{
-		"EscapeString": func(s string) string { return s }, // Mock for EscapeString function
-	})
-
-	// Define MiniProfileInNav template
-	tmpl.New("MiniProfileInNav").Parse(`
-		<strong>{{ .Name }}</strong>
-		<br/>
-		{{ .Email }}
-		<ul tabindex="0" class="menu menu-sm">
-			<li>
-				<a href="/admin/profile" class="justify-between">Profile</a>
-			</li>
-			<li><a href="/auth/logout">Logout</a></li>
-		</ul>
-	`)
-
-	// Define NavListItems template
-	tmpl.New("NavListItems").Parse(`
-		<li><a href="/about" class="px-5 py-3">About</a></li>
-		{{ if .Email }}{{ else }}
-			<li><a href="/auth/login" class="btn btn-primary">Sign Up</a></li>
-		{{ end }}
-	`)
-
-	// Define NestedCheckboxList template
-	tmpl.New("NestedCheckboxList").Parse(`
-		{{ define "NestedCheckboxList" }}
-		<!-- Your checkbox list rendering logic -->
-		{{ end }}
-	`)
-
-	// Define Navbar template
-	tmpl.New("Navbar").Parse(`
-		<div>
-			{{ template "NavListItems" .UserInfo }}
-		</div>
-	`)
-
-	return tmpl
-}
-
-
-func TestNavListItems(t *testing.T) {
-	tmpl := setupTemplates()
-
-	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, "NavListItems", mockUserWithoutEmail); err != nil {
-		t.Fatalf("failed to execute template: %v", err)
+	// Define test cases
+	tests := []struct {
+		name            string
+		subnavItems     []string
+		expectedContent []string
+		doNotShowContent []string
+		event   services.Event
+	}{
+		{
+			name: string("Event Details, registration / purchasable"),
+			subnavItems: helpers.SitePages["events"].SubnavItems,
+			expectedContent: []string{
+				"Main Nav",
+				"John Doe",
+			},
+			doNotShowContent: []string{
+				"flyout-tab-cart",
+				">Checkout<",
+				">Register<",
+			},
+			event: services.Event{},
+		},
+		{
+			name: string("Event Details, with purchasable"),
+			subnavItems: helpers.SitePages["events"].SubnavItems,
+			expectedContent: []string{
+				"flyout-tab-cart",
+				"John Doe",
+				">Checkout<",
+			},
+			doNotShowContent: []string{
+				">Register<",
+			},
+			event: services.Event{HasPurchasable: true},
+		},
+		{
+			name: string("Event Details, with registration"),
+			subnavItems: helpers.SitePages["events"].SubnavItems,
+			expectedContent: []string{
+				"flyout-tab-cart",
+				"John Doe",
+				">Register<",
+			},
+			doNotShowContent: []string{
+				">Checkout<",
+			},
+			event: services.Event{HasRegistrationFields: true},
+		},
+		{
+			name: string("About page"),
+			subnavItems: helpers.SitePages["about"].SubnavItems,
+			expectedContent: []string{
+				"John Doe",
+			},
+			doNotShowContent: []string{
+				"flyout-tab-cart",
+				"flyout-tab-filters",
+			},
+			event: services.Event{HasPurchasable: true},
+		},
+		{
+			name: string("Home / event search page"),
+			subnavItems: helpers.SitePages["home"].SubnavItems,
+			expectedContent: []string{
+				"John Doe",
+				"flyout-tab-filters",
+			},
+			doNotShowContent: []string{
+				"flyout-tab-cart",
+			},
+			event: services.Event{HasPurchasable: true},
+		},
 	}
 
-	result := buf.String()
-	if !bytes.Contains([]byte(result), []byte("Sign Up")) {
-		t.Errorf("expected 'Sign Up' link to be in result, got %q", result)
+	mockUserInfo := helpers.UserInfo{
+		Email:             "test@example.com",
+		EmailVerified:     true,
+		FamilyName:        "Doe",
+		GivenName:         "John",
+		Locale:            "en-US",
+		Name:              "John Doe",
+		PreferredUsername: "johndoe",
+		Sub:               "user123",
+		UpdatedAt:         1234567890,
+		Metadata:          "",
 	}
 
-	buf.Reset()
-	if err := tmpl.ExecuteTemplate(&buf, "NavListItems", mockUserWithEmail); err != nil {
-		t.Fatalf("failed to execute template: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			component := Navbar(mockUserInfo, tt.subnavItems, tt.event)
+			// Render the template
+			var buf bytes.Buffer
+			err := component.Render(context.Background(), &buf)
 
-	result = buf.String()
-	if bytes.Contains([]byte(result), []byte("Sign Up")) {
-		t.Errorf("did not expect 'Sign Up' link for logged-in user, got %q", result)
+			// Check for rendering errors
+			if err != nil {
+				t.Fatalf("Failed to render template: %v", err)
+			}
+
+			// Check if the rendered content contains expected information
+			renderedContent := buf.String()
+
+			for _, expected := range tt.expectedContent {
+				if !strings.Contains(renderedContent, expected) {
+					t.Errorf("Expected rendered content to contain '%s', but it didn't", expected)
+				}
+			}
+
+			for _, unexpected := range tt.doNotShowContent {
+				if strings.Contains(renderedContent, unexpected) {
+					t.Errorf("Expected rendered content to NOT contain '%s', but it did", unexpected)
+				}
+			}
+		})
 	}
 }
-

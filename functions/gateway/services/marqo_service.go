@@ -17,15 +17,25 @@ const (
 	milesPerKm    = 0.621371
 )
 type Event struct {
-	Id          string `json:"id,omitempty"`
-	EventOwners []string `json:"eventOwners" validate:"required,min=1"`
-	Name        string `json:"name" validate:"required"`
-	Description string `json:"description" validate:"required"`
-	StartTime   int64 `json:"startTime" validate:"required"`
-	EndTime     *int64 `json:"endTime,omitempty"`
-	Address     string `json:"address" validate:"required"`
-	Lat    			float64 `json:"lat" validate:"required"`
-	Long    		float64 `json:"long" validate:"required"`
+	Id          	string `json:"id,omitempty"`
+	EventOwners 	[]string `json:"eventOwners" validate:"required,min=1"`
+	Name        	string `json:"name" validate:"required"`
+	Description 	string `json:"description" validate:"required"`
+	StartTime   	int64 `json:"startTime" validate:"required"`
+	EndTime     	int64 `json:"endTime,omitempty"`
+	Address     	string `json:"address" validate:"required"`
+	Lat    				float64 `json:"lat" validate:"required"`
+	Long    			float64 `json:"long" validate:"required"`
+	StartingPrice int32 `json:"startingPrice,omitempty"`
+	Currency 			string `json:"currency,omitempty"`
+	PayeeId  			string `json:"payeeId,omitempty"`
+	HasRegistrationFields bool `json:"hasRegistrationFields,omitempty"`
+	HasPurchasable bool  `json:"hasPurchasable,omitempty"`
+	ImageUrl      string `json:"imageUrl,omitempty"`
+	Timezone      string `json:"timezone,omitempty"`
+	CreatedAt     int64 `json:"createdAt,omitempty"`
+	UpdatedAt     int64 `json:"updatedAt,omitempty"`
+	UpdatedBy     string `json:"updatedBy,omitempty"`
 }
 
 type EventSearchResponse struct {
@@ -85,54 +95,188 @@ func GetMarqoClient() (*marqo.Client, error) {
 // Our first instance: https://events-search-index-di32q8-g2amp25x.dp1.marqo.ai
 
 // {
-// 	"type": "structured",
-// 	"vectorNumericType": "float",
-// 	"model": "hf/bge-large-en-v1.5",
-// 	"normalizeEmbeddings": true,
-// 	"textPreprocessing": {
-// 		"splitLength": 2,
-// 		"splitOverlap": 0,
-// 		"splitMethod": "sentence"
-// 	},
-// 	"imagePreprocessing": {
-// 		"patchMethod": null
-// 	},
-// 	"annParameters": {
-// 		"spaceType": "prenormalized-angular",
-// 		"parameters": {
-// 			"efConstruction": 512,
-// 			"m": 16
-// 		}
-// 	},
-// 	"tensorFields": ["name_description_address"],
-// 	"allFields": [
-// 		{
-// 			"name": "name_description_address",
-// 			"type": "multimodal_combination",
-// 			"dependentFields": {"name": 0.3, "address": 0.2, "description": 0.5}
-// 		},
-// 		{"name": "eventOwners", "type": "array<text>", "features": ["filter"]},
-// 		{"name": "tags", "type": "array<text>", "features": ["filter", "lexical_search"]},
-// 		{"name": "categories", "type": "array<text>", "features": ["filter", "lexical_search"]},
-// 		{"name": "eventSourceId", "type": "text"},
-// 		{"name": "eventSourceType", "type": "text"},
-// 		{"name": "name", "type": "text", "features": ["lexical_search"]},
-// 		{"name": "description", "type": "text", "features": ["lexical_search"]},
-// 		{"name": "startTime", "type": "long", "features": ["filter"]},
-// 		{"name": "endTime", "type": "long", "features": ["filter"]},
-// 		{"name": "recurrenceRule", "type": "text"},
-// 		{"name": "hasRegistrationFields", "type": "bool", "features": ["filter"]},
-// 		{"name": "hasPurchasable", "type": "bool", "features": ["filter"]},
-// 		{"name": "payeeId", "type": "text", "features": ["filter"]},
-// 		{"name": "imageUrl", "type": "text"},
-// 		{"name": "lat", "type": "double", "features": ["filter"]},
-// 		{"name": "long", "type": "double", "features": ["filter"]},
-// 		{"name": "timezone", "type": "text"},
-// 		{"name": "address", "type": "text", "features": ["lexical_search", "filter"]},
-// 		{"name": "sourceUrl", "type": "text"},
-// 		{"name": "createdAt", "type": "long"},
-// 		{"name": "updatedAt", "type": "long"},
-// 		{"name": "updatedBy", "type": "text"}
+//   "type": "structured",
+//   "vectorNumericType": "float",
+//   "model": "hf/bge-large-en-v1.5",
+//   "normalizeEmbeddings": true,
+//   "textPreprocessing": {
+//     "splitLength": 2,
+//     "splitMethod": "sentence",
+//     "splitOverlap": 0
+//   },
+//   "imagePreprocessing": {},
+//   "annParameters": {
+//     "spaceType": "prenormalized-angular",
+//     "parameters": {
+//       "efConstruction": 512,
+//       "m": 16
+//     }
+//   },
+//   "tensorFields": [
+//     "name_description_address"
+//   ],
+//   "allFields": [
+//     {
+//       "name": "name_description_address",
+//       "features": [],
+//       "type": "multimodal_combination",
+//       "dependentFields": {
+//         "name": 0.3,
+//         "description": 0.5,
+//         "address": 0.2
+//       }
+//     },
+//     {
+//       "name": "eventOwners",
+//       "type": "array<text>",
+//       "features": [
+//         "filter"
+//       ]
+//     },
+//     {
+//       "name": "tags",
+//       "type": "array<text>",
+//       "features": [
+//         "filter",
+//         "lexical_search"
+//       ]
+//     },
+//     {
+//       "name": "categories",
+//       "type": "array<text>",
+//       "features": [
+//         "filter",
+//         "lexical_search"
+//       ]
+//     },
+//     {
+//       "name": "eventSourceId",
+//       "type": "text",
+//       "features": []
+//     },
+//     {
+//       "name": "eventSourceType",
+//       "type": "text",
+//       "features": []
+//     },
+//     {
+//       "name": "name",
+//       "type": "text",
+//       "features": [
+//         "lexical_search"
+//       ]
+//     },
+//     {
+//       "name": "description",
+//       "type": "text",
+//       "features": [
+//         "lexical_search"
+//       ]
+//     },
+//     {
+//       "name": "startTime",
+//       "type": "long",
+//       "features": [
+//         "filter"
+//       ]
+//     },
+//     {
+//       "name": "endTime",
+//       "type": "long",
+//       "features": [
+//         "filter"
+//       ]
+//     },
+//     {
+//       "name": "recurrenceRule",
+//       "type": "text",
+//       "features": []
+//     },
+//     {
+//       "name": "hasRegistrationFields",
+//       "type": "bool",
+//       "features": [
+//         "filter"
+//       ]
+//     },
+//     {
+//       "name": "hasPurchasable",
+//       "type": "bool",
+//       "features": [
+//         "filter"
+//       ]
+//     },
+//     {
+//       "name": "startingPrice",
+//       "type": "int",
+//       "features": [
+//         "filter"
+//       ]
+//     },
+//     {
+//       "name": "currency",
+//       "type": "text",
+//       "features": []
+//     },
+//     {
+//       "name": "payeeId",
+//       "type": "text",
+//       "features": [
+//         "filter"
+//       ]
+//     },
+//     {
+//       "name": "imageUrl",
+//       "type": "text",
+//       "features": []
+//     },
+//     {
+//       "name": "lat",
+//       "type": "double",
+//       "features": [
+//         "filter"
+//       ]
+//     },
+//     {
+//       "name": "long",
+//       "type": "double",
+//       "features": [
+//         "filter"
+//       ]
+//     },
+//     {
+//       "name": "timezone",
+//       "type": "text",
+//       "features": []
+//     },
+//     {
+//       "name": "address",
+//       "type": "text",
+//       "features": [
+//         "lexical_search",
+//         "filter"
+//       ]
+//     },
+//     {
+//       "name": "sourceUrl",
+//       "type": "text",
+//       "features": []
+//     },
+//     {
+//       "name": "createdAt",
+//       "type": "long",
+//       "features": []
+//     },
+//     {
+//       "name": "updatedAt",
+//       "type": "long",
+//       "features": []
+//     },
+//     {
+//       "name": "updatedBy",
+//       "type": "text",
+//       "features": []
+//     }
 //   ]
 // }
 
@@ -157,14 +301,7 @@ func GetMarqoClient() (*marqo.Client, error) {
 // 	return res, nil
 // }
 
-func UpsertEventToMarqo(client *marqo.Client, event Event, hasId bool) (*marqo.UpsertDocumentsResponse, error) {
-	// Insert an event
-
-	events := []Event{event}
-	return BulkUpsertEventToMarqo(client, events, hasId)
-}
-
-func ConvertEventsToDocuments(events []Event, hasIds bool) (documents []interface{}){
+func ConvertEventsToDocuments(events []Event, hasIds bool) (documents []interface{}) {
 	for _, event := range events {
 		var _uuid string
 		if !hasIds {
@@ -174,18 +311,49 @@ func ConvertEventsToDocuments(events []Event, hasIds bool) (documents []interfac
 		}
 
 		document := map[string]interface{}{
-			"_id": 			_uuid,
+			"_id":         _uuid,
 			"eventOwners": event.EventOwners,
 			"name":        event.Name,
 			"description": event.Description,
-			"startTime":    int64(event.StartTime),
+			"startTime":   int64(event.StartTime),
 			"address":     event.Address,
-			"lat":    float64(event.Lat),
-			"long":   float64(event.Long),
+			"lat":         float64(event.Lat),
+			"long":        float64(event.Long),
 		}
-		// because nil and zero (int64 unix timestamp for jan 1, 1970) are conflated we must be careful
-		if event.EndTime != nil {
-			document["endTime"] = int64(*event.EndTime)
+
+		// Add optional fields only if they are not nil
+		if event.EndTime != 0 {
+			document["endTime"] = int64(event.EndTime)
+		}
+		if event.StartingPrice != 0 {
+			document["startingPrice"] = int32(event.StartingPrice)
+		}
+		if event.Currency != "" {
+			document["currency"] = string(event.Currency)
+		}
+		if event.PayeeId != "" {
+			document["payeeId"] = string(event.PayeeId)
+		}
+		if event.HasRegistrationFields != false {
+			document["hasRegistrationFields"] = bool(event.HasRegistrationFields)
+		}
+		if event.HasPurchasable != false {
+			document["hasPurchasable"] = bool(event.HasPurchasable)
+		}
+		if event.ImageUrl != "" {
+			document["imageUrl"] = string(event.ImageUrl)
+		}
+		if event.Timezone != "" {
+			document["timezone"] = string(event.Timezone)
+		}
+		if event.CreatedAt != 0 {
+			document["createdAt"] = int64(event.CreatedAt)
+		}
+		if event.UpdatedAt != 0 {
+			document["updatedAt"] = int64(event.UpdatedAt)
+		}
+		if event.UpdatedBy != "" {
+			document["updatedBy"] = string(event.UpdatedBy)
 		}
 
 		documents = append(documents, document)
@@ -325,19 +493,9 @@ func BulkUpdateMarqoEventByID(client *marqo.Client, events []Event) (*marqo.Upse
 	return BulkUpsertEventToMarqo(client, events, true)
 }
 
-func UpdateMarqoEventByID(client *marqo.Client, eventId string, event Event) (*marqo.UpsertDocumentsResponse, error) {
-	if eventId == "" {
-		return &marqo.UpsertDocumentsResponse{}, fmt.Errorf("event ID is required")
-	}
-
-	event.Id = eventId
-	return UpsertEventToMarqo(client, event, true)
-}
-
 func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *Event) {
-	// NOTE: this appears to be a bug in marqo, which appears to send
-	// a `float64` for startTime when the index has `startTime.type = "long"`
-	// explicitly delcared
+	// NOTE: seems to be a bug in Go that instantiates these `int64` values as
+	// `float64` when they are parsed / marshalled
 	startTimeFloat := getValue[float64](doc, "startTime")
 	startTimeInt := int64(startTimeFloat)
 
@@ -352,13 +510,76 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *Event) {
 		Long:        getValue[float64](doc, "long"),
 	}
 
-	// NOTE: this appears to be a bug in marqo, which appears to send
-	// a `float64` for startTime when the index has `startTime.type = "long"`
-	// explicitly delcared
-	if getValue[*int64](doc, "endTime") != nil {
-		endTimeFloat := getValue[float64](doc, "endTime")
-		endTimeInt := int64(endTimeFloat)
-		event.EndTime = &endTimeInt
+  // Handle optional fields
+	optionalFields := []struct {
+		key      string
+		setField func()
+		}{
+			{"endTime", func() {
+				if v := getValue[*float64](doc, "endTime"); v != nil {
+						endTime := int64(*v)
+						event.EndTime = endTime
+				}
+		}},
+		{"startingPrice", func() {
+				if v := getValue[float64](doc, "startingPrice"); v != 0 {
+						startingPrice := int32(v)
+						event.StartingPrice = startingPrice
+				}
+		}},
+		{"currency", func() {
+			if v := getValue[string](doc, "currency"); v != "" {
+					event.Currency = v
+			}
+		}},
+		{"payeeId", func() {
+				if v := getValue[string](doc, "payeeId"); v != "" {
+						event.PayeeId = v
+				}
+		}},
+		{"hasRegistrationFields", func() {
+				if v := getValue[bool](doc, "hasRegistrationFields"); v != false {
+						event.HasRegistrationFields = v
+				}
+		}},
+		{"hasPurchasable", func() {
+				if v := getValue[bool](doc, "hasPurchasable"); v != false {
+						event.HasPurchasable = v
+				}
+		}},
+		{"imageUrl", func() {
+				if v := getValue[string](doc, "imageUrl"); v != "" {
+						event.ImageUrl = v
+				}
+		}},
+		{"timezone", func() {
+				if v := getValue[string](doc, "timezone"); v != "" {
+						event.Timezone = v
+				}
+		}},
+		{"createdAt", func() {
+				if v := getValue[float64](doc, "createdAt"); v != 0 {
+						createdAt := int64(v)
+						event.CreatedAt = createdAt
+				}
+		}},
+		{"updatedAt", func() {
+				if v := getValue[float64](doc, "updatedAt"); v != 0 {
+						updatedAt := int64(v)
+						event.UpdatedAt = updatedAt
+				}
+		}},
+		{"updatedBy", func() {
+				if v := getValue[string](doc, "updatedBy"); v != "" {
+						event.UpdatedBy = v
+				}
+		}},
+	}
+
+	for _, field := range optionalFields {
+		if value, ok := doc[field.key]; ok && value != nil {
+			field.setField()
+		}
 	}
 
 	return event
@@ -374,18 +595,53 @@ func miToLong(mi float64, lat float64) float64 {
 	return (mi * milesPerKm) / (earthRadiusKm * math.Cos(lat*math.Pi/180)) * (180 / math.Pi)
 }
 
-func getValue[T string | float64 | int64 | *int64](doc map[string]interface{}, key string) T {
+func getValue[T string | *string | float64 | *float64 | int64 | *int64 | int32 | *int32 | bool | *bool](doc map[string]interface{}, key string) T {
 	if value, ok := doc[key]; ok && value != nil {
-		switch v := value.(type) {
-		case T:
-			return v
-		default:
-			log.Println(fmt.Errorf("key: %s, Unexpected Type: %T, Value: %v", key, value, value))
-			// Attempt type conversion
-			if converted, ok := value.(T); ok {
-				return converted
+			switch any((*new(T))).(type) {
+			case string:
+					if str, ok := value.(string); ok {
+							return any(str).(T)
+					}
+			case *string:
+					if str, ok := value.(string); ok {
+							return any(&str).(T)
+					}
+			case float64:
+					if f, ok := value.(float64); ok {
+							return any(f).(T)
+					}
+			case *float64:
+					if f, ok := value.(float64); ok {
+							return any(&f).(T)
+					}
+			case int64:
+					if i, ok := value.(float64); ok {
+							return any(int64(i)).(T)
+					}
+			case *int64:
+					if i, ok := value.(float64); ok {
+							i64 := int64(i)
+							return any(&i64).(T)
+					}
+			case int32:
+					if i, ok := value.(float64); ok {
+							return any(int32(i)).(T)
+					}
+			case *int32:
+					if i, ok := value.(float64); ok {
+							i32 := int32(i)
+							return any(&i32).(T)
+					}
+			case bool:
+					if b, ok := value.(bool); ok {
+							return any(b).(T)
+					}
+			case *bool:
+					if b, ok := value.(bool); ok {
+							return any(&b).(T)
+					}
 			}
-		}
+			log.Printf("key: %s, Unexpected Type: %T, Value: %v", key, value, value)
 	}
 	var zero T
 	return zero
