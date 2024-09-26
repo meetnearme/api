@@ -10,6 +10,17 @@ import (
 	"github.com/meetnearme/api/functions/gateway/services"
 )
 
+// Mock user data for testing
+var mockUserWithEmail = helpers.UserInfo{
+	Name:  "John Doe",
+	Email: "john@example.com",
+}
+
+var mockUserWithoutEmail = helpers.UserInfo{
+	Name:  "Jane Doe",
+	Email: "",
+}
+
 func TestAddEventSource(t *testing.T) {
 
 	// Define test cases

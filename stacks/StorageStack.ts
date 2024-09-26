@@ -2,6 +2,35 @@ import { StackContext, Table } from 'sst/constructs';
 
 export function StorageStack({ stack }: StackContext) {
   // Create the `Registrations` table
+  //
+  const eventRsvpsTable = new Table(stack, 'EventRsvps', {
+    fields: {
+      id: 'string',
+      userId: 'string',
+      eventId: 'string',
+      eventSourceId: 'string',
+      eventSourceType: 'string',
+      status: 'string',
+      createdAt: 'number',
+      updatedAt: 'number',
+    },
+    primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
+    globalIndexes: {
+      "userIdGsi": { partitionKey: 'userId', sortKey: 'eventId' },
+    },
+  });
+
+  const purchasablesTable = new Table(stack, 'Purchasables', {
+    fields: {
+      eventId: 'string',
+      registrationFieldNames: 'string',
+      purchasableItems: 'string',
+      createdAt: 'number',
+      updatedAt: 'number',
+    },
+    primaryIndex: { partitionKey: 'eventId' },
+  });
+
   const registrationsTable = new Table(stack, 'Registrations', {
     fields: {
       eventId: 'string',
@@ -9,9 +38,11 @@ export function StorageStack({ stack }: StackContext) {
       responses: 'string', // this is an array, no type for arrays
       createdAt: 'number',
       updatedAt: 'number',
-      updatedBy: 'string',
     },
     primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
+    globalIndexes: {
+      "userIdGsi": { partitionKey: 'userId', sortKey: 'eventId' },
+    },
   });
 
   const registrationFieldsTable = new Table(stack, 'RegistrationFields', {
@@ -51,5 +82,7 @@ export function StorageStack({ stack }: StackContext) {
     registrationsTable,
     registrationFieldsTable,
     seshuSessionsTable,
+    purchasablesTable,
+    eventRsvpsTable,
   };
 }
