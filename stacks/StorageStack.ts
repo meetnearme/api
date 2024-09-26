@@ -22,21 +22,13 @@ export function StorageStack({ stack }: StackContext) {
 
   const purchasablesTable = new Table(stack, 'Purchasables', {
     fields: {
-      id: 'string',
-      userId: 'string',
-      name: 'string',
-      itemType: 'string',
-      cost: 'number',
-      currency: 'string',
-      donationRatio: 'number',
-      inventory: 'number',
-      chargeRecurrenceInterval: 'string',
-      chargeRecurrenceIntervalCount: 'string',
-      chargeRecurrenceEndDate: 'number',
+      eventId: 'string',
+      registrationFieldNames: 'string',
+      purchasableItems: 'string',
       createdAt: 'number',
       updatedAt: 'number',
     },
-    primaryIndex: { partitionKey: 'id' },
+    primaryIndex: { partitionKey: 'eventId' },
   });
 
   const registrationsTable = new Table(stack, 'Registrations', {

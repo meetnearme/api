@@ -6,61 +6,83 @@ import (
 )
 
 // PurchasablesInsert represents the data required to insert a new user
-type PurchasableInsert struct {
-    ID            string `json:"id"` // UUID format validation
-	UserID string `json:"user_id" validastringte:"required"`
-    Name          string `json:"name" validate:"required"`
-    ItemType         string `json:"item_type" validate:"required"` // Validate as email
-    Cost		  float64 `json:"cost" validate:"required"`
-	Inventory int64 `json:"inventory" validate:"required"`
-    Currency         string `json:"currency" validate:"required"`
-	ChargeRecurrenceInterval string `json:"charge_recurrence_interval" validate:"required"`
-	ChargeRecurrenceIntervalCount int64 `json:"charge_recurrence_interval_count" validate:"required"`
-	ChargeRecurrenceEndDate string `json:"charge_recurrence_end_date" validate:"required"`
-	DonationRatio float64 `json:"donation_ratio" validate:"required"`
-    CreatedAt     string `json:"created_at"` // Adjust based on your date format
-    UpdatedAt     string `json:"updated_at"` // Adjust based on your date format
+type PurchasableItemInsert struct {
+    Name          string `json:"name" validate:"required" dynamodbav:"name"`
+    ItemType         string `json:"item_type" validate:"required" dynamodbav:"itemType"` // Validate as email
+    Cost		  float64 `json:"cost" validate:"required" dynamodbav:"cost"`
+	Inventory int64 `json:"inventory" validate:"required" dynamodbav:"inventory"`
+	StartingQuantity int64	`json:"starting_quantity" validate:"required" dynamodbav:"startingQuantity"`
+    Currency         string `json:"currency" validate:"required" dynamodbav:"currency"`
+	ChargeRecurrenceInterval string `json:"charge_recurrence_interval" validate:"required" dynamodbav:"chargeRecurrenceInterval"`
+	ChargeRecurrenceIntervalCount int64 `json:"charge_recurrence_interval_count" validate:"required" dynamodbav:"chargeRecurrenceIntervalCount"`
+	ChargeRecurrenceEndDate string `json:"charge_recurrence_end_date" validate:"required" dynamodbav:"chargeRecurrenceEndDate"`
+	DonationRatio float64 `json:"donation_ratio" validate:"required" dynamodbav:"donationRatio"`
+    CreatedAt     string `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
+    UpdatedAt     string `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
 }
 
 
 // Purchasables represents a user in the system
-type Purchasable struct {
-    ID            string `json:"id"` // UUID format validation
-	UserID string `json:"userId" `
-    Name          string `json:"name"`
-    ItemType         string `json:"item_type"` // Validate as email
-    Cost		  float64 `json:"cost"`
-	Inventory int64 `json:"inventory"`
-    Currency         string `json:"currency"`
-	ChargeRecurrenceInterval string `json:"charge_recurrence_interval"`
-	ChargeRecurrenceIntervalCount int64 `json:"charge_recurrence_interval_count"`
-	ChargeRecurrenceEndDate time.Time `json:"charge_recurrence_end_date"`
-    DonationRatio float64 `json:"donation_ratio"`
-    CreatedAt     time.Time `json:"created_at"` // Adjust based on your date format
-    UpdatedAt     time.Time `json:"updated_at"` // Adjust based on your date format
+type PurchasableItem struct {
+    Name          string `json:"name" dynamodbav:"name"`
+    ItemType         string `json:"item_type" dynamodbav:"itemType"` // Validate as email
+    Cost		  float64 `json:"cost" dynamodbav:"cost"`
+	Inventory int64 `json:"inventory" dynamodbav:"inventory"`
+	StartingQuantity int64	`json:"starting_quantity" dynamodbav:"startingQuantity"`
+    Currency         string `json:"currency" dynamodbav:"currency"`
+	ChargeRecurrenceInterval string `json:"charge_recurrence_interval" dynamodbav:"chargeRecurrenceInterval"`
+	ChargeRecurrenceIntervalCount int64 `json:"charge_recurrence_interval_count" dynamodbav:"chargeRecurrenceIntervalCount"`
+	ChargeRecurrenceEndDate time.Time `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
+    DonationRatio float64 `json:"donation_ratio" dynamodbav:"donationRatio"`
+    CreatedAt     time.Time `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
+    UpdatedAt     time.Time `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
 }
 
 // PurchasablesUpdate represents the data required to update a user
+type PurchasableItemUpdate struct {
+	Name          string `json:"name" dynamodbav:"name"`
+	ItemType         string `json:"item_type" dynamodbav:"itemType"` // Validate as email
+    Cost		  float64 `json:"cost" dynamodbav:"cost"`
+	Inventory int64 `json:"inventory" dynamodbav:"inventory"`
+	StartingQuantity int64	`json:"starting_quantity" dynamodbav:"startingQuantity"`
+    Currency         string `json:"currency" dynamodbav:"currency"`
+	ChargeRecurrenceInterval string `json:"charge_recurrence_interval" dynamodbav:"chargeRecurrenceInterval"`
+	ChargeRecurrenceIntervalCount int64 `json:"charge_recurrence_interval_count" dynamodbav:"chargeRecurrenceIntervalCount"`
+	ChargeRecurrenceEndDate string `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
+    DonationRatio float64 `json:"donation_ratio" dynamodbav:"donationRatio"`
+    UpdatedAt     time.Time `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
+}
+
+type PurchasableInsert struct {
+	EventId string `json:"event_id" validate:"required" dynamodbav:"eventId"`
+	RegistrationFieldsName []string `json:"registration_fields" validate:"required" dynamodbav:"registrationFields"`
+	PurchasableItems []PurchasableItemInsert `json:"purchasable_items" validate:"required" dynamodbav:"purchasableItems"`
+    CreatedAt     time.Time `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
+    UpdatedAt     time.Time `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
+}
+
+type Purchasable struct {
+	EventId string `json:"event_id" dynamodbav:"eventId"`
+	RegistrationFieldsNames []string `json:"registration_fields"  dynamodbav:"registrationFields"`
+	PurchasableItems []PurchasableItemInsert `json:"purchasable_items"  dynamodbav:"purchasableItems"`
+    CreatedAt     time.Time `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
+    UpdatedAt     time.Time `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
+}
+
 type PurchasableUpdate struct {
-	UserID string `json:"userId"`
-    Name          string `json:"name" `
-    ItemType         string `json:"item_type" ` // Validate as email
-    Cost		  float64 `json:"cost"`
-	Inventory int64 `json:"inventory"`
-    Currency         string `json:"currency"`
-	ChargeRecurrenceInterval string `json:"charge_recurrence_interval"`
-	ChargeRecurrenceIntervalCount int64 `json:"charge_recurrence_interval_count"`
-	ChargeRecurrenceEndDate string `json:"charge_recurrence_end_date"`
-    DonationRatio float64 `json:"donation_ratio"`
+	EventId string `json:"event_id" validastringte:"required" dynamodbav:"eventId"`
+	RegistrationFieldsNames []string `json:"registration_fields"  dynamodbav:"registrationFields"`
+	PurchasableItems []PurchasableItemInsert `json:"purchasable_items" dynamodbav:"purchasableItems"`
+    CreatedAt     time.Time `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
+    UpdatedAt     time.Time `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
 }
 
 // PurchasablesServiceInterface defines the methods for user-related operations using the RDSDataAPI
 type PurchasableServiceInterface interface {
-	InsertPurchasable(ctx context.Context, rdsClient RDSDataAPI, user PurchasableInsert) (*Purchasable, error)
-	GetPurchasableByID(ctx context.Context, rdsClient RDSDataAPI, id string) (*Purchasable, error)
-	GetPurchasablesByUserID(ctx context.Context, rdsClient RDSDataAPI, userId string) ([]Purchasable, error)
-	UpdatePurchasable(ctx context.Context, rdsClient RDSDataAPI, id string, user PurchasableUpdate) (*Purchasable, error)
-	DeletePurchasable(ctx context.Context, rdsClient RDSDataAPI, id string) error
+	InsertPurchasable(ctx context.Context, dynamodbClient DynamoDBAPI, purchasable PurchasableInsert) (*Purchasable, error)
+	GetPurchasablesByEventID(ctx context.Context, dynamodbClient DynamoDBAPI, eventId string) (*Purchasable, error)
+	UpdatePurchasable(ctx context.Context, dynamodbClient DynamoDBAPI, purchasable PurchasableUpdate) (*Purchasable, error)
+	DeletePurchasable(ctx context.Context, dynamodbClient DynamoDBAPI, eventId string) error
 }
 
 

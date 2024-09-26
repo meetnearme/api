@@ -89,11 +89,10 @@ func init() {
 
 
 		// // Purchasables routes
-		// {"/api/purchasables/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasablesHandler, None}, // Get all purchasables
-		// {"/api/purchasables/{id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasableHandler, None}, // Get a specific purchasable
-		// {"/api/purchasables", "POST", dynamodb_handlers.CreatePurchasableHandler, None}, // Create a new purchasable
-		// {"/api/purchasables/{id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchasableHandler, None}, // Update an existing purchasable
-		// {"/api/purchasables/{id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchasableHandler, None}, // Delete a purchasable
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, None}, // Create a new purchasable
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasableHandler, None}, // Get all purchasables
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchasableHandler, None}, // Update an existing purchasable
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchasableHandler, None}, // Delete a purchasable
 
 		// // Event RSVPs routes
 		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateEventRsvpHandler, None}, // Create a new event RSVP

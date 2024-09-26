@@ -69,95 +69,120 @@ curl -X DELETE https://devnear.me/api/users/<:user_id>
 
 1. Create Purchasable
 ```bash
-curl -X POST https://devnear.me/api/purchasables \
-     -H "Content-Type: application/json" \
-     -d '{
-           "user_id": "ea49a5f8-e27c-47b0-8237-6f6f380a048c",
-           "name": "Sample Item 2",
-           "item_type": "ticket",
-           "cost": 69.99,
-           "currency": "USD",
-           "donation_ratio": 0.10,
-           "inventory": 100,
-           "charge_recurrence_interval": "month",
-           "charge_recurrence_interval_count": 1,
-           "charge_recurrence_end_date": "2024-12-31T23:59:59Z"
-         }'
+curl -X POST https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/purchasables/123e4567-e89b-12d3-a456-426614174000 \
+-H "Content-Type: application/json" \
+-d '{
+  "event_id": "123e4567-e89b-12d3-a456-426614174000",
+  "registration_fields": ["field1", "field2"],
+  "purchasable_items": [
+    {
+      "name": "Sample Item",
+      "item_type": "Type A",
+      "cost": 100.0,
+      "inventory": 50,
+      "starting_quantity": 100,
+      "currency": "USD",
+      "charge_recurrence_interval": "monthly",
+      "charge_recurrence_interval_count": 3,
+      "charge_recurrence_end_date": "2025-12-31T00:00:00Z",
+      "donation_ratio": 0.1,
+      "created_at": "2024-09-01T12:00:00Z",
+      "updated_at": "2024-09-01T12:00:00Z"
+    }
+  ],
+  "created_at": "2024-09-01T12:00:00Z",
+  "updated_at": "2024-09-01T12:00:00Z"
+}'
 
 ```
 
 2. Update Purchasable
 ```bash
-curl -X PUT https://devnear.me/api/purchasables/<:id> \
-     -H "Content-Type: application/json" \
-     -d '{
-           "name": "Updated Item",
-           "item_type": "membership",
-           "cost": 99.99,
-           "currency": "USD",
-           "donation_ratio": 0.15,
-           "inventory": 200,
-           "charge_recurrence_interval": "year",
-           "charge_recurrence_interval_count": 1,
-           "charge_recurrence_end_date": "2025-12-31T23:59:59Z"
-         }'
+curl -X PUT https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/purchasables/123e4567-e89b-12d3-a456-426614174000 \
+-H "Content-Type: application/json" \
+-d '{
+  "event_id": "123e4567-e89b-12d3-a456-426614174000",
+  "registration_fields": ["field1", "field2"],
+  "purchasable_items": [
+    {
+      "name": "Sample Item",
+      "item_type": "Type A",
+      "cost": 100.0,
+      "inventory": 50,
+      "starting_quantity": 100,
+      "currency": "USD",
+      "charge_recurrence_interval": "monthly",
+      "charge_recurrence_interval_count": 3,
+      "charge_recurrence_end_date": "2025-12-31T00:00:00Z",
+      "donation_ratio": 0.1,
+      "created_at": "2024-09-01T12:00:00Z",
+      "updated_at": "2024-09-01T12:00:00Z"
+    },
+    {
+      "name": "Updated Item",
+      "item_type": "Type B",
+      "cost": 150.0,
+      "inventory": 30,
+      "starting_quantity": 80,
+      "currency": "USD",
+      "charge_recurrence_interval": "yearly",
+      "charge_recurrence_interval_count": 1,
+      "charge_recurrence_end_date": "2026-12-31T00:00:00Z",
+      "donation_ratio": 0.2,
+      "updated_at": "2024-09-15T14:30:00Z"
+    }
+  ],
+  "updated_at": "2024-09-15T14:30:00Z"
+}'
 
 ```
-3. Get Purchasable by ID
+3. Get Purchasables by EventID
 ```bash
-curl -X GET https://devnear.me/api/purchasables/<:id> \
-     -H "Content-Type: application/json"
+curl -X GET https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/purchasables/123e4567-e89b-12d3-a456-426614174000 \
+-H "Content-Type: application/json"
 
-```
-4. Get Purchasables by UserID
-```bash
-curl -X GET https://devnear.me/api/purchasables/user/<:user_id> \
-     -H "Content-Type: application/json"
 ```
 5. Delete Purchasable
 ```bash
-curl -X DELETE https://devnear.me/api/purchasables/<:id> \
-     -H "Content-Type: application/json"
-
+curl -X DELETE https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/purchasables/123e4567-e89b-12d3-a456-426614174000 \
+-H "Content-Type: application/json"
 ```
 
 
 ## Event RSVPs
 1. Create EventRsvp
 ```bash
-curl -X POST https://devnear.me/api/event-rsvps \
+curl -X POST https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/event-rsvps/6ce1be30-f700-475c-b84a-49af0c73f337/ea49a5f8-e27c-47b0-8237-6f6f380a048c \
   -H "Content-Type: application/json" \
   -d '{
-    "user_id": "ea49a5f8-e27c-47b0-8237-6f6f380a048c",
-    "event_id": "6ce1be30-f700-475c-b84a-49af0c73f337",
     "event_source_id": "71b19c4a-4390-426c-bbe0-77f214a90cfc",
     "event_source_type": "internalRecurrence",
     "status": "Yes"
 }'
 ```
 
-2. GET EventRsvp By ID
+2. GET EventRsvp By PK 
 ```bash
-curl -X GET https://devnear.me/api/event-rsvps/<:id> \
+curl -X GET https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/event-rsvps/6ce1be30-f700-475c-b84a-49af0c73f337/ea49a5f8-e27c-47b0-8237-6f6f380a048c \
   -H "Content-Type: application/json"
 
 ```
 
 3. GET EventRsvp By UserID
 ```bash
-curl -X GET https://devnear.me/api/event-rsvps/user/<:user_id> \
+curl -X GET https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/event-rsvps/user/ea49a5f8-e27c-47b0-8237-6f6f380a048c \
   -H "Content-Type: application/json"
 
 ```
 4. GET EventRsvp By EventID
 ```bash
-curl -X GET https://devnear.me/api/event-rsvps/event/<:event_id> \
+curl -X GET https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/event-rsvps/event/6ce1be30-f700-475c-b84a-49af0c73f337 \
   -H "Content-Type: application/json"
 ```
 
 5. Update EventRsvp
 ```bash
-curl -X PUT https://devnear.me/api/event-rsvps/<:id> \
+curl -X PUT https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/event-rsvps/6ce1be30-f700-475c-b84a-49af0c73f337/ea49a5f8-e27c-47b0-8237-6f6f380a048c \
   -H "Content-Type: application/json" \
   -d '{
     "status": "Maybe"
@@ -167,7 +192,7 @@ curl -X PUT https://devnear.me/api/event-rsvps/<:id> \
 
 6. Delete EventRsvp
 ```bash
-curl -X DELETE https://devnear.me/api/event-rsvps/<:id> \
+curl -X DELETE https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/event-rsvps/6ce1be30-f700-475c-b84a-49af0c73f337/ea49a5f8-e27c-47b0-8237-6f6f380a048c \
   -H "Content-Type: application/json"
 
 ```
