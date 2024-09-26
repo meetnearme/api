@@ -79,15 +79,6 @@ func init() {
 		{"/api/html/seshu/session/location", "PATCH", handlers.GeoThenPatchSeshuSession, None},
 		{"/api/html/seshu/session/events", "PATCH", handlers.SubmitSeshuEvents, None},
 
-		// TODO: assign proper require, check authorizations
-		// User routes
-		// {"/api/users", "GET", rds_handlers.GetUsersHandler, None},                // Get all users
-		// {"/api/users/{id:[0-9a-fA-F-]+}", "GET", rds_handlers.GetUserHandler, None}, // Get a specific user
-		// {"/api/users", "POST", rds_handlers.CreateUserHandler, None},           // Create a new user
-		// {"/api/users/{id:[0-9a-fA-F-]+}", "PUT", rds_handlers.UpdateUserHandler, None}, // Update an existing user
-		// {"/api/users/{id:[0-9a-fA-F-]+}", "DELETE", rds_handlers.DeleteUserHandler, None}, // Delete a user
-
-
 		// // Purchasables routes
 		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, None}, // Create a new purchasable
 		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasableHandler, None}, // Get all purchasables
