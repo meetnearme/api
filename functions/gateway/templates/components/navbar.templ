@@ -39,6 +39,132 @@ templ NavListItems(userInfo helpers.UserInfo) {
 	// }
 }
 
+templ PurchasableItemsList(hasRegistrationFields bool) {
+	<template x-for="(purch, index) in purchasable" :key="index">
+		<label class="form-control w-full max-w-xs">
+			<span class="label-text text-lg" x-text="purch.name"></span>
+			<div>
+				<div class="relative flex items-center max-w-[8rem] mb-5 mt-3">
+					<button @click="handleCounterClick($event.target, 'down', purch.name, index)" type="button" id="decrement-button" data-input-counter-decrement="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-s-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
+						<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
+							<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h16"></path>
+						</svg>
+					</button>
+					<input x-model="formData[`${purch.name}_count_${index}`]" type="number" id="quantity-input" data-input-counter aria-describedby="helper-text-explanation" class="input-number-counter bg-gray-50 border-x-0 border-gray-300 h-11 text-center text-gray-900 text-sm input-bordered input-primary bg-gray-700 border-gray-600 placeholder-gray-400 text-white" placeholder="" required/>
+					<button @click="handleCounterClick($event.target, 'up', purch.name, index)" type="button" id="increment-button" data-input-counter-increment="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-e-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
+						<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
+							<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 1v16M1 9h16"></path>
+						</svg>
+					</button>
+				</div>
+				// show per-purchasable item registration fields if needed
+				if hasRegistrationFields {
+					<template
+						x-if="purch.registration_fields_copy?.length"
+					>
+						<template
+							x-for="(field, idx) in purch.registration_fields_copy"
+							:key="field.name"
+						>
+							<div class="flex-none">
+								<label class="form-control w-full max-w-xs">
+									<template x-if="parseInt(formData[`${purch.name}_count_${index}`]) > 0 && field.type !== 'checkbox' ">
+										<div class="label">
+											<span class="label-text" x-text="field.description"></span>
+										</div>
+									</template>
+									<template x-for="i in parseInt(formData[`${purch.name}_count_${index}`] || 0)" :key="i">
+										<div class="my-2" x-data="{ _index: `purch_${eventId}_${purch.name}_field_${field.name}_count_${i}` }">
+											@RegistrationFieldsByType(true)
+										</div>
+									</template>
+								</label>
+							</div>
+						</template>
+					</template>
+				}
+			</div>
+		</label>
+	</template>
+}
+
+templ RegistrationFieldsByType(nestedInPurchasable bool) {
+	<template x-if="field.type == 'text'">
+		// TODO: x-model.fill causes a problem with default values
+		// but only in the case of the `nestedInPurchasable` fields
+		<input
+			type="text"
+			if nestedInPurchasable {
+				x-model="formData[_index]"
+				x-on:change="validateOneField(field, _index, idx)"
+				:name="_index"
+				:data-index="_index"
+			} else {
+				x-model="formData[field.name]"
+				x-on:change="validateOneField(field, field?.name, idx)"
+				:name="field.name"
+				x-model.fill="field.default"
+			}
+			:placeholder="field.placeholder"
+			:required="field.required"
+			class="input input-bordered w-full border-opacity-100"
+		/>
+	</template>
+	<template x-if="field.type == 'checkbox'">
+		// NOTE: checkboxes look wrong in the UI without
+		// a label, we show individual labels only for them
+		<div>
+			<div class="label">
+				<span class="label-text" x-text="field.description"></span>
+			</div>
+			<input
+				type="checkbox"
+				class="z-[9] checkbox checkbox-xs checkbox-tertiary border-opacity-100 mr-5 my-1"
+				if nestedInPurchasable {
+					x-model="formData[_index]"
+					x-on:change="validateOneField(field, _index, idx)"
+					:name="_index"
+					:data-index="_index"
+				} else {
+					x-model="formData[field.name]"
+					x-on:change="validateOneField(field, field?.name, idx)"
+					:name="field.name"
+					x-model.fill="field.default"
+				}
+				:placeholder="field.placeholder"
+				:required="field.required"
+				class="input input-bordered w-full"
+			/>
+		</div>
+	</template>
+	<template x-if="field.type == 'select'">
+		<select
+			if nestedInPurchasable {
+				x-model="formData[_index]"
+				x-on:change="validateOneField(field, _index, idx)"
+				:name="_index"
+				:data-index="_index"
+			} else {
+				x-model="formData[field.name]"
+				x-on:change="validateOneField(field, field?.name, idx)"
+				:name="field.name"
+				x-model.fill="field.default"
+			}
+			:type="field.type"
+			:placeholder="field.placeholder"
+			:required="field.required"
+			class="select w-full max-w-xs select-bordered border-opacity-100"
+		>
+			<template x-if="field.placeholder">
+				<option disabled selected x-text="field.placeholder"></option>
+			</template>
+			<template x-for="(option, idx) in field.options" :key="idx">
+				<option x-text="option"></option>
+			</template>
+		</select>
+	</template>
+}
+
 templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Event) {
 	<div class="drawer drawer-end overflow-hidden">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
@@ -149,63 +275,50 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 					if (event.HasPurchasable || event.HasRegistrationFields) && helpers.ArrContains(subnavTabs, helpers.SubnavItems[helpers.NvCart]) {
 						<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
 						<div x-data="getCartRegistrationState()" role="tabpanel" class="tab-content p-2">
-							<template x-if="fields?.length">
-								<h3 class="text-lg my-3">Event Registration</h3>
+							<template x-if="registrationFields?.length">
+								<div>
+									<h3 class="text-xl my-3">Registration</h3>
+									<div class="divider"></div>
+								</div>
 							</template>
-							<template x-for="(field, index) in fields" :key="index">
+							<template x-for="(field, index) in registrationFields" :key="index">
 								<label class="form-control w-full max-w-xs">
 									<div class="label">
 										<span class="label-text" x-text="field.description"></span>
 									</div>
-									<template x-if="field.type == 'text'">
-										<input
-											type="text"
-											x-model="formData[field.name]"
-											x-model.fill="field.default"
-											x-on:change="validateOneField(field)"
-											:name="field.name"
-											:value="field.name"
-											:placeholder="field.placeholder"
-											:required="field.required"
-											class="input input-bordered w-full border-opacity-100"
-										/>
-									</template>
-									<template x-if="field.type == 'checkbox'">
-										<input
-											type="checkbox"
-											class="z-[9] checkbox checkbox-xs checkbox-tertiary border-opacity-100 mr-5 my-1"
-											x-on:change="validateOneField(field)"
-											x-model="formData[field.name]"
-											x-model.fill="field.default"
-											:name="field.name"
-											:value="field.name"
-											:placeholder="field.placeholder"
-											:required="field.required"
-											class="input input-bordered w-full"
-										/>
-									</template>
-									<template x-if="field.type == 'select'">
-										<select
-											x-model="formData[field.name]"
-											x-model.fill="field.default"
-											x-on:change="validateOneField(field)"
-											:name="field.name"
-											:value="field.name"
-											:type="field.type"
-											:placeholder="field.placeholder"
-											:required="field.required"
-											class="select w-full max-w-xs select-bordered border-opacity-100"
-										>
-											<template x-if="field.placeholder">
-												<option disabled selected x-text="field.placeholder"></option>
-											</template>
-											<template x-for="(option, idx) in field.options" :key="idx">
-												<option x-text="option"></option>
-											</template>
-										</select>
-									</template>
+									@RegistrationFieldsByType(false)
 								</label>
 							</template>
+							<br/>
+							<br/>
+							<template x-if="purchasable?.length">
+								<div>
+									<h3 class="text-xl my-3">Cart</h3>
+									<div class="divider my-3"></div>
+								</div>
+							</template>
+							if event.HasPurchasable && event.HasRegistrationFields {
+								<template x-if="hasPurchasable && hasRegistration && !registrationFieldsLoaded">
+									<div>
+										<div>Loading cart items...</div>
+										<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+									</div>
+								</template>
+								<template x-if="hasPurchasable && hasRegistration && registrationFieldsLoaded">
+									@PurchasableItemsList(event.HasRegistrationFields)
+								</template>
+							} else if event.HasPurchasable {
+								<template x-if="hasPurchasable && !registrationFieldsLoaded">
+									<div>
+										<div>Loading cart items...</div>
+										<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+									</div>
+								</template>
+								<template x-if="hasPurchasable && registrationFieldsLoaded">
+									@PurchasableItemsList(event.HasRegistrationFields)
+								</template>
+							}
+							// </div>
 							<template x-if="errors">
 								<template x-for="(err, _id) in errors" :key="_id">
 									<div class="alert alert-error mt-2">
@@ -232,7 +345,9 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 	<script id="registration-purchasable" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasable={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id }>
 			function getCartRegistrationState() {
 				return {
-					fields: null,
+					registrationFields: null,
+    			registrationFieldsLoaded: false,
+					purchasable: null,
 					formData: {},
 					errors: {},
 					eventId: document.querySelector('#registration-purchasable').getAttribute('data-event-id'),
@@ -240,40 +355,141 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 					hasPurchasable: document.querySelector('#registration-purchasable').getAttribute('data-has-purchasable') === "true",
 					async init() {
 							if (this.hasRegistration) {
-								this.options = await fetch(`/api/registration-fields/${this.eventId}`).then(res => {
-									return res.json()
-								}).then(json => {
+								if (this.hasRegistration) {
+       						await this.fetchRegistrationFields();
+      					}
+							}
+							if (this.hasPurchasable) {
+								// TODO: ABSOLUTELY DO NOT SHIP THIS, this is a workaround waiting for the API
+								const purchasable = [{
+									user_id: "ea49a5f8-e27c-47b0-8237-6f6f380a048c",
+									name: "VIP Ticket",
+									item_type: "ticket",
+									cost: 6999,
+									currency: "USD",
+									donation_ratio: 0.10,
+									inventory: 100,
+									charge_recurrence_end_date: "2024-12-31T23:59:59Z",
+									registration_fields: ["tshirtSize"]
+								},{
+									name: "Tshirt",
+									item_type: "ticket",
+									cost: 3000,
+									currency: "USD",
+									donation_ratio: 0.10,
+									inventory: 100,
+									charge_recurrence_interval: "",
+									charge_recurrence_interval_count: 1,
+									charge_recurrence_end_date: "2024-12-31T23:59:59Z",
+									registration_fields: []
+								},{
+									name: "DC Bocce Ball Membership",
+									item_type: "ticket",
+									cost: 1000,
+									currency: "USD",
+									donation_ratio: 0.10,
+									inventory: 100,
+									charge_recurrence_interval: "month",
+									charge_recurrence_interval_count: 1,
+									charge_recurrence_end_date: "2024-12-31T23:59:59Z",
+									registration_fields: [ "optInConsent", "attendeeEmail"]
+								}]
 
-									if (json?.fields?.[1]?.default) {
-										json.fields[1].default = 'XL'
-									}
+								this.purchasable = purchasable
+								// TODO: this needs to happen inside the
+								// purchasable promise resolution AND
+								// the registration fields promise to avoid
+								// a race condition
+								this.moveRegistrationFieldsToPurchasable();
 
-									this.fields = json?.fields
-								});
+								// TODO: END workaround to be deleted
 							}
 					},
-					validateOneField(field) {
+					async fetchRegistrationFields() {
+						try {
+							const response = await fetch(`/api/registration-fields/${this.eventId}`);
+							const json = await response.json();
+							this.registrationFields = json?.fields;
+							this.moveRegistrationFieldsToPurchasable();
+							this.registrationFieldsLoaded = true;
+						} catch (error) {
+							console.error("Error fetching registration fields:", error);
+							this.registrationFieldsLoaded = false;
+						}
+					},
+					moveRegistrationFieldsToPurchasable() {
+							if (this.hasPurchasable && this.hasRegistration) {
+									let fieldsToRemove = new Set();
+
+									this.purchasable?.forEach?.(item => {
+											if (item.registration_fields && Array.isArray(item.registration_fields)) {
+													// Create a copy of the filtered fields
+													item.registration_fields_copy = this.registrationFields
+															.filter(field => item.registration_fields.includes(field.name))
+															.map(field => Object.assign({}, field));
+
+													// Add the copied fields to the set of fields to remove
+													item.registration_fields_copy.forEach(field => fieldsToRemove.add(field.name));
+											}
+									});
+
+									// Remove the copied fields from the main registration fields
+									this.registrationFields = this.registrationFields.filter(field => !fieldsToRemove.has(field.name));
+							}
+					},
+					validateOneField(field, fieldName, includeIdx) {
 						if (field?.required) {
 							if (field?.type === 'checkbox') {
-								if (this?.formData?.[field?.name] === undefined) {
-									this.errors[field?.name] = `Response to '${field?.description}' is required`
+								if (this?.formData?.[fieldName] === undefined) {
+									this.errors[fieldName] = `Response to '${field?.description}' ${includeIdx > -1 ? '#'+ (includeIdx + 1) : ''} is required`
 								} else {
-									delete this.errors[field?.name]
+									delete this.errors[fieldName]
 								}
-							} else if ( !this?.formData?.[field?.name] ) {
-								this.errors[field?.name] = `Response to '${field?.description}' is required`
+							} else if ( !this?.formData?.[fieldName] ) {
+								this.errors[fieldName] = `Response to '${field?.description}' ${includeIdx > -1 ? '#' + (includeIdx + 1) : ''} is required`
 							} else {
-								delete this.errors[field?.name]
+								delete this.errors[fieldName]
 							}
 						}
 					},
 					validateRegistration() {
-						this?.fields?.forEach(field => {
+						this?.registrationFields?.forEach(field => {
 							if (field?.required) {
-								this.validateOneField(field)
+								this.validateOneField(field, field?.name)
 							}
 						})
-					}
+
+						if (this.hasPurchasable) {
+							this?.purchasable?.forEach((purch, purchIdx) => {
+								purch?.registration_fields_copy?.forEach((field, fieldIdx) => {
+									if (field?.required) {
+										const searchMatchKey = `purch_${this.eventId}_${purch?.name}_field_${field?.name}`
+										Object.keys(this?.formData)?.forEach(formKey => {
+											const fieldCounterKey = `${purch?.name}_count_${purchIdx}`
+											const fieldCount = parseInt(this?.formData?.[fieldCounterKey])
+											for (let i = 0; i < fieldCount; i++) {
+												const fieldName = `${searchMatchKey}_count_${i + 1}`;
+												this.validateOneField(field, fieldName, i)
+											}
+										})
+									}
+								})
+							})
+						}
+					},
+					handleCounterClick(self, direction, purchName, idx) {
+						const inputElement = self.closest('.relative').querySelector('input[type="number"]');
+						if (inputElement) {
+								const modelName = `${purchName}_count_${idx}`
+								if (modelName) {
+										if (direction === 'up') {
+												this.formData[modelName] = (parseInt(this.formData[modelName] || 0) + 1).toString();
+										} else if (this.formData[modelName] > 0) {
+												this.formData[modelName] = (parseInt(this.formData[modelName] || 0) - 1).toString();
+										}
+								}
+						}
+					},
 				}
 			}
 	</script>
