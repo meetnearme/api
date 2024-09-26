@@ -118,15 +118,6 @@ func (s *PurchasableService) UpdatePurchasable(ctx context.Context, dynamodbClie
 		input.ExpressionAttributeValues[":purchasableItems"] = &dynamodb_types.AttributeValueMemberL{Value: purchasableItems}
 		*input.UpdateExpression += " #purchasableItems = :purchasableItems,"
 	}
-	if purchasable.RegistrationFieldsNames != nil {
-		input.ExpressionAttributeNames["#registrationFieldsNames"] = "registrationFieldsNames"
-		registrationFieldsNames, err := attributevalue.MarshalList(purchasable.PurchasableItems)
-		if err != nil {
-			return nil, err
-		}
-		input.ExpressionAttributeValues[":registrationFieldsNames"] = &dynamodb_types.AttributeValueMemberL{Value: registrationFieldsNames}
-		*input.UpdateExpression += " #registrationFieldsNames = :registrationFieldsNames,"
-	}
 
 	// Set the updatedAt field
 	currentTime := time.Now().Unix()

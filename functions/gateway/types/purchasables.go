@@ -17,6 +17,7 @@ type PurchasableItemInsert struct {
 	ChargeRecurrenceIntervalCount int64 `json:"charge_recurrence_interval_count" validate:"required" dynamodbav:"chargeRecurrenceIntervalCount"`
 	ChargeRecurrenceEndDate string `json:"charge_recurrence_end_date" validate:"required" dynamodbav:"chargeRecurrenceEndDate"`
 	DonationRatio float64 `json:"donation_ratio" validate:"required" dynamodbav:"donationRatio"`
+	RegistrationFields []string `json:"registration_fields" dynamodbav:"registrationFields"`
     CreatedAt     string `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
     UpdatedAt     string `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
 }
@@ -34,6 +35,7 @@ type PurchasableItem struct {
 	ChargeRecurrenceIntervalCount int64 `json:"charge_recurrence_interval_count" dynamodbav:"chargeRecurrenceIntervalCount"`
 	ChargeRecurrenceEndDate time.Time `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
     DonationRatio float64 `json:"donation_ratio" dynamodbav:"donationRatio"`
+		RegistrationFields []string `json:"registration_fields" dynamodbav:"registrationFields"`
     CreatedAt     time.Time `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
     UpdatedAt     time.Time `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
 }
@@ -49,13 +51,13 @@ type PurchasableItemUpdate struct {
 	ChargeRecurrenceInterval string `json:"charge_recurrence_interval" dynamodbav:"chargeRecurrenceInterval"`
 	ChargeRecurrenceIntervalCount int64 `json:"charge_recurrence_interval_count" dynamodbav:"chargeRecurrenceIntervalCount"`
 	ChargeRecurrenceEndDate string `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
+	RegistrationFields []string `json:"registration_fields" dynamodbav:"registrationFields"`
     DonationRatio float64 `json:"donation_ratio" dynamodbav:"donationRatio"`
     UpdatedAt     time.Time `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
 }
 
 type PurchasableInsert struct {
 	EventId string `json:"event_id" validate:"required" dynamodbav:"eventId"`
-	RegistrationFieldsName []string `json:"registration_fields" validate:"required" dynamodbav:"registrationFields"`
 	PurchasableItems []PurchasableItemInsert `json:"purchasable_items" validate:"required" dynamodbav:"purchasableItems"`
     CreatedAt     time.Time `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
     UpdatedAt     time.Time `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
@@ -63,7 +65,6 @@ type PurchasableInsert struct {
 
 type Purchasable struct {
 	EventId string `json:"event_id" dynamodbav:"eventId"`
-	RegistrationFieldsNames []string `json:"registration_fields"  dynamodbav:"registrationFields"`
 	PurchasableItems []PurchasableItemInsert `json:"purchasable_items"  dynamodbav:"purchasableItems"`
     CreatedAt     time.Time `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
     UpdatedAt     time.Time `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
@@ -71,7 +72,6 @@ type Purchasable struct {
 
 type PurchasableUpdate struct {
 	EventId string `json:"event_id" validastringte:"required" dynamodbav:"eventId"`
-	RegistrationFieldsNames []string `json:"registration_fields"  dynamodbav:"registrationFields"`
 	PurchasableItems []PurchasableItemInsert `json:"purchasable_items" dynamodbav:"purchasableItems"`
     CreatedAt     time.Time `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
     UpdatedAt     time.Time `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
