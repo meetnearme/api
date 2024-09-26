@@ -40,9 +40,9 @@ templ NavListItems(userInfo helpers.UserInfo) {
 }
 
 templ PurchasableItemsList(hasRegistrationFields bool) {
-	<template x-for="(purch, index) in purchasable" :key="index">
+	<template x-for="(purch, index) in purchasables" :key="index">
 		<label class="form-control w-full max-w-xs">
-			<span class="label-text text-lg" x-text="purch.name"></span>
+			<span class="label-text text-lg mt-5" x-text="purch.name"></span>
 			<div>
 				<div class="relative flex items-center max-w-[8rem] mb-5 mt-3">
 					<button @click="handleCounterClick($event.target, 'down', purch.name, index)" type="button" id="decrement-button" data-input-counter-decrement="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-s-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
@@ -57,7 +57,7 @@ templ PurchasableItemsList(hasRegistrationFields bool) {
 						</svg>
 					</button>
 				</div>
-				// show per-purchasable item registration fields if needed
+				// show per-purchasables item registration fields if needed
 				if hasRegistrationFields {
 					<template
 						x-if="purch.registration_fields_copy?.length"
@@ -282,16 +282,18 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 								</div>
 							</template>
 							<template x-for="(field, index) in registrationFields" :key="index">
-								<label class="form-control w-full max-w-xs">
-									<div class="label">
-										<span class="label-text" x-text="field.description"></span>
-									</div>
+								<label class="form-control w-full max-w-xs" x-data="{ idx: '' }">
+									<template x-if="field?.type !== 'checkbox' ">
+										<div class="label">
+											<span class="label-text" x-text="field.description"></span>
+										</div>
+									</template>
 									@RegistrationFieldsByType(false)
 								</label>
 							</template>
 							<br/>
 							<br/>
-							<template x-if="purchasable?.length">
+							<template x-if="purchasables?.length">
 								<div>
 									<h3 class="text-xl my-3">Cart</h3>
 									<div class="divider my-3"></div>
@@ -342,86 +344,63 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 			</div>
 		</div>
 	</div>
-	<script id="registration-purchasable" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasable={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id }>
+	<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,
     			registrationFieldsLoaded: false,
-					purchasable: null,
+					purchasables: null,
+					purchasablesLoaded: false,
 					formData: {},
 					errors: {},
-					eventId: document.querySelector('#registration-purchasable').getAttribute('data-event-id'),
-					hasRegistration: document.querySelector('#registration-purchasable').getAttribute('data-has-registration') === "true",
-					hasPurchasable: document.querySelector('#registration-purchasable').getAttribute('data-has-purchasable') === "true",
+					eventId: document.querySelector('#registration-purchasables').getAttribute('data-event-id'),
+					hasRegistration: document.querySelector('#registration-purchasables').getAttribute('data-has-registration') === "true",
+					hasPurchasable: document.querySelector('#registration-purchasables').getAttribute('data-has-purchasables') === "true",
 					async init() {
+							const promises = [];
 							if (this.hasRegistration) {
-								if (this.hasRegistration) {
-       						await this.fetchRegistrationFields();
-      					}
+									promises.push(this.fetchRegistrationFields());
 							}
 							if (this.hasPurchasable) {
-								// TODO: ABSOLUTELY DO NOT SHIP THIS, this is a workaround waiting for the API
-								const purchasable = [{
-									user_id: "ea49a5f8-e27c-47b0-8237-6f6f380a048c",
-									name: "VIP Ticket",
-									item_type: "ticket",
-									cost: 6999,
-									currency: "USD",
-									donation_ratio: 0.10,
-									inventory: 100,
-									charge_recurrence_end_date: "2024-12-31T23:59:59Z",
-									registration_fields: ["tshirtSize"]
-								},{
-									name: "Tshirt",
-									item_type: "ticket",
-									cost: 3000,
-									currency: "USD",
-									donation_ratio: 0.10,
-									inventory: 100,
-									charge_recurrence_interval: "",
-									charge_recurrence_interval_count: 1,
-									charge_recurrence_end_date: "2024-12-31T23:59:59Z",
-									registration_fields: []
-								},{
-									name: "DC Bocce Ball Membership",
-									item_type: "ticket",
-									cost: 1000,
-									currency: "USD",
-									donation_ratio: 0.10,
-									inventory: 100,
-									charge_recurrence_interval: "month",
-									charge_recurrence_interval_count: 1,
-									charge_recurrence_end_date: "2024-12-31T23:59:59Z",
-									registration_fields: [ "optInConsent", "attendeeEmail"]
-								}]
-
-								this.purchasable = purchasable
-								// TODO: this needs to happen inside the
-								// purchasable promise resolution AND
-								// the registration fields promise to avoid
-								// a race condition
-								this.moveRegistrationFieldsToPurchasable();
-
-								// TODO: END workaround to be deleted
+									promises.push(this.fetchPurchasables());
+							}
+							await Promise.all(promises);
+							this.checkAndMoveRegistrationFields();
+					},
+					checkAndMoveRegistrationFields() {
+							if (this.hasRegistration && this.hasPurchasable &&
+									this.registrationFieldsLoaded && this.purchasablesLoaded) {
+									this.moveRegistrationFieldsToPurchasable();
 							}
 					},
 					async fetchRegistrationFields() {
-						try {
-							const response = await fetch(`/api/registration-fields/${this.eventId}`);
-							const json = await response.json();
-							this.registrationFields = json?.fields;
-							this.moveRegistrationFieldsToPurchasable();
-							this.registrationFieldsLoaded = true;
-						} catch (error) {
-							console.error("Error fetching registration fields:", error);
-							this.registrationFieldsLoaded = false;
-						}
+							try {
+									const response = await fetch(`/api/registration-fields/${this.eventId}`);
+									const json = await response.json();
+									this.registrationFields = json?.fields;
+									this.registrationFieldsLoaded = true;
+							} catch (error) {
+									console.error("Error fetching registration fields:", error);
+									this.registrationFieldsLoaded = false;
+							}
+					},
+					async fetchPurchasables() {
+							try {
+									const response = await fetch(`/api/purchasables/${this.eventId}`);
+									const json = await response.json();
+									this.purchasables = json?.purchasable_items;
+									console.log('purchasables', this.purchasables)
+									this.purchasablesLoaded = true;
+							} catch (error) {
+									console.error("Error fetching registration fields:", error);
+									this.purchasablesLoaded = false;
+							}
 					},
 					moveRegistrationFieldsToPurchasable() {
 							if (this.hasPurchasable && this.hasRegistration) {
 									let fieldsToRemove = new Set();
 
-									this.purchasable?.forEach?.(item => {
+									this.purchasables?.forEach?.(item => {
 											if (item.registration_fields && Array.isArray(item.registration_fields)) {
 													// Create a copy of the filtered fields
 													item.registration_fields_copy = this.registrationFields
@@ -460,7 +439,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 						})
 
 						if (this.hasPurchasable) {
-							this?.purchasable?.forEach((purch, purchIdx) => {
+							this?.purchasables?.forEach((purch, purchIdx) => {
 								purch?.registration_fields_copy?.forEach((field, fieldIdx) => {
 									if (field?.required) {
 										const searchMatchKey = `purch_${this.eventId}_${purch?.name}_field_${field?.name}`
