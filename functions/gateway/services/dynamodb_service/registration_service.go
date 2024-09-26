@@ -35,14 +35,10 @@ func (s *RegistrationService) InsertRegistration(ctx context.Context, dynamodbCl
         return nil, fmt.Errorf("validation failed: %w", err)
     }
 
-	log.Printf("reg fields in service insert: %v", registration)
-
 	item, err := attributevalue.MarshalMap(&registration)
 	if err != nil {
 		return nil, err
 	}
-
-	log.Printf("item in insert: %v", item)
 
 	if (registrationTableName == "") {
 		return nil, fmt.Errorf("ERR: registrationTableName is empty")
@@ -145,19 +141,6 @@ func (s *RegistrationService) GetRegistrationsByUserID(ctx context.Context, dyna
 	if err != nil {
 		log.Fatalf("Query GSI failed, %v", err)
 	}
-	log.Printf("query gsi: %v", result)
-
-	inputScan := &dynamodb.ScanInput{
-		TableName: aws.String(registrationTableName),
-		IndexName: aws.String("userIdGsi"), // Scan the GSI
-	}
-
-	resultScan, err := dynamodbClient.Scan(ctx, inputScan)
-	if err != nil {
-		log.Fatalf("Scan GSI failed: %v", err)
-	}
-
-	log.Printf("GSI scan result: %v", resultScan.Items)
 
 	var registrations []internal_types.Registration
 	err = attributevalue.UnmarshalListOfMaps(result.Items, &registrations)
@@ -225,6 +208,7 @@ func (s *RegistrationService) DeleteRegistration(ctx context.Context, dynamodbCl
 		TableName: aws.String(registrationTableName),
 		Key: map[string]dynamodb_types.AttributeValue{
 			"eventId": &dynamodb_types.AttributeValueMemberS{Value: eventId},
+			"userId":  &dynamodb_types.AttributeValueMemberS{Value: userId},
 		},
 	}
 

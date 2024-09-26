@@ -231,34 +231,34 @@ func (s *EventRsvpService) DeleteEventRsvp(ctx context.Context, dynamodbClient i
 }
 
 type MockEventRsvpService struct {
-	InsertEventRsvpFunc  func(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventRsvp internal_types.EventRsvpInsert, eventId, userId string) (*internal_types.EventRsvp, error)
-	GetEventRsvpByPkFunc func(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventId, userId string) (*internal_types.EventRsvp, error)
-	GetEventRsvpsByUserIDFunc    func(ctx context.Context, rdsClient internal_types.RDSDataAPI, userID string) ([]internal_types.EventRsvp, error) // New function
-	GetEventRsvpsByEventIDFunc    func(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventID string) ([]internal_types.EventRsvp, error) // New function
-	UpdateEventRsvpFunc  func(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventId, userId string, eventRsvp internal_types.EventRsvpUpdate) (*internal_types.EventRsvp, error)
-	DeleteEventRsvpFunc  func(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventId, userId string)  error
+	InsertEventRsvpFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventRsvp internal_types.EventRsvpInsert) (*internal_types.EventRsvp, error)
+	GetEventRsvpByPkFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.EventRsvp, error)
+	GetEventRsvpsByUserIDFunc    func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userID string) ([]internal_types.EventRsvp, error) // New function
+	GetEventRsvpsByEventIDFunc    func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string) ([]internal_types.EventRsvp, error) // New function
+	UpdateEventRsvpFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string, eventRsvp internal_types.EventRsvpUpdate) (*internal_types.EventRsvp, error)
+	DeleteEventRsvpFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string)  error
 }
 
-func (m *MockEventRsvpService) InsertEventRsvp(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventRsvp internal_types.EventRsvpInsert, eventId, userId string) (*internal_types.EventRsvp, error) {
-	return m.InsertEventRsvpFunc(ctx, rdsClient, eventRsvp, eventId, userId)
+func (m *MockEventRsvpService) InsertEventRsvp(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventRsvp internal_types.EventRsvpInsert) (*internal_types.EventRsvp, error) {
+	return m.InsertEventRsvpFunc(ctx, dynamodbClient, eventRsvp)
 }
 
-func (m *MockEventRsvpService) GetEventRsvpByPk(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventId, userId string) (*internal_types.EventRsvp, error) {
-	return m.GetEventRsvpByPkFunc(ctx, rdsClient, eventId, userId)
+func (m *MockEventRsvpService) GetEventRsvpByPk(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.EventRsvp, error) {
+	return m.GetEventRsvpByPkFunc(ctx, dynamodbClient, eventId, userId)
 }
 
-func (m *MockEventRsvpService) UpdateEventRsvp(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventId, userId string, eventRsvp internal_types.EventRsvpUpdate) (*internal_types.EventRsvp, error) {
-	return m.UpdateEventRsvpFunc(ctx, rdsClient, eventId, userId, eventRsvp)
+func (m *MockEventRsvpService) UpdateEventRsvp(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string, eventRsvp internal_types.EventRsvpUpdate) (*internal_types.EventRsvp, error) {
+	return m.UpdateEventRsvpFunc(ctx, dynamodbClient, eventId, userId, eventRsvp)
 }
 
-func (m *MockEventRsvpService) DeleteEventRsvp(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventId, userId string)  error {
-	return m.DeleteEventRsvpFunc(ctx, rdsClient, eventId, userId)
+func (m *MockEventRsvpService) DeleteEventRsvp(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string)  error {
+	return m.DeleteEventRsvpFunc(ctx, dynamodbClient, eventId, userId)
 }
 
-func (m *MockEventRsvpService) GetEventRsvpsByUserID(ctx context.Context, rdsClient internal_types.RDSDataAPI, userID string) ([]internal_types.EventRsvp, error) {
-	return m.GetEventRsvpsByUserIDFunc(ctx, rdsClient, userID)
+func (m *MockEventRsvpService) GetEventRsvpsByUserID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userID string) ([]internal_types.EventRsvp, error) {
+	return m.GetEventRsvpsByUserIDFunc(ctx, dynamodbClient, userID)
 }
 
-func (m *MockEventRsvpService) GetEventRsvpsByEventID(ctx context.Context, rdsClient internal_types.RDSDataAPI, eventID string) ([]internal_types.EventRsvp, error) {
-	return m.GetEventRsvpsByEventIDFunc(ctx, rdsClient, eventID)
+func (m *MockEventRsvpService) GetEventRsvpsByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string) ([]internal_types.EventRsvp, error) {
+	return m.GetEventRsvpsByEventIDFunc(ctx, dynamodbClient, eventID)
 }
