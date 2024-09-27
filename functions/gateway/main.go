@@ -1,11 +1,5 @@
 package main
 
-// TODO: test "endTime" and add to UI
-
-// TODO: add "eventOwnerName" for UI display
-
-// TODO: add "primaryOwnerId" for clarity about who should display via `eventOwnerName` / filtering etc
-
 import (
 	"context"
 	"encoding/json"
