@@ -193,6 +193,7 @@
   width: 100%;
   z-index: 999;
   height: auto;
+  /* TODO: FIX THIS! use tailwind variables */
   background: white;
   padding: 20px;
 }
@@ -210,7 +211,16 @@
   align-items: center;
 }
 
-.peer:checked ~ .peer-checked\:text-secondary-content {
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type='number'] {
+  -moz-appearance: textfield;
 }
 
 .tab:is(input[type='radio']) {

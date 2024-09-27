@@ -205,7 +205,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		fmt.Sprint(originalQueryLat),
 		fmt.Sprint(originalQueryLong),
 	)
-	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage)
+	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage, services.Event{})
 
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
@@ -220,7 +220,7 @@ func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	aboutPage := pages.AboutPage()
 	ctx := r.Context()
 
-	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage)
+	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage, services.Event{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -260,7 +260,7 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests)
-	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage)
+	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, services.Event{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -279,7 +279,7 @@ func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.Handler
 	// roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
 
 	settingsPage := pages.ProfileSettingsPage()
-	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage)
+	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, services.Event{})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
@@ -296,7 +296,7 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParameters := apiGwV2Req.QueryStringParameters
 
 	mapEmbedPage := pages.MapEmbedPage(queryParameters["address"])
-	layoutTemplate := pages.Layout(helpers.SitePages["embed"], helpers.UserInfo{}, mapEmbedPage)
+	layoutTemplate := pages.Layout(helpers.SitePages["embed"], helpers.UserInfo{}, mapEmbedPage, services.Event{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -336,7 +336,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 
-	layoutTemplate := pages.Layout(helpers.SitePages["events"], userInfo, eventDetailsPage)
+	layoutTemplate := pages.Layout(helpers.SitePages["events"], userInfo, eventDetailsPage, *event)
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -353,7 +353,7 @@ func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	adminPage := pages.AddEventSource()
-	layoutTemplate := pages.Layout(helpers.SitePages["add-event-source"], userInfo, adminPage)
+	layoutTemplate := pages.Layout(helpers.SitePages["add-event-source"], userInfo, adminPage, services.Event{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {

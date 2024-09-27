@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,7 +17,6 @@ import (
 
 var validate *validator.Validate = validator.New()
 
-
 type MarqoHandler struct {
     MarqoService services.MarqoServiceInterface
 }
@@ -29,22 +27,32 @@ func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler 
 
 // Create a new struct for raw JSON operations
 type rawEventData struct {
-    Id          string        `json:"id"`
-    EventOwners []string      `json:"eventOwners" validate:"required,min=1"`
-    Name        string        `json:"name" validate:"required"`
-    Description string        `json:"description"`
-    Address     string        `json:"address"`
-    Lat         float64       `json:"lat"`
-    Long        float64       `json:"long"`
+    Id              string   `json:"id"`
+    EventOwners     []string `json:"eventOwners" validate:"required,min=1"`
+    Name            string   `json:"name" validate:"required"`
+    Description     string   `json:"description"`
+    Address         string   `json:"address"`
+    Lat             float64   `json:"lat"`
+    Long            float64   `json:"long"`
 }
 
 type rawEvent struct {
     rawEventData
     StartTime interface{} `json:"startTime" validate:"required"`
     EndTime   interface{} `json:"endTime,omitempty"`
+    StartingPrice   *int32    `json:"startingPrice,omitempty"`
+    Currency        *string     `json:"currency,omitempty"`
+    PayeeId         *string     `json:"payeeId,omitempty"`
+	HasRegistrationFields *bool `json:"hasRegistrationFields,omitempty"`
+	HasPurchasable *bool  `json:"hasPurchasable,omitempty"`
+	ImageUrl      *string `json:"imageUrl,omitempty"`
+	Timezone      *string `json:"timezone,omitempty"`
+	CreatedAt     *int64 `json:"createdAt,omitempty"`
+	UpdatedAt     *int64 `json:"updatedAt,omitempty"`
+	UpdatedBy     *string `json:"updatedBy,omitempty"`
 }
 
-func ConvertRawEventToEvent(raw rawEvent) (services.Event, error) {
+func ConvertRawEventToEvent(raw rawEvent, requireId bool) (services.Event, error) {
     event := services.Event{
         Id:          raw.Id,
         EventOwners: raw.EventOwners,
@@ -54,6 +62,40 @@ func ConvertRawEventToEvent(raw rawEvent) (services.Event, error) {
         Lat:         raw.Lat,
         Long:        raw.Long,
     }
+
+    // Safely assign pointer values
+    if raw.StartingPrice != nil {
+        event.StartingPrice = *raw.StartingPrice
+    }
+    if raw.Currency != nil {
+        event.Currency = *raw.Currency
+    }
+    if raw.PayeeId != nil {
+        event.PayeeId = *raw.PayeeId
+    }
+    if raw.HasRegistrationFields != nil {
+        event.HasRegistrationFields = *raw.HasRegistrationFields
+    }
+    if raw.HasPurchasable != nil {
+        event.HasPurchasable = *raw.HasPurchasable
+    }
+    if raw.ImageUrl != nil {
+        event.ImageUrl = *raw.ImageUrl
+    }
+    if raw.Timezone != nil {
+        event.Timezone = *raw.Timezone
+    }
+    if raw.CreatedAt != nil {
+        event.CreatedAt = *raw.CreatedAt
+    }
+    if raw.UpdatedAt != nil {
+        event.UpdatedAt = *raw.UpdatedAt
+    }
+    if raw.UpdatedBy != nil {
+        event.UpdatedBy = *raw.UpdatedBy
+    }
+
+
     if raw.StartTime == nil {
         return services.Event{}, fmt.Errorf("startTime is required")
     }
@@ -67,14 +109,28 @@ func ConvertRawEventToEvent(raw rawEvent) (services.Event, error) {
         endTime, err := helpers.UtcOrUnixToUnix64(raw.EndTime)
         if err != nil || endTime == 0 {
             return services.Event{}, fmt.Errorf("invalid EndTime: %w", err)
-        } else {
-            event.EndTime = nil
+        }
+    }
+    if raw.PayeeId != nil || raw.StartingPrice != nil || raw.Currency != nil {
+
+        if (raw.PayeeId == nil || raw.StartingPrice == nil || raw.Currency == nil) {
+            return services.Event{}, fmt.Errorf("all of 'PayeeId', 'StartingPrice', and 'Currency' are required if any are present")
+        }
+
+        if raw.PayeeId != nil {
+            event.PayeeId = *raw.PayeeId
+        }
+        if raw.Currency != nil {
+            event.Currency = *raw.Currency
+        }
+        if raw.StartingPrice != nil {
+            event.StartingPrice = *raw.StartingPrice
         }
     }
     return event, nil
 }
 
-func ExtractEventFromPayload(w http.ResponseWriter, r *http.Request) (event services.Event, status int, err error) {
+func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId bool) (event services.Event, status int, err error) {
     var raw rawEvent
 
     body, err := io.ReadAll(r.Body)
@@ -87,7 +143,7 @@ func ExtractEventFromPayload(w http.ResponseWriter, r *http.Request) (event serv
         return services.Event{}, http.StatusUnprocessableEntity, fmt.Errorf("invalid JSON payload: %w", err)
     }
 
-    event, err = ConvertRawEventToEvent(raw)
+    event, err = ConvertRawEventToEvent(raw, requireId)
     if err != nil {
         return services.Event{}, http.StatusBadRequest, fmt.Errorf("failed to convert raw event: %w", err)
     }
@@ -102,7 +158,7 @@ func ExtractEventFromPayload(w http.ResponseWriter, r *http.Request) (event serv
 
 
 func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
-    createEvent, status, err := ExtractEventFromPayload(w, r)
+    createEvent, status, err := ValidateSingleEventPaylod(w, r, false)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to extract event from payload: "+err.Error()), status, err)
         return
@@ -114,7 +170,9 @@ func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    res, err := services.UpsertEventToMarqo(marqoClient, createEvent, false)
+    createEvents := []services.Event{createEvent}
+
+    res, err := services.BulkUpsertEventToMarqo(marqoClient, createEvents, false)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
         return
@@ -126,7 +184,6 @@ func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    log.Printf("Inserted new item: %+v", res)
     transport.SendServerRes(w, json, http.StatusCreated, nil)
 }
 
@@ -166,7 +223,8 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
         if len(rawEvent.EventOwners) == 0 {
             return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d is missing eventOwners", i)
         }
-        event, err := ConvertRawEventToEvent(rawEvent)
+
+        event, err := ConvertRawEventToEvent(rawEvent, requireIds)
         if err != nil {
             return nil, http.StatusBadRequest, fmt.Errorf("invalid event at index %d: %s", i, err.Error())
         }
@@ -201,8 +259,6 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
         transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
         return
     }
-
-    log.Printf("Inserted new items: %+v", res)
     transport.SendServerRes(w, json, http.StatusCreated, nil)
 }
 
@@ -326,14 +382,16 @@ func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    updateEvent, status, err := ExtractEventFromPayload(w, r)
+    updateEvent, status, err := ValidateSingleEventPaylod(w, r, false)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to extract event from payload: "+err.Error()), status, err)
         return
     }
 
+    updateEvent.Id = eventId
+    updateEvents := []services.Event{updateEvent}
 
-    res, err := services.UpdateMarqoEventByID(marqoClient, eventId, updateEvent)
+    res, err := services.BulkUpdateMarqoEventByID(marqoClient, updateEvents)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to get marqo event: "+err.Error()), http.StatusInternalServerError, err)
         return
