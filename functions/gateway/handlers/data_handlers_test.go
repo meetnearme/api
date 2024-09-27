@@ -754,7 +754,7 @@ func TestBulkUpdateEvents(t *testing.T) {
                 },
             }
 
-			req, err := http.NewRequestWithContext(context.Background(), "PATCH", "/api/events", strings.NewReader(tt.payload))
+			req, err := http.NewRequestWithContext(context.Background(), "PUT", "/api/events", strings.NewReader(tt.payload))
 			if err != nil {
 				t.Fatalf("Failed to create request: %v", err)
 			}
@@ -1005,7 +1005,7 @@ func TestUpdateOneEvent(t *testing.T) {
                 },
             }
 
-            req, err := http.NewRequestWithContext(context.Background(), "PATCH", "/events/" + tt.apiPath, bytes.NewBufferString(tt.requestBody))
+            req, err := http.NewRequestWithContext(context.Background(), "PUT", "/events/" + tt.apiPath, bytes.NewBufferString(tt.requestBody))
             if err != nil {
                 t.Fatalf("Unexpected error: %v", err)
             }
