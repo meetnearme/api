@@ -7,6 +7,22 @@ import (
 	"os"
 )
 
+templ IconLeftSection(labelText, eventAddress, icon string) {
+	<div class="flex">
+		<div class="flex-none">
+			// Left column content (fit to width)
+			<div class="icon-container w-6 mr-2">
+				<img alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/" + icon + ".svg") }/>
+			</div>
+		</div>
+		<div class="flex-grow">
+			<p>
+				<strong>{ labelText }:</strong> { eventAddress }
+			</p>
+		</div>
+	</div>
+}
+
 templ EventDetailsPage(event services.Event) {
 	<div class="max-w-prose mx-auto" x-data="getEventDetailsData()">
 		if event.Id == "" {
@@ -29,24 +45,20 @@ templ EventDetailsPage(event services.Event) {
 			<h2 class="text-3xl mt-2">{ event.Name }</h2>
 			<br/>
 			<p>
-				<img style="display: inline-block;" alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/location.svg") }/> <strong>Location:</strong> { event.Address }
-				<br/>
+				@IconLeftSection("Location", event.Address, "location")
 				<br/>
 				if GetDateOrShowNone(event.StartTime) != "" {
-					<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> { GetDateOrShowNone(event.StartTime) }
+					@IconLeftSection("Date", GetDateOrShowNone(event.StartTime), "calendar")
 				}
-				<br/>
 				<br/>
 				if GetTimeOrShowNone(event.StartTime) != "" {
-					<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/clock.svg") }/><strong>Time:</strong> { GetTimeOrShowNone(event.StartTime) }
+					@IconLeftSection("Time", GetTimeOrShowNone(event.StartTime), "clock")
 				}
-				<br/>
 				<br/>
 				if event.StartingPrice > 0 {
 					// TODO: handle basecurrency
-					<img style="display: inline-block;" alt="Price Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/price.svg") }/><strong>Price:</strong> ${ fmt.Sprint(event.StartingPrice / 100) }
+					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price")
 				}
-				<br/>
 				<br/>
 				<h3 class="text-xl">EVENT DESCRIPTION</h3>
 				<br/>
