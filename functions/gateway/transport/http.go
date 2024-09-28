@@ -54,6 +54,7 @@ func SendServerRes(w http.ResponseWriter, body []byte, status int, err error) ht
 		log.Println(msg)
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 
