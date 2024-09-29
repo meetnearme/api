@@ -47,6 +47,9 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	} else if strings.ToLower(startTimeStr) == "this_week" {
 		startTime = time.Now()
 		endTime = startTime.AddDate(0, 0, 7)
+	} else if strings.ToLower(startTimeStr) == "this_year" {
+		startTime = time.Now()
+		endTime = startTime.AddDate(1, 0, 0)
 	}
 
 	// return early if one of the above are found
