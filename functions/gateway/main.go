@@ -1,5 +1,11 @@
 package main
 
+// TODO: test "endTime" and add to UI
+
+// TODO: add "eventOwnerName" for UI display
+
+// TODO: add "primaryOwnerId" for clarity about who should display via `eventOwnerName` / filtering etc
+
 import (
 	"context"
 	"encoding/json"
@@ -109,6 +115,20 @@ func init() {
 		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationFieldsByEventIDHandler, None}, // Get all
 		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationFieldsHandler, None}, // Update an existing
 		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationFieldsHandler, None}, // Delete an
+
+		// Purchases
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchaseHandler, None}, // Create a new event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchaseByPkHandler, None}, // Get a specific event RSVP
+		{"/api/purchases/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByEventIDHandler, None}, // Get all event RSVPs
+		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, None}, // Get a specific event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None}, // Update an existing event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None}, // Delete an event RSVP
+
+
+
+		// Checkout Session
+		{"/api/checkout/{event_id:[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Require},
+
 	}
 }
 
@@ -124,6 +144,10 @@ func NewApp() *App {
 	app.Router.Use(withContext)
 	app.InitializeAuth()
 	log.Printf("App created: %+v", app)
+
+	defer func() {
+		app.InitStripe()
+	}()
 	return app
 }
 
@@ -136,6 +160,10 @@ func (app *App) SetupRoutes(routes []Route) {
 	for _, route := range routes {
 		app.addRoute(route)
 	}
+}
+
+func (app *App) InitStripe() {
+	services.InitStripe()
 }
 
 func (app *App) addRoute(route Route) {

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func TestAddEventSource(t *testing.T) {
@@ -18,7 +18,7 @@ func TestAddEventSource(t *testing.T) {
 		subnavItems     []string
 		expectedContent []string
 		doNotShowContent []string
-		event   services.Event
+		event   types.Event
 	}{
 		{
 			name: string("Event Details, registration / purchasable"),
@@ -32,7 +32,7 @@ func TestAddEventSource(t *testing.T) {
 				">Checkout<",
 				">Register<",
 			},
-			event: services.Event{},
+			event: types.Event{},
 		},
 		{
 			name: string("Event Details, with purchasable"),
@@ -45,7 +45,7 @@ func TestAddEventSource(t *testing.T) {
 			doNotShowContent: []string{
 				">Register<",
 			},
-			event: services.Event{HasPurchasable: true},
+			event: types.Event{HasPurchasable: true},
 		},
 		{
 			name: string("Event Details, with registration"),
@@ -58,7 +58,7 @@ func TestAddEventSource(t *testing.T) {
 			doNotShowContent: []string{
 				">Checkout<",
 			},
-			event: services.Event{HasRegistrationFields: true},
+			event: types.Event{HasRegistrationFields: true},
 		},
 		{
 			name: string("About page"),
@@ -70,7 +70,7 @@ func TestAddEventSource(t *testing.T) {
 				"flyout-tab-cart",
 				"flyout-tab-filters",
 			},
-			event: services.Event{HasPurchasable: true},
+			event: types.Event{HasPurchasable: true},
 		},
 		{
 			name: string("Home / event search page"),
@@ -82,7 +82,7 @@ func TestAddEventSource(t *testing.T) {
 			doNotShowContent: []string{
 				"flyout-tab-cart",
 			},
-			event: services.Event{HasPurchasable: true},
+			event: types.Event{HasPurchasable: true},
 		},
 	}
 

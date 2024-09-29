@@ -3,7 +3,7 @@ package components
 import (
 	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
 )
 
@@ -27,8 +27,8 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 
 templ NavListItems(userInfo helpers.UserInfo) {
 	<li><a href="/about" class="px-5 py-3">About</a></li>
-	<li><a href="/auth/login" class="px-5 py-3">Login</a></li>
 	if userInfo.Email == "" {
+		<li><a href="/auth/login" class="px-5 py-3">Login</a></li>
 		<li><a href="/auth/login" class="btn btn-primary update-text-if-cookie">Signup</a></li>
 	}
 	// Change back to "Add an Event" when we release Seshu
@@ -165,7 +165,7 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 	</template>
 }
 
-templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Event) {
+templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) {
 	<div class="drawer drawer-end overflow-hidden">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content mt-24 flex flex-col">
@@ -334,9 +334,9 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 							<br/>
 							<br/>
 							if event.HasPurchasable {
-								<button class="btn btn-primary w-full" @click="validateRegistration()">Checkout</button>
+								<button data-umami-event={ "event-checkout-register-click-" + event.Id } class="btn btn-primary w-full" @click="validateRegistrationThenSubmit()">Checkout<template x-if="reqInFlight"><span class="loading loading-spinner loading-sm"></span></template></button>
 							} else if event.HasRegistrationFields {
-								<button class="btn btn-primary w-full" @click="validateRegistration()">Register</button>
+								<button data-umami-event={ "event-checkout-register-click-" + event.Id } class="btn btn-primary w-full" @click="validateRegistrationThenSubmit()">Register<template x-if="reqInFlight"><span class="loading loading-spinner loading-sm"></span></template></button>
 							}
 						</div>
 					}
@@ -344,16 +344,19 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 			</div>
 		</div>
 	</div>
-	<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id }>
+	<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-name={ event.Name }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,
     			registrationFieldsLoaded: false,
 					purchasables: null,
 					purchasablesLoaded: false,
+					purchaseComplete: false,
+					reqInFlight: false,
 					formData: {},
 					errors: {},
 					eventId: document.querySelector('#registration-purchasables').getAttribute('data-event-id'),
+					eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
 					hasRegistration: document.querySelector('#registration-purchasables').getAttribute('data-has-registration') === "true",
 					hasPurchasable: document.querySelector('#registration-purchasables').getAttribute('data-has-purchasables') === "true",
 					async init() {
@@ -382,6 +385,74 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 							} catch (error) {
 									console.error("Error fetching registration fields:", error);
 									this.registrationFieldsLoaded = false;
+							}
+					},
+					async submitPurchase() {
+							this.reqInFlight = true;
+							try {
+								const purchasedItems = this.purchasables
+									.map(purchasable => {
+										const countKey = Object.keys(this.formData).find(key =>
+											key.startsWith(`${purchasable.name}_count_`)
+										);
+										const quantity = parseInt(this.formData[countKey] || '0');
+
+										if (quantity > 0) {
+											// Construct reg_responses for this purchasable
+											const reg_responses = [];
+											for (let i = 1; i <= quantity; i++) {
+												const responseObj = {};
+												purchasable.registration_fields_copy?.forEach(field => {
+													const fieldKey = `purch_${this.eventId}_${purchasable.name}_field_${field.name}_count_${i}`;
+													if (this.formData.hasOwnProperty(fieldKey)) {
+														responseObj[field.name] = this.formData[fieldKey];
+													}
+												});
+												if (Object.keys(responseObj).length > 0) {
+													reg_responses.push(responseObj);
+												}
+											}
+
+											return {
+												name: purchasable.name,
+												item_type: purchasable.item_type,
+												cost: purchasable.cost,
+												quantity: quantity,
+												currency: purchasable.currency,
+												donation_ratio: purchasable.donation_ratio,
+												reg_responses: reg_responses
+											};
+										}
+										return null;
+									})
+									.filter(item => item !== null);
+
+				        const total = purchasedItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
+								console.log(`purchasedItems:`, purchasedItems)
+								// TODO: do we need the total?
+								console.log(`total`, total)
+
+								const response = await fetch(`/api/checkout/${this.eventId}`, {
+									method: 'POST',
+									headers: {
+											'Content-Type': 'application/json'
+									},
+									body: JSON.stringify({
+										status: "PENDING",
+										event_name: this.eventName,
+										purchased_items: purchasedItems,
+										total: total,
+										currency: "USD"
+									})
+								});
+								const json = await response.json();
+								console.log('json checkout res!', json);
+								this.reqInFlight = false;
+								this.purchaseComplete = true;
+							} catch (error) {
+									console.error("Error submitting checkout:", error);
+									this.reqInFlight = false;
+									this.purchaseComplete = false;
 							}
 					},
 					async fetchPurchasables() {
@@ -431,7 +502,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 							}
 						}
 					},
-					validateRegistration() {
+					validateRegistrationThenSubmit() {
 						this?.registrationFields?.forEach(field => {
 							if (field?.required) {
 								this.validateOneField(field, field?.name)
@@ -455,6 +526,9 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event services.Even
 								})
 							})
 						}
+						if (Object.keys(this.errors).length === 0) {
+        			this.submitPurchase()
+    				}
 					},
 					handleCounterClick(self, direction, purchName, idx) {
 						const inputElement = self.closest('.relative').querySelector('input[type="number"]');
