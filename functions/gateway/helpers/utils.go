@@ -90,10 +90,11 @@ func GetImgUrlFromHash(event types.Event) string {
 	baseUrl := os.Getenv("STATIC_BASE_URL") + "/assets/img/";
 
 	if len(event.Categories) > 0 {
-		if (ArrContains(event.Categories, "Bocce Ball")) {
+		if (ArrContains(event.Categories, "Karaoke")) {
+				return baseUrl + "cat_karaoke_0" + fmt.Sprint(HashIDtoImgRange(event.Id, 4)) + ".jpeg"
+		} else if (ArrContains(event.Categories, "Bocce Ball")) {
 			return baseUrl + "cat_bocce_ball_0" + fmt.Sprint(HashIDtoImgRange(event.Id, 4)) + ".jpeg"
-		}
-		if (ArrContains(event.Categories, "Trivia Night")) {
+		} else if (ArrContains(event.Categories, "Trivia Night")) {
 			return baseUrl + "cat_trivia_night_0" + fmt.Sprint(HashIDtoImgRange(event.Id, 4)) + ".jpeg"
 		}
 	}
