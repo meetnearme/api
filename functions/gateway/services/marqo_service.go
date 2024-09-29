@@ -530,8 +530,6 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *types.Eve
 		{"imageUrl", func() {
 				if v := getValue[string](doc, "imageUrl"); v != "" {
 						event.ImageUrl = v
-				} else {
-						event.ImageUrl = helpers.GetImgUrlFromHash(*event)
 				}
 		}},
 		{"categories", func() {
@@ -569,9 +567,14 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *types.Eve
 		}
 	}
 
-	// TODO: this is a hack for Adalo, always sending `refUrl` for a link out
+	// NOTE: this is a hack for Adalo, always sending `refUrl` for a link out
 	// to the platform event
 	event.RefUrl = os.Getenv("APEX_URL") + "/events/" + event.Id
+
+	// NOTE: this is also a hack for Adalo
+	if event.ImageUrl == "" {
+		event.ImageUrl = helpers.GetImgUrlFromHash(*event)
+	}
 
 	return event
 }
