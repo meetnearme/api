@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func init() {
@@ -87,17 +89,17 @@ func TestTruncateStringByBytes(t *testing.T) {
 func TestGetImgUrlFromHash(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    string
+		input    types.Event
 		expected string
 	}{
-		{"Valid hash", "1234567890", "/assets/img/0.png"},
+		{"Valid hash", types.Event{Id: "1234567890"}, "/assets/img/0.png"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetImgUrlFromHash(tt.input)
 			if result != tt.expected {
-				t.Errorf("GetImgUrlFromHash(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("GetImgUrlFromHash(%v) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}

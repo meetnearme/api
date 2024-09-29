@@ -16,6 +16,7 @@ import (
 	"github.com/ganeshdipdumbare/marqo-go"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func TestGetMarqoClient(t *testing.T){
@@ -186,11 +187,11 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		events []Event
+		events []types.Event
 	}{
 		{
 			name: "Multiple valid events",
-			events: []Event{
+			events: []types.Event{
 				{
 					EventOwners: []string{"123"},
 					Name:        "Test Event 1",
@@ -199,6 +200,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 					Address:     "123 Test St",
 					Lat:         51.5074,
 					Long:        -0.1278,
+					Timezone:    "America/New_York",
 				},
 				{
 					EventOwners: []string{"456"},
@@ -208,6 +210,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 					Address:     "456 Test Ave",
 					Lat:         40.7128,
 					Long:        -74.0060,
+					Timezone:    "America/New_York",
 				},
 				{
 					EventOwners: []string{"789"},
@@ -217,6 +220,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 					Address:     "789 Test Blvd",
 					Lat:         34.0522,
 					Long:        -118.2437,
+					Timezone:    "America/New_York",
 				},
 			},
 		},
