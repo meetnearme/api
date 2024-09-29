@@ -439,7 +439,7 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*types.Even
 	var events []*types.Event
 
 	for _, result := range res.Results {
-		event := NormalizeMarqoDocOrSearchRes(result)
+		event := NormalizeMarqoDocOrSearchRes(result, )
 		events = append(events, event)
 	}
 	return events, nil
@@ -530,6 +530,8 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *types.Eve
 		{"imageUrl", func() {
 				if v := getValue[string](doc, "imageUrl"); v != "" {
 						event.ImageUrl = v
+				} else {
+						event.ImageUrl = helpers.GetImgUrlFromHash(*event)
 				}
 		}},
 		{"categories", func() {
@@ -566,6 +568,10 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *types.Eve
 			field.setField()
 		}
 	}
+
+	// TODO: this is a hack for Adalo, always sending `refUrl` for a link out
+	// to the platform event
+	event.RefUrl = os.Getenv("APEX_URL") + "/events/" + event.Id
 
 	return event
 }

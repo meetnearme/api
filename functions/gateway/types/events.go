@@ -22,6 +22,7 @@ type Event struct {
 	CreatedAt     int64 `json:"createdAt,omitempty"`
 	UpdatedAt     int64 `json:"updatedAt,omitempty"`
 	UpdatedBy     string `json:"updatedBy,omitempty"`
+	RefUrl 				string `json:"refUrl,omitempty"`
 }
 
 type EventSearchResponse struct {
