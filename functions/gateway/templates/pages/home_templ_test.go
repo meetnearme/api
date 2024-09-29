@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func TestHomePage(t *testing.T) {
 	// Mock data
-	events := []services.Event{
+	events := []types.Event{
 		{
 			Id:          "123",
 			Name:        "Test Event 1",

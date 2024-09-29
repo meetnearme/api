@@ -226,3 +226,13 @@ input[type='number'] {
 .tab:is(input[type='radio']) {
   width: max-content;
 }
+
+.header-hero .opener {
+  font-size: 125%;
+}
+
+.icon-container {
+  display: inline-flex;
+  justify-content: center;
+  vertical-align: middle;
+}

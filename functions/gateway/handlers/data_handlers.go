@@ -4,15 +4,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
+	"github.com/meetnearme/api/functions/gateway/types"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
+	"github.com/stripe/stripe-go/v79"
+	"github.com/stripe/stripe-go/v79/checkout/session"
 )
 
 var validate *validator.Validate = validator.New()
@@ -34,6 +42,7 @@ type rawEventData struct {
     Address         string   `json:"address"`
     Lat             float64   `json:"lat"`
     Long            float64   `json:"long"`
+		Timezone        string    `json:"timezone"`
 }
 
 type rawEvent struct {
@@ -46,14 +55,15 @@ type rawEvent struct {
 	HasRegistrationFields *bool `json:"hasRegistrationFields,omitempty"`
 	HasPurchasable *bool  `json:"hasPurchasable,omitempty"`
 	ImageUrl      *string `json:"imageUrl,omitempty"`
-	Timezone      *string `json:"timezone,omitempty"`
+	Categories    *[]string `json:"categories,omitempty"`
+	Tags      		*[]string `json:"tags,omitempty"`
 	CreatedAt     *int64 `json:"createdAt,omitempty"`
 	UpdatedAt     *int64 `json:"updatedAt,omitempty"`
 	UpdatedBy     *string `json:"updatedBy,omitempty"`
 }
 
-func ConvertRawEventToEvent(raw rawEvent, requireId bool) (services.Event, error) {
-    event := services.Event{
+func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
+    event := types.Event{
         Id:          raw.Id,
         EventOwners: raw.EventOwners,
         Name:        raw.Name,
@@ -61,6 +71,7 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (services.Event, error
         Address:     raw.Address,
         Lat:         raw.Lat,
         Long:        raw.Long,
+				Timezone:    raw.Timezone,
     }
 
     // Safely assign pointer values
@@ -82,9 +93,12 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (services.Event, error
     if raw.ImageUrl != nil {
         event.ImageUrl = *raw.ImageUrl
     }
-    if raw.Timezone != nil {
-        event.Timezone = *raw.Timezone
-    }
+		if raw.Categories != nil {
+			event.Categories = *raw.Categories
+		}
+		if raw.Tags != nil {
+			event.Tags = *raw.Tags
+		}
     if raw.CreatedAt != nil {
         event.CreatedAt = *raw.CreatedAt
     }
@@ -97,24 +111,24 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (services.Event, error
 
 
     if raw.StartTime == nil {
-        return services.Event{}, fmt.Errorf("startTime is required")
+        return types.Event{}, fmt.Errorf("startTime is required")
     }
     startTime, err := helpers.UtcOrUnixToUnix64(raw.StartTime)
     if err != nil || startTime == 0 {
-        return services.Event{}, fmt.Errorf("invalid StartTime: %w", err)
+        return types.Event{}, fmt.Errorf("invalid StartTime: %w", err)
     }
     event.StartTime = startTime
 
     if raw.EndTime != nil {
         endTime, err := helpers.UtcOrUnixToUnix64(raw.EndTime)
         if err != nil || endTime == 0 {
-            return services.Event{}, fmt.Errorf("invalid EndTime: %w", err)
+            return types.Event{}, fmt.Errorf("invalid EndTime: %w", err)
         }
     }
     if raw.PayeeId != nil || raw.StartingPrice != nil || raw.Currency != nil {
 
         if (raw.PayeeId == nil || raw.StartingPrice == nil || raw.Currency == nil) {
-            return services.Event{}, fmt.Errorf("all of 'PayeeId', 'StartingPrice', and 'Currency' are required if any are present")
+            return types.Event{}, fmt.Errorf("all of 'PayeeId', 'StartingPrice', and 'Currency' are required if any are present")
         }
 
         if raw.PayeeId != nil {
@@ -130,27 +144,27 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (services.Event, error
     return event, nil
 }
 
-func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId bool) (event services.Event, status int, err error) {
+func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId bool) (event types.Event, status int, err error) {
     var raw rawEvent
 
     body, err := io.ReadAll(r.Body)
     if err != nil {
-        return services.Event{}, http.StatusBadRequest, fmt.Errorf("failed to read request body: %w", err)
+        return types.Event{}, http.StatusBadRequest, fmt.Errorf("failed to read request body: %w", err)
     }
 
     err = json.Unmarshal(body, &raw)
     if err != nil {
-        return services.Event{}, http.StatusUnprocessableEntity, fmt.Errorf("invalid JSON payload: %w", err)
+        return types.Event{}, http.StatusUnprocessableEntity, fmt.Errorf("invalid JSON payload: %w", err)
     }
 
     event, err = ConvertRawEventToEvent(raw, requireId)
     if err != nil {
-        return services.Event{}, http.StatusBadRequest, fmt.Errorf("failed to convert raw event: %w", err)
+        return types.Event{}, http.StatusBadRequest, fmt.Errorf("failed to convert raw event: %w", err)
     }
 
     err = validate.Struct(&event)
     if err != nil {
-        return services.Event{}, http.StatusBadRequest, fmt.Errorf("invalid body: %w", err)
+        return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid body: %w", err)
     }
 
     return event, status, nil
@@ -170,7 +184,7 @@ func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    createEvents := []services.Event{createEvent}
+    createEvents := []types.Event{createEvent}
 
     res, err := services.BulkUpsertEventToMarqo(marqoClient, createEvents, false)
     if err != nil {
@@ -196,7 +210,7 @@ func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
     }
 }
 
-func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireIds bool) ([]services.Event, int, error) {
+func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireIds bool) ([]types.Event, int, error) {
     var payload struct {
         Events []rawEvent `json:"events"`
     }
@@ -215,7 +229,7 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
         return nil, http.StatusBadRequest, fmt.Errorf("invalid body: %w", err)
     }
 
-    events := make([]services.Event, len(payload.Events))
+    events := make([]types.Event, len(payload.Events))
     for i, rawEvent := range payload.Events {
         if requireIds && rawEvent.Id == "" {
             return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d has no id", i)
@@ -224,6 +238,9 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
             return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d is missing eventOwners", i)
         }
 
+				if rawEvent.Timezone == "" {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d is missing timezone", i)
+				}
         event, err := ConvertRawEventToEvent(rawEvent, requireIds)
         if err != nil {
             return nil, http.StatusBadRequest, fmt.Errorf("invalid event at index %d: %s", i, err.Error())
@@ -277,7 +294,7 @@ func (h *MarqoHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
         return
     }
     eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
-    var event *services.Event
+    var event *types.Event
     event, err = services.GetMarqoEventByID(marqoClient, eventId)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to get marqo event: "+err.Error()), http.StatusInternalServerError, err)
@@ -389,7 +406,7 @@ func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
     }
 
     updateEvent.Id = eventId
-    updateEvents := []services.Event{updateEvent}
+    updateEvents := []types.Event{updateEvent}
 
     res, err := services.BulkUpdateMarqoEventByID(marqoClient, updateEvents)
     if err != nil {
@@ -424,7 +441,7 @@ func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    var res services.EventSearchResponse
+    var res types.EventSearchResponse
     res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to search marqo events: "+err.Error()), http.StatusInternalServerError, err)
@@ -444,4 +461,226 @@ func SearchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFun
     return func(w http.ResponseWriter, r *http.Request) {
         handler.SearchEvents(w, r)
     }
+}
+
+func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
+    ctx := r.Context()
+		vars := mux.Vars(r)
+		eventId := vars["event_id"]
+    if eventId == "" {
+        transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
+        return
+    }
+
+    userInfo := helpers.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+		}
+
+    userId := userInfo.Sub
+    if userId == "" {
+        transport.SendServerRes(w, []byte("Missing user ID"), http.StatusBadRequest, nil)
+        return
+    }
+
+    // Create an empty struct
+    var createPurchase internal_types.PurchaseInsert
+
+    body, err := io.ReadAll(r.Body)
+    if err != nil {
+        transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
+        return
+    }
+
+    err = json.Unmarshal(body, &createPurchase)
+    if err != nil {
+        transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
+        return
+    }
+
+    // Set the EventID and UserID after unmarshaling
+    createPurchase.EventID = eventId
+    createPurchase.UserID = userId
+
+    // Set CreatedAt and UpdatedAt to current time
+    currentTime := time.Now()
+    createPurchase.CreatedAt = currentTime
+    createPurchase.UpdatedAt = currentTime
+
+		purchasableService := dynamodb_service.NewPurchasableService()
+		h := dynamodb_handlers.NewPurchasableHandler(purchasableService)
+
+    db := transport.GetDB()
+    purchasable, err := h.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventId)
+    if err != nil {
+        transport.SendServerRes(w, []byte("Failed to get purchasables for event id: "+eventId+ " "+err.Error()), http.StatusInternalServerError, err)
+        return
+    }
+
+    // Validate inventory
+    var purchasableMap = map[string]internal_types.PurchasableItemInsert{}
+    if purchasableMap, err = validateInventory(purchasable, createPurchase); err != nil {
+        transport.SendServerRes(w, []byte("Failed to validate inventory for event id: "+eventId+ " + "+err.Error()), http.StatusBadRequest, err)
+        return
+    }
+
+    // After validating inventory
+    inventoryUpdates := make([]internal_types.PurchasableInventoryUpdate, len(createPurchase.PurchasedItems))
+    for i, item := range createPurchase.PurchasedItems {
+        inventoryUpdates[i] = internal_types.PurchasableInventoryUpdate{
+            Name:     item.Name,
+            Quantity: purchasableMap[item.Name].Inventory - item.Quantity,
+            PurchasableIndex: i,
+        }
+    }
+
+		// TODO: delete this log
+		log.Printf("\n\ncreatePurchase: %+v", createPurchase)
+
+    // this boolean gets toggled in the scenario where stripe
+    // checkout instantiation or other unrelated checkout steps
+    // AFTER the inventory is officially "held" + optimistically
+    // decremented
+    var needsRevert bool
+
+    err = h.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventId, inventoryUpdates, purchasableMap)
+    if err != nil {
+        transport.SendServerRes(w, []byte("Failed to update inventory: "+err.Error()), http.StatusInternalServerError, err)
+        return
+    }
+
+    defer func() {
+        if needsRevert {
+            // Revert inventory changes if there's an error
+            revertUpdates := make([]internal_types.PurchasableInventoryUpdate, len(inventoryUpdates))
+            for i, update := range inventoryUpdates {
+                revertUpdates[i] = internal_types.PurchasableInventoryUpdate{
+                    Name:             update.Name,
+                    Quantity:         purchasableMap[update.Name].Inventory, // Restore original inventory
+                    PurchasableIndex: update.PurchasableIndex,
+                }
+            }
+            revertErr := h.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventId, revertUpdates, purchasableMap)
+            if revertErr != nil {
+                log.Printf("ERR: Failed to revert inventory changes: %v", revertErr)
+            }
+        }
+    }()
+
+		_, stripePrivKey := services.GetStripeKeyPair()
+		stripe.Key = stripePrivKey
+
+		lineItems := make([]*stripe.CheckoutSessionLineItemParams, len(createPurchase.PurchasedItems))
+
+		for i, item := range createPurchase.PurchasedItems {
+				lineItems[i] = &stripe.CheckoutSessionLineItemParams{
+						Quantity: stripe.Int64(int64(item.Quantity)),
+						PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
+								Currency: stripe.String("USD"),
+								UnitAmount: stripe.Int64(int64(item.Cost)), // Convert to cents
+								ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
+										Name: stripe.String(item.Name + " (" + createPurchase.EventName + ")"),
+										Metadata: map[string]string{
+												"EventId": eventId,
+												"ItemType": item.ItemType,
+												"DonationRatio": fmt.Sprint(item.DonationRatio),
+										},
+								},
+						},
+				}
+		}
+
+		params := &stripe.CheckoutSessionParams{
+			SuccessURL: stripe.String("https://example.com/success"),
+			LineItems:  lineItems,
+			// TODO: `mode` needs to be "subscription" if there's a subscription / recurring item,
+			// use `add_invoice_item` to then append the one-time payment items:
+			// https://stackoverflow.com/questions/64011643/how-to-combine-a-subscription-and-single-payments-in-one-charge-stripe-ap
+			Mode:       stripe.String(string(stripe.CheckoutSessionModePayment)),
+		}
+
+		result, err := session.New(params);
+
+		if err != nil {
+			needsRevert = true
+			var errMsg = []byte("ERR: Failed to create Stripe checkout session: "+err.Error())
+			log.Println(string(errMsg))
+			transport.SendServerRes(w, errMsg, http.StatusInternalServerError, err)
+			return
+		}
+
+		log.Printf("\nstripe result: %+v", result)
+		log.Println("\nstripe checkout session ID: ", result.ID)
+
+
+
+    // TODO: DELETE BELOW THIS LINE
+
+    purchaseJSON, err := json.Marshal(&createPurchase)
+    if err != nil {
+        transport.SendServerRes(w, []byte("Failed to extract event from payload: "+err.Error()), http.StatusInternalServerError, err)
+        return
+    }
+
+    transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
+    return
+
+    // TODO: we need to
+
+    // 1) check inventory in the `Purchasables` table where it is tracked
+    // 2) if not available, return "out of stock" error for that item
+    // 3) if available, decrement the `Purchasables` table items
+    // 4) grab email from context (pull from token) and check for user in stripe customer id
+    // 5) create stripe customer Id if not present already
+    // 6) Create a Stripe checkout session
+    // 7) submit the transaction as PENDING with stripe `sessionId` and `customerNumber` (add to `Purchases` table)
+    // 8) Handoff session to stripe
+    // 9) Listen to Stripe webhook to mark transaction SETTLED
+    // 10) If Stripe webhook misses, poll the stripe API for the Session ID status
+    // 11) Need an SNS queue to do polling, Lambda isn't guaranteed to be there
+
+
+
+
+}
+
+func CreateCheckoutSessionHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        CreateCheckoutSession(w, r)
+    }
+}
+
+func validateInventory(purchasable *internal_types.Purchasable, createPurchase internal_types.PurchaseInsert) (purchasableItems map[string]internal_types.PurchasableItemInsert, err error) {
+    purchases := make([]*internal_types.PurchasedItem, len(purchasable.PurchasableItems))
+    for i, item := range createPurchase.PurchasedItems {
+        purchases[i] = &internal_types.PurchasedItem{
+            // Assuming PurchasableItemInsert has similar fields to Purchasable
+            Name:  item.Name,
+            Quantity: item.Quantity,
+            // ... other fields ...
+        }
+    }
+    // Create a map for quick lookup of purchasable items
+    purchasableMap := make(map[string]internal_types.PurchasableItemInsert)
+    for i, p := range purchasable.PurchasableItems {
+        purchasableMap[p.Name] = internal_types.PurchasableItemInsert{
+            Inventory: p.Inventory,
+            PurchasableIndex: i,
+        }
+
+    }
+
+    // Validate each purchased item
+    for _, purchasedItem := range createPurchase.PurchasedItems {
+        purchasableItem, exists := purchasableMap[purchasedItem.Name]
+        if !exists {
+            return purchasableMap, fmt.Errorf("item '%s' is not available for purchase", purchasedItem.Name)
+        }
+
+        if purchasedItem.Quantity > purchasableItem.Inventory {
+            return purchasableMap, fmt.Errorf("insufficient inventory for item '%s': requested %d, available %d",
+                purchasedItem.Name, purchasedItem.Quantity, purchasableItem.Inventory)
+        }
+    }
+    return purchasableMap, nil
 }

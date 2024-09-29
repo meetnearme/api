@@ -18,6 +18,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/transport"
+	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 const US_GEO_CENTER_LAT = float64(39.8283)
@@ -205,7 +206,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		fmt.Sprint(originalQueryLat),
 		fmt.Sprint(originalQueryLong),
 	)
-	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage, types.Event{})
 
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
@@ -220,7 +221,7 @@ func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	aboutPage := pages.AboutPage()
 	ctx := r.Context()
 
-	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage, types.Event{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -260,7 +261,7 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests)
-	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, types.Event{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -279,7 +280,7 @@ func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.Handler
 	// roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
 
 	settingsPage := pages.ProfileSettingsPage()
-	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, types.Event{})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
@@ -296,7 +297,7 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParameters := apiGwV2Req.QueryStringParameters
 
 	mapEmbedPage := pages.MapEmbedPage(queryParameters["address"])
-	layoutTemplate := pages.Layout(helpers.SitePages["embed"], helpers.UserInfo{}, mapEmbedPage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["embed"], helpers.UserInfo{}, mapEmbedPage, types.Event{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -328,7 +329,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	}
 	event, err := services.GetMarqoEventByID(marqoClient, eventId)
 	if err != nil || event.Id == "" {
-		event = &services.Event{}
+		event = &types.Event{}
 	}
 	eventDetailsPage := pages.EventDetailsPage(*event)
 	userInfo := helpers.UserInfo{}
@@ -353,7 +354,7 @@ func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	adminPage := pages.AddEventSource()
-	layoutTemplate := pages.Layout(helpers.SitePages["add-event-source"], userInfo, adminPage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["add-event-source"], userInfo, adminPage, types.Event{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {

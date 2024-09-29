@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func TestEventDetailsPage(t *testing.T) {
@@ -18,12 +18,12 @@ func TestEventDetailsPage(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		event    services.Event
+		event    types.Event
 		expected []string
 	}{
 		{
 			name: "Valid event",
-			event: services.Event{
+			event: types.Event{
 				Id:          "123",
 				Name:        "Test Event",
 				Description: "This is a test event",
@@ -40,7 +40,7 @@ func TestEventDetailsPage(t *testing.T) {
 		},
 		{
 			name:  "Empty event",
-			event: services.Event{},
+			event: types.Event{},
 			expected: []string{
 				"404 - Can't Find That Event",
 			},
@@ -52,7 +52,7 @@ func TestEventDetailsPage(t *testing.T) {
 			component := EventDetailsPage(tt.event)
 
 			// Wrap the component with Layout
-			layoutTemplate := Layout(helpers.SitePages["events"], helpers.UserInfo{}, component, services.Event{})
+			layoutTemplate := Layout(helpers.SitePages["events"], helpers.UserInfo{}, component, types.Event{})
 
 			// Render the component to a string
 			var buf bytes.Buffer

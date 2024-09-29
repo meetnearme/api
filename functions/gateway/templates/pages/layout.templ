@@ -2,13 +2,13 @@ package pages
 
 import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
+	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
 	"time"
 )
 
-templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event services.Event) {
+templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event) {
 	<!DOCTYPE html>
 	<html data-theme="cyberpunk">
 		<head>
@@ -23,6 +23,11 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
 			<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
 			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+			if os.Getenv("SST_STAGE") == "prod" {
+				<script defer src="https://cloud.umami.is/script.js" data-website-id="63a857ef-7639-4db5-b627-99621b1a38ec"></script>
+			} else {
+				<script defer src="https://cloud.umami.is/script.js" data-website-id="bdab8c3c-5643-4045-95af-0ce95c104ab9"></script>
+			}
 		</head>
 		<body>
 			@components.Navbar(userInfo, sitePage.SubnavItems, event) {

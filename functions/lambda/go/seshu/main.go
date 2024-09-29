@@ -226,7 +226,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 
 	err = json.Unmarshal([]byte(openAIjson), &eventsFound)
 	if err != nil {
-		log.Println("Error unmarshaling OpenAI response into services.EventInfo slice:", err)
+		log.Println("Error unmarshaling OpenAI response into types.EventInfo slice:", err)
 		return SendHTMLError(err, ctx, req)
 	}
 
