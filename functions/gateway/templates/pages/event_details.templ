@@ -3,6 +3,7 @@ package pages
 import (
 	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
 )
@@ -23,7 +24,7 @@ templ IconLeftSection(labelText, eventAddress, icon string) {
 	</div>
 }
 
-templ EventDetailsPage(event types.Event) {
+templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 	<div class="max-w-prose mx-auto" x-data="getEventDetailsData()">
 		if event.Id == "" {
 			<br/>
@@ -45,6 +46,11 @@ templ EventDetailsPage(event types.Event) {
 			<h2 class="text-3xl mt-2">{ event.Name }</h2>
 			<br/>
 			<p>
+				if checkoutParamVal == "success" {
+					@partials.SuccessBannerHTML("Thanks for your support, we hope to see you at the event!")
+					<br/>
+					<br/>
+				}
 				@IconLeftSection("Location", event.Address, "location")
 				<br/>
 				if GetDateOrShowNone(event.StartTime) != "" {

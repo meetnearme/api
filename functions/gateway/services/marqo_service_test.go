@@ -336,6 +336,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 		startTime      int64
 		endTime        int64
 		ownerIds       []string
+		categories     string
+		address        string
 		expectedEvents int
 		expectedError  bool
 	}{
@@ -348,6 +350,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 			startTime: 			time.Now().Unix(),
 			endTime:        time.Now().AddDate(1,0,0).Unix(),
 			ownerIds:       []string{},
+			categories:     string(""),
+			address:				string(""),
 			expectedEvents: 2,
 			expectedError:  false,
 		},
@@ -360,6 +364,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 			startTime: 			time.Now().Unix(),
 			endTime:        time.Now().AddDate(1,0,0).Unix(),
 			ownerIds:       []string{},
+			categories:     string(""),
+			address:				string(""),
 			expectedEvents: 2,
 			expectedError:  false,
 		},
@@ -373,7 +379,7 @@ func TestSearchMarqoEvents(t *testing.T) {
 			}
 
 			// TODO: add meaningful test with categories
-			result, err := SearchMarqoEvents(client, tt.query, tt.userLocation, tt.maxDistance, tt.startTime, tt.endTime, tt.ownerIds, "")
+			result, err := SearchMarqoEvents(client, tt.query, tt.userLocation, tt.maxDistance, tt.startTime, tt.endTime, tt.ownerIds, tt.categories, tt.address)
 
 			if tt.expectedError && err == nil {
 				t.Errorf("Expected an error, but got none")

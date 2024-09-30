@@ -513,7 +513,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			}
 
 			// TODO: need to test `categories` and `ownerIds` returned here
-			query, loc, radius, start, end, cfLoc, _, _ := GetSearchParamsFromReq(req)
+			query, loc, radius, start, end, cfLoc, _, _, _:= GetSearchParamsFromReq(req)
 
 			if query != tt.expectedQuery {
 				t.Errorf("Expected query %s, got %s", tt.expectedQuery, query)

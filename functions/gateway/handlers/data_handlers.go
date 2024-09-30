@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -433,7 +434,7 @@ func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
     // Extract parameter values from the request query parameters
-    q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories := GetSearchParamsFromReq(r)
+    q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address := GetSearchParamsFromReq(r)
 
     marqoClient, err := services.GetMarqoClient()
     if err != nil {
@@ -442,7 +443,7 @@ func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
     }
 
     var res types.EventSearchResponse
-    res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories)
+    res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to search marqo events: "+err.Error()), http.StatusInternalServerError, err)
         return
@@ -590,16 +591,20 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 				}
 		}
 
+		unixNow := time.Now().Unix()
+		referenceId := "event-"+eventId+"-user-"+userId+"-time-"+time.Unix(unixNow, 0).UTC().Format(time.RFC3339)
 		params := &stripe.CheckoutSessionParams{
-			SuccessURL: stripe.String("https://example.com/success"),
+			ClientReferenceID: stripe.String(referenceId), // Store purchase
+			SuccessURL: stripe.String( os.Getenv("APEX_URL") + "/events/" + eventId + "?checkout=success"),
+			CancelURL:  stripe.String( os.Getenv("APEX_URL") + "/events/" + eventId + "?checkout=cancel"),
 			LineItems:  lineItems,
 			// TODO: `mode` needs to be "subscription" if there's a subscription / recurring item,
 			// use `add_invoice_item` to then append the one-time payment items:
 			// https://stackoverflow.com/questions/64011643/how-to-combine-a-subscription-and-single-payments-in-one-charge-stripe-ap
-			Mode:       stripe.String(string(stripe.CheckoutSessionModePayment)),
+			Mode: stripe.String(string(stripe.CheckoutSessionModePayment)),
 		}
 
-		result, err := session.New(params);
+		stripeCheckoutResult, err := session.New(params);
 
 		if err != nil {
 			needsRevert = true
@@ -609,21 +614,46 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 			return
 		}
 
-		log.Printf("\nstripe result: %+v", result)
-		log.Println("\nstripe checkout session ID: ", result.ID)
+		createPurchase.StripeSessionId = stripeCheckoutResult.ID
+
+		// Now that the checks are in place, we defer to the
+		defer func() {
+			purchaseService := dynamodb_service.NewPurchaseService()
+			h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
+
+			db := transport.GetDB()
+			_, err := h.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
+			if err != nil {
+				log.Printf("ERR: failed to insert purchase into purchases database for stripe session ID %+v", stripeCheckoutResult.ID)
+			}
+		}()
 
 
+		log.Printf("\nstripe result: %+v", stripeCheckoutResult)
 
-    // TODO: DELETE BELOW THIS LINE
+    // Create a new struct that includes the createPurchase fields and the Stripe checkout URL
+    type PurchaseResponse struct {
+			internal_types.PurchaseInsert
+			StripeCheckoutURL string `json:"stripe_checkout_url"`
+		}
 
-    purchaseJSON, err := json.Marshal(&createPurchase)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Failed to extract event from payload: "+err.Error()), http.StatusInternalServerError, err)
-        return
-    }
+		// Create the response object
+		response := PurchaseResponse{
+			PurchaseInsert:    createPurchase,
+			StripeCheckoutURL: stripeCheckoutResult.URL,
+		}
 
-    transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
-    return
+		// Marshal the response directly
+		purchaseJSON, err := json.Marshal(response)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to marshal purchase response: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		// Send the response
+		transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
+		return nil
+
 
     // TODO: we need to
 
