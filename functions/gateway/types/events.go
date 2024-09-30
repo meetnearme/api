@@ -3,6 +3,7 @@ package types
 type Event struct {
 	Id          	string `json:"id,omitempty"`
 	EventOwners 	[]string `json:"eventOwners" validate:"required,min=1"`
+	EventOwnerName string `json:"eventOwnerName" validate:"required"`
 	Name        	string `json:"name" validate:"required"`
 	Description 	string `json:"description" validate:"required"`
 	StartTime   	int64 `json:"startTime" validate:"required"`
