@@ -65,6 +65,11 @@ jobs:
           DEV_MARQO_API_BASE_URL: ${{ secrets.DEV_MARQO_API_BASE_URL }}
           PROD_MARQO_INDEX_NAME: ${{ secrets.PROD_MARQO_INDEX_NAME }}
           DEV_MARQO_INDEX_NAME: ${{ secrets.DEV_MARQO_INDEX_NAME }}
+          PROD_STRIPE_SECRET_KEY: ${{ secrets.PROD_STRIPE_SECRET_KEY }}
+          PROD_STRIPE_PUBLISHABLE_KEY:
+            ${{ secrets.PROD_STRIPE_PUBLISHABLE_KEY }}
+          DEV_STRIPE_SECRET_KEY: ${{ secrets.DEV_STRIPE_SECRET_KEY }}
+          DEV_STRIPE_PUBLISHABLE_KEY: ${{ secrets.DEV_STRIPE_PUBLISHABLE_KEY }}
           # Not set because this is dynamic in lower environments
           # APEX_URL: ${{ secrets.APEX_URL }}
       - name: Generate Cloudflare locations Go file
