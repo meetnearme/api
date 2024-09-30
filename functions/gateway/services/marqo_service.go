@@ -109,7 +109,7 @@ func GetMarqoClient() (*marqo.Client, error) {
 //     },
 //     {
 //       "name": "eventOwnerName",
-//       "type": "array<text>",
+//       "type": "text",
 //       "features": [
 //         "lexical_search"
 //       ]
@@ -294,6 +294,7 @@ func ConvertEventsToDocuments(events []types.Event, hasIds bool) (documents []in
 		document := map[string]interface{}{
 			"_id":         _uuid,
 			"eventOwners": event.EventOwners,
+			"eventOwnerName": event.EventOwnerName,
 			"name":        event.Name,
 			"description": event.Description,
 			"startTime":   int64(event.StartTime),
@@ -376,7 +377,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 
 	// Search for events based on the query
 	searchMethod := "HYBRID"
-	log.Printf("\n\n\nOwnerIds: %+v", ownerIds)
+
 	var ownerFilter string
 	if len(ownerIds) > 0 {
 		ownerFilter = fmt.Sprintf("eventOwners IN (%s) AND ", strings.Join(ownerIds, ","))
@@ -494,6 +495,7 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *types.Eve
 	event = &types.Event{
 		Id:          getValue[string](doc, "_id"),
 		EventOwners: getStringSlice(doc, "eventOwners"),
+		EventOwnerName: getValue[string](doc, "eventOwnerName"),
 		Name:        getValue[string](doc, "name"),
 		Description: getValue[string](doc, "description"),
 		StartTime:   startTimeInt,

@@ -49,12 +49,14 @@ func TestGetHomePage(t *testing.T) {
 				{
 					"id":          "123",
 					"eventOwners": []interface{}{"789"},
+					"eventOwnerName": "First Event Host",
 					"name":        "First Test Event",
 					"description": "Description of the first event",
 					"startTime":   "2099-05-01T12:00:00Z",
 				},
 				{
 					"id":          "456",
+					"eventOwnerName": "Second Event Host",
 					"eventOwners": []interface{}{"012"},
 					"name":        "Second Test Event",
 					"description": "Description of the second event",
@@ -147,12 +149,14 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 				{
 					"id":          "123",
 					"eventOwners": []interface{}{"789"},
+					"eventOwnerName": "Event Host Test",
 					"name":        "First Test Event",
 					"description": "Description of the first event",
 				},
 				{
 					"id":          "456",
 					"eventOwners": []interface{}{"012"},
+					"eventOwnerName": "Event Host Test",
 					"name":        "Second Test Event",
 					"description": "Description of the second event",
 				},
@@ -318,6 +322,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 				{
 					"_id":         "123",
 					"eventOwners": []interface{}{"789"},
+					"eventOwnerName": "Event Host Test",
 					"name":        "Test Event",
 					"description": "This is a test event",
 				},
