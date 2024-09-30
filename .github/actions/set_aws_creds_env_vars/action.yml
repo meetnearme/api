@@ -68,6 +68,18 @@ inputs:
   DEV_MARQO_INDEX_NAME:
     description: 'The marqo index name for dev / non-prod environments'
     required: true
+  PROD_STRIPE_SECRET_KEY:
+    description: 'Stripe payment credentials'
+    required: true
+  PROD_STRIPE_PUBLISHABLE_KEY:
+    description: 'Stripe payment credentials'
+    required: true
+  DEV_STRIPE_SECRET_KEY:
+    description: 'Stripe payment credentials'
+    required: true
+  DEV_STRIPE_PUBLISHABLE_KEY:
+    description: 'Stripe payment credentials'
+    required: true
 
 runs:
   using: composite
@@ -98,6 +110,10 @@ runs:
         echo DEV_MARQO_API_BASE_URL=${{ inputs.DEV_MARQO_API_BASE_URL }} >> .env
         echo PROD_MARQO_INDEX_NAME=${{ inputs.PROD_MARQO_INDEX_NAME }} >> .env
         echo DEV_MARQO_INDEX_NAME=${{ inputs.DEV_MARQO_INDEX_NAME }} >> .env
+        echo PROD_STRIPE_SECRET_KEY=${{ inputs.PROD_STRIPE_SECRET_KEY }} >> .env
+        echo PROD_STRIPE_PUBLISHABLE_KEY=${{ inputs.PROD_STRIPE_PUBLISHABLE_KEY }} >> .env
+        echo DEV_STRIPE_SECRET_KEY=${{ inputs.DEV_STRIPE_SECRET_KEY }} >> .env
+        echo DEV_STRIPE_PUBLISHABLE_KEY=${{ inputs.DEV_STRIPE_PUBLISHABLE_KEY }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
