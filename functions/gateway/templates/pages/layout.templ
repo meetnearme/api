@@ -24,9 +24,9 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
 			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 			if os.Getenv("SST_STAGE") == "prod" {
-				<script defer src="https://cloud.umami.is/script.js" data-website-id="63a857ef-7639-4db5-b627-99621b1a38ec"></script>
-			} else {
 				<script defer src="https://cloud.umami.is/script.js" data-website-id="bdab8c3c-5643-4045-95af-0ce95c104ab9"></script>
+			} else {
+				<script defer src="https://cloud.umami.is/script.js" data-website-id="63a857ef-7639-4db5-b627-99621b1a38ec"></script>
 			}
 		</head>
 		<body>

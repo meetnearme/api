@@ -334,9 +334,9 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							<br/>
 							<br/>
 							if event.HasPurchasable {
-								<button data-umami-event={ "event-checkout-register-click-" + event.Id } class="btn btn-primary w-full" @click="validateRegistrationThenSubmit()">Checkout<template x-if="reqInFlight"><span class="loading loading-spinner loading-sm"></span></template></button>
+								<button data-umami-event={ "checkout-reg-clk-" + event.Id } data-umami-event-user-id={ userInfo.Sub } class="btn btn-primary w-full" @click="validateRegistrationThenSubmit()">Checkout<template x-if="reqInFlight"><span class="loading loading-spinner loading-sm"></span></template></button>
 							} else if event.HasRegistrationFields {
-								<button data-umami-event={ "event-checkout-register-click-" + event.Id } class="btn btn-primary w-full" @click="validateRegistrationThenSubmit()">Register<template x-if="reqInFlight"><span class="loading loading-spinner loading-sm"></span></template></button>
+								<button data-umami-event={ "checkout-reg-clk-" + event.Id } data-umami-event-user-id={ userInfo.Sub } class="btn btn-primary w-full" @click="validateRegistrationThenSubmit()">Register<template x-if="reqInFlight"><span class="loading loading-spinner loading-sm"></span></template></button>
 							}
 						</div>
 					}
