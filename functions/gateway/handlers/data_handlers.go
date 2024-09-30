@@ -38,6 +38,7 @@ func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler 
 type rawEventData struct {
     Id              string   `json:"id"`
     EventOwners     []string `json:"eventOwners" validate:"required,min=1"`
+		EventOwnerName  string   `json:"eventOwnerName" validate:"required"`
     Name            string   `json:"name" validate:"required"`
     Description     string   `json:"description"`
     Address         string   `json:"address"`
@@ -53,20 +54,21 @@ type rawEvent struct {
     StartingPrice   *int32    `json:"startingPrice,omitempty"`
     Currency        *string     `json:"currency,omitempty"`
     PayeeId         *string     `json:"payeeId,omitempty"`
-	HasRegistrationFields *bool `json:"hasRegistrationFields,omitempty"`
-	HasPurchasable *bool  `json:"hasPurchasable,omitempty"`
-	ImageUrl      *string `json:"imageUrl,omitempty"`
-	Categories    *[]string `json:"categories,omitempty"`
-	Tags      		*[]string `json:"tags,omitempty"`
-	CreatedAt     *int64 `json:"createdAt,omitempty"`
-	UpdatedAt     *int64 `json:"updatedAt,omitempty"`
-	UpdatedBy     *string `json:"updatedBy,omitempty"`
+		HasRegistrationFields *bool `json:"hasRegistrationFields,omitempty"`
+		HasPurchasable *bool  `json:"hasPurchasable,omitempty"`
+		ImageUrl      *string `json:"imageUrl,omitempty"`
+		Categories    *[]string `json:"categories,omitempty"`
+		Tags      		*[]string `json:"tags,omitempty"`
+		CreatedAt     *int64 `json:"createdAt,omitempty"`
+		UpdatedAt     *int64 `json:"updatedAt,omitempty"`
+		UpdatedBy     *string `json:"updatedBy,omitempty"`
 }
 
 func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
     event := types.Event{
         Id:          raw.Id,
         EventOwners: raw.EventOwners,
+				EventOwnerName: raw.EventOwnerName,
         Name:        raw.Name,
         Description: raw.Description,
         Address:     raw.Address,
@@ -238,6 +240,10 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
         if len(rawEvent.EventOwners) == 0 {
             return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d is missing eventOwners", i)
         }
+
+				if rawEvent.EventOwnerName == "" {
+					return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d is missing eventOwnerName", i)
+			}
 
 				if rawEvent.Timezone == "" {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d is missing timezone", i)

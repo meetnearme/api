@@ -54,6 +54,7 @@ func TestGetMarqoClient(t *testing.T){
 				{
 					"_id":          eventId,
 					"eventOwners": []interface{}{"789"},
+					"eventOwnerName": "Event Host Test",
 					"name":        "Test Event",
 					"description": "This is a test event",
 				},
@@ -194,6 +195,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 			events: []types.Event{
 				{
 					EventOwners: []string{"123"},
+					EventOwnerName: "Event Host Test Name",
 					Name:        "Test Event 1",
 					Description: "A test event 1",
 					StartTime:   startTime1,
@@ -204,6 +206,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 				},
 				{
 					EventOwners: []string{"456"},
+					EventOwnerName: "Event Host Test Name",
 					Name:        "Test Event 2",
 					Description: "A test event 2",
 					StartTime:   startTime2,
@@ -214,6 +217,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 				},
 				{
 					EventOwners: []string{"789"},
+					EventOwnerName: "Event Host Test Name",
 					Name:        "Test Event 3",
 					Description: "A test event 3",
 					StartTime:   startTime3,
@@ -296,12 +300,14 @@ func TestSearchMarqoEvents(t *testing.T) {
 				{
 					"_id":         "123",
 					"eventOwners": []interface{}{"789"},
+					"eventOwnerName": "First Event Host Test",
 					"name":        "First Test Event",
 					"description": "Description of the first event",
 				},
 				{
 					"_id":         "456",
 					"eventOwners": []interface{}{"012"},
+					"eventOwnerName": "Second Event Host Test",
 					"name":        "Second Test Event",
 					"description": "Description of the second event",
 				},
@@ -447,6 +453,7 @@ func TestGetMarqoEventByID(t *testing.T) {
 					"_id":          testEventID,
 					"startTime":   testEventStartTime,
 					"eventOwners": []interface{}{testEventOwnerID},
+					"eventOwnerName": "Event Host Test",
 					"name":        testEventName,
 					"description": testEventDescription,
 				},
@@ -542,6 +549,8 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 	const (
 		testEventID1          = "123"
 		testEventID2          = "456"
+		testEventOwnerName1   = "Test Owner 1"
+		testEventOwnerName2   = "Test Owner 2"
 		testEventOwnerID1     = "789"
 		testEventOwnerID2     = "012"
 		testEventName1        = "Test Event 1"
@@ -560,6 +569,7 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 					"_id":          testEventID1,
 					"startTime":    testEventStartTime1,
 					"eventOwners":  []interface{}{testEventOwnerID1},
+					"eventOwnerName": testEventOwnerName1,
 					"name":         testEventName1,
 					"description":  testEventDescription1,
 				},
@@ -567,6 +577,7 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 					"_id":          testEventID2,
 					"startTime":    testEventStartTime2,
 					"eventOwners":  []interface{}{testEventOwnerID2},
+					"eventOwnerName": testEventOwnerName2,
 					"name":         testEventName2,
 					"description":  testEventDescription2,
 				},
@@ -613,12 +624,13 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 	expectedEvents := []struct {
 		id          string
 		ownerID     string
+		ownerName   string
 		name        string
 		description string
 		startTime   int64
 	}{
-		{testEventID1, testEventOwnerID1, testEventName1, testEventDescription1, testEventStartTime1},
-		{testEventID2, testEventOwnerID2, testEventName2, testEventDescription2, testEventStartTime2},
+		{testEventID1, testEventOwnerID1, testEventOwnerName1, testEventName1, testEventDescription1, testEventStartTime1},
+		{testEventID2, testEventOwnerID2, testEventOwnerName2, testEventName2, testEventDescription2, testEventStartTime2},
 	}
 
 	for i, expectedEvent := range expectedEvents {
@@ -628,6 +640,9 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 		}
 		if len(event.EventOwners) != 1 || event.EventOwners[0] != expectedEvent.ownerID {
 			t.Errorf("expected event owner %s, got %v", expectedEvent.ownerID, event.EventOwners)
+		}
+		if event.EventOwnerName != expectedEvent.ownerName {
+			t.Errorf("expected event name %s, got %s", expectedEvent.name, event.Name)
 		}
 		if event.Name != expectedEvent.name {
 			t.Errorf("expected event name %s, got %s", expectedEvent.name, event.Name)
