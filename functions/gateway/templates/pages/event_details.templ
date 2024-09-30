@@ -73,15 +73,15 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 			<div class="bottom-drawer">
 				<div class="container mx-auto">
 					if event.HasPurchasable {
-						<button data-umami-event={ "event-buy-tickets-click-" + event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">BUY TICKETS</button>
+						<button data-umami-event={ "buy-tkts-clk-" + event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">BUY TICKETS</button>
 					} else if event.HasRegistrationFields {
-						<button data-umami-event={ "event-register-click-" + event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
+						<button data-umami-event={ "reg-tkts-clk-" + event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
 					} else {
-						<button data-umami-event={ "event-rsvp-click-" + event.Id } @click="handleCtaClick()" class="btn btn-block btn-primary">RSVP</button>
+						<button data-umami-event={ "rsvp-click-" + event.Id } @click="handleCtaClick()" class="btn btn-block btn-primary">RSVP</button>
 					}
 					<br/>
 					<br/>
-					<button data-umami-event={ "event-interested-click-" + event.Id } class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Interested, can't make it!</button>
+					<button data-umami-event={ "intrst-click-" + event.Id } class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Interested, can't make it!</button>
 				</div>
 			</div>
 		}
