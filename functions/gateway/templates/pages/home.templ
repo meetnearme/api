@@ -15,7 +15,7 @@ templ EventsInner(events []types.Event) {
 	} else {
 		for _, ev := range events {
 			<div class="flex w-full relative pb-24 md:pb-4">
-				<a data-umami-event={ "event-list-click-" + ev.Id } class="flex w-full" href={ templ.URL("/events/" + ev.Id) }>
+				<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/events/" + ev.Id) }>
 					<img
 						loading="lazy"
 						src={ helpers.GetImgUrlFromHash(ev) }
@@ -29,7 +29,7 @@ templ EventsInner(events []types.Event) {
 						<p class="text-sm md:text-base">{ GetDateOrShowNone(ev.StartTime) } | { GetTimeOrShowNone(ev.StartTime) } &commat; { ev.Address }</p>
 					</div>
 					<br/>
-					<a data-umami-event={ "event-list-click-" + ev.Id } href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 						LEARN MORE
 						&rarr;
 					</a>
