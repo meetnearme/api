@@ -22,6 +22,8 @@ func NewPurchasableHandler(purchasableService internal_types.PurchasableServiceI
 
 
 func (h *PurchasableHandler) CreatePurchasable(w http.ResponseWriter, r *http.Request) {
+    // TODO: validate that all purchasables in the payload array
+    // have the same currency
 	var createPurchasable internal_types.PurchasableInsert
 	body, err := io.ReadAll(r.Body)
 	if err != nil {

@@ -300,13 +300,13 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								</div>
 							</template>
 							if event.HasPurchasable && event.HasRegistrationFields {
-								<template x-if="hasPurchasable && hasRegistration && !registrationFieldsLoaded">
+								<template x-if="!registrationFieldsLoaded || !purchasablesLoaded">
 									<div>
 										<div>Loading cart items...</div>
 										<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
 									</div>
 								</template>
-								<template x-if="hasPurchasable && hasRegistration && registrationFieldsLoaded">
+								<template x-if="registrationFieldsLoaded && purchasablesLoaded">
 									@PurchasableItemsList(event.HasRegistrationFields)
 								</template>
 							} else if event.HasPurchasable {
@@ -449,10 +449,16 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								console.log('json checkout res!', json);
 								this.reqInFlight = false;
 								this.purchaseComplete = true;
+								if (json?.stripe_checkout_url) {
+										window.location.href = json.stripe_checkout_url;
+								} else {
+									this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
+								}
 							} catch (error) {
 									console.error("Error submitting checkout:", error);
 									this.reqInFlight = false;
 									this.purchaseComplete = false;
+									this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
 							}
 					},
 					async fetchPurchasables() {
@@ -503,6 +509,9 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 						}
 					},
 					validateRegistrationThenSubmit() {
+						// reset previous checkout failure errors
+						delete this.errors['checkout']
+
 						this?.registrationFields?.forEach(field => {
 							if (field?.required) {
 								this.validateOneField(field, field?.name)

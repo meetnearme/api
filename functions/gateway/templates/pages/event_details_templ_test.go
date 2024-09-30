@@ -19,6 +19,7 @@ func TestEventDetailsPage(t *testing.T) {
 	tests := []struct {
 		name     string
 		event    types.Event
+		checkoutParamVal string
 		expected []string
 	}{
 		{
@@ -30,6 +31,7 @@ func TestEventDetailsPage(t *testing.T) {
 				Address:     "123 Test St",
 				StartTime:   validEventStartTime,
 			},
+			checkoutParamVal:  "",
 			expected: []string{
 				"Test Event",
 				"This is a test event",
@@ -49,7 +51,7 @@ func TestEventDetailsPage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := EventDetailsPage(tt.event)
+			component := EventDetailsPage(tt.event, tt.checkoutParamVal)
 
 			// Wrap the component with Layout
 			layoutTemplate := Layout(helpers.SitePages["events"], helpers.UserInfo{}, component, types.Event{})

@@ -86,7 +86,7 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	return startTimeUnix, endTimeUnix
 }
 
-func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation, ownerIds []string, categories string) {
+func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation, ownerIds []string, categories string, address string) {
 	startTimeStr := r.URL.Query().Get("start_time")
 	endTimeStr := r.URL.Query().Get("end_time")
 	latStr := r.URL.Query().Get("lat")
@@ -95,6 +95,7 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	q := r.URL.Query().Get("q")
 	owners := r.URL.Query().Get("owners")
 	categoriesStr := r.URL.Query().Get("categories")
+	addressStr := r.URL.Query().Get("address")
 	cfRay := GetCfRay(r)
 	rayCode := ""
 
@@ -166,13 +167,13 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 			decodedCategories = categories // Use the original string if decoding fails
 	}
 
-	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories
+	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, addressStr
 }
 
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	ctx := r.Context()
-	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories := GetSearchParamsFromReq(r)
+	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address := GetSearchParamsFromReq(r)
 
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
@@ -190,7 +191,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		ownerIds = []string{subdomainValue}
 	}
 
-	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories)
+	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 	}
@@ -334,7 +335,8 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	if err != nil || event.Id == "" {
 		event = &types.Event{}
 	}
-	eventDetailsPage := pages.EventDetailsPage(*event)
+	checkoutParamVal := r.URL.Query().Get("checkout")
+	eventDetailsPage := pages.EventDetailsPage(*event, checkoutParamVal)
 	userInfo := helpers.UserInfo{}
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
