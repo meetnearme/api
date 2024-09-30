@@ -108,6 +108,13 @@ func GetMarqoClient() (*marqo.Client, error) {
 //       ]
 //     },
 //     {
+//       "name": "eventOwnerName",
+//       "type": "array<text>",
+//       "features": [
+//         "lexical_search"
+//       ]
+//     },
+//     {
 //       "name": "tags",
 //       "type": "array<text>",
 //       "features": [
