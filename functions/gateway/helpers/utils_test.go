@@ -92,7 +92,7 @@ func TestGetImgUrlFromHash(t *testing.T) {
 		input    types.Event
 		expected string
 	}{
-		{"Valid hash", types.Event{Id: "1234567890"}, "/assets/img/0.png"},
+		{"Valid hash", types.Event{Id: "1234567890"}, "/assets/img/cat_none_16.jpeg"},
 	}
 
 	for _, tt := range tests {
