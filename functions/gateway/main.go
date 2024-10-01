@@ -125,7 +125,7 @@ func init() {
 		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None}, // Delete an event RSVP
 
 		// Checkout Session
-		{"/api/checkout/{event_id:[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Require},
+		{"/api/checkout/{event_id:[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
 	}
 }
 

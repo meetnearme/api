@@ -480,13 +480,12 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
     }
 
     userInfo := helpers.UserInfo{}
-		if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-			userInfo = ctx.Value("userInfo").(helpers.UserInfo)
-		}
-
+    if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+        userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+    }
     userId := userInfo.Sub
     if userId == "" {
-        transport.SendServerRes(w, []byte("Missing user ID"), http.StatusBadRequest, nil)
+        transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
         return
     }
 
@@ -608,7 +607,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 			// use `add_invoice_item` to then append the one-time payment items:
 			// https://stackoverflow.com/questions/64011643/how-to-combine-a-subscription-and-single-payments-in-one-charge-stripe-ap
 			Mode: stripe.String(string(stripe.CheckoutSessionModePayment)),
-		}
+            ExpiresAt: stripe.Int64(time.Now().Add(30 * time.Minute).Unix()),
+        }
+
 
 		stripeCheckoutResult, err := session.New(params);
 
@@ -630,15 +631,15 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 			db := transport.GetDB()
 			_, err := h.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 			if err != nil {
-				log.Printf("ERR: failed to insert purchase into purchases database for stripe session ID %+v", stripeCheckoutResult.ID)
+				log.Printf("ERR: failed to insert purchase into purchases database for stripe session ID: %+v, err: %+v", stripeCheckoutResult.ID, err)
 			}
 		}()
 
 
 		log.Printf("\nstripe result: %+v", stripeCheckoutResult)
 
-    // Create a new struct that includes the createPurchase fields and the Stripe checkout URL
-    type PurchaseResponse struct {
+         // Create a new struct that includes the createPurchase fields and the Stripe checkout URL
+        type PurchaseResponse struct {
 			internal_types.PurchaseInsert
 			StripeCheckoutURL string `json:"stripe_checkout_url"`
 		}

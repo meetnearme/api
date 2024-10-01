@@ -32,6 +32,9 @@ export default {
     require('@tailwindcss/typography'),
     ({ addComponents }) => {
       addComponents({
+        '.alert': {
+          gridAutoFlow: 'column',
+        },
         '.container': {
           maxWidth: '100%',
           width: '100%',
