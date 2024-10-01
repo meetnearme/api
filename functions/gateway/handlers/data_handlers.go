@@ -74,7 +74,7 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
         Address:     raw.Address,
         Lat:         raw.Lat,
         Long:        raw.Long,
-				Timezone:    raw.Timezone,
+		Timezone:    raw.Timezone,
     }
 
     // Safely assign pointer values
@@ -96,12 +96,12 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
     if raw.ImageUrl != nil {
         event.ImageUrl = *raw.ImageUrl
     }
-		if raw.Categories != nil {
-			event.Categories = *raw.Categories
-		}
-		if raw.Tags != nil {
-			event.Tags = *raw.Tags
-		}
+	if raw.Categories != nil {
+		event.Categories = *raw.Categories
+	}
+	if raw.Tags != nil {
+		event.Tags = *raw.Tags
+	}
     if raw.CreatedAt != nil {
         event.CreatedAt = *raw.CreatedAt
     }
@@ -301,8 +301,9 @@ func (h *MarqoHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
         return
     }
     eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	parseDates := r.URL.Query().Get("parse_dates")
     var event *types.Event
-    event, err = services.GetMarqoEventByID(marqoClient, eventId)
+    event, err = services.GetMarqoEventByID(marqoClient, eventId, parseDates)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to get marqo event: "+err.Error()), http.StatusInternalServerError, err)
         return
@@ -440,7 +441,7 @@ func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
     // Extract parameter values from the request query parameters
-    q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address := GetSearchParamsFromReq(r)
+    q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates := GetSearchParamsFromReq(r)
 
     marqoClient, err := services.GetMarqoClient()
     if err != nil {
@@ -449,7 +450,7 @@ func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
     }
 
     var res types.EventSearchResponse
-    res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address)
+    res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates)
     if err != nil {
         transport.SendServerRes(w, []byte("Failed to search marqo events: "+err.Error()), http.StatusInternalServerError, err)
         return

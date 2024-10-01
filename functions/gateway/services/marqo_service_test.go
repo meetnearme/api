@@ -91,7 +91,7 @@ func TestGetMarqoClient(t *testing.T){
 	}
 	// we can't test the private variable `client.url`, so instead we make a mocked call
 	// and if no error is thrown, we know the mock server responded on the configured URL
-	_, err = GetMarqoEventByID(client, eventId)
+	_, err = GetMarqoEventByID(client, eventId, "0")
 	if err != nil {
 		t.Errorf("mocked endpoint not responding, error calling GetMarqoEventByID %f", err)
 	}
@@ -385,7 +385,7 @@ func TestSearchMarqoEvents(t *testing.T) {
 			}
 
 			// TODO: add meaningful test with categories
-			result, err := SearchMarqoEvents(client, tt.query, tt.userLocation, tt.maxDistance, tt.startTime, tt.endTime, tt.ownerIds, tt.categories, tt.address)
+			result, err := SearchMarqoEvents(client, tt.query, tt.userLocation, tt.maxDistance, tt.startTime, tt.endTime, tt.ownerIds, tt.categories, tt.address, "0")
 
 			if tt.expectedError && err == nil {
 				t.Errorf("Expected an error, but got none")
@@ -487,7 +487,7 @@ func TestGetMarqoEventByID(t *testing.T) {
 		t.Errorf("error getting marqo client %f", err)
 	}
 
-	event, err := GetMarqoEventByID(client, testEventID)
+	event, err := GetMarqoEventByID(client, testEventID, "0")
 	if err != nil {
 		t.Errorf("mocked endpoint not responding, error calling GetMarqoEventByID %v", err)
 	}
@@ -611,7 +611,7 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 		t.Errorf("error getting marqo client %v", err)
 	}
 
-	events, err := BulkGetMarqoEventByID(client, []string{testEventID1, testEventID2})
+	events, err := BulkGetMarqoEventByID(client, []string{testEventID1, testEventID2}, "0")
 	if err != nil {
 		t.Errorf("mocked endpoint not responding, error calling BulkGetMarqoEventByID %v", err)
 	}

@@ -53,12 +53,12 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 				}
 				@IconLeftSection("Location", event.Address, "location")
 				<br/>
-				if GetDateOrShowNone(event.StartTime) != "" {
-					@IconLeftSection("Date", GetDateOrShowNone(event.StartTime), "calendar")
+				if helpers.GetDateOrShowNone(event.StartTime) != "" {
+					@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime), "calendar")
 				}
 				<br/>
-				if GetTimeOrShowNone(event.StartTime) != "" {
-					@IconLeftSection("Time", GetTimeOrShowNone(event.StartTime), "clock")
+				if helpers.GetTimeOrShowNone(event.StartTime) != "" {
+					@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime), "clock")
 				}
 				<br/>
 				if event.StartingPrice > 0 {
