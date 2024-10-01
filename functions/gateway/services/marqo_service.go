@@ -368,7 +368,7 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event, hasIds b
 // SearchMarqoEvents searches for events based on the given query, user location, and maximum distance.
 // It returns a list of events that match the search criteria.
 // EX : SearchMarqoEvents(client, "music", []float64{37.7749, -122.4194}, 10)
-func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime, endTime int64, ownerIds []string, categories string, address string) (types.EventSearchResponse, error) {
+func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime, endTime int64, ownerIds []string, categories string, address string, parseDates string) (types.EventSearchResponse, error) {
 	// Calculate the maximum and minimum latitude and longitude based on the user's location and maximum distance
 	maxLat := userLocation[0] + miToLat(maxDistance)
 	maxLong := userLocation[1] + miToLong(maxDistance, userLocation[0])
@@ -423,8 +423,15 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	for _, doc := range searchResp.Hits {
 		event := NormalizeMarqoDocOrSearchRes(doc)
 		if event != nil {
+			if parseDates == "1" {
+				localizedTime, localizedDate := helpers.GetLocalDateAndTime(event.StartTime, event.Timezone)
+				event.LocalizedStartTime = localizedTime
+				event.LocalizedStartDate = localizedDate
+			}
+
 			events = append(events, *event)
 		}
+
 	}
 
 	return types.EventSearchResponse{
@@ -434,7 +441,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	}, nil
 }
 
-func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*types.Event, error) {
+func BulkGetMarqoEventByID(client *marqo.Client, docIds []string, parseDates string) ([]*types.Event, error) {
 	indexName := GetMarqoIndexName()
 	getDocumentsReq := &marqo.GetDocumentsRequest{
 		IndexName: indexName,
@@ -456,14 +463,19 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string) ([]*types.Even
 
 	for _, result := range res.Results {
 		event := NormalizeMarqoDocOrSearchRes(result, )
+		if parseDates == "1" {
+			localizedTime, localizedDate := helpers.GetLocalDateAndTime(event.StartTime, event.Timezone)
+			event.LocalizedStartTime = localizedTime
+			event.LocalizedStartDate = localizedDate
+		}
 		events = append(events, event)
 	}
 	return events, nil
 }
 
-func GetMarqoEventByID(client *marqo.Client, docId string) (*types.Event, error) {
+func GetMarqoEventByID(client *marqo.Client, docId string, parseDates string) (*types.Event, error) {
 	docIds := []string{docId}
-	events, err := BulkGetMarqoEventByID(client, docIds)
+	events, err := BulkGetMarqoEventByID(client, docIds, parseDates)
 	if err != nil {
 		log.Printf("Error getting event by id: %v", err)
 		return nil, err
