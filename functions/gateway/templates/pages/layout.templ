@@ -39,7 +39,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			}
 			<footer class="footer footer-center p-10 mt-60 bg-primary text-primary-content">
 				<aside>
-					<a href="/" class="btn btn-ghost h-auto text-xl bg-base-200">
+					<a href="/" class="btn h-auto text-xl bg-base-200 hover:bg-opacity-80">
 						<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 					</a>
 					<p>
