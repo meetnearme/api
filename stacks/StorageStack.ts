@@ -16,7 +16,26 @@ export function StorageStack({ stack }: StackContext) {
     },
     primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
     globalIndexes: {
-      "userIdGsi": { partitionKey: 'userId', sortKey: 'eventId' },
+      userIdGsi: { partitionKey: 'userId', sortKey: 'eventId' },
+    },
+  });
+
+  const purchasesTable = new Table(stack, 'Purchases', {
+    fields: {
+      id: 'string',
+      userId: 'string',
+      eventId: 'string',
+      status: 'string',
+      purchasedItems: 'string',
+      total: 'number',
+      currency: 'string',
+      stripeSessionId: 'string',
+      createdAt: 'number',
+      updatedAt: 'number',
+    },
+    primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
+    globalIndexes: {
+      userIdGsi: { partitionKey: 'userId', sortKey: 'eventId' },
     },
   });
 
@@ -41,7 +60,7 @@ export function StorageStack({ stack }: StackContext) {
     },
     primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
     globalIndexes: {
-      "userIdGsi": { partitionKey: 'userId', sortKey: 'eventId' },
+      userIdGsi: { partitionKey: 'userId', sortKey: 'eventId' },
     },
   });
 
@@ -82,6 +101,7 @@ export function StorageStack({ stack }: StackContext) {
     registrationsTable,
     registrationFieldsTable,
     seshuSessionsTable,
+    purchasesTable,
     purchasablesTable,
     eventRsvpsTable,
   };

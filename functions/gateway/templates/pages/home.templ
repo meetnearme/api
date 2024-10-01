@@ -3,11 +3,11 @@ package pages
 import (
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/types"
 	"log"
 )
 
-templ EventsInner(events []services.Event) {
+templ EventsInner(events []types.Event) {
 	if (len(events) < 1) {
 		<p class="text-md md:text-lg text-center mt-5">
 			No events found, try enabling geolocation or changing your filters like location, date, and time
@@ -15,9 +15,10 @@ templ EventsInner(events []services.Event) {
 	} else {
 		for _, ev := range events {
 			<div class="flex w-full relative pb-24 md:pb-4">
-				<a class="flex w-full" href={ templ.URL("/events/" + ev.Id) }>
+				<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/events/" + ev.Id) }>
 					<img
-						src={ templ.EscapeString(helpers.GetImgUrlFromHash(ev.Id)) }
+						loading="lazy"
+						src={ helpers.GetImgUrlFromHash(ev) }
 						alt=""
 						class="object-cover w-full aspect-[4/3] md:aspect-[16/9] opacity-50 md:opacity-30 md:hover:opacity-75 transition-all"
 					/>
@@ -28,7 +29,7 @@ templ EventsInner(events []services.Event) {
 						<p class="text-sm md:text-base">{ GetDateOrShowNone(ev.StartTime) } | { GetTimeOrShowNone(ev.StartTime) } &commat; { ev.Address }</p>
 					</div>
 					<br/>
-					<a href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 						LEARN MORE
 						&rarr;
 					</a>
@@ -86,12 +87,12 @@ func GetCitiesAsJsonStr() string {
 	return cityStateJsonString
 }
 
-templ HomePage(events []services.Event, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong string) {
+templ HomePage(events []types.Event, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong string) {
 	<div class="header-hero">
 		<h1 class="text-xl md:text-4xl text-center mb-5">
-			Push Your Boundaries.
+			<span class="opener">People Over Screens!</span>
 			<br/>
-			Explore Your World.
+			<span>Find Connection at Local Events.</span>
 		</h1>
 	</div>
 	<div class="min-h-screen">

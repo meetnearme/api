@@ -13,15 +13,17 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/meetnearme/api/functions/gateway/types"
 )
 
-var defaultProtocol string
+var DefaultProtocol string
 
 func InitDefaultProtocol() {
 	if os.Getenv("GO_ENV") == "test" {
-		defaultProtocol = "http://"
+		DefaultProtocol = "http://"
 	} else {
-		defaultProtocol = "https://"
+		DefaultProtocol = "https://"
 	}
 }
 
@@ -78,14 +80,25 @@ func GetBaseUrlFromReq(r *http.Request) string {
 	return r.URL.Scheme + "://" + r.URL.Host
 }
 
-func HashIDtoImgRange(id string) int {
+func HashIDtoImgRange(id string, num int) int {
 	hash := md5.Sum([]byte(id))
-	hashInt := int(hash[0]) % 8
+	hashInt := int(hash[0]) % num
 	return hashInt
 }
 
-func GetImgUrlFromHash(id string) string {
-	return os.Getenv("STATIC_BASE_URL") + "/assets/img/" + fmt.Sprint(HashIDtoImgRange(id)) + ".png"
+func GetImgUrlFromHash(event types.Event) string {
+	baseUrl := os.Getenv("STATIC_BASE_URL") + "/assets/img/";
+
+	if len(event.Categories) > 0 {
+		if (ArrContains(event.Categories, "Karaoke")) {
+				return baseUrl + "cat_karaoke_0" + fmt.Sprint(HashIDtoImgRange(event.Id, 4)) + ".jpeg"
+		} else if (ArrContains(event.Categories, "Bocce Ball")) {
+			return baseUrl + "cat_bocce_ball_0" + fmt.Sprint(HashIDtoImgRange(event.Id, 4)) + ".jpeg"
+		} else if (ArrContains(event.Categories, "Trivia Night")) {
+			return baseUrl + "cat_trivia_night_0" + fmt.Sprint(HashIDtoImgRange(event.Id, 4)) + ".jpeg"
+		}
+	}
+	return baseUrl + fmt.Sprint(HashIDtoImgRange(event.Id, 8)) + ".png"
 }
 
 func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata map[string]string) error {
@@ -206,7 +219,7 @@ func DeleteCloudflareKV(subdomainValue, userID string) error {
 }
 
 func GetUserMetadataByKey(userID, key string) (string, error) {
-	url := fmt.Sprintf(defaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
+	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "GET"
 
 	client := &http.Client{}
@@ -234,7 +247,6 @@ func GetUserMetadataByKey(userID, key string) (string, error) {
 		return "", err
 	}
 
-	log.Printf("metadata: %v", respData)
 	if len(respData) == 0 || respData["metadata"] == nil {
 		log.Printf("respData is empty or nil")
 		return "", nil
@@ -253,7 +265,7 @@ func GetUserMetadataByKey(userID, key string) (string, error) {
 }
 
 func UpdateUserMetadataKey(userID, key, value string) error {
-	url := fmt.Sprintf(defaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
+	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "POST"
 
 	payload := strings.NewReader(`{
@@ -297,7 +309,6 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	return nil
 }
 
-
 func ArrContains(slice []string, item string) bool {
 	for _, s := range slice {
 			if s == item {
@@ -306,3 +317,4 @@ func ArrContains(slice []string, item string) bool {
 	}
 	return false
 }
+

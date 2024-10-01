@@ -10,7 +10,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -96,7 +98,7 @@ func (s *PurchasableService) GetPurchasablesByEventID(ctx context.Context, dynam
 
 func (s *PurchasableService) UpdatePurchasable(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchasable internal_types.PurchasableUpdate) (*internal_types.Purchasable, error) {
 	if purchasablesTableName == "" {
-		return nil, fmt.Errorf("ERR: rsvpTableName is empty")
+		return nil, fmt.Errorf("ERR: purchasablesTableName is empty")
 	}
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String(purchasablesTableName),
@@ -158,10 +160,51 @@ func (s *PurchasableService) DeletePurchasable(ctx context.Context, dynamodbClie
 	return nil
 }
 
+func (s *PurchasableService) UpdatePurchasableInventory(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, updates []internal_types.PurchasableInventoryUpdate, purchasableMap map[string]internal_types.PurchasableItemInsert	) error {
+
+	// Create an update builder
+	update := expression.UpdateBuilder{}
+
+	// Iterate through the updates and add them to the update builder
+	for _, item := range updates {
+			// Create an item expression for each item
+			update = update.Set(
+				expression.Name(fmt.Sprintf("purchasableItems[%d].inventory", item.PurchasableIndex)),
+				expression.Value(item.Quantity),
+			)
+	}
+
+	// Build the complete expression
+	expr, err := expression.NewBuilder().WithUpdate(update).Build()
+	if err != nil {
+			return fmt.Errorf("failed to build expression: %w", err)
+	}
+
+	// Create the update item input
+	input := &dynamodb.UpdateItemInput{
+		TableName: aws.String(purchasablesTableName),
+		Key: map[string]types.AttributeValue{
+			"eventId": &types.AttributeValueMemberS{Value: eventId},
+		},
+		UpdateExpression:          expr.Update(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+	}
+
+	// Perform the update
+	_, err = dynamodbClient.UpdateItem(ctx, input)
+	if err != nil {
+		return fmt.Errorf("failed to update purchasable items: %w", err)
+	}
+
+	return nil
+}
+
 type MockPurchasableService struct {
 	InsertPurchasableFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchasables internal_types.PurchasableInsert) (*internal_types.Purchasable, error)
 	GetPurchasablesByEventIDFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) (*internal_types.Purchasable, error)
 	UpdatePurchasableFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI,  purchasables internal_types.PurchasableUpdate) (*internal_types.Purchasable, error)
+	UpdatePurchasableInventoryFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, updates []internal_types.PurchasableInventoryUpdate, purchasableMap map[string]internal_types.PurchasableItemInsert) error
 	DeletePurchasableFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) error
 }
 
@@ -187,6 +230,13 @@ func (m *MockPurchasableService) UpdatePurchasable(ctx context.Context, dynamodb
 		return m.UpdatePurchasableFunc(ctx, dynamodbClient, purchasable)
 	}
 	return nil, nil
+}
+
+func (m *MockPurchasableService) UpdatePurchasableInventory(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, updates []internal_types.PurchasableInventoryUpdate, purchasableMap map[string]internal_types.PurchasableItemInsert) error {
+	if m.UpdatePurchasableInventoryFunc != nil {
+		return m.UpdatePurchasableInventoryFunc(ctx, dynamodbClient, eventId, updates, purchasableMap)
+	}
+	return nil
 }
 
 func (m *MockPurchasableService) DeletePurchasable(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) error {

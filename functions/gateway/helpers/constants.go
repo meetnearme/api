@@ -6,6 +6,7 @@ const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
 
 const RsvpsTablePrefix = "EventRsvps"
+const PurchasesTablePrefix = "Purchases"
 const PurchasablesTablePrefix = "Purchasables"
 const SeshuSessionTablePrefix = "SeshuSessions"
 const RegistrationsTablePrefix = "Registrations"

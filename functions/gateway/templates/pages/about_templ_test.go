@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func TestAboutPage(t *testing.T) {
@@ -29,7 +29,7 @@ func TestAboutPage(t *testing.T) {
 	aboutPage := AboutPage()
 
 	// Create a layout template
-	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, aboutPage, services.Event{})
+	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, aboutPage, types.Event{})
 
 	// Render the template
 	var buf bytes.Buffer

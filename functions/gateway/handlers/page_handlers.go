@@ -18,6 +18,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/transport"
+	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 const US_GEO_CENTER_LAT = float64(39.8283)
@@ -46,6 +47,9 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	} else if strings.ToLower(startTimeStr) == "this_week" {
 		startTime = time.Now()
 		endTime = startTime.AddDate(0, 0, 7)
+	} else if strings.ToLower(startTimeStr) == "this_year" {
+		startTime = time.Now()
+		endTime = startTime.AddDate(1, 0, 0)
 	}
 
 	// return early if one of the above are found
@@ -82,7 +86,7 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	return startTimeUnix, endTimeUnix
 }
 
-func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation, ownerIds []string, categories string) {
+func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation, ownerIds []string, categories string, address string) {
 	startTimeStr := r.URL.Query().Get("start_time")
 	endTimeStr := r.URL.Query().Get("end_time")
 	latStr := r.URL.Query().Get("lat")
@@ -91,6 +95,7 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	q := r.URL.Query().Get("q")
 	owners := r.URL.Query().Get("owners")
 	categoriesStr := r.URL.Query().Get("categories")
+	addressStr := r.URL.Query().Get("address")
 	cfRay := GetCfRay(r)
 	rayCode := ""
 
@@ -162,13 +167,13 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 			decodedCategories = categories // Use the original string if decoding fails
 	}
 
-	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories
+	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, addressStr
 }
 
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	ctx := r.Context()
-	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories := GetSearchParamsFromReq(r)
+	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address := GetSearchParamsFromReq(r)
 
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
@@ -186,7 +191,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		ownerIds = []string{subdomainValue}
 	}
 
-	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories)
+	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 	}
@@ -205,7 +210,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		fmt.Sprint(originalQueryLat),
 		fmt.Sprint(originalQueryLong),
 	)
-	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage, types.Event{})
 
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
@@ -220,7 +225,7 @@ func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	aboutPage := pages.AboutPage()
 	ctx := r.Context()
 
-	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage, types.Event{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -260,7 +265,7 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests)
-	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, types.Event{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -279,7 +284,7 @@ func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.Handler
 	// roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
 
 	settingsPage := pages.ProfileSettingsPage()
-	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, types.Event{})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
@@ -296,7 +301,7 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParameters := apiGwV2Req.QueryStringParameters
 
 	mapEmbedPage := pages.MapEmbedPage(queryParameters["address"])
-	layoutTemplate := pages.Layout(helpers.SitePages["embed"], helpers.UserInfo{}, mapEmbedPage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["embed"], helpers.UserInfo{}, mapEmbedPage, types.Event{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -328,9 +333,10 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	}
 	event, err := services.GetMarqoEventByID(marqoClient, eventId)
 	if err != nil || event.Id == "" {
-		event = &services.Event{}
+		event = &types.Event{}
 	}
-	eventDetailsPage := pages.EventDetailsPage(*event)
+	checkoutParamVal := r.URL.Query().Get("checkout")
+	eventDetailsPage := pages.EventDetailsPage(*event, checkoutParamVal)
 	userInfo := helpers.UserInfo{}
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
@@ -353,7 +359,7 @@ func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	adminPage := pages.AddEventSource()
-	layoutTemplate := pages.Layout(helpers.SitePages["add-event-source"], userInfo, adminPage, services.Event{})
+	layoutTemplate := pages.Layout(helpers.SitePages["add-event-source"], userInfo, adminPage, types.Event{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {

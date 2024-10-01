@@ -7,17 +7,30 @@ import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { SeshuFunction } from './SeshuFunction';
 
 export function ApiStack({ stack, app }: StackContext & { app: any }) {
-  const { seshuSessionsTable, registrationsTable, registrationFieldsTable, purchasablesTable, eventRsvpsTable } = use(StorageStack);
+  const {
+    seshuSessionsTable,
+    registrationsTable,
+    registrationFieldsTable,
+    purchasablesTable,
+    purchasesTable,
+    eventRsvpsTable,
+  } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
   const { seshuFn } = use(SeshuFunction);
-
 
   const api = new Api(stack, 'api', {
     defaults: {
       function: {
         // Bind the eventsTable name to our API
 
-        bind: [ seshuSessionsTable, registrationsTable, registrationFieldsTable, purchasablesTable, eventRsvpsTable],
+        bind: [
+          seshuSessionsTable,
+          registrationsTable,
+          registrationFieldsTable,
+          purchasablesTable,
+          purchasesTable,
+          eventRsvpsTable,
+        ],
 
         environment: {
           ...envVars,

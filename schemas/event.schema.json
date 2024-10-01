@@ -19,10 +19,16 @@
       },
       "minItems": 1
     },
+    "eventOwnerName": {
+      "type": "string"
+    },
     "name": {
       "type": "string"
     },
     "description": {
+      "type": "string"
+    },
+    "timezone": {
       "type": "string"
     },
     "startTime": {
@@ -84,7 +90,9 @@
     "eventSourceId",
     "eventSourceType",
     "eventOwners",
+    "eventOwnerName",
     "name",
+    "timezone",
     "startTime",
     "url",
     "locationLatitude",

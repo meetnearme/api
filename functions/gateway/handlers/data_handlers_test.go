@@ -19,6 +19,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func init() {
@@ -95,15 +96,15 @@ func TestPostEvent(t *testing.T) {
     tests := []struct {
         name string
         requestBody string
-        mockUpsertFunc    func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error)
+        mockUpsertFunc    func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error)
         expectedStatus int
         expectedBodyCheck func(body string) error
         expectMissingAuthHeader bool
     }{
         {
             name:        "Valid event",
-            requestBody: `{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
-            mockUpsertFunc: func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error) {
+            requestBody: `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+            mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
                 res, err := services.BulkUpsertEventToMarqo(client, events, false)
                 if err != nil {
                     log.Printf("mocked request to upsert event failed: %v", err)
@@ -141,8 +142,8 @@ func TestPostEvent(t *testing.T) {
         {
             name:        "Valid payload, missing auth header",
             expectMissingAuthHeader: true,
-            requestBody: `{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
-            mockUpsertFunc: func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error) {
+            requestBody: `{ "eventOwnerName": "Event Owner", "eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+            mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
                 res, err := services.BulkUpsertEventToMarqo(client, events, false)
                 if err != nil {
                     log.Printf("mocked request to upsert event failed: %v", err)
@@ -171,7 +172,7 @@ func TestPostEvent(t *testing.T) {
         },
         {
             name:           "Missing start time field",
-            requestBody:    `{"description":"A test event", "eventOwners":["123"],"lat":51.5074,"long":-0.1278}`,
+            requestBody:    `{"description":"A test event", "eventOwnerName": "Event Owner",  "eventOwners":["123"],"lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
             mockUpsertFunc: nil,
             expectedStatus: http.StatusBadRequest,
             expectedBodyCheck: func(body string) error {
@@ -183,7 +184,7 @@ func TestPostEvent(t *testing.T) {
         },
         {
             name:           "Missing name field",
-            requestBody:    `{"eventOwners":["123"],"startTime":"2099-05-01T12:00:00Z","description":"A test event","lat":51.5074,"long":-0.1278}`,
+            requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"startTime":"2099-05-01T12:00:00Z","description":"A test event","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
             mockUpsertFunc: nil,
             expectedStatus: http.StatusBadRequest,
             expectedBodyCheck: func(body string) error {
@@ -195,12 +196,36 @@ func TestPostEvent(t *testing.T) {
         },
         {
             name:        "Missing eventOwners field",
-            requestBody: `{"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+            requestBody: `{"eventOwnerName":"Event Owner","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
             mockUpsertFunc: nil,
             expectedStatus: http.StatusBadRequest,
             expectedBodyCheck: func(body string) error {
                 if !strings.Contains(body, `Field validation for 'EventOwners' failed on the 'required' tag`) {
                     return fmt.Errorf("expected `Field validation for 'EventOwners' failed on the 'required' tag`, got '%s'", body)
+                }
+                return nil
+            },
+        },
+        {
+            name:        "Missing eventOwnerName field",
+            requestBody: `{"eventOwners":["123"], "name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+            mockUpsertFunc: nil,
+            expectedStatus: http.StatusBadRequest,
+            expectedBodyCheck: func(body string) error {
+                if !strings.Contains(body, `Field validation for 'EventOwnerName' failed on the 'required' tag`) {
+                    return fmt.Errorf("expected `Field validation for 'EventOwnerName' failed on the 'required' tag`, got '%s'", body)
+                }
+                return nil
+            },
+        },
+        {
+            name:        "Missing timezone field",
+            requestBody: `{"eventOwnerName":"Event Owner","eventOwners":["123"], "name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+            mockUpsertFunc: nil,
+            expectedStatus: http.StatusBadRequest,
+            expectedBodyCheck: func(body string) error {
+                if !strings.Contains(body, `Field validation for 'Timezone' failed on the 'required' tag`) {
+                    return fmt.Errorf("expected `Field validation for 'Timezone' failed on the 'required' tag`, got '%s'", body)
                 }
                 return nil
             },
@@ -222,8 +247,8 @@ func TestPostEvent(t *testing.T) {
             }
 
             mockService := &services.MockMarqoService{
-                UpsertEventToMarqoFunc: func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error) {
-                    events := []services.Event{event}
+                UpsertEventToMarqoFunc: func(client *marqo.Client, event types.Event) (*marqo.UpsertDocumentsResponse, error) {
+                    events := []types.Event{event}
                     return tt.mockUpsertFunc(marqoClient, events)
                 },
             }
@@ -337,15 +362,15 @@ func TestPostBatchEvents(t *testing.T) {
     tests := []struct {
         name string
         requestBody string
-        mockUpsertFunc    func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error)
+        mockUpsertFunc    func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error)
         expectedStatus int
         expectedBodyCheck func(body string) error
         expectMissingAuthHeader bool
     }{
         {
             name:        "Valid events",
-            requestBody: `{"events":[{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278},{"eventOwners":["456"],"name":"Another Test Event","description":"Another test event","startTime":"2099-05-02T12:00:00Z","address":"456 Test St","lat":51.5075,"long":-0.1279}]}`,
-            mockUpsertFunc: func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error) {
+            requestBody: `{"events":[ {"eventOwnerName": "Event Owner 1", "eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}, { "eventOwnerName": "Event Owner 2", "eventOwners":["456"],"name":"Another Test Event","description":"Another test event","startTime":"2099-05-02T12:00:00Z","address":"456 Test St","lat":51.5075,"long":-0.1279,"timezone":"America/New_York"}]}`,
+            mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
                 res, err := services.BulkUpsertEventToMarqo(client, events, false)
                 if err != nil {
                     log.Printf("mocked request to upsert events failed: %v", err)
@@ -383,8 +408,8 @@ func TestPostBatchEvents(t *testing.T) {
         {
             name:        "Valid payload, missing auth header",
             expectMissingAuthHeader: true,
-            requestBody: `{"events":[{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278},{"eventOwners":["456"],"name":"Another Test Event","description":"Another test event","startTime":"2099-05-02T12:00:00Z","address":"456 Test St","lat":51.5075,"long":-0.1279}]}`,
-            mockUpsertFunc: func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error) {
+            requestBody: `{"events":[ {"eventOwnerName": "Event Owner 1", "eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"},{ "eventOwnerName": "Event Owner 2", "eventOwners":["456"],"name":"Another Test Event","description":"Another test event","startTime":"2099-05-02T12:00:00Z","address":"456 Test St","lat":51.5075,"long":-0.1279,"timezone":"America/New_York"}]}`,
+            mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
                 res, err := services.BulkUpsertEventToMarqo(client, events, false)
                 if err != nil {
                     log.Printf("mocked request to upsert events failed: %v", err)
@@ -440,7 +465,7 @@ func TestPostBatchEvents(t *testing.T) {
             }
 
             mockService := &services.MockMarqoService{
-                BulkUpsertEventToMarqoFunc: func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error) {
+                BulkUpsertEventToMarqoFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
                     return tt.mockUpsertFunc(marqoClient, events)
                 },
             }
@@ -507,12 +532,14 @@ func TestSearchEvents(t *testing.T) {
                 "Hits": []map[string]interface{}{
                     {
                         "_id":          "123",
+                        "eventOwnerName": "Event Owner 1",
                         "eventOwners": []interface{}{"789"},
                         "name":        "First Test Event",
                         "description": "Description of the first event",
                     },
                     {
                         "_id":          "456",
+                        "eventOwnerName": "Event Owner 2",
                         "eventOwners": []interface{}{"012"},
                         "name":        "Second Test Event",
                         "description": "Description of the second event",
@@ -555,7 +582,7 @@ func TestSearchEvents(t *testing.T) {
             expectQuery:    true,
 			expectedStatus: http.StatusOK,
 			expectedCheck: func(t *testing.T, body []byte) {
-				var res services.EventSearchResponse
+				var res types.EventSearchResponse
 				err := json.Unmarshal(body, &res)
                 if err != nil {
                     t.Errorf("error marshaling search response to JSON, %v", err)
@@ -593,8 +620,8 @@ func TestSearchEvents(t *testing.T) {
 			}
 
 			mockService := &services.MockMarqoService{
-				SearchEventsFunc: func(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, ownerIds []string) (services.EventSearchResponse, error) {
-                    return services.SearchMarqoEvents(client, query, userLocation, maxDistance, startTime, endTime, ownerIds, string(""))
+				SearchEventsFunc: func(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, ownerIds []string) (types.EventSearchResponse, error) {
+                    return services.SearchMarqoEvents(client, query, userLocation, maxDistance, startTime, endTime, ownerIds, string(""), string(""))
 				},
 			}
 
@@ -707,11 +734,11 @@ func TestBulkUpdateEvents(t *testing.T) {
 		expectedStatus int
 		expectedBody   string
         expectMissingAuthHeader bool
-        mockUpsertFunc    func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error)
+        mockUpsertFunc    func(client *marqo.Client, event types.Event) (*marqo.UpsertDocumentsResponse, error)
 	}{
 		{
 			name:           "Invalid payload (missing ID in one event)",
-			payload:        `{"events":[{"id":"abc","eventOwners":["123"],"name":"DC Bocce Ball Semifinals","description":"DC Bocce event description","startTime":"2099-02-15T18:30:00Z","address":"National Mall, Washington, DC","lat":38.8951,"long":-77.0364},{"eventOwners":["456"],"name":"New York City Marathon","description":"NYC Marathon event description","startTime":"2099-11-02T08:00:00Z","address":"Fort Wadsworth, Staten Island, NY","lat":40.6075,"long":-74.0544}]}`,
+			payload:        `{"events":[{"id":"abc", "eventOwnerName": "Event Owner 1", "eventOwners":["123"],"name":"DC Bocce Ball Semifinals","description":"DC Bocce event description","startTime":"2099-02-15T18:30:00Z","address":"National Mall, Washington, DC","lat":38.8951,"long":-77.0364,"timezone":"America/New_York"}, {"eventOwnerName": "Event Owner 2", "eventOwners":["456"],"name":"New York City Marathon","description":"NYC Marathon event description","startTime":"2099-11-02T08:00:00Z","address":"Fort Wadsworth, Staten Island, NY","lat":40.6075,"long":-74.0544,"timezone":"America/New_York"}]}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   `Failed to extract event from payload: invalid body: Event at index 1 has no id`,
             expectMissingAuthHeader: false,
@@ -719,7 +746,7 @@ func TestBulkUpdateEvents(t *testing.T) {
 		},
 		{
 			name:           "Valid payload, missing auth header",
-			payload:        `{"events":[{"id":"abc","eventOwners":["123"],"name":"DC Bocce Ball Semifinals","description":"DC Bocce event description","startTime":"2099-02-15T18:30:00Z","address":"National Mall, Washington, DC","lat":38.8951,"long":-77.0364},{"id":"xyz","eventOwners":["456"],"name":"New York City Marathon","description":"NYC Marathon event description","startTime":"2099-11-02T08:00:00Z","address":"Fort Wadsworth, Staten Island, NY","lat":40.6075,"long":-74.0544}]}`,
+			payload:        `{"events":[{"id":"abc", "eventOwnerName": "Event Owner 1", "eventOwners":["123"],"name":"DC Bocce Ball Semifinals","description":"DC Bocce event description","startTime":"2099-02-15T18:30:00Z","address":"National Mall, Washington, DC","lat":38.8951,"long":-77.0364,"timezone":"America/New_York"},{"id":"xyz", "eventOwnerName": "Event Owner 2", "eventOwners":["456"],"name":"New York City Marathon","description":"NYC Marathon event description","startTime":"2099-11-02T08:00:00Z","address":"Fort Wadsworth, Staten Island, NY","lat":40.6075,"long":-74.0544,"timezone":"America/New_York"}]}`,
 			expectedStatus: http.StatusInternalServerError,
 			expectedBody:   `Failed to get marqo event: error upserting documents: status code: 401`,
             expectMissingAuthHeader: true,
@@ -727,7 +754,7 @@ func TestBulkUpdateEvents(t *testing.T) {
 		},
 		{
 			name:           "Valid payload",
-			payload:        `{"events":[{"id":"abc","eventOwners":["123"],"name":"DC Bocce Ball Semifinals","description":"DC Bocce event description","startTime":"2099-02-15T18:30:00Z","address":"National Mall, Washington, DC","lat":38.8951,"long":-77.0364},{"id":"xyz","eventOwners":["456"],"name":"New York City Marathon","description":"NYC Marathon event description","startTime":"2099-11-02T08:00:00Z","address":"Fort Wadsworth, Staten Island, NY","lat":40.6075,"long":-74.0544}]}`,
+			payload:        `{"events":[{"id":"abc", "eventOwnerName": "Event Owner 1", "eventOwners":["123"], "name":"DC Bocce Ball Semifinals","description":"DC Bocce event description","startTime":"2099-02-15T18:30:00Z","address":"National Mall, Washington, DC","lat":38.8951,"long":-77.0364,"timezone":"America/New_York"},{"id":"xyz", "eventOwnerName": "Event Owner 2", "eventOwners":["456"],"name":"New York City Marathon","description":"NYC Marathon event description","startTime":"2099-11-02T08:00:00Z","address":"Fort Wadsworth, Staten Island, NY","lat":40.6075,"long":-74.0544,"timezone":"America/New_York"}]}`,
 			expectedStatus: http.StatusOK,
 			expectedBody:   `"errors":false`,
             expectMissingAuthHeader: false,
@@ -749,12 +776,12 @@ func TestBulkUpdateEvents(t *testing.T) {
             }
 
             mockService := &services.MockMarqoService{
-                UpsertEventToMarqoFunc: func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error) {
+                UpsertEventToMarqoFunc: func(client *marqo.Client, event types.Event) (*marqo.UpsertDocumentsResponse, error) {
                     return tt.mockUpsertFunc(marqoClient, event)
                 },
             }
 
-			req, err := http.NewRequestWithContext(context.Background(), "PATCH", "/api/events", strings.NewReader(tt.payload))
+			req, err := http.NewRequestWithContext(context.Background(), "PUT", "/api/events", strings.NewReader(tt.payload))
 			if err != nil {
 				t.Fatalf("Failed to create request: %v", err)
 			}
@@ -847,7 +874,7 @@ func TestUpdateOneEvent(t *testing.T) {
         name string
         apiPath string
         requestBody string
-        mockUpsertFunc    func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error)
+        mockUpsertFunc    func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error)
         expectedStatus int
         expectedBodyCheck func(body string) error
         expectMissingAuthHeader bool
@@ -855,8 +882,8 @@ func TestUpdateOneEvent(t *testing.T) {
         {
             name:        "Valid event",
             apiPath:        `/test-id`,
-            requestBody: `{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
-            mockUpsertFunc: func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error) {
+            requestBody: `{ "eventOwnerName": "Event Owner", "eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+            mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
                 res, err := services.BulkUpsertEventToMarqo(client, events, false)
                 if err != nil {
                     log.Printf("mocked request to upsert event failed: %v", err)
@@ -895,8 +922,8 @@ func TestUpdateOneEvent(t *testing.T) {
             name:        "Valid payload, missing event path parameter",
             apiPath:        `/`,
             expectMissingAuthHeader: true,
-            requestBody: `{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
-            mockUpsertFunc: func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error) {
+            requestBody: `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+            mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
                 res, err := services.BulkUpsertEventToMarqo(client, events, false)
                 if err != nil {
                     log.Printf("mocked request to upsert event failed: %v", err)
@@ -915,8 +942,8 @@ func TestUpdateOneEvent(t *testing.T) {
             name:        "Valid payload, missing auth header",
             apiPath:        `/test-id`,
             expectMissingAuthHeader: true,
-            requestBody: `{"eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
-            mockUpsertFunc: func(client *marqo.Client, events []services.Event) (*marqo.UpsertDocumentsResponse, error) {
+            requestBody: `{ "eventOwnerName": "Event Owner", "eventOwners":["123"],"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+            mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
                 res, err := services.BulkUpsertEventToMarqo(client, events, false)
                 if err != nil {
                     log.Printf("mocked request to upsert event failed: %v", err)
@@ -947,7 +974,7 @@ func TestUpdateOneEvent(t *testing.T) {
         {
             name:           "Missing start time field",
             apiPath:        `/test-id`,
-            requestBody:    `{"description":"A test event", "eventOwners":["123"],"lat":51.5074,"long":-0.1278}`,
+            requestBody:    `{"description":"A test event", "eventOwnerName": "Event Owner",  "eventOwners":["123"],"lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
             mockUpsertFunc: nil,
             expectedStatus: http.StatusBadRequest,
             expectedBodyCheck: func(body string) error {
@@ -960,7 +987,7 @@ func TestUpdateOneEvent(t *testing.T) {
         {
             name:           "Missing name field",
             apiPath:        `/test-id`,
-            requestBody:    `{"eventOwners":["123"],"startTime":"2099-05-01T12:00:00Z","description":"A test event","lat":51.5074,"long":-0.1278}`,
+            requestBody:    `{ "eventOwnerName": "Event Owner", "eventOwners":["123"],"startTime":"2099-05-01T12:00:00Z","description":"A test event","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
             mockUpsertFunc: nil,
             expectedStatus: http.StatusBadRequest,
             expectedBodyCheck: func(body string) error {
@@ -973,12 +1000,38 @@ func TestUpdateOneEvent(t *testing.T) {
         {
             name:        "Missing eventOwners field",
             apiPath:        `/test-id`,
-            requestBody: `{"name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+            requestBody: `{ "eventOwnerName": "Event Owner", "name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
             mockUpsertFunc: nil,
             expectedStatus: http.StatusBadRequest,
             expectedBodyCheck: func(body string) error {
                 if !strings.Contains(body, `Field validation for 'EventOwners' failed on the 'required' tag`) {
                     return fmt.Errorf("expected `Field validation for 'EventOwners' failed on the 'required' tag`, got '%s'", body)
+                }
+                return nil
+            },
+        },
+        {
+            name:        "Missing eventOwnerName field",
+            apiPath:        `/test-id`,
+            requestBody: `{ "eventOwners": ["123"], "name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+            mockUpsertFunc: nil,
+            expectedStatus: http.StatusBadRequest,
+            expectedBodyCheck: func(body string) error {
+                if !strings.Contains(body, `Field validation for 'EventOwnerName' failed on the 'required' tag`) {
+                    return fmt.Errorf("expected `Field validation for 'EventOwnerName' failed on the 'required' tag`, got '%s'", body)
+                }
+                return nil
+            },
+        },
+        {
+            name:        "Missing timezone field",
+            apiPath:        `/test-id`,
+            requestBody: `{ "eventOwners": ["123"], "name":"Test Event","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+            mockUpsertFunc: nil,
+            expectedStatus: http.StatusBadRequest,
+            expectedBodyCheck: func(body string) error {
+                if !strings.Contains(body, `Field validation for 'Timezone' failed on the 'required' tag`) {
+                    return fmt.Errorf("expected `Field validation for 'Timezone' failed on the 'required' tag`, got '%s'", body)
                 }
                 return nil
             },
@@ -1000,12 +1053,12 @@ func TestUpdateOneEvent(t *testing.T) {
             }
 
             mockService := &services.MockMarqoService{
-                UpsertEventToMarqoFunc: func(client *marqo.Client, event services.Event) (*marqo.UpsertDocumentsResponse, error) {
-                    return tt.mockUpsertFunc(marqoClient, []services.Event{event})
+                UpsertEventToMarqoFunc: func(client *marqo.Client, event types.Event) (*marqo.UpsertDocumentsResponse, error) {
+                    return tt.mockUpsertFunc(marqoClient, []types.Event{event})
                 },
             }
 
-            req, err := http.NewRequestWithContext(context.Background(), "PATCH", "/events/" + tt.apiPath, bytes.NewBufferString(tt.requestBody))
+            req, err := http.NewRequestWithContext(context.Background(), "PUT", "/events/" + tt.apiPath, bytes.NewBufferString(tt.requestBody))
             if err != nil {
                 t.Fatalf("Unexpected error: %v", err)
             }
