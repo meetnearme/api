@@ -628,7 +628,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		defer func() {
 			purchaseService := dynamodb_service.NewPurchaseService()
 			h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
-
+            createPurchase.Status = "PENDING"
 			db := transport.GetDB()
 			_, err := h.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 			if err != nil {

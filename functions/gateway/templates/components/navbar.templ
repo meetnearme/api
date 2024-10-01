@@ -43,6 +43,7 @@ templ PurchasableItemsList(hasRegistrationFields bool) {
 	<template x-for="(purch, index) in purchasables" :key="index">
 		<label class="form-control w-full max-w-xs">
 			<span class="label-text text-lg mt-5" x-text="purch.name"></span>
+			<span class="label-text text-lg mt-5" x-text="`\$${(purch.cost / 100)}`"></span>
 			<div>
 				<div class="relative flex items-center max-w-[8rem] mb-5 mt-3">
 					<button @click="handleCounterClick($event.target, 'down', purch.name, index)" type="button" id="decrement-button" data-input-counter-decrement="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-s-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
@@ -310,13 +311,23 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 									@PurchasableItemsList(event.HasRegistrationFields)
 								</template>
 							} else if event.HasPurchasable {
-								<template x-if="hasPurchasable && !registrationFieldsLoaded">
+								<template x-if="!purchasablesLoaded">
 									<div>
 										<div>Loading cart items...</div>
 										<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
 									</div>
 								</template>
-								<template x-if="hasPurchasable && registrationFieldsLoaded">
+								<template x-if="purchasablesLoaded">
+									@PurchasableItemsList(event.HasRegistrationFields)
+								</template>
+							} else if event.HasRegistrationFields {
+								<template x-if="!registrationFieldsLoaded">
+									<div>
+										<div>Loading cart items...</div>
+										<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+									</div>
+								</template>
+								<template x-if="registrationFieldsLoaded">
 									@PurchasableItemsList(event.HasRegistrationFields)
 								</template>
 							}
