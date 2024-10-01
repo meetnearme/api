@@ -26,8 +26,8 @@ type Event struct {
 	RefUrl 				string `json:"refUrl,omitempty"`
 
 	// New fields for UI use only
-	LocalizedStartDate string `json:"localizedStartDate,omitempty"`
-	LocalizedStartTime string `json:"localizedStartTime,omitempty"`
+	LocalizedStartDate string `json:"localStartDate,omitempty"`
+	LocalizedStartTime string `json:"localStartTime,omitempty"`
 }
 
 type EventSearchResponse struct {

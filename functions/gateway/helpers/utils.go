@@ -335,7 +335,7 @@ func GetTimeOrShowNone(time int64) string {
 	return formattedTime
 }
 
-func GetLocalizedDateAndTime(datetime int64, timezone string) (string, string) {
+func GetLocalDateAndTime(datetime int64, timezone string) (string, string) {
 	// Load the location based on the event's timezone
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
@@ -343,14 +343,14 @@ func GetLocalizedDateAndTime(datetime int64, timezone string) (string, string) {
 		return "", ""
 	}
 
-	// Convert start time to localized time
-	localizedStartTime := time.Unix(datetime, 0).In(loc)
+	// Convert start time to local time
+	localStartTime := time.Unix(datetime, 0).In(loc)
 
-	localizedUnixTime := localizedStartTime.Unix()
+	localUnixTime := localStartTime.Unix()
 
-	// Populate the localized date and time fields
-	localizedStartDateStr, _ := FormatDate(localizedUnixTime)
-	localizedStartTimeStr, _ := FormatTime(localizedUnixTime)
+	// Populate the local date and time fields
+	localStartDateStr, _ := FormatDate(localUnixTime)
+	localStartTimeStr, _ := FormatTime(localUnixTime)
 
-	return localizedStartTimeStr, localizedStartDateStr
+	return localStartTimeStr, localStartDateStr
 }

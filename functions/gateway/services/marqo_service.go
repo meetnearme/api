@@ -424,7 +424,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		event := NormalizeMarqoDocOrSearchRes(doc)
 		if event != nil {
 			if parseDates == "1" {
-				localizedTime, localizedDate := helpers.GetLocalizedDateAndTime(event.StartTime, event.Timezone)
+				localizedTime, localizedDate := helpers.GetLocalDateAndTime(event.StartTime, event.Timezone)
 				event.LocalizedStartTime = localizedTime
 				event.LocalizedStartDate = localizedDate
 			}
@@ -464,7 +464,7 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string, parseDates str
 	for _, result := range res.Results {
 		event := NormalizeMarqoDocOrSearchRes(result, )
 		if parseDates == "1" {
-			localizedTime, localizedDate := helpers.GetLocalizedDateAndTime(event.StartTime, event.Timezone)
+			localizedTime, localizedDate := helpers.GetLocalDateAndTime(event.StartTime, event.Timezone)
 			event.LocalizedStartTime = localizedTime
 			event.LocalizedStartDate = localizedDate
 		}
