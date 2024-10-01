@@ -88,17 +88,38 @@ func HashIDtoImgRange(id string, num int) int {
 
 func GetImgUrlFromHash(event types.Event) string {
 	baseUrl := os.Getenv("STATIC_BASE_URL") + "/assets/img/";
-
+	noneCatImgCount := 18
+	catNumString := "_"
 	if len(event.Categories) > 0 {
-		if (ArrContains(event.Categories, "Karaoke")) {
-				return baseUrl + "cat_karaoke_0" + fmt.Sprint(HashIDtoImgRange(event.Id, 4)) + ".jpeg"
-		} else if (ArrContains(event.Categories, "Bocce Ball")) {
-			return baseUrl + "cat_bocce_ball_0" + fmt.Sprint(HashIDtoImgRange(event.Id, 4)) + ".jpeg"
-		} else if (ArrContains(event.Categories, "Trivia Night")) {
-			return baseUrl + "cat_trivia_night_0" + fmt.Sprint(HashIDtoImgRange(event.Id, 4)) + ".jpeg"
+		firstCat := ArrFindFirst(event.Categories, []string{"Karaoke", "Bocce Ball", "Trivia Night"})
+		firstCat = strings.ToLower(strings.ReplaceAll(firstCat, " ", "-"))
+		if firstCat == "" {
+			firstCat = "none"
 		}
+		catImgCountRange := 0
+		switch firstCat {
+			case "none":
+				catImgCountRange = noneCatImgCount
+			case "karaoke":
+				catImgCountRange = 4
+			case "bocce-ball":
+				catImgCountRange = 4
+			case "trivia-night":
+				catImgCountRange = 4
+		}
+		imgNum := HashIDtoImgRange(event.Id, catImgCountRange)
+		if (imgNum < 10) {
+			catNumString = catNumString + "0"
+		}
+
+		imgName := "cat_" + firstCat + catNumString + fmt.Sprint(imgNum) + ".jpeg"
+		return baseUrl + imgName
 	}
-	return baseUrl + fmt.Sprint(HashIDtoImgRange(event.Id, 8)) + ".png"
+	imgNum := HashIDtoImgRange(event.Id, noneCatImgCount)
+	if (imgNum < 10) {
+		catNumString = catNumString + "0"
+	}
+	return baseUrl + "cat_none" + catNumString + fmt.Sprint(imgNum) + ".jpeg"
 }
 
 func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata map[string]string) error {
@@ -309,12 +330,50 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	return nil
 }
 
-func ArrContains(slice []string, item string) bool {
+func ArrFindFirst(slice []string, items []string) string {
 	for _, s := range slice {
-			if s == item {
-					return true
+			for _, item := range items {
+					if s == item {
+							return s
+					}
 			}
 	}
-	return false
+	return ""
 }
 
+
+func GetDateOrShowNone(date int64) string {
+	formattedDate, err := FormatDate(date)
+	if date == 0 || err != nil {
+		return ""
+	}
+	return formattedDate
+}
+
+func GetTimeOrShowNone(time int64) string {
+	formattedTime, err := FormatTime(time)
+	if time == 0 || err != nil {
+		return ""
+	}
+	return formattedTime
+}
+
+func GetLocalDateAndTime(datetime int64, timezone string) (string, string) {
+	// Load the location based on the event's timezone
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		fmt.Println("Error loading timezone:", err)
+		return "", ""
+	}
+
+	// Convert start time to local time
+	localStartTime := time.Unix(datetime, 0).In(loc)
+
+	localUnixTime := localStartTime.Unix()
+
+	// Populate the local date and time fields
+	localStartDateStr, _ := FormatDate(localUnixTime)
+	localStartTimeStr, _ := FormatTime(localUnixTime)
+
+	return localStartTimeStr, localStartDateStr
+}
