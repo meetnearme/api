@@ -318,3 +318,39 @@ func ArrContains(slice []string, item string) bool {
 	return false
 }
 
+
+func GetDateOrShowNone(date int64) string {
+	formattedDate, err := FormatDate(date)
+	if date == 0 || err != nil {
+		return ""
+	}
+	return formattedDate
+}
+
+func GetTimeOrShowNone(time int64) string {
+	formattedTime, err := FormatTime(time)
+	if time == 0 || err != nil {
+		return ""
+	}
+	return formattedTime
+}
+
+func GetLocalDateAndTime(datetime int64, timezone string) (string, string) {
+	// Load the location based on the event's timezone
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		fmt.Println("Error loading timezone:", err)
+		return "", ""
+	}
+
+	// Convert start time to local time
+	localStartTime := time.Unix(datetime, 0).In(loc)
+
+	localUnixTime := localStartTime.Unix()
+
+	// Populate the local date and time fields
+	localStartDateStr, _ := FormatDate(localUnixTime)
+	localStartTimeStr, _ := FormatTime(localUnixTime)
+
+	return localStartTimeStr, localStartDateStr
+}

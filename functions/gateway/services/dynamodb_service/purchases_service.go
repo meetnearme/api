@@ -16,10 +16,10 @@ import (
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var purchaseTableName = helpers.GetDbTableName(helpers.PurchasesTablePrefix)
+var purchasesTableName = helpers.GetDbTableName(helpers.PurchasesTablePrefix)
 
 func init () {
-	purchaseTableName = helpers.GetDbTableName(helpers.PurchasesTablePrefix)
+	purchasesTableName = helpers.GetDbTableName(helpers.PurchasesTablePrefix)
 }
 
 type PurchaseService struct{}
