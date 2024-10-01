@@ -327,7 +327,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 										<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 										</svg>
-										<span x-text="err"></span>
+										<span x-html="err"></span>
 									</div>
 								</template>
 							</template>
@@ -445,6 +445,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 										currency: "USD"
 									})
 								});
+								if (response.status === 401) {
+									this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/events/${this.eventId}">Register or Login now</a>`;
+									this.reqInFlight = false;
+									return
+								}
 								const json = await response.json();
 								console.log('json checkout res!', json);
 								this.reqInFlight = false;
