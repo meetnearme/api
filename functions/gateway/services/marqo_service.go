@@ -97,7 +97,8 @@ func GetMarqoClient() (*marqo.Client, error) {
 //       "dependentFields": {
 //         "name": 0.3,
 //         "description": 0.5,
-//         "address": 0.2
+//         "address": 0.2,
+//         "eventOwnerName": 0.3
 //       }
 //     },
 //     {
