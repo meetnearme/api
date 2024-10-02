@@ -121,6 +121,7 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 			<input
 				type="checkbox"
 				class="z-[9] checkbox checkbox-xs checkbox-tertiary border-opacity-100 mr-5 my-1"
+				x-init="$el.indeterminate = true"
 				if nestedInPurchasable {
 					x-model="formData[_index]"
 					x-on:change="validateOneField(field, _index, idx)"
@@ -156,6 +157,9 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 			:required="field.required"
 			class="select w-full max-w-xs select-bordered border-opacity-100"
 		>
+			<template x-if="!field.placeholder && field.required">
+				<option disabled selected x-text=" 'Select One' "></option>
+			</template>
 			<template x-if="field.placeholder">
 				<option disabled selected x-text="field.placeholder"></option>
 			</template>
