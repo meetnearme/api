@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/meetnearme/api/functions/gateway/services"
 )
@@ -15,10 +14,6 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParams := r.URL.Query()
 	redirectUser := queryParams.Get("redirect")
 	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectUser)
-	log.Printf("\n\n\nZITADEL_INSTANCE_HOST to: %s", os.Getenv("ZITADEL_INSTANCE_HOST"))
-	log.Printf("\n\n\nAPEX_URL to: %s", os.Getenv("APEX_URL"))
-	log.Printf("\n\n\nAPEX_URL to: %s", os.Getenv("APEX_DEV_URL"))
-	log.Printf("\n\n\nredirecting to: %s", authURL)
 	if err != nil {
 		http.Error(w, "Failed to authorize request", http.StatusBadRequest)
 		return http.HandlerFunc(nil)
