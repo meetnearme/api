@@ -37,7 +37,7 @@ jobs:
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
         with:
-          APEX_URL: ${{ secrets.APEX_DEV_URL }}
+          APEX_URL: ${{ secrets.APEX_URL }}
           APEX_DEV_URL: ${{ secrets.APEX_DEV_URL }}
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
