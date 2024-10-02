@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ganeshdipdumbare/marqo-go" // marqo-go is an unofficial Go client library for Marqo
 	"github.com/google/uuid"
@@ -134,12 +135,16 @@ func GetMarqoClient() (*marqo.Client, error) {
 //     {
 //       "name": "eventSourceId",
 //       "type": "text",
-//       "features": []
+//       "features": [
+//         "filter"
+//       ]
 //     },
 //     {
 //       "name": "eventSourceType",
 //       "type": "text",
-//       "features": []
+//       "features": [
+//         "filter"
+//       ]
 //     },
 //     {
 //       "name": "name",
@@ -208,6 +213,11 @@ func GetMarqoClient() (*marqo.Client, error) {
 //       ]
 //     },
 //     {
+//       "name": "hideCrossPromo",
+//       "type": "bool",
+//       "features": []
+//     },
+//     {
 //       "name": "imageUrl",
 //       "type": "text",
 //       "features": []
@@ -242,17 +252,23 @@ func GetMarqoClient() (*marqo.Client, error) {
 //     {
 //       "name": "sourceUrl",
 //       "type": "text",
-//       "features": []
+//       "features": [
+//         "filter"
+//       ]
 //     },
 //     {
 //       "name": "createdAt",
 //       "type": "long",
-//       "features": []
+//       "features": [
+//         "filter"
+//       ]
 //     },
 //     {
 //       "name": "updatedAt",
 //       "type": "long",
-//       "features": []
+//       "features": [
+//         "filter"
+//       ]
 //     },
 //     {
 //       "name": "updatedBy",
@@ -284,6 +300,9 @@ func GetMarqoClient() (*marqo.Client, error) {
 // }
 
 func ConvertEventsToDocuments(events []types.Event, hasIds bool) (documents []interface{}) {
+	now := time.Now().Unix()
+	createdAt := now
+	updatedAt := now
 	for _, event := range events {
 		var _uuid string
 		if !hasIds {
@@ -291,7 +310,9 @@ func ConvertEventsToDocuments(events []types.Event, hasIds bool) (documents []in
 		} else {
 			_uuid = event.Id
 		}
-
+		if event.CreatedAt > 0 {
+			createdAt = event.CreatedAt
+		}
 		document := map[string]interface{}{
 			"_id":         _uuid,
 			"eventOwners": event.EventOwners,
@@ -303,6 +324,8 @@ func ConvertEventsToDocuments(events []types.Event, hasIds bool) (documents []in
 			"lat":         float64(event.Lat),
 			"long":        float64(event.Long),
 			"timezone":    event.Timezone,
+			"createdAt":   createdAt,
+			"updatedAt":   updatedAt,
 		}
 
 		// Add optional fields only if they are not nil
@@ -341,6 +364,9 @@ func ConvertEventsToDocuments(events []types.Event, hasIds bool) (documents []in
 		}
 		if event.UpdatedBy != "" {
 			document["updatedBy"] = string(event.UpdatedBy)
+		}
+		if event.HideCrossPromo {
+			document["hideCrossPromo"] = bool(event.HideCrossPromo)
 		}
 
 		documents = append(documents, document)
@@ -461,9 +487,8 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string, parseDates str
 	}
 
 	var events []*types.Event
-
 	for _, result := range res.Results {
-		event := NormalizeMarqoDocOrSearchRes(result, )
+		event := NormalizeMarqoDocOrSearchRes(result)
 		if parseDates == "1" {
 			localizedTime, localizedDate := helpers.GetLocalDateAndTime(event.StartTime, event.Timezone)
 			event.LocalizedStartTime = localizedTime
@@ -548,12 +573,12 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *types.Eve
 				}
 		}},
 		{"hasRegistrationFields", func() {
-				if v := getValue[bool](doc, "hasRegistrationFields"); v != false {
+				if v := getValue[bool](doc, "hasRegistrationFields"); v {
 						event.HasRegistrationFields = v
 				}
 		}},
 		{"hasPurchasable", func() {
-				if v := getValue[bool](doc, "hasPurchasable"); v != false {
+				if v := getValue[bool](doc, "hasPurchasable"); v {
 						event.HasPurchasable = v
 				}
 		}},
@@ -587,6 +612,11 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *types.Eve
 		{"updatedBy", func() {
 				if v := getValue[string](doc, "updatedBy"); v != "" {
 						event.UpdatedBy = v
+				}
+		}},
+		{"hideCrossPromo", func() {
+				if v := getValue[bool](doc, "hideCrossPromo"); v {
+					event.HideCrossPromo = v
 				}
 		}},
 	}

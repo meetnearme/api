@@ -36,24 +36,24 @@ func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler 
 
 // Create a new struct for raw JSON operations
 type rawEventData struct {
-    Id              string   `json:"id"`
-    EventOwners     []string `json:"eventOwners" validate:"required,min=1"`
+		Id              string   `json:"id"`
+		EventOwners     []string `json:"eventOwners" validate:"required,min=1"`
 		EventOwnerName  string   `json:"eventOwnerName" validate:"required"`
-    Name            string   `json:"name" validate:"required"`
-    Description     string   `json:"description"`
-    Address         string   `json:"address"`
-    Lat             float64   `json:"lat"`
-    Long            float64   `json:"long"`
+		Name            string   `json:"name" validate:"required"`
+		Description     string   `json:"description"`
+		Address         string   `json:"address"`
+		Lat             float64   `json:"lat"`
+		Long            float64   `json:"long"`
 		Timezone        string    `json:"timezone"`
 }
 
 type rawEvent struct {
-    rawEventData
-    StartTime interface{} `json:"startTime" validate:"required"`
-    EndTime   interface{} `json:"endTime,omitempty"`
-    StartingPrice   *int32    `json:"startingPrice,omitempty"`
-    Currency        *string     `json:"currency,omitempty"`
-    PayeeId         *string     `json:"payeeId,omitempty"`
+		rawEventData
+		StartTime interface{} `json:"startTime" validate:"required"`
+		EndTime   interface{} `json:"endTime,omitempty"`
+		StartingPrice   *int32    `json:"startingPrice,omitempty"`
+		Currency        *string     `json:"currency,omitempty"`
+		PayeeId         *string     `json:"payeeId,omitempty"`
 		HasRegistrationFields *bool `json:"hasRegistrationFields,omitempty"`
 		HasPurchasable *bool  `json:"hasPurchasable,omitempty"`
 		ImageUrl      *string `json:"imageUrl,omitempty"`
@@ -62,19 +62,20 @@ type rawEvent struct {
 		CreatedAt     *int64 `json:"createdAt,omitempty"`
 		UpdatedAt     *int64 `json:"updatedAt,omitempty"`
 		UpdatedBy     *string `json:"updatedBy,omitempty"`
+		HideCrossPromo *bool  `json:"hideCrossPromo,omitempty"`
 }
 
 func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
     event := types.Event{
         Id:          raw.Id,
         EventOwners: raw.EventOwners,
-				EventOwnerName: raw.EventOwnerName,
+        EventOwnerName: raw.EventOwnerName,
         Name:        raw.Name,
         Description: raw.Description,
         Address:     raw.Address,
         Lat:         raw.Lat,
         Long:        raw.Long,
-		Timezone:    raw.Timezone,
+        Timezone:    raw.Timezone,
     }
 
     // Safely assign pointer values
@@ -96,12 +97,12 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
     if raw.ImageUrl != nil {
         event.ImageUrl = *raw.ImageUrl
     }
-	if raw.Categories != nil {
-		event.Categories = *raw.Categories
-	}
-	if raw.Tags != nil {
-		event.Tags = *raw.Tags
-	}
+    if raw.Categories != nil {
+        event.Categories = *raw.Categories
+    }
+    if raw.Tags != nil {
+        event.Tags = *raw.Tags
+    }
     if raw.CreatedAt != nil {
         event.CreatedAt = *raw.CreatedAt
     }
@@ -111,7 +112,9 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
     if raw.UpdatedBy != nil {
         event.UpdatedBy = *raw.UpdatedBy
     }
-
+    if raw.HideCrossPromo != nil {
+        event.HideCrossPromo = *raw.HideCrossPromo
+    }
 
     if raw.StartTime == nil {
         return types.Event{}, fmt.Errorf("startTime is required")
