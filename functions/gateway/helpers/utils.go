@@ -342,17 +342,17 @@ func ArrFindFirst(slice []string, items []string) string {
 }
 
 
-func GetDateOrShowNone(date int64) string {
-	formattedDate, err := FormatDate(date)
-	if date == 0 || err != nil {
+func GetDateOrShowNone(datetime int64, timezone string) string {
+	_, formattedDate := GetLocalDateAndTime(datetime, timezone)
+	if formattedDate == "" {
 		return ""
 	}
 	return formattedDate
 }
 
-func GetTimeOrShowNone(time int64) string {
-	formattedTime, err := FormatTime(time)
-	if time == 0 || err != nil {
+func GetTimeOrShowNone(datetime int64, timezone string) string {
+	formattedTime, _ := GetLocalDateAndTime(datetime, timezone)
+	if formattedTime == "" {
 		return ""
 	}
 	return formattedTime
