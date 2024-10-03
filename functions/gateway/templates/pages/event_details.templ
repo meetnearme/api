@@ -71,12 +71,12 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 				<br/>
 				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, true, event)
 				<br/>
-				if helpers.GetDateOrShowNone(event.StartTime) != "" {
-					@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime), "calendar", "", false, event)
+				if helpers.GetDateOrShowNone(event.StartTime, event.Timezone) != "" {
+					@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime, event.Timezone), "calendar")
 				}
 				<br/>
-				if helpers.GetTimeOrShowNone(event.StartTime) != "" {
-					@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime), "clock", "", false, event)
+				if helpers.GetTimeOrShowNone(event.StartTime, event.Timezone) != "" {
+					@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime, event.Timezone), "clock")
 				}
 				<br/>
 				if event.StartingPrice > 0 {
