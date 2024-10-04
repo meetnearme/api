@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -508,9 +509,18 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 			Events: []types.Event{},
 		}, err
 	}
+
+	// Group and sort the search results
+	groupedEvents := groupAndSortEvents(searchResp.Hits)
+
+	// Interleave the grouped events
+	interleavedEvents := interleaveEvents(groupedEvents)
+
 	// Extract the events from the search response
 	var events []types.Event
-	for _, doc := range searchResp.Hits {
+	for _, doc := range interleavedEvents {
+
+
 		event := NormalizeMarqoDocOrSearchRes(doc)
 		if event != nil {
 			if parseDates == "1" {
@@ -529,6 +539,97 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		Filter: filter,
 		Events: events,
 	}, nil
+}
+
+
+func groupAndSortEvents(hits []map[string]interface{}) map[string][]map[string]interface{} {
+	groupA := []map[string]interface{}{}
+	groupB := make(map[float64][]map[string]interface{})
+
+	for _, doc := range hits {
+		score, ok := doc["_tensor_score"].(float64)
+		if !ok {
+			groupA = append(groupA, doc)
+			continue
+		}
+
+		grouped := false
+		for baseScore := range groupB {
+			if math.Abs(score-baseScore) <= 0.002 {
+				groupB[baseScore] = append(groupB[baseScore], doc)
+				grouped = true
+				break
+			}
+		}
+
+		if !grouped {
+			if len(groupB) == 0 || math.Abs(score-getClosestBaseScore(groupB, score)) > 0.002 {
+				groupB[score] = []map[string]interface{}{doc}
+			} else {
+				groupA = append(groupA, doc)
+			}
+		}
+	}
+
+	// Sort each group in groupB by startTime
+	for _, group := range groupB {
+		sort.Slice(group, func(i, j int) bool {
+			timeI, _ := group[i]["startTime"].(float64)
+			timeJ, _ := group[j]["startTime"].(float64)
+			return timeI < timeJ
+		})
+	}
+
+	return map[string][]map[string]interface{}{
+		"A": groupA,
+		"B": flattenGroupB(groupB),
+	}
+}
+
+func getClosestBaseScore(groupB map[float64][]map[string]interface{}, score float64) float64 {
+	var closest float64
+	minDiff := math.Inf(1)
+	for baseScore := range groupB {
+		diff := math.Abs(score - baseScore)
+		if diff < minDiff {
+			minDiff = diff
+			closest = baseScore
+		}
+	}
+	return closest
+}
+
+func flattenGroupB(groupB map[float64][]map[string]interface{}) []map[string]interface{} {
+	var flattened []map[string]interface{}
+	for _, group := range groupB {
+		flattened = append(flattened, group...)
+	}
+	return flattened
+}
+
+func interleaveEvents(groupedEvents map[string][]map[string]interface{}) []map[string]interface{} {
+	groupA := groupedEvents["A"]
+	groupB := groupedEvents["B"]
+
+	result := make([]map[string]interface{}, 0, len(groupA)+len(groupB))
+
+	i, j := 0, 0
+	for i < len(groupA) || j < len(groupB) {
+		if i < len(groupA) {
+			result = append(result, groupA[i])
+			i++
+		}
+
+		if j < len(groupB) {
+			insertIndex := len(result) * (j + 1) / (len(groupB) + 1)
+			result = append(result, nil)
+			copy(result[insertIndex+1:], result[insertIndex:])
+			result[insertIndex] = groupB[j]
+			j++
+		}
+	}
+
+	return result
 }
 
 func BulkGetMarqoEventByID(client *marqo.Client, docIds []string, parseDates string) ([]*types.Event, error) {
