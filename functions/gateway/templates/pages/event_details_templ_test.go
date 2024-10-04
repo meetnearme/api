@@ -30,6 +30,10 @@ func TestEventDetailsPage(t *testing.T) {
 				Description: "This is a test event",
 				Address:     "123 Test St",
 				StartTime:   validEventStartTime,
+				EventOwners: []string{"abc-uuid"},
+				EventOwnerName: "Brians Pub",
+				Lat: 38.896305,
+				Long: -77.023289,
 			},
 			checkoutParamVal:  "",
 			expected: []string{
@@ -38,6 +42,8 @@ func TestEventDetailsPage(t *testing.T) {
 				"123 Test St",
 				"May 1, 2099",
 				"12:00pm",
+				"abc-uuid",
+				"Brians Pub",
 			},
 		},
 		{

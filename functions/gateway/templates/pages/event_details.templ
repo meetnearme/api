@@ -8,20 +8,37 @@ import (
 	"os"
 )
 
-templ IconLeftSection(labelText, eventAddress, icon string) {
+templ IconLeftSection(labelText, labelValue, icon, url string, venueSection bool, event types.Event) {
 	<div class="flex">
 		<div class="flex-none">
 			// Left column content (fit to width)
 			<div class="icon-container w-6 mr-2">
-				<img alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/" + icon + ".svg") }/>
+				<img class="fill-current" alt={ icon + "icon "} src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/" + icon + ".svg") }/>
 			</div>
 		</div>
 		<div class="flex-grow">
 			<p>
-				<strong>{ labelText }:</strong> { eventAddress }
+				if url != "" {
+					<strong>{ labelText }:</strong> <a class="link link-primary" href={ templ.URL(url) }>{ labelValue }</a>
+				} else {
+					<strong>{ labelText }:</strong> { labelValue }
+				}
+
+				// This is a hack because it wasn't clear how to get nested templ components working
+				if venueSection {
+					<p>
+						<a class="link link-primary" href={ templ.URL(fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=%f,%f", event.Lat, event.Long)) }>
+						{ "(Map Link)" }
+						</a>
+					</p>
+				}
 			</p>
 		</div>
 	</div>
+}
+
+templ OptionalLeftSectionChild() {
+	{children...}
 }
 
 templ EventDetailsPage(event types.Event, checkoutParamVal string) {
@@ -51,19 +68,21 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 					<br/>
 					<br/>
 				}
-				@IconLeftSection("Location", event.Address, "location")
+				@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=` + event.EventOwners[0], false, event)
+				<br />
+				@IconLeftSection("Venue", event.Address, "location", "/?address=" + event.Address, true, event)
 				<br/>
 				if helpers.GetDateOrShowNone(event.StartTime) != "" {
-					@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime), "calendar")
+					@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime), "calendar", "", false, event)
 				}
 				<br/>
 				if helpers.GetTimeOrShowNone(event.StartTime) != "" {
-					@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime), "clock")
+					@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime), "clock", "", false, event)
 				}
 				<br/>
 				if event.StartingPrice > 0 {
 					// TODO: handle basecurrency
-					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price")
+					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", false, event)
 				}
 				<br/>
 				<h3 class="text-xl">EVENT DESCRIPTION</h3>
