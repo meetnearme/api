@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -94,13 +95,13 @@ func GetMarqoClient() (*marqo.Client, error) {
 //     {
 //       "name": "name_description_address",
 //       "features": [],
-//       "type": "multimodal_combination",
 //       "dependentFields": {
 //         "name": 0.3,
+//         "eventOwnerName": 0.1,
 //         "description": 0.5,
-//         "address": 0.2,
-//         "eventOwnerName": 0.3
-//       }
+//         "address": 0.2
+//       },
+//       "type": "multimodal_combination"
 //     },
 //     {
 //       "name": "eventOwners",
@@ -164,7 +165,8 @@ func GetMarqoClient() (*marqo.Client, error) {
 //       "name": "startTime",
 //       "type": "long",
 //       "features": [
-//         "filter"
+//         "filter",
+//         "score_modifier"
 //       ]
 //     },
 //     {
@@ -382,6 +384,17 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event, hasIds b
 	req := marqo.UpsertDocumentsRequest{
 		Documents: documents,
 		IndexName: indexName,
+    Mappings: map[string]interface{}{
+      "name_description_address": map[string]interface{}{
+        "type": "multimodal_combination",
+        "weights": map[string]float64{
+          "description":    0.5,
+          "address":        0.2,
+          "name":           0.3,
+          "eventOwnerName": 0.1,
+        },
+      },
+    },
 	}
 	res, err := client.UpsertDocuments(&req)
 	if err != nil {
@@ -404,6 +417,8 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 
 	// Search for events based on the query
 	searchMethod := "HYBRID"
+	// TODO: parameterize this
+	limit := 50
 
 	var ownerFilter string
 	if len(ownerIds) > 0 {
@@ -424,18 +439,67 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	}
 
 	filter := fmt.Sprintf("%s %s startTime:[%v TO %v] AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]", addressFilter, ownerFilter, startTime, endTime, maxLong, minLong, maxLat, minLat)
-	log.Printf("\n\nFINAL filter %+v", filter)
 	indexName := GetMarqoIndexName()
+
 	searchRequest := marqo.SearchRequest{
 		IndexName:    indexName,
 		Q:            &query,
 		SearchMethod: &searchMethod,
 		Filter:       &filter,
+		Limit:        &limit,
+		// TODO: this is missing from the marqo Go client, we should add
+
+		// SearchableAttributesTensor: []string{
+		//   "eventOwnerName",
+		//   "name",
+		//   "description",
+		//   "address",
+		//   "categories",
+		//   "tags",
+		// },
 		HybridParameters: &marqo.HybridParameters {
 			RetrievalMethod: "disjunction",
 			RankingMethod:   "rrf",
+		// NOTE: none of these seemed to have much influence in
+		// testing around the time of initial launch, should be
+		// revisited and better understood
+
+		// ScoreModifiersLexical: &marqo.ScoreModifiers{
+		//	"multiply_score_by": []marqo.ScoreModifier{
+		// 			{
+		// 					FieldName: "startTime",
+		// 					Weight:    0.8,
+		// 			},
+		// 			{
+		// 					FieldName: "createdAt",
+		// 					Weight:    0.0,
+		// 			},
+		// 			{
+		// 					FieldName: "updatedAt",
+		// 					Weight:    0.0,
+		// 			},
+		// 	},
+		//   "add_to_score": []marqo.ScoreModifier{
+		//       {
+		//         FieldName: "startTime",
+		//         Weight:    0.9,
+		//       },
+		// 			{
+		//         FieldName: "name_description_address",
+		//         Weight:    -0.8,
+		//     },
+		// 	},
+		// },
+		// ScoreModifiersTensor: &marqo.ScoreModifiers{
+		//   "add_to_score": []marqo.ScoreModifier{
+		//       {
+		//         FieldName: "startTime",
+		//         Weight:    0.00001,
+		//       },
+		// 	},
+		// },
 		},
-	}
+  }
 	searchResp, err := client.Search(&searchRequest)
 	if err != nil {
 		log.Printf("Error searching documents: %v", err)
@@ -445,9 +509,18 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 			Events: []types.Event{},
 		}, err
 	}
+
+	// Group and sort the search results
+	groupedEvents := groupAndSortEvents(searchResp.Hits)
+
+	// Interleave the grouped events
+	interleavedEvents := interleaveEvents(groupedEvents)
+
 	// Extract the events from the search response
 	var events []types.Event
-	for _, doc := range searchResp.Hits {
+	for _, doc := range interleavedEvents {
+
+
 		event := NormalizeMarqoDocOrSearchRes(doc)
 		if event != nil {
 			if parseDates == "1" {
@@ -466,6 +539,97 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		Filter: filter,
 		Events: events,
 	}, nil
+}
+
+
+func groupAndSortEvents(hits []map[string]interface{}) map[string][]map[string]interface{} {
+	groupA := []map[string]interface{}{}
+	groupB := make(map[float64][]map[string]interface{})
+
+	for _, doc := range hits {
+		score, ok := doc["_tensor_score"].(float64)
+		if !ok {
+			groupA = append(groupA, doc)
+			continue
+		}
+
+		grouped := false
+		for baseScore := range groupB {
+			if math.Abs(score-baseScore) <= 0.002 {
+				groupB[baseScore] = append(groupB[baseScore], doc)
+				grouped = true
+				break
+			}
+		}
+
+		if !grouped {
+			if len(groupB) == 0 || math.Abs(score-getClosestBaseScore(groupB, score)) > 0.002 {
+				groupB[score] = []map[string]interface{}{doc}
+			} else {
+				groupA = append(groupA, doc)
+			}
+		}
+	}
+
+	// Sort each group in groupB by startTime
+	for _, group := range groupB {
+		sort.Slice(group, func(i, j int) bool {
+			timeI, _ := group[i]["startTime"].(float64)
+			timeJ, _ := group[j]["startTime"].(float64)
+			return timeI < timeJ
+		})
+	}
+
+	return map[string][]map[string]interface{}{
+		"A": groupA,
+		"B": flattenGroupB(groupB),
+	}
+}
+
+func getClosestBaseScore(groupB map[float64][]map[string]interface{}, score float64) float64 {
+	var closest float64
+	minDiff := math.Inf(1)
+	for baseScore := range groupB {
+		diff := math.Abs(score - baseScore)
+		if diff < minDiff {
+			minDiff = diff
+			closest = baseScore
+		}
+	}
+	return closest
+}
+
+func flattenGroupB(groupB map[float64][]map[string]interface{}) []map[string]interface{} {
+	var flattened []map[string]interface{}
+	for _, group := range groupB {
+		flattened = append(flattened, group...)
+	}
+	return flattened
+}
+
+func interleaveEvents(groupedEvents map[string][]map[string]interface{}) []map[string]interface{} {
+	groupA := groupedEvents["A"]
+	groupB := groupedEvents["B"]
+
+	result := make([]map[string]interface{}, 0, len(groupA)+len(groupB))
+
+	i, j := 0, 0
+	for i < len(groupA) || j < len(groupB) {
+		if i < len(groupA) {
+			result = append(result, groupA[i])
+			i++
+		}
+
+		if j < len(groupB) {
+			insertIndex := len(result) * (j + 1) / (len(groupB) + 1)
+			result = append(result, nil)
+			copy(result[insertIndex+1:], result[insertIndex:])
+			result[insertIndex] = groupB[j]
+			j++
+		}
+	}
+
+	return result
 }
 
 func BulkGetMarqoEventByID(client *marqo.Client, docIds []string, parseDates string) ([]*types.Event, error) {
