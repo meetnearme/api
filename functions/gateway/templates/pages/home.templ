@@ -10,7 +10,7 @@ import (
 templ EventsInner(events []types.Event) {
 	if (len(events) < 1) {
 		<p class="text-md md:text-lg text-center mt-5">
-			No events found, try <a href="/?radius=500">expanding your search</a> or changing your filters like location, date, and time
+			No events found, try <a class="btn btn-primary btn-small" href="/?radius=500">expanding your search</a> or changing your filters like location, date, and time
 		</p>
 	} else {
 		for _, ev := range events {
