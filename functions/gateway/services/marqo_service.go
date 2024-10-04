@@ -94,13 +94,13 @@ func GetMarqoClient() (*marqo.Client, error) {
 //     {
 //       "name": "name_description_address",
 //       "features": [],
-//       "type": "multimodal_combination",
 //       "dependentFields": {
 //         "name": 0.3,
+//         "eventOwnerName": 0.1,
 //         "description": 0.5,
-//         "address": 0.2,
-//         "eventOwnerName": 0.3
-//       }
+//         "address": 0.2
+//       },
+//       "type": "multimodal_combination"
 //     },
 //     {
 //       "name": "eventOwners",
@@ -164,7 +164,8 @@ func GetMarqoClient() (*marqo.Client, error) {
 //       "name": "startTime",
 //       "type": "long",
 //       "features": [
-//         "filter"
+//         "filter",
+//         "score_modifier"
 //       ]
 //     },
 //     {
@@ -382,6 +383,17 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event, hasIds b
 	req := marqo.UpsertDocumentsRequest{
 		Documents: documents,
 		IndexName: indexName,
+    Mappings: map[string]interface{}{
+      "name_description_address": map[string]interface{}{
+        "type": "multimodal_combination",
+        "weights": map[string]float64{
+          "description":    0.5,
+          "address":        0.2,
+          "name":           0.3,
+          "eventOwnerName": 0.1,
+        },
+      },
+    },
 	}
 	res, err := client.UpsertDocuments(&req)
 	if err != nil {
@@ -404,6 +416,8 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 
 	// Search for events based on the query
 	searchMethod := "HYBRID"
+	// TODO: parameterize this
+	limit := 50
 
 	var ownerFilter string
 	if len(ownerIds) > 0 {
@@ -424,18 +438,67 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	}
 
 	filter := fmt.Sprintf("%s %s startTime:[%v TO %v] AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]", addressFilter, ownerFilter, startTime, endTime, maxLong, minLong, maxLat, minLat)
-	log.Printf("\n\nFINAL filter %+v", filter)
 	indexName := GetMarqoIndexName()
+
 	searchRequest := marqo.SearchRequest{
 		IndexName:    indexName,
 		Q:            &query,
 		SearchMethod: &searchMethod,
 		Filter:       &filter,
+		Limit:        &limit,
+		// TODO: this is missing from the marqo Go client, we should add
+
+		// SearchableAttributesTensor: []string{
+		//   "eventOwnerName",
+		//   "name",
+		//   "description",
+		//   "address",
+		//   "categories",
+		//   "tags",
+		// },
 		HybridParameters: &marqo.HybridParameters {
 			RetrievalMethod: "disjunction",
 			RankingMethod:   "rrf",
+		// NOTE: none of these seemed to have much influence in
+		// testing around the time of initial launch, should be
+		// revisited and better understood
+
+		// ScoreModifiersLexical: &marqo.ScoreModifiers{
+		//	"multiply_score_by": []marqo.ScoreModifier{
+		// 			{
+		// 					FieldName: "startTime",
+		// 					Weight:    0.8,
+		// 			},
+		// 			{
+		// 					FieldName: "createdAt",
+		// 					Weight:    0.0,
+		// 			},
+		// 			{
+		// 					FieldName: "updatedAt",
+		// 					Weight:    0.0,
+		// 			},
+		// 	},
+		//   "add_to_score": []marqo.ScoreModifier{
+		//       {
+		//         FieldName: "startTime",
+		//         Weight:    0.9,
+		//       },
+		// 			{
+		//         FieldName: "name_description_address",
+		//         Weight:    -0.8,
+		//     },
+		// 	},
+		// },
+		// ScoreModifiersTensor: &marqo.ScoreModifiers{
+		//   "add_to_score": []marqo.ScoreModifier{
+		//       {
+		//         FieldName: "startTime",
+		//         Weight:    0.00001,
+		//       },
+		// 	},
+		// },
 		},
-	}
+  }
 	searchResp, err := client.Search(&searchRequest)
 	if err != nil {
 		log.Printf("Error searching documents: %v", err)
