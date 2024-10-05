@@ -94,7 +94,7 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 						<button data-umami-event={ "reg-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
 					} else {
 						<a data-umami-event={ "rsvp-click" } data-umami-event-event-id={ event.Id } target="_blank"
-						  href={ templ.URL(fmt.Sprintf("https://calendar.google.com/calendar/r/eventedit?dates=%s/%s&details=%s&location=%s&text=%s",
+						  href={ templ.URL(fmt.Sprintf("https://calendar.google.com/calendar/render?action=TEMPLATE&dates=%s/%s&details=%s&location=%s&text=%s",
 						helpers.FormatTimeRFC3339(event.StartTime),
 						helpers.FormatTimeRFC3339((event.StartTime + (60*60))),
 						url.QueryEscape(event.Description),
@@ -142,8 +142,6 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 						const blob = new Blob([JSON.stringify(body)], headers);
 
 						navigator.sendBeacon(`/api/event-rsvps/${this.eventId}/${this.userId}`, blob);
-
-						debugger;
 						return
 					}
 					if (tab === 'cart') {
