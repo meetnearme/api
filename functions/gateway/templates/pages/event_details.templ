@@ -142,8 +142,6 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 						const blob = new Blob([JSON.stringify(body)], headers);
 
 						navigator.sendBeacon(`/api/event-rsvps/${this.eventId}/${this.userId}`, blob);
-
-						debugger;
 						return
 					}
 					if (tab === 'cart') {
