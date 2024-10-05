@@ -377,3 +377,8 @@ func GetLocalDateAndTime(datetime int64, timezone string) (string, string) {
 
 	return localStartTimeStr, localStartDateStr
 }
+
+func FormatTimeRFC3339(unixTimestamp int64) string {
+	t := time.Unix(unixTimestamp, 0).UTC()
+	return t.Format("20060102T150405Z")
+}
