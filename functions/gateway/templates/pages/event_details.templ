@@ -106,14 +106,15 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 					<br/>
 					<button data-umami-event={ "intrst-click" } data-umami-event-event-id={ event.Id } @click="document.getElementById('icmi-modal').showModal(); handleCtaClick('icmi')"
 					class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Interested, can't make it!</button>
-					<dialog id="icmi-modal" class="modal">
+					<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
 						<div class="modal-box">
-							<h3 class="text-lg font-bold">We've noted your interest, sorry to miss you!</h3>
-							<p class="py-4">Press ESC key or click outside to close</p>
+							<h3 class="text-lg font-bold">YAY!</h3>
+							<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+							<form method="dialog" class="modal-backdrop">
+									<!-- if there is a button in form, it will close the modal -->
+									<button class="btn btn-primary">Close</button>
+								</form>
 						</div>
-						<form method="dialog" class="modal-backdrop bg-base-200 bg-opacity-90">
-							<button>close</button>
-						</form>
 					</dialog>
 				</div>
 			</div>
