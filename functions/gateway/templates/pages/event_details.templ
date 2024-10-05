@@ -6,6 +6,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
+	"net/url"
 )
 
 templ IconLeftSection(labelText, labelValue, icon, url string, venueSection bool, event types.Event) {
@@ -35,10 +36,6 @@ templ IconLeftSection(labelText, labelValue, icon, url string, venueSection bool
 			</p>
 		</div>
 	</div>
-}
-
-templ OptionalLeftSectionChild() {
-	{children...}
 }
 
 templ EventDetailsPage(event types.Event, checkoutParamVal string) {
@@ -96,34 +93,66 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 					} else if event.HasRegistrationFields {
 						<button data-umami-event={ "reg-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
 					} else {
-						<button data-umami-event={ "rsvp-click" } data-umami-event-event-id={ event.Id } @click="handleCtaClick()" class="btn btn-block btn-primary">RSVP</button>
+						<a data-umami-event={ "rsvp-click" } data-umami-event-event-id={ event.Id } target="_blank"
+						  href={ templ.URL(fmt.Sprintf("https://calendar.google.com/calendar/r/eventedit?dates=%s/%s&details=%s&location=%s&text=%s",
+						helpers.FormatTimeRFC3339(event.StartTime),
+						helpers.FormatTimeRFC3339((event.StartTime + (60*60))),
+						url.QueryEscape(event.Description),
+						url.QueryEscape(event.Address),
+						url.QueryEscape(event.Name))) }
+						 @click="handleCtaClick('rsvp')" class="btn btn-block btn-primary">RSVP</a>
 					}
 					<br/>
 					<br/>
-					<button data-umami-event={ "intrst-click" } data-umami-event-event-id={ event.Id } class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Interested, can't make it!</button>
+					<button data-umami-event={ "intrst-click" } data-umami-event-event-id={ event.Id } @click="document.getElementById('icmi-modal').showModal(); handleCtaClick('icmi')"
+					class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Interested, can't make it!</button>
+					<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+						<div class="modal-box">
+							<h3 class="text-lg font-bold">YAY!</h3>
+							<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+							<form method="dialog" class="modal-backdrop">
+									<!-- if there is a button in form, it will close the modal -->
+									<button class="btn btn-primary">Close</button>
+								</form>
+						</div>
+					</dialog>
 				</div>
 			</div>
 		}
 	</div>
 	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
-	<script>
+	<script id="event-details-script">
 		function getEventDetailsData() {
 			return {
-				init() {
-
-				},
-				formData: {
-
-				},
+				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),
+				eventId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-event-id'),
+				init() {},
+				formData: {},
 				handleCtaClick(tab) {
-					if (tab === undefined) {
-						// TODO: handle for calling RSVP endpoint here
+					if (tab === 'rsvp' || tab === 'icmi' && this.userId) {
+						const body = {
+							status: tab === 'rsvp' ? 'yes' : 'icmi',
+							event_source_type: 'silence',
+							event_type: 'is',
+							event_source_id: 'golden',
+						};
+						const headers = {
+							type: 'application/json',
+						};
+						const blob = new Blob([JSON.stringify(body)], headers);
+
+						navigator.sendBeacon(`/api/event-rsvps/${this.eventId}/${this.userId}`, blob);
+
+						debugger;
 						return
 					}
-					// select the subnav item
-					document.getElementById(`flyout-tab-${tab}`).click();
-					// toggle the main drawer
-					document.getElementById(`main-drawer`).click();
+					if (tab === 'cart') {
+						// select the subnav item
+						document.getElementById(`flyout-tab-${tab}`).click();
+						// toggle the main drawer
+						document.getElementById(`main-drawer`).click();
+					}
+
 				}
 			}
 		}
