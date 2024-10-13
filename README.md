@@ -7,6 +7,7 @@
 1. [Create an IAM User](https://sst.dev/chapters/create-an-iam-user.html)
 1. Export `aws_access_key_id` and `aws_secret_access_key` env variables.
 1. Run `brew install awscli` in the terminal to install AWS CLI
+1. Run `brew install go` 
 1. Run `aws configure` to
    [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
    through Lambda to your local environment
