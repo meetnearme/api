@@ -1,12 +1,5 @@
 # Meet Near Me API
 
-## Getting Started
-
-### Running the local SAM dynamodb docker container
-
-1. `$ docker compose build`
-1. `$ docker compose up`
-
 ### Running the Lambda project
 
 1. `npm i`
@@ -16,9 +9,9 @@
 1. Run `brew install awscli` in the terminal to install AWS CLI
 1. Run `aws configure` to
    [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
-   through Lambda to your local
+   through Lambda to your local environment
 1. Create a `.env` file in the root directory with the necessary environment
-   variables found in [.env.example](.env.example). Here's an example:
+   variables found in [.env.example](.env.example). 
 1. Run `npm run dev-remote-db` to run the Go Lambda Gateway V2 server locally,
    proxied through Lambda to your local, and using SST deployed AWS resources
    for DB, etc.
@@ -29,7 +22,6 @@
 
 ```
 export GOPATH=$HOME/go
-export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 ```
 
 1. `go install github.com/a-h/templ/cmd/templ@latest`
@@ -51,7 +43,7 @@ callback URLs
 1. Add your AWS deployment URL to `Post- Logout URIs`, your deployment URL looks
    like this `https://{instance-id}.execute-api.us-east-1.amazonaws.com`
 
-## Validating Event Basic end Points
+## Validating Event Basic Eendpoints
 
 ### API Example Curl Requests
 
@@ -132,3 +124,10 @@ configuration level
       `ApiEndpoint: https://<alpha-numeric>.execute-api.us-east-1.amazonaws.com`.
       The alpha-numeric characters will not match, and the correct `A` record
       should be prefixed with `d-`
+
+## Legacy Details
+
+### Running the local SAM dynamodb docker container
+
+1. `$ docker compose build`
+1. `$ docker compose up`
