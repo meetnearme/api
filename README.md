@@ -13,7 +13,7 @@
    through Lambda to your local environment
 1. Create a `.env` file in the root directory with the necessary environment
    variables found in [.env.example](.env.example). 
-1. Run `npm run dev-remote-db` to run the Go Lambda Gateway V2 server locally,
+1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally,
    proxied through Lambda to your local, and using SST deployed AWS resources
    for DB, etc.
 
