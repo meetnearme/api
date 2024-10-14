@@ -18,7 +18,8 @@
     ```
     const cfLocations = `<replace me>`
     ```
-    in the `cloudflare_locations.go` file and replace the `<replace me>` (keep the wrapping backtick characters) with the JSON from [speed.cloudflare.com/locations](https://speed.cloudflare.com/locations)... this file is used to intercept incoming request headers and look at the `Request['Headers']['Cf-Ray']` string, which terminates with a 3 letter code like `EWR` which correlates with an `iata` airport code. This is the Cloudflare datacenter serving the request 
+    in the `cloudflare_locations.go` file and replace the `<replace me>` (keep the wrapping backtick characters) with the JSON from [speed.cloudflare.com/locations](https://speed.cloudflare.com/locations)... this file is used to intercept incoming request headers and look at the `Request['Headers']['Cf-Ray']` string, which terminates with a 3 letter code like `EWR` which correlates with an `iata` airport code. This is the Cloudflare datacenter serving the request
+1. Add your `APEX_URL` from your local deployment to the allow lists for both **Redirect** and **Post Logout URls** in Zitadel under **Redirect Settings** in [the admin UI](https://meet-near-me-production-8baqim.zitadel.cloud/ui/console/projects/273257176187855242/apps/273257486885118346) following the existing URL path schema for both
 1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally,
    proxied through Lambda to your local, and using SST deployed AWS resources
    for DB, etc.
