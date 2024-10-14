@@ -14,7 +14,11 @@
 1. Create a `.env` file in the root directory with the necessary environment
    variables found in [.env.example](.env.example).
 1. Copy the file `functions/gateway/helpers/cloudflare_locations_template` to  => `functions/gateway/helpers/cloudflare_locations.go` creating a new file with the `.go` extension
-1. Find the string in the `cloudflare_locations.go` file `const cfLocations = \`<replace me>\`` and replace the `<replace me>` with the JSON from [speed.cloudflare.com/locations](https://speed.cloudflare.com/locations)... this file is used to intercept incoming request headers and look at the `Request['Headers']['Cf-Ray']` string, which terminates with a 3 letter code like `EWR` which correlates with an `iata` airport code. This is the Cloudflare datacenter serving the request 
+1. Find the string 
+    ```
+    const cfLocations = `<replace me>`
+    ```
+    in the `cloudflare_locations.go` file and replace the `<replace me>` (keep the wrapping backtick characters) with the JSON from [speed.cloudflare.com/locations](https://speed.cloudflare.com/locations)... this file is used to intercept incoming request headers and look at the `Request['Headers']['Cf-Ray']` string, which terminates with a 3 letter code like `EWR` which correlates with an `iata` airport code. This is the Cloudflare datacenter serving the request 
 1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally,
    proxied through Lambda to your local, and using SST deployed AWS resources
    for DB, etc.
