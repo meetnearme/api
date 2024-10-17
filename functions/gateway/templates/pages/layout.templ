@@ -30,6 +30,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			}
 		</head>
 		<body>
+			<div id="top-loading-bar" class="hidden fixed top-0 left-0 w-0 h-[3px] bg-[#00ff00] transition-[width] duration-300 ease-out z-[9999]"></div>
 			@components.Navbar(userInfo, sitePage.SubnavItems, event) {
 				<div class="container mx-auto">
 					<div id="content" class="p-4 space-y-4">
@@ -82,5 +83,47 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			</footer>
 		</body>
 		// <img class="main-bg" alt="Illustration: A diverse group of whimsical-looking people" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/meet_near_me_home_bg_full.webp") }/>
+		<script>
+			let loadingBarInterval;
+
+			function showLoadingIndicator() {
+				const loadingBar = document.getElementById('top-loading-bar');
+				loadingBar.classList.remove('hidden');
+				loadingBar.style.width = '0%';
+
+				let progress = 0;
+				loadingBarInterval = setInterval(() => {
+					progress = progress + (100 - progress) / 2;
+					loadingBar.style.width = `${progress}%`;
+					if (progress > 99.9) {
+						clearInterval(loadingBarInterval);
+					}
+				}, 1000);
+			}
+
+			function hideLoadingIndicator() {
+				const loadingBar = document.getElementById('top-loading-bar');
+				clearInterval(loadingBarInterval);
+				loadingBar.classList.add('hidden');
+				loadingBar.style.width = '0%';
+			}
+
+
+			window.addEventListener('pageshow', (event) => {
+				console.log('pageshow fired!')
+				if (event.persisted) {
+					// This page is restored from browser's cache
+					hideLoadingIndicator();
+				}
+			});
+
+			document.addEventListener('click', (event) => {
+				console.log('click fired!')
+				const target = event.target.closest('a');
+				if (target && target.href && !target.target && !event.ctrlKey && !event.metaKey) {
+					showLoadingIndicator();
+				}
+			});
+		</script>
 	</html>
 }
