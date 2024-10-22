@@ -341,7 +341,6 @@ func ArrFindFirst(slice []string, items []string) string {
 	return ""
 }
 
-
 func GetDateOrShowNone(date int64) string {
 	formattedDate, err := FormatDate(date)
 	if date == 0 || err != nil {
@@ -381,4 +380,18 @@ func GetLocalDateAndTime(datetime int64, timezone string) (string, string) {
 func FormatTimeRFC3339(unixTimestamp int64) string {
 	t := time.Unix(unixTimestamp, 0).UTC()
 	return t.Format("20060102T150405Z")
+}
+
+func FormatTimeForGoogleCalendar(timestamp int64, timezone string) string {
+
+	log.Printf("\n\n\n unix timestamp %v", timestamp)
+	log.Printf("\n\n\n timezone %v", timezone)
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		// If there's an error loading the timezone, fall back to UTC
+		loc = time.UTC
+	}
+
+	t := time.Unix(timestamp, 0).In(loc)
+	return t.Format("20060102T150405")
 }
