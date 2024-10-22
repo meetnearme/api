@@ -122,6 +122,7 @@ func init() {
 
 		// Checkout Session
 		{"/api/checkout/{event_id:[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
+		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
 	}
 }
 

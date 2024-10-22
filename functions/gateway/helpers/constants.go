@@ -4,9 +4,8 @@ type AWSReqKey string
 
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
-
 const RsvpsTablePrefix = "EventRsvps"
-const PurchasesTablePrefix = "Purchases"
+const PurchasesTablePrefix = "PurchasesV2"
 const PurchasablesTablePrefix = "Purchasables"
 const SeshuSessionTablePrefix = "SeshuSessions"
 const RegistrationsTablePrefix = "Registrations"

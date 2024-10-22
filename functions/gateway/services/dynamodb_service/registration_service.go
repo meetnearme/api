@@ -45,8 +45,9 @@ func (s *RegistrationService) InsertRegistration(ctx context.Context, dynamodbCl
 	}
 
 	input := &dynamodb.PutItemInput{
-		Item:                                item,
-		TableName:                           aws.String(registrationTableName),
+		Item:      item,
+		TableName: aws.String(registrationTableName),
+		// TODO: if this exists, we should update the existing document rather than throw an error
 		ConditionExpression: aws.String("attribute_not_exists(eventId) AND attribute_not_exists(userId)"),
 	}
 

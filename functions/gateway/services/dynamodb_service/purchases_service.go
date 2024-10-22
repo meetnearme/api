@@ -18,7 +18,7 @@ import (
 
 var purchasesTableName = helpers.GetDbTableName(helpers.PurchasesTablePrefix)
 
-func init () {
+func init() {
 	purchasesTableName = helpers.GetDbTableName(helpers.PurchasesTablePrefix)
 }
 
@@ -29,29 +29,29 @@ func NewPurchaseService() internal_types.PurchaseServiceInterface {
 }
 
 func (s *PurchaseService) InsertPurchase(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchase internal_types.PurchaseInsert) (*internal_types.Purchase, error) {
-    // Validate the purchase object
-    if err := validate.Struct(purchase); err != nil {
-        return nil, fmt.Errorf("validation failed: %w", err)
-    }
+	// Validate the purchase object
+	if err := validate.Struct(purchase); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
+	}
 
 	item, err := attributevalue.MarshalMap(&purchase)
 	if err != nil {
 		return nil, err
 	}
 
-	if (purchasesTableName == "") {
+	if purchasesTableName == "" {
 		return nil, fmt.Errorf("ERR: purchasesTableName is empty")
 	}
 
 	input := &dynamodb.PutItemInput{
-		Item:                                item,
-		TableName:                           aws.String(purchasesTableName),
-		ConditionExpression: aws.String("attribute_not_exists(eventId) AND attribute_not_exists(userId)"),
+		Item:                item,
+		TableName:           aws.String(purchasesTableName),
+		ConditionExpression: aws.String("attribute_not_exists(compositeKey)"),
 	}
 
 	res, err := dynamodbClient.PutItem(ctx, input)
 	if err != nil {
-		log.Print("htting error in put item dynamo")
+		log.Print("hitting error in put item dynamo")
 		return nil, err
 	}
 
@@ -62,17 +62,15 @@ func (s *PurchaseService) InsertPurchase(ctx context.Context, dynamodbClient int
 		return nil, err
 	}
 
-    // return purchase, nil
 	return &insertedPurchase, nil
 }
-
 
 func (s *PurchaseService) GetPurchaseByPk(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.Purchase, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(purchasesTableName),
 		Key: map[string]dynamodb_types.AttributeValue{
 			"eventId": &dynamodb_types.AttributeValueMemberS{Value: eventId},
-			"userId": &dynamodb_types.AttributeValueMemberS{Value: userId},
+			"userId":  &dynamodb_types.AttributeValueMemberS{Value: userId},
 		},
 	}
 
@@ -93,6 +91,7 @@ func (s *PurchaseService) GetPurchaseByPk(ctx context.Context, dynamodbClient in
 func (s *PurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.Purchase, error) {
 	queryInput := &dynamodb.QueryInput{
 		TableName: aws.String(purchasesTableName),
+		IndexName: aws.String("eventIdIndex"), // Use the eventIdIndex GSI
 		KeyConditions: map[string]dynamodb_types.Condition{
 			"eventId": {
 				ComparisonOperator: dynamodb_types.ComparisonOperatorEq,
@@ -163,7 +162,7 @@ func (s *PurchaseService) UpdatePurchase(ctx context.Context, dynamodbClient int
 		TableName: aws.String(purchasesTableName),
 		Key: map[string]dynamodb_types.AttributeValue{
 			"eventId": &dynamodb_types.AttributeValueMemberS{Value: eventId},
-			"userId": &dynamodb_types.AttributeValueMemberS{Value: userId},
+			"userId":  &dynamodb_types.AttributeValueMemberS{Value: userId},
 		},
 		ExpressionAttributeNames:  make(map[string]string),
 		ExpressionAttributeValues: make(map[string]dynamodb_types.AttributeValue),
@@ -199,18 +198,18 @@ func (s *PurchaseService) UpdatePurchase(ctx context.Context, dynamodbClient int
 	return &updatedPurchase, nil
 }
 
-func (s *PurchaseService) DeletePurchase(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string)  error {
+func (s *PurchaseService) DeletePurchase(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error {
 	input := &dynamodb.DeleteItemInput{
 		TableName: aws.String(purchasesTableName),
 		Key: map[string]dynamodb_types.AttributeValue{
 			"eventId": &dynamodb_types.AttributeValueMemberS{Value: eventId},
-			"userId": &dynamodb_types.AttributeValueMemberS{Value: userId},
+			"userId":  &dynamodb_types.AttributeValueMemberS{Value: userId},
 		},
 	}
 
 	_, err := dynamodbClient.DeleteItem(ctx, input)
 	if err != nil {
-		return  err
+		return err
 	}
 
 	log.Printf("purchase fields successfully deleted")
@@ -218,12 +217,12 @@ func (s *PurchaseService) DeletePurchase(ctx context.Context, dynamodbClient int
 }
 
 type MockPurchaseService struct {
-	InsertPurchaseFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchase internal_types.PurchaseInsert) (*internal_types.Purchase, error)
-	GetPurchaseByPkFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.Purchase, error)
-	GetPurchasesByUserIDFunc    func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userID string) ([]internal_types.Purchase, error) // New function
-	GetPurchasesByEventIDFunc    func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string) ([]internal_types.Purchase, error) // New function
-	UpdatePurchaseFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string, purchase internal_types.PurchaseUpdate) (*internal_types.Purchase, error)
-	DeletePurchaseFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string)  error
+	InsertPurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchase internal_types.PurchaseInsert) (*internal_types.Purchase, error)
+	GetPurchaseByPkFunc       func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.Purchase, error)
+	GetPurchasesByUserIDFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userID string) ([]internal_types.Purchase, error)  // New function
+	GetPurchasesByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string) ([]internal_types.Purchase, error) // New function
+	UpdatePurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string, purchase internal_types.PurchaseUpdate) (*internal_types.Purchase, error)
+	DeletePurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error
 }
 
 func (m *MockPurchaseService) InsertPurchase(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchase internal_types.PurchaseInsert) (*internal_types.Purchase, error) {
@@ -238,7 +237,7 @@ func (m *MockPurchaseService) UpdatePurchase(ctx context.Context, dynamodbClient
 	return m.UpdatePurchaseFunc(ctx, dynamodbClient, eventId, userId, purchase)
 }
 
-func (m *MockPurchaseService) DeletePurchase(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string)  error {
+func (m *MockPurchaseService) DeletePurchase(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error {
 	return m.DeletePurchaseFunc(ctx, dynamodbClient, eventId, userId)
 }
 
