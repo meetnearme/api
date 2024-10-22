@@ -510,11 +510,11 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	createPurchase.UserID = userId
 
 	// Set CreatedAt and UpdatedAt to current time
-	currentTime := time.Now()
-	createPurchase.CreatedAt = currentTime.Unix()
-	createPurchase.UpdatedAt = currentTime.Unix()
+	now := time.Now()
+	createPurchase.CreatedAt = now.Unix()
+	createPurchase.UpdatedAt = now.Unix()
 
-	createdAt := currentTime.UnixNano()
+	createdAt := now.UnixNano()
 	createdAtString := fmt.Sprintf("%020d", createdAt) // Pad with zeros to a fixed width of 20 digits
 
 	createPurchase.CreatedAtString = createdAtString
