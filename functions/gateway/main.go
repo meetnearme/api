@@ -113,12 +113,12 @@ func init() {
 		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationFieldsHandler, None}, // Delete an
 
 		// Purchases
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchaseHandler, None}, // Create a new event RSVP
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchaseByPkHandler, None}, // Get a specific event RSVP
-		{"/api/purchases/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByEventIDHandler, None}, // Get all event RSVPs
-		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, None}, // Get a specific event RSVP
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None}, // Update an existing event RSVP
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None}, // Delete an event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchaseHandler, None},                     // Create a new event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "GET", dynamodb_handlers.GetPurchaseByPkHandler, None}, // Get a specific event RSVP
+		{"/api/purchases/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByEventIDHandler, None},                                 // Get all event RSVPs
+		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, None},                                    // Get a specific event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None},                      // Update an existing event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None},                   // Delete an event RSVP
 
 		// Checkout Session
 		{"/api/checkout/{event_id:[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},

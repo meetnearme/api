@@ -108,7 +108,7 @@ type PurchaseUpdate struct {
 // PurchasesServiceInterface defines the methods for purchase-related operations using the RDSDataAPI
 type PurchaseServiceInterface interface {
 	InsertPurchase(ctx context.Context, dynamodbClient DynamoDBAPI, Purchase PurchaseInsert) (*Purchase, error)
-	GetPurchaseByPk(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId string) (*Purchase, error)
+	GetPurchaseByPk(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId, createdAt string) (*Purchase, error)
 	GetPurchasesByUserID(ctx context.Context, dynamodbClient DynamoDBAPI, userId string) ([]Purchase, error)
 	GetPurchasesByEventID(ctx context.Context, dynamodbClient DynamoDBAPI, eventId string) ([]Purchase, error)
 	UpdatePurchase(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId string, Purchase PurchaseUpdate) (*Purchase, error)

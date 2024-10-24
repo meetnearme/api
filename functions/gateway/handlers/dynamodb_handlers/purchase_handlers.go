@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -88,9 +89,22 @@ func (h *PurchaseHandler) GetPurchaseByPk(w http.ResponseWriter, r *http.Request
 		transport.SendServerRes(w, []byte("Missing eventPurchase ID"), http.StatusBadRequest, nil)
 		return
 	}
+	createdAt := vars["created_at"]
+	if createdAt == "" {
+		transport.SendServerRes(w, []byte("Missing eventPurchase createdAt timestamp"), http.StatusBadRequest, nil)
+		return
+	}
+
+	createdAtInt, err := strconv.ParseInt(createdAt, 10, 64)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Invalid createdAt timestamp"), http.StatusBadRequest, err)
+		return
+	}
+
+	createdAtString := fmt.Sprintf("%020d", createdAtInt)
 
 	db := transport.GetDB()
-	eventPurchase, err := h.PurchaseService.GetPurchaseByPk(r.Context(), db, eventId, userId)
+	eventPurchase, err := h.PurchaseService.GetPurchaseByPk(r.Context(), db, eventId, userId, createdAtString)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get user: "+err.Error()), http.StatusInternalServerError, err)
 		return

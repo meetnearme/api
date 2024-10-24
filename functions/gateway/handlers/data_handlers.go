@@ -514,8 +514,8 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	createPurchase.CreatedAt = now.Unix()
 	createPurchase.UpdatedAt = now.Unix()
 
-	createdAt := now.UnixNano()
-	createdAtString := fmt.Sprintf("%020d", createdAt) // Pad with zeros to a fixed width of 20 digits
+	_createdAt := now.Unix()
+	createdAtString := fmt.Sprintf("%020d", _createdAt) // Pad with zeros to a fixed width of 20 digits
 
 	createPurchase.CreatedAtString = createdAtString
 
@@ -531,7 +531,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 
 	// Validate inventory
 	var purchasableMap = map[string]internal_types.PurchasableItemInsert{}
-	if purchasableMap, err = validateInventory(purchasable, createPurchase); err != nil {
+	if purchasableMap, err = validatePurchase(purchasable, createPurchase); err != nil {
 		transport.SendServerRes(w, []byte("Failed to validate inventory for event id: "+eventId+" + "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
@@ -545,6 +545,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 			PurchasableIndex: i,
 		}
 	}
+
+	// TODO: delete this log
+	log.Printf("\n\ncreatePurchase: %+v", createPurchase)
 
 	// this boolean gets toggled in the scenario where stripe
 	// checkout instantiation or other unrelated checkout steps
@@ -599,8 +602,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
-	unixNow := time.Now().Unix()
-	referenceId := "event-" + eventId + "-user-" + userId + "-time-" + time.Unix(unixNow, 0).UTC().Format(time.RFC3339)
+	referenceId := "event-" + eventId + "-user-" + userId + "-time-" + createPurchase.CreatedAtString
 	params := &stripe.CheckoutSessionParams{
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
 		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/events/" + eventId + "?checkout=success"),
@@ -625,20 +627,21 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 
 	createPurchase.StripeSessionId = stripeCheckoutResult.ID
 
-	// Now that the checks are in place, we defer to the
+	// Now that the checks are in place, we defer the transaction creation in the database
+	// to respond to the client as quickly as possible
 	defer func() {
+		log.Printf("deferred START")
 		purchaseService := dynamodb_service.NewPurchaseService()
 		h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
 		createPurchase.Status = "PENDING"
 
-		// Generate a unique timestamp for createdAt
-		createdAt := time.Now().UnixNano()
-
 		// Create the composite key
-		compositeKey := fmt.Sprintf("%s#%s#%d", createPurchase.EventID, createPurchase.UserID, createdAt)
+		compositeKey := fmt.Sprintf("%s#%s#%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
 
 		// Add the composite key and createdAt to the purchase object
 		createPurchase.CompositeKey = compositeKey
+
+		log.Printf("db payload `createPurchase`: %+v", createPurchase)
 
 		db := transport.GetDB()
 		_, err := h.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
@@ -674,14 +677,14 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 
 	// TODO: we need to
 
-	// 1) check inventory in the `Purchasables` table where it is tracked
-	// 2) if not available, return "out of stock" error for that item
-	// 3) if available, decrement the `Purchasables` table items
-	// 4) grab email from context (pull from token) and check for user in stripe customer id
-	// 5) create stripe customer Id if not present already
-	// 6) Create a Stripe checkout session
-	// 7) submit the transaction as PENDING with stripe `sessionId` and `customerNumber` (add to `Purchases` table)
-	// 8) Handoff session to stripe
+	// ✅ 1) check inventory in the `Purchasables` table where it is tracked
+	// ✅ 2) if not available, return "out of stock" error for that item
+	// ✅ 3) if available, decrement the `Purchasables` table items
+	// ❌ (not doing) 4) grab email from context (pull from token) and check for user in stripe customer id
+	// ❌ (not doing) 5) create stripe customer Id if not present already
+	// ✅ 6) Create a Stripe checkout session
+	// ✅ 7) submit the transaction as PENDING with stripe `sessionId` and `customerNumber` (add to `Purchases` table)
+	// ✅ 8) Handoff session to stripe
 	// 9) Listen to Stripe webhook to mark transaction SETTLED
 	// 10) If Stripe webhook misses, poll the stripe API for the Session ID status
 	// 11) Need an SNS queue to do polling, Lambda isn't guaranteed to be there
@@ -737,23 +740,76 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 
 		clientReferenceID := fullSession.ClientReferenceID
-		log.Printf("Client Reference ID: %s", clientReferenceID)
+		log.Printf("Checkout session expired: client reference ID: %s", clientReferenceID)
 
 		re := regexp.MustCompile(`event-(.+?)-user-(.+?)-time-(.+)`)
 
-		match := re.FindStringSubmatch(clientReferenceID)
-		if len(match) > 3 {
-			eventID := match[1]
-			userID := match[2]
-			timestamp := match[3]
-
-			fmt.Printf("Event ID: %s\n", eventID)
-			fmt.Printf("User ID: %s\n", userID)
-			fmt.Printf("Timestamp: %s\n", timestamp)
+		matches := re.FindStringSubmatch(clientReferenceID)
+		eventID := ""
+		userID := ""
+		createdAt := ""
+		if len(matches) > 3 {
+			eventID = matches[1]
+			userID = matches[2]
+			createdAt = matches[3]
 		}
 
-		fmt.Println("Checkout session expired!")
+		db := transport.GetDB()
+		purchasableService := dynamodb_service.NewPurchasableService()
+		purchasableHandler := dynamodb_handlers.NewPurchasableHandler(purchasableService)
 
+		purchasable, err := purchasableHandler.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventID)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get purchasables for event id: "+eventID+" "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+
+		// Create a map for quick lookup of purchasable items
+		purchasableItems := make(map[string]internal_types.PurchasableItemInsert)
+		for i, p := range purchasable.PurchasableItems {
+			purchasableItems[p.Name] = internal_types.PurchasableItemInsert{
+				Name:             p.Name,
+				Inventory:        p.Inventory,
+				StartingQuantity: p.StartingQuantity,
+				PurchasableIndex: i,
+			}
+		}
+
+		purchaseService := dynamodb_service.NewPurchaseService()
+		purchaseHandler := dynamodb_handlers.NewPurchaseHandler(purchaseService)
+
+		purchases, err := purchaseHandler.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get purchases for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+
+		// Create a map of updates to restore the previously decremented inventory
+		incrementUpdates := make([]internal_types.PurchasableInventoryUpdate, len(purchases.PurchasedItems))
+		for i, item := range purchases.PurchasedItems {
+			newQty := purchasableItems[item.Name].Inventory + item.Quantity
+			if newQty > purchasableItems[item.Name].StartingQuantity {
+				newQty = purchasableItems[item.Name].StartingQuantity
+				msg := fmt.Sprintf("ERR: Inventory for item '%s' attempts to increment by %d above starting quantity: %d", item.Name, item.Quantity, newQty)
+				log.Println(msg)
+			}
+			incrementUpdates[i] = internal_types.PurchasableInventoryUpdate{
+				Name:             item.Name,
+				Quantity:         newQty, // Increment inventory
+				PurchasableIndex: purchasableItems[item.Name].PurchasableIndex,
+			}
+		}
+
+		err = purchasableHandler.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventID, incrementUpdates, purchasableItems)
+		if err != nil {
+			msg := fmt.Sprintf("ERR: Failed to restore inventory changes to eventID: %s, err: %v", eventID, err)
+			log.Println(msg)
+			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
+			return err
+		}
+
+		transport.SendServerRes(w, []byte("Purchase successfully rolled back for compositeKey: "+purchases.CompositeKey), http.StatusOK, nil)
+		return nil
 	default:
 		log.Printf("Unhandled event type: %s\n", event.Type)
 	}
@@ -771,22 +827,38 @@ func HandleCheckoutWebhookHandler(w http.ResponseWriter, r *http.Request) http.H
 	}
 }
 
-func validateInventory(purchasable *internal_types.Purchasable, createPurchase internal_types.PurchaseInsert) (purchasableItems map[string]internal_types.PurchasableItemInsert, err error) {
+func validatePurchase(purchasable *internal_types.Purchasable, createPurchase internal_types.PurchaseInsert) (purchasableItems map[string]internal_types.PurchasableItemInsert, err error) {
 	purchases := make([]*internal_types.PurchasedItem, len(purchasable.PurchasableItems))
+
+	// Create a map for quick lookup of purchasable items
+	purchasableMap := make(map[string]internal_types.PurchasableItemInsert)
+	for i, p := range purchasable.PurchasableItems {
+		purchasableMap[p.Name] = internal_types.PurchasableItemInsert{
+			Name:             p.Name,
+			Inventory:        p.Inventory,
+			Cost:             p.Cost,
+			PurchasableIndex: i,
+		}
+	}
+
+	total := 0
 	for i, item := range createPurchase.PurchasedItems {
+		// Security check, users should not be able to modify the frontend `cost` field
+		// so we validate that the cost matches the cost fetched from the database in `purchasableMap`
+		if purchasableMap[item.Name].Cost != item.Cost {
+			return purchasableMap, fmt.Errorf("item '%s' has incorrect cost", item.Name)
+		}
+		total += int(item.Quantity) * int(item.Cost)
 		purchases[i] = &internal_types.PurchasedItem{
 			Name:     item.Name,
 			Quantity: item.Quantity,
 		}
 	}
-	// Create a map for quick lookup of purchasable items
-	purchasableMap := make(map[string]internal_types.PurchasableItemInsert)
-	for i, p := range purchasable.PurchasableItems {
-		purchasableMap[p.Name] = internal_types.PurchasableItemInsert{
-			Inventory:        p.Inventory,
-			PurchasableIndex: i,
-		}
 
+	// Security check, users should not be able to modify the frontend `total` field
+	// so we validate that the total matches the sum of the purchased items
+	if createPurchase.Total != int32(total) {
+		return purchasableMap, fmt.Errorf("total cost does not match: expected %d, got %d", createPurchase.Total, total)
 	}
 
 	// Validate each purchased item
