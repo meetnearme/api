@@ -185,6 +185,12 @@ func (h *PurchaseHandler) UpdatePurchase(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	createdAt := vars["created_at"]
+	if createdAt == "" {
+		transport.SendServerRes(w, []byte("Missing eventPurchase ID"), http.StatusBadRequest, nil)
+		return
+	}
+
 	var updatePurchase internal_types.PurchaseUpdate
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -205,7 +211,7 @@ func (h *PurchaseHandler) UpdatePurchase(w http.ResponseWriter, r *http.Request)
 	}
 
 	db := transport.GetDB()
-	user, err := h.PurchaseService.UpdatePurchase(r.Context(), db, eventId, userId, updatePurchase)
+	user, err := h.PurchaseService.UpdatePurchase(r.Context(), db, eventId, userId, createdAt, updatePurchase)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to update eventPurchase: "+err.Error()), http.StatusInternalServerError, err)
 		return

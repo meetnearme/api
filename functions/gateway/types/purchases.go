@@ -111,6 +111,6 @@ type PurchaseServiceInterface interface {
 	GetPurchaseByPk(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId, createdAt string) (*Purchase, error)
 	GetPurchasesByUserID(ctx context.Context, dynamodbClient DynamoDBAPI, userId string) ([]Purchase, error)
 	GetPurchasesByEventID(ctx context.Context, dynamodbClient DynamoDBAPI, eventId string) ([]Purchase, error)
-	UpdatePurchase(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId string, Purchase PurchaseUpdate) (*Purchase, error)
+	UpdatePurchase(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId, createdAtString string, Purchase PurchaseUpdate) (*Purchase, error)
 	DeletePurchase(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId string) error
 }

@@ -37,6 +37,18 @@ type UserInfo struct {
 	Metadata          string `json:"metadata"`
 }
 
+type StripeCheckoutStatuses struct {
+	Settled  string
+	Pending  string
+	Canceled string
+}
+
+var StripeCheckoutStatus = StripeCheckoutStatuses{
+	Settled:  "SETTLED",
+	Pending:  "PENDING",
+	Canceled: "CANCELED",
+}
+
 // RoleClaim represents a formatted role claim.
 type RoleClaim struct {
 	Role        string `json:"role"`

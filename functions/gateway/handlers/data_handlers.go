@@ -633,7 +633,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		log.Printf("deferred START")
 		purchaseService := dynamodb_service.NewPurchaseService()
 		h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
-		createPurchase.Status = "PENDING"
+		createPurchase.Status = helpers.StripeCheckoutStatus.Pending
 
 		// Create the composite key
 		compositeKey := fmt.Sprintf("%s#%s#%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
@@ -697,28 +697,87 @@ func CreateCheckoutSessionHandler(w http.ResponseWriter, r *http.Request) http.H
 	}
 }
 
+// Function to transform Purchase to PurchaseUpdate
+func TransformPurchaseToUpdate(purchase internal_types.Purchase) internal_types.PurchaseUpdate {
+	return internal_types.PurchaseUpdate{
+		UserID:       purchase.UserID,
+		EventID:      purchase.EventID,
+		CompositeKey: purchase.CompositeKey,
+		EventName:    purchase.EventName,
+		Status:       purchase.Status,
+		UpdatedAt:    time.Now().Unix(),
+	}
+}
+
 func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 	const MaxBodyBytes = int64(65536)
 	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
 	payload, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Error reading request body: %v\n", err)
-		w.WriteHeader(http.StatusServiceUnavailable)
+		msg := fmt.Sprintf("ERR: Error reading request body: %v\n", err)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, nil)
 		return
 	}
 
 	event := stripe.Event{}
 
 	if err := json.Unmarshal(payload, &event); err != nil {
-		log.Printf("Failed to parse webhook body json: %v\n", err.Error())
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ERR: Failed to parse webhook body json: %v", err.Error())
+		transport.SendServerRes(w, []byte(msg), http.StatusBadRequest, nil)
 		return err
 	}
 
 	switch event.Type {
 	case "checkout.session.completed":
-		// TODO: update purchase status to "SETTLED"
-		fmt.Println("Checkout session completed!")
+
+		var checkoutSession stripe.CheckoutSession
+		err := json.Unmarshal(event.Data.Raw, &checkoutSession)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		clientReferenceID := checkoutSession.ClientReferenceID
+
+		db := transport.GetDB()
+		purchaseService := dynamodb_service.NewPurchaseService()
+		purchaseHandler := dynamodb_handlers.NewPurchaseHandler(purchaseService)
+
+		re := regexp.MustCompile(`event-(.+?)-user-(.+?)-time-(.+)`)
+
+		matches := re.FindStringSubmatch(clientReferenceID)
+		eventID := ""
+		userID := ""
+		createdAt := ""
+		if len(matches) > 3 {
+			eventID = matches[1]
+			userID = matches[2]
+			createdAt = matches[3]
+		}
+
+		purchase, err := purchaseHandler.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get purchases for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+
+		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
+		purchaseUpdate.Status = helpers.StripeCheckoutStatus.Settled
+
+		_, err = purchaseHandler.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to update purchase status to SETTLED: "), http.StatusInternalServerError, err)
+			return err
+		}
+
+		msg := fmt.Sprintf("Checkout session marked as SETTLED for stripe clientReferenceID: %s", clientReferenceID)
+		log.Println(msg)
+
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, err)
+		return err
+
 	case "checkout.session.expired":
 		var checkoutSession stripe.CheckoutSession
 		err := json.Unmarshal(event.Data.Raw, &checkoutSession)
@@ -728,18 +787,7 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 			return err
 		}
 
-		_, stripePrivKey := services.GetStripeKeyPair()
-		stripe.Key = stripePrivKey
-
-		// Retrieve the full session to get the client_reference_id
-		fullSession, err := session.Get(checkoutSession.ID, nil)
-		if err != nil {
-			log.Printf("Error retrieving stripe full session: %v\n", err)
-			transport.SendServerRes(w, []byte("Error retrieving stripe full session"), http.StatusInternalServerError, nil)
-			return err
-		}
-
-		clientReferenceID := fullSession.ClientReferenceID
+		clientReferenceID := checkoutSession.ClientReferenceID
 		log.Printf("Checkout session expired: client reference ID: %s", clientReferenceID)
 
 		re := regexp.MustCompile(`event-(.+?)-user-(.+?)-time-(.+)`)
@@ -778,15 +826,15 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 		purchaseService := dynamodb_service.NewPurchaseService()
 		purchaseHandler := dynamodb_handlers.NewPurchaseHandler(purchaseService)
 
-		purchases, err := purchaseHandler.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
+		purchase, err := purchaseHandler.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
 		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to get purchases for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
+			transport.SendServerRes(w, []byte("Failed to get purchase for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
 			return err
 		}
 
 		// Create a map of updates to restore the previously decremented inventory
-		incrementUpdates := make([]internal_types.PurchasableInventoryUpdate, len(purchases.PurchasedItems))
-		for i, item := range purchases.PurchasedItems {
+		incrementUpdates := make([]internal_types.PurchasableInventoryUpdate, len(purchase.PurchasedItems))
+		for i, item := range purchase.PurchasedItems {
 			newQty := purchasableItems[item.Name].Inventory + item.Quantity
 			if newQty > purchasableItems[item.Name].StartingQuantity {
 				newQty = purchasableItems[item.Name].StartingQuantity
@@ -808,14 +856,31 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 			return err
 		}
 
-		transport.SendServerRes(w, []byte("Purchase successfully rolled back for compositeKey: "+purchases.CompositeKey), http.StatusOK, nil)
+		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
+		purchaseUpdate.Status = helpers.StripeCheckoutStatus.Canceled
+
+		_, err = purchaseHandler.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		if err != nil {
+			msg := fmt.Sprintf("ERR: Failed to update purchase status to CANCELED: %v", err)
+			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
+			return err
+		}
+
+		err = purchasableHandler.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventID, incrementUpdates, purchasableItems)
+		if err != nil {
+			msg := fmt.Sprintf("ERR: Failed to restore inventory changes to eventID: %s, err: %v", eventID, err)
+			log.Println(msg)
+			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
+			return err
+		}
+
+		log.Printf("Purchase status updated to CANCELED for compositeKey: %s", purchase.CompositeKey)
+
+		transport.SendServerRes(w, []byte("Purchase successfully rolled back for compositeKey: "+purchase.CompositeKey), http.StatusOK, nil)
 		return nil
 	default:
 		log.Printf("Unhandled event type: %s\n", event.Type)
 	}
-
-	// TODO: remove this maybe?
-	log.Printf("event: %+v", event)
 
 	transport.SendServerRes(w, []byte(event.Data.Raw), http.StatusOK, nil)
 	return
