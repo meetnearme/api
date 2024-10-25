@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
@@ -21,8 +22,9 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
-	"github.com/stripe/stripe-go/v79"
-	"github.com/stripe/stripe-go/v79/checkout/session"
+	"github.com/stripe/stripe-go/v80"
+	"github.com/stripe/stripe-go/v80/checkout/session"
+	"github.com/stripe/stripe-go/v80/webhook"
 )
 
 var validate *validator.Validate = validator.New()
@@ -720,10 +722,20 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 		return
 	}
 
-	event := stripe.Event{}
+	// If you are testing your webhook locally with the Stripe CLI you
+	// can find the endpoint's secret by running `stripe listen`
+	// Otherwise, find your endpoint's secret in your webhook settings
+	// in the Developer Dashboard
 
-	if err := json.Unmarshal(payload, &event); err != nil {
-		msg := fmt.Sprintf("ERR: Failed to parse webhook body json: %v", err.Error())
+	endpointSecret := services.GetStripeCheckoutWebhookSecret()
+	ctx := r.Context()
+	apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	stripeHeader := apiGwV2Req.Headers["stripe-signature"]
+
+	event, err := webhook.ConstructEvent(payload, stripeHeader,
+		endpointSecret)
+	if err != nil {
+		msg := fmt.Sprintf("ERR: Error verifying webhook signature: %v\n", err)
 		transport.SendServerRes(w, []byte(msg), http.StatusBadRequest, nil)
 		return err
 	}

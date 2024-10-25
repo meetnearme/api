@@ -3,7 +3,7 @@ package services
 import (
 	"os"
 
-	"github.com/stripe/stripe-go/v79/client"
+	"github.com/stripe/stripe-go/v80/client"
 )
 
 var sc = &client.API{}
@@ -26,4 +26,13 @@ func GetStripeKeyPair() (publishableKey string, privateKey string) {
 
 func GetStripeClient() *client.API {
 	return sc
+}
+
+func GetStripeCheckoutWebhookSecret() string {
+	sstStage := os.Getenv("SST_STAGE")
+	if sstStage == "prod" {
+		return os.Getenv("PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET")
+	} else {
+		return os.Getenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET")
+	}
 }
