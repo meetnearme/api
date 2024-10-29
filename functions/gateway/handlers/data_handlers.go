@@ -557,9 +557,6 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
-	// TODO: delete this log
-	log.Printf("\n\ncreatePurchase: %+v", createPurchase)
-
 	// this boolean gets toggled in the scenario where stripe
 	// checkout instantiation or other unrelated checkout steps
 	// AFTER the inventory is officially "held" + optimistically
@@ -619,7 +616,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/events/" + eventId + "?checkout=success"),
 		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/events/" + eventId + "?checkout=cancel"),
 		LineItems:         lineItems,
-		// TODO: `mode` needs to be "subscription" if there's a subscription / recurring item,
+		// NOTE: `mode` needs to be "subscription" if there's a subscription / recurring item,
 		// use `add_invoice_item` to then append the one-time payment items:
 		// https://stackoverflow.com/questions/64011643/how-to-combine-a-subscription-and-single-payments-in-one-charge-stripe-ap
 		Mode:      stripe.String(string(stripe.CheckoutSessionModePayment)),
@@ -685,8 +682,6 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
 	return nil
 
-	// TODO: we need to
-
 	// ✅ 1) check inventory in the `Purchasables` table where it is tracked
 	// ✅ 2) if not available, return "out of stock" error for that item
 	// ✅ 3) if available, decrement the `Purchasables` table items
@@ -695,9 +690,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// ✅ 6) Create a Stripe checkout session
 	// ✅ 7) submit the transaction as PENDING with stripe `sessionId` and `customerNumber` (add to `Purchases` table)
 	// ✅ 8) Handoff session to stripe
-	// 9) Listen to Stripe webhook to mark transaction SETTLED
-	// 10) If Stripe webhook misses, poll the stripe API for the Session ID status
-	// 11) Need an SNS queue to do polling, Lambda isn't guaranteed to be there
+	// ✅ 9) Listen to Stripe webhook to mark transaction SETTLED
+	// ❌ 10) If Stripe webhook misses, poll the stripe API for the Session ID status
+	// ❌ 11) Need an SNS queue to do polling, Lambda isn't guaranteed to be there
 
 }
 
