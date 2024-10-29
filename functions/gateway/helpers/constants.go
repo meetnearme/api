@@ -4,9 +4,8 @@ type AWSReqKey string
 
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
-
 const RsvpsTablePrefix = "EventRsvps"
-const PurchasesTablePrefix = "Purchases"
+const PurchasesTablePrefix = "PurchasesV2"
 const PurchasablesTablePrefix = "Purchasables"
 const SeshuSessionTablePrefix = "SeshuSessions"
 const RegistrationsTablePrefix = "Registrations"
@@ -36,6 +35,18 @@ type UserInfo struct {
 	Sub               string `json:"sub"` // This is the userID
 	UpdatedAt         int    `json:"updated_at"`
 	Metadata          string `json:"metadata"`
+}
+
+type StripeCheckoutStatuses struct {
+	Settled  string
+	Pending  string
+	Canceled string
+}
+
+var StripeCheckoutStatus = StripeCheckoutStatuses{
+	Settled:  "SETTLED",
+	Pending:  "PENDING",
+	Canceled: "CANCELED",
 }
 
 // RoleClaim represents a formatted role claim.

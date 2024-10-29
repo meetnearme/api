@@ -80,6 +80,12 @@ inputs:
   DEV_STRIPE_PUBLISHABLE_KEY:
     description: 'Stripe payment credentials'
     required: true
+  DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET:
+    description: 'Stripe (dev) checkout webhook signing secret'
+    required: true
+  PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET:
+    description: 'Stripe (prod) checkout webhook signing secret'
+    required: true
 
 runs:
   using: composite
@@ -114,6 +120,8 @@ runs:
         echo PROD_STRIPE_PUBLISHABLE_KEY=${{ inputs.PROD_STRIPE_PUBLISHABLE_KEY }} >> .env
         echo DEV_STRIPE_SECRET_KEY=${{ inputs.DEV_STRIPE_SECRET_KEY }} >> .env
         echo DEV_STRIPE_PUBLISHABLE_KEY=${{ inputs.DEV_STRIPE_PUBLISHABLE_KEY }} >> .env
+        echo DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET=${{ inputs.DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }} >> .env
+        echo PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET=${{ inputs.PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

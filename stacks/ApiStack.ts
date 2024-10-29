@@ -12,7 +12,8 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
     registrationsTable,
     registrationFieldsTable,
     purchasablesTable,
-    purchasesTable,
+    // purchasesTable, // deprecated
+    purchasesTableV2,
     eventRsvpsTable,
   } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
@@ -28,7 +29,8 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
           registrationsTable,
           registrationFieldsTable,
           purchasablesTable,
-          purchasesTable,
+          // purchasesTable, // deprecated
+          purchasesTableV2,
           eventRsvpsTable,
         ],
 
