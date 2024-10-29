@@ -37,6 +37,15 @@ func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler 
 	return &MarqoHandler{MarqoService: marqoService}
 }
 
+type PurchasableWebhookHandler struct {
+	PurchasableService internal_types.PurchasableServiceInterface
+	PurchaseService    internal_types.PurchaseServiceInterface
+}
+
+func NewPurchasableWebhookHandler(purchasableService internal_types.PurchasableServiceInterface, purchaseService internal_types.PurchaseServiceInterface) *PurchasableWebhookHandler {
+	return &PurchasableWebhookHandler{PurchasableService: purchasableService, PurchaseService: purchaseService}
+}
+
 // Create a new struct for raw JSON operations
 type rawEventData struct {
 	Id             string   `json:"id"`
@@ -632,7 +641,6 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// Now that the checks are in place, we defer the transaction creation in the database
 	// to respond to the client as quickly as possible
 	defer func() {
-		log.Printf("deferred START")
 		purchaseService := dynamodb_service.NewPurchaseService()
 		h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
 		createPurchase.Status = helpers.StripeCheckoutStatus.Pending
@@ -711,7 +719,7 @@ func TransformPurchaseToUpdate(purchase internal_types.Purchase) internal_types.
 	}
 }
 
-func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
+func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 	const MaxBodyBytes = int64(65536)
 	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
 	payload, err := io.ReadAll(r.Body)
@@ -721,7 +729,6 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 		transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, nil)
 		return
 	}
-
 	// If you are testing your webhook locally with the Stripe CLI you
 	// can find the endpoint's secret by running `stripe listen`
 	// Otherwise, find your endpoint's secret in your webhook settings
@@ -731,7 +738,6 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 	ctx := r.Context()
 	apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
 	stripeHeader := apiGwV2Req.Headers["stripe-signature"]
-
 	event, err := webhook.ConstructEvent(payload, stripeHeader,
 		endpointSecret)
 	if err != nil {
@@ -739,10 +745,8 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 		transport.SendServerRes(w, []byte(msg), http.StatusBadRequest, nil)
 		return err
 	}
-
 	switch event.Type {
 	case "checkout.session.completed":
-
 		var checkoutSession stripe.CheckoutSession
 		err := json.Unmarshal(event.Data.Raw, &checkoutSession)
 		if err != nil {
@@ -750,15 +754,10 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
 			return err
 		}
-
 		clientReferenceID := checkoutSession.ClientReferenceID
 
 		db := transport.GetDB()
-		purchaseService := dynamodb_service.NewPurchaseService()
-		purchaseHandler := dynamodb_handlers.NewPurchaseHandler(purchaseService)
-
 		re := regexp.MustCompile(`event-(.+?)-user-(.+?)-time-(.+)`)
-
 		matches := re.FindStringSubmatch(clientReferenceID)
 		eventID := ""
 		userID := ""
@@ -768,25 +767,21 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 			userID = matches[2]
 			createdAt = matches[3]
 		}
-
-		purchase, err := purchaseHandler.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
+		purchase, err := h.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
+		// purchase, err := purchaseHandler.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to get purchases for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
 			return err
 		}
-
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
 		purchaseUpdate.Status = helpers.StripeCheckoutStatus.Settled
-
-		_, err = purchaseHandler.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to update purchase status to SETTLED: "), http.StatusInternalServerError, err)
 			return err
 		}
-
 		msg := fmt.Sprintf("Checkout session marked as SETTLED for stripe clientReferenceID: %s", clientReferenceID)
 		log.Println(msg)
-
 		transport.SendServerRes(w, []byte(msg), http.StatusOK, err)
 		return err
 
@@ -798,12 +793,10 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
 			return err
 		}
-
 		clientReferenceID := checkoutSession.ClientReferenceID
 		log.Printf("Checkout session expired: client reference ID: %s", clientReferenceID)
 
 		re := regexp.MustCompile(`event-(.+?)-user-(.+?)-time-(.+)`)
-
 		matches := re.FindStringSubmatch(clientReferenceID)
 		eventID := ""
 		userID := ""
@@ -813,17 +806,15 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 			userID = matches[2]
 			createdAt = matches[3]
 		}
-
 		db := transport.GetDB()
-		purchasableService := dynamodb_service.NewPurchasableService()
-		purchasableHandler := dynamodb_handlers.NewPurchasableHandler(purchasableService)
 
-		purchasable, err := purchasableHandler.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventID)
+		purchasable, err := h.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventID)
 		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to get purchasables for event id: "+eventID+" "+err.Error()), http.StatusInternalServerError, err)
+			msg := fmt.Sprintf("ERR: Failed to get purchasables for event id: %s, err: %v", eventID, err.Error())
+			log.Println(msg)
+			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
 			return err
 		}
-
 		// Create a map for quick lookup of purchasable items
 		purchasableItems := make(map[string]internal_types.PurchasableItemInsert)
 		for i, p := range purchasable.PurchasableItems {
@@ -834,16 +825,12 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 				PurchasableIndex: i,
 			}
 		}
-
-		purchaseService := dynamodb_service.NewPurchaseService()
-		purchaseHandler := dynamodb_handlers.NewPurchaseHandler(purchaseService)
-
-		purchase, err := purchaseHandler.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
+		purchase, err := h.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to get purchase for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
 			return err
 		}
-
+		log.Printf("purchase: %+v", purchase)
 		// Create a map of updates to restore the previously decremented inventory
 		incrementUpdates := make([]internal_types.PurchasableInventoryUpdate, len(purchase.PurchasedItems))
 		for i, item := range purchase.PurchasedItems {
@@ -860,35 +847,32 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 			}
 		}
 
-		err = purchasableHandler.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventID, incrementUpdates, purchasableItems)
+		err = h.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventID, incrementUpdates, purchasableItems)
 		if err != nil {
 			msg := fmt.Sprintf("ERR: Failed to restore inventory changes to eventID: %s, err: %v", eventID, err)
 			log.Println(msg)
 			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
 			return err
 		}
-
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
 		purchaseUpdate.Status = helpers.StripeCheckoutStatus.Canceled
 
-		_, err = purchaseHandler.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
 		if err != nil {
 			msg := fmt.Sprintf("ERR: Failed to update purchase status to CANCELED: %v", err)
 			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
 			return err
 		}
-
-		err = purchasableHandler.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventID, incrementUpdates, purchasableItems)
+		err = h.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventID, incrementUpdates, purchasableItems)
 		if err != nil {
 			msg := fmt.Sprintf("ERR: Failed to restore inventory changes to eventID: %s, err: %v", eventID, err)
 			log.Println(msg)
 			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
 			return err
 		}
-
-		log.Printf("Purchase status updated to CANCELED for compositeKey: %s", purchase.CompositeKey)
-
-		transport.SendServerRes(w, []byte("Purchase successfully rolled back for compositeKey: "+purchase.CompositeKey), http.StatusOK, nil)
+		msg := fmt.Sprintf("Purchase status updated to CANCELED for compositeKey: %s", purchaseUpdate.CompositeKey)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	default:
 		log.Printf("Unhandled event type: %s\n", event.Type)
@@ -899,8 +883,11 @@ func HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
 }
 
 func HandleCheckoutWebhookHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	purchasableService := dynamodb_service.NewPurchasableService()
+	purchaseService := dynamodb_service.NewPurchaseService()
+	handler := NewPurchasableWebhookHandler(purchasableService, purchaseService)
 	return func(w http.ResponseWriter, r *http.Request) {
-		HandleCheckoutWebhook(w, r)
+		handler.HandleCheckoutWebhook(w, r)
 	}
 }
 
