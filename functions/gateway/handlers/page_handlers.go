@@ -86,7 +86,7 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	return startTimeUnix, endTimeUnix
 }
 
-func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation, ownerIds []string, categories string,  address string, parseDatesBool string) {
+func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation, ownerIds []string, categories string, address string, parseDatesBool string) {
 	startTimeStr := r.URL.Query().Get("start_time")
 	endTimeStr := r.URL.Query().Get("end_time")
 	latStr := r.URL.Query().Get("lat")
@@ -142,8 +142,7 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	// is not the initial empty value (can't use 0.0, a valid lat/lon) we assume
 	// cfLocation has given us a reasonable local guess
 
-	if radius < 0.0001 && (
-		cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong ||
+	if radius < 0.0001 && (cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong ||
 		lat != US_GEO_CENTER_LAT && long != US_GEO_CENTER_LONG) {
 		radius = float64(150.0)
 		// we still don't have lat/lon, which means we'll be using "geographic center of US"
@@ -158,14 +157,14 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	// Handle owners query parameter
 	ownerIds = []string{}
 	if owners != "" {
-			ownerIds = strings.Split(owners, ",")
+		ownerIds = strings.Split(owners, ",")
 	}
 
 	// Decode the URL-encoded categories string
 	decodedCategories, err := url.QueryUnescape(categoriesStr)
 	if err != nil {
-			log.Printf("Error decoding categories: %v", err)
-			decodedCategories = categories // Use the original string if decoding fails
+		log.Printf("Error decoding categories: %v", err)
+		decodedCategories = categories // Use the original string if decoding fails
 	}
 
 	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, addressStr, parseDates
