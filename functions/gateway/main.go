@@ -45,21 +45,23 @@ var Routes []Route
 
 func init() {
 	Routes = []Route{
-		{"/", "GET", handlers.GetHomePage, Check},
-		{"/about", "GET", handlers.GetAboutPage, Check},
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
-		// {"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
-		{"/admin/profile", "GET", handlers.GetProfilePage, Require},
-		{"/admin/profile/settings", "GET", handlers.GetProfileSettingsPage, Require},
-		{"/map-embed", "GET", handlers.GetMapEmbedPage, None},
+		{helpers.SitePages["home"].Slug, "GET", handlers.GetHomePage, Check},
+		{helpers.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
+		{helpers.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
+		{helpers.SitePages["profile"].Slug, "GET", handlers.GetProfilePage, Require},
+		{helpers.SitePages["settings"].Slug, "GET", handlers.GetProfileSettingsPage, Require},
+		{helpers.SitePages["add-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
+		{helpers.SitePages["edit-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
+		{helpers.SitePages["map-embed"].Slug, "GET", handlers.GetMapEmbedPage, None},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...
 		// the complexity is we might want "in the middle", which would be "auto-refresh
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
-		{"/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventDetailsPage, Check},
+		{helpers.SitePages["event-detail"].Slug, "GET", handlers.GetEventDetailsPage, Check},
 
 		// API routes
 
@@ -84,40 +86,39 @@ func init() {
 		{"/api/html/seshu/session/events", "PUT", handlers.SubmitSeshuEvents, None},
 
 		// // Purchasables routes
-		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, None}, // Create a new purchasable
-		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasableHandler, None}, // Get all purchasables
-		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchasableHandler, None}, // Update an existing purchasable
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, None},   // Create a new purchasable
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasableHandler, None},       // Get all purchasables
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchasableHandler, None},    // Update an existing purchasable
 		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchasableHandler, None}, // Delete a purchasable
 
 		// // Event RSVPs routes
-		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateEventRsvpHandler, None}, // Create a new event RSVP
-		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpByPkHandler, None}, // Get a specific event RSVP
-		{"/api/event-rsvps/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpsByEventIDHandler, None}, // Get all event RSVPs
-		{"/api/event-rsvps/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpsByUserIDHandler, None}, // Get a specific event RSVP
-		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateEventRsvpHandler, None}, // Update an existing event RSVP
+		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateEventRsvpHandler, None},   // Create a new event RSVP
+		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpByPkHandler, None},   // Get a specific event RSVP
+		{"/api/event-rsvps/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpsByEventIDHandler, None},               // Get all event RSVPs
+		{"/api/event-rsvps/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpsByUserIDHandler, None},                  // Get a specific event RSVP
+		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateEventRsvpHandler, None},    // Update an existing event RSVP
 		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteEventRsvpHandler, None}, // Delete an event RSVP
 
-
 		// Registrations
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationHandler, None}, // Create a new event RSVP
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationByPkHandler, None}, // Get a registration by primary key
-		{"/api/registrations/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByUserIDHandler, None}, // Get a specific event RSVP
-		{"/api/registrations/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByEventIDHandler, None}, // Get all event RSVPs
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationHandler, None}, // Update an existing event RSVP
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationHandler, None},   // Create a new event RSVP
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationByPkHandler, None},   // Get a registration by primary key
+		{"/api/registrations/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByUserIDHandler, None},                  // Get a specific event RSVP
+		{"/api/registrations/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByEventIDHandler, None},               // Get all event RSVPs
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationHandler, None},    // Update an existing event RSVP
 		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationHandler, None}, // Delete an event RSVP
 
 		// RegistrationFields
-		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, None}, // Create a new
+		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, None},      // Create a new
 		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationFieldsByEventIDHandler, None}, // Get all
-		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationFieldsHandler, None}, // Update an existing
-		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationFieldsHandler, None}, // Delete an
+		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationFieldsHandler, None},       // Update an existing
+		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationFieldsHandler, None},    // Delete an
 
 		// Purchases
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchaseHandler, None}, // Create a new event RSVP
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchaseByPkHandler, None}, // Get a specific event RSVP
-		{"/api/purchases/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByEventIDHandler, None}, // Get all event RSVPs
-		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, None}, // Get a specific event RSVP
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None}, // Update an existing event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchaseHandler, None},   // Create a new event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchaseByPkHandler, None},   // Get a specific event RSVP
+		{"/api/purchases/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByEventIDHandler, None},               // Get all event RSVPs
+		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, None},                  // Get a specific event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None},    // Update an existing event RSVP
 		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None}, // Delete an event RSVP
 
 		// Checkout Session

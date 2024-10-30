@@ -4,7 +4,6 @@ type AWSReqKey string
 
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
-
 const RsvpsTablePrefix = "EventRsvps"
 const PurchasesTablePrefix = "Purchases"
 const PurchasablesTablePrefix = "Purchasables"
@@ -71,13 +70,15 @@ type SitePage struct {
 }
 
 var SitePages = map[string]SitePage{
-	"home":             {Slug: "home", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
-	"about":            {Slug: "about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
-	"profile":          {Slug: "admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
-	"add-event-source": {Slug: "admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
-	"settings":         {Slug: "settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
-	"embed":            {Slug: "embed", Name: "Embed", SubnavItems: []string{SubnavItems[NvMain]}},
-	"events":           {Slug: "events", Name: "Event Details", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
+	"home":             {Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
+	"about":            {Slug: "/about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
+	"profile":          {Slug: "/admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
+	"add-event-source": {Slug: "/admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
+	"settings":         {Slug: "/admin/settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
+	"map-embed":        {Slug: "/map-embed", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
+	"event-detail":     {Slug: "/events/{" + EVENT_ID_KEY + "}", Name: "Event Details", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
+	"add-event":        {Slug: "/admin/event/new", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
+	"edit-event":       {Slug: "/admin/event/edit/{" + EVENT_ID_KEY + "}", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 type Subcategory struct {

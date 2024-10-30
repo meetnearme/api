@@ -263,7 +263,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							>
 								<br/>
 								<br/>
-								// @click is a global shared from home_details.templ
+								// @click function call is a global shared from home_details.templ
 								<button
 									type="submit"
 									class="btn btn-primary w-full self-start sticky top-0 z-[10]"
@@ -359,14 +359,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 			</div>
 		</div>
 	</div>
-	<script
-		id="registration-purchasables"
-		data-has-registration={ fmt.Sprint(event.HasRegistrationFields) }
-		data-has-purchasables={ fmt.Sprint(event.HasPurchasable) }
-		data-event-id={ event.Id }
-		data-event-name={ event.Name }
-		data-user-id={ userInfo.Sub }
-	>
+	<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-name={ event.Name } data-user-id={ userInfo.Sub }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,

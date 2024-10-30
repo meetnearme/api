@@ -110,7 +110,6 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 
 
 			window.addEventListener('pageshow', (event) => {
-				console.log('pageshow fired!')
 				if (event.persisted) {
 					// This page is restored from browser's cache
 					hideLoadingIndicator();
@@ -118,7 +117,6 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			});
 
 			document.addEventListener('click', (event) => {
-				console.log('click fired!')
 				const target = event.target.closest('a');
 				if (target && target.href && !target.target && !event.ctrlKey && !event.metaKey) {
 					showLoadingIndicator();
