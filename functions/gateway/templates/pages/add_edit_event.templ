@@ -253,8 +253,11 @@ templ AddOrEditEventPage(pageObj helpers.SitePage) {
 				<div class="card">
 					<h2 class="card-title">Event Ownership</h2>
 					<div class="form-group">
-						<label class="label" for="eventOwners">Event Owners</label>
-						<input class="input" id="eventOwners" type="text" placeholder="Add event owners"/>
+						<div class="form-group">
+							<label class="label">Event Owners</label>
+							<div class="tags" id="ownersList"></div>
+							<input class="input" type="text" id="ownersInput" placeholder="Add owners (press Enter)"/>
+						</div>
 					</div>
 					<div class="form-group">
 						<label class="label" for="eventOwnerName">Owner Display Name</label>
@@ -391,7 +394,10 @@ templ AddOrEditEventPage(pageObj helpers.SitePage) {
         // Tag management
         const tagInput = document.getElementById('tagInput');
         const tagsList = document.getElementById('tagsList');
+        const ownersInput = document.getElementById('ownersInput');
+        const ownersList = document.getElementById('ownersList');
         let tags = [];
+        let owners =[];
 
         tagInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && tagInput.value.trim() !== '') {
@@ -404,13 +410,33 @@ templ AddOrEditEventPage(pageObj helpers.SitePage) {
 
         function renderTags() {
             tagsList.innerHTML = tags.map(tag =>
-                `<span class="tag" onclick="removeTag('${tag}')">${tag} ×</span>`
+                `<span class="tag" onclick="removeTag('${tag}')">${tag} x</span>`
             ).join('');
         }
 
         function removeTag(tagToRemove) {
             tags = tags.filter(tag => tag !== tagToRemove);
             renderTags();
+        }
+
+        ownersInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && ownersInput.value.trim() !== '') {
+                const owner = ownersInput.value.trim();
+                owners.push(owner);
+                renderOwners();
+                ownersInput.value = '';
+            }
+        });
+
+        function renderOwners() {
+            ownersList.innerHTML = owners.map(owner =>
+                `<span class="tag" onclick="removeOwner('${owner}')">${owner} x</span>`
+            ).join('');
+        }
+
+        function removeOwner(ownerToRemove) {
+            owners = owners.filter(owner => owner !== ownerToRemove);
+            renderOwners();
         }
     </script>
 }
