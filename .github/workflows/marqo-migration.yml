@@ -1,0 +1,70 @@
+name: Marqo Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to migrate'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      transformers:
+        description: 'Comma-separated list of transformers to apply'
+        required: false
+        default: 'test_transformer'
+        type: string
+      batch_size:
+        description: 'Batch size for migration'
+        required: false
+        default: '100'
+        type: string
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: '1.21'
+
+    - name: Set Environment Variables
+      run: |
+        if [ "${{ inputs.environment }}" = "dev" ]; then
+          echo "SOURCE_MARQO_URL=${{ secrets.DEV_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
+        else
+          echo "SOURCE_MARQO_URL=${{ secrets.PROD_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
+        fi
+
+    - name: Run Migration
+      working-directory: ./api
+      env:
+        SOURCE_MARQO_URL: ${{ env.SOURCE_MARQO_URL }}
+        MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
+      run: |
+        echo "Starting migration for ${{ inputs.environment }} environment"
+        go run internal/database/marqo/migration/main.go \
+          -env ${{ inputs.environment }} \
+          -schema "./internal/database/marqo/migration/schema.json" \
+          -transformers ${{ inputs.transformers }} \
+          -batch-size ${{ inputs.batch_size }}
+
+    - name: Migration Summary
+      if: always()
+      run: |
+        echo "Migration Status: ${{ job.status }}"
+        echo "Environment: ${{ inputs.environment }}"
+        echo "Transformers: ${{ inputs.transformers }}"
+        echo "Batch Size: ${{ inputs.batch_size }}"
+
+    - name: Notify on Failure
+      if: failure()
+      run: |
+        echo "Migration failed!"

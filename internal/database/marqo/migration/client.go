@@ -24,39 +24,108 @@ func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
 	}
 }
 
-func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]interface{}) error {
-	url := fmt.Sprintf("%s/indexes", c.baseURL)
-
-	// Add index name to schema
-	schema["indexName"] = indexName
-
-	body, err := json.Marshal(schema)
-	if err != nil {
-		return fmt.Errorf("failed to marshal schema: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to create index: status=%d body=%s", resp.StatusCode, string(body))
-	}
-
-	return nil
+type CreateIndexRequest struct {
+    Type                string                 `json:"type"`
+    IndexName           string                 `json:"indexName"`
+    VectorNumericType   string                 `json:"vectorNumericType"`
+    Model              string                 `json:"model"`
+    NormalizeEmbeddings bool                   `json:"normalizeEmbeddings"`
+    TextPreprocessing   *TextPreprocessing     `json:"textPreprocessing,omitempty"`
+    AllFields          []Field                `json:"allFields"`
+    TensorFields       []string               `json:"tensorFields"`
+    AnnParameters      *AnnParameters         `json:"annParameters,omitempty"`
+    NumberOfShards     int                    `json:"numberOfShards"`
+    NumberOfReplicas   int                    `json:"numberOfReplicas"`
+    InferenceType      string                 `json:"inferenceType"`
+    StorageClass       string                 `json:"storageClass"`
+    NumberOfInferences int                    `json:"numberOfInferences"`
 }
 
+type TextPreprocessing struct {
+    SplitLength  int    `json:"splitLength"`
+    SplitOverlap int    `json:"splitOverlap"`
+    SplitMethod  string `json:"splitMethod"`
+}
+
+type Field struct {
+    Name            string             `json:"name"`
+    Type            string             `json:"type"`
+    Features        []string           `json:"features,omitempty"`
+    DependentFields map[string]float64 `json:"dependentFields,omitempty"`
+}
+
+type AnnParameters struct {
+    SpaceType  string     `json:"spaceType"`
+    Parameters Parameters `json:"parameters"`
+}
+
+type Parameters struct {
+    EfConstruction int `json:"efConstruction"`
+    M             int `json:"m"`
+}
+
+func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]interface{}) error {
+    url := fmt.Sprintf("%s/api/v2/indexes/%s", c.baseURL, indexName)
+
+    // Add default values if not present in schema
+    if _, ok := schema["numberOfShards"]; !ok {
+        schema["numberOfShards"] = 1
+    }
+    if _, ok := schema["numberOfReplicas"]; !ok {
+        schema["numberOfReplicas"] = 0
+    }
+    if _, ok := schema["inferenceType"]; !ok {
+        schema["inferenceType"] = "marqo.CPU.large"
+    }
+    if _, ok := schema["storageClass"]; !ok {
+        schema["storageClass"] = "marqo.basic"
+    }
+    if _, ok := schema["numberOfInferences"]; !ok {
+        schema["numberOfInferences"] = 1
+    }
+
+    body, err := json.Marshal(schema)
+    if err != nil {
+        return fmt.Errorf("failed to marshal schema: %w", err)
+    }
+
+    req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+    if err != nil {
+        return fmt.Errorf("failed to create request: %w", err)
+    }
+
+    req.Header.Set("Content-Type", "application/json")
+    req.Header.Set("x-api-key", c.apiKey)
+
+    resp, err := c.client.Do(req)
+    if err != nil {
+        return fmt.Errorf("failed to send request: %w", err)
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        bodyBytes, _ := io.ReadAll(resp.Body)
+        return fmt.Errorf("failed to create index: status=%d body=%s",
+            resp.StatusCode, string(bodyBytes))
+    }
+
+    return nil
+}
+
+// Helper function to create a structured index request from schema
+func CreateIndexRequestFromSchema(schema map[string]interface{}) (*CreateIndexRequest, error) {
+    data, err := json.Marshal(schema)
+    if err != nil {
+        return nil, fmt.Errorf("failed to marshal schema: %w", err)
+    }
+
+    var req CreateIndexRequest
+    if err := json.Unmarshal(data, &req); err != nil {
+        return nil, fmt.Errorf("failed to unmarshal schema into request: %w", err)
+    }
+
+    return &req, nil
+}
 // Add these methods to MarqoClient
 
 func (c *MarqoClient) Search(indexName string, query string, offset, limit int) ([]map[string]interface{}, error) {
