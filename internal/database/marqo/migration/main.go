@@ -12,7 +12,11 @@ func main() {
     env := flag.String("env", "", "Environment (dev/prod)")
     schemaPath := flag.String("schema", "", "Path to schema JSON file")
     batchSize := flag.Int("batch-size", 100, "Batch size for migration")
+<<<<<<< HEAD
     transformers := flag.String("transformers", "", "Comma-separated list of transformers")
+=======
+    transformersList := flag.String("transformers", "", "Comma-separated list of transformers")
+>>>>>>> 00ac69c (feat(marqo_migration_script): github workflow to run the marqo migration)
     flag.Parse()
 
     if *env == "" || *schemaPath == "" {
@@ -43,7 +47,44 @@ func main() {
         fmt.Println("MARQO_API_KEY must be set")
         os.Exit(1)
     }
-    // ... rest of the code ...
+
+	// Load schema
+	schema, err := loadSchema(*schemaPath)
+	if err != nil {
+		fmt.Printf("Failed to load schema: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Split transformers string into slice
+	var transformerNames []string
+	if *transformersList != "" {
+		transformerNames = strings.Split(*transformersList, ",")
+		for i, name := range transformerNames {
+			transformerNames[i] = strings.TrimSpace(name)
+		}
+	}
+
+	migrator, err := NewMigrator(sourceURL, targetURL, apiKey, *batchSize, transformerNames)
+	if err != nil {
+		fmt.Printf("Failed to create migrator, %v\n", err)
+		os.Exit(1)
+	}
+
+	sourceIndex := fmt.Sprintf("%s-events-search-index", *env)
+	targetIndex := fmt.Sprintf("%s-events-search-index-v2", *env)
+
+	fmt.Printf("Starting migration from %s to %s\n", sourceIndex, targetIndex)
+	fmt.Printf("Using transformers: %v\n", transformerNames)
+	fmt.Printf("Batch size: %d\n", *batchSize)
+
+	// Run migration
+	if err := migrator.MigrateEvents(sourceIndex, targetIndex, schema); err != nil {
+		fmt.Printf("Migration failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Migration completed successfully")
+
 }
 
 func constructTargetURL(sourceURL, env string) string {

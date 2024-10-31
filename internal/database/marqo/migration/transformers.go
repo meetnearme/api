@@ -12,7 +12,7 @@ var TransformerRegistry = map[string]TransformFunc{
     },
     "tensor_weights": func(doc map[string]interface{}) (map[string]interface{}, error) {
         // Implement the actual tensor weights transformation
-        if name, ok := doc["name"].(string); ok {
+        if _, ok := doc["name"].(string); ok {
             doc["_tensor_weights"] = map[string]float64{
                 "name": 0.3,
                 "description": 0.5,
