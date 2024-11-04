@@ -22,6 +22,8 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
 			<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
 			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"/>
+			<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 			if os.Getenv("SST_STAGE") == "prod" {
 				<script defer src="https://cloud.umami.is/script.js" data-website-id="63a857ef-7639-4db5-b627-99621b1a38ec"></script>
 			} else {
@@ -78,6 +80,36 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 					showLoadingIndicator();
 				}
 			});
+      flatpickr(".flatpickr-datetime", {
+        dateFormat:"d-m-Y"
+      });
+			const fp = flatpickr(".flatpickr-datetime", {
+				altInput: true,
+				allowInput: true,
+				dateFormat: "Z",
+				altFormat: "Y-m-d H:i",
+        enableTime: true,
+        static: true,
+				onClose(dates, currentdatestring, picker){
+					picker.setDate(picker.altInput.value, true, picker.config.altFormat)
+        }
+      });
+
+      console.log(fp);
+      fp.forEach(picker => {
+        picker.config.onKeyDown.push((a, b, c, event) => {
+          let allowKeydown = picker.isOpen && (!picker.config.allowInput || !picker.config.isInput);
+
+          if (
+            picker.isOpen
+            && !allowKeydown
+            && (event.keyCode === 40 || event.keyCode === 38)
+            && document.activeElement === picker._input
+          ) {
+            allowKeydown = true;
+          }
+        });
+      });
 		</script>
 	</html>
 }
