@@ -128,7 +128,7 @@ func CreateIndexRequestFromSchema(schema map[string]interface{}) (*CreateIndexRe
 // Add these methods to MarqoClient
 
 func (c *MarqoClient) Search(indexName string, query string, offset, limit int) ([]map[string]interface{}, error) {
-    url := fmt.Sprintf("%s/indexes/%s/search", c.baseURL, indexName)
+    url := fmt.Sprintf("%s/api/v2/indexes/%s/search", c.baseURL, indexName)
 
     requestBody := map[string]interface{}{
         "q": query,
@@ -147,7 +147,7 @@ func (c *MarqoClient) Search(indexName string, query string, offset, limit int) 
     }
 
     req.Header.Set("Content-Type", "application/json")
-    req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+    req.Header.Set("x-api-key", c.apiKey)
 
     resp, err := c.client.Do(req)
     if err != nil {
@@ -166,7 +166,7 @@ func (c *MarqoClient) Search(indexName string, query string, offset, limit int) 
 }
 
 func (c *MarqoClient) UpsertDocuments(indexName string, documents []map[string]interface{}) error {
-    url := fmt.Sprintf("%s/indexes/%s/documents", c.baseURL, indexName)
+    url := fmt.Sprintf("%s/api/v2/indexes/%s/documents", c.baseURL, indexName)
 
     body, err := json.Marshal(documents)
     if err != nil {
@@ -179,7 +179,7 @@ func (c *MarqoClient) UpsertDocuments(indexName string, documents []map[string]i
     }
 
     req.Header.Set("Content-Type", "application/json")
-    req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+    req.Header.Set("x-api-key", c.apiKey)
 
     resp, err := c.client.Do(req)
     if err != nil {
@@ -210,14 +210,14 @@ func (c *MarqoClient) withRetry(fn func() error) error {
 }
 
 func (c *MarqoClient) ListIndexes() ([]string, error) {
-    url := fmt.Sprintf("%s/indexes", c.baseURL)
+    url := fmt.Sprintf("%s/api/v2/indexes", c.baseURL)
 
     req, err := http.NewRequest("GET", url, nil)
     if err != nil {
         return nil, fmt.Errorf("failed to create request: %w", err)
     }
 
-    req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+    req.Header.Set("x-api-key", c.apiKey)
 
     resp, err := c.client.Do(req)
     if err != nil {
