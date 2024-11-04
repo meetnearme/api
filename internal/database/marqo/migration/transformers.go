@@ -1,4 +1,4 @@
-package migration
+package main
 
 // TransformFunc defines the signature for transformer functions
 type TransformFunc func(map[string]interface{}) (map[string]interface{}, error)

@@ -1,4 +1,4 @@
-package migration
+package main
 
 import (
 	"flag"
@@ -12,11 +12,7 @@ func main() {
     env := flag.String("env", "", "Environment (dev/prod)")
     schemaPath := flag.String("schema", "", "Path to schema JSON file")
     batchSize := flag.Int("batch-size", 100, "Batch size for migration")
-<<<<<<< HEAD
-    transformers := flag.String("transformers", "", "Comma-separated list of transformers")
-=======
     transformersList := flag.String("transformers", "", "Comma-separated list of transformers")
->>>>>>> 00ac69c (feat(marqo_migration_script): github workflow to run the marqo migration)
     flag.Parse()
 
     if *env == "" || *schemaPath == "" {
