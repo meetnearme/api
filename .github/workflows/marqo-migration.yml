@@ -44,7 +44,7 @@ jobs:
         fi
 
     - name: Run Migration
-      working-directory: ./api
+      working-directory: api
       env:
         SOURCE_MARQO_URL: ${{ env.SOURCE_MARQO_URL }}
         MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
