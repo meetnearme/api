@@ -90,6 +90,10 @@ export default {
             maxWidth: '70vw',
           },
         },
+        '.tab:is(input[type="radio"])': {
+          borderBottomRightRadius: 'inherit',
+          borderBottomLeftRadius: 'inherit',
+        },
       });
     },
   ],

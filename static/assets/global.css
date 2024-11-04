@@ -236,3 +236,10 @@ input[type='number'] {
   justify-content: center;
   vertical-align: middle;
 }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
