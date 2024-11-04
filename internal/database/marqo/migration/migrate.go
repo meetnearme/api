@@ -67,8 +67,43 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
         return fmt.Errorf("failed to create target index: %w", err)
     }
 
+	type batchResult struct {
+		count int
+		err error
+	}
+
+	workers := 4
+	batchChan := make(chan []map[string]interface{}, workers)
+	resultChan := make(chan batchResult, workers)
+
+	// Start worker goroutines
+	for i := 0; i < workers; i++ {
+		go func() {
+			for batch := range batchChan {
+				// Transform and upsert batch
+				transformedDocs := make([]map[string]interface{}, len(batch))
+				for i, doc := range batch {
+					transformed, err := m.applyTransformers(doc)
+					if err != nil {
+						resultChan <- batchResult{err: err}
+						return
+					}
+					transformedDocs[i] = transformed
+				}
+
+				if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
+					resultChan <- batchResult{err: err}
+					return
+				}
+
+				resultChan <- batchResult{count: len(batch)}
+			}
+		}()
+	}
+
     offset := 0
     totalMigrated := 0
+	activeBatches := 0
 
     for {
         // Fetch batch of documents from source
@@ -81,25 +116,35 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
             break
         }
 
-        // Apply transformers to each document
-        transformedDocs := make([]map[string]interface{}, len(docs))
-        for i, doc := range docs {
-            transformed, err := m.applyTransformers(doc)
-            if err != nil {
-                return fmt.Errorf("failed to transform document at offset %d: %w", offset+i, err)
-            }
-            transformedDocs[i] = transformed
-        }
+		// Send batch to worker
+		batchChan <- docs
+		activeBatches++
+		offset += m.batchSize
 
-        // Upsert transformed documents to target
-        if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
-            return fmt.Errorf("failed to upsert documents at offset %d: %w", offset, err)
-        }
-
-        totalMigrated += len(docs)
-        offset += m.batchSize
-        fmt.Printf("Migrated and transformed %d documents\n", totalMigrated)
+		if activeBatches == workers {
+			result := <-resultChan
+			if result.err != nil {
+				close(batchChan)
+				return result.err
+			}
+			totalMigrated += result.count
+			activeBatches--
+			fmt.Printf("Migrated and transformed %d documents\n", totalMigrated)
+		}
     }
+
+	// close batch channel and wait for remaining results
+	close(batchChan)
+	for activeBatches > 0 {
+		result := <-resultChan
+		if result.err != nil {
+			return result.err
+		}
+
+		totalMigrated += result.count
+		activeBatches--
+		fmt.Printf("Migrated and transformed %d documents\n", totalMigrated)
+	}
 
     fmt.Printf("Migration completed. Total documents migrated and transformed: %d\n", totalMigrated)
     return nil
