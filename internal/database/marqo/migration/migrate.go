@@ -7,7 +7,7 @@ import (
 )
 
 
-func loadSchema(path string) (map[string]interface{}, error) {
+func LoadSchema(path string) (map[string]interface{}, error) {
     data, err := os.ReadFile(path)
     if err != nil {
         return nil, fmt.Errorf("failed to read schema file: %w", err)

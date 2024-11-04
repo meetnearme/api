@@ -45,7 +45,7 @@ func main() {
     }
 
 	// Load schema
-	schema, err := loadSchema(*schemaPath)
+	schema, err := LoadSchema(*schemaPath)
 	if err != nil {
 		fmt.Printf("Failed to load schema: %v\n", err)
 		os.Exit(1)
