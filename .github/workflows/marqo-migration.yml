@@ -37,7 +37,8 @@ jobs:
 
     - name: Build Migration Tool
       run: |
-        cd api/internal/database/marqo/migration
+        ls -la
+        cd ./internal/database/marqo/migration
         go build -o marqo-migration .
         ls -la # Debug: List files to confirm built binary
 
