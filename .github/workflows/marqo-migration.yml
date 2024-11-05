@@ -35,11 +35,15 @@ jobs:
       with:
         go-version: '1.22.1'
 
+    - name: Debug Directory Structure
+      run: |
+        pwd
+        ls -la internal/database/marqo/migration/
+
     - name: Build Migration Tool
       run: |
-        ls -la
-        cd ./internal/database/marqo/migration
-        go build -o marqo-migration internal/database/marqo/migration/*.go
+        cd internal/database/marqo/migration
+        go build -o marqo-migration .
         ls -la # Debug: List files to confirm built binary
 
     - name: Set Environment Variables
