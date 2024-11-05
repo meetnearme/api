@@ -39,7 +39,7 @@ jobs:
       run: |
         ls -la
         cd ./internal/database/marqo/migration
-        go build -o marqo-migration .
+        go build -o marqo-migration ./internal/...
         ls -la # Debug: List files to confirm built binary
 
     - name: Set Environment Variables
