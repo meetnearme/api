@@ -19,11 +19,7 @@ type MarqoClient struct {
 func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
 	// Ensure baseURL ends with /api/v2
     if !strings.HasSuffix(baseURL, "/api/v2") {
-        if strings.HasSuffix(baseURL, "/") {
-            baseURL = baseURL + "api/v2"
-        } else {
-            baseURL = baseURL + "/api/v2"
-        }
+		baseURL = "https://api.marqo.ai"
     }
 
 	return &MarqoClient{
@@ -77,6 +73,8 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
 	fmt.Printf("Creating index at URL: %s\n", c.baseURL)
     url := fmt.Sprintf("%s/indexes/%s", c.baseURL, indexName)
     fmt.Printf("Full request URL: %s\n", url)
+
+	schema["indexName"] = indexName
 
 	// Convert schema to proper request format
 	req, err := CreateIndexRequestFromSchema(schema)
