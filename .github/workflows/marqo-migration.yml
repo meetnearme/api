@@ -47,16 +47,23 @@ jobs:
         ls -la # Debug: List files to confirm built binary
 
     - name: Set Environment Variables
+      env: 
+        DEV_MARQO_API_BASE_URL: ${{ secrets.DEV_MARQO_API_BASE_URL }}
+        PROD_MARQO_API_BASE_URL: ${{ secrets.PROD_MARQO_API_BASE_URL }}
+        MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}      
       run: |
         if [ "${{ inputs.environment }}" = "dev" ]; then
-          echo "SOURCE_MARQO_URL=${{ secrets.DEV_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
+          echo "DEV_MARQO_API_BASE_URL=${{ secrets.DEV_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
+          echo "PROD_MARQO_API_BASE_URL=${{ secrets.PROD_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
         else
-          echo "SOURCE_MARQO_URL=${{ secrets.PROD_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
+          echo "DEV_MARQO_API_BASE_URL=${{ secrets.DEV_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
+          echo "PROD_MARQO_API_BASE_URL=${{ secrets.PROD_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
         fi
 
     - name: Run Migration
       env:
-        SOURCE_MARQO_URL: ${{ env.SOURCE_MARQO_URL }}
+        DEV_MARQO_API_BASE_URL: ${{ secrets.DEV_MARQO_API_BASE_URL }}
+        PROD_MARQO_API_BASE_URL: ${{ secrets.PROD_MARQO_API_BASE_URL }}       
         MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
       run: |
         echo "Starting migration for ${{ inputs.environment }} environment"
