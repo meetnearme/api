@@ -35,6 +35,11 @@ jobs:
       with:
         go-version: '1.22.1'
 
+    - name: Build Migration Tool
+      run: |
+        cd api/internal/database/marqo/migration
+        go build -o marqo-migration *.go
+
     - name: Set Environment Variables
       run: |
         if [ "${{ inputs.environment }}" = "dev" ]; then
@@ -49,7 +54,8 @@ jobs:
         MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
       run: |
         echo "Starting migration for ${{ inputs.environment }} environment"
-        go run internal/database/marqo/migration/main.go \
+        cd internal/database/marqo/migration 
+        ./marqo-migration \
           -env ${{ inputs.environment }} \
           -schema "./internal/database/marqo/migration/schema.json" \
           -transformers ${{ inputs.transformers }} \
