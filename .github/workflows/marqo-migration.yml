@@ -37,9 +37,8 @@ jobs:
 
     - name: Build Migration Tool
       run: |
-        pwd
-        ls -la
-        go build -o marqo-migration ./internal/database/marqo/migration/*.go
+        cd api/internal/database/marqo/migration
+        go build -o marqo-migration .
         ls -la # Debug: List files to confirm built binary
 
     - name: Set Environment Variables
@@ -56,7 +55,8 @@ jobs:
         MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
       run: |
         echo "Starting migration for ${{ inputs.environment }} environment"
-        ./internal/database/marqo/migration/marqo-migration \
+        cd api/internal/database/marqo/migration/
+        ./marqo-migration \
           -env ${{ inputs.environment }} \
           -schema "./internal/database/marqo/migration/schema.json" \
           -transformers ${{ inputs.transformers }} \
