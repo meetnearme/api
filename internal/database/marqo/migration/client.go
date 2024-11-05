@@ -18,9 +18,9 @@ type MarqoClient struct {
 
 func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
 	// Ensure baseURL ends with /api/v2
-    if !strings.HasSuffix(baseURL, "/api/v2") {
-		baseURL = "https://api.marqo.ai"
-    }
+	baseURL = strings.TrimRight(baseURL, "/")
+
+	baseURL = "https://api.marqo.ai/api/v2"
 
 	return &MarqoClient{
 		baseURL: baseURL,
