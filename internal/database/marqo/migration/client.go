@@ -144,10 +144,9 @@ func CreateIndexRequestFromSchema(schema map[string]interface{}) (*CreateIndexRe
 // Add these methods to MarqoClient
 
 func (c *MarqoClient) Search(indexName string, query string, offset, limit int) ([]map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/api/v2/indexes/%s/search", c.baseURL, indexName)
+	url := fmt.Sprintf("%s/api/v2/indexes/%s/documents", c.baseURL, indexName)
 
 	requestBody := map[string]interface{}{
-		"q":      query,
 		"offset": offset,
 		"limit":  limit,
 	}
@@ -170,6 +169,16 @@ func (c *MarqoClient) Search(indexName string, query string, offset, limit int) 
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// Debug response
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	fmt.Printf("Response status: %d\n", resp.StatusCode)
+    fmt.Printf("Response body: %s\n", string(bodyBytes))
+
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf("request failed: status=%d body=%s",
+            resp.StatusCode, string(bodyBytes))
+    }
 
 	var result struct {
 		Hits []map[string]interface{} `json:"hits"`
