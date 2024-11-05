@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"	
+	"strings"
 	"time"
 )
 
@@ -74,7 +74,9 @@ type Parameters struct {
 }
 
 func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]interface{}) error {
-	url := fmt.Sprintf("%s/api/v2/indexes/%s", c.baseURL, indexName)
+	fmt.Printf("Creating index at URL: %s\n", c.baseURL)
+    url := fmt.Sprintf("%s/indexes/%s", c.baseURL, indexName)
+    fmt.Printf("Full request URL: %s\n", url)
 
 	// Convert schema to proper request format
 	req, err := CreateIndexRequestFromSchema(schema)
@@ -103,6 +105,8 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
+
+	fmt.Printf("Request body:\n%s\n", string(body))
 
 	request, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
