@@ -37,8 +37,9 @@ jobs:
 
     - name: Build Migration Tool
       run: |
-        cd api/internal/database/marqo/migration
-        go build -o marqo-migration *.go
+        pwd
+        ls -la
+        go build -o marqo-migration ./internal/database/marqo/migration/*.go
 
     - name: Set Environment Variables
       run: |
