@@ -31,7 +31,6 @@ func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
 
 type CreateIndexRequest struct {
 	Type                string             `json:"type"`
-	IndexName           string             `json:"indexName"`
 	VectorNumericType   string             `json:"vectorNumericType"`
 	Model               string             `json:"model"`
 	NormalizeEmbeddings bool               `json:"normalizeEmbeddings"`
