@@ -3,250 +3,158 @@ package pages
 import "github.com/meetnearme/api/functions/gateway/helpers"
 
 templ AddOrEditEventPage(pageObj helpers.SitePage) {
-	<style>
-
-	      .container {
-	          max-width: 64rem;
-	          margin: 0 auto;
-	      }
-
-	      .title {
-	          font-size: 1.5rem;
-	          font-weight: bold;
-	      }
-	      .tabs {
-	          margin-bottom: 1.5rem;
-	      }
-	      .tab-list {
-	          display: flex;
-	          gap: 0.5rem;
-	          background-color: var(--card);
-	          padding: 0.25rem;
-	          border-radius: 0.375rem;
-	          margin-bottom: 1rem;
-	      }
-	      .tab-trigger {
-	          padding: 0.5rem 1rem;
-	          background: transparent;
-	          border: none;
-	          color: var(--foreground);
-	          cursor: pointer;
-	          border-radius: 0.25rem;
-	      }
-	      .tab-trigger[aria-selected="true"] {
-	          background-color: var(--input);
-	      }
-	      .tab-content {
-	          display: none;
-	      }
-	      .tab-content[aria-hidden="false"] {
-	          display: block;
-	      }
-	      .card {
-	          background-color: var(--card);
-	          border: 1px solid var(--card-border);
-	          border-radius: 0.5rem;
-	          padding: 1.5rem;
-	          margin-bottom: 1.5rem;
-	      }
-	      .card-title {
-	          font-size: 1.25rem;
-	          font-weight: bold;
-	          margin-bottom: 1rem;
-	      }
-	      .label {
-	          display: block;
-	          margin-bottom: 0.5rem;
-	          font-weight: 500;
-	      }
-	      .tags {
-	          display: flex;
-	          flex-wrap: wrap;
-	          gap: 0.5rem;
-	          margin-bottom: 0.5rem;
-	      }
-	      .tag {
-	          background-color: var(--input);
-	          padding: 0.25rem 0.5rem;
-	          border-radius: 0.25rem;
-	          font-size: 0.875rem;
-	          cursor: pointer;
-	      }
-
-
-	  </style>
-	<div class="container relative">
-		<header class="page-header bg-base-100 bg-opacity-75 shadow-md sticky top-0 z-40 p-4">
-			<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
-			<div>
-				<button class="btn btn-outline">Cancel</button>
-				<button class="btn btn-primary">Save Changes</button>
+	<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
+		<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
+	</header>
+	<br/>
+	<br/>
+	<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Basic Information</h2>
+	<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<div class="card">
+			<label class="form-control w-full max-w-xs">
+				<div class="label">Event Name</div>
+				<input class="input input-bordered w-full" id="name" type="text" placeholder="Enter event name"/>
+			</label>
+			<div class="form-control">
+				<label class="label" for="description">Description</label>
+				<textarea class="textarea textarea-bordered w-full" id="description" placeholder="Enter event description"></textarea>
 			</div>
-		</header>
-		<div class="tabs">
-			<div class="tabs tabs-boxed bg-transparent" role="tablist">
-				<input
-					id="event-add-edit-tab-basic"
-					name="event-add-edit-tabs"
-					type="radio"
-					role="tab"
-					class="tab"
-					aria-label="Basic Info"
-					checked="checked"
-				/>
-				<div id="basic" class="tab-content" role="tabpanel">
-					<div class="card">
-						<h2 class="card-title">Basic Information</h2>
-						<div class="form-control">
-							<label class="label" for="name">Event Name</label>
-							<input class="input input-bordered w-full" id="name" type="text" placeholder="Enter event name"/>
-						</div>
-						<div class="form-control">
-							<label class="label" for="description">Description</label>
-							<textarea class="textarea textarea-bordered w-full" id="description" placeholder="Enter event description"></textarea>
-						</div>
-						<div class="form-control">
-							<label class="label">Tags</label>
-							<div class="tags" id="tagsList"></div>
-							<input class="input input-bordered" type="text" id="tagInput" placeholder="Add tags (press Enter)"/>
-						</div>
-					</div>
-					<div class="card">
-						<h2 class="card-title">Event Ownership</h2>
-						<div class="form-control">
-							<div class="form-control">
-								<label class="label">Event Owners</label>
-								<div class="tags" id="ownersList"></div>
-								<input class="input input-bordered" type="text" id="ownersInput" placeholder="Add owners (press Enter)"/>
-							</div>
-						</div>
-						<div class="form-control">
-							<label class="label" for="eventOwnerName">Owner Display Name</label>
-							<input class="input input-bordered" id="eventOwnerName" type="text" placeholder="Enter owner display name"/>
-						</div>
-					</div>
-				</div>
-				<input
-					id="event-add-edit-tab-details"
-					name="event-add-edit-tabs"
-					type="radio"
-					role="tab"
-					class="tab"
-					aria-label="Details"
-				/>
-				<div id="details" class="tab-content" role="tabpanel">
-					<div class="card">
-						<h2 class="card-title">Event Details</h2>
-						<div class="grid grid-2">
-							<div class="form-control">
-								<label class="label">Start Date & Time</label>
-								<input class="input input-bordered flatpickr-datetime" type="datetime-local"/>
-							</div>
-							<div class="form-control">
-								<label class="label">End Date & Time</label>
-								<input class="input input-bordered flatpickr-datetime" type="datetime-local"/>
-							</div>
-						</div>
-						<div class="form-control">
-							<label class="label">Timezone</label>
-							<select class="select select-bordered">
-								<option value="">Select timezone</option>
-								<option value="et">Eastern Time</option>
-								<option value="ct">Central Time</option>
-								<option value="mt">Mountain Time</option>
-								<option value="pt">Pacific Time</option>
-							</select>
-						</div>
-						<div class="form-control">
-							<label class="label">Image URL</label>
-							<input class="input input-bordered" type="text" placeholder="Enter image URL"/>
-						</div>
-					</div>
-				</div>
-				<input
-					id="event-add-edit-tab-location"
-					name="event-add-edit-tabs"
-					type="radio"
-					role="tab"
-					class="tab"
-					aria-label="Location"
-				/>
-				<div id="location" class="tab-content" role="tabpanel">
-					<div class="card">
-						<h2 class="card-title">Location Details</h2>
-						<div class="form-control">
-							<label class="label">Address</label>
-							<textarea class="textarea textarea-bordered" placeholder="Enter full address"></textarea>
-						</div>
-						<div class="grid grid-2">
-							<div class="form-control">
-								<label class="label">Latitude</label>
-								<input class="input input-bordered" type="number" step="any" placeholder="Enter latitude"/>
-							</div>
-							<div class="form-control">
-								<label class="label">Longitude</label>
-								<input class="input input-bordered" type="number" step="any" placeholder="Enter longitude"/>
-							</div>
-						</div>
-					</div>
-				</div>
-				<input
-					id="event-add-edit-tab-pricing"
-					name="event-add-edit-tabs"
-					type="radio"
-					role="tab"
-					class="tab"
-					aria-label="Pricing"
-				/>
-				<div id="pricing" class="tab-content" role="tabpanel" aria-hidden="true">
-					<div class="card">
-						<h2 class="card-title">Pricing & Registration</h2>
-						<div class="form-control w-52">
-							<label class="label cursor-pointer">
-								<span class="label-text">Enable Event Registration</span>
-								<input name="hasRegistrationFields" type="checkbox" class="toggle toggle-primary"/>
-							</label>
-						</div>
-						<div class="form-control w-52">
-							<label class="label cursor-pointer">
-								<span class="label-text">Enable Purchasable Items</span>
-								<input name="hasPurchasable" type="checkbox" class="toggle toggle-primary"/>
-							</label>
-						</div>
-						<div :class="hasPurchasable ? 'grid grid-2' : 'hidden'">
-							<div class="form-control">
-								<label class="label">Starting Price</label>
-								<input class="input" type="number" step="0.01" placeholder="Enter starting price"/>
-							</div>
-							<div class="form-control">
-								<label class="label">Currency</label>
-								<select class="select">
-									<option value="">Select currency</option>
-									<option value="usd">USD</option>
-									<option value="eur">EUR</option>
-									<option value="gbp">GBP</option>
-								</select>
-							</div>
-						</div>
-					</div>
-				</div>
+			<div class="form-control">
+				<label class="label">Tags</label>
+				<div class="tags" id="tagsList"></div>
+				<input class="input input-bordered" type="text" id="tagInput" placeholder="Add tags (press Enter)"/>
 			</div>
 		</div>
 		<div class="card">
-			<h2 class="card-title">System Information</h2>
-			<div class="grid grid-2 system-info">
-				<div>
-					<p>Created At: 2024-01-01 12:00:00</p>
-					<p>Updated At: 2024-01-01 12:00:00</p>
+			<h2 class="card-title">Event Ownership</h2>
+			<div class="form-control">
+				<div class="form-control">
+					<label class="label">Event Owners</label>
+					<div class="tags" id="ownersList"></div>
+					<input class="input input-bordered" type="text" id="ownersInput" placeholder="Add owners (press Enter)"/>
 				</div>
-				<div>
-					<p>Event Source ID: ABC123</p>
-					<p>Event Source Type: INTERNAL</p>
-					<p>Updated By: admin@example.com</p>
+			</div>
+			<div class="form-control">
+				<label class="label" for="eventOwnerName">Owner Display Name</label>
+				<input class="input input-bordered" id="eventOwnerName" type="text" placeholder="Enter owner display name"/>
+			</div>
+		</div>
+	</div>
+	<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Details</h2>
+	<div id="details" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<div class="card">
+			<div class="grid grid-2">
+				<div class="form-control">
+					<label class="label">Start Date & Time</label>
+					<input class="input input-bordered" type="datetime-local"/>
+				</div>
+				<div class="form-control">
+					<label class="label">End Date & Time</label>
+					<input class="input input-bordered" type="datetime-local"/>
+				</div>
+			</div>
+			<div class="form-control">
+				<label class="label">Timezone</label>
+				<select class="select select-bordered">
+					<option value="">Select timezone</option>
+					<option value="et">Eastern Time</option>
+					<option value="ct">Central Time</option>
+					<option value="mt">Mountain Time</option>
+					<option value="pt">Pacific Time</option>
+				</select>
+			</div>
+			<div class="form-control">
+				<label class="label">Image URL</label>
+				<input class="input input-bordered" type="text" placeholder="Enter image URL"/>
+			</div>
+		</div>
+	</div>
+	<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Location Details</h2>
+	<div id="location" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<div class="card">
+			<h2 class="card-title">Location Details</h2>
+			<div class="form-control">
+				<label class="label">Address</label>
+				<textarea class="textarea textarea-bordered" placeholder="Enter full address"></textarea>
+			</div>
+			<div class="grid grid-2">
+				<div class="form-control">
+					<label class="label">Latitude</label>
+					<input class="input input-bordered" type="number" step="any" placeholder="Enter latitude"/>
+				</div>
+				<div class="form-control">
+					<label class="label">Longitude</label>
+					<input class="input input-bordered" type="number" step="any" placeholder="Enter longitude"/>
 				</div>
 			</div>
 		</div>
 	</div>
+	<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Pricing & Registration</h2>
+	<div id="pricing" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<div class="card">
+			<h2 class="card-title">Pricing & Registration</h2>
+			<div class="form-control w-52">
+				<label class="label cursor-pointer">
+					<span class="label-text">Enable Event Registration</span>
+					<input name="hasRegistrationFields" type="checkbox" class="toggle toggle-primary"/>
+				</label>
+			</div>
+			<div class="form-control w-52">
+				<label class="label cursor-pointer">
+					<span class="label-text">Enable Purchasable Items</span>
+					<input name="hasPurchasable" type="checkbox" class="toggle toggle-primary"/>
+				</label>
+			</div>
+			<div :class="hasPurchasable ? 'grid grid-2' : 'hidden'">
+				<div class="form-control">
+					<label class="label">Starting Price</label>
+					<input class="input" type="number" step="0.01" placeholder="Enter starting price"/>
+				</div>
+				<div class="form-control">
+					<label class="label">Currency</label>
+					<select class="select">
+						<option value="">Select currency</option>
+						<option value="usd">USD</option>
+						<option value="eur">EUR</option>
+						<option value="gbp">GBP</option>
+					</select>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
+		<button class="btn btn-outline">Cancel</button>
+		<button class="btn btn-primary mx-4">Publish</button>
+		<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+			<div class="modal-box">
+				<h3 class="text-lg font-bold">YAY!</h3>
+				<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+				<form method="dialog" class="modal-backdrop">
+					<!-- if there is a button in form, it will close the modal -->
+					<button class="btn btn-primary">Close</button>
+				</form>
+			</div>
+		</dialog>
+	</div>
+	// 	<div class="bottom-drawer">
+	// 		<div class="container mx-auto">
+	// 			<button class="btn btn-block btn-primary">Cancel</button>
+	// 			<br/>
+	// 			<br/>
+	// 			<button class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Save Changes</button>
+	// 			<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+	// 				<div class="modal-box">
+	// 					<h3 class="text-lg font-bold">YAY!</h3>
+	// 					<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+	// 					<form method="dialog" class="modal-backdrop">
+	// 						<!-- if there is a button in form, it will close the modal -->
+	// 						<button class="btn btn-primary">Close</button>
+	// 					</form>
+	// 				</div>
+	// 			</dialog>
+	// 		</div>
+	// 	</div>
+	// </div>
 	<script>
         // Tag management
         const tagInput = document.getElementById('tagInput');
@@ -267,7 +175,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage) {
 
         function renderTags() {
             tagsList.innerHTML = tags.map(tag =>
-                `<span class="tag" onclick="removeTag('${tag}')">${tag} x</span>`
+                `<span class="tag badge badge-neutral mr-2 mb-4" onclick="removeTag('${tag}')">${tag} x</span>`
             ).join('');
         }
 
@@ -287,7 +195,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage) {
 
         function renderOwners() {
             ownersList.innerHTML = owners.map(owner =>
-                `<span class="tag" onclick="removeOwner('${owner}')">${owner} x</span>`
+                `<span class="tag badge badge-neutral mr-2 mb-4" onclick="removeOwner('${owner}')">${owner} x</span>`
             ).join('');
         }
 

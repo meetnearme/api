@@ -28,6 +28,22 @@
   }
 }
 
+body:has(.bottom-drawer) {
+  padding-bottom: 10rem;
+}
+
+.sticky-under-top-nav {
+  top: 4.5rem;
+}
+
+.sticky-under-top-nav.subheader {
+  top: 8rem;
+}
+
+.sticky-under-top-nav + *:first-child {
+  margin-top: 4.5rem;
+}
+
 .brand-logo {
   width: 3rem;
   height: 4.5rem;
