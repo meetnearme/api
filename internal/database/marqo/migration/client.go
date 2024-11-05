@@ -74,8 +74,6 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
     url := fmt.Sprintf("%s/indexes/%s", c.baseURL, indexName)
     fmt.Printf("Full request URL: %s\n", url)
 
-	schema["indexName"] = indexName
-
 	// Convert schema to proper request format
 	req, err := CreateIndexRequestFromSchema(schema)
 	if err != nil {
