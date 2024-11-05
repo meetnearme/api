@@ -60,7 +60,7 @@ jobs:
         MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
       run: |
         echo "Starting migration for ${{ inputs.environment }} environment"
-        cd api/internal/database/marqo/migration/
+        cd internal/database/marqo/migration/
         ./marqo-migration \
           -env ${{ inputs.environment }} \
           -schema "./internal/database/marqo/migration/schema.json" \
