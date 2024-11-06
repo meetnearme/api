@@ -28,6 +28,10 @@
   }
 }
 
+body {
+  padding-top: 5rem;
+}
+
 body:has(.bottom-drawer) {
   padding-bottom: 10rem;
 }
@@ -37,7 +41,7 @@ body:has(.bottom-drawer) {
 }
 
 .sticky-under-top-nav.subheader {
-  top: 8rem;
+  top: 8.5rem;
 }
 
 .sticky-under-top-nav + *:first-child {

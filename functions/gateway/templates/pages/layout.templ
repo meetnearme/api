@@ -28,7 +28,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 				<script defer src="https://cloud.umami.is/script.js" data-website-id="bdab8c3c-5643-4045-95af-0ce95c104ab9"></script>
 			}
 		</head>
-		<body class="overflow-hidden">
+		<body class="h-[calc(100vh)] overflow-y-auto">
 			<div id="top-loading-bar" class="hidden fixed top-0 left-0 w-0 h-[3px] bg-[#00ff00] transition-[width] duration-300 ease-out z-[9999]"></div>
 			@components.Navbar(userInfo, sitePage.SubnavItems, event) {
 				<div class="container mx-auto">
