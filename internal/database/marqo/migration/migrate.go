@@ -63,9 +63,14 @@ func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]int
 
 func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[string]interface{}) error {
     // Create the new index
-    if err := m.targetClient.CreateStructuredIndex(targetIndex, schema); err != nil {
+	endpoint, err := m.targetClient.CreateStructuredIndex(targetIndex, schema)
+    if err != nil {
         return fmt.Errorf("failed to create target index: %w", err)
     }
+
+	// Update target client with new endpoint
+	m.targetClient = NewMarqoClient(endpoint, m.targetClient.apiKey)
+	fmt.Printf("Using target endpoint: %s\n", endpoint)
 
 	type batchResult struct {
 		count int

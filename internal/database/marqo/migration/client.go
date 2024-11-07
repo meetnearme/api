@@ -16,6 +16,17 @@ type MarqoClient struct {
 	client  *http.Client
 }
 
+type IndexInfo struct {
+	IndexName string `json:"indexName"`
+	IndexStatus string `json:"indexStatus"`
+	MarqoEndpoint string `json:"marqoEndpoint"`
+	Created string `json:"Created"`
+}
+
+type ListIndexesResponse struct {
+	Results []IndexInfo `json:"results"`
+}
+
 func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
 	// Ensure baseURL ends with /api/v2
 	baseURL = strings.TrimRight(baseURL, "/")
@@ -66,7 +77,7 @@ type Parameters struct {
 	M              int `json:"m"`
 }
 
-func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]interface{}) error {
+func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]interface{}) (string, error) {
 	fmt.Printf("Creating index at URL: %s\n", c.baseURL)
 	url := fmt.Sprintf("https://api.marqo.ai/api/v2/indexes/%s", indexName)
     fmt.Printf("Full request URL: %s\n", url)
@@ -74,7 +85,7 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
 	// Convert schema to proper request format
 	req, err := CreateIndexRequestFromSchema(schema)
 	if err != nil {
-		return fmt.Errorf("failed to create index request: %w", err)
+		return "", fmt.Errorf("failed to create index request: %w", err)
 	}
 
 	// Set required fields if not present
@@ -96,14 +107,14 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	fmt.Printf("Request body:\n%s\n", string(body))
 
 	request, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	request.Header.Set("Content-Type", "application/json")
@@ -111,19 +122,24 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
 
 	resp, err := c.client.Do(request)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
+		return "", fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to create index: status=%d body=%s",
+		return "", fmt.Errorf("failed to create index: status=%d body=%s",
 			resp.StatusCode, string(bodyBytes))
 	}
 
-	fmt.Printf("resp for create index: %v", resp)
+	fmt.Printf("Index creation initiated, waiting for index to be ready...\n")
 
-	return nil
+	endpoint, err := c.waitForIndexReady(indexName, 2*time.Minute)
+	if err != nil {
+		return "", fmt.Errorf("failed waiting for index: %w", err)
+	}
+
+	return endpoint, nil
 }
 
 // Helper function to create a structured index request from schema
@@ -276,4 +292,43 @@ func (c *MarqoClient) addHeaders(req *http.Request) {
     // Add CSRF protection headers
     req.Header.Set("X-Requested-With", "XMLHttpRequest")
     req.Header.Set("Origin", "https://api.marqo.ai")
+}
+
+func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration) (string, error) {
+	start := time.Now()
+	for {
+		if time.Since(start) > timeout {
+			return "", fmt.Errorf("timeout waiting for index %s to be ready", indexName)
+		}
+
+		url := "https://api.marqo.ai/api/v2/indexes"
+		req, err :=  http.NewRequest("GET", url, nil)
+		if err != nil {
+			return "", err
+		}
+
+		c.addHeaders(req)
+		resp, err := c.client.Do(req)
+		if err != nil {
+			return "", err
+		}
+
+		var result ListIndexesResponse
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			resp.Body.Close()
+			return "", err
+		}
+		resp.Body.Close()
+
+		for _, idx := range result.Results {
+			if idx.IndexName == indexName {
+				if idx.IndexStatus == "READY" {
+					return idx.MarqoEndpoint, nil
+				}
+				break
+			}
+		}
+
+		time.Sleep(2 * time.Second)
+	}
 }
