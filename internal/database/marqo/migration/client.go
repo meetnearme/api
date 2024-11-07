@@ -144,9 +144,21 @@ func CreateIndexRequestFromSchema(schema map[string]interface{}) (*CreateIndexRe
 // Add these methods to MarqoClient
 
 func (c *MarqoClient) Search(indexName string, query string, offset, limit int) ([]map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/api/v2/indexes/%s/documents?offset=%d&limit=%d", c.baseURL, indexName, offset, limit)
+	url := fmt.Sprintf("%s/api/v2/indexes/%s/search", c.baseURL, indexName)
 
-	req, err := http.NewRequest("GET", url, nil)
+	requestBody := map[string]interface{}{
+		"q": "*", // use wildcard or empty query to retrieve all documents
+		"limit": limit,
+		"offset": offset,
+		"searchMethod": "TENSOR", // may need to change this search method
+	}
+
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
