@@ -144,19 +144,9 @@ func CreateIndexRequestFromSchema(schema map[string]interface{}) (*CreateIndexRe
 // Add these methods to MarqoClient
 
 func (c *MarqoClient) Search(indexName string, query string, offset, limit int) ([]map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/api/v2/indexes/%s/documents", c.baseURL, indexName)
+	url := fmt.Sprintf("%s/api/v2/indexes/%s/documents?offset=%d&limit=%d", c.baseURL, indexName, offset, limit)
 
-	requestBody := map[string]interface{}{
-		"offset": offset,
-		"limit":  limit,
-	}
-
-	body, err := json.Marshal(requestBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal search request: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -169,12 +159,8 @@ func (c *MarqoClient) Search(indexName string, query string, offset, limit int) 
 	}
 	defer resp.Body.Close()
 
-	// Debug response
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	fmt.Printf("Response status: %d\n", resp.StatusCode)
-    fmt.Printf("Response body: %s\n", string(bodyBytes))
-
     if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
         return nil, fmt.Errorf("request failed: status=%d body=%s",
             resp.StatusCode, string(bodyBytes))
     }
