@@ -20,8 +20,6 @@ func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
 	// Ensure baseURL ends with /api/v2
 	baseURL = strings.TrimRight(baseURL, "/")
 
-	baseURL = "https://api.marqo.ai/api/v2"
-
 	return &MarqoClient{
 		baseURL: baseURL,
 		apiKey:  apiKey,
@@ -145,6 +143,7 @@ func CreateIndexRequestFromSchema(schema map[string]interface{}) (*CreateIndexRe
 
 func (c *MarqoClient) Search(indexName string, query string, offset, limit int) ([]map[string]interface{}, error) {
 	url := fmt.Sprintf("%s/indexes/%s/search", c.baseURL, indexName)
+	fmt.Printf("URL: %v", url)
 
 	requestBody := map[string]interface{}{
 		"q": "*", // use wildcard or empty query to retrieve all documents
