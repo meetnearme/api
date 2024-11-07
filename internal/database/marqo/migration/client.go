@@ -68,7 +68,7 @@ type Parameters struct {
 
 func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]interface{}) error {
 	fmt.Printf("Creating index at URL: %s\n", c.baseURL)
-	url := fmt.Sprintf("https://api.marqo.ai/api/indexes/indexes/%s", indexName)
+	url := fmt.Sprintf("https://api.marqo.ai/api/v2/indexes/%s", indexName)
     fmt.Printf("Full request URL: %s\n", url)
 
 	// Convert schema to proper request format
