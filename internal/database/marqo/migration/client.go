@@ -78,9 +78,8 @@ type Parameters struct {
 }
 
 func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]interface{}) (string, error) {
-	fmt.Printf("Creating index at URL: %s\n", c.baseURL)
 	url := fmt.Sprintf("https://api.marqo.ai/api/v2/indexes/%s", indexName)
-    fmt.Printf("Full request URL: %s\n", url)
+	fmt.Printf("Creating index at URL: %s\n", url)
 
 	// Convert schema to proper request format
 	req, err := CreateIndexRequestFromSchema(schema)
@@ -210,7 +209,7 @@ func (c *MarqoClient) Search(indexName string, query string, offset, limit int) 
 }
 
 func (c *MarqoClient) UpsertDocuments(indexName string, documents []map[string]interface{}) error {
-	url := fmt.Sprintf("%s/api/v2/indexes/%s/documents", c.baseURL, indexName)
+	url := fmt.Sprintf("%s/indexes/%s/documents", c.baseURL, indexName)
 
 	body, err := json.Marshal(documents)
 	if err != nil {
