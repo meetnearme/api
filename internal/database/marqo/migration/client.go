@@ -210,8 +210,13 @@ func (c *MarqoClient) Search(indexName string, query string, offset, limit int) 
 
 func (c *MarqoClient) UpsertDocuments(indexName string, documents []map[string]interface{}) error {
 	url := fmt.Sprintf("%s/indexes/%s/documents", c.baseURL, indexName)
+	fmt.Printf("Upserting documents to URL: %s\n", url)
 
-	body, err := json.Marshal(documents)
+	requestBody := map[string]interface{} {
+		"documents": documents,
+	}
+
+	body, err := json.Marshal(requestBody)
 	if err != nil {
 		return fmt.Errorf("failed to marshal documents: %w", err)
 	}
