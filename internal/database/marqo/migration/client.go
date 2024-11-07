@@ -174,6 +174,8 @@ func (c *MarqoClient) Search(indexName string, query string, offset, limit int) 
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
+	fmt.Printf("Response body: %s\n", string(bodyBytes))
+
     if resp.StatusCode != http.StatusOK {
         return nil, fmt.Errorf("request failed: status=%d body=%s",
             resp.StatusCode, string(bodyBytes))
@@ -182,7 +184,7 @@ func (c *MarqoClient) Search(indexName string, query string, offset, limit int) 
 	var result struct {
 		Hits []map[string]interface{} `json:"hits"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
