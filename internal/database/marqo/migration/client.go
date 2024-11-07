@@ -161,8 +161,7 @@ func (c *MarqoClient) Search(indexName string, query string, offset, limit int) 
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", c.apiKey)
+	c.addHeaders(req)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -203,8 +202,7 @@ func (c *MarqoClient) UpsertDocuments(indexName string, documents []map[string]i
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", c.apiKey)
+	c.addHeaders(req)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -265,4 +263,13 @@ func (c *MarqoClient) ListIndexes() ([]string, error) {
 	}
 
 	return indexes, nil
+}
+
+func (c *MarqoClient) addHeaders(req *http.Request) {
+    req.Header.Set("Content-Type", "application/json")
+    req.Header.Set("x-api-key", c.apiKey)
+    req.Header.Set("Accept", "application/json")
+    // Add CSRF protection headers
+    req.Header.Set("X-Requested-With", "XMLHttpRequest")
+    req.Header.Set("Origin", "https://api.marqo.ai")
 }
