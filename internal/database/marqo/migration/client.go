@@ -134,7 +134,7 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
 
 	fmt.Printf("Index creation initiated, waiting for index to be ready...\n")
 
-	endpoint, err := c.waitForIndexReady(indexName, 3*time.Minute)
+	endpoint, err := c.waitForIndexReady(indexName, 5*time.Minute)
 	if err != nil {
 		return "", fmt.Errorf("failed waiting for index: %w", err)
 	}
