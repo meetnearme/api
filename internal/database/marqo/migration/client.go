@@ -121,6 +121,8 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
 			resp.StatusCode, string(bodyBytes))
 	}
 
+	fmt.Printf("resp for create index: %v", resp)
+
 	return nil
 }
 
