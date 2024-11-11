@@ -13,15 +13,15 @@ var TransformerRegistry = map[string]TransformFunc{
         }
         return doc, nil
     },
-    "tensor_weights": func(doc map[string]interface{}) (map[string]interface{}, error) {
-        // Implement the actual tensor weights transformation
-        if _, ok := doc["name"].(string); ok {
-            doc["_tensor_weights"] = map[string]float64{
-                "name": 0.3,
-                "description": 0.5,
-                "address": 0.2,
-            }
-        }
-        return doc, nil
-    },
+    // "tensor_weights": func(doc map[string]interface{}) (map[string]interface{}, error) {
+    //     // Implement the actual tensor weights transformation
+    //     if _, ok := doc["name"].(string); ok {
+    //         doc["_tensor_weights"] = map[string]float64{
+    //             "name": 0.3,
+    //             "description": 0.5,
+    //             "address": 0.2,
+    //         }
+    //     }
+    //     return doc, nil
+    // },
 }
