@@ -5,9 +5,12 @@ type TransformFunc func(map[string]interface{}) (map[string]interface{}, error)
 
 // TransformerRegistry holds all available transformers
 var TransformerRegistry = map[string]TransformFunc{
-    "test_transformer": func(doc map[string]interface{}) (map[string]interface{}, error) {
-        // Add a test field to verify transformation
-        doc["_test_migration"] = true
+	"name_transformer": func(doc map[string]interface{}) (map[string]interface{}, error) {
+        // Check if the "name" field exists and is a string
+        if name, ok := doc["name"].(string); ok {
+            // Modify the "name" field
+            doc["name"] = name + " - transformed"
+        }
         return doc, nil
     },
     "tensor_weights": func(doc map[string]interface{}) (map[string]interface{}, error) {
