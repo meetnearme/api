@@ -234,9 +234,28 @@ func (c *MarqoClient) UpsertDocuments(indexName string, documents []map[string]i
 	}
 	defer resp.Body.Close()
 
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	fmt.Printf("Upsert response status: %d\n", resp.StatusCode)
+	fmt.Printf("Upsert response body: %s\n", string(bodyBytes))
+
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to upsert documents: status=%d body=%s", resp.StatusCode, string(body))
+	}
+
+	// Parse response to verify success
+	var result map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
+		return fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Add verification of the response content here
+	if errors, ok := result["errors"].([]interface{}); ok && len(errors) > 0 {
+		return fmt.Errorf("upsert had errors: %v", errors)
 	}
 
 	return nil
