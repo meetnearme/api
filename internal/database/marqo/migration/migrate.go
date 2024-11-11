@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 
@@ -47,8 +48,22 @@ func NewMigrator(sourceURL, targetURL, apiKey string, batchSize int, transformer
     }, nil
 }
 
+func removeProtectedFields(doc map[string]interface{}) map[string]interface{} {
+	// Create a new map for the cleaned document
+	cleaned := make(map[string]interface{})
+
+	// Copy all fields except protected ones (those starting with _)
+	for key, value := range doc {
+		if !strings.HasPrefix(key, "_") {
+			cleaned[key] = value
+		}
+	}
+
+	return cleaned
+}
+
 func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]interface{}, error) {
-    result := doc
+    result := removeProtectedFields(doc)
     var err error
 
     for _, transformer := range m.transformers {
