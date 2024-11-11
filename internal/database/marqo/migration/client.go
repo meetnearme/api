@@ -133,7 +133,7 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
 
 	fmt.Printf("Index creation initiated, waiting for index to be ready...\n")
 
-	endpoint, err := c.waitForIndexReady(indexName, 7*time.Minute)
+	endpoint, err := c.waitForIndexReady(indexName, 15*time.Minute)
 	if err != nil {
 		return "", fmt.Errorf("failed waiting for index: %w", err)
 	}
@@ -300,6 +300,11 @@ func (c *MarqoClient) addHeaders(req *http.Request) {
 
 func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration) (string, error) {
 	start := time.Now()
+	checkInterval := 10 * time.Second
+	maxAttempts := int(timeout / checkInterval)
+	attempt := 1
+
+	fmt.Printf("Waiting for index %s to be ready (max %v)...\n", indexName, timeout)
 	for {
 		if time.Since(start) > timeout {
 			return "", fmt.Errorf("timeout waiting for index %s to be ready", indexName)
@@ -314,18 +319,25 @@ func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration)
 		c.addHeaders(req)
 		resp, err := c.client.Do(req)
 		if err != nil {
-			return "", err
+			fmt.Printf("Attempt %d/%d: Error checking index status: %v\n", attempt, maxAttempts, err)
+			time.Sleep(checkInterval)
+			attempt++
+			continue
 		}
 
 		var result ListIndexesResponse
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			resp.Body.Close()
-			return "", err
+			fmt.Printf("Attempt %d/%d: Error decoding response: %v\n", attempt, maxAttempts, err)
+			time.Sleep(checkInterval)
+			attempt++
+			continue
 		}
 		resp.Body.Close()
 
 		for _, idx := range result.Results {
 			if idx.IndexName == indexName {
+				fmt.Printf("Attempt %d/%d: Index status: %s\n", attempt, maxAttempts, idx.IndexStatus)
 				if idx.IndexStatus == "READY" {
 					return idx.MarqoEndpoint, nil
 				}
@@ -333,6 +345,8 @@ func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration)
 			}
 		}
 
-		time.Sleep(2 * time.Second)
+		fmt.Printf("Attempt %d/%d: Index not ready yet, waiting %v...\n", attempt, maxAttempts, checkInterval)
+		time.Sleep(checkInterval)
+		attempt++
 	}
 }
