@@ -13,7 +13,7 @@ on:
       transformers:
         description: 'Comma-separated list of transformers to apply'
         required: false
-        default: 'test_transformer'
+        default: ''
         type: string
       batch_size:
         description: 'Batch size for migration'
