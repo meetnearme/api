@@ -87,7 +87,7 @@ func HashIDtoImgRange(id string, num int) int {
 }
 
 func GetImgUrlFromHash(event types.Event) string {
-	baseUrl := os.Getenv("STATIC_BASE_URL") + "/assets/img/";
+	baseUrl := os.Getenv("STATIC_BASE_URL") + "/assets/img/"
 	noneCatImgCount := 18
 	catNumString := "_"
 	if len(event.Categories) > 0 {
@@ -98,17 +98,17 @@ func GetImgUrlFromHash(event types.Event) string {
 		}
 		catImgCountRange := 0
 		switch firstCat {
-			case "none":
-				catImgCountRange = noneCatImgCount
-			case "karaoke":
-				catImgCountRange = 4
-			case "bocce-ball":
-				catImgCountRange = 4
-			case "trivia-night":
-				catImgCountRange = 4
+		case "none":
+			catImgCountRange = noneCatImgCount
+		case "karaoke":
+			catImgCountRange = 4
+		case "bocce-ball":
+			catImgCountRange = 4
+		case "trivia-night":
+			catImgCountRange = 4
 		}
 		imgNum := HashIDtoImgRange(event.Id, catImgCountRange)
-		if (imgNum < 10) {
+		if imgNum < 10 {
 			catNumString = catNumString + "0"
 		}
 
@@ -116,13 +116,13 @@ func GetImgUrlFromHash(event types.Event) string {
 		return baseUrl + imgName
 	}
 	imgNum := HashIDtoImgRange(event.Id, noneCatImgCount)
-	if (imgNum < 10) {
+	if imgNum < 10 {
 		catNumString = catNumString + "0"
 	}
 	return baseUrl + "cat_none" + catNumString + fmt.Sprint(imgNum) + ".jpeg"
 }
 
-func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata map[string]string) error {
+func SetCloudflareKV(w http.ResponseWriter, r *http.Request, subdomainValue, userID, userMetadataKey string, metadata map[string]string) error {
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
 
@@ -148,19 +148,14 @@ func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata ma
 		return fmt.Errorf(ERR_KV_KEY_EXISTS)
 	}
 
-	existingUserSubdomain, err := GetUserMetadataByKey(userID, userMetadataKey)
+	userMeta, err := GetUserMetadataByID(r, userID, userMetadataKey)
 	if err != nil {
 		return fmt.Errorf("error getting user metadata key: %w", err)
 	}
-	// Decode the base64 encoded existingUserSubdomain
-	decodedValue, err := base64.StdEncoding.DecodeString(existingUserSubdomain)
-	if err != nil {
-		return fmt.Errorf("error decoding base64 existingUserSubdomain: %w", err)
-	}
-	existingUserSubdomain = string(decodedValue)
+	existingUserSubdomain := userMeta[userMetadataKey]
 
 	// Next check if the user already has a subdomain set
-	err = UpdateUserMetadataKey(userID, userMetadataKey, subdomainValue)
+	err = UpdateUserMetadataKey(w, r, userID, userMetadataKey, subdomainValue)
 	if err != nil {
 		return fmt.Errorf("error updating user metadata: %w", err)
 	}
@@ -239,14 +234,13 @@ func DeleteCloudflareKV(subdomainValue, userID string) error {
 	return nil
 }
 
-func GetUserMetadataByKey(userID, key string) (string, error) {
-	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
+func GetUserMetadataByID(r *http.Request, userID, key string) (map[string]string, error) {
 	method := "GET"
 
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
@@ -254,44 +248,71 @@ func GetUserMetadataByKey(userID, key string) (string, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var respData map[string]interface{}
 	if err := json.Unmarshal(body, &respData); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if len(respData) == 0 || respData["metadata"] == nil {
-		log.Printf("respData is empty or nil")
-		return "", nil
+		return make(map[string]string), nil
 	}
+
 	metadata, ok := respData["metadata"].(map[string]interface{})
 	if !ok {
-		return "", fmt.Errorf("metadata is not of type map[string]interface{}")
+		return nil, fmt.Errorf("metadata is not of type map[string]interface{}")
 	}
 
 	value, ok := metadata["value"].(string)
 	if !ok {
-		return "", fmt.Errorf("value is not of type string")
+		return nil, fmt.Errorf("value is not of type string")
 	}
 
-	return value, nil
+	// Decode the base64 value
+	decodedValue, err := base64.StdEncoding.DecodeString(value)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding base64 value: %w", err)
+	}
+
+	// Parse the JSON string into a map
+	var metadataMap map[string]string
+	if err := json.Unmarshal(decodedValue, &metadataMap); err != nil {
+		return nil, fmt.Errorf("error unmarshaling JSON metadata: %w", err)
+	}
+
+	return metadataMap, nil
 }
 
-func UpdateUserMetadataKey(userID, key, value string) error {
-	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
-	method := "POST"
+func UpdateUserMetadataKey(w http.ResponseWriter, r *http.Request, userID, key, value string) error {
+	// Get existing metadata
+	existingMetadata, err := GetUserMetadataByID(r, userID, key)
+	if err != nil {
+		existingMetadata = make(map[string]string)
+	}
 
-	payload := strings.NewReader(`{
-		"value": "` + base64.StdEncoding.EncodeToString([]byte(value)) + `"
-	}`)
+	// Update the specific key
+	existingMetadata[key] = value
+
+	// Convert map to JSON
+	jsonData, err := json.Marshal(existingMetadata)
+	if err != nil {
+		return fmt.Errorf("error marshaling metadata: %w", err)
+	}
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+        "value": "%s"
+    }`, base64.StdEncoding.EncodeToString(jsonData)))
+
+	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, ZITADEL_METADATA_KEY)
+	method := "POST"
 
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, payload)
@@ -332,11 +353,11 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 
 func ArrFindFirst(slice []string, items []string) string {
 	for _, s := range slice {
-			for _, item := range items {
-					if s == item {
-							return s
-					}
+		for _, item := range items {
+			if s == item {
+				return s
 			}
+		}
 	}
 	return ""
 }

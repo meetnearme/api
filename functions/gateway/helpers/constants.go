@@ -21,8 +21,8 @@ const MOCK_ZITADEL_HOST = "localhost:8998"
 const MOCK_MARQO_URL = "http://localhost:8997"
 
 const JWT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-
 const PROJECT_ID_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
+const ZITADEL_METADATA_KEY = "meta"
 
 type UserInfo struct {
 	Email             string `json:"email"`
@@ -74,7 +74,7 @@ var SitePages = map[string]SitePage{
 	"about":            {Slug: "/about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
 	"profile":          {Slug: "/admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
 	"add-event-source": {Slug: "/admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
-	"settings":         {Slug: "/admin/settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
+	"settings":         {Slug: "/admin/profile/settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
 	"map-embed":        {Slug: "/map-embed", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
 	"event-detail":     {Slug: "/events/{" + EVENT_ID_KEY + "}", Name: "Event Details", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
 	"add-event":        {Slug: "/admin/event/new", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},

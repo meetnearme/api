@@ -221,7 +221,7 @@ func (app *App) addRoute(route Route) {
 			// Use the Authorizer to introspect the access token
 			authCtx, err := app.AuthZ.CheckAuthorization(r.Context(), accessToken)
 			if err != nil {
-				http.Error(w, "Unauthorized: Invalid access token", http.StatusUnauthorized)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
 				return
 			}
 
@@ -231,12 +231,12 @@ func (app *App) addRoute(route Route) {
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
 			if err != nil {
-				http.Error(w, "Unauthorized: Unable to fetch user information", http.StatusUnauthorized)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
 				return
 			}
 			err = json.Unmarshal(data, &userInfo)
 			if err != nil {
-				http.Error(w, "Unauthorized: Unable to fetch user information", http.StatusUnauthorized)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
 				return
 			}
 			ctx := context.WithValue(r.Context(), "userInfo", userInfo)

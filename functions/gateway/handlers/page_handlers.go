@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
@@ -249,21 +248,12 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	var userInterests []string = []string{}
-	var interestMetadataBytes []byte
-
-	interestMetadataValue, err := helpers.GetUserMetadataByKey(userInfo.Sub, helpers.INTERESTS_KEY)
+	userMeta, err := helpers.GetUserMetadataByID(r, userInfo.Sub, helpers.INTERESTS_KEY)
 	if err != nil {
 		log.Printf("Failed to fetch user interests metadata: %v", err)
-	} else {
-		interestMetadataBytes, err = base64.StdEncoding.DecodeString(interestMetadataValue)
 	}
-
-	if err != nil {
-		log.Printf("Failed to decode user interests metadata: %v", err)
-	} else {
-		userInterests = strings.Split(string(interestMetadataBytes), "|")
-	}
-
+	interestMetadataValue := userMeta[helpers.INTERESTS_KEY]
+	userInterests = strings.Split(interestMetadataValue, "|")
 	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests)
 	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, types.Event{})
 	var buf bytes.Buffer
@@ -281,8 +271,6 @@ func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.Handler
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
-	// roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
-
 	settingsPage := pages.ProfileSettingsPage()
 	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, types.Event{})
 

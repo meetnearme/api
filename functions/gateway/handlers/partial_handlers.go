@@ -62,10 +62,10 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	// Call Cloudflare KV store to save the subdomain
 	metadata := map[string]string{"": ""}
-	err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
+	err = helpers.SetCloudflareKV(w, r, inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
 	if err != nil {
 		if err.Error() == helpers.ERR_KV_KEY_EXISTS {
-			return transport.SendHtmlError(w, []byte("Subdomain already taken"), http.StatusInternalServerError)
+			return transport.SendHtmlError(w, []byte("Subdomain already taken"), http.StatusConflict)
 		} else {
 			return transport.SendHtmlError(w, []byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
 		}
@@ -558,7 +558,7 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 	flattenedCategoriesString := strings.Join(flattenedCategories, "|")
 
-	err := helpers.UpdateUserMetadataKey(userID, helpers.INTERESTS_KEY, flattenedCategoriesString)
+	err := helpers.UpdateUserMetadataKey(w, r, userID, helpers.INTERESTS_KEY, flattenedCategoriesString)
 	if err != nil {
 		return transport.SendHtmlError(w, []byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
 	}
