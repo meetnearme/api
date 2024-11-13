@@ -60,7 +60,7 @@ func main() {
 		}
 	}
 
-	migrator, err := NewMigrator(sourceURL, targetURL, apiKey, *batchSize, transformerNames)
+	migrator, err := NewMigrator(sourceURL, targetURL, apiKey, *batchSize, transformerNames, schema)
 	if err != nil {
 		fmt.Printf("Failed to create migrator, %v\n", err)
 		os.Exit(1)

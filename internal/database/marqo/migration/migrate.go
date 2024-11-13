@@ -27,9 +27,10 @@ type Migrator struct {
     targetClient  *MarqoClient
     batchSize     int
     transformers  []TransformFunc
+	schema map[string]interface{}
 }
 
-func NewMigrator(sourceURL, targetURL, apiKey string, batchSize int, transformerNames []string) (*Migrator, error) {
+func NewMigrator(sourceURL, targetURL, apiKey string, batchSize int, transformerNames []string, schema map[string]interface{}) (*Migrator, error) {
     // Validate and collect requested transformers
     transformers := make([]TransformFunc, 0, len(transformerNames))
     for _, name := range transformerNames {
@@ -45,16 +46,31 @@ func NewMigrator(sourceURL, targetURL, apiKey string, batchSize int, transformer
         targetClient:  NewMarqoClient(targetURL, apiKey),
         batchSize:     batchSize,
         transformers:  transformers,
+		schema: schema,
     }, nil
 }
 
-func removeProtectedFields(doc map[string]interface{}) map[string]interface{} {
+func getAllowedFields(schema map[string]interface{}) map[string]bool {
+	allowedFields := make(map[string]bool)
+	if allFields, ok := schema["allFields"].([]interface{}); ok {
+		for _, field := range allFields {
+			if fieldMap, ok := field.(map[string]interface{}); ok {
+				if name, ok := fieldMap["name"].(string); ok {
+					allowedFields[name] = true
+				}
+			}
+		}
+	}
+	return allowedFields
+}
+
+func removeProtectedFields(doc map[string]interface{}, allowedFields map[string]bool) map[string]interface{} {
 	// Create a new map for the cleaned document
 	cleaned := make(map[string]interface{})
 
 	// Copy all fields except protected ones (those starting with _)
 	for key, value := range doc {
-		if !strings.HasPrefix(key, "_") {
+		if !strings.HasPrefix(key, "_") && allowedFields[key] {
 			cleaned[key] = value
 		}
 	}
@@ -63,7 +79,8 @@ func removeProtectedFields(doc map[string]interface{}) map[string]interface{} {
 }
 
 func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]interface{}, error) {
-    result := removeProtectedFields(doc)
+	allowedFields := getAllowedFields(m.schema)
+    result := removeProtectedFields(doc, allowedFields)
 
 	// Create the name_description_address field
 	result["name_description_address"] = map[string]interface{} {
