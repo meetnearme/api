@@ -53,10 +53,13 @@ func main() {
 
 	// Split transformers string into slice
 	var transformerNames []string
-	if *transformersList != "" {
+	if *transformersList != "" && !strings.HasPrefix(*transformersList, "-"){
 		transformerNames = strings.Split(*transformersList, ",")
 		for i, name := range transformerNames {
-			transformerNames[i] = strings.TrimSpace(name)
+			name = strings.TrimSpace(name)
+			if !strings.HasPrefix(name, "-") {
+				transformerNames[i] = name
+			}
 		}
 	}
 

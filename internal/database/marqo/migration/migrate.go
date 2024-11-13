@@ -32,14 +32,16 @@ type Migrator struct {
 
 func NewMigrator(sourceURL, targetURL, apiKey string, batchSize int, transformerNames []string, schema map[string]interface{}) (*Migrator, error) {
     // Validate and collect requested transformers
-    transformers := make([]TransformFunc, 0, len(transformerNames))
-    for _, name := range transformerNames {
-        transformer, exists := TransformerRegistry[name]
-        if !exists {
-            return nil, fmt.Errorf("unknown transformer: %s", name)
-        }
-        transformers = append(transformers, transformer)
-    }
+    transformers := make([]TransformFunc, 0)
+	if len(transformerNames) > 0 {
+		for _, name := range transformerNames {
+			transformer, exists := TransformerRegistry[name]
+			if !exists {
+				return nil, fmt.Errorf("unknown transformer: %s", name)
+			}
+			transformers = append(transformers, transformer)
+		}
+	}
 
     return &Migrator{
         sourceClient:  NewMarqoClient(sourceURL, apiKey),
