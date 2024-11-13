@@ -84,14 +84,6 @@ func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]int
 	allowedFields := getAllowedFields(m.schema)
     result := removeProtectedFields(doc, allowedFields)
 
-	// Create the name_description_address field
-	result["name_description_address"] = map[string]interface{} {
-		"name": result["name"],
-		"eventOwnerName": result["eventOwnerName"],
-		"description": result["description"],
-		"address": result["address"],
-	}
-
     var err error
     for _, transformer := range m.transformers {
         result, err = transformer(result)
