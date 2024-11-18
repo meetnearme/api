@@ -74,7 +74,7 @@ var TransformerRegistry = map[string]TransformFunc{
 		}
 
 		// Parse the timestamp as if it were in the local timezone
-		localTime := time.Unix(int64(startTime), 0).In(loc)
+		localTime := time.Unix(int64(startTime), 0)
 
 		// Create a new time using the local components but in the local timezone
 		targetTime := time.Date(
