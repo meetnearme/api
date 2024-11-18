@@ -65,51 +65,56 @@ var TransformerRegistry = map[string]TransformFunc{
 
 		timezone, _ := doc["timezone"].(string)
 		if timezone == "" {
-			timezone = "America/New_York" // set as default timezone
+			timezone = "America/New_York"
 		}
 
-		// Load event's timezone
 		loc, err := time.LoadLocation(timezone)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load timezone %s: %w", timezone, err)
 		}
 
-		utcTime := time.Unix(int64(startTime), 0).UTC()
+		// Parse the timestamp as if it were in the local timezone
+		localTime := time.Unix(int64(startTime), 0).In(loc)
 
-		// Create a new time in the correct timezone
-		// This effectively shifts the time to be correct in the local timezone
+		// Create a new time using the local components but in the local timezone
 		targetTime := time.Date(
-			utcTime.Year(),
-			utcTime.Month(),
-			utcTime.Day(),
-			utcTime.Hour(),
-			utcTime.Minute(),
-			utcTime.Second(),
-			utcTime.Nanosecond(),
+			localTime.Year(),
+			localTime.Month(),
+			localTime.Day(),
+			localTime.Hour(),
+			localTime.Minute(),
+			localTime.Second(),
+			localTime.Nanosecond(),
 			loc,
 		)
 
-		// Convert back to UTC and get the unix timestamp
-		correctedTimestamp := targetTime.UTC().Unix()
+		// Now convert to UTC for storage
+		utcTime := targetTime.UTC()
 
-		// Update the document and get the unix timestamp
-		doc["startTime"] = correctedTimestamp
+		// Store the correct UTC timestamp
+		doc["startTime"] = utcTime.Unix()
 
-		// If endTime exists, correct it too
+		// Handle endTime similarly
 		if endTime, ok := doc["endTime"].(float64); ok {
-			utcEndTime := time.Unix(int64(endTime), 0).UTC()
+			localEndTime := time.Unix(int64(endTime), 0).In(loc)
 			targetEndTime := time.Date(
-				utcEndTime.Year(),
-				utcEndTime.Month(),
-				utcEndTime.Day(),
-				utcEndTime.Hour(),
-				utcEndTime.Minute(),
-				utcEndTime.Second(),
-				utcEndTime.Nanosecond(),
+				localEndTime.Year(),
+				localEndTime.Month(),
+				localEndTime.Day(),
+				localEndTime.Hour(),
+				localEndTime.Minute(),
+				localEndTime.Second(),
+				localEndTime.Nanosecond(),
 				loc,
 			)
 			doc["endTime"] = targetEndTime.UTC().Unix()
 		}
+		// Add this before returning in the transformer
+		fmt.Printf("\nEvent: %s\n", doc["name"])
+		fmt.Printf("Original timestamp: %v\n", time.Unix(int64(startTime), 0).UTC())
+		fmt.Printf("Corrected timestamp: %v\n", utcTime)
+		fmt.Printf("Local time: %v\n", targetTime)
+		fmt.Printf("Timezone: %s\n", timezone)
 
 		return doc, nil
 	},
