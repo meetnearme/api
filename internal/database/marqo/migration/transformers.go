@@ -10,7 +10,7 @@ import (
 type TransformFunc func(map[string]interface{}) (map[string]interface{}, error)
 
 type TimestampInfo struct {
-	OriginalTimestamp int
+	OriginalTimestamp int64
 	UTCTime string
 	LocalTime string
 	Timezone string
