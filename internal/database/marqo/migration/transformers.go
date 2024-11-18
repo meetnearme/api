@@ -57,6 +57,62 @@ var TransformerRegistry = map[string]TransformFunc{
 
 		return doc, nil
 	},
+	"timestamp_correction": func(doc map[string]interface{}) (map[string]interface{}, error) {
+		startTime, ok := doc["startTime"].(float64)
+		if !ok {
+			return doc, nil
+		}
+
+		timezone, _ := doc["timezone"].(string)
+		if timezone == "" {
+			timezone = "America/New_York" // set as default timezone
+		}
+
+		// Load event's timezone
+		loc, err := time.LoadLocation(timezone)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load timezone %s: %w", timezone, err)
+		}
+
+		utcTime := time.Unix(int64(startTime), 0).UTC()
+
+		// Create a new time in the correct timezone
+		// This effectively shifts the time to be correct in the local timezone
+		targetTime := time.Date(
+			utcTime.Year(),
+			utcTime.Month(),
+			utcTime.Day(),
+			utcTime.Hour(),
+			utcTime.Minute(),
+			utcTime.Second(),
+			utcTime.Nanosecond(),
+			loc,
+		)
+
+		// Convert back to UTC and get the unix timestamp
+		correctedTimestamp := targetTime.UTC().Unix()
+
+		// Update the document and get the unix timestamp
+		doc["startTime"] = correctedTimestamp
+
+		// If endTime exists, correct it too
+		if endTime, ok := doc["endTime"].(float64); ok {
+			utcEndTime := time.Unix(int64(endTime), 0).UTC()
+			targetEndTime := time.Date(
+				utcEndTime.Year(),
+				utcEndTime.Month(),
+				utcEndTime.Day(),
+				utcEndTime.Hour(),
+				utcEndTime.Minute(),
+				utcEndTime.Second(),
+				utcEndTime.Nanosecond(),
+				loc,
+			)
+			doc["endTime"] = targetEndTime.UTC().Unix()
+		}
+
+		return doc, nil
+	},
     // "tensor_weights": func(doc map[string]interface{}) (map[string]interface{}, error) {
     //     // Implement the actual tensor weights transformation
     //     if _, ok := doc["name"].(string); ok {
