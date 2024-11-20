@@ -77,7 +77,7 @@ func main() {
 	}
 
 	timestamp := time.Now().UTC().Format("20060102150405")
-	targetIndex := fmt.Sprintf("%s-events-search-index-%s", *env, timestamp)
+	targetIndex := fmt.Sprintf("%s-events-%s", *env, timestamp)
 
 	fmt.Printf("Starting migration from %s to %s\n", sourceIndex, targetIndex)
 	fmt.Printf("Using transformers: %v\n", transformerNames)
@@ -120,7 +120,7 @@ func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, error) {
 	var mostRecent string
 	var mostRecentTime time.Time
 
-	prefix := fmt.Sprintf("%s-events-search-index-", envPrefix)
+	prefix := fmt.Sprintf("%s-events-", envPrefix)
 	for _, idx := range result.Results {
 		if strings.HasPrefix(idx.IndexName, prefix) {
 			parts := strings.Split(idx.IndexName, "-")
@@ -141,6 +141,7 @@ func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, error) {
 		}
 	}
 
+	// this is the fal back to the original naming and will not be in use later.
 	if mostRecent == "" {
 		return fmt.Sprintf("%s-events-search-index", envPrefix), nil
 	}
