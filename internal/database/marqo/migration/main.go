@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -69,8 +72,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	sourceIndex := fmt.Sprintf("%s-events-search-index", *env)
-	targetIndex := fmt.Sprintf("%s-events-search-index-v2", *env)
+	sourceIndex, err := migrator.sourceClient.GetCurrentIndex(*env)
+	if err != nil {
+		fmt.Printf("Failed to get current index: %v\n", err)
+		os.Exit(1)
+	}
+
+	timestamp := time.Now().UTC().Format("20060102150405")
+	targetIndex := fmt.Sprintf("%s-events-search-index-%s", *env, timestamp)
 
 	fmt.Printf("Starting migration from %s to %s\n", sourceIndex, targetIndex)
 	fmt.Printf("Using transformers: %v\n", transformerNames)
@@ -86,37 +95,57 @@ func main() {
 
 }
 
-func constructTargetURL(sourceURL, env string) string {
-	// Example source URL: https://dev-events-search-index-xv8ywa-g2amp25x.dp1.marqo.ai
-	// We want: https://dev-events-search-index-v2-[new-uuid]-g2amp25x.dp1.marqo.ai
 
-	parts := strings.Split(sourceURL, "://")
-	if len(parts) != 2 {
-		return sourceURL
+func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, error) {
+	url := fmt.Sprintf("%s/indexes", c.baseURL)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	protocol := parts[0]
-	domain := parts[1]
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", c.apiKey)
 
-	// Split domain into parts
-	domainParts := strings.Split(domain, ".")
-	if len(domainParts) < 2 {
-		return sourceURL
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to get indexes: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result ListIndexesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Get the first part which contains the index identifier
-	_ = domainParts[0]
+	// find most recent index with our prefix
+	var mostRecent string
+	var mostRecentTime time.Time
 
-	// Generate new UUID for the target index
-	newUUID := strings.ToLower(uuid.New().String()[:6])
+	prefix := fmt.Sprintf("%s-events-search-index-", envPrefix)
+	for _, idx := range result.Results {
+		if strings.HasPrefix(idx.IndexName, prefix) {
+			parts := strings.Split(idx.IndexName, "-")
+			if len(parts) < 4 {
+				continue
+			}
 
-	// Construct new index identifier
-	// Format: {env}-events-search-index-v2-{uuid}-g2amp25x
-	newIndexPart := fmt.Sprintf("%s-events-search-index-v2-%s-g2amp25x", env, newUUID)
+			timestamp := parts[len(parts)-2]
+			indexTime, err := time.ParseInLocation("20060102150405", timestamp, time.UTC)
+			if err != nil {
+				continue
+			}
 
-	// Replace the index part in domain parts
-	domainParts[0] = newIndexPart
+			if mostRecent == "" || indexTime.After(mostRecentTime) {
+				mostRecent = idx.IndexName
+				mostRecentTime = indexTime
+			}
+		}
+	}
 
-	// Reconstruct the URL
-	return fmt.Sprintf("%s://%s", protocol, strings.Join(domainParts, "."))
+	if mostRecent == "" {
+		return fmt.Sprintf("%s-events-search-index", envPrefix), nil
+	}
+
+	return mostRecent, nil
 }
