@@ -47,20 +47,20 @@ func TestGetHomePage(t *testing.T) {
 		response := map[string]interface{}{
 			"Hits": []map[string]interface{}{
 				{
-					"id":          "123",
-					"eventOwners": []interface{}{"789"},
+					"id":             "123",
+					"eventOwners":    []interface{}{"789"},
 					"eventOwnerName": "First Event Host",
-					"name":        "First Test Event",
-					"description": "Description of the first event",
-					"startTime":   "2099-05-01T12:00:00Z",
+					"name":           "First Test Event",
+					"description":    "Description of the first event",
+					"startTime":      "2099-05-01T12:00:00Z",
 				},
 				{
-					"id":          "456",
+					"id":             "456",
 					"eventOwnerName": "Second Event Host",
-					"eventOwners": []interface{}{"012"},
-					"name":        "Second Test Event",
-					"description": "Description of the second event",
-					"startTime":   "2099-05-01T17:00:00Z",
+					"eventOwners":    []interface{}{"012"},
+					"name":           "Second Test Event",
+					"description":    "Description of the second event",
+					"startTime":      "2099-05-01T17:00:00Z",
 				},
 			},
 		}
@@ -147,18 +147,18 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 		response := map[string]interface{}{
 			"Hits": []map[string]interface{}{
 				{
-					"id":          "123",
-					"eventOwners": []interface{}{"789"},
+					"id":             "123",
+					"eventOwners":    []interface{}{"789"},
 					"eventOwnerName": "Event Host Test",
-					"name":        "First Test Event",
-					"description": "Description of the first event",
+					"name":           "First Test Event",
+					"description":    "Description of the first event",
 				},
 				{
-					"id":          "456",
-					"eventOwners": []interface{}{"012"},
+					"id":             "456",
+					"eventOwners":    []interface{}{"012"},
 					"eventOwnerName": "Event Host Test",
-					"name":        "Second Test Event",
-					"description": "Description of the second event",
+					"name":           "Second Test Event",
+					"description":    "Description of the second event",
 				},
 			},
 		}
@@ -320,11 +320,11 @@ func TestGetEventDetailsPage(t *testing.T) {
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
-					"_id":         "123",
-					"eventOwners": []interface{}{"789"},
+					"_id":            "123",
+					"eventOwners":    []interface{}{"789"},
 					"eventOwnerName": "Event Host Test",
-					"name":        "Test Event",
-					"description": "This is a test event",
+					"name":           "Test Event",
+					"description":    "This is a test event",
 				},
 			},
 		}
@@ -351,7 +351,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 	defer mockMarqoServer.Close()
 
 	const eventID = "123"
-	req, err := http.NewRequest("GET", "/events/"+eventID, nil)
+	req, err := http.NewRequest("GET", "/event/"+eventID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -366,7 +366,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 
 	// Set up router to extract variables
 	router := mux.NewRouter()
-	router.HandleFunc("/events/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/event/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
 	})
 
@@ -498,11 +498,11 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			expectedCfLoc:  helpers.CdnLocation{},
 		},
 		{
-			name:        "Only CF-Ray header",
-			queryParams: map[string]string{},
-			cfRay:       "1234567890000-LAX",
-			expectedLoc: []float64{helpers.CfLocationMap["LAX"].Lat, helpers.CfLocationMap["LAX"].Lon}, // Los Angeles coordinates
-			expectedCfLoc: helpers.CfLocationMap["LAX"],
+			name:           "Only CF-Ray header",
+			queryParams:    map[string]string{},
+			cfRay:          "1234567890000-LAX",
+			expectedLoc:    []float64{helpers.CfLocationMap["LAX"].Lat, helpers.CfLocationMap["LAX"].Lon}, // Los Angeles coordinates
+			expectedCfLoc:  helpers.CfLocationMap["LAX"],
 			expectedRadius: 150.0,
 		},
 	}

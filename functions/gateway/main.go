@@ -74,12 +74,13 @@ func init() {
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, None},
 		{"/api/locations", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
-
-		{"/api/auth/users/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
+		{"/api/auth/users/set-subdomain", "POST", handlers.SetUserSubdomain, Require},
 		{"/api/auth/users/update-interests", "POST", handlers.UpdateUserInterests, Require},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo", "POST", handlers.GeoLookup, None},
+		{"/api/user-search", "GET", handlers.SearchUsersHandler, Require},
+		{"/api/users", "GET", handlers.GetUsersHandler, Require},
 		{"/api/html/events", "GET", handlers.GetEventsPartial, None},
 		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, None},
 		{"/api/html/seshu/session/location", "PUT", handlers.GeoThenPatchSeshuSession, None},
@@ -226,7 +227,7 @@ func (app *App) addRoute(route Route) {
 			}
 
 			claims := authCtx.Claims
-			roleClaims := services.ExtractRoleClaims(claims)
+			roleClaims, userMetaClaims := services.ExtractClaimsMeta(claims)
 
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
@@ -243,6 +244,9 @@ func (app *App) addRoute(route Route) {
 
 			if roleClaims != nil {
 				ctx = context.WithValue(ctx, "roleClaims", roleClaims)
+			}
+			if userMetaClaims != nil {
+				ctx = context.WithValue(ctx, "userMetaClaims", userMetaClaims)
 			}
 			r = r.WithContext(ctx)
 			route.Handler(w, r).ServeHTTP(w, r)
@@ -266,7 +270,7 @@ func (app *App) addRoute(route Route) {
 			}
 
 			claims := authCtx.Claims
-			roleClaims := services.ExtractRoleClaims(claims)
+			roleClaims, userMetaClaims := services.ExtractClaimsMeta(claims)
 
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
@@ -283,6 +287,9 @@ func (app *App) addRoute(route Route) {
 			ctx := context.WithValue(r.Context(), "userInfo", userInfo)
 			if roleClaims != nil {
 				ctx = context.WithValue(ctx, "roleClaims", roleClaims)
+			}
+			if userMetaClaims != nil {
+				ctx = context.WithValue(ctx, "userMetaClaims", userMetaClaims)
 			}
 			r = r.WithContext(ctx)
 			route.Handler(w, r).ServeHTTP(w, r)

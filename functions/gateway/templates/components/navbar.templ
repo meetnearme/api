@@ -317,7 +317,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								</button>
 								<br/>
 								<br/>
-								@NestedCheckboxList(false)
+								@NestedCheckboxList(false, []string{})
 							</form>
 						</div>
 					}
@@ -505,7 +505,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 									})
 								});
 								if (response.status === 401) {
-									this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/events/${this.eventId}">Register or Login now</a>`;
+									this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/event/${this.eventId}">Register or Login now</a>`;
 									this.reqInFlight = false;
 									return
 								}

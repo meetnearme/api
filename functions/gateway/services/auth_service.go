@@ -70,10 +70,15 @@ func GetAuthMw() *authorization.Authorizer[*oauth.IntrospectionContext] {
 }
 
 // Extract and format roles from the claims.
-func ExtractRoleClaims(claims map[string]interface{}) []helpers.RoleClaim {
+func ExtractClaimsMeta(claims map[string]interface{}) ([]helpers.RoleClaim, map[string]interface{}) {
+	var userMeta map[string]interface{}
 	var roles []helpers.RoleClaim
 
-	roleKey := strings.Replace(helpers.PROJECT_ID_ROLE_CLAIMS_KEY, "<project-id>", *projectID, 1)
+	if metadataMap, ok := claims[helpers.AUTH_METADATA_KEY].(map[string]interface{}); ok {
+		userMeta = metadataMap
+	}
+
+	roleKey := strings.Replace(helpers.AUTH_ROLE_CLAIMS_KEY, "<project-id>", *projectID, 1)
 	// Check if the claims contain the specified key
 	if roleMap, ok := claims[roleKey].(map[string]interface{}); ok {
 		for role, projects := range roleMap {
@@ -89,11 +94,9 @@ func ExtractRoleClaims(claims map[string]interface{}) []helpers.RoleClaim {
 				}
 			}
 		}
-	} else {
-		return nil
 	}
 
-	return roles
+	return roles, userMeta
 }
 
 func randomBytesInHex(count int) (string, error) {
@@ -130,7 +133,7 @@ func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string) (*url.U
 	query.Set("client_id", *clientID)
 	query.Set("redirect_uri", *redirectURI)
 	query.Set("response_type", "code") // 'code' for authorization code grant
-	query.Set("scope", "openid oidc profile email offline_access")
+	query.Set("scope", "openid oidc profile email offline_access "+os.Getenv(helpers.AUTH_METADATA_KEY))
 	query.Set("code_challenge", codeChallenge)
 	query.Set("code_challenge_method", "S256")
 	query.Set("state", userRedirectURL)

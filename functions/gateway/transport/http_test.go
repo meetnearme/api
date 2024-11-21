@@ -60,7 +60,7 @@ func TestSendHtmlRes(t *testing.T) {
 	}
 }
 
-func TestSendHtmlError(t *testing.T) {
+func TestSendHtmlErrorPartial(t *testing.T) {
 	rr := httptest.NewRecorder()
 	body := []byte("This error has been logged with Request ID: ")
 	status := http.StatusOK
@@ -74,7 +74,7 @@ func TestSendHtmlError(t *testing.T) {
 	})
 	req = req.WithContext(ctx)
 
-	handler := SendHtmlError(rr, body, status)
+	handler := SendHtmlErrorPartial(rr, body, status)
 	handler.ServeHTTP(rr, req)
 
 	if rr.Code != status {
