@@ -415,15 +415,8 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			return
 		}
 
-		// URL decode the query
-		decodedIds, err := url.QueryUnescape(idsParam)
-		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to decode ids parameter"), http.StatusBadRequest, err)
-			return
-		}
-
 		// Parse the comma-separated ids
-		ids := strings.Split(decodedIds, ",")
+		ids := strings.Split(idsParam, ",")
 
 		// Validate each ID
 		for _, id := range ids {

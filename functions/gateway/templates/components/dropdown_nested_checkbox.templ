@@ -41,7 +41,7 @@ templ NestedCheckboxList(isInDropdown bool, interests []string) {
 											type="checkbox"
 											class="z-[9] checkbox checkbox-tertiary border-opacity-80 mr-5"
 											if helpers.ArrFindFirst(interests, []string{cat.Name}) != "" {
-												checked
+												checked="checked"
 											}
 										/>
 										<span class="label-text">{ cat.Name }</span>

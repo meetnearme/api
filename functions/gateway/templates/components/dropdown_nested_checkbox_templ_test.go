@@ -28,6 +28,15 @@ func TestNestedCheckboxList(t *testing.T) {
 			expectedContent: []string{"Civic &amp; Advocacy"},
 			interests:       []string{},
 		},
+		{
+			name:         "Nested checkbox list with pre-selected interests",
+			isInDropdown: true,
+			expectedContent: []string{
+				"Civic &amp; Advocacy",
+				"checked=\"checked\"", // Verify checkbox is checked
+			},
+			interests: []string{"Civic & Advocacy"},
+		},
 	}
 
 	for _, tt := range tests {
