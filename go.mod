@@ -24,7 +24,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
-	github.com/stripe/stripe-go/v79 v79.12.0
+	github.com/stripe/stripe-go/v80 v80.2.0
 	github.com/zitadel/oidc/v3 v3.26.0
 	github.com/zitadel/zitadel-go/v3 v3.0.1
 )
@@ -75,9 +75,6 @@ require (
 	github.com/quic-go/quic-go v0.46.0 // indirect
 	github.com/refraction-networking/utls v1.6.7 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/stripe/stripe-go v70.15.0+incompatible // indirect
-	github.com/stripe/stripe-go/v79 v79.12.0 // indirect
-	github.com/stripe/stripe-go/v80 v80.2.0 // indirect
 	github.com/yuin/goldmark v1.7.0 // indirect
 	github.com/zitadel/logging v0.6.0 // indirect
 	github.com/zitadel/schema v1.3.0 // indirect
