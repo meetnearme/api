@@ -457,7 +457,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
             },
             handleKeydownOnOptions(event) {
                 // if the user presses backspace or the alpha-numeric keys, focus on the search field
-                if ((event.keyCode >= 65 && event.keyCode <= 90) || (event.keyCode >= 48 && event.keyCode <= 57) || event.keyCode === 8) {
+                if ((/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
                     this.$refs.ownerSearch.focus()
                 }
             },
