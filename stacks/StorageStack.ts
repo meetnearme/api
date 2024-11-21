@@ -20,22 +20,43 @@ export function StorageStack({ stack }: StackContext) {
     },
   });
 
-  const purchasesTable = new Table(stack, 'Purchases', {
+  // const purchasesTable = new Table(stack, 'Purchases', {
+  //   fields: {
+  //     id: 'string',
+  //     userId: 'string',
+  //     eventId: 'string',
+  //     status: 'string',
+  //     purchasedItems: 'string',
+  //     total: 'number',
+  //     currency: 'string',
+  //     stripeSessionId: 'string',
+  //     createdAt: 'number',
+  //     updatedAt: 'number',
+  //   },
+  //   primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
+  //   globalIndexes: {
+  //     userIdGsi: { partitionKey: 'userId', sortKey: 'eventId' },
+  //   },
+  // });
+
+  const purchasesTableV2 = new Table(stack, 'PurchasesV2', {
     fields: {
-      id: 'string',
+      compositeKey: 'string',
       userId: 'string',
       eventId: 'string',
+      createdAt: 'number',
+      createdAtString: 'string',
+      updatedAt: 'number',
       status: 'string',
       purchasedItems: 'string',
       total: 'number',
       currency: 'string',
       stripeSessionId: 'string',
-      createdAt: 'number',
-      updatedAt: 'number',
     },
-    primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
+    primaryIndex: { partitionKey: 'compositeKey' },
     globalIndexes: {
-      userIdGsi: { partitionKey: 'userId', sortKey: 'eventId' },
+      userIdIndex: { partitionKey: 'userId', sortKey: 'createdAtString' },
+      eventIdIndex: { partitionKey: 'eventId', sortKey: 'createdAtString' },
     },
   });
 
@@ -101,7 +122,8 @@ export function StorageStack({ stack }: StackContext) {
     registrationsTable,
     registrationFieldsTable,
     seshuSessionsTable,
-    purchasesTable,
+    // purchasesTable, // deprecated
+    purchasesTableV2,
     purchasablesTable,
     eventRsvpsTable,
   };

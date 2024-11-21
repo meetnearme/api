@@ -3,6 +3,9 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,10 +17,15 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
+
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/ganeshdipdumbare/marqo-go"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
@@ -1077,4 +1085,258 @@ func TestUpdateOneEvent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandleCheckoutWebhook(t *testing.T) {
+	t.Run("handles checkout.session.completed successfully", func(t *testing.T) {
+		// Save original env var
+		originalWebhookSecret := os.Getenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET")
+		testWebhookSecret := "whsec_test_secret"
+		os.Setenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET", testWebhookSecret)
+		// Restore original env var after test
+		defer os.Setenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET", originalWebhookSecret)
+
+		// Setup mock service first
+		mockPurchasesService := &dynamodb_service.MockPurchaseService{
+			GetPurchaseByPkFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string) (*internal_types.Purchase, error) {
+				return &internal_types.Purchase{
+					EventID:         eventId,
+					UserID:          userId,
+					CreatedAtString: createdAt,
+					Status:          helpers.StripeCheckoutStatus.Pending,
+					PurchasedItems: []internal_types.PurchasedItem{
+						{
+							Name:     "Test Item",
+							Quantity: 1,
+							Cost:     1000,
+						},
+					},
+				}, nil
+			},
+			UpdatePurchaseFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string, update internal_types.PurchaseUpdate) (*internal_types.Purchase, error) {
+				if update.Status != helpers.StripeCheckoutStatus.Settled {
+					t.Errorf("expected status %v, got %v", helpers.StripeCheckoutStatus.Settled, update.Status)
+				}
+				return nil, nil
+			},
+		}
+		// Create handler with mock service
+		handler := NewPurchasableWebhookHandler(dynamodb_service.NewPurchasableService(), mockPurchasesService)
+
+		// Setup request data
+		now := time.Now()
+		nowString := fmt.Sprintf("%020d", now.Unix())
+		eventID := "test-event-123"
+		userID := "test-user-456"
+		clientReferenceID := "event-" + eventID + "-user-" + userID + "-time-" + nowString
+		payload := []byte(`{
+			"type": "checkout.session.completed",
+			"api_version": "2024-09-30.acacia",
+			"data": {
+				"object": {
+					"client_reference_id": "` + clientReferenceID + `",
+					"status": "complete"
+				}
+			}
+		}`)
+		// Generate signed payload
+		timestamp := now.Unix()
+		mac := hmac.New(sha256.New, []byte(testWebhookSecret))
+		mac.Write([]byte(fmt.Sprintf("%d", timestamp)))
+		mac.Write([]byte("."))
+		mac.Write(payload)
+		signature := hex.EncodeToString(mac.Sum(nil))
+		stripeSignature := fmt.Sprintf("t=%d,v1=%s", timestamp, signature)
+
+		r := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer(payload))
+		ctx := context.WithValue(r.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			Headers: map[string]string{
+				"stripe-signature": stripeSignature,
+			},
+		})
+		r = r.WithContext(ctx)
+
+		w := httptest.NewRecorder()
+		// Execute handler
+		handler.HandleCheckoutWebhook(w, r)
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status code %v, got %v", http.StatusOK, w.Code)
+		}
+	})
+	t.Run("handles checkout.session.expired successfully", func(t *testing.T) {
+		// Save original env var
+		originalWebhookSecret := os.Getenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET")
+		testWebhookSecret := "whsec_test_secret"
+		os.Setenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET", testWebhookSecret)
+		// Restore original env var after test
+		defer os.Setenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET", originalWebhookSecret)
+
+		tests := []struct {
+			name             string
+			inventory        int32
+			startingQuantity int32
+			purchaseQuantity int32
+			expectedQuantity int32 // The quantity we expect to be set after the update
+		}{
+			{
+				name:             "Basic inventory restoration",
+				inventory:        9,
+				startingQuantity: 10,
+				purchaseQuantity: 1,
+				expectedQuantity: 10,
+			},
+			{
+				name:             "Multiple items purchased",
+				inventory:        7,
+				startingQuantity: 10,
+				purchaseQuantity: 3,
+				expectedQuantity: 10,
+			},
+			{
+				name:             "Full inventory restoration",
+				inventory:        0,
+				startingQuantity: 100,
+				purchaseQuantity: 100,
+				expectedQuantity: 100,
+			},
+			{
+				name:             "Inventory does not exceed StartingQuantity",
+				inventory:        95,
+				startingQuantity: 100,
+				purchaseQuantity: 10,
+				expectedQuantity: 100,
+			},
+			{
+				name:             "Partial purchase cancellation",
+				inventory:        95,
+				startingQuantity: 100,
+				purchaseQuantity: 5,
+				expectedQuantity: 100,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				// Setup test data
+				now := time.Now()
+				eventID := "test-event-123"
+				userID := "test-user-456"
+				nowString := fmt.Sprintf("%020d", now.Unix())
+				clientReferenceID := "event-" + eventID + "-user-" + userID + "-time-" + nowString
+
+				// Create payload
+				payload := []byte(`{
+					"type": "checkout.session.expired",
+					"api_version": "2024-09-30.acacia",
+					"data": {
+						"object": {
+							"client_reference_id": "` + clientReferenceID + `",
+							"status": "expired"
+						}
+					}
+				}`)
+
+				// Generate signed payload
+				timestamp := now.Unix()
+				mac := hmac.New(sha256.New, []byte(testWebhookSecret))
+				mac.Write([]byte(fmt.Sprintf("%d", timestamp)))
+				mac.Write([]byte("."))
+				mac.Write(payload)
+				signature := hex.EncodeToString(mac.Sum(nil))
+				stripeSignature := fmt.Sprintf("t=%d,v1=%s", timestamp, signature)
+
+				// Create request
+				r := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer(payload))
+				ctx := context.WithValue(r.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+					Headers: map[string]string{
+						"stripe-signature": stripeSignature,
+					},
+				})
+				r = r.WithContext(ctx)
+				w := httptest.NewRecorder()
+
+				mockPurchasableService := &dynamodb_service.MockPurchasableService{
+					GetPurchasablesByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) (*internal_types.Purchasable, error) {
+						return &internal_types.Purchasable{
+							EventId: eventId,
+							PurchasableItems: []internal_types.PurchasableItemInsert{
+								{
+									Name:             "Test Item",
+									Inventory:        tt.inventory,
+									Cost:             1000,
+									StartingQuantity: tt.startingQuantity,
+								},
+							},
+						}, nil
+					},
+					UpdatePurchasableInventoryFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, updates []internal_types.PurchasableInventoryUpdate, purchasableMap map[string]internal_types.PurchasableItemInsert) error {
+						if len(updates) != 1 {
+							t.Errorf("expected 1 update, got %d", len(updates))
+						}
+						if updates[0].Name != "Test Item" {
+							t.Errorf("expected item name %v, got %v", "Test Item", updates[0].Name)
+						}
+						if updates[0].Quantity != tt.expectedQuantity {
+							t.Errorf("expected quantity %v, got %v", tt.expectedQuantity, updates[0].Quantity)
+						}
+						return nil
+					},
+				}
+
+				mockPurchaseService := &dynamodb_service.MockPurchaseService{
+					GetPurchaseByPkFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string) (*internal_types.Purchase, error) {
+						return &internal_types.Purchase{
+							EventID:         eventId,
+							UserID:          userId,
+							CreatedAtString: createdAt,
+							Status:          helpers.StripeCheckoutStatus.Pending,
+							PurchasedItems: []internal_types.PurchasedItem{
+								{
+									Name:     "Test Item",
+									Quantity: tt.purchaseQuantity,
+									Cost:     1000,
+								},
+							},
+						}, nil
+					},
+					UpdatePurchaseFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string, update internal_types.PurchaseUpdate) (*internal_types.Purchase, error) {
+						if update.Status != helpers.StripeCheckoutStatus.Canceled {
+							t.Errorf("expected status %v, got %v", helpers.StripeCheckoutStatus.Canceled, update.Status)
+						}
+						return nil, nil
+					},
+				}
+
+				handler := NewPurchasableWebhookHandler(mockPurchasableService, mockPurchaseService)
+
+				err := handler.HandleCheckoutWebhook(w, r)
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+
+				if w.Code != http.StatusOK {
+					t.Errorf("expected status code %v, got %v", http.StatusOK, w.Code)
+				}
+			})
+		}
+	})
+	t.Run("handles invalid signature", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer([]byte(`{}`)))
+		ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			Headers: map[string]string{
+				"stripe-signature": "invalid_signature",
+			},
+		})
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+		handler := NewPurchasableWebhookHandler(&dynamodb_service.MockPurchasableService{}, &dynamodb_service.MockPurchaseService{})
+		err := handler.HandleCheckoutWebhook(w, req)
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status code %v, got %v", http.StatusBadRequest, w.Code)
+		}
+	})
 }

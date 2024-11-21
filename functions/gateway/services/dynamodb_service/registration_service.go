@@ -17,10 +17,9 @@ import (
 
 var registrationTableName = helpers.GetDbTableName(helpers.RegistrationsTablePrefix)
 
-func init () {
+func init() {
 	registrationTableName = helpers.GetDbTableName(helpers.RegistrationsTablePrefix)
 }
-
 
 // RegistrationService is the concrete implementation of the RegistrationServiceInterface.
 type RegistrationService struct{}
@@ -30,28 +29,25 @@ func NewRegistrationService() internal_types.RegistrationServiceInterface {
 }
 
 func (s *RegistrationService) InsertRegistration(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registration internal_types.RegistrationInsert, eventId, userId string) (*internal_types.Registration, error) {
-    // Validate the registration object
-    if err := validate.Struct(registration); err != nil {
-        return nil, fmt.Errorf("validation failed: %w", err)
-    }
+	// Validate the registration object
+	if err := validate.Struct(registration); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
+	}
 
 	item, err := attributevalue.MarshalMap(&registration)
 	if err != nil {
 		return nil, err
 	}
 
-	if (registrationTableName == "") {
+	if registrationTableName == "" {
 		return nil, fmt.Errorf("ERR: registrationTableName is empty")
 	}
 
 	input := &dynamodb.PutItemInput{
-		Item:                                item,
-		TableName:                           aws.String(registrationTableName),
+		Item:                item,
+		TableName:           aws.String(registrationTableName),
 		ConditionExpression: aws.String("attribute_not_exists(eventId) AND attribute_not_exists(userId)"),
 	}
-
-	log.Printf("input in insert reg fields: %v", input)
-
 
 	res, err := dynamodbClient.PutItem(ctx, input)
 	if err != nil {
@@ -59,10 +55,7 @@ func (s *RegistrationService) InsertRegistration(ctx context.Context, dynamodbCl
 		return nil, err
 	}
 
-	log.Printf("res form put item: %v", res)
-
 	var insertedRegistration internal_types.Registration
-
 
 	err = attributevalue.UnmarshalMap(res.Attributes, &insertedRegistration)
 	if err != nil {
@@ -71,7 +64,7 @@ func (s *RegistrationService) InsertRegistration(ctx context.Context, dynamodbCl
 
 	log.Printf("inserted reg fields after creation: %v", insertedRegistration)
 
-    // return registration, nil
+	// return registration, nil
 	return &insertedRegistration, nil
 }
 
@@ -80,7 +73,7 @@ func (s *RegistrationService) GetRegistrationByPk(ctx context.Context, dynamodbC
 		TableName: aws.String(registrationTableName),
 		Key: map[string]dynamodb_types.AttributeValue{
 			"eventId": &dynamodb_types.AttributeValueMemberS{Value: eventId},
-			"userId": &dynamodb_types.AttributeValueMemberS{Value: userId},
+			"userId":  &dynamodb_types.AttributeValueMemberS{Value: userId},
 		},
 	}
 
@@ -97,7 +90,6 @@ func (s *RegistrationService) GetRegistrationByPk(ctx context.Context, dynamodbC
 
 	return &registration, nil
 }
-
 
 func (s *RegistrationService) GetRegistrationsByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.Registration, error) {
 	queryInput := &dynamodb.QueryInput{
@@ -202,8 +194,7 @@ func (s *RegistrationService) UpdateRegistration(ctx context.Context, dynamodbCl
 	return &updatedRegistration, nil
 }
 
-
-func (s *RegistrationService) DeleteRegistration(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string)  error {
+func (s *RegistrationService) DeleteRegistration(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error {
 	input := &dynamodb.DeleteItemInput{
 		TableName: aws.String(registrationTableName),
 		Key: map[string]dynamodb_types.AttributeValue{
@@ -214,7 +205,7 @@ func (s *RegistrationService) DeleteRegistration(ctx context.Context, dynamodbCl
 
 	_, err := dynamodbClient.DeleteItem(ctx, input)
 	if err != nil {
-		return  err
+		return err
 	}
 
 	log.Printf("registration fields successfully deleted")
@@ -222,34 +213,34 @@ func (s *RegistrationService) DeleteRegistration(ctx context.Context, dynamodbCl
 }
 
 type MockRegistrationService struct {
-    InsertRegistrationFunc          func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registration internal_types.RegistrationInsert, eventId, userId string) (*internal_types.Registration, error)
-    GetRegistrationByPkFunc         func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.Registration, error)
-    GetRegistrationsByEventIDFunc   func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.Registration, error)
-    GetRegistrationsByUserIDFunc    func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string) ([]internal_types.Registration, error)
-    UpdateRegistrationFunc          func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string, registration internal_types.RegistrationUpdate) (*internal_types.Registration, error)
-    DeleteRegistrationFunc          func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error
+	InsertRegistrationFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registration internal_types.RegistrationInsert, eventId, userId string) (*internal_types.Registration, error)
+	GetRegistrationByPkFunc       func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.Registration, error)
+	GetRegistrationsByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.Registration, error)
+	GetRegistrationsByUserIDFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string) ([]internal_types.Registration, error)
+	UpdateRegistrationFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string, registration internal_types.RegistrationUpdate) (*internal_types.Registration, error)
+	DeleteRegistrationFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error
 }
 
 func (m *MockRegistrationService) InsertRegistration(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registration internal_types.RegistrationInsert, eventId, userId string) (*internal_types.Registration, error) {
-    return m.InsertRegistrationFunc(ctx, dynamodbClient, registration, eventId, userId)
+	return m.InsertRegistrationFunc(ctx, dynamodbClient, registration, eventId, userId)
 }
 
 func (m *MockRegistrationService) GetRegistrationByPk(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.Registration, error) {
-    return m.GetRegistrationByPkFunc(ctx, dynamodbClient, eventId, userId)
+	return m.GetRegistrationByPkFunc(ctx, dynamodbClient, eventId, userId)
 }
 
 func (m *MockRegistrationService) GetRegistrationsByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.Registration, error) {
-    return m.GetRegistrationsByEventIDFunc(ctx, dynamodbClient, eventId)
+	return m.GetRegistrationsByEventIDFunc(ctx, dynamodbClient, eventId)
 }
 
 func (m *MockRegistrationService) GetRegistrationsByUserID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string) ([]internal_types.Registration, error) {
-    return m.GetRegistrationsByUserIDFunc(ctx, dynamodbClient, userId)
+	return m.GetRegistrationsByUserIDFunc(ctx, dynamodbClient, userId)
 }
 
 func (m *MockRegistrationService) UpdateRegistration(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string, registration internal_types.RegistrationUpdate) (*internal_types.Registration, error) {
-    return m.UpdateRegistrationFunc(ctx, dynamodbClient, eventId, userId, registration)
+	return m.UpdateRegistrationFunc(ctx, dynamodbClient, eventId, userId, registration)
 }
 
 func (m *MockRegistrationService) DeleteRegistration(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error {
-    return m.DeleteRegistrationFunc(ctx, dynamodbClient, eventId, userId)
+	return m.DeleteRegistrationFunc(ctx, dynamodbClient, eventId, userId)
 }

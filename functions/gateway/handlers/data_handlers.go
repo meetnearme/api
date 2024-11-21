@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
@@ -21,8 +22,9 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
-	"github.com/stripe/stripe-go/v79"
-	"github.com/stripe/stripe-go/v79/checkout/session"
+	"github.com/stripe/stripe-go/v80"
+	"github.com/stripe/stripe-go/v80/checkout/session"
+	"github.com/stripe/stripe-go/v80/webhook"
 )
 
 var validate *validator.Validate = validator.New()
@@ -33,6 +35,15 @@ type MarqoHandler struct {
 
 func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler {
 	return &MarqoHandler{MarqoService: marqoService}
+}
+
+type PurchasableWebhookHandler struct {
+	PurchasableService internal_types.PurchasableServiceInterface
+	PurchaseService    internal_types.PurchaseServiceInterface
+}
+
+func NewPurchasableWebhookHandler(purchasableService internal_types.PurchasableServiceInterface, purchaseService internal_types.PurchaseServiceInterface) *PurchasableWebhookHandler {
+	return &PurchasableWebhookHandler{PurchasableService: purchasableService, PurchaseService: purchaseService}
 }
 
 // Create a new struct for raw JSON operations
@@ -608,9 +619,14 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	createPurchase.UserID = userId
 
 	// Set CreatedAt and UpdatedAt to current time
-	currentTime := time.Now()
-	createPurchase.CreatedAt = currentTime
-	createPurchase.UpdatedAt = currentTime
+	now := time.Now()
+	createPurchase.CreatedAt = now.Unix()
+	createPurchase.UpdatedAt = now.Unix()
+
+	_createdAt := now.Unix()
+	createdAtString := fmt.Sprintf("%020d", _createdAt) // Pad with zeros to a fixed width of 20 digits
+
+	createPurchase.CreatedAtString = createdAtString
 
 	purchasableService := dynamodb_service.NewPurchasableService()
 	h := dynamodb_handlers.NewPurchasableHandler(purchasableService)
@@ -624,7 +640,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 
 	// Validate inventory
 	var purchasableMap = map[string]internal_types.PurchasableItemInsert{}
-	if purchasableMap, err = validateInventory(purchasable, createPurchase); err != nil {
+	if purchasableMap, err = validatePurchase(purchasable, createPurchase); err != nil {
 		transport.SendServerRes(w, []byte("Failed to validate inventory for event id: "+eventId+" + "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
@@ -692,14 +708,13 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
-	unixNow := time.Now().Unix()
-	referenceId := "event-" + eventId + "-user-" + userId + "-time-" + time.Unix(unixNow, 0).UTC().Format(time.RFC3339)
+	referenceId := "event-" + eventId + "-user-" + userId + "-time-" + createPurchase.CreatedAtString
 	params := &stripe.CheckoutSessionParams{
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
 		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=success"),
 		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=cancel"),
 		LineItems:         lineItems,
-		// TODO: `mode` needs to be "subscription" if there's a subscription / recurring item,
+		// NOTE: `mode` needs to be "subscription" if there's a subscription / recurring item,
 		// use `add_invoice_item` to then append the one-time payment items:
 		// https://stackoverflow.com/questions/64011643/how-to-combine-a-subscription-and-single-payments-in-one-charge-stripe-ap
 		Mode:      stripe.String(string(stripe.CheckoutSessionModePayment)),
@@ -718,11 +733,21 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 
 	createPurchase.StripeSessionId = stripeCheckoutResult.ID
 
-	// Now that the checks are in place, we defer to the
+	// Now that the checks are in place, we defer the transaction creation in the database
+	// to respond to the client as quickly as possible
 	defer func() {
 		purchaseService := dynamodb_service.NewPurchaseService()
 		h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
-		createPurchase.Status = "PENDING"
+		createPurchase.Status = helpers.StripeCheckoutStatus.Pending
+
+		// Create the composite key
+		compositeKey := fmt.Sprintf("%s#%s#%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
+
+		// Add the composite key and createdAt to the purchase object
+		createPurchase.CompositeKey = compositeKey
+
+		log.Printf("db payload `createPurchase`: %+v", createPurchase)
+
 		db := transport.GetDB()
 		_, err := h.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
@@ -755,19 +780,17 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
 	return nil
 
-	// TODO: we need to
-
-	// 1) check inventory in the `Purchasables` table where it is tracked
-	// 2) if not available, return "out of stock" error for that item
-	// 3) if available, decrement the `Purchasables` table items
-	// 4) grab email from context (pull from token) and check for user in stripe customer id
-	// 5) create stripe customer Id if not present already
-	// 6) Create a Stripe checkout session
-	// 7) submit the transaction as PENDING with stripe `sessionId` and `customerNumber` (add to `Purchases` table)
-	// 8) Handoff session to stripe
-	// 9) Listen to Stripe webhook to mark transaction SETTLED
-	// 10) If Stripe webhook misses, poll the stripe API for the Session ID status
-	// 11) Need an SNS queue to do polling, Lambda isn't guaranteed to be there
+	// ✅ 1) check inventory in the `Purchasables` table where it is tracked
+	// ✅ 2) if not available, return "out of stock" error for that item
+	// ✅ 3) if available, decrement the `Purchasables` table items
+	// ❌ (not doing) 4) grab email from context (pull from token) and check for user in stripe customer id
+	// ❌ (not doing) 5) create stripe customer Id if not present already
+	// ✅ 6) Create a Stripe checkout session
+	// ✅ 7) submit the transaction as PENDING with stripe `sessionId` and `customerNumber` (add to `Purchases` table)
+	// ✅ 8) Handoff session to stripe
+	// ✅ 9) Listen to Stripe webhook to mark transaction SETTLED
+	// ❌ 10) If Stripe webhook misses, poll the stripe API for the Session ID status
+	// ❌ 11) Need an SNS queue to do polling, Lambda isn't guaranteed to be there
 
 }
 
@@ -777,24 +800,222 @@ func CreateCheckoutSessionHandler(w http.ResponseWriter, r *http.Request) http.H
 	}
 }
 
-func validateInventory(purchasable *internal_types.Purchasable, createPurchase internal_types.PurchaseInsert) (purchasableItems map[string]internal_types.PurchasableItemInsert, err error) {
-	purchases := make([]*internal_types.PurchasedItem, len(purchasable.PurchasableItems))
-	for i, item := range createPurchase.PurchasedItems {
-		purchases[i] = &internal_types.PurchasedItem{
-			// Assuming PurchasableItemInsert has similar fields to Purchasable
-			Name:     item.Name,
-			Quantity: item.Quantity,
-			// ... other fields ...
-		}
+// Function to transform Purchase to PurchaseUpdate
+func TransformPurchaseToUpdate(purchase internal_types.Purchase) internal_types.PurchaseUpdate {
+	return internal_types.PurchaseUpdate{
+		UserID:       purchase.UserID,
+		EventID:      purchase.EventID,
+		CompositeKey: purchase.CompositeKey,
+		EventName:    purchase.EventName,
+		Status:       purchase.Status,
+		UpdatedAt:    time.Now().Unix(),
 	}
+}
+
+func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter, r *http.Request) (err error) {
+	const MaxBodyBytes = int64(65536)
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+	payload, err := io.ReadAll(r.Body)
+	if err != nil {
+		msg := fmt.Sprintf("ERR: Error reading request body: %v\n", err)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, nil)
+		return
+	}
+	// If you are testing your webhook locally with the Stripe CLI you
+	// can find the endpoint's secret by running `stripe listen`
+	// Otherwise, find your endpoint's secret in your webhook settings
+	// in the Developer Dashboard
+
+	endpointSecret := services.GetStripeCheckoutWebhookSecret()
+	ctx := r.Context()
+	apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	stripeHeader := apiGwV2Req.Headers["stripe-signature"]
+	event, err := webhook.ConstructEvent(payload, stripeHeader,
+		endpointSecret)
+	if err != nil {
+		msg := fmt.Sprintf("ERR: Error verifying webhook signature: %v\n", err)
+		transport.SendServerRes(w, []byte(msg), http.StatusBadRequest, nil)
+		return err
+	}
+	switch event.Type {
+	case "checkout.session.completed":
+		var checkoutSession stripe.CheckoutSession
+		err := json.Unmarshal(event.Data.Raw, &checkoutSession)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		clientReferenceID := checkoutSession.ClientReferenceID
+
+		db := transport.GetDB()
+		re := regexp.MustCompile(`event-(.+?)-user-(.+?)-time-(.+)`)
+		matches := re.FindStringSubmatch(clientReferenceID)
+		eventID := ""
+		userID := ""
+		createdAt := ""
+		if len(matches) > 3 {
+			eventID = matches[1]
+			userID = matches[2]
+			createdAt = matches[3]
+		}
+		purchase, err := h.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
+		// purchase, err := purchaseHandler.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get purchases for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
+		purchaseUpdate.Status = helpers.StripeCheckoutStatus.Settled
+		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to update purchase status to SETTLED: "), http.StatusInternalServerError, err)
+			return err
+		}
+		msg := fmt.Sprintf("Checkout session marked as SETTLED for stripe clientReferenceID: %s", clientReferenceID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, err)
+		return err
+
+	case "checkout.session.expired":
+		var checkoutSession stripe.CheckoutSession
+		err := json.Unmarshal(event.Data.Raw, &checkoutSession)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		clientReferenceID := checkoutSession.ClientReferenceID
+		log.Printf("Checkout session expired: client reference ID: %s", clientReferenceID)
+
+		re := regexp.MustCompile(`event-(.+?)-user-(.+?)-time-(.+)`)
+		matches := re.FindStringSubmatch(clientReferenceID)
+		eventID := ""
+		userID := ""
+		createdAt := ""
+		if len(matches) > 3 {
+			eventID = matches[1]
+			userID = matches[2]
+			createdAt = matches[3]
+		}
+		db := transport.GetDB()
+
+		purchasable, err := h.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventID)
+		if err != nil {
+			msg := fmt.Sprintf("ERR: Failed to get purchasables for event id: %s, err: %v", eventID, err.Error())
+			log.Println(msg)
+			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
+			return err
+		}
+		// Create a map for quick lookup of purchasable items
+		purchasableItems := make(map[string]internal_types.PurchasableItemInsert)
+		for i, p := range purchasable.PurchasableItems {
+			purchasableItems[p.Name] = internal_types.PurchasableItemInsert{
+				Name:             p.Name,
+				Inventory:        p.Inventory,
+				StartingQuantity: p.StartingQuantity,
+				PurchasableIndex: i,
+			}
+		}
+		purchase, err := h.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get purchase for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+		log.Printf("purchase: %+v", purchase)
+		// Create a map of updates to restore the previously decremented inventory
+		incrementUpdates := make([]internal_types.PurchasableInventoryUpdate, len(purchase.PurchasedItems))
+		for i, item := range purchase.PurchasedItems {
+			newQty := purchasableItems[item.Name].Inventory + item.Quantity
+			if newQty > purchasableItems[item.Name].StartingQuantity {
+				newQty = purchasableItems[item.Name].StartingQuantity
+				msg := fmt.Sprintf("ERR: Inventory for item '%s' attempts to increment by %d above starting quantity: %d", item.Name, item.Quantity, newQty)
+				log.Println(msg)
+			}
+			incrementUpdates[i] = internal_types.PurchasableInventoryUpdate{
+				Name:             item.Name,
+				Quantity:         newQty, // Increment inventory
+				PurchasableIndex: purchasableItems[item.Name].PurchasableIndex,
+			}
+		}
+
+		err = h.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventID, incrementUpdates, purchasableItems)
+		if err != nil {
+			msg := fmt.Sprintf("ERR: Failed to restore inventory changes to eventID: %s, err: %v", eventID, err)
+			log.Println(msg)
+			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
+			return err
+		}
+		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
+		purchaseUpdate.Status = helpers.StripeCheckoutStatus.Canceled
+
+		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		if err != nil {
+			msg := fmt.Sprintf("ERR: Failed to update purchase status to CANCELED: %v", err)
+			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
+			return err
+		}
+		err = h.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventID, incrementUpdates, purchasableItems)
+		if err != nil {
+			msg := fmt.Sprintf("ERR: Failed to restore inventory changes to eventID: %s, err: %v", eventID, err)
+			log.Println(msg)
+			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
+			return err
+		}
+		msg := fmt.Sprintf("Purchase status updated to CANCELED for compositeKey: %s", purchaseUpdate.CompositeKey)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+		return nil
+	default:
+		log.Printf("Unhandled event type: %s\n", event.Type)
+	}
+
+	transport.SendServerRes(w, []byte(event.Data.Raw), http.StatusOK, nil)
+	return
+}
+
+func HandleCheckoutWebhookHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	purchasableService := dynamodb_service.NewPurchasableService()
+	purchaseService := dynamodb_service.NewPurchaseService()
+	handler := NewPurchasableWebhookHandler(purchasableService, purchaseService)
+	return func(w http.ResponseWriter, r *http.Request) {
+		handler.HandleCheckoutWebhook(w, r)
+	}
+}
+
+func validatePurchase(purchasable *internal_types.Purchasable, createPurchase internal_types.PurchaseInsert) (purchasableItems map[string]internal_types.PurchasableItemInsert, err error) {
+	purchases := make([]*internal_types.PurchasedItem, len(purchasable.PurchasableItems))
+
 	// Create a map for quick lookup of purchasable items
 	purchasableMap := make(map[string]internal_types.PurchasableItemInsert)
 	for i, p := range purchasable.PurchasableItems {
 		purchasableMap[p.Name] = internal_types.PurchasableItemInsert{
+			Name:             p.Name,
 			Inventory:        p.Inventory,
+			Cost:             p.Cost,
 			PurchasableIndex: i,
 		}
+	}
 
+	total := 0
+	for i, item := range createPurchase.PurchasedItems {
+		// Security check, users should not be able to modify the frontend `cost` field
+		// so we validate that the cost matches the cost fetched from the database in `purchasableMap`
+		if purchasableMap[item.Name].Cost != item.Cost {
+			return purchasableMap, fmt.Errorf("item '%s' has incorrect cost", item.Name)
+		}
+		total += int(item.Quantity) * int(item.Cost)
+		purchases[i] = &internal_types.PurchasedItem{
+			Name:     item.Name,
+			Quantity: item.Quantity,
+		}
+	}
+
+	// Security check, users should not be able to modify the frontend `total` field
+	// so we validate that the total matches the sum of the purchased items
+	if createPurchase.Total != int32(total) {
+		return purchasableMap, fmt.Errorf("total cost does not match: expected %d, got %d", createPurchase.Total, total)
 	}
 
 	// Validate each purchased item
