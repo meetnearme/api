@@ -362,6 +362,28 @@ func TestGetEventDetailsPage(t *testing.T) {
 			helpers.EVENT_ID_KEY: eventID,
 		},
 	})
+
+	mockUserInfo := helpers.UserInfo{
+		Email:             "test@domain.com",
+		EmailVerified:     true,
+		GivenName:         "Demo",
+		FamilyName:        "User",
+		Name:              "Demo User",
+		PreferredUsername: "test@domain.com",
+		Sub:               "testID",
+		UpdatedAt:         123234234,
+	}
+
+	mockRoleClaims := []helpers.RoleClaim{
+		{
+			Role:        "superAdmin",
+			ProjectID:   "project-id",
+			ProjectName: "myapp.zitadel.cloud",
+		},
+	}
+
+	ctx = context.WithValue(req.Context(), "userInfo", mockUserInfo)
+	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
 	req = req.WithContext(ctx)
 
 	// Set up router to extract variables
