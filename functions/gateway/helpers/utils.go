@@ -470,7 +470,7 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	req, err := http.NewRequest(method, url, payload)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
@@ -479,7 +479,7 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 
 	res, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
 	defer res.Body.Close()
@@ -496,10 +496,10 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
-	fmt.Println("saved user metadata body response: ", string(body))
+	log.Println("saved user metadata body response: ", string(body))
 	return nil
 }
 
@@ -560,9 +560,6 @@ func FormatTimeRFC3339(unixTimestamp int64) string {
 }
 
 func FormatTimeForGoogleCalendar(timestamp int64, timezone string) string {
-
-	log.Printf("\n\n\n unix timestamp %v", timestamp)
-	log.Printf("\n\n\n timezone %v", timezone)
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
 		// If there's an error loading the timezone, fall back to UTC

@@ -623,3 +623,128 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateUserMetadataKey(t *testing.T) {
+	// Initialize and setup environment
+	InitDefaultProtocol()
+	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
+	os.Setenv("ZITADEL_INSTANCE_HOST", MOCK_ZITADEL_HOST)
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
+	}()
+
+	// Create mock Zitadel server
+	mockZitadelServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && strings.Contains(r.URL.Path, "/management/v1/users/") && strings.Contains(r.URL.Path, "/metadata/") {
+			// Parse request body
+			var requestBody struct {
+				Value string `json:"value"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+				http.Error(w, "invalid request body", http.StatusBadRequest)
+				return
+			}
+
+			// Extract userID and key from URL path
+			pathParts := strings.Split(r.URL.Path, "/")
+			if len(pathParts) < 7 {
+				http.Error(w, "invalid URL path", http.StatusBadRequest)
+				return
+			}
+
+			userID := pathParts[4]
+			key := pathParts[6]
+
+			// Add validation for empty values
+			if userID == "" {
+				http.Error(w, `{"error": "user ID cannot be empty"}`, http.StatusBadRequest)
+				return
+			}
+
+			if key == "" {
+				http.Error(w, `{"error": "metadata key cannot be empty"}`, http.StatusBadRequest)
+				return
+			}
+
+			switch {
+			case userID == "error_user":
+				http.Error(w, `{"error": "user not found"}`, http.StatusNotFound)
+				return
+			case key == "error_key":
+				http.Error(w, `{"error": "invalid metadata key"}`, http.StatusBadRequest)
+				return
+			default:
+				// Success case
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"status": "success"}`))
+				return
+			}
+		}
+		http.Error(w, fmt.Sprintf("unexpected request: %s %s", r.Method, r.URL), http.StatusBadRequest)
+	}))
+
+	// Set up mock server
+	mockZitadelServer.Listener.Close()
+	var err error
+	mockZitadelServer.Listener, err = net.Listen("tcp", MOCK_ZITADEL_HOST)
+	if err != nil {
+		t.Fatalf("Failed to start mock Zitadel server: %v", err)
+	}
+	mockZitadelServer.Start()
+	defer mockZitadelServer.Close()
+
+	tests := []struct {
+		name        string
+		userID      string
+		key         string
+		value       string
+		expectError bool
+	}{
+		{
+			name:        "successful update",
+			userID:      "123",
+			key:         "test_key",
+			value:       "test_value",
+			expectError: false,
+		},
+		{
+			name:        "user not found",
+			userID:      "error_user",
+			key:         "test_key",
+			value:       "test_value",
+			expectError: true,
+		},
+		{
+			name:        "empty user ID",
+			userID:      "",
+			key:         "test_key",
+			value:       "test_value",
+			expectError: true,
+		},
+		{
+			name:        "empty key",
+			userID:      "123",
+			key:         "",
+			value:       "test_value",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := UpdateUserMetadataKey(tt.userID, tt.key, tt.value)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+		})
+	}
+}
