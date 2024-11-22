@@ -5,7 +5,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 )
 
-templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, interests []string) {
+templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, interests []string, userSubdomain string) {
 	<h1 class="text-3xl">Profile</h1>
 	<br/>
 	<br/>
@@ -46,14 +46,29 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 						}
 					</ul>
 				</div>
-			} else {
-				<p class="mb-4">Let us know about your hobbies and interests on the <a class="text-primary" href="/admin/profile/settings">settings page</a>.</p>
 			}
-			<h3 class="text-2xl font-bold">My Subdomain</h3>
-			<form class="group" novalidate hx-post="/api/auth/users/set-subdomain" hx-ext="json-enc" hx-target="#subdomain-result" hx-disabled-elt="button[type='submit']" @submit.prevent="" @htmx:after-request="handleSubdomainPostRes(event)">
-				<label for="subdomain">Set Subdomain</label>
-				<input name="subdomain" type="text" class="input input-bordered input-sm w-full max-w-xs"/>
-				<button type="submit" class="btn btn-primary">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+			<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/profile/settings">settings page</a>.</p>
+			<h3 class="text-2xl font-bold mb-4">My Subdomain</h3>
+			<form
+				class="group"
+				novalidate
+				hx-post="/api/auth/users/set-subdomain"
+				hx-ext="json-enc"
+				hx-target="#subdomain-result"
+				hx-disabled-elt="button[type='submit']"
+				@submit.prevent=""
+				@htmx:after-request="handleSubdomainPostRes(event)"
+			>
+				<input
+					if userSubdomain != "" {
+						value={ userSubdomain }
+					}
+					pattern="[a-z0-9-]+"
+					name="subdomain"
+					type="text"
+					class="input input-bordered w-full"
+				/>
+				<button type="submit" class="btn btn-primary mt-4">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 			</form>
 			<div id="subdomain-result" class="margins-when-children my-8"></div>
 			<br/>
@@ -83,7 +98,7 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
 					// 	<td>3:07pm</td>
 					// 	<td>15 Chess Street</td>
-					// 	<th><a class="btn btn-primary btn-xs" href="/events/ecefe260-0f6c-41f5-b731-0e9767938f4a">details</a></th>
+					// 	<th><a class="btn btn-primary btn-xs" href="/event/ecefe260-0f6c-41f5-b731-0e9767938f4a">details</a></th>
 					// </tr>
 					// <tr>
 					// 	<td>
@@ -97,7 +112,7 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
 					// 	<td>3:07pm</td>
 					// 	<td>15 Chess Street</td>
-					// 	<th><a class="btn btn-primary btn-xs" href="/events/7bb12e44-f344-469d-820d-fdff1c060f05">details</a></th>
+					// 	<th><a class="btn btn-primary btn-xs" href="/event/7bb12e44-f344-469d-820d-fdff1c060f05">details</a></th>
 					// </tr>
 					// <tr>
 					// 	<td>
@@ -111,7 +126,7 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
 					// 	<td>3:07pm</td>
 					// 	<td>15 Chess Street</td>
-					// 	<th><a class="btn btn-primary btn-xs" href="/events/d44d2dac-f5be-4c83-a0bd-3fa45475b0e7">details</a></th>
+					// 	<th><a class="btn btn-primary btn-xs" href="/event/d44d2dac-f5be-4c83-a0bd-3fa45475b0e7">details</a></th>
 					// </tr>
 					// <tr>
 					// 	<td>
@@ -125,7 +140,7 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
 					// 	<td>3:07pm</td>
 					// 	<td>15 Chess Street</td>
-					// 	<th><a class="btn btn-primary btn-xs" href="/events/88784dfd-a8cc-4b15-b65e-f6f47e56e66d">details</a></th>
+					// 	<th><a class="btn btn-primary btn-xs" href="/event/88784dfd-a8cc-4b15-b65e-f6f47e56e66d">details</a></th>
 					// </tr>
 				</tbody>
 				<tfoot>

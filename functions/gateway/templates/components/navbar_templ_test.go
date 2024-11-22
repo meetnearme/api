@@ -14,15 +14,15 @@ func TestAddEventSource(t *testing.T) {
 
 	// Define test cases
 	tests := []struct {
-		name            string
-		subnavItems     []string
-		expectedContent []string
+		name             string
+		subnavItems      []string
+		expectedContent  []string
 		doNotShowContent []string
-		event   types.Event
+		event            types.Event
 	}{
 		{
-			name: string("Event Details, registration / purchasable"),
-			subnavItems: helpers.SitePages["events"].SubnavItems,
+			name:        string("Event Details, registration / purchasable"),
+			subnavItems: helpers.SitePages["event-detail"].SubnavItems,
 			expectedContent: []string{
 				"Main Nav",
 				"John Doe",
@@ -35,8 +35,8 @@ func TestAddEventSource(t *testing.T) {
 			event: types.Event{},
 		},
 		{
-			name: string("Event Details, with purchasable"),
-			subnavItems: helpers.SitePages["events"].SubnavItems,
+			name:        string("Event Details, with purchasable"),
+			subnavItems: helpers.SitePages["event-detail"].SubnavItems,
 			expectedContent: []string{
 				"flyout-tab-cart",
 				"John Doe",
@@ -48,8 +48,8 @@ func TestAddEventSource(t *testing.T) {
 			event: types.Event{HasPurchasable: true},
 		},
 		{
-			name: string("Event Details, with registration"),
-			subnavItems: helpers.SitePages["events"].SubnavItems,
+			name:        string("Event Details, with registration"),
+			subnavItems: helpers.SitePages["event-detail"].SubnavItems,
 			expectedContent: []string{
 				"flyout-tab-cart",
 				"John Doe",
@@ -61,7 +61,7 @@ func TestAddEventSource(t *testing.T) {
 			event: types.Event{HasRegistrationFields: true},
 		},
 		{
-			name: string("About page"),
+			name:        string("About page"),
 			subnavItems: helpers.SitePages["about"].SubnavItems,
 			expectedContent: []string{
 				"John Doe",
@@ -73,7 +73,7 @@ func TestAddEventSource(t *testing.T) {
 			event: types.Event{HasPurchasable: true},
 		},
 		{
-			name: string("Home / event search page"),
+			name:        string("Home / event search page"),
 			subnavItems: helpers.SitePages["home"].SubnavItems,
 			expectedContent: []string{
 				"John Doe",

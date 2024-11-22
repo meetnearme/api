@@ -87,7 +87,7 @@ func HashIDtoImgRange(id string, num int) int {
 }
 
 func GetImgUrlFromHash(event types.Event) string {
-	baseUrl := os.Getenv("STATIC_BASE_URL") + "/assets/img/";
+	baseUrl := os.Getenv("STATIC_BASE_URL") + "/assets/img/"
 	noneCatImgCount := 18
 	catNumString := "_"
 	if len(event.Categories) > 0 {
@@ -98,17 +98,17 @@ func GetImgUrlFromHash(event types.Event) string {
 		}
 		catImgCountRange := 0
 		switch firstCat {
-			case "none":
-				catImgCountRange = noneCatImgCount
-			case "karaoke":
-				catImgCountRange = 4
-			case "bocce-ball":
-				catImgCountRange = 4
-			case "trivia-night":
-				catImgCountRange = 4
+		case "none":
+			catImgCountRange = noneCatImgCount
+		case "karaoke":
+			catImgCountRange = 4
+		case "bocce-ball":
+			catImgCountRange = 4
+		case "trivia-night":
+			catImgCountRange = 4
 		}
 		imgNum := HashIDtoImgRange(event.Id, catImgCountRange)
-		if (imgNum < 10) {
+		if imgNum < 10 {
 			catNumString = catNumString + "0"
 		}
 
@@ -116,7 +116,7 @@ func GetImgUrlFromHash(event types.Event) string {
 		return baseUrl + imgName
 	}
 	imgNum := HashIDtoImgRange(event.Id, noneCatImgCount)
-	if (imgNum < 10) {
+	if imgNum < 10 {
 		catNumString = catNumString + "0"
 	}
 	return baseUrl + "cat_none" + catNumString + fmt.Sprint(imgNum) + ".jpeg"
@@ -285,6 +285,179 @@ func GetUserMetadataByKey(userID, key string) (string, error) {
 	return value, nil
 }
 
+type ZitadelUserSearchResponse struct {
+	Details struct {
+		TotalResult string `json:"totalResult"`
+		Timestamp   string `json:"timestamp"`
+	} `json:"details"`
+	Result []struct {
+		UserID             string `json:"userId"`
+		Username           string `json:"username"`
+		PreferredLoginName string `json:"preferredLoginName"`
+		State              string `json:"state"`
+		Human              struct {
+			Profile struct {
+				DisplayName string `json:"displayName"`
+			} `json:"profile"`
+			Email map[string]interface{} `json:"email"`
+		} `json:"human"`
+	} `json:"result"`
+}
+
+type UserSearchResult struct {
+	UserID      string `json:"userId"`
+	DisplayName string `json:"displayName"`
+}
+
+func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
+	if len(userIDs) == 0 {
+		return nil, fmt.Errorf("userIDs must contain at least one element")
+	}
+	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	// Create the payload with inUserIdsQuery
+	payload := fmt.Sprintf(`{
+        "query": {
+            "offset": 0,
+            "limit": 100,
+            "asc": true
+        },
+        "sortingColumn": "USER_FIELD_NAME_UNSPECIFIED",
+        "queries": [
+            {
+                "inUserIdsQuery": {
+                    "userIds": %s
+                }
+            }
+        ]
+    }`, ToJSON(userIDs))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, strings.NewReader(payload))
+	if err != nil {
+		return []UserSearchResult{}, err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return []UserSearchResult{}, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return []UserSearchResult{}, err
+	}
+
+	var respData ZitadelUserSearchResponse
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Return empty array if no results
+	if len(respData.Result) == 0 {
+		return []UserSearchResult{}, nil
+	}
+
+	// Map users to UserSearchResult
+	var results []UserSearchResult
+	for _, user := range respData.Result {
+		results = append(results, UserSearchResult{
+			UserID:      user.UserID,
+			DisplayName: user.Human.Profile.DisplayName,
+		})
+	}
+
+	return results, nil
+}
+
+func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
+	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	payload := fmt.Sprintf(`{
+		"query": {
+			"offset": 0,
+			"limit": 100,
+			"asc": true
+		},
+		"sortingColumn": "USER_FIELD_NAME_UNSPECIFIED",
+		"queries": [
+			{
+				"typeQuery": {
+					"type": "TYPE_HUMAN"
+				}
+			},
+			{
+				"orQuery": {
+					"queries": [
+						{
+							"emailQuery": {
+								"emailAddress": "%s",
+								"method": "TEXT_QUERY_METHOD_CONTAINS_IGNORE_CASE"
+							}
+						},
+						{
+							"userNameQuery": {
+								"userName": "%s",
+								"method": "TEXT_QUERY_METHOD_CONTAINS_IGNORE_CASE"
+							}
+						}
+					]
+				}
+			}
+		]
+	}`, query, query)
+
+	readerPayload := strings.NewReader(payload)
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, readerPayload)
+	if err != nil {
+		return []UserSearchResult{}, err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return []UserSearchResult{}, err
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return []UserSearchResult{}, err
+	}
+	var respData ZitadelUserSearchResponse
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Return empty array if no results
+	if len(respData.Result) == 0 {
+		return []UserSearchResult{}, nil
+	}
+
+	// Filter and map active users to UserSearchResult
+	var results []UserSearchResult
+	for _, user := range respData.Result {
+		results = append(results, UserSearchResult{
+			// we specifically omit `preferredLoginName` because it's an email address and we want
+			// to prevent a scenario where we expose a user's email address to a unauthorized party
+			UserID:      user.UserID,
+			DisplayName: user.Human.Profile.DisplayName,
+		})
+
+	}
+
+	return results, nil
+}
+
 func UpdateUserMetadataKey(userID, key, value string) error {
 	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "POST"
@@ -297,7 +470,7 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	req, err := http.NewRequest(method, url, payload)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
@@ -306,7 +479,7 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 
 	res, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
 	defer res.Body.Close()
@@ -323,20 +496,20 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
-	fmt.Println("saved user metadata body response: ", string(body))
+	log.Println("saved user metadata body response: ", string(body))
 	return nil
 }
 
 func ArrFindFirst(slice []string, items []string) string {
 	for _, s := range slice {
-			for _, item := range items {
-					if s == item {
-							return s
-					}
+		for _, item := range items {
+			if s == item {
+				return s
 			}
+		}
 	}
 	return ""
 }
@@ -355,6 +528,10 @@ func GetTimeOrShowNone(time int64) string {
 		return ""
 	}
 	return formattedTime
+}
+
+func GetDatetimePickerFormatted(datetime int64) string {
+	return time.Unix(datetime, 0).Format("2006-01-02T15:04")
 }
 
 func GetLocalDateAndTime(datetime int64, timezone string) (string, string) {
@@ -383,9 +560,6 @@ func FormatTimeRFC3339(unixTimestamp int64) string {
 }
 
 func FormatTimeForGoogleCalendar(timestamp int64, timezone string) string {
-
-	log.Printf("\n\n\n unix timestamp %v", timestamp)
-	log.Printf("\n\n\n timezone %v", timezone)
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
 		// If there's an error loading the timezone, fall back to UTC
@@ -394,4 +568,65 @@ func FormatTimeForGoogleCalendar(timestamp int64, timezone string) string {
 
 	t := time.Unix(timestamp, 0).In(loc)
 	return t.Format("20060102T150405")
+}
+
+func ToJSON(v interface{}) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return []byte("[]")
+	}
+	return b
+}
+
+func IsAuthorizedEditor(event *types.Event, userInfo *UserInfo) bool {
+	for _, ownerId := range event.EventOwners {
+		if ownerId == userInfo.Sub {
+			return true
+		}
+	}
+	return false
+}
+
+func HasRequiredRole(roleClaims []RoleClaim, requiredRoles []string) bool {
+	for _, claim := range roleClaims {
+		for _, validRole := range requiredRoles {
+			if claim.Role == validRole {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func CanEditEvent(event *types.Event, userInfo *UserInfo, roleClaims []RoleClaim) bool {
+	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin", "eventAdmin"})
+	isEditor := IsAuthorizedEditor(event, userInfo)
+	return hasSuperAdminRole || isEditor
+}
+
+func GetBase64ValueFromMap(claimsMeta map[string]interface{}, key string) string {
+	interestMetadataValue, ok := claimsMeta[key].(string)
+	if !ok {
+		return ""
+	}
+
+	// Add padding if needed
+	padding := len(interestMetadataValue) % 4
+	if padding > 0 {
+		interestMetadataValue += strings.Repeat("=", 4-padding)
+	}
+
+	// Decode base64 string
+	decodedValue, err := base64.StdEncoding.DecodeString(interestMetadataValue)
+	if err != nil {
+		log.Printf("Failed to decode user interests metadata: %v", err)
+		return ""
+	}
+	return string(decodedValue)
+
+}
+
+func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []string {
+	interests := GetBase64ValueFromMap(claimsMeta, key)
+	return strings.Split(interests, "|")
 }

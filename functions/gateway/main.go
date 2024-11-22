@@ -45,21 +45,23 @@ var Routes []Route
 
 func init() {
 	Routes = []Route{
-		{"/", "GET", handlers.GetHomePage, Check},
-		{"/about", "GET", handlers.GetAboutPage, Check},
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
-		// {"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
-		{"/admin/profile", "GET", handlers.GetProfilePage, Require},
-		{"/admin/profile/settings", "GET", handlers.GetProfileSettingsPage, Require},
-		{"/map-embed", "GET", handlers.GetMapEmbedPage, None},
+		{helpers.SitePages["home"].Slug, "GET", handlers.GetHomePage, Check},
+		{helpers.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
+		{helpers.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
+		{helpers.SitePages["profile"].Slug, "GET", handlers.GetProfilePage, Require},
+		{helpers.SitePages["settings"].Slug, "GET", handlers.GetProfileSettingsPage, Require},
+		{helpers.SitePages["add-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
+		{helpers.SitePages["edit-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
+		{helpers.SitePages["map-embed"].Slug, "GET", handlers.GetMapEmbedPage, None},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...
 		// the complexity is we might want "in the middle", which would be "auto-refresh
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
-		{"/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventDetailsPage, Check},
+		{helpers.SitePages["event-detail"].Slug, "GET", handlers.GetEventDetailsPage, Check},
 
 		// API routes
 
@@ -72,12 +74,13 @@ func init() {
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, None},
 		{"/api/locations", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
-
-		{"/api/auth/users/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
+		{"/api/auth/users/set-subdomain", "POST", handlers.SetUserSubdomain, Require},
 		{"/api/auth/users/update-interests", "POST", handlers.UpdateUserInterests, Require},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo", "POST", handlers.GeoLookup, None},
+		{"/api/user-search", "GET", handlers.SearchUsersHandler, Require},
+		{"/api/users", "GET", handlers.GetUsersHandler, Require},
 		{"/api/html/events", "GET", handlers.GetEventsPartial, None},
 		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, None},
 		{"/api/html/seshu/session/location", "PUT", handlers.GeoThenPatchSeshuSession, None},
@@ -220,28 +223,31 @@ func (app *App) addRoute(route Route) {
 			// Use the Authorizer to introspect the access token
 			authCtx, err := app.AuthZ.CheckAuthorization(r.Context(), accessToken)
 			if err != nil {
-				http.Error(w, "Unauthorized: Invalid access token", http.StatusUnauthorized)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
 				return
 			}
 
 			claims := authCtx.Claims
-			roleClaims := services.ExtractRoleClaims(claims)
+			roleClaims, userMetaClaims := services.ExtractClaimsMeta(claims)
 
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
 			if err != nil {
-				http.Error(w, "Unauthorized: Unable to fetch user information", http.StatusUnauthorized)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
 				return
 			}
 			err = json.Unmarshal(data, &userInfo)
 			if err != nil {
-				http.Error(w, "Unauthorized: Unable to fetch user information", http.StatusUnauthorized)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
 				return
 			}
 			ctx := context.WithValue(r.Context(), "userInfo", userInfo)
 
 			if roleClaims != nil {
 				ctx = context.WithValue(ctx, "roleClaims", roleClaims)
+			}
+			if userMetaClaims != nil {
+				ctx = context.WithValue(ctx, "userMetaClaims", userMetaClaims)
 			}
 			r = r.WithContext(ctx)
 			route.Handler(w, r).ServeHTTP(w, r)
@@ -265,7 +271,7 @@ func (app *App) addRoute(route Route) {
 			}
 
 			claims := authCtx.Claims
-			roleClaims := services.ExtractRoleClaims(claims)
+			roleClaims, userMetaClaims := services.ExtractClaimsMeta(claims)
 
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
@@ -282,6 +288,9 @@ func (app *App) addRoute(route Route) {
 			ctx := context.WithValue(r.Context(), "userInfo", userInfo)
 			if roleClaims != nil {
 				ctx = context.WithValue(ctx, "roleClaims", roleClaims)
+			}
+			if userMetaClaims != nil {
+				ctx = context.WithValue(ctx, "userMetaClaims", userMetaClaims)
 			}
 			r = r.WithContext(ctx)
 			route.Handler(w, r).ServeHTTP(w, r)

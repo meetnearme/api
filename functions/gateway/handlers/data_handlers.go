@@ -406,6 +406,97 @@ func SearchLocationsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 	}
 }
 
+func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get the ids parameter
+		idsParam := r.URL.Query().Get("ids")
+		if idsParam == "" {
+			transport.SendServerRes(w, []byte("Missing required 'ids' parameter"), http.StatusBadRequest, nil)
+			return
+		}
+
+		// Parse the comma-separated ids
+		ids := strings.Split(idsParam, ",")
+
+		// Validate each ID
+		for _, id := range ids {
+			// Check if ID is exactly 18 characters
+			if len(id) != 18 {
+				transport.SendServerRes(w,
+					[]byte(fmt.Sprintf("Invalid ID length: %s. Must be exactly 18 characters", id)),
+					http.StatusBadRequest,
+					nil)
+				return
+			}
+
+			// Check if ID contains only numeric characters
+			if !regexp.MustCompile(`^[0-9]+$`).MatchString(id) {
+				transport.SendServerRes(w,
+					[]byte(fmt.Sprintf("Invalid ID format: %s. Must contain only numbers", id)),
+					http.StatusBadRequest,
+					nil)
+				return
+			}
+		}
+
+		// Search for matching users
+		matches, err := helpers.SearchUsersByIDs(ids)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to search users: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		var jsonResponse []byte
+		if len(matches) < 1 {
+			jsonResponse = []byte("[]")
+		} else {
+			jsonResponse, err = json.Marshal(matches)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to create JSON response"), http.StatusInternalServerError, err)
+				return
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
+	}
+}
+
+func SearchUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query().Get("q")
+
+		// URL decode the query
+		decodedQuery, err := url.QueryUnescape(query)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to decode query"), http.StatusBadRequest, err)
+			return
+		}
+
+		// Search for matching users
+		query = strings.ToLower(decodedQuery)
+		matches, err := helpers.SearchUserByEmailOrName(query)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to search users: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		var jsonResponse []byte
+		if len(matches) < 1 {
+			jsonResponse = []byte("[]")
+		} else {
+			jsonResponse, err = json.Marshal(matches)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to create JSON response"), http.StatusInternalServerError, err)
+				return
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
+	}
+}
+
 func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
@@ -613,8 +704,8 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	referenceId := "event-" + eventId + "-user-" + userId + "-time-" + createPurchase.CreatedAtString
 	params := &stripe.CheckoutSessionParams{
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
-		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/events/" + eventId + "?checkout=success"),
-		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/events/" + eventId + "?checkout=cancel"),
+		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=success"),
+		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=cancel"),
 		LineItems:         lineItems,
 		// NOTE: `mode` needs to be "subscription" if there's a subscription / recurring item,
 		// use `add_invoice_item` to then append the one-time payment items:

@@ -2,7 +2,7 @@ package pages
 
 import "github.com/meetnearme/api/functions/gateway/templates/components"
 
-templ ProfileSettingsPage() {
+templ ProfileSettingsPage(interests []string) {
 	<h1 class="text-3xl mb-4">Settings</h1>
 	<div class="grid grid-cols-7">
 		@components.ProfileNav()
@@ -10,7 +10,7 @@ templ ProfileSettingsPage() {
 			<h2 class="text-3xl font-bold ">My Interests</h2>
 			<div id="update-interests-result" class="margins-when-children my-8"></div>
 			<form hx-post="/api/auth/users/update-interests" hx-target="#update-interests-result" hx-swap="outerHTML">
-				@components.NestedCheckboxList(false)
+				@components.NestedCheckboxList(false, interests)
 				<div class="flex justify-end">
 					<button class="btn btn-primary" type="submit">Save</button>
 				</div>

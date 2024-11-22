@@ -17,25 +17,26 @@ func TestEventDetailsPage(t *testing.T) {
 		t.Logf("Failed to convert unix time to UTC: %v", tm)
 	}
 	tests := []struct {
-		name     string
-		event    types.Event
+		name             string
+		event            types.Event
 		checkoutParamVal string
-		expected []string
+		expected         []string
+		canEdit          bool
 	}{
 		{
 			name: "Valid event",
 			event: types.Event{
-				Id:          "123",
-				Name:        "Test Event",
-				Description: "This is a test event",
-				Address:     "123 Test St",
-				StartTime:   validEventStartTime,
-				EventOwners: []string{"abc-uuid"},
+				Id:             "123",
+				Name:           "Test Event",
+				Description:    "This is a test event",
+				Address:        "123 Test St",
+				StartTime:      validEventStartTime,
+				EventOwners:    []string{"abc-uuid"},
 				EventOwnerName: "Brians Pub",
-				Lat: 38.896305,
-				Long: -77.023289,
+				Lat:            38.896305,
+				Long:           -77.023289,
 			},
-			checkoutParamVal:  "",
+			checkoutParamVal: "",
 			expected: []string{
 				"Test Event",
 				"This is a test event",
@@ -45,6 +46,33 @@ func TestEventDetailsPage(t *testing.T) {
 				"abc-uuid",
 				"Brians Pub",
 			},
+			canEdit: false,
+		},
+		{
+			name: "Valid event, editor role sees edit button",
+			event: types.Event{
+				Id:             "123",
+				Name:           "Test Event",
+				Description:    "This is a test event",
+				Address:        "123 Test St",
+				StartTime:      validEventStartTime,
+				EventOwners:    []string{"abc-uuid"},
+				EventOwnerName: "Brians Pub",
+				Lat:            38.896305,
+				Long:           -77.023289,
+			},
+			checkoutParamVal: "",
+			expected: []string{
+				"Test Event",
+				"This is a test event",
+				"123 Test St",
+				"May 1, 2099",
+				"12:00pm",
+				"abc-uuid",
+				"Brians Pub",
+				"editor for this event",
+			},
+			canEdit: true,
 		},
 		{
 			name:  "Empty event",
@@ -52,12 +80,13 @@ func TestEventDetailsPage(t *testing.T) {
 			expected: []string{
 				"404 - Can't Find That Event",
 			},
+			canEdit: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := EventDetailsPage(tt.event, tt.checkoutParamVal)
+			component := EventDetailsPage(tt.event, tt.checkoutParamVal, tt.canEdit)
 
 			// Wrap the component with Layout
 			layoutTemplate := Layout(helpers.SitePages["events"], helpers.UserInfo{}, component, types.Event{})

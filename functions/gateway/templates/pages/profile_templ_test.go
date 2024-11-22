@@ -44,9 +44,10 @@ func TestProfilePage(t *testing.T) {
 	}
 
 	interests := []string{"Concerts", "Photography"}
+	subdomain := "brians-pub"
 
 	// Call the ProfilePage function
-	profilePage := ProfilePage(mockUserInfo, mockRoleClaims, interests)
+	profilePage := ProfilePage(mockUserInfo, mockRoleClaims, interests, subdomain)
 
 	// Create a layout template
 	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, profilePage, types.Event{})
