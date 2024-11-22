@@ -279,7 +279,13 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 			<h2 class="card-title">Location Details</h2>
 			<div class="form-control">
 				<label class="label">Address</label>
-				<textarea class="textarea textarea-bordered" placeholder="Enter full address"></textarea>
+				<textarea
+					class="textarea textarea-bordered"
+					placeholder="Enter full address"
+					if event.Address != "" {
+						value={ event.Address }
+					}
+				></textarea>
 			</div>
 			<div class="grid grid-2">
 				<div class="form-control">
