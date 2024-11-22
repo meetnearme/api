@@ -24,10 +24,11 @@ type Event struct {
 	UpdatedAt     int64 `json:"updatedAt,omitempty"`
 	UpdatedBy     string `json:"updatedBy,omitempty"`
 	RefUrl 				string `json:"refUrl,omitempty"`
+	HideCrossPromo bool   `json:"hideCrossPromo,omitempty"`
 
 	// New fields for UI use only
-	LocalizedStartDate string `json:"localizedStartDate,omitempty"`
-	LocalizedStartTime string `json:"localizedStartTime,omitempty"`
+	LocalizedStartDate string `json:"localStartDate,omitempty"`
+	LocalizedStartTime string `json:"localStartTime,omitempty"`
 }
 
 type EventSearchResponse struct {

@@ -37,7 +37,7 @@ jobs:
       - name: Configure AWS & Create env file
         uses: './.github/actions/set_aws_creds_env_vars'
         with:
-          APEX_URL: ${{ secrets.APEX_DEV_URL }}
+          APEX_URL: ${{ secrets.APEX_URL }}
           APEX_DEV_URL: ${{ secrets.APEX_DEV_URL }}
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
@@ -63,6 +63,8 @@ jobs:
             ${{ secrets.PROD_STRIPE_PUBLISHABLE_KEY }}
           DEV_STRIPE_SECRET_KEY: ${{ secrets.DEV_STRIPE_SECRET_KEY }}
           DEV_STRIPE_PUBLISHABLE_KEY: ${{ secrets.DEV_STRIPE_PUBLISHABLE_KEY }}
+          DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET: ${{ secrets.DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
+          PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET: ${{ secrets.PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
       - name: Generate Cloudflare locations Go file
         uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Deploy AWS resources via SST

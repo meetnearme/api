@@ -4,9 +4,8 @@ type AWSReqKey string
 
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
-
 const RsvpsTablePrefix = "EventRsvps"
-const PurchasesTablePrefix = "Purchases"
+const PurchasesTablePrefix = "PurchasesV2"
 const PurchasablesTablePrefix = "Purchasables"
 const SeshuSessionTablePrefix = "SeshuSessions"
 const RegistrationsTablePrefix = "Registrations"
@@ -22,8 +21,8 @@ const MOCK_ZITADEL_HOST = "localhost:8998"
 const MOCK_MARQO_URL = "http://localhost:8997"
 
 const JWT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-
-const PROJECT_ID_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
+const AUTH_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
+const AUTH_METADATA_KEY = "urn:zitadel:iam:user:metadata"
 
 type UserInfo struct {
 	Email             string `json:"email"`
@@ -38,11 +37,35 @@ type UserInfo struct {
 	Metadata          string `json:"metadata"`
 }
 
+type StripeCheckoutStatuses struct {
+	Settled  string
+	Pending  string
+	Canceled string
+}
+
+var StripeCheckoutStatus = StripeCheckoutStatuses{
+	Settled:  "SETTLED",
+	Pending:  "PENDING",
+	Canceled: "CANCELED",
+}
+
 // RoleClaim represents a formatted role claim.
 type RoleClaim struct {
 	Role        string `json:"role"`
 	ProjectID   string `json:"project_id"`
 	ProjectName string `json:"project_name"`
+}
+
+type Role string
+
+const (
+	SuperAdmin Role = "superAdmin"
+	OrgAdmin   Role = "orgAdmin"
+)
+
+var Roles = map[Role]string{
+	SuperAdmin: string(SuperAdmin),
+	OrgAdmin:   string(OrgAdmin),
 }
 
 type Category struct {
@@ -71,13 +94,15 @@ type SitePage struct {
 }
 
 var SitePages = map[string]SitePage{
-	"home":             {Slug: "home", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
-	"about":            {Slug: "about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
-	"profile":          {Slug: "admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
-	"add-event-source": {Slug: "admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
-	"settings":         {Slug: "settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
-	"embed":            {Slug: "embed", Name: "Embed", SubnavItems: []string{SubnavItems[NvMain]}},
-	"events":           {Slug: "events", Name: "Event Details", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
+	"home":             {Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
+	"about":            {Slug: "/about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
+	"profile":          {Slug: "/admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
+	"add-event-source": {Slug: "/admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
+	"settings":         {Slug: "/admin/profile/settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
+	"map-embed":        {Slug: "/map-embed", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
+	"event-detail":     {Slug: "/event/{" + EVENT_ID_KEY + "}", Name: "Event Details", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
+	"add-event":        {Slug: "/admin/event/new", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
+	"edit-event":       {Slug: "/admin/event/edit/{" + EVENT_ID_KEY + "}", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 type Subcategory struct {

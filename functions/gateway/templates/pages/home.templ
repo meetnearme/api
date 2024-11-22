@@ -10,12 +10,15 @@ import (
 templ EventsInner(events []types.Event) {
 	if (len(events) < 1) {
 		<p class="text-md md:text-lg text-center mt-5">
-			No events found, try enabling geolocation or changing your filters like location, date, and time
+			No events found, try changing your filters like location, date, and time, or
+			<br/>
+			<br/>
+			<a class="btn btn-primary btn-small" href="/?radius=500">Expand Your Search</a>
 		</p>
 	} else {
 		for _, ev := range events {
 			<div class="flex w-full relative pb-24 md:pb-4">
-				<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/events/" + ev.Id) }>
+				<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 					<img
 						loading="lazy"
 						src={ helpers.GetImgUrlFromHash(ev) }
@@ -29,7 +32,7 @@ templ EventsInner(events []types.Event) {
 						<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime) } | { helpers.GetTimeOrShowNone(ev.StartTime) } &commat; { ev.Address }</p>
 					</div>
 					<br/>
-					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/events/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 						LEARN MORE
 						&rarr;
 					</a>
@@ -359,7 +362,7 @@ templ HomePage(events []types.Event, cfLocation helpers.CdnLocation, latStr, lon
 				},
 				handleKeydownOnOptions(event) {
 						// if the user presses backspace or the alpha-numeric keys, focus on the search field
-						if ((event.keyCode >= 65 && event.keyCode <= 90) || (event.keyCode >= 48 && event.keyCode <= 57) || event.keyCode === 8) {
+						 if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
 								this.$refs.loc_search.focus()
 						}
 				},

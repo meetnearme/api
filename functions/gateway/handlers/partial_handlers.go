@@ -49,11 +49,11 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return transport.SendHtmlError(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
 	}
 	err = json.Unmarshal([]byte(body), &inputPayload)
 	if err != nil {
-		return transport.SendHtmlError(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
 	}
 	ctx := r.Context()
 
@@ -65,9 +65,9 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
 	if err != nil {
 		if err.Error() == helpers.ERR_KV_KEY_EXISTS {
-			return transport.SendHtmlError(w, []byte("Subdomain already taken"), http.StatusInternalServerError)
+			return transport.SendHtmlErrorPartial(w, []byte("Subdomain already taken"), http.StatusInternalServerError)
 		} else {
-			return transport.SendHtmlError(w, []byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
+			return transport.SendHtmlErrorPartial(w, []byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
 		}
 	}
 
@@ -560,7 +560,7 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 	err := helpers.UpdateUserMetadataKey(userID, helpers.INTERESTS_KEY, flattenedCategoriesString)
 	if err != nil {
-		return transport.SendHtmlError(w, []byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial(w, []byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`)

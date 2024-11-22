@@ -5,26 +5,39 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"net/url"
 	"os"
 )
 
-templ IconLeftSection(labelText, eventAddress, icon string) {
+templ IconLeftSection(labelText, labelValue, icon, url string, venueSection bool, event types.Event) {
 	<div class="flex">
 		<div class="flex-none">
 			// Left column content (fit to width)
 			<div class="icon-container w-6 mr-2">
-				<img alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/" + icon + ".svg") }/>
+				<img class="fill-current" alt={ icon + "icon " } src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/" + icon + ".svg") }/>
 			</div>
 		</div>
 		<div class="flex-grow">
 			<p>
-				<strong>{ labelText }:</strong> { eventAddress }
+				if url != "" {
+					<strong>{ labelText }:</strong> <a class="link link-primary" href={ templ.URL(url) }>{ labelValue }</a>
+				} else {
+					<strong>{ labelText }:</strong> { labelValue }
+				}
+				// This is a hack because it wasn't clear how to get nested templ components working
+				if venueSection {
+					<p>
+						<a class="link link-primary" href={ templ.URL(fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=%f,%f", event.Lat, event.Long)) }>
+							{ "(Map Link)" }
+						</a>
+					</p>
+				}
 			</p>
 		</div>
 	</div>
 }
 
-templ EventDetailsPage(event types.Event, checkoutParamVal string) {
+templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool) {
 	<div class="max-w-prose mx-auto" x-data="getEventDetailsData()">
 		if event.Id == "" {
 			<br/>
@@ -43,6 +56,9 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 			<br/>
 			<br/>
 		} else {
+			if (canEdit) {
+				<div class="alert alert-success">You are an editor for this event. <a class="btn btn-sm" href={ templ.URL("/admin/event/edit/" + event.Id) }>Edit Event</a></div>
+			}
 			<h2 class="text-3xl mt-2">{ event.Name }</h2>
 			<br/>
 			<p>
@@ -51,19 +67,21 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 					<br/>
 					<br/>
 				}
-				@IconLeftSection("Location", event.Address, "location")
+				@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], false, event)
+				<br/>
+				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, true, event)
 				<br/>
 				if helpers.GetDateOrShowNone(event.StartTime) != "" {
-					@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime), "calendar")
+					@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime), "calendar", "", false, event)
 				}
 				<br/>
 				if helpers.GetTimeOrShowNone(event.StartTime) != "" {
-					@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime), "clock")
+					@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime), "clock", "", false, event)
 				}
 				<br/>
 				if event.StartingPrice > 0 {
 					// TODO: handle basecurrency
-					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price")
+					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", false, event)
 				}
 				<br/>
 				<h3 class="text-xl">EVENT DESCRIPTION</h3>
@@ -77,34 +95,74 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string) {
 					} else if event.HasRegistrationFields {
 						<button data-umami-event={ "reg-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
 					} else {
-						<button data-umami-event={ "rsvp-click" } data-umami-event-event-id={ event.Id } @click="handleCtaClick()" class="btn btn-block btn-primary">RSVP</button>
+						<a
+							data-umami-event={ "rsvp-click" }
+							data-umami-event-event-id={ event.Id }
+							target="_blank"
+							href={ templ.URL(fmt.Sprintf("https://calendar.google.com/calendar/render?action=TEMPLATE&dates=%s/%s&ctz=%s&details=%s&location=%s&text=%s",
+						helpers.FormatTimeForGoogleCalendar(event.StartTime, event.Timezone),
+						helpers.FormatTimeForGoogleCalendar(event.StartTime + (60*60), event.Timezone),
+						event.Timezone,
+						url.QueryEscape(event.Description),
+						url.QueryEscape(event.Address),
+						url.QueryEscape(event.Name))) }
+							@click="handleCtaClick('rsvp')"
+							class="btn btn-block btn-primary"
+						>RSVP</a>
 					}
 					<br/>
 					<br/>
-					<button data-umami-event={ "intrst-click" } data-umami-event-event-id={ event.Id } class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Interested, can't make it!</button>
+					<button
+						data-umami-event={ "intrst-click" }
+						data-umami-event-event-id={ event.Id }
+						@click="document.getElementById('icmi-modal').showModal(); handleCtaClick('icmi')"
+						class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content"
+					>Interested, can't make it!</button>
+					<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+						<div class="modal-box">
+							<h3 class="text-lg font-bold">YAY!</h3>
+							<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+							<form method="dialog" class="modal-backdrop">
+								<!-- if there is a button in form, it will close the modal -->
+								<button class="btn btn-primary">Close</button>
+							</form>
+						</div>
+					</dialog>
 				</div>
 			</div>
 		}
 	</div>
 	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
-	<script>
+	<script id="event-details-script">
 		function getEventDetailsData() {
 			return {
-				init() {
-
-				},
-				formData: {
-
-				},
+				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),
+				eventId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-event-id'),
+				init() {},
+				formData: {},
 				handleCtaClick(tab) {
-					if (tab === undefined) {
-						// TODO: handle for calling RSVP endpoint here
+					if (tab === 'rsvp' || tab === 'icmi' && this.userId) {
+						const body = {
+							status: tab === 'rsvp' ? 'yes' : 'icmi',
+							event_source_type: 'silence',
+							event_type: 'is',
+							event_source_id: 'golden',
+						};
+						const headers = {
+							type: 'application/json',
+						};
+						const blob = new Blob([JSON.stringify(body)], headers);
+
+						navigator.sendBeacon(`/api/event-rsvps/${this.eventId}/${this.userId}`, blob);
 						return
 					}
-					// select the subnav item
-					document.getElementById(`flyout-tab-${tab}`).click();
-					// toggle the main drawer
-					document.getElementById(`main-drawer`).click();
+					if (tab === 'cart') {
+						// select the subnav item
+						document.getElementById(`flyout-tab-${tab}`).click();
+						// toggle the main drawer
+						document.getElementById(`main-drawer`).click();
+					}
+
 				}
 			}
 		}

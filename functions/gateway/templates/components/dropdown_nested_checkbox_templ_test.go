@@ -14,22 +14,34 @@ func TestNestedCheckboxList(t *testing.T) {
 		name            string
 		isInDropdown    bool
 		expectedContent []string
+		interests       []string
 	}{
 		{
-			name: string("Nested checkbox list, in dropdown"),
-			isInDropdown: true,
+			name:            string("Nested checkbox list, in dropdown"),
+			isInDropdown:    true,
 			expectedContent: []string{"Civic &amp; Advocacy", "<summary"},
+			interests:       []string{},
 		},
 		{
-			name: string("Nested checkbox list, solo"),
-			isInDropdown: false,
-			expectedContent: []string{"Civic &amp; Advocacy", },
+			name:            string("Nested checkbox list, solo"),
+			isInDropdown:    false,
+			expectedContent: []string{"Civic &amp; Advocacy"},
+			interests:       []string{},
+		},
+		{
+			name:         "Nested checkbox list with pre-selected interests",
+			isInDropdown: true,
+			expectedContent: []string{
+				"Civic &amp; Advocacy",
+				"checked=\"checked\"", // Verify checkbox is checked
+			},
+			interests: []string{"Civic & Advocacy"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := NestedCheckboxList(tt.isInDropdown)
+			component := NestedCheckboxList(tt.isInDropdown, tt.interests)
 			// Render the template
 			var buf bytes.Buffer
 			err := component.Render(context.Background(), &buf)

@@ -32,6 +32,9 @@ export default {
     require('@tailwindcss/typography'),
     ({ addComponents }) => {
       addComponents({
+        '.alert': {
+          gridAutoFlow: 'column',
+        },
         '.container': {
           maxWidth: '100%',
           width: '100%',
@@ -86,6 +89,10 @@ export default {
           '@screen xl': {
             maxWidth: '70vw',
           },
+        },
+        '.tab:is(input[type="radio"])': {
+          borderBottomRightRadius: 'inherit',
+          borderBottomLeftRadius: 'inherit',
         },
       });
     },

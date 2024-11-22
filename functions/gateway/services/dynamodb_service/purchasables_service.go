@@ -98,7 +98,7 @@ func (s *PurchasableService) GetPurchasablesByEventID(ctx context.Context, dynam
 
 func (s *PurchasableService) UpdatePurchasable(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchasable internal_types.PurchasableUpdate) (*internal_types.Purchasable, error) {
 	if purchasablesTableName == "" {
-		return nil, fmt.Errorf("ERR: rsvpTableName is empty")
+		return nil, fmt.Errorf("ERR: purchasablesTableName is empty")
 	}
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String(purchasablesTableName),
