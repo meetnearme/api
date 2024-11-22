@@ -295,7 +295,10 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
-	roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
 
 	validRoles := []string{"superAdmin", "eventEditor"}
 	if !helpers.HasRequiredRole(roleClaims, validRoles) {

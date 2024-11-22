@@ -599,10 +599,9 @@ func HasRequiredRole(roleClaims []RoleClaim, requiredRoles []string) bool {
 }
 
 func CanEditEvent(event *types.Event, userInfo *UserInfo, roleClaims []RoleClaim) bool {
-	hasEditRole := false
 	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin", "eventAdmin"})
 	isEditor := IsAuthorizedEditor(event, userInfo)
-	return hasSuperAdminRole || (isEditor && hasEditRole)
+	return hasSuperAdminRole || isEditor
 }
 
 func GetBase64ValueFromMap(claimsMeta map[string]interface{}, key string) string {
