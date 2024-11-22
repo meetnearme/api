@@ -748,3 +748,60 @@ func TestUpdateUserMetadataKey(t *testing.T) {
 		})
 	}
 }
+
+func TestGetBase64ValueFromMap(t *testing.T) {
+	tests := []struct {
+		name       string
+		claimsMeta map[string]interface{}
+		key        string
+		want       string
+	}{
+		{
+			name: "valid base64 string",
+			claimsMeta: map[string]interface{}{
+				"test": "SGVsbG8gV29ybGQ=", // "Hello World" in base64
+			},
+			key:  "test",
+			want: "Hello World",
+		},
+		{
+			name: "invalid base64 string",
+			claimsMeta: map[string]interface{}{
+				"test": "invalid-base64!@#",
+			},
+			key:  "test",
+			want: "",
+		},
+		{
+			name:       "missing key",
+			claimsMeta: map[string]interface{}{},
+			key:        "nonexistent",
+			want:       "",
+		},
+		{
+			name: "non-string value",
+			claimsMeta: map[string]interface{}{
+				"test": 123,
+			},
+			key:  "test",
+			want: "",
+		},
+		{
+			name: "base64 string without padding",
+			claimsMeta: map[string]interface{}{
+				"test": "SGVsbG8gV29ybGQ", // "Hello World" in base64 without padding
+			},
+			key:  "test",
+			want: "Hello World",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetBase64ValueFromMap(tt.claimsMeta, tt.key)
+			if got != tt.want {
+				t.Errorf("GetBase64ValueFromMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
