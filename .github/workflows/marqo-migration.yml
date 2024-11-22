@@ -52,14 +52,9 @@ jobs:
         PROD_MARQO_API_BASE_URL: ${{ secrets.PROD_MARQO_API_BASE_URL }}
         MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}      
       run: |
-        if [ "${{ inputs.environment }}" = "dev" ]; then
-          echo "DEV_MARQO_API_BASE_URL=${{ secrets.DEV_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
-          echo "PROD_MARQO_API_BASE_URL=${{ secrets.PROD_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
-        else
-          echo "DEV_MARQO_API_BASE_URL=${{ secrets.DEV_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
-          echo "PROD_MARQO_API_BASE_URL=${{ secrets.PROD_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
-        fi
-
+        echo "DEV_MARQO_API_BASE_URL=${{ secrets.DEV_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
+        echo "PROD_MARQO_API_BASE_URL=${{ secrets.PROD_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
+        echo "MARQO_API_KEY=${{ secrets.MARQO_API_KEY }}" >> $GITHUB_ENV
     - name: Run Migration
       env:
         DEV_MARQO_API_BASE_URL: ${{ secrets.DEV_MARQO_API_BASE_URL }}
