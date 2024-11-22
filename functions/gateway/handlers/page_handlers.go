@@ -380,14 +380,14 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	if err != nil || event.Id == "" {
 		event = &types.Event{}
 	}
-
 	userInfo := helpers.UserInfo{}
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
-
-	roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
-
+	roleClaims := []helpers.RoleClaim{}
+	if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
+	}
 	canEdit := helpers.CanEditEvent(event, &userInfo, roleClaims)
 	checkoutParamVal := r.URL.Query().Get("checkout")
 
