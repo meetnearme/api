@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -232,6 +233,392 @@ func TestSetCloudFlareKV(t *testing.T) {
 			if err != nil && tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
 				t.Errorf("SetCloudflareKV() error = %v, expectedError %v", err, tt.expectedError)
 				return
+			}
+		})
+	}
+}
+
+func TestSearchUsersByIDs(t *testing.T) {
+	// Initialize and setup environment
+	InitDefaultProtocol()
+	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
+	os.Setenv("ZITADEL_INSTANCE_HOST", MOCK_ZITADEL_HOST)
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
+	}()
+
+	// Create mock Zitadel server
+	mockZitadelServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && strings.Contains(r.URL.Path, "/v2/users") {
+			w.Header().Set("Content-Type", "application/json")
+
+			// Parse request body to get userIds
+			var requestBody struct {
+				Queries []struct {
+					InUserIdsQuery struct {
+						UserIds []string `json:"userIds"`
+					} `json:"inUserIdsQuery"`
+				} `json:"queries"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+				http.Error(w, "invalid request body", http.StatusBadRequest)
+				return
+			}
+
+			// Get userIds from request
+			var userIds []string
+			if len(requestBody.Queries) > 0 {
+				userIds = requestBody.Queries[0].InUserIdsQuery.UserIds
+			}
+
+			// Prepare response based on input userIds
+			var response ZitadelUserSearchResponse
+			response.Details.Timestamp = "2099-01-01T00:00:00Z"
+
+			switch {
+			case len(userIds) == 0:
+				http.Error(w, "no user IDs provided", http.StatusBadRequest)
+				return
+			case contains(userIds, "error_id"):
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			case contains(userIds, "nonexistent"):
+				response.Details.TotalResult = "0"
+				response.Result = []struct {
+					UserID             string `json:"userId"`
+					Username           string `json:"username"`
+					PreferredLoginName string `json:"preferredLoginName"`
+					State              string `json:"state"`
+					Human              struct {
+						Profile struct {
+							DisplayName string `json:"displayName"`
+						} `json:"profile"`
+						Email map[string]interface{} `json:"email"`
+					} `json:"human"`
+				}{}
+			default:
+				// Return mock users for valid IDs
+				response.Details.TotalResult = fmt.Sprintf("%d", len(userIds))
+				for _, id := range userIds {
+					response.Result = append(response.Result, struct {
+						UserID             string `json:"userId"`
+						Username           string `json:"username"`
+						PreferredLoginName string `json:"preferredLoginName"`
+						State              string `json:"state"`
+						Human              struct {
+							Profile struct {
+								DisplayName string `json:"displayName"`
+							} `json:"profile"`
+							Email map[string]interface{} `json:"email"`
+						} `json:"human"`
+					}{
+						UserID: id,
+						Human: struct {
+							Profile struct {
+								DisplayName string `json:"displayName"`
+							} `json:"profile"`
+							Email map[string]interface{} `json:"email"`
+						}{
+							Profile: struct {
+								DisplayName string `json:"displayName"`
+							}{
+								DisplayName: "Test User " + id,
+							},
+						},
+					})
+				}
+			}
+
+			responseJSON, err := json.Marshal(response)
+			if err != nil {
+				http.Error(w, "failed to marshal response", http.StatusInternalServerError)
+				return
+			}
+			w.Write(responseJSON)
+			return
+		}
+		http.Error(w, fmt.Sprintf("unexpected request: %s %s", r.Method, r.URL), http.StatusBadRequest)
+	}))
+
+	// Set up mock server
+	mockZitadelServer.Listener.Close()
+	var err error
+	mockZitadelServer.Listener, err = net.Listen("tcp", MOCK_ZITADEL_HOST)
+	if err != nil {
+		t.Fatalf("Failed to start mock Zitadel server: %v", err)
+	}
+	mockZitadelServer.Start()
+	defer mockZitadelServer.Close()
+
+	tests := []struct {
+		name          string
+		userIDs       []string
+		expectedUsers []UserSearchResult
+		expectError   bool
+	}{
+		{
+			name:    "successful search with multiple users",
+			userIDs: []string{"123", "456"},
+			expectedUsers: []UserSearchResult{
+				{UserID: "123", DisplayName: "Test User 123"},
+				{UserID: "456", DisplayName: "Test User 456"},
+			},
+		},
+		{
+			name:          "empty result",
+			userIDs:       []string{"nonexistent"},
+			expectedUsers: []UserSearchResult{},
+		},
+		{
+			name:        "server error",
+			userIDs:     []string{"error_id"},
+			expectError: true,
+		},
+		{
+			name:          "empty user IDs",
+			userIDs:       []string{},
+			expectedUsers: []UserSearchResult{},
+			expectError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			users, err := SearchUsersByIDs(tt.userIDs)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if len(users) != len(tt.expectedUsers) {
+				t.Errorf("expected %d users, got %d", len(tt.expectedUsers), len(users))
+				return
+			}
+
+			for i, user := range users {
+				if user.UserID != tt.expectedUsers[i].UserID {
+					t.Errorf("expected UserID %s, got %s", tt.expectedUsers[i].UserID, user.UserID)
+				}
+				if user.DisplayName != tt.expectedUsers[i].DisplayName {
+					t.Errorf("expected DisplayName %s, got %s", tt.expectedUsers[i].DisplayName, user.DisplayName)
+				}
+			}
+		})
+	}
+}
+
+// Helper function to check if a slice contains a string
+func contains(slice []string, str string) bool {
+	for _, v := range slice {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+func TestSearchUserByEmailOrName(t *testing.T) {
+	// Initialize and setup environment
+	InitDefaultProtocol()
+	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
+	os.Setenv("ZITADEL_INSTANCE_HOST", MOCK_ZITADEL_HOST)
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
+	}()
+
+	// Create mock Zitadel server
+	mockZitadelServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && strings.Contains(r.URL.Path, "/v2/users") {
+			w.Header().Set("Content-Type", "application/json")
+
+			// Parse request body to get search query
+			var requestBody struct {
+				Queries []struct {
+					OrQuery struct {
+						Queries []struct {
+							EmailQuery struct {
+								EmailAddress string `json:"emailAddress"`
+							} `json:"emailQuery"`
+							UserNameQuery struct {
+								UserName string `json:"userName"`
+							} `json:"userNameQuery"`
+						} `json:"queries"`
+					} `json:"orQuery"`
+				} `json:"queries"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+				http.Error(w, "invalid request body", http.StatusBadRequest)
+				return
+			}
+
+			// Get search query from request
+			var searchQuery string
+			if len(requestBody.Queries) > 1 && len(requestBody.Queries[1].OrQuery.Queries) > 0 {
+				searchQuery = requestBody.Queries[1].OrQuery.Queries[0].EmailQuery.EmailAddress
+			}
+
+			// Prepare response based on search query
+			var response ZitadelUserSearchResponse
+			response.Details.Timestamp = "2099-01-01T00:00:00Z"
+
+			switch searchQuery {
+			case "error":
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			case "nonexistent":
+				response.Details.TotalResult = "0"
+				response.Result = []struct {
+					UserID             string `json:"userId"`
+					Username           string `json:"username"`
+					PreferredLoginName string `json:"preferredLoginName"`
+					State              string `json:"state"`
+					Human              struct {
+						Profile struct {
+							DisplayName string `json:"displayName"`
+						} `json:"profile"`
+						Email map[string]interface{} `json:"email"`
+					} `json:"human"`
+				}{}
+			default:
+				// Return mock users for valid search
+				response.Details.TotalResult = "2"
+				response.Result = []struct {
+					UserID             string `json:"userId"`
+					Username           string `json:"username"`
+					PreferredLoginName string `json:"preferredLoginName"`
+					State              string `json:"state"`
+					Human              struct {
+						Profile struct {
+							DisplayName string `json:"displayName"`
+						} `json:"profile"`
+						Email map[string]interface{} `json:"email"`
+					} `json:"human"`
+				}{
+					{
+						UserID: "123",
+						Human: struct {
+							Profile struct {
+								DisplayName string `json:"displayName"`
+							} `json:"profile"`
+							Email map[string]interface{} `json:"email"`
+						}{
+							Profile: struct {
+								DisplayName string `json:"displayName"`
+							}{
+								DisplayName: "John Doe",
+							},
+						},
+					},
+					{
+						UserID: "456",
+						Human: struct {
+							Profile struct {
+								DisplayName string `json:"displayName"`
+							} `json:"profile"`
+							Email map[string]interface{} `json:"email"`
+						}{
+							Profile: struct {
+								DisplayName string `json:"displayName"`
+							}{
+								DisplayName: "Jane Doe",
+							},
+						},
+					},
+				}
+			}
+
+			responseJSON, err := json.Marshal(response)
+			if err != nil {
+				http.Error(w, "failed to marshal response", http.StatusInternalServerError)
+				return
+			}
+			w.Write(responseJSON)
+			return
+		}
+		http.Error(w, fmt.Sprintf("unexpected request: %s %s", r.Method, r.URL), http.StatusBadRequest)
+	}))
+
+	// Set up mock server
+	mockZitadelServer.Listener.Close()
+	var err error
+	mockZitadelServer.Listener, err = net.Listen("tcp", MOCK_ZITADEL_HOST)
+	if err != nil {
+		t.Fatalf("Failed to start mock Zitadel server: %v", err)
+	}
+	mockZitadelServer.Start()
+	defer mockZitadelServer.Close()
+
+	tests := []struct {
+		name          string
+		query         string
+		expectedUsers []UserSearchResult
+		expectError   bool
+	}{
+		{
+			name:  "successful search with results",
+			query: "doe",
+			expectedUsers: []UserSearchResult{
+				{UserID: "123", DisplayName: "John Doe"},
+				{UserID: "456", DisplayName: "Jane Doe"},
+			},
+		},
+		{
+			name:          "no results found",
+			query:         "nonexistent",
+			expectedUsers: []UserSearchResult{},
+		},
+		{
+			name:        "server error",
+			query:       "error",
+			expectError: true,
+		},
+		// NOTE: this is faithful to the Zitadel API, which returns all users if the query is empty
+		{
+			name:  "empty query",
+			query: "",
+			expectedUsers: []UserSearchResult{
+				{UserID: "123", DisplayName: "John Doe"},
+				{UserID: "456", DisplayName: "Jane Doe"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			users, err := SearchUserByEmailOrName(tt.query)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if len(users) != len(tt.expectedUsers) {
+				t.Errorf("expected %d users, got %d", len(tt.expectedUsers), len(users))
+				return
+			}
+
+			for i, user := range users {
+				if user.UserID != tt.expectedUsers[i].UserID {
+					t.Errorf("expected UserID %s, got %s", tt.expectedUsers[i].UserID, user.UserID)
+				}
+				if user.DisplayName != tt.expectedUsers[i].DisplayName {
+					t.Errorf("expected DisplayName %s, got %s", tt.expectedUsers[i].DisplayName, user.DisplayName)
+				}
 			}
 		})
 	}

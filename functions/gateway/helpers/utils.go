@@ -310,6 +310,9 @@ type UserSearchResult struct {
 }
 
 func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
+	if len(userIDs) == 0 {
+		return nil, fmt.Errorf("userIDs must contain at least one element")
+	}
 	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users", os.Getenv("ZITADEL_INSTANCE_HOST"))
 	method := "POST"
 
