@@ -44,13 +44,16 @@ jobs:
       run: |
         cd internal/database/marqo/migration
         go build -o marqo-migration .
-        ls -la # Debug: List files to confirm built binary
+        if [ ! -f marqo-migration ]; then
+          echo "Failed to build migration tool"
+          exit 1
+        fi
 
     - name: Set Environment Variables
-      env: 
+      env:
         DEV_MARQO_API_BASE_URL: ${{ secrets.DEV_MARQO_API_BASE_URL }}
         PROD_MARQO_API_BASE_URL: ${{ secrets.PROD_MARQO_API_BASE_URL }}
-        MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}      
+        MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
       run: |
         echo "DEV_MARQO_API_BASE_URL=${{ secrets.DEV_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
         echo "PROD_MARQO_API_BASE_URL=${{ secrets.PROD_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
@@ -58,7 +61,7 @@ jobs:
     - name: Run Migration
       env:
         DEV_MARQO_API_BASE_URL: ${{ secrets.DEV_MARQO_API_BASE_URL }}
-        PROD_MARQO_API_BASE_URL: ${{ secrets.PROD_MARQO_API_BASE_URL }}       
+        PROD_MARQO_API_BASE_URL: ${{ secrets.PROD_MARQO_API_BASE_URL }}
         MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
       run: |
         echo "Starting migration for ${{ inputs.environment }} environment"
