@@ -17,10 +17,10 @@ type MarqoClient struct {
 }
 
 type IndexInfo struct {
-	IndexName string `json:"indexName"`
-	IndexStatus string `json:"indexStatus"`
+	IndexName     string `json:"indexName"`
+	IndexStatus   string `json:"indexStatus"`
 	MarqoEndpoint string `json:"marqoEndpoint"`
-	Created string `json:"Created"`
+	Created       string `json:"Created"`
 }
 
 type ListIndexesResponse struct {
@@ -28,7 +28,7 @@ type ListIndexesResponse struct {
 }
 
 func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
-	fmt.Printf("baseURL: %v", baseURL)
+	// This trimming is not strictly needed but it adds clarity and readability to all of the Sprintf functions called in Search, Upsert etc below
 	baseURL = strings.TrimRight(baseURL, "/")
 
 	return &MarqoClient{
@@ -163,8 +163,8 @@ func (c *MarqoClient) Search(indexName string, query string, offset, limit int) 
 	fmt.Printf("URL: %v", url)
 
 	requestBody := map[string]interface{}{
-		"q": "*", // use wildcard or empty query to retrieve all documents
-		"limit": limit,
+		"q":      "*", // use wildcard or empty query to retrieve all documents
+		"limit":  limit,
 		"offset": offset,
 	}
 
@@ -193,10 +193,10 @@ func (c *MarqoClient) Search(indexName string, query string, offset, limit int) 
 
 	fmt.Printf("Response body: %s\n", string(bodyBytes))
 
-    if resp.StatusCode != http.StatusOK {
-        return nil, fmt.Errorf("request failed: status=%d body=%s",
-            resp.StatusCode, string(bodyBytes))
-    }
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("request failed: status=%d body=%s",
+			resp.StatusCode, string(bodyBytes))
+	}
 
 	var result struct {
 		Hits []map[string]interface{} `json:"hits"`
@@ -212,7 +212,7 @@ func (c *MarqoClient) UpsertDocuments(indexName string, documents []map[string]i
 	url := fmt.Sprintf("%s/indexes/%s/documents", c.baseURL, indexName)
 	fmt.Printf("Upserting documents to URL: %s\n", url)
 
-	requestBody := map[string]interface{} {
+	requestBody := map[string]interface{}{
 		"documents": documents,
 	}
 
@@ -242,9 +242,9 @@ func (c *MarqoClient) UpsertDocuments(indexName string, documents []map[string]i
 	fmt.Printf("Upsert response status: %d\n", resp.StatusCode)
 	fmt.Printf("Upsert response body: %s\n", string(bodyBytes))
 
-
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to upsert documents: status=%d body=%s", resp.StatusCode, string(body))
+
+		return fmt.Errorf("failed to upsert documents: status=%d, documents request body=%s", resp.StatusCode, string(body))
 	}
 
 	// Parse response to verify success
@@ -312,12 +312,12 @@ func (c *MarqoClient) ListIndexes() ([]string, error) {
 }
 
 func (c *MarqoClient) addHeaders(req *http.Request) {
-    req.Header.Set("Content-Type", "application/json")
-    req.Header.Set("x-api-key", c.apiKey)
-    req.Header.Set("Accept", "application/json")
-    // Add CSRF protection headers
-    req.Header.Set("X-Requested-With", "XMLHttpRequest")
-    req.Header.Set("Origin", "https://api.marqo.ai")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", c.apiKey)
+	req.Header.Set("Accept", "application/json")
+	// Add CSRF protection headers
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
+	req.Header.Set("Origin", "https://api.marqo.ai")
 }
 
 func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration) (string, error) {
@@ -333,7 +333,7 @@ func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration)
 		}
 
 		url := "https://api.marqo.ai/api/v2/indexes"
-		req, err :=  http.NewRequest("GET", url, nil)
+		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return "", err
 		}
