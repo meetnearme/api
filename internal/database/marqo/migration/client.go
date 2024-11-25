@@ -254,8 +254,10 @@ func (c *MarqoClient) UpsertDocuments(indexName string, documents []map[string]i
 	}
 
 	// Add verification of the response content here
-	if errors, ok := result["errors"].([]interface{}); ok && len(errors) > 0 {
-		return fmt.Errorf("upsert had errors: %v", errors)
+	if errors, ok := result["error"]; ok {
+		if errorsList, ok := errors.([]interface{}); ok && len(errorsList) > 0 {
+			return fmt.Errorf("upsert had errors: %v", errorsList)
+		}
 	}
 
 	return nil
@@ -296,6 +298,7 @@ func (c *MarqoClient) ListIndexes() ([]string, error) {
 			IndexName string `json:"indexName"`
 		} `json:"results"`
 	}
+
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
