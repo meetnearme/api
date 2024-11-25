@@ -28,7 +28,7 @@ type ListIndexesResponse struct {
 }
 
 func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
-	fmt.Printf("baseURL", baseURL)
+	fmt.Printf("baseURL: %v", baseURL)
 	baseURL = strings.TrimRight(baseURL, "/")
 
 	return &MarqoClient{
