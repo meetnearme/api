@@ -27,15 +27,40 @@ type ListIndexesResponse struct {
 	Results []IndexInfo `json:"results"`
 }
 
-func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
-	// This trimming is not strictly needed but it adds clarity and readability to all of the Sprintf functions called in Search, Upsert etc below
-	baseURL = strings.TrimRight(baseURL, "/")
+type Schema struct {
+	Type                string             `json:"type"`
+	VectorNumericType   string             `json:"vectorNumericType"`
+	Model               string             `json:"model"`
+	NormalizeEmbeddings bool               `json:"normalizeEmbeddings"`
+	TextPreprocessing   *TextPreprocessing `json:"textPreprocessing,omitempty"`
+	AllFields           []Field            `json:"allFields"`
+	TensorFields        []string           `json:"tensorFields"`
+	AnnParameters       *AnnParameters     `json:"annParameters,omitempty"`
+}
 
-	return &MarqoClient{
-		baseURL: baseURL,
-		apiKey:  apiKey,
-		client:  &http.Client{},
+// Validate checks if the schema meets our requirements
+func (s *Schema) Validate() error {
+	if s.Type == "" {
+		return fmt.Errorf("type is required")
 	}
+	if s.Model == "" {
+		return fmt.Errorf("model is required")
+	}
+	if len(s.AllFields) == 0 {
+		return fmt.Errorf("at least one field is required")
+	}
+
+	// Validate each field
+	for _, field := range s.AllFields {
+		if field.Name == "" {
+			return fmt.Errorf("field name is required")
+		}
+		if field.Type == "" {
+			return fmt.Errorf("field type is required for field %s", field.Name)
+		}
+	}
+
+	return nil
 }
 
 type CreateIndexRequest struct {
@@ -75,6 +100,17 @@ type AnnParameters struct {
 type Parameters struct {
 	EfConstruction int `json:"efConstruction"`
 	M              int `json:"m"`
+}
+
+func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
+	// This trimming is not strictly needed but it adds clarity and readability to all of the Sprintf functions called in Search, Upsert etc below
+	baseURL = strings.TrimRight(baseURL, "/")
+
+	return &MarqoClient{
+		baseURL: baseURL,
+		apiKey:  apiKey,
+		client:  &http.Client{},
+	}
 }
 
 func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]interface{}) (string, error) {
@@ -243,7 +279,6 @@ func (c *MarqoClient) UpsertDocuments(indexName string, documents []map[string]i
 	fmt.Printf("Upsert response body: %s\n", string(bodyBytes))
 
 	if resp.StatusCode != http.StatusOK {
-
 		return fmt.Errorf("failed to upsert documents: status=%d, documents request body=%s", resp.StatusCode, string(body))
 	}
 
