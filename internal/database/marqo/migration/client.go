@@ -178,18 +178,37 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
 }
 
 // Helper function to create a structured index request from schema
-func CreateIndexRequestFromSchema(schema map[string]interface{}) (*CreateIndexRequest, error) {
-	data, err := json.Marshal(schema)
+func CreateIndexRequestFromSchema(schemaMap map[string]interface{}) (*CreateIndexRequest, error) {
+	data, err := json.Marshal(schemaMap)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal schema: %w", err)
+		return nil, fmt.Errorf("failed to marshal schema map: %w", err)
 	}
 
-	var req CreateIndexRequest
-	if err := json.Unmarshal(data, &req); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal schema into request: %w", err)
+	var schema Schema
+	if err := json.Unmarshal(data, &schema); err != nil {
+		return nil, fmt.Errorf("failed to unmarshall schema: %w", err)
 	}
 
-	return &req, nil
+	// Validate the schema
+	if err := schema.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid schema: %w", err)
+	}
+
+	return &CreateIndexRequest{
+		Type:                schema.Type,
+		VectorNumericType:   schema.VectorNumericType,
+		Model:               schema.Model,
+		NormalizeEmbeddings: schema.NormalizeEmbeddings,
+		TextPreprocessing:   schema.TextPreprocessing,
+		AllFields:           schema.AllFields,
+		TensorFields:        schema.TensorFields,
+		AnnParameters:       schema.AnnParameters,
+		NumberOfShards:      1,
+		NumberOfReplicas:    0,
+		InferenceType:       "marqo.CPU.large",
+		StorageClass:        "marqo.basic",
+		NumberOfInferences:  1,
+	}, nil
 }
 
 // Add these methods to MarqoClient
