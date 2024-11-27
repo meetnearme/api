@@ -424,7 +424,8 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 			</div>
 		</div>
 	</div>
-	<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub }>
+	if helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvCart]}) != "" {
+		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-name={ event.Name } data-user-id={ userInfo.Sub }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,
@@ -671,5 +672,6 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					},
 				}
 			}
-	</script>
+		</script>
+	}
 }

@@ -1,0 +1,846 @@
+package pages
+
+import (
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
+	"github.com/meetnearme/api/functions/gateway/templates/partials"
+	"github.com/meetnearme/api/functions/gateway/types"
+	"strconv"
+	"strings"
+)
+
+templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64) {
+	<div
+		x-data="getAddEditEventState()"
+		@child-updated.window="formData.eventChildren[$event.detail.index] = $event.detail.value"
+		@lat-updated.window="formData.event.lat = $event.detail.value"
+		@lon-updated.window="formData.event.long = $event.detail.value"
+		@address-updated.window="formData.event.address = $event.detail.value"
+	>
+		// NOTE: intentionally hidden fields that users can't affect directly
+		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
+			<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
+			<a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["attendees-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>View Attendees</a>
+		</header>
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Overview</h2>
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
+			<div class="card">
+				<label class="form-control w-full max-w-xs">
+					<div class="label">Event Name</div>
+					<input
+						class="input input-bordered w-full"
+						id="name"
+						type="text"
+						placeholder="Enter event name"
+						x-model.fill={ "formData.event.name" }
+						value={ event.Name }
+						:disabled="saveReqInFlight"
+					/>
+				</label>
+				<div class="form-control">
+					<label class="label" for="description">Description</label>
+					<textarea
+						class="textarea textarea-bordered w-full"
+						id="description"
+						placeholder="Enter event description"
+						x-model.fill={ "formData.event.description" }
+						:disabled="saveReqInFlight"
+					>{ event.Description }</textarea>
+				</div>
+				<div class="form-control">
+					<label class="label">Categories</label>
+					<div class="categories" id="categoriesList">
+						<template x-for="category in formData.event.categories">
+							<span
+								class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
+							>
+								<span x-text="category"></span>
+								<button aria-label="remove category" class="btn btn-circle btn-neutral  btn-xs" @click="removeCategory(category)" :disabled="saveReqInFlight">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-6 w-6"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M6 18L18 6M6 6l12 12"
+										></path>
+									</svg>
+								</button>
+							</span>
+						</template>
+					</div>
+					<input
+						placeholder="Add categories (press Enter)"
+						class="input input-bordered"
+						id="categoryInput"
+						type="text"
+						x-model="categoryInput"
+						@keydown="handleCategoryKeydown"
+						:disabled="saveReqInFlight"
+					/>
+				</div>
+				<div class="form-control">
+					<label class="label">Tags</label>
+					<div class="tags" id="tagsList">
+						<template x-for="tag in formData.event.tags">
+							<span
+								class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
+							>
+								<span x-text="tag"></span>
+								<button aria-label="remove tag" class="btn btn-circle btn-neutral  btn-xs" @click="removeTag(tag)" :disabled="saveReqInFlight">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-6 w-6"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M6 18L18 6M6 6l12 12"
+										></path>
+									</svg>
+								</button>
+							</span>
+						</template>
+					</div>
+					<input
+						placeholder="Add tags (press Enter)"
+						class="input input-bordered"
+						id="tagInput"
+						type="text"
+						x-model="tagInput"
+						@keydown="handleTagKeydown"
+						:disabled="saveReqInFlight"
+					/>
+				</div>
+			</div>
+			<div class="card">
+				<h2 class="text-2xl mt-4">Event Ownership</h2>
+				<div class="form-control">
+					<div class="form-control">
+						<label class="label">{ helpers.GetFieldDisplayName("EventOwners") }</label>
+						<div class="tags" id="ownersList">
+							<template x-for="owner in owners">
+								<span
+									class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
+								>
+									<template x-if="owner.label">
+										<span x-text="owner.label"></span>
+									</template>
+									<template x-if="!owner.label">
+										<span class="loading loading-spinner loading-sm"></span>
+									</template>
+									<button aria-label="remove owner" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeOwner(owner)" :disabled="saveReqInFlight">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-6 w-6"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M6 18L18 6M6 6l12 12"
+											></path>
+										</svg>
+									</button>
+								</span>
+							</template>
+						</div>
+					</div>
+				</div>
+				<div class="form-control">
+					<div class="flex w-full flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
+						<div class="relative">
+							<input
+								type="text"
+								class="input input-bordered w-full disabled:cursor-not-allowed disabled:opacity-75 "
+								name="ownerSearch"
+								aria-label="Add event owners (search by name, organization, or email)"
+								@input.throttle="fetchUsers($event.target.value)"
+								x-ref="ownerSearch"
+								placeholder="Add event owners (search by name, organization, or email)"
+								class="input input-bordered"
+								role="combobox"
+								aria-controls="ownersList"
+								aria-haspopup="listbox"
+								x-on:click="isOpen = ! isOpen"
+								x-on:keydown.down.prevent="
+								isOpen = true;
+								openedWithKeyboard = true;
+								$nextTick(() => {
+									$el.closest('.relative').querySelector('li[role=option]')?.focus()
+								})"
+								x-bind:aria-expanded="isOpen || openedWithKeyboard"
+								autocomplete="new-password"
+								:disabled="saveReqInFlight"
+							/>
+							<div
+								x-show="isOpen || openedWithKeyboard"
+								:class="{'opacity-100': isOpen || openedWithKeyboard}"
+								class="w-full opacity-0 transition-all absolute left-0 top-12 z-50 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
+								id="ownersList"
+								role="listbox"
+								aria-label="event owners list"
+								x-on:click.outside="isOpen = false, openedWithKeyboard = false"
+								x-on:keydown.down.prevent="$focus.wrap().next()"
+								x-on:keydown.up.prevent="
+								if ($el.querySelector('li:focus') === $refs.optionsList.querySelector('li[role=option]')) {
+									isOpen = false;
+									openedWithKeyboard = false;
+									$nextTick(() => {
+											document.querySelector('[x-ref=ownerSearch]').focus();
+									});
+								} else {
+										$focus.wrap().previous()
+								}
+							"
+								x-transition
+								x-trap="openedWithKeyboard"
+							>
+								<!-- Options  -->
+								<ul x-ref="optionsList" class="flex max-h-44 flex-col overflow-y-auto">
+									<template x-if="options?.length < 1">
+										<li class="px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
+											<span>No matches found</span>
+										</li>
+									</template>
+									<template x-for="(item, index) in options" :key="index">
+										<li
+											class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white"
+											role="option"
+											@click="setSelectedOwner(item)"
+											@keydown.enter="setSelectedOwner(item)"
+											:id="'option-' + index"
+											tabindex="0"
+										>
+											<span x-text="item.label"></span>
+										</li>
+									</template>
+								</ul>
+							</div>
+						</div>
+					</div>
+				</div>
+				<h2 class="text-2xl mt-4">Related Events</h2>
+				<div class="form-control w-full">
+					<label class="label cursor-pointer">
+						<span class="label-text">Only show my events as recommendations</span>
+						<input
+							name="hideCrossPromo"
+							type="checkbox"
+							class="toggle toggle-primary"
+							x-model.fill="formData.event.hideCrossPromo"
+							if event.HideCrossPromo {
+								checked
+							}
+							:disabled="saveReqInFlight"
+						/>
+					</label>
+				</div>
+			</div>
+		</div>
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Date &amp; Media</h2>
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
+			<div class="form-control">
+				<label class="label">{ helpers.GetFieldDisplayName("StartTime") }</label>
+				<input
+					class="input input-bordered"
+					type="datetime-local"
+					x-model.fill={ "formData.event.startTime" }
+					if (event.StartTime > 0) {
+						value={ helpers.GetDatetimePickerFormatted(event.StartTime, event.Timezone) }
+					}
+					:disabled="saveReqInFlight"
+				/>
+			</div>
+			<div class="form-control">
+				<label class="label">{ helpers.GetFieldDisplayName("EndTime") }</label>
+				<input
+					class="input input-bordered"
+					type="datetime-local"
+					x-model.fill={ "formData.event.endTime" }
+					if (event.EndTime > 0) {
+						value={ helpers.GetDatetimePickerFormatted(event.EndTime, event.Timezone) }
+					}
+					:disabled="saveReqInFlight"
+				/>
+			</div>
+			<div class="form-control">
+				<label class="label">Timezone</label>
+				<select
+					class="select select-bordered"
+					x-model.fill={ "formData.event.timezone" }
+					value={ event.Timezone.String() }
+					:disabled="saveReqInFlight"
+				>
+					<option value="">Select timezone</option>
+					<option
+						if (event.Timezone.String() == "America/New_York") {
+							selected
+						}
+						value="America/New_York"
+					>America/New_York</option>
+					<option
+						if (event.Timezone.String() == "America/Chicago") {
+							selected
+						}
+						value="America/Chicago"
+					>America/Chicago</option>
+					<option
+						if (event.Timezone.String() == "America/Denver") {
+							selected
+						}
+						value="America/Denver"
+					>America/Denver</option>
+					<option
+						if (event.Timezone.String() == "America/Los_Angeles") {
+							selected
+						}
+						value="America/Los_Angeles"
+					>America/Los_Angeles</option>
+				</select>
+			</div>
+		</div>
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Series</h2>
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
+			<div class="card">
+				<label class="label cursor-pointer">
+					<span class="label-text">Enable Multi-Event Series</span>
+					<input
+						name="isEventSeries"
+						type="checkbox"
+						class="toggle toggle-primary"
+						x-model="isEventSeries"
+						@change={ `formData.event.eventSourceType = isEventSeries ? "` + helpers.ES_SERIES_PARENT + `" : "` + helpers.ES_SINGLE_EVENT + `"` }
+						if event.EventSourceType == helpers.ES_SERIES_PARENT {
+							checked
+						}
+						:disabled="saveReqInFlight"
+					/>
+				</label>
+				<template x-if="isEventSeries">
+					<div>
+						if event.EventSourceType == helpers.ES_SERIES_PARENT {
+							<div
+								hx-get={ "/api/html/event-series-form/" + event.Id + "?end_time=2099-10-18T10:00:00Z&radius=20000" }
+								hx-trigger="load"
+								hx-swap="outerHTML"
+								@htmx:after-request="setEventChildrenLoaded()"
+							>
+								// TODO: add htmx response callback behavior to set eventChildrenLoaded to true
+								<template x-if="!eventChildrenLoaded && formData.eventChildren.length < 1">
+									<div class="flex w-full flex-col gap-4 my-3">
+										<div class="skeleton h-4 w-1/2"></div>
+										<div class="skeleton h-4 w-full"></div>
+										<div class="skeleton h-4 w-full"></div>
+									</div>
+								</template>
+							</div>
+						}
+						<template x-for="(child, idx) in formData.eventChildren">
+							<div>
+								<template x-if="idx > 0">
+									<div class="divider my-3"></div>
+								</template>
+								<h3 x-text=" 'Event #' + (idx + 1) + ' in Series' "></h3>
+								<div class="form-control">
+									for _, diffField := range partials.AlwaysShowEventDiffFields {
+										<label class="label">{ helpers.GetFieldDisplayName(diffField) }</label>
+										<input
+											class="input input-bordered w-full"
+											type="datetime-local"
+											name={ string(` 'event_' + idx + '_' + ` + string(diffField)) }
+											x-model={ "formData.eventChildren[idx]." + strings.ToLower(string(diffField[0])) + diffField[1:] }
+											:disabled="saveReqInFlight"
+										/>
+									}
+								</div>
+							</div>
+						</template>
+						// <h3>Event Children formData</h3>
+						// <div x-effect="$el.textContent = JSON.stringify(formData.eventChildren)"></div>
+						<button class="btn btn-primary mt-3 w-full" @click="addNewEventChild()" :disabled="saveReqInFlight">
+							<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
+							Add New Event
+						</button>
+					</div>
+				</template>
+			</div>
+		</div>
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Venue Information</h2>
+		<div id="location" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
+			<div class="card">
+				@components.LocationLookupPartial("post", "/api/location/geo", "", "formData.url", "Confirm Address", "Address Confirmed", event.Lat, event.Long, event.Address, cfLocationLat, cfLocationLon)
+			</div>
+		</div>
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Tickets, Sales, & Registrations</h2>
+		<div id="pricing" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
+			<div class="card">
+				<h3 class="text-xl">Registration</h3>
+				<div class="form-control w-full">
+					<label class="label cursor-pointer">
+						<span class="label-text">Enable Event Registration (collect attendee question responses)</span>
+						<input
+							name="hasRegistrationFields"
+							type="checkbox"
+							class="toggle toggle-primary"
+							x-model.fill="formData.event.hasRegistrationFields"
+							if event.HasRegistrationFields {
+								checked
+							}
+							:disabled="saveReqInFlight"
+						/>
+					</label>
+				</div>
+				<template x-if="formData.event.hasRegistrationFields && !formData.registrationFieldsLoaded && registrationFields.length < 1">
+					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+				</template>
+				<template x-if="registrationFields.length > 0">
+					<ul class="list-disc list-inside">
+						<template x-for="field in registrationFields">
+							<li x-text="field.name"></li>
+						</template>
+					</ul>
+				</template>
+				<h3 class="text-xl mt-4">Purchasable Items, Tickets, Merch, etc.</h3>
+				<div class="form-control w-full">
+					<label class="label cursor-pointer">
+						<span class="label-text">Enable Purchasable Items</span>
+						<input
+							name="hasPurchasable"
+							type="checkbox"
+							class="toggle toggle-primary"
+							x-model.fill="formData.event.hasPurchasable"
+							if event.HasPurchasable {
+								checked
+							}
+							:disabled="saveReqInFlight"
+						/>
+					</label>
+				</div>
+				<template x-if="formData.event.hasPurchasable && !formData.purchasablesLoaded && purchasables.length < 1">
+					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+				</template>
+				<template x-if="purchasables.length > 0">
+					<ul class="list-disc">
+						<template x-for="purchasable in purchasables">
+							<li class="mt-4">
+								<div x-text="'Name: ' + purchasable.name"></div>
+								<div x-text="'Item Type: ' + purchasable.item_type"></div>
+								<div x-text="'Cost: ' + purchasable.cost"></div>
+								<div x-text="'Inventory: ' + purchasable.inventory"></div>
+								<div x-text="'Starting Quantity: ' + purchasable.starting_quantity"></div>
+								<div x-text="'Currency: ' + purchasable.currency"></div>
+								<div x-text="'Charge Recurrence Interval: ' + purchasable.charge_recurrence_interval"></div>
+								<div x-text="'Charge Recurrence Interval Count: ' + purchasable.charge_recurrence_interval_count"></div>
+								<div x-text="'Charge Recurrence End Date: ' + purchasable.charge_recurrence_end_date"></div>
+								<div x-text="'Donation Ratio: ' + purchasable.donation_ratio"></div>
+								<div x-text="'Registration Fields: ' + purchasable.registration_fields"></div>
+								<div x-text="'Expires On: ' + purchasable.expires_on"></div>
+								<div x-text="'Created At: ' + purchasable.created_at"></div>
+								<div x-text="'Updated At: ' + purchasable.updated_at"></div>
+							</li>
+						</template>
+					</ul>
+				</template>
+				<div :class="formData.event.hasPurchasable ? 'grid grid-2' : 'hidden'">
+					<div class="form-control">
+						<label class="label">Starting Price</label>
+						<input
+							class="input"
+							type="number"
+							step="0.01"
+							placeholder="Enter starting price"
+							x-model.fill={ "formData.event.startingPrice" }
+							if event.StartingPrice > 0 {
+								value={ strconv.FormatInt(int64(event.StartingPrice/100), 10) }
+							}
+						/>
+					</div>
+					<div class="form-control">
+						<label class="label">Currency</label>
+						<select class="select" value={ event.Currency }>
+							<option value="">Select currency</option>
+							<option
+								value="USD"
+								x-model.fill={ "formData.event.currency" }
+								if event.Currency == "USD" {
+									selected
+								}
+							>USD</option>
+							<option
+								value="EUR"
+								disabled
+								if event.Currency == "EUR" {
+									selected
+								}
+							>EUR</option>
+							<option
+								value="GBP"
+								disabled
+								if event.Currency == "GBP" {
+									selected
+								}
+							>GBP</option>
+						</select>
+					</div>
+					<div class="form-control">
+						// TODO: make this a typeahead like other user lookup for event owners
+						<label class="label">Payee</label>
+						<input
+							class="input"
+							type="text"
+							x-model="formData.event.payeeId"
+							value={ event.PayeeId }
+							:disabled="saveReqInFlight"
+						/>
+					</div>
+				</div>
+				<div x-effect="$el.textContent = JSON.stringify(formData)"></div>
+			</div>
+		</div>
+		<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
+			<button class="btn btn-outline">Cancel</button>
+			<button :disabled="saveReqInFlight" @click="handlePublishClick()" class="btn btn-primary mx-4">
+				Publish
+				<template x-if="saveReqInFlight">
+					<span class="loading loading-spinner loading-sm"></span>
+				</template>
+			</button>
+			<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+				<div class="modal-box">
+					<h3 class="text-lg font-bold">YAY!</h3>
+					<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+					<form method="dialog" class="modal-backdrop">
+						<!-- if there is a button in form, it will close the modal -->
+						<button class="btn btn-primary">Close</button>
+					</form>
+				</div>
+			</dialog>
+		</div>
+		<template x-if="showToast === true">
+			<div class="toast m-4 z-50 ">
+				<div :class="toastContent.type == 'error' ? 'alert-error' : 'alert-success'" class="alert  border-2 border-base-300">
+					<span x-text="toastContent.message"></span>
+					<div class="block justify-end">
+						<button class="btn btn-sm btn-circle btn-ghost text-2xl float-end" @click="showToast = false"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
+					</div>
+				</div>
+			</div>
+		</template>
+	</div>
+	// 	<div class="bottom-drawer">
+	// 		<div class="container mx-auto">
+	// 			<button class="btn btn-block btn-primary">Cancel</button>
+	// 			<br/>
+	// 			<br/>
+	// 			<button class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Save Changes</button>
+	// 			<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+	// 				<div class="modal-box">
+	// 					<h3 class="text-lg font-bold">YAY!</h3>
+	// 					<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+	// 					<form method="dialog" class="modal-backdrop">
+	// 						<!-- if there is a button in form, it will close the modal -->
+	// 						<button class="btn btn-primary">Close</button>
+	// 					</form>
+	// 				</div>
+	// 			</dialog>
+	// 		</div>
+	// 	</div>
+	// </div>
+	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) }>
+		function getAddEditEventState() {
+			return {
+				init() {
+					(async () => {
+						const ownerNames = this.formData.event.eventOwnerName.split(this.eventOwnerDelimiter);
+						const ownerIds = JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? []
+						this.owners = ownerIds.map((ownerId, idx) => {
+							return { label: ownerNames?.[idx], value: ownerId };
+						});
+						this.allOptions = this.owners
+						if (this.formData.event.hasPurchasable) {
+							try {
+								const purchasablesResponse = await fetch(`/api/purchasables/${this.formData.event.id}`);
+								const purchasables = await purchasablesResponse.json();
+								this.purchasables = purchasables?.purchasable_items ?? [];
+								this.purchasablesCreatedAt = purchasables?.created_at ?? '';
+								this.purchasablesLoaded = true;
+							} catch (error) {
+								// eslint-disable-next-line no-console
+								console.error('Failed to fetch purchasables:', error);
+								this.showToast = true;
+								this.toastContent = {
+									type: 'error',
+									message: 'Failed to fetch purchasables',
+								}
+							}
+						}
+
+						if (this.formData.event.hasRegistrationFields) {
+							try {
+								const registrationFieldsResponse = await fetch(`/api/registration-fields/${this.formData.event.id}`);
+								const registrationFields = await registrationFieldsResponse.json();
+								this.registrationFields = registrationFields?.fields ?? [];
+								this.registrationFieldsCreatedAt = registrationFields?.created_at ?? '';
+								this.registrationFieldsLoaded = true;
+							} catch (error) {
+								// eslint-disable-next-line no-console
+								console.error('Failed to fetch registration fields:', error);
+							}
+						}
+					})()
+				},
+				formData: {
+					eventChildren: [],
+					event: {
+						id: document.querySelector('#add-edit-event').getAttribute('data-event-id') ?? null,
+						eventSourceId: document.querySelector('#add-edit-event').getAttribute('data-event-source-id') ?? null,
+						eventOwners: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? [],
+						eventOwnerName: document.querySelector('#add-edit-event').getAttribute('data-event-owner-name') ?? '',
+						eventSourceType: document.querySelector('[name=isEventSeries]').checked ? document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent') : document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
+						tags: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-tags')) ?? [],
+						categories: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-categories')) ?? [],
+						hasPurchasable: document.querySelector('[name=hasPurchasable]').checked ?? false,
+						payeeId: document.querySelector('#add-edit-event').getAttribute('data-payee-id') ?? null,
+						hasRegistrationFields: document.querySelector('[name=hasRegistrationFields]').checked ?? false,
+						lat: document.querySelector('#add-edit-event').getAttribute('data-event-lat') ?? null,
+						long: document.querySelector('#add-edit-event').getAttribute('data-event-long') ?? null,
+						address: document.querySelector('#add-edit-event').getAttribute('data-event-address') ?? null,
+						hideCrossPromo: document.querySelector('[name=hideCrossPromo]').checked ?? false,
+					},
+				},
+				eventChildrenLoaded: false,
+				purchasablesLoaded: false,
+				purchasablesCreatedAt: '',
+				registrationFieldsLoaded: false,
+				registrationFieldsCreatedAt: '',
+				purchasables: [],
+				registrationFields: [],
+				owners: [],
+				isEventSeries: document.querySelector('[name=isEventSeries]').checked ?? false,
+				categoryInput: '',
+				tagInput: '',
+				ownerInput: '',
+				saveReqInFlight: false,
+				showToast: false,
+				toastContent: {
+					type: '',
+					message: ' updated successfully',
+				},
+				eventOwnerDelimiter: document.querySelector('#add-edit-event').getAttribute('data-event-owner-delimiter'),
+				eventTypeSingleConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
+				eventTypeSeriesParentConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent'),
+				eventTypeSeriesChildConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-child'),
+				// The API expects RFC3339 HH:MM:SS, but datetime-local is in HH:MM
+				timeZuluSuffix: ":00Z",
+				// BEGIN: Event Owners typeahead state
+
+				allOptions: [],
+				options: [],
+				isOpen: false,
+				openedWithKeyboard: false,
+				// END: Event Owners typeahead state
+				getFormChildrenData() {
+					return JSON.stringify(this.formData.eventChildren);
+				},
+				// BEGIN: Event Owners typeahead helper functions
+				async fetchUsers(query) {
+					if (query.length >= 3) {
+						await fetch(`/api/user-search?q=${query}`).then(res => {
+							return res.json()
+						}).then(json => {
+							// Filter out users that are already owners
+							const filteredUsers = json.filter(user =>
+								!this.owners.some(owner => owner.value === user.userId)
+							);
+							this.options = filteredUsers.map((user) => ({
+								label: user.displayName,
+								value: user.userId,
+							}))
+							this.$nextTick(() => {
+								this.isOpen = true
+							})
+						});
+					}
+				},
+				removeOwner(ownerToRemove) {
+					this.owners = this.owners.filter(owner => owner !== ownerToRemove);
+				},
+				setSelectedOwner(option) {
+					this.isOpen = false
+					this.owners.push(option);
+					this.options = this.options.filter(o => o.value !== option.value)
+					this.$nextTick(() => {
+						document.querySelector('[x-ref=ownerSearch]').focus();
+					})
+				},
+				getFilteredOptions(query) {
+					this.options = this.allOptions.filter((option) =>
+						option.label.toLowerCase().includes(query.toLowerCase()),
+					)
+					if (this.options.length === 0) {
+						this.$refs.noResultsMessage.classList.remove('hidden')
+					} else {
+						this.$refs.noResultsMessage.classList.add('hidden')
+					}
+				},
+				handleKeydownOnOptions(event) {
+					// if the user presses backspace or the alpha-numeric keys, focus on the search field
+					if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
+						this.$refs.ownerSearch.focus()
+					}
+				},
+
+				// END: Event Owners typeahead helper functions
+
+				addTag() {
+					if (this.tagInput.trim() !== '') {
+						this.formData.event.tags.push(this.tagInput.trim());
+						this.tagInput = '';
+					}
+				},
+
+				removeTag(tagToRemove) {
+					this.formData.event.tags = this.formData.event.tags.filter(tag => tag !== tagToRemove);
+				},
+
+				handleTagKeydown(e) {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						this.addTag();
+					}
+				},
+
+				addCategory() {
+					if (this.categoryInput.trim() !== '') {
+						this.formData.event.categories.push(this.categoryInput.trim());
+						this.categoryInput = '';
+					}
+				},
+
+				removeCategory(categoryToRemove) {
+					this.formData.event.categories = this.formData.event.categories.filter(category => category !== categoryToRemove);
+				},
+
+				handleCategoryKeydown(e) {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						this.addCategory();
+					}
+				},
+				addNewEventChild() {
+					this.formData.eventChildren.push({
+						startTime: '',
+						endTime: '',
+					})
+				},
+				transformEventToPayload(event) {
+					const eventFiltered = Object.fromEntries(
+						Object.entries(event)
+							// eslint-disable-next-line no-unused-vars
+							.filter(([_, value]) => value !== '')
+					)
+					if (!event.hasPurchasable) {
+						delete eventFiltered.startingPrice
+						delete eventFiltered.currency
+						delete eventFiltered.payeeId
+					}
+
+					return {
+						...eventFiltered,
+						startTime: event.startTime ? event.startTime + this.timeZuluSuffix : null,
+						endTime: event.endTime ? event.endTime + this.timeZuluSuffix : null,
+						lat: parseFloat(event.lat),
+						long: parseFloat(event.long),
+						eventSourceType: this.isEventSeries ? this.eventTypeSeriesParentConstant : this.eventTypeSingleConstant,
+						eventOwners: this.owners.map(owner => owner.value),
+						eventOwnerName: this.owners.map(owner => owner.label).join(this.eventOwnerDelimiter),
+						...(event.hasPurchasable ? {
+							startingPrice: event.startingPrice * 100,
+							currency: event.currency,
+							payeeId: event.payeeId,
+						} : {}
+						),
+					}
+				},
+				setEventChildrenLoaded() {
+					this.eventChildrenLoaded = true
+				},
+				async handlePublishClick() {
+					this.saveReqInFlight = true
+					const parentEvent = this.transformEventToPayload(this.formData.event)
+					let payload = {
+						events: [{
+							...parentEvent,
+						}],
+						purchasableUpdate: {
+							event_id: this.formData.event.id,
+							...(this.purchasablesCreatedAt !== '' ? {created_at: this.purchasablesCreatedAt} : {}),
+							purchasable_items: this.purchasables,
+						},
+						registrationFieldsUpdate: {
+							...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
+							fields: this.registrationFields,
+						},
+					}
+					if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
+						this.formData.eventChildren.forEach(child => {
+							payload.events.push({
+								...parentEvent,
+								...child,
+								eventSourceId: this.formData.event.id,
+								startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
+								endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,
+								eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
+							})
+						})
+					}
+
+					try {
+						const response = await fetch(`/api/event-reg-purch/${this.formData.event.id}`, {
+							method: 'PUT',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify(payload),
+						});
+						const json = await response.json()
+						if (json.status === 'success') {
+							this.saveReqInFlight = false
+							this.showToast = true;
+							this.toastContent = {
+								type: 'success',
+								message: 'Event updated successfully',
+							}
+							const newUrl = `/admin/event/${json.data.parentEvent._id}/edit`;
+							window.history.pushState({ path: newUrl }, '', newUrl);
+						} else {
+							throw new Error(`Failed to update event ${ json?.error?.message ? ": " + json.error.message : ''}`)
+						}
+					} catch (error) {
+						// eslint-disable-next-line no-console
+						console.error('Failed to update event:', error);
+						this.saveReqInFlight = false
+						this.showToast = true;
+						this.toastContent = {
+							type: 'error',
+							message: error,
+						}
+					}
+				}
+			}
+		}
+		</script>
+}

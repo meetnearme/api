@@ -7,50 +7,48 @@ import (
 )
 
 const (
-	LatitudeRegex = `^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?)$`
+	LatitudeRegex  = `^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?)$`
 	LongitudeRegex = `^[-+]?((1[0-7]\d)|([1-9]?\d))(\.\d+)?$`
 )
 
 func GetGeo(location string, baseUrl string) (lat string, lon string, address string, err error) {
-    return GetGeoService().GetGeo(location, baseUrl)
+	return GetGeoService().GetGeo(location, baseUrl)
 }
 
 func (s *RealGeoService) GetGeo(location string, baseUrl string) (lat string, lon string, address string, err error) {
-		// TODO: this needs to be parameterized!
-		if baseUrl == "" {
-			return "", "", "", fmt.Errorf("base URL is empty")
-		}
-		htmlString, err := GetHTMLFromURL( baseUrl + "/map-embed?address=" + location, 500, false)
+	// TODO: this needs to be parameterized!
+	if baseUrl == "" {
+		return "", "", "", fmt.Errorf("base URL is empty")
+	}
+	htmlString, err := GetHTMLFromURL(baseUrl+"/map-embed?address="+location, 0, false, "#mapDiv")
+	if err != nil {
+		return "", "", "", err
+	}
+	// this regex specifically captures the pattern of a lat/lon pair e.g. [40.7128, -74.0060]
+	re := regexp.MustCompile(`\[\-?\+?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*\-?\+?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)\]`)
+	latLon := re.FindString(htmlString)
 
-		if err != nil {
-			return "", "", "", err
-		}
+	if latLon == "" {
+		return "", "", "", fmt.Errorf("location is not valid")
+	}
 
-		// this regex specifically captures the pattern of a lat/lon pair e.g. [40.7128, -74.0060]
-		re := regexp.MustCompile(`\[\-?\+?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*\-?\+?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)\]`)
-		latLon := re.FindString(htmlString)
+	latLonArr := strings.Split(latLon, ",")
+	lat = latLonArr[0]
+	lon = latLonArr[1]
+	re = regexp.MustCompile(`[^\d.]`)
+	lat = re.ReplaceAllString(lat, "")
+	lon = re.ReplaceAllString(lon, "")
 
-		if latLon == "" {
-			return "", "", "", fmt.Errorf("location is not valid")
-		}
+	// Regular expression pattern
+	pattern := `"([^"]*)"\s*,\s*\` + latLon
+	re = regexp.MustCompile(pattern)
 
-		latLonArr := strings.Split(latLon, ",")
-		lat = latLonArr[0]
-		lon = latLonArr[1]
-		re = regexp.MustCompile(`[^\d.]`)
-		lat = re.ReplaceAllString(lat, "")
-		lon = re.ReplaceAllString(lon, "")
+	matches := re.FindStringSubmatch(htmlString)
+	if len(matches) > 0 {
+		address = matches[1]
+	} else {
+		address = "No address found"
+	}
 
-		// Regular expression pattern
-		pattern := `"([^"]*)"\s*,\s*\` + latLon
-		re = regexp.MustCompile(pattern)
-
-		matches := re.FindStringSubmatch(htmlString)
-		if len(matches) > 0 {
-			address = matches[1]
-		} else {
-			address = "No address found"
-		}
-
-		return lat, lon, address, nil
+	return lat, lon, address, nil
 }

@@ -1,0 +1,112 @@
+package components
+
+import (
+	"fmt"
+	"github.com/meetnearme/api/functions/gateway/templates/partials"
+	"os"
+)
+
+templ LocationLookupPartial(hxMethod string, hxApiPath string, hxAfterReqStr string, inputModelStr string, buttonText string, lat float64, lon float64, address string) {
+	<form
+		class="group"
+		novalidate
+		if hxMethod == "patch" && hxApiPath != "" {
+			hx-patch={ hxApiPath }
+		}
+		if hxMethod == "post" && hxApiPath != "" {
+			hx-post={ hxApiPath }
+		}
+		hx-ext="json-enc"
+		hx-target="#location-confirmation"
+		hx-disabled-elt="input[name='location'], button[type='submit']"
+		@submit.prevent="formData.addressInput ? '' : ''"
+		if hxAfterReqStr != "" {
+			@htmx:after-request={ hxAfterReqStr }
+		} else {
+			@htmx:after-request="handleHtmxAfterReq(event)"
+		}
+		x-data="getLocationLookupState()"
+	>
+		<input
+			if inputModelStr != "" {
+				x-model={ inputModelStr }
+			} else {
+				x-model="formData.url"
+			}
+			name="url"
+			id="url"
+			type="hidden"
+		/>
+		<label for="location" class="form-control w-full">
+			Event Location
+			<input name="location" x-model.debounce.500ms="formData.addressInput" type="text" class="input input-bordered w-full mt-3" placeholder="101 Somewhere St, Nowhereville 12345"/>
+		</label>
+		<button type="submit" :disabled="formData.addressInput?.length < 1" class="btn btn-primary mt-3">
+			<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> { buttonText } <span class="htmx-indicator loading loading-spinner loading-sm"></span>
+		</button>
+		<div class="grid lg:grid-cols-7">
+			<div class="lg:col-span-2">
+				<div class="skeleton card card-compact h-24 htmx-show-in-flight my-4 mr-4"></div>
+				<template x-if="formData.addressInput !== formData.address">
+					<div role="alert" class="alert alert-warning w-fit mr-4 mt-4 htmx-hide-in-flight">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+							></path>
+						</svg>
+						<div>This location has not been confirmed yet.</div>
+					</div>
+				</template>
+				<div id="location-confirmation" class="margins-when-children my-4 htmx-hide-in-flight" aria-live="polite">
+					@partials.GeoLookup(lat, lon, address, "form")
+				</div>
+			</div>
+			<div class="lg:col-span-5">
+				<iframe
+					id="google-map"
+					class="mt-5 max-w-full transition-all h-0 aspect-video"
+					width="600"
+					height="450"
+					style="border:0"
+					loading="lazy"
+					allowfullscreen
+					referrerpolicy="no-referrer-when-downgrade"
+					:class="{'h-auto': formData.addressInput?.length }"
+					:src="getAddress()"
+				></iframe>
+			</div>
+		</div>
+	</form>
+	<script id="location-lookup" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") } data-event-address={ address } data-event-lat={ fmt.Sprintf("%.6f", lat) } data-event-lon={ fmt.Sprintf("%.6f", lon) }>
+    function getLocationLookupState() {
+      return {
+        formData: {
+          addressInput: document.querySelector('#location-lookup').getAttribute('data-event-address') ?? "",
+          address: document.querySelector('#location-lookup').getAttribute('data-event-address') ?? "",
+          url: "",
+          lat: document.querySelector('#location-lookup').getAttribute('data-event-lat') ?? 0,
+          lon: document.querySelector('#location-lookup').getAttribute('data-event-lon') ?? 0,
+        },
+        getAddress() {
+          return `https://www.google.com/maps/embed/v1/place?key=${document.querySelector('#location-lookup').getAttribute('data-google-api-key')}&q=${this.formData.addressInput}`
+        },
+        handleHtmxAfterReq(event) {
+          if (event.detail.successful){
+            this.formData.addressInput = document.querySelector('[data-value-address]').getAttribute('data-value-address')
+            this.formData.address = document.querySelector('[data-value-address]').getAttribute('data-value-address')
+            this.formData.lat = document.querySelector('[data-value-lat]').getAttribute('data-value-lat')
+            this.formData.lon = document.querySelector('[data-value-lon]').getAttribute('data-value-lon')
+          }
+        }
+      }
+    }
+  </script>
+}
