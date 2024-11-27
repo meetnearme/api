@@ -193,7 +193,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 		return serverError(err)
 	}
 
-	htmlString, err := scraper.GetHTMLFromURL(inputPayload.Url, 4500, true)
+	htmlString, err := scraper.GetHTMLFromURL(inputPayload.Url, 4500, true, "")
 	if err != nil {
 		return _SendHtmlErrorPartial(err, ctx, req)
 	}
