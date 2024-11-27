@@ -2,6 +2,7 @@ package pages
 
 import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -276,27 +277,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 	<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Location Details</h2>
 	<div id="location" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
 		<div class="card">
-			<h2 class="card-title">Location Details</h2>
-			<div class="form-control">
-				<label class="label">Address</label>
-				<textarea
-					class="textarea textarea-bordered"
-					placeholder="Enter full address"
-					if event.Address != "" {
-						value={ event.Address }
-					}
-				></textarea>
-			</div>
-			<div class="grid grid-2">
-				<div class="form-control">
-					<label class="label">Latitude</label>
-					<input class="input input-bordered" type="number" step="any" placeholder="Enter latitude"/>
-				</div>
-				<div class="form-control">
-					<label class="label">Longitude</label>
-					<input class="input input-bordered" type="number" step="any" placeholder="Enter longitude"/>
-				</div>
-			</div>
+			@components.LocationLookupPartial("post", "/api/location/geo", "", "formData.url", "Update Location", event.Lat, event.Long, event.Address)
 		</div>
 	</div>
 	<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Pricing & Registration</h2>

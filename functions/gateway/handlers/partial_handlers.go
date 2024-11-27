@@ -49,11 +49,11 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return transport.SendHtmlErrorPartial(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial([]byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
 	}
 	err = json.Unmarshal([]byte(body), &inputPayload)
 	if err != nil {
-		return transport.SendHtmlErrorPartial(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
 	}
 	ctx := r.Context()
 
@@ -65,9 +65,9 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
 	if err != nil {
 		if err.Error() == helpers.ERR_KV_KEY_EXISTS {
-			return transport.SendHtmlErrorPartial(w, []byte("Subdomain already taken"), http.StatusInternalServerError)
+			return transport.SendHtmlErrorPartial([]byte("Subdomain already taken"), http.StatusInternalServerError)
 		} else {
-			return transport.SendHtmlErrorPartial(w, []byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
+			return transport.SendHtmlErrorPartial([]byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
 		}
 	}
 
@@ -79,7 +79,7 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -109,7 +109,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	events := res.Events
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, "partial", err)
 	}
 
 	eventListPartial := pages.EventsInner(events)
@@ -117,13 +117,14 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	var buf bytes.Buffer
 	err = eventListPartial.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	log.Println("START GeoLookup")
 	ctx := r.Context()
 	var inputPayload GeoLookupInputPayload
 	body, err := io.ReadAll(r.Body)
@@ -133,7 +134,7 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	err = json.Unmarshal([]byte(body), &inputPayload)
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, "partial", err)
 	}
 
 	err = validate.Struct(&inputPayload)
@@ -144,25 +145,36 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	baseUrl := helpers.GetBaseUrlFromReq(r)
 
 	if baseUrl == "" {
-		return transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, err)
 	}
 
 	geoService := services.GetGeoService()
 	lat, lon, address, err := geoService.GetGeo(inputPayload.Location, baseUrl)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	geoLookupPartial := partials.GeoLookup(lat, lon, address)
+	// Convert lat and lon to float64
+	latFloat, err := strconv.ParseFloat(lat, 64)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Invalid latitude value"), http.StatusInternalServerError, err)
+	}
+
+	lonFloat, err := strconv.ParseFloat(lon, 64)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Invalid longitude value"), http.StatusInternalServerError, err)
+	}
+
+	geoLookupPartial := partials.GeoLookup(latFloat, lonFloat, address, "form")
 
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -177,26 +189,26 @@ func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 	var inputPayload GeoThenSeshuPatchInputPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendHtmlRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, "partial", err)
 		return
 	}
 	err = json.Unmarshal([]byte(body), &inputPayload)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, err)
+		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, "partial", err)
 		return
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid Body: "+err.Error()), http.StatusBadRequest, err)
+		transport.SendHtmlRes(w, []byte("Invalid Body: "+err.Error()), http.StatusBadRequest, "partial", err)
 		return
 	}
 
 	baseUrl := helpers.GetBaseUrlFromReq(r)
 
 	if baseUrl == "" {
-		transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, err)
+		transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, "partial", err)
 		return
 	}
 
@@ -204,7 +216,7 @@ func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 	lat, lon, address, err := geoService.GetGeo(inputPayload.Location, baseUrl)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Failed to get geocoordinates: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendHtmlRes(w, []byte("Failed to get geocoordinates: "+err.Error()), http.StatusInternalServerError, "partial", err)
 		return
 	}
 
@@ -212,45 +224,45 @@ func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, err)
+		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, "partial", err)
 		return
 	}
 
 	latFloat, err := strconv.ParseFloat(lat, 64)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusUnprocessableEntity, err)
+		transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusUnprocessableEntity, "partial", err)
 		return
 	}
 
 	updateSeshuSession.LocationLatitude = latFloat
 	lonFloat, err := strconv.ParseFloat(lon, 64)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusUnprocessableEntity, err)
+		transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusUnprocessableEntity, "partial", err)
 		return
 	}
 	updateSeshuSession.LocationLongitude = lonFloat
 	updateSeshuSession.LocationAddress = address
 
 	if updateSeshuSession.Url == "" {
-		transport.SendHtmlRes(w, []byte("ERR: Invalid body: url is required"), http.StatusBadRequest, nil)
+		transport.SendHtmlRes(w, []byte("ERR: Invalid body: url is required"), http.StatusBadRequest, "partial", nil)
 		return
 	}
-	geoLookupPartial := partials.GeoLookup(lat, lon, address)
+	geoLookupPartial := partials.GeoLookup(latFloat, lonFloat, address, "badge")
 
 	_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Failed to update target URL session"), http.StatusNotFound, err)
+		transport.SendHtmlRes(w, []byte("Failed to update target URL session"), http.StatusNotFound, "partial", err)
 		return
 	}
 
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
 		return
 	}
-	transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -266,19 +278,19 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	err = json.Unmarshal([]byte(body), &inputPayload)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, "partial", err)
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, "partial", err)
 	}
 
 	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, "partial", err)
 	}
 
 	updateSeshuSession.Url = inputPayload.Url
@@ -291,7 +303,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	_, err = seshuService.UpdateSeshuSession(ctx, db, updateSeshuSession)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
 	}
 
 	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`)
@@ -302,7 +314,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func getFieldIndices() map[string]int {
@@ -424,19 +436,19 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	err = json.Unmarshal([]byte(body), &inputPayload)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, "partial", err)
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, "partial", err)
 	}
 
 	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, "partial", err)
 	}
 
 	defer func() {
@@ -510,7 +522,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
 	}
 
 	// TODO: this sets the session to `submitted`, in a follow-up PR this will call a function
@@ -524,7 +536,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -560,7 +572,7 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 	err := helpers.UpdateUserMetadataKey(userID, helpers.INTERESTS_KEY, flattenedCategoriesString)
 	if err != nil {
-		return transport.SendHtmlErrorPartial(w, []byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial([]byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`)
@@ -570,5 +582,5 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }

@@ -44,7 +44,7 @@ func TestSendHtmlRes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rr := httptest.NewRecorder()
-			handler := SendHtmlRes(rr, tt.body, tt.status, tt.err)
+			handler := SendHtmlRes(rr, tt.body, tt.status, tt.err, "page")
 
 			req := httptest.NewRequest("GET", "/", nil)
 			// Set up context with APIGatewayV2HTTPRequest

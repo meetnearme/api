@@ -16,11 +16,11 @@ import (
 )
 
 type MockScrapingService struct {
-	GetHTMLFromURLFunc func(unescapedURL string, timeout int, jsRender bool) (string, error)
+	GetHTMLFromURLFunc func(unescapedURL string, timeout int, jsRender bool, waitFor string) (string, error)
 }
 
-func (m *MockScrapingService) GetHTMLFromURL(unescapedURL string, timeout int, jsRender bool) (string, error) {
-	return m.GetHTMLFromURLFunc(unescapedURL, timeout, jsRender)
+func (m *MockScrapingService) GetHTMLFromURL(unescapedURL string, timeout int, jsRender bool, waitFor string) (string, error) {
+	return m.GetHTMLFromURLFunc(unescapedURL, timeout, jsRender, waitFor)
 }
 
 func TestRouter(t *testing.T) {
@@ -86,7 +86,6 @@ func TestRouter(t *testing.T) {
 	}
 	// Replace the global db variable with our mock
 	db = mockDB
-
 
 	tests := []struct {
 		name           string
@@ -251,5 +250,3 @@ func TestUnpadJSON(t *testing.T) {
 		})
 	}
 }
-
-
