@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/google/uuid"
 	"net/http"
 	"os"
 	"strings"
@@ -54,7 +55,7 @@ func main() {
 
 	// Split transformers string into slice
 	var transformerNames []string
-	if *transformersList != "" && !strings.HasPrefix(*transformersList, "-"){
+	if *transformersList != "" && !strings.HasPrefix(*transformersList, "-") {
 		transformerNames = strings.Split(*transformersList, ",")
 		for i, name := range transformerNames {
 			name = strings.TrimSpace(name)
@@ -92,7 +93,6 @@ func main() {
 	fmt.Println("Migration completed successfully")
 
 }
-
 
 func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, error) {
 	url := fmt.Sprintf("%s/indexes", c.baseURL)
