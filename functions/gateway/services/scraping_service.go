@@ -14,7 +14,7 @@ const URLEscapedErrorMsg = "ERR: URL must not be encoded, it should look like th
 
 // Add this interface at the top of the file
 type ScrapingService interface {
-	GetHTMLFromURL(unescapedURL string, timeout int, jsRender bool) (string, error)
+	GetHTMLFromURL(unescapedURL string, timeout int, jsRender bool, waitFor string) (string, error)
 }
 
 // Modify the existing function to be a method on a struct
@@ -56,24 +56,21 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, timeout int, jsRender 
 	log.Println("scrapingUrl: ", scrapingUrl)
 	req, err := http.NewRequest("GET", scrapingUrl, nil)
 	if err != nil {
-		return "", fmt.Errorf(">>>56 ERR: %v", err)
+		return "", fmt.Errorf("ERR: forming scraping request: %v", err)
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		log.Println("ERR at 57: ", err)
-		return "", fmt.Errorf(">>>64 ERR: %v", err)
+		return "", fmt.Errorf("ERR: executing scraping request: %v", err)
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "", fmt.Errorf(">>>70 ERR: %v", err)
+		return "", fmt.Errorf("ERR: reading scraping response body: %v", err)
 	}
 
 	if res.StatusCode != 200 {
-		log.Printf("71 ERR: RES =  %+v", res)
-		err := fmt.Errorf("%v from scraping API", fmt.Sprint(res.StatusCode))
-		return "", fmt.Errorf(">>>>76 ERR: %v", err)
+		return "", fmt.Errorf("ERR: %v from scraping service", res.StatusCode)
 	}
 
 	htmlString := string(body)
