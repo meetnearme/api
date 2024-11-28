@@ -13,7 +13,7 @@ on:
       transformers:
         description: 'Comma-separated list of transformers to apply'
         required: false
-        default: 'test_transformer'
+        default: ''
         type: string
       batch_size:
         description: 'Batch size for migration'
@@ -33,26 +33,38 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: '1.21'
+        go-version: '1.22.1'
 
-    - name: Set Environment Variables
+    - name: Debug Directory Structure
       run: |
-        if [ "${{ inputs.environment }}" = "dev" ]; then
-          echo "SOURCE_MARQO_URL=${{ secrets.DEV_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
-        else
-          echo "SOURCE_MARQO_URL=${{ secrets.PROD_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
+        pwd
+        ls -la internal/database/marqo/migration/
+
+    - name: Build Migration Tool
+      run: |
+        cd internal/database/marqo/migration
+        go build -o marqo-migration .
+        if [ ! -f marqo-migration ]; then
+          echo "Failed to build migration tool"
+          exit 1
         fi
 
-    - name: Run Migration
-      working-directory: ./api
+    - name: Set Environment Variables
       env:
-        SOURCE_MARQO_URL: ${{ env.SOURCE_MARQO_URL }}
+        DEV_MARQO_API_BASE_URL: ${{ secrets.DEV_MARQO_API_BASE_URL }}
+        PROD_MARQO_API_BASE_URL: ${{ secrets.PROD_MARQO_API_BASE_URL }}
         MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
       run: |
+        echo "DEV_MARQO_API_BASE_URL=${{ secrets.DEV_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
+        echo "PROD_MARQO_API_BASE_URL=${{ secrets.PROD_MARQO_API_BASE_URL }}" >> $GITHUB_ENV
+        echo "MARQO_API_KEY=${{ secrets.MARQO_API_KEY }}" >> $GITHUB_ENV
+    - name: Run Migration
+      run: |
         echo "Starting migration for ${{ inputs.environment }} environment"
-        go run internal/database/marqo/migration/main.go \
+        cd internal/database/marqo/migration/
+        ./marqo-migration \
           -env ${{ inputs.environment }} \
-          -schema "./internal/database/marqo/migration/schema.json" \
+          -schema "schema.json" \
           -transformers ${{ inputs.transformers }} \
           -batch-size ${{ inputs.batch_size }}
 
@@ -67,4 +79,4 @@ jobs:
     - name: Notify on Failure
       if: failure()
       run: |
-       echo "Migration failed!"
+        echo "Migration failed!"
