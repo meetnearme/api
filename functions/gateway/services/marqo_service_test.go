@@ -19,7 +19,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
-func TestGetMarqoClient(t *testing.T){
+func TestGetMarqoClient(t *testing.T) {
 	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
 
@@ -52,17 +52,15 @@ func TestGetMarqoClient(t *testing.T){
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
-					"_id":          eventId,
-					"eventOwners": []interface{}{"789"},
+					"_id":            eventId,
+					"eventOwners":    []interface{}{"789"},
 					"eventOwnerName": "Event Host Test",
-					"name":        "Test Event",
-					"description": "This is a test event",
+					"name":           "Test Event",
+					"description":    "This is a test event",
 				},
 			},
 		}
 		responseBytes, err := json.Marshal(response)
-
-
 
 		if err != nil {
 			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
@@ -131,21 +129,21 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 
 		// Mock the response
 		response := &marqo.UpsertDocumentsResponse{
-			Errors: false,
+			Errors:    false,
 			IndexName: "mock-events-search",
 			Items: []marqo.Item{
 				{
-					ID: "123",
+					ID:     "123",
 					Result: "",
 					Status: 200,
 				},
 				{
-					ID: "456",
+					ID:     "456",
 					Result: "",
 					Status: 200,
 				},
 				{
-					ID: "789",
+					ID:     "789",
 					Result: "",
 					Status: 200,
 				},
@@ -194,37 +192,37 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 			name: "Multiple valid events",
 			events: []types.Event{
 				{
-					EventOwners: []string{"123"},
+					EventOwners:    []string{"123"},
 					EventOwnerName: "Event Host Test Name",
-					Name:        "Test Event 1",
-					Description: "A test event 1",
-					StartTime:   startTime1,
-					Address:     "123 Test St",
-					Lat:         51.5074,
-					Long:        -0.1278,
-					Timezone:    "America/New_York",
+					Name:           "Test Event 1",
+					Description:    "A test event 1",
+					StartTime:      startTime1,
+					Address:        "123 Test St",
+					Lat:            51.5074,
+					Long:           -0.1278,
+					Timezone:       "America/New_York",
 				},
 				{
-					EventOwners: []string{"456"},
+					EventOwners:    []string{"456"},
 					EventOwnerName: "Event Host Test Name",
-					Name:        "Test Event 2",
-					Description: "A test event 2",
-					StartTime:   startTime2,
-					Address:     "456 Test Ave",
-					Lat:         40.7128,
-					Long:        -74.0060,
-					Timezone:    "America/New_York",
+					Name:           "Test Event 2",
+					Description:    "A test event 2",
+					StartTime:      startTime2,
+					Address:        "456 Test Ave",
+					Lat:            40.7128,
+					Long:           -74.0060,
+					Timezone:       "America/New_York",
 				},
 				{
-					EventOwners: []string{"789"},
+					EventOwners:    []string{"789"},
 					EventOwnerName: "Event Host Test Name",
-					Name:        "Test Event 3",
-					Description: "A test event 3",
-					StartTime:   startTime3,
-					Address:     "789 Test Blvd",
-					Lat:         34.0522,
-					Long:        -118.2437,
-					Timezone:    "America/New_York",
+					Name:           "Test Event 3",
+					Description:    "A test event 3",
+					StartTime:      startTime3,
+					Address:        "789 Test Blvd",
+					Lat:            34.0522,
+					Long:           -118.2437,
+					Timezone:       "America/New_York",
 				},
 			},
 		},
@@ -298,18 +296,18 @@ func TestSearchMarqoEvents(t *testing.T) {
 		response := map[string]interface{}{
 			"hits": []map[string]interface{}{
 				{
-					"_id":         "123",
-					"eventOwners": []interface{}{"789"},
+					"_id":            "123",
+					"eventOwners":    []interface{}{"789"},
 					"eventOwnerName": "First Event Host Test",
-					"name":        "First Test Event",
-					"description": "Description of the first event",
+					"name":           "First Test Event",
+					"description":    "Description of the first event",
 				},
 				{
-					"_id":         "456",
-					"eventOwners": []interface{}{"012"},
+					"_id":            "456",
+					"eventOwners":    []interface{}{"012"},
 					"eventOwnerName": "Second Event Host Test",
-					"name":        "Second Test Event",
-					"description": "Description of the second event",
+					"name":           "Second Test Event",
+					"description":    "Description of the second event",
 				},
 			},
 			"query": decodedQuery,
@@ -353,11 +351,11 @@ func TestSearchMarqoEvents(t *testing.T) {
 			expectedQuery:  "keywords: { test search }",
 			userLocation:   []float64{51.5074, -0.1278},
 			maxDistance:    10000,
-			startTime: 			time.Now().Unix(),
-			endTime:        time.Now().AddDate(1,0,0).Unix(),
+			startTime:      time.Now().Unix(),
+			endTime:        time.Now().AddDate(1, 0, 0).Unix(),
 			ownerIds:       []string{},
 			categories:     string(""),
-			address:				string(""),
+			address:        string(""),
 			expectedEvents: 2,
 			expectedError:  false,
 		},
@@ -367,11 +365,11 @@ func TestSearchMarqoEvents(t *testing.T) {
 			expectedQuery:  "",
 			userLocation:   []float64{51.5074, -0.1278},
 			maxDistance:    10000,
-			startTime: 			time.Now().Unix(),
-			endTime:        time.Now().AddDate(1,0,0).Unix(),
+			startTime:      time.Now().Unix(),
+			endTime:        time.Now().AddDate(1, 0, 0).Unix(),
 			ownerIds:       []string{},
 			categories:     string(""),
-			address:				string(""),
+			address:        string(""),
 			expectedEvents: 2,
 			expectedError:  false,
 		},
@@ -385,7 +383,20 @@ func TestSearchMarqoEvents(t *testing.T) {
 			}
 
 			// TODO: add meaningful test with categories
-			result, err := SearchMarqoEvents(client, tt.query, tt.userLocation, tt.maxDistance, tt.startTime, tt.endTime, tt.ownerIds, tt.categories, tt.address, "0")
+			result, err := SearchMarqoEvents(
+				client,
+				tt.query,
+				tt.userLocation,
+				tt.maxDistance,
+				tt.startTime,
+				tt.endTime,
+				tt.ownerIds,
+				tt.categories,
+				tt.address,
+				"0",
+				[]string{helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES[0]},
+				[]string{},
+			)
 
 			if tt.expectedError && err == nil {
 				t.Errorf("Expected an error, but got none")
@@ -450,12 +461,12 @@ func TestGetMarqoEventByID(t *testing.T) {
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
-					"_id":          testEventID,
-					"startTime":   testEventStartTime,
-					"eventOwners": []interface{}{testEventOwnerID},
+					"_id":            testEventID,
+					"startTime":      testEventStartTime,
+					"eventOwners":    []interface{}{testEventOwnerID},
 					"eventOwnerName": "Event Host Test",
-					"name":        testEventName,
-					"description": testEventDescription,
+					"name":           testEventName,
+					"description":    testEventDescription,
 				},
 			},
 		}
@@ -566,20 +577,20 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
-					"_id":          testEventID1,
-					"startTime":    testEventStartTime1,
-					"eventOwners":  []interface{}{testEventOwnerID1},
+					"_id":            testEventID1,
+					"startTime":      testEventStartTime1,
+					"eventOwners":    []interface{}{testEventOwnerID1},
 					"eventOwnerName": testEventOwnerName1,
-					"name":         testEventName1,
-					"description":  testEventDescription1,
+					"name":           testEventName1,
+					"description":    testEventDescription1,
 				},
 				{
-					"_id":          testEventID2,
-					"startTime":    testEventStartTime2,
-					"eventOwners":  []interface{}{testEventOwnerID2},
+					"_id":            testEventID2,
+					"startTime":      testEventStartTime2,
+					"eventOwners":    []interface{}{testEventOwnerID2},
 					"eventOwnerName": testEventOwnerName2,
-					"name":         testEventName2,
-					"description":  testEventDescription2,
+					"name":           testEventName2,
+					"description":    testEventDescription2,
 				},
 			},
 		}

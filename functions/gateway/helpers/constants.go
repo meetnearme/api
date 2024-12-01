@@ -24,6 +24,29 @@ const JWT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bear
 const AUTH_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
 const AUTH_METADATA_KEY = "urn:zitadel:iam:user:metadata"
 
+// NOTE: this ensures that only SLF (self) event source types are searchable by default
+var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{"SLF"}
+
+// SLF_EVS => Self -> Event Series
+var DEFAULT_NON_SEARCHABLE_EVENT_SOURCE_TYPES = []string{"SLF_EVS"}
+
+var ALL_EVENT_SOURCE_TYPES []string
+
+func init() {
+	ALL_EVENT_SOURCE_TYPES = append(DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES, DEFAULT_NON_SEARCHABLE_EVENT_SOURCE_TYPES...)
+
+	seen := make(map[string]bool)
+	uniqueTypes := []string{}
+	for _, sourceType := range ALL_EVENT_SOURCE_TYPES {
+		if !seen[sourceType] {
+			seen[sourceType] = true
+			uniqueTypes = append(uniqueTypes, sourceType)
+		}
+	}
+
+	ALL_EVENT_SOURCE_TYPES = uniqueTypes
+}
+
 type UserInfo struct {
 	Email             string `json:"email"`
 	EmailVerified     bool   `json:"email_verified"`

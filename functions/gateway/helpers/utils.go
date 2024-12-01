@@ -503,9 +503,9 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	return nil
 }
 
-func ArrFindFirst(slice []string, items []string) string {
-	for _, s := range slice {
-		for _, item := range items {
+func ArrFindFirst(needles []string, haystack []string) string {
+	for _, s := range needles {
+		for _, item := range haystack {
 			if s == item {
 				return s
 			}
