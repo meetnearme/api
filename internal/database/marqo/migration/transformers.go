@@ -57,7 +57,7 @@ var TransformerRegistry = map[string]TransformFunc{
 
 		return doc, nil
 	},
-	"timestamp_correction": func(doc map[string]interface{}) (map[string]interface{}, error) {
+	"timestamp_correction_2024_12_01": func(doc map[string]interface{}) (map[string]interface{}, error) {
 		startTime, ok := doc["startTime"].(float64)
 		if !ok {
 			return doc, nil
