@@ -10,7 +10,7 @@ if [[ "$1" == "-v" ]]; then
 fi
 
 # Find all directories excluding node_modules
-DIRS=$(find . -type d -not -path "./node_modules*")
+DIRS=$(find ./functions -type d -not -path "./node_modules*")
 
 # Create a temporary coverage file
 COVERAGE_FILE=$(mktemp)

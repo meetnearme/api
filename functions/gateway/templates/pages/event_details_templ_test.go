@@ -26,15 +26,16 @@ func TestEventDetailsPage(t *testing.T) {
 		{
 			name: "Valid event",
 			event: types.Event{
-				Id:             "123",
-				Name:           "Test Event",
-				Description:    "This is a test event",
-				Address:        "123 Test St",
-				StartTime:      validEventStartTime,
-				EventOwners:    []string{"abc-uuid"},
-				EventOwnerName: "Brians Pub",
-				Lat:            38.896305,
-				Long:           -77.023289,
+				Id:              "123",
+				Name:            "Test Event",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: "SLF",
+				Lat:             38.896305,
+				Long:            -77.023289,
 			},
 			checkoutParamVal: "",
 			expected: []string{
@@ -49,17 +50,45 @@ func TestEventDetailsPage(t *testing.T) {
 			canEdit: false,
 		},
 		{
+			name: "Valid event",
+			event: types.Event{
+				Id:              "123",
+				Name:            "Karaoke Nationals",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: "SLF",
+				Lat:             38.896305,
+				Long:            -77.023289,
+			},
+			checkoutParamVal: "",
+			expected: []string{
+				"Karaoke Nationals",
+				"This is a test event",
+				"123 Test St",
+				"May 1, 2099",
+				"12:00pm",
+				"abc-uuid",
+				"Brians Pub",
+				"<title>Meet Near Me - Karaoke Nationals</title>",
+			},
+			canEdit: false,
+		},
+		{
 			name: "Valid event, editor role sees edit button",
 			event: types.Event{
-				Id:             "123",
-				Name:           "Test Event",
-				Description:    "This is a test event",
-				Address:        "123 Test St",
-				StartTime:      validEventStartTime,
-				EventOwners:    []string{"abc-uuid"},
-				EventOwnerName: "Brians Pub",
-				Lat:            38.896305,
-				Long:           -77.023289,
+				Id:              "123",
+				Name:            "Test Event",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: "SLF",
+				Lat:             38.896305,
+				Long:            -77.023289,
 			},
 			checkoutParamVal: "",
 			expected: []string{
@@ -89,7 +118,7 @@ func TestEventDetailsPage(t *testing.T) {
 			component := EventDetailsPage(tt.event, tt.checkoutParamVal, tt.canEdit)
 
 			// Wrap the component with Layout
-			layoutTemplate := Layout(helpers.SitePages["events"], helpers.UserInfo{}, component, types.Event{})
+			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event)
 
 			// Render the component to a string
 			var buf bytes.Buffer

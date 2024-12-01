@@ -405,8 +405,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	checkoutParamVal := r.URL.Query().Get("checkout")
 
 	eventDetailsPage := pages.EventDetailsPage(*event, checkoutParamVal, canEdit)
-
-	layoutTemplate := pages.Layout(helpers.SitePages["events"], userInfo, eventDetailsPage, *event)
+	layoutTemplate := pages.Layout(helpers.SitePages["event-detail"], userInfo, eventDetailsPage, *event)
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
