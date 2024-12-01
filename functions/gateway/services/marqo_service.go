@@ -423,7 +423,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	// Search for events based on the query
 	searchMethod := "HYBRID"
 	// TODO: parameterize this
-	limit := 50
+	limit := 100
 
 	var ownerFilter string
 	if len(ownerIds) > 0 {
