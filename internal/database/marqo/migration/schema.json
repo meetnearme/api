@@ -1,7 +1,7 @@
 {
   "type": "structured",
   "vectorNumericType": "float",
-  "model": "hf/bge-large-en-v1.5",
+  "model": "Marqo/dunzhang-stella_en_400M_v5",
   "normalizeEmbeddings": true,
   "textPreprocessing": {
     "splitOverlap": 0,
