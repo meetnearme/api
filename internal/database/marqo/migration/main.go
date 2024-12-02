@@ -76,7 +76,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	timestamp := time.Now().UTC().Format("20060102150405")
+	timestamp := time.Now().UTC().Format("2006-01-02-1504")
 	targetIndex := fmt.Sprintf("%s-events-%s", *env, timestamp)
 
 	fmt.Printf("Starting migration from %s to %s\n", sourceIndex, targetIndex)
@@ -128,7 +128,7 @@ func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, error) {
 			}
 
 			timestamp := parts[len(parts)-2]
-			indexTime, err := time.ParseInLocation("20060102150405", timestamp, time.UTC)
+			indexTime, err := time.ParseInLocation("2006-01-02-1504", timestamp, time.UTC)
 			if err != nil {
 				continue
 			}
