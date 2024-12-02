@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -29,6 +30,8 @@ func main() {
 	} else {
 		sourceURL = os.Getenv("DEV_MARQO_API_BASE_URL")
 	}
+
+	log.Printf("sourceURL: %v", sourceURL)
 
 	if sourceURL == "" {
 		fmt.Printf("MARQO_API_BASE_URL not set for %s environment\n", *env)
@@ -95,6 +98,7 @@ func main() {
 
 func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, error) {
 	url := fmt.Sprintf("%s/indexes", c.baseURL)
+	log.Printf("url in GetCurrentIndex for BaseURL: %v", url)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
