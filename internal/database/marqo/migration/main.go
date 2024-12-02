@@ -115,6 +115,13 @@ func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, error) {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
+	originalIndex := fmt.Sprintf("%s-events-search-index", envPrefix)
+	for _, idx := range result.Results {
+		if idx.IndexName == originalIndex {
+			return originalIndex, nil
+		}
+	}
+
 	// find most recent index with our prefix
 	var mostRecent string
 	var mostRecentTime time.Time
@@ -142,8 +149,8 @@ func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, error) {
 
 	// this is the fal back to the original naming and will not be in use later.
 	if mostRecent == "" {
-		return fmt.Sprintf("%s-events-search-index", envPrefix), nil
+		return mostRecent, nil
 	}
 
-	return mostRecent, nil
+	return originalIndex, nil
 }
