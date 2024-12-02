@@ -69,9 +69,8 @@ func removeProtectedFields(doc map[string]interface{}, allowedFields map[string]
 	// Create a new map for the cleaned document
 	cleaned := make(map[string]interface{})
 
-	// Copy all fields except protected ones (those starting with _)
 	for key, value := range doc {
-		if !strings.HasPrefix(key, "_") && allowedFields[key] {
+		if key == "_id" || (!strings.HasPrefix(key, "_") && allowedFields[key]) {
 			cleaned[key] = value
 		}
 	}
