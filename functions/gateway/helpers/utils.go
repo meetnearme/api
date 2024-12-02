@@ -52,19 +52,19 @@ func UtcOrUnixToUnix64(t interface{}) (int64, error) {
 	}
 }
 
-func FormatDate(unixTimestamp int64) (string, error) {
+func FormatDateLocal(unixTimestamp int64) (string, error) {
 	if unixTimestamp == 0 {
 		return "", fmt.Errorf("not a valid unix timestamp: %v", unixTimestamp)
 	}
-	date := time.Unix(unixTimestamp, 0).UTC()
+	date := time.Unix(unixTimestamp, 0)
 	return date.Format("Jan 2, 2006 (Mon)"), nil
 }
 
-func FormatTime(unixTimestamp int64) (string, error) {
+func FormatTimeLocal(unixTimestamp int64) (string, error) {
 	if unixTimestamp == 0 {
 		return "", fmt.Errorf("not a valid unix timestamp: %v", unixTimestamp)
 	}
-	_time := time.Unix(unixTimestamp, 0).UTC()
+	_time := time.Unix(unixTimestamp, 0)
 	return _time.Format("3:04pm"), nil
 }
 
@@ -548,8 +548,8 @@ func GetLocalDateAndTime(datetime int64, timezone string) (string, string) {
 	localUnixTime := localStartTime.Unix()
 
 	// Populate the local date and time fields
-	localStartDateStr, _ := FormatDate(localUnixTime)
-	localStartTimeStr, _ := FormatTime(localUnixTime)
+	localStartDateStr, _ := FormatDateLocal(localUnixTime)
+	localStartTimeStr, _ := FormatTimeLocal(localUnixTime)
 
 	return localStartTimeStr, localStartDateStr
 }
