@@ -7,32 +7,31 @@ import (
 	"strings"
 )
 
-
 func LoadSchema(path string) (map[string]interface{}, error) {
-    data, err := os.ReadFile(path)
-    if err != nil {
-        return nil, fmt.Errorf("failed to read schema file: %w", err)
-    }
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read schema file: %w", err)
+	}
 
-    var schema map[string]interface{}
-    if err := json.Unmarshal(data, &schema); err != nil {
-        return nil, fmt.Errorf("failed to parse schema JSON: %w", err)
-    }
+	var schema map[string]interface{}
+	if err := json.Unmarshal(data, &schema); err != nil {
+		return nil, fmt.Errorf("failed to parse schema JSON: %w", err)
+	}
 
-    return schema, nil
+	return schema, nil
 }
 
 type Migrator struct {
-    sourceClient  *MarqoClient
-    targetClient  *MarqoClient
-    batchSize     int
-    transformers  []TransformFunc
-	schema map[string]interface{}
+	sourceClient *MarqoClient
+	targetClient *MarqoClient
+	batchSize    int
+	transformers []TransformFunc
+	schema       map[string]interface{}
 }
 
 func NewMigrator(sourceURL, targetURL, apiKey string, batchSize int, transformerNames []string, schema map[string]interface{}) (*Migrator, error) {
-    // Validate and collect requested transformers
-    transformers := make([]TransformFunc, 0)
+	// Validate and collect requested transformers
+	transformers := make([]TransformFunc, 0)
 	if len(transformerNames) > 0 {
 		for _, name := range transformerNames {
 			transformer, exists := TransformerRegistry[name]
@@ -43,13 +42,13 @@ func NewMigrator(sourceURL, targetURL, apiKey string, batchSize int, transformer
 		}
 	}
 
-    return &Migrator{
-        sourceClient:  NewMarqoClient(sourceURL, apiKey),
-        targetClient:  NewMarqoClient(targetURL, apiKey),
-        batchSize:     batchSize,
-        transformers:  transformers,
-		schema: schema,
-    }, nil
+	return &Migrator{
+		sourceClient: NewMarqoClient(sourceURL, apiKey),
+		targetClient: NewMarqoClient(targetURL, apiKey),
+		batchSize:    batchSize,
+		transformers: transformers,
+		schema:       schema,
+	}, nil
 }
 
 func getAllowedFields(schema map[string]interface{}) map[string]bool {
@@ -81,26 +80,53 @@ func removeProtectedFields(doc map[string]interface{}, allowedFields map[string]
 }
 
 func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]interface{}, error) {
+	// Log original document
+	eventName, _ := doc["name"].(string)
+	eventID, _ := doc["id"].(string)
+	originalJSON, _ := json.MarshalIndent(doc, "", "  ")
+	fmt.Printf("\n=== Pre-Transform Event ===\nID: %s\nName: %s\nDocument:\n%s\n",
+		eventID, eventName, string(originalJSON))
+
 	allowedFields := getAllowedFields(m.schema)
-    result := removeProtectedFields(doc, allowedFields)
+	result := removeProtectedFields(doc, allowedFields)
 
-    var err error
-    for _, transformer := range m.transformers {
-        result, err = transformer(result)
-        if err != nil {
-            return nil, fmt.Errorf("transformer failed: %w", err)
-        }
-    }
+	var err error
+	for _, transformer := range m.transformers {
+		result, err = transformer(result)
+		if err != nil {
+			return nil, fmt.Errorf("transformer failed: %w", err)
+		}
+	}
 
-    return result, nil
+	// Log transformed document
+	transformedJSON, _ := json.MarshalIndent(result, "", "  ")
+	fmt.Printf("\n=== Post-Transform Event ===\nID: %s\nName: %s\nDocument:\n%s\n",
+		eventID, eventName, string(transformedJSON))
+
+	return result, nil
 }
 
+// func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]interface{}, error) {
+// 	allowedFields := getAllowedFields(m.schema)
+//     result := removeProtectedFields(doc, allowedFields)
+
+//     var err error
+//     for _, transformer := range m.transformers {
+//         result, err = transformer(result)
+//         if err != nil {
+//             return nil, fmt.Errorf("transformer failed: %w", err)
+//         }
+//     }
+
+//     return result, nil
+// }
+
 func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[string]interface{}) error {
-    // Create the new index
+	// Create the new index
 	endpoint, err := m.targetClient.CreateStructuredIndex(targetIndex, schema)
-    if err != nil {
-        return fmt.Errorf("failed to create target index: %w", err)
-    }
+	if err != nil {
+		return fmt.Errorf("failed to create target index: %w", err)
+	}
 
 	// Update target client with new endpoint
 	m.targetClient = NewMarqoClient(endpoint, m.targetClient.apiKey)
@@ -108,7 +134,7 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 
 	type batchResult struct {
 		count int
-		err error
+		err   error
 	}
 
 	workers := 4
@@ -140,20 +166,20 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 		}()
 	}
 
-    offset := 0
-    totalMigrated := 0
+	offset := 0
+	totalMigrated := 0
 	activeBatches := 0
 
-    for {
-        // Fetch batch of documents from source
-        docs, err := m.sourceClient.Search(sourceIndex, "*", offset, m.batchSize)
-        if err != nil {
-            return fmt.Errorf("failed to fetch documents at offset %d: %w", offset, err)
-        }
+	for {
+		// Fetch batch of documents from source
+		docs, err := m.sourceClient.Search(sourceIndex, "*", offset, m.batchSize)
+		if err != nil {
+			return fmt.Errorf("failed to fetch documents at offset %d: %w", offset, err)
+		}
 
-        if len(docs) == 0 {
-            break
-        }
+		if len(docs) == 0 {
+			break
+		}
 
 		// Send batch to worker
 		batchChan <- docs
@@ -170,7 +196,7 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 			activeBatches--
 			fmt.Printf("Migrated and transformed %d documents\n", totalMigrated)
 		}
-    }
+	}
 
 	// close batch channel and wait for remaining results
 	close(batchChan)
@@ -185,6 +211,6 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 		fmt.Printf("Migrated and transformed %d documents\n", totalMigrated)
 	}
 
-    fmt.Printf("Migration completed. Total documents migrated and transformed: %d\n", totalMigrated)
-    return nil
+	fmt.Printf("Migration completed. Total documents migrated and transformed: %d\n", totalMigrated)
+	return nil
 }
