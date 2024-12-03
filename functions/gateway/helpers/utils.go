@@ -46,29 +46,26 @@ func UtcOrUnixToUnix64(t interface{}) (int64, error) {
 		if err != nil {
 			return 0, fmt.Errorf("invalid date format, must be RFC3339: %v", err)
 		}
-		log.Printf("logging time before parsing: %v", v)
-		log.Printf("logging parsed time in util: %v", parsedTime)
-		log.Printf("logging parsed time in util after unix conversion: %v", parsedTime.Unix())
 		return parsedTime.Unix(), nil
 	default:
 		return 0, fmt.Errorf("unsupported time format")
 	}
 }
 
-func FormatDateLocal(unixTimestamp int64) (string, error) {
-	if unixTimestamp == 0 {
-		return "", fmt.Errorf("not a valid unix timestamp: %v", unixTimestamp)
+func FormatDateLocal(t time.Time) (string, error) {
+	if t.IsZero() {
+		return "", fmt.Errorf("not a valid time: %v", t)
 	}
-	date := time.Unix(unixTimestamp, 0)
-	return date.Format("Jan 2, 2006 (Mon)"), nil
+	// Format: "Dec 24, 2024 (Tue)"
+	return t.Format("Jan 2, 2006 (Mon)"), nil
 }
 
-func FormatTimeLocal(unixTimestamp int64) (string, error) {
-	if unixTimestamp == 0 {
-		return "", fmt.Errorf("not a valid unix timestamp: %v", unixTimestamp)
+func FormatTimeLocal(t time.Time) (string, error) {
+	if t.IsZero() {
+		return "", fmt.Errorf("not a valid time: %v", t)
 	}
-	_time := time.Unix(unixTimestamp, 0)
-	return _time.Format("3:04pm"), nil
+	// Format: "7:00pm"
+	return strings.ToLower(t.Format("3:04PM")), nil
 }
 
 func TruncateStringByBytes(str string, limit int) (s string, exceededLimit bool) {
@@ -548,11 +545,9 @@ func GetLocalDateAndTime(datetime int64, timezone string) (string, string) {
 	// Convert start time to local time
 	localStartTime := time.Unix(datetime, 0).In(loc)
 
-	localUnixTime := localStartTime.Unix()
-
 	// Populate the local date and time fields
-	localStartDateStr, _ := FormatDateLocal(localUnixTime)
-	localStartTimeStr, _ := FormatTimeLocal(localUnixTime)
+	localStartDateStr, _ := FormatDateLocal(localStartTime)
+	localStartTimeStr, _ := FormatTimeLocal(localStartTime)
 
 	return localStartTimeStr, localStartDateStr
 }
