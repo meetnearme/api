@@ -46,6 +46,9 @@ func UtcOrUnixToUnix64(t interface{}) (int64, error) {
 		if err != nil {
 			return 0, fmt.Errorf("invalid date format, must be RFC3339: %v", err)
 		}
+		log.Printf("logging time before parsing: %v", v)
+		log.Printf("logging parsed time in util: %v", parsedTime)
+		log.Printf("logging parsed time in util after unix conversion: %v", parsedTime.Unix())
 		return parsedTime.Unix(), nil
 	default:
 		return 0, fmt.Errorf("unsupported time format")

@@ -141,6 +141,7 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 		return types.Event{}, fmt.Errorf("invalid StartTime: %w", err)
 	}
 	event.StartTime = startTime
+	log.Printf("event start time in data handlers: %v", startTime)
 
 	if raw.EndTime != nil {
 		endTime, err := helpers.UtcOrUnixToUnix64(raw.EndTime)
