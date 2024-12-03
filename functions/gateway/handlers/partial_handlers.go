@@ -107,12 +107,12 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	events := res.Events
-
-	if err != nil {
-		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, err)
+	listMode := r.URL.Query().Get("list_mode")
+	if listMode == "" {
+		// TODO: make this an enum / type
+		listMode = "DETAILED"
 	}
-
-	eventListPartial := pages.EventsInner(events)
+	eventListPartial := pages.EventsInner(events, listMode)
 
 	var buf bytes.Buffer
 	err = eventListPartial.Render(ctx, &buf)

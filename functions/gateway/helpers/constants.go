@@ -25,7 +25,7 @@ const AUTH_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
 const AUTH_METADATA_KEY = "urn:zitadel:iam:user:metadata"
 
 // NOTE: this ensures that only SLF (self) event source types are searchable by default
-var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{"SLF"}
+var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{"SLF", "EVS"}
 
 // SLF_EVS => Self -> Event Series
 var DEFAULT_NON_SEARCHABLE_EVENT_SOURCE_TYPES = []string{"SLF_EVS"}

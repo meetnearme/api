@@ -455,7 +455,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 
 	// Build eventSourceId filter using Marqo IN operator
 	if len(eventSourceIds) > 0 {
-		eventSourceIdFilter = fmt.Sprintf("eventSourceId IN (%s) AND ", strings.Join(eventSourceIds, ", "))
+		eventSourceIdFilter = fmt.Sprintf("eventSourceId IN (%s) AND ", strings.Join(eventSourceIds, ","))
 	}
 
 	// Update the filter string construction to include the new filters

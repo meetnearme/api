@@ -403,7 +403,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 			</div>
 		</div>
 	</div>
-	<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-name={ event.Name } data-user-id={ userInfo.Sub }>
+	<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-user-id={ userInfo.Sub }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,
@@ -418,6 +418,8 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
 					hasRegistration: document.querySelector('#registration-purchasables').getAttribute('data-has-registration') === "true",
 					hasPurchasable: document.querySelector('#registration-purchasables').getAttribute('data-has-purchasables') === "true",
+					eventSourceId: document.querySelector('#registration-purchasables').getAttribute('data-event-source-id'),
+					eventSourceType: document.querySelector('#registration-purchasables').getAttribute('data-event-source-type'),
 					async init() {
 							const promises = [];
 							if (this.hasRegistration) {
@@ -437,7 +439,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					},
 					async fetchRegistrationFields() {
 							try {
-									const response = await fetch(`/api/registration-fields/${this.eventId}`);
+                  const response = await fetch(`/api/registration-fields/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
 									const json = await response.json();
 									this.registrationFields = json?.fields;
 									this.registrationFieldsLoaded = true;
@@ -527,10 +529,9 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					},
 					async fetchPurchasables() {
 							try {
-									const response = await fetch(`/api/purchasables/${this.eventId}`);
+									const response = await fetch(`/api/purchasables/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
 									const json = await response.json();
 									this.purchasables = json?.purchasable_items;
-									console.log('purchasables', this.purchasables)
 									this.purchasablesLoaded = true;
 							} catch (error) {
 									console.error("Error fetching registration fields:", error);
