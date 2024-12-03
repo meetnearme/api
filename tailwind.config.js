@@ -1,6 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 
 export default {
+  mode: 'jit',
+  purge: ['**/*.templ'],
   content: ['**/*.templ'],
   theme: {
     fontSize: {
