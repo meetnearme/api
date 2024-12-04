@@ -77,6 +77,11 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 					<br/>
 					<br/>
 				}
+				if checkoutParamVal == "registered" {
+					@partials.SuccessBannerHTML("Thanks for your interest, can't wait to see you at the event!")
+					<br/>
+					<br/>
+				}
 				@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], false, event)
 				<br/>
 				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, true, event)

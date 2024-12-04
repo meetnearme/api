@@ -407,7 +407,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,
-    			registrationFieldsLoaded: false,
+					registrationFieldsLoaded: false,
 					purchasables: null,
 					purchasablesLoaded: false,
 					purchaseComplete: false,
@@ -420,6 +420,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					hasPurchasable: document.querySelector('#registration-purchasables').getAttribute('data-has-purchasables') === "true",
 					eventSourceId: document.querySelector('#registration-purchasables').getAttribute('data-event-source-id'),
 					eventSourceType: document.querySelector('#registration-purchasables').getAttribute('data-event-source-type'),
+					userId: document.querySelector('#registration-purchasables').getAttribute('data-user-id'),
 					async init() {
 							const promises = [];
 							if (this.hasRegistration) {
@@ -439,7 +440,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					},
 					async fetchRegistrationFields() {
 							try {
-                  const response = await fetch(`/api/registration-fields/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
+									const response = await fetch(`/api/registration-fields/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
 									const json = await response.json();
 									this.registrationFields = json?.fields;
 									this.registrationFieldsLoaded = true;
@@ -488,24 +489,38 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 									})
 									.filter(item => item !== null);
 
-				        const total = purchasedItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
+								const total = purchasedItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
 								console.log(`purchasedItems:`, purchasedItems)
 								// TODO: do we need the total?
 								console.log(`total`, total)
 
-								const response = await fetch(`/api/checkout/${this.eventId}`, {
-									method: 'POST',
-									headers: {
-											'Content-Type': 'application/json'
-									},
-									body: JSON.stringify({
-										status: "PENDING",
-										event_name: this.eventName,
-										purchased_items: purchasedItems,
-										total: total,
-										currency: "USD"
-									})
-								});
+								let response;
+								if (total > 0) {
+									response = await fetch(`/api/checkout/${this.eventId}`, {
+										method: 'POST',
+										headers: {
+												'Content-Type': 'application/json'
+										},
+										body: JSON.stringify({
+											status: "PENDING",
+											event_name: this.eventName,
+											purchased_items: purchasedItems,
+											total: total,
+											currency: "USD"
+										})
+									});
+								} else {
+									const regResponses = purchasedItems.flatMap(item => item.reg_responses)
+									response = await fetch(`/api/registrations/${this.eventId}/${this.userId}`, {
+										method: 'PUT',
+										headers: {
+												'Content-Type': 'application/json'
+										},
+										body: JSON.stringify({
+											responses: regResponses,
+										})
+									});
+								}
 								if (response.status === 401) {
 									this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/event/${this.eventId}">Register or Login now</a>`;
 									this.reqInFlight = false;
@@ -517,6 +532,8 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								this.purchaseComplete = true;
 								if (json?.stripe_checkout_url) {
 										window.location.href = json.stripe_checkout_url;
+								} else if (total <= 0) {
+									window.location.href = window.location.origin + window.location.pathname + "?checkout=registered";
 								} else {
 									this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
 								}
@@ -601,8 +618,8 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							})
 						}
 						if (Object.keys(this.errors).length === 0) {
-        			this.submitPurchase()
-    				}
+							this.submitPurchase()
+						}
 					},
 					handleCounterClick(self, direction, purchName, idx) {
 						const inputElement = self.closest('.counter-click-container').querySelector('input[type="number"]');
