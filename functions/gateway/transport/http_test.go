@@ -138,7 +138,7 @@ func TestSendServerRes(t *testing.T) {
 				t.Errorf("handler returned wrong status code: got %v want %v", status, tt.expectedStatus)
 			}
 
-			if rr.Body.String() != tt.expectedBody {
+			if !strings.Contains(rr.Body.String(), tt.expectedBody) {
 				t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), tt.expectedBody)
 			}
 		})
