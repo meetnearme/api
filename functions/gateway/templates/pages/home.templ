@@ -34,7 +34,7 @@ script navigateToSlideHandler(index int) {
 }
 
 templ EventsInner(events []types.Event, mode string) {
-	if mode == "DETAILED" {
+	if mode == "DETAILED" || mode == "" {
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
 				No events found, try changing your filters like location, date, and time, or

@@ -29,27 +29,30 @@ func TestGetPurchasable(t *testing.T) {
 		fmt.Println("Error parsing event time:", err)
 	}
 
+	createdAt, _ := time.Parse(time.RFC3339, "2024-09-01T12:00:00Z")
+	updatedAt, _ := time.Parse(time.RFC3339, "2024-09-01T12:00:00Z")
+
 	mockService := &dynamodb_service.MockPurchasableService{
 		GetPurchasablesByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) (*internal_types.Purchasable, error) { // Change to return []*Purchasable
 			return &internal_types.Purchasable{ // Return a pointer to Purchasable
 				EventId: eventId,
 				PurchasableItems: []internal_types.PurchasableItemInsert{ // Corrected initialization of slice
 					{
-						Name:                      "Sample Item",
-						ItemType:                 "Type A",
-						Cost:                     100.0,
-						Inventory:                50,
-						StartingQuantity:         100,
-						Currency:                 "USD",
-						ChargeRecurrenceInterval:  "monthly",
+						Name:                          "Sample Item",
+						ItemType:                      "Type A",
+						Cost:                          100.0,
+						Inventory:                     50,
+						StartingQuantity:              100,
+						Currency:                      "USD",
+						ChargeRecurrenceInterval:      "monthly",
 						ChargeRecurrenceIntervalCount: 3,
-						ChargeRecurrenceEndDate:  eventTime.Format(time.RFC3339), // Format if necessary
-						DonationRatio:            0.1,
-						RegistrationFields: []string{"field1", "field2"},
-						CreatedAt:				"2024-09-01T12:00:00Z",  // Use time.Time type
-						UpdatedAt:              "2024-09-01T12:00:00Z", // Use time.Time type
-						},
+						ChargeRecurrenceEndDate:       eventTime, // Format if necessary
+						DonationRatio:                 0.1,
+						RegistrationFields:            []string{"field1", "field2"},
+						CreatedAt:                     createdAt, // Use time.Time type
+						UpdatedAt:                     updatedAt, // Use time.Time type
 					},
+				},
 				CreatedAt: eventTime, // Use time.Time type
 				UpdatedAt: eventTime, // Use time.Time type
 			}, nil
@@ -145,4 +148,3 @@ func TestDeletePurchasable(t *testing.T) {
 		t.Errorf("Expected response body %q, got %q", expectedMessage, string(body))
 	}
 }
-
