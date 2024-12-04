@@ -662,7 +662,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// Validate inventory
 	var purchasableMap = map[string]internal_types.PurchasableItemInsert{}
 	if purchasableMap, err = validatePurchase(purchasable, createPurchase); err != nil {
-		transport.SendServerRes(w, []byte("Failed to validate inventory for event id: "+eventId+" + "+err.Error()), http.StatusBadRequest, err)
+		transport.SendServerRes(w, []byte("Failed to validate inventory for event id: "+eventId+": "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
 
@@ -1016,6 +1016,7 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 			Inventory:        p.Inventory,
 			Cost:             p.Cost,
 			PurchasableIndex: i,
+			ExpiresOn:        p.ExpiresOn,
 		}
 	}
 
@@ -1025,6 +1026,9 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 		// so we validate that the cost matches the cost fetched from the database in `purchasableMap`
 		if purchasableMap[item.Name].Cost != item.Cost {
 			return purchasableMap, fmt.Errorf("item '%s' has incorrect cost", item.Name)
+		}
+		if purchasableMap[item.Name].ExpiresOn != nil && time.Now().After(*purchasableMap[item.Name].ExpiresOn) {
+			return purchasableMap, fmt.Errorf("item '%s' has expired", item.Name)
 		}
 		total += int(item.Quantity) * int(item.Cost)
 		purchases[i] = &internal_types.PurchasedItem{

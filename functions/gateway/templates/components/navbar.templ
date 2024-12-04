@@ -42,51 +42,72 @@ templ NavListItems(userInfo helpers.UserInfo) {
 
 templ PurchasableItemsList(hasRegistrationFields bool) {
 	<template x-for="(purch, index) in purchasables" :key="index">
-		<label class="form-control w-full max-w-xs">
-			<span class="label-text text-lg mt-5" x-text="purch.name"></span>
-			<span class="label-text text-lg mt-5" x-text="`\$${(purch.cost / 100)}`"></span>
-			<div>
-				<div class="relative flex items-center max-w-[8rem] mb-5 mt-3 counter-click-container">
-					<button @click="handleCounterClick($event.target, 'down', purch.name, index)" type="button" id="decrement-button" data-input-counter-decrement="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-s-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
-						<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
-							<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h16"></path>
-						</svg>
-					</button>
-					<input x-model="formData[`${purch.name}_count_${index}`]" type="number" id="quantity-input" data-input-counter aria-describedby="helper-text-explanation" class="input-number-counter bg-gray-50 border-x-0 border-gray-300 h-11 text-center text-gray-900 text-sm input-bordered input-primary bg-gray-700 border-gray-600 placeholder-gray-400 text-white" placeholder="" required/>
-					<button @click="handleCounterClick($event.target, 'up', purch.name, index)" type="button" id="increment-button" data-input-counter-increment="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-e-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
-						<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
-							<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 1v16M1 9h16"></path>
-						</svg>
-					</button>
-				</div>
-				// show per-purchasables item registration fields if needed
-				if hasRegistrationFields {
-					<template
-						x-if="purch.registration_fields_copy?.length"
-					>
+		<template x-if="purch.inventory > 0 && (new Date(purch.expires_on) > new Date() || !purch.expires_on)">
+			<label class="form-control w-full max-w-xs">
+				<span class="label-text text-lg mt-5" x-text="purch.name"></span>
+				<template x-if="purch.expires_on">
+					<div class="alert alert-info p-2 mt-2">
+						<span>Available until</span>
+						<strong>
+							<span
+								class="text-md"
+								x-text="new Date(purch.expires_on).toLocaleString('en-US', {
+							year: 'numeric',
+							month: 'short',
+							day: 'numeric',
+							hour: 'numeric',
+							minute: '2-digit',
+							hour12: true,
+							timeZone: eventTimezone
+						}).replace(',', ' @')"
+							></span>
+						</strong>
+					</div>
+				</template>
+				<span class="label-text text-lg mt-5" x-text="`\$${(purch.cost / 100)}`"></span>
+				<div>
+					<div class="relative flex items-center max-w-[8rem] mb-5 mt-3 counter-click-container">
+						<button @click="handleCounterClick($event.target, 'down', purch.name, index)" type="button" id="decrement-button" data-input-counter-decrement="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-s-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
+							<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
+								<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h16"></path>
+							</svg>
+						</button>
+						<input x-model="formData[`${purch.name}_count_${index}`]" type="number" id="quantity-input" data-input-counter aria-describedby="helper-text-explanation" class="input-number-counter bg-gray-50 border-x-0 border-gray-300 h-11 text-center text-gray-900 text-sm input-bordered input-primary bg-gray-700 border-gray-600 placeholder-gray-400 text-white" placeholder="" required/>
+						<button @click="handleCounterClick($event.target, 'up', purch.name, index)" type="button" id="increment-button" data-input-counter-increment="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-e-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
+							<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
+								<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 1v16M1 9h16"></path>
+							</svg>
+						</button>
+					</div>
+					// show per-purchasables item registration fields if needed
+					if hasRegistrationFields {
 						<template
-							x-for="(field, idx) in purch.registration_fields_copy"
-							:key="field.name"
+							x-if="purch.registration_fields_copy?.length"
 						>
-							<div class="flex-none">
-								<label class="form-control w-full max-w-xs">
-									<template x-if="parseInt(formData[`${purch.name}_count_${index}`]) > 0 && field.type !== 'checkbox' ">
-										<div class="label">
-											<span class="label-text" x-text="field.description"></span>
-										</div>
-									</template>
-									<template x-for="i in parseInt(formData[`${purch.name}_count_${index}`] || 0)" :key="i">
-										<div class="my-2" x-data="{ _index: `purch_${eventId}_${purch.name}_field_${field.name}_count_${i}` }">
-											@RegistrationFieldsByType(true)
-										</div>
-									</template>
-								</label>
-							</div>
+							<template
+								x-for="(field, idx) in purch.registration_fields_copy"
+								:key="field.name"
+							>
+								<div class="flex-none">
+									<label class="form-control w-full max-w-xs">
+										<template x-if="parseInt(formData[`${purch.name}_count_${index}`]) > 0 && field.type !== 'checkbox' ">
+											<div class="label">
+												<span class="label-text" x-text="field.description"></span>
+											</div>
+										</template>
+										<template x-for="i in parseInt(formData[`${purch.name}_count_${index}`] || 0)" :key="i">
+											<div class="my-2" x-data="{ _index: `purch_${eventId}_${purch.name}_field_${field.name}_count_${i}` }">
+												@RegistrationFieldsByType(true)
+											</div>
+										</template>
+									</label>
+								</div>
+							</template>
 						</template>
-					</template>
-				}
-			</div>
-		</label>
+					}
+				</div>
+			</label>
+		</template>
 	</template>
 }
 
@@ -403,7 +424,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 			</div>
 		</div>
 	</div>
-	<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-user-id={ userInfo.Sub }>
+	<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone } data-user-id={ userInfo.Sub }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,
@@ -416,6 +437,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					errors: {},
 					eventId: document.querySelector('#registration-purchasables').getAttribute('data-event-id'),
 					eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
+					eventTimezone: document.querySelector('#registration-purchasables').getAttribute('data-event-timezone'),
 					hasRegistration: document.querySelector('#registration-purchasables').getAttribute('data-has-registration') === "true",
 					hasPurchasable: document.querySelector('#registration-purchasables').getAttribute('data-has-purchasables') === "true",
 					eventSourceId: document.querySelector('#registration-purchasables').getAttribute('data-event-source-id'),
@@ -431,6 +453,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							}
 							await Promise.all(promises);
 							this.checkAndMoveRegistrationFields();
+              console.log('this.purchasables', this.purchasables)
 					},
 					checkAndMoveRegistrationFields() {
 							if (this.hasRegistration && this.hasPurchasable &&
@@ -535,7 +558,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								} else if (total <= 0) {
 									window.location.href = window.location.origin + window.location.pathname + "?checkout=registered";
 								} else {
-									this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
+                  if (json?.error?.message) {
+                    this.errors['checkout'] = json.error.message;
+                  } else {
+                    this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
+                  }
 								}
 							} catch (error) {
 									console.error("Error submitting checkout:", error);
