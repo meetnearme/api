@@ -31,7 +31,6 @@ func NewRegistrationFieldsHandler(registrationFieldsService internal_types.Regis
 }
 
 func (h *RegistrationFieldsHandler) CreateRegistrationFields(w http.ResponseWriter, r *http.Request) {
-	log.Printf("hitting the registration fields")
 	vars := mux.Vars(r)
 	eventId := vars["event_id"]
     if eventId == "" {

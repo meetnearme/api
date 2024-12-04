@@ -101,7 +101,7 @@ func init() {
 		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteEventRsvpHandler, None}, // Delete an event RSVP
 
 		// Registrations
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationHandler, None},   // Create a new event RSVP
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationHandler, Check},  // Create a new event RSVP
 		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationByPkHandler, None},   // Get a registration by primary key
 		{"/api/registrations/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByUserIDHandler, None},                  // Get a specific event RSVP
 		{"/api/registrations/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByEventIDHandler, None},               // Get all event RSVPs
@@ -109,7 +109,7 @@ func init() {
 		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationHandler, None}, // Delete an event RSVP
 
 		// RegistrationFields
-		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, None},      // Create a new
+		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, Check},     // Create a new
 		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationFieldsByEventIDHandler, None}, // Get all
 		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationFieldsHandler, None},       // Update an existing
 		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationFieldsHandler, None},    // Delete an
