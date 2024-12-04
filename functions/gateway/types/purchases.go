@@ -2,65 +2,22 @@ package types
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"time"
 )
 
-// FlexibleValue can be a string, int32, or bool
-type FlexibleValue struct {
-	value interface{}
-}
-
-// attach behavior the guarantees Unmarshaling JSON works correctly
-func (fv *FlexibleValue) UnmarshalJSON(data []byte) error {
-	// Try string
-	var s string
-	if err := json.Unmarshal(data, &s); err == nil {
-		fv.value = s
-		return nil
-	}
-
-	// Try bool
-	var b bool
-	if err := json.Unmarshal(data, &b); err == nil {
-		fv.value = b
-		return nil
-	}
-
-	// Try int32
-	var i int32
-	if err := json.Unmarshal(data, &i); err == nil {
-		fv.value = i
-		return nil
-	}
-
-	return fmt.Errorf("unable to unmarshal value")
-}
-
-// Handle Marshal default behavior
-func (fv FlexibleValue) MarshalJSON() ([]byte, error) {
-	return json.Marshal(fv.value)
-}
-
-// Add a method that hadles for calling Value on struct
-func (fv FlexibleValue) Value() interface{} {
-	return fv.value
-}
-
 // Purchase represents a purchase in the system
 type PurchasedItem struct {
-	Name                          string                     `json:"name" dynamodbav:"name"`
-	PurchasableIndex              int                        `json:"purchasable_index" dyamodbav:"purchasableIndex"`
-	ItemType                      string                     `json:"item_type" dynamodbav:"itemType"` // Validate as email
-	Cost                          float64                    `json:"cost" dynamodbav:"cost"`
-	Quantity                      int32                      `json:"quantity" dynamodbav:"quantity"`
-	Currency                      string                     `json:"currency" dynamodbav:"currency"`
-	ChargeRecurrenceInterval      string                     `json:"charge_recurrence_interval" dynamodbav:"chargeRecurrenceInterval"`
-	ChargeRecurrenceIntervalCount int                        `json:"charge_recurrence_interval_count" dynamodbav:"chargeRecurrenceIntervalCount"`
-	ChargeRecurrenceEndDate       time.Time                  `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
-	DonationRatio                 float64                    `json:"donation_ratio" dynamodbav:"donationRatio"`
-	RegResponses                  []map[string]FlexibleValue `json:"reg_responses" dynamodbav:"regResponses"`
+	Name                          string                   `json:"name" dynamodbav:"name"`
+	PurchasableIndex              int                      `json:"purchasable_index" dyamodbav:"purchasableIndex"`
+	ItemType                      string                   `json:"item_type" dynamodbav:"itemType"` // Validate as email
+	Cost                          float64                  `json:"cost" dynamodbav:"cost"`
+	Quantity                      int32                    `json:"quantity" dynamodbav:"quantity"`
+	Currency                      string                   `json:"currency" dynamodbav:"currency"`
+	ChargeRecurrenceInterval      string                   `json:"charge_recurrence_interval" dynamodbav:"chargeRecurrenceInterval"`
+	ChargeRecurrenceIntervalCount int                      `json:"charge_recurrence_interval_count" dynamodbav:"chargeRecurrenceIntervalCount"`
+	ChargeRecurrenceEndDate       time.Time                `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
+	DonationRatio                 float64                  `json:"donation_ratio" dynamodbav:"donationRatio"`
+	RegResponses                  []map[string]interface{} `json:"reg_responses" dynamodbav:"regResponses"`
 }
 
 // PurchaseInsert represents the data required to insert a new purchase
