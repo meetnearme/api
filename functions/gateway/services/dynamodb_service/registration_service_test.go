@@ -138,7 +138,7 @@ func TestUpdateRegistration(t *testing.T) {
 	service := NewRegistrationService()
 
 	updatedRegistration, err := service.UpdateRegistration(context.TODO(), mockDynamoDBClient, "eventId", "userId", internal_types.RegistrationUpdate{
-		Responses: []map[string]string{
+		Responses: []map[string]interface{}{
 			{"question1": "updatedAnswer"},
 		},
 		UpdatedAt: time.Now(),
