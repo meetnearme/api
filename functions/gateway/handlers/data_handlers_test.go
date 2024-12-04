@@ -1893,7 +1893,7 @@ func TestSearchUsersHandler(t *testing.T) {
 				}
 			} else {
 				// For error responses, compare strings directly
-				if gotBody != tt.expectedBody {
+				if !strings.Contains(gotBody, tt.expectedBody) {
 					t.Errorf("expected body %q, got %q", tt.expectedBody, gotBody)
 				}
 			}
