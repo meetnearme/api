@@ -43,10 +43,10 @@ templ NavListItems(userInfo helpers.UserInfo) {
 templ PurchasableItemsList(hasRegistrationFields bool) {
 	<template x-for="(purch, index) in purchasables" :key="index">
 		<template x-if="purch.inventory > 0 && (new Date(purch.expires_on) > new Date() || !purch.expires_on)">
-			<label class="form-control w-full max-w-xs">
+			<label class="form-control w-full bg-base-200 card mb-5 p-2 px-4">
 				<span class="label-text text-lg mt-5" x-text="purch.name"></span>
 				<template x-if="purch.expires_on">
-					<div class="alert alert-info p-2 mt-2">
+					<div class="alert alert-info p-2 mt-2 w-fit">
 						<span>Available until</span>
 						<strong>
 							<span
@@ -89,7 +89,7 @@ templ PurchasableItemsList(hasRegistrationFields bool) {
 								:key="field.name"
 							>
 								<div class="flex-none">
-									<label class="form-control w-full max-w-xs">
+									<label class="form-control w-full">
 										<template x-if="parseInt(formData[`${purch.name}_count_${index}`]) > 0 && field.type !== 'checkbox' ">
 											<div class="label">
 												<span class="label-text" x-text="field.description"></span>
@@ -177,7 +177,7 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 			:type="field.type"
 			:placeholder="field.placeholder"
 			:required="field.required"
-			class="select w-full max-w-xs select-bordered border-opacity-100"
+			class="select w-full select-bordered border-opacity-100"
 		>
 			<template x-if="!field.placeholder && field.required">
 				<option disabled selected x-text=" 'Select One' "></option>
@@ -352,7 +352,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								</div>
 							</template>
 							<template x-for="(field, index) in registrationFields" :key="index">
-								<label class="form-control w-full max-w-xs" x-data="{ idx: '' }">
+								<label class="form-control w-full" x-data="{ idx: '' }">
 									<template x-if="field?.type !== 'checkbox' ">
 										<div class="label">
 											<span class="label-text" x-text="field.description"></span>
