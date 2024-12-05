@@ -8,6 +8,7 @@ import (
 	"log"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -112,6 +113,11 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		// TODO: make this an enum / type
 		listMode = "DETAILED"
 	}
+	// Sort events by StartTime
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].StartTime < events[j].StartTime
+	})
+
 	eventListPartial := pages.EventsInner(events, listMode)
 
 	var buf bytes.Buffer
