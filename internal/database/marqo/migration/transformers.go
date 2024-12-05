@@ -119,9 +119,7 @@ var TransformerRegistry = map[string]TransformFunc{
 		return doc, nil
 	},
 	"add_missing_ev_type_2024_12_01": func(doc map[string]interface{}) (map[string]interface{}, error) {
-		// ⛔️ WARNING: This transformer patches a missing field with ONE value, running it on post-migrated
-		// data with be destructive!
-		if _, ok := doc["name"].(string); ok {
+		if _, ok := doc["name"].(string); ok && doc["eventSourceType"] == nil {
 			doc["eventSourceType"] = "SLF"
 		}
 		return doc, nil

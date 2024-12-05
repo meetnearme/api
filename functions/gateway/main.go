@@ -190,7 +190,7 @@ func (app *App) addRoute(route Route) {
 
 					tokens, refreshAccessTokenErr := services.RefreshAccessToken(refreshTokenCookie.Value)
 					if refreshAccessTokenErr != nil {
-						log.Printf("Authentication Failed: %v", err)
+						log.Printf("Authentication Failed: %v", refreshAccessTokenErr)
 						http.Error(w, "Authentication failed", http.StatusUnauthorized)
 						return
 					}
@@ -211,15 +211,17 @@ func (app *App) addRoute(route Route) {
 
 					// Store tokens in cookies
 					http.SetCookie(w, &http.Cookie{
-						Name:  "access_token",
-						Value: newAccessToken,
-						Path:  "/",
+						Name:     "access_token",
+						Value:    newAccessToken,
+						Path:     "/",
+						HttpOnly: true,
 					})
 
 					http.SetCookie(w, &http.Cookie{
-						Name:  "refresh_token",
-						Value: refreshToken,
-						Path:  "/",
+						Name:     "refresh_token",
+						Value:    refreshToken,
+						Path:     "/",
+						HttpOnly: true,
 					})
 
 					accessToken = newAccessToken
