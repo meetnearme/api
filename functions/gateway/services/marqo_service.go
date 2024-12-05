@@ -330,6 +330,12 @@ func ConvertEventsToDocuments(events []types.Event, hasIds bool) (documents []in
 		}
 
 		// Add optional fields only if they are not nil
+		if event.EventSourceType != "" {
+			document["eventSourceType"] = string(event.EventSourceType)
+		}
+		if event.EventSourceId != "" {
+			document["eventSourceId"] = string(event.EventSourceId)
+		}
 		if event.EndTime != 0 {
 			document["endTime"] = int64(event.EndTime)
 		}
@@ -407,7 +413,7 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event, hasIds b
 // SearchMarqoEvents searches for events based on the given query, user location, and maximum distance.
 // It returns a list of events that match the search criteria.
 // EX : SearchMarqoEvents(client, "music", []float64{37.7749, -122.4194}, 10)
-func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime, endTime int64, ownerIds []string, categories string, address string, parseDates string) (types.EventSearchResponse, error) {
+func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime, endTime int64, ownerIds []string, categories string, address string, parseDates string, eventSourceTypes []string, eventSourceIds []string) (types.EventSearchResponse, error) {
 	// Calculate the maximum and minimum latitude and longitude based on the user's location and maximum distance
 	maxLat := userLocation[0] + miToLat(maxDistance)
 	maxLong := userLocation[1] + miToLong(maxDistance, userLocation[0])
@@ -417,7 +423,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	// Search for events based on the query
 	searchMethod := "HYBRID"
 	// TODO: parameterize this
-	limit := 50
+	limit := 100
 
 	var ownerFilter string
 	if len(ownerIds) > 0 {
@@ -437,7 +443,35 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		query = query + " {show matches for these categories(" + categories + ")}"
 	}
 
-	filter := fmt.Sprintf("%s %s startTime:[%v TO %v] AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]", addressFilter, ownerFilter, startTime, endTime, maxLong, minLong, maxLat, minLat)
+	var eventSourceTypeFilter string
+	var eventSourceIdFilter string
+
+	// Build eventSourceType filter using Marqo IN operator
+	if len(eventSourceTypes) > 0 {
+		eventSourceTypeFilter = fmt.Sprintf("eventSourceType IN (%s) AND ", strings.Join(eventSourceTypes, ", "))
+	} else {
+		eventSourceTypeFilter = fmt.Sprintf("eventSourceType IN (%s) AND ", strings.Join(helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES, ", "))
+	}
+
+	// Build eventSourceId filter using Marqo IN operator
+	if len(eventSourceIds) > 0 {
+		eventSourceIdFilter = fmt.Sprintf("eventSourceId IN (%s) AND ", strings.Join(eventSourceIds, ","))
+	}
+
+	// Update the filter string construction to include the new filters
+	filter := fmt.Sprintf("%s %s %s %s startTime:[%v TO %v] AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]",
+		addressFilter,
+		ownerFilter,
+		eventSourceTypeFilter,
+		eventSourceIdFilter,
+		startTime,
+		endTime,
+		maxLong,
+		minLong,
+		maxLat,
+		minLat,
+	)
+
 	indexName := GetMarqoIndexName()
 
 	searchRequest := marqo.SearchRequest{
@@ -692,18 +726,20 @@ func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Even
 	startTimeInt := int64(startTimeFloat)
 
 	event = &types.Event{
-		Id:             getValue[string](doc, "_id"),
-		EventOwners:    getStringSlice(doc, "eventOwners"),
-		EventOwnerName: getValue[string](doc, "eventOwnerName"),
-		Name:           getValue[string](doc, "name"),
-		Description:    getValue[string](doc, "description"),
-		StartTime:      startTimeInt,
-		Address:        getValue[string](doc, "address"),
-		Lat:            getValue[float64](doc, "lat"),
-		Long:           getValue[float64](doc, "long"),
-		Timezone:       getValue[string](doc, "timezone"),
-		Categories:     getStringSlice(doc, "categories"),
-		Tags:           getStringSlice(doc, "tags"),
+		Id:              getValue[string](doc, "_id"),
+		EventOwners:     getStringSlice(doc, "eventOwners"),
+		EventOwnerName:  getValue[string](doc, "eventOwnerName"),
+		EventSourceId:   getValue[string](doc, "eventSourceId"),
+		EventSourceType: getValue[string](doc, "eventSourceType"),
+		Name:            getValue[string](doc, "name"),
+		Description:     getValue[string](doc, "description"),
+		StartTime:       startTimeInt,
+		Address:         getValue[string](doc, "address"),
+		Lat:             getValue[float64](doc, "lat"),
+		Long:            getValue[float64](doc, "long"),
+		Timezone:        getValue[string](doc, "timezone"),
+		Categories:      getStringSlice(doc, "categories"),
+		Tags:            getStringSlice(doc, "tags"),
 	}
 
 	// Handle optional fields
@@ -715,6 +751,16 @@ func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Even
 			if v := getValue[*float64](doc, "endTime"); v != nil {
 				endTime := int64(*v)
 				event.EndTime = endTime
+			}
+		}},
+		{"eventSourceType", func() {
+			if v := getValue[string](doc, "eventSourceType"); v != "" {
+				event.EventSourceType = v
+			}
+		}},
+		{"eventSourceId", func() {
+			if v := getValue[string](doc, "eventSourceId"); v != "" {
+				event.EventSourceId = v
 			}
 		}},
 		{"startingPrice", func() {

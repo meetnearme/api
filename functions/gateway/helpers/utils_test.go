@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/meetnearme/api/functions/gateway/types"
 )
@@ -17,7 +18,7 @@ func init() {
 	os.Setenv("GO_ENV", GO_TEST_ENV)
 }
 
-func TestFormatDate(t *testing.T) {
+func TestFormatDateL(t *testing.T) {
 	tests := []struct {
 		name          string
 		input         string
@@ -25,18 +26,18 @@ func TestFormatDate(t *testing.T) {
 		expectedError string
 	}{
 		{"Valid date", "2099-05-01T12:00:00Z", "May 1, 2099 (Fri)", ""},
-		{"Invalid date", "invalid-date", "", "not a valid unix timestamp"},
-		{"Empty string", "", "", "not a valid unix timestamp"},
+		{"Invalid date", "invalid-date", "", "not a valid time"},
+		{"Empty string", "", "", "not a valid time"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			date, err := UtcOrUnixToUnix64(tt.input)
-			result, err := FormatDate(date)
+			date, _ := time.Parse(time.RFC3339, tt.input)
+			result, err := FormatDateLocal(date)
 			if tt.expectedError != "" && !strings.Contains(err.Error(), tt.expectedError) {
 				t.Errorf("Expected err to have: %v, got: %v", tt.expectedError, err)
 			} else if result != tt.expected {
-				t.Errorf("FormatDate(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("FormatDateL(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}
@@ -50,14 +51,14 @@ func TestFormatTime(t *testing.T) {
 		expectedError string
 	}{
 		{"Valid time", "2099-05-01T14:30:00Z", "2:30pm", ""},
-		{"Invalid time", "invalid-time", "", "not a valid unix timestamp"},
-		{"Empty string", "", "", "not a valid unix timestamp"},
+		{"Invalid time", "invalid-time", "", "not a valid time"},
+		{"Empty string", "", "", "not a valid time"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tm, err := UtcOrUnixToUnix64(tt.input)
-			result, err := FormatTime(tm)
+			tm, _ := time.Parse(time.RFC3339, tt.input)
+			result, err := FormatTimeLocal(tm)
 			if tt.expectedError != "" && !strings.Contains(err.Error(), tt.expectedError) {
 				t.Errorf("Expected err to have: %v, got: %v", tt.expectedError, err)
 			} else if result != tt.expected {

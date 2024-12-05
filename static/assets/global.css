@@ -28,6 +28,15 @@
   }
 }
 
+@layer components {
+  .carousel-control-left {
+    @apply no-animation absolute left-0 mr-8 -m-1 top-1/2 -translate-y-1/2 -translate-x-full;
+  }
+  .carousel-control-right {
+    @apply no-animation absolute right-0 ml-8 -m-1 top-1/2 -translate-y-1/2 translate-x-full;
+  }
+}
+
 body {
   padding-top: 5rem;
 }
@@ -216,6 +225,14 @@ body:has(.bottom-drawer) {
   /* TODO: FIX THIS! use tailwind variables */
   background: white;
   padding: 20px;
+}
+
+.btn.carousel-control-left:active:hover, .btn.carousel-control-left:active:focus {
+  transform: translate(-100%, -50%)
+}
+
+.btn.carousel-control-right:active:hover, .btn.carousel-control-right:active:focus {
+  transform: translate(100%, -50%)
 }
 
 .btn.btn-bold-outline {

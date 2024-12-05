@@ -52,20 +52,20 @@ func UtcOrUnixToUnix64(t interface{}) (int64, error) {
 	}
 }
 
-func FormatDate(unixTimestamp int64) (string, error) {
-	if unixTimestamp == 0 {
-		return "", fmt.Errorf("not a valid unix timestamp: %v", unixTimestamp)
+func FormatDateLocal(t time.Time) (string, error) {
+	if t.IsZero() {
+		return "", fmt.Errorf("not a valid time: %v", t)
 	}
-	date := time.Unix(unixTimestamp, 0).UTC()
-	return date.Format("Jan 2, 2006 (Mon)"), nil
+	// Format: "Dec 24, 2024 (Tue)"
+	return t.Format("Jan 2, 2006 (Mon)"), nil
 }
 
-func FormatTime(unixTimestamp int64) (string, error) {
-	if unixTimestamp == 0 {
-		return "", fmt.Errorf("not a valid unix timestamp: %v", unixTimestamp)
+func FormatTimeLocal(t time.Time) (string, error) {
+	if t.IsZero() {
+		return "", fmt.Errorf("not a valid time: %v", t)
 	}
-	_time := time.Unix(unixTimestamp, 0).UTC()
-	return _time.Format("3:04pm"), nil
+	// Format: "7:00pm"
+	return strings.ToLower(t.Format("3:04PM")), nil
 }
 
 func TruncateStringByBytes(str string, limit int) (s string, exceededLimit bool) {
@@ -503,9 +503,9 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	return nil
 }
 
-func ArrFindFirst(slice []string, items []string) string {
-	for _, s := range slice {
-		for _, item := range items {
+func ArrFindFirst(needles []string, haystack []string) string {
+	for _, s := range needles {
+		for _, item := range haystack {
 			if s == item {
 				return s
 			}
@@ -514,17 +514,17 @@ func ArrFindFirst(slice []string, items []string) string {
 	return ""
 }
 
-func GetDateOrShowNone(date int64) string {
-	formattedDate, err := FormatDate(date)
-	if date == 0 || err != nil {
+func GetDateOrShowNone(datetime int64, timezone string) string {
+	_, formattedDate := GetLocalDateAndTime(datetime, timezone)
+	if formattedDate == "" {
 		return ""
 	}
 	return formattedDate
 }
 
-func GetTimeOrShowNone(time int64) string {
-	formattedTime, err := FormatTime(time)
-	if time == 0 || err != nil {
+func GetTimeOrShowNone(datetime int64, timezone string) string {
+	formattedTime, _ := GetLocalDateAndTime(datetime, timezone)
+	if formattedTime == "" {
 		return ""
 	}
 	return formattedTime
@@ -545,11 +545,9 @@ func GetLocalDateAndTime(datetime int64, timezone string) (string, string) {
 	// Convert start time to local time
 	localStartTime := time.Unix(datetime, 0).In(loc)
 
-	localUnixTime := localStartTime.Unix()
-
 	// Populate the local date and time fields
-	localStartDateStr, _ := FormatDate(localUnixTime)
-	localStartTimeStr, _ := FormatTime(localUnixTime)
+	localStartDateStr, _ := FormatDateLocal(localStartTime)
+	localStartTimeStr, _ := FormatTimeLocal(localStartTime)
 
 	return localStartTimeStr, localStartDateStr
 }
