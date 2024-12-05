@@ -453,7 +453,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							}
 							await Promise.all(promises);
 							this.checkAndMoveRegistrationFields();
-              console.log('this.purchasables', this.purchasables)
+							console.log('this.purchasables', this.purchasables)
 					},
 					checkAndMoveRegistrationFields() {
 							if (this.hasRegistration && this.hasPurchasable &&
@@ -564,19 +564,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								} else if (total <= 0) {
 									window.location.href = window.location.origin + window.location.pathname + "?checkout=registered";
 								} else {
-                  if (json?.error?.message) {
-                    this.errors['checkout'] = json.error.message;
-                  } else {
-                    this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
-                  }
-								} else if (total <= 0) {
-									window.location.href = window.location.origin + window.location.pathname + "?checkout=registered";
-								} else {
-                  if (json?.error?.message) {
-                    this.errors['checkout'] = json.error.message;
-                  } else {
-                    this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
-                  }
+									if (json?.error?.message) {
+										this.errors['checkout'] = json.error.message;
+									} else {
+										this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
+									}
 								}
 							} catch (error) {
 									console.error("Error submitting checkout:", error);
