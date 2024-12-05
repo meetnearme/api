@@ -78,7 +78,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 
 			document.addEventListener('click', (event) => {
 				const target = event.target.closest('a');
-				if !target.getAttribute('href').startsWith('#') {
+				if (!target?.getAttribute?.('href')?.startsWith('#')) {
 					return;
 				}
 				if (target && target.href && !target.target && !event.ctrlKey && !event.metaKey) {
