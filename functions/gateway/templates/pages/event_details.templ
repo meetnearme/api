@@ -60,6 +60,16 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 				<div class="alert alert-success">You are an editor for this event. <a class="btn btn-sm" href={ templ.URL("/admin/event/edit/" + event.Id) }>Edit Event</a></div>
 			}
 			<h2 class="text-3xl mt-2">{ event.Name }</h2>
+			if event.EventSourceType == helpers.ES_SERIES_PARENT {
+				<h3 class="text-xl mt-2">Event Series</h3>
+				<div
+					hx-get={ "/api/html/events?list_mode=DATES_ONLY&end_time=2099-10-18T10:00:00Z&radius=5000&event_source_ids=" + event.Id }
+					hx-trigger="load"
+					hx-swap="outerHTML"
+				>
+					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+				</div>
+			}
 			<br/>
 			<p>
 				if checkoutParamVal == "success" {
@@ -67,18 +77,25 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 					<br/>
 					<br/>
 				}
+				if checkoutParamVal == "registered" {
+					@partials.SuccessBannerHTML("Thanks for your interest, can't wait to see you at the event!")
+					<br/>
+					<br/>
+				}
 				@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], false, event)
 				<br/>
 				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, true, event)
 				<br/>
-				if helpers.GetDateOrShowNone(event.StartTime) != "" {
-					@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime), "calendar", "", false, event)
+				if event.EventSourceType != "SLF_EVS" {
+					if helpers.GetDateOrShowNone(event.StartTime, event.Timezone) != "" {
+						@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime, event.Timezone), "calendar", "", false, event)
+					}
+					<br/>
+					if helpers.GetTimeOrShowNone(event.StartTime, event.Timezone) != "" {
+						@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime, event.Timezone), "clock", "", false, event)
+					}
+					<br/>
 				}
-				<br/>
-				if helpers.GetTimeOrShowNone(event.StartTime) != "" {
-					@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime), "clock", "", false, event)
-				}
-				<br/>
 				if event.StartingPrice > 0 {
 					// TODO: handle basecurrency
 					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", false, event)

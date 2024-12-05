@@ -48,19 +48,21 @@ func NewPurchasableWebhookHandler(purchasableService internal_types.PurchasableS
 
 // Create a new struct for raw JSON operations
 type rawEventData struct {
-	Id             string   `json:"id"`
-	EventOwners    []string `json:"eventOwners" validate:"required,min=1"`
-	EventOwnerName string   `json:"eventOwnerName" validate:"required"`
-	Name           string   `json:"name" validate:"required"`
-	Description    string   `json:"description"`
-	Address        string   `json:"address"`
-	Lat            float64  `json:"lat"`
-	Long           float64  `json:"long"`
-	Timezone       string   `json:"timezone"`
+	Id              string   `json:"id"`
+	EventOwners     []string `json:"eventOwners" validate:"required,min=1"`
+	EventOwnerName  string   `json:"eventOwnerName" validate:"required"`
+	EventSourceType string   `json:"eventSourceType" validate:"required"`
+	Name            string   `json:"name" validate:"required"`
+	Description     string   `json:"description" validate:"required"`
+	Address         string   `json:"address" validate:"required"`
+	Lat             float64  `json:"lat" validate:"required"`
+	Long            float64  `json:"long" validate:"required"`
+	Timezone        string   `json:"timezone" validate:"required"`
 }
 
 type rawEvent struct {
 	rawEventData
+	EventSourceId         *string     `json:"eventSourceId,omitempty"`
 	StartTime             interface{} `json:"startTime" validate:"required"`
 	EndTime               interface{} `json:"endTime,omitempty"`
 	StartingPrice         *int32      `json:"startingPrice,omitempty"`
@@ -79,15 +81,16 @@ type rawEvent struct {
 
 func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	event := types.Event{
-		Id:             raw.Id,
-		EventOwners:    raw.EventOwners,
-		EventOwnerName: raw.EventOwnerName,
-		Name:           raw.Name,
-		Description:    raw.Description,
-		Address:        raw.Address,
-		Lat:            raw.Lat,
-		Long:           raw.Long,
-		Timezone:       raw.Timezone,
+		Id:              raw.Id,
+		EventOwners:     raw.EventOwners,
+		EventOwnerName:  raw.EventOwnerName,
+		EventSourceType: raw.EventSourceType,
+		Name:            raw.Name,
+		Description:     raw.Description,
+		Address:         raw.Address,
+		Lat:             raw.Lat,
+		Long:            raw.Long,
+		Timezone:        raw.Timezone,
 	}
 
 	// Safely assign pointer values
@@ -127,7 +130,9 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	if raw.HideCrossPromo != nil {
 		event.HideCrossPromo = *raw.HideCrossPromo
 	}
-
+	if raw.EventSourceId != nil {
+		event.EventSourceId = *raw.EventSourceId
+	}
 	if raw.StartTime == nil {
 		return types.Event{}, fmt.Errorf("startTime is required")
 	}
@@ -175,14 +180,9 @@ func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId
 		return types.Event{}, http.StatusUnprocessableEntity, fmt.Errorf("invalid JSON payload: %w", err)
 	}
 
-	event, err = ConvertRawEventToEvent(raw, requireId)
+	event, status, err = HandleSingleEventValidation(raw, requireId)
 	if err != nil {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("failed to convert raw event: %w", err)
-	}
-
-	err = validate.Struct(&event)
-	if err != nil {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid body: %w", err)
+		return types.Event{}, status, fmt.Errorf("invalid body: %w", err)
 	}
 
 	return event, status, nil
@@ -226,6 +226,49 @@ func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 }
 
+func HandleSingleEventValidation(rawEvent rawEvent, requireId bool) (types.Event, int, error) {
+	if err := validate.Struct(rawEvent); err != nil {
+		// Type assert to get validation errors
+		if validationErrors, ok := err.(validator.ValidationErrors); ok {
+			// Get just the first validation error
+			firstErr := validationErrors[0]
+			// Extract just the field name and error
+			return types.Event{}, http.StatusBadRequest,
+				fmt.Errorf("Field validation for '%s' failed on the '%s' tag",
+					firstErr.Field(), firstErr.Tag())
+		}
+		return types.Event{}, http.StatusBadRequest, err
+	}
+	if requireId && rawEvent.Id == "" {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event has no id")
+	}
+	if len(rawEvent.EventOwners) == 0 {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwners")
+	}
+	if requireId && rawEvent.Id == "" {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event has no id")
+	}
+	if len(rawEvent.EventOwners) == 0 {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwners")
+	}
+
+	if rawEvent.EventOwnerName == "" {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwnerName")
+	}
+
+	if rawEvent.Timezone == "" {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing timezone")
+	}
+	if helpers.ArrFindFirst([]string{rawEvent.EventSourceType}, helpers.ALL_EVENT_SOURCE_TYPES) == "" {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid eventSourceType: %s", rawEvent.EventSourceType)
+	}
+	event, err := ConvertRawEventToEvent(rawEvent, requireId)
+	if err != nil {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid event : %s", err.Error())
+	}
+	return event, http.StatusOK, nil
+}
+
 func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireIds bool) ([]types.Event, int, error) {
 	var payload struct {
 		Events []rawEvent `json:"events"`
@@ -247,23 +290,9 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
 
 	events := make([]types.Event, len(payload.Events))
 	for i, rawEvent := range payload.Events {
-		if requireIds && rawEvent.Id == "" {
-			return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d has no id", i)
-		}
-		if len(rawEvent.EventOwners) == 0 {
-			return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d is missing eventOwners", i)
-		}
-
-		if rawEvent.EventOwnerName == "" {
-			return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d is missing eventOwnerName", i)
-		}
-
-		if rawEvent.Timezone == "" {
-			return nil, http.StatusBadRequest, fmt.Errorf("invalid body: Event at index %d is missing timezone", i)
-		}
-		event, err := ConvertRawEventToEvent(rawEvent, requireIds)
+		event, statusCode, err := HandleSingleEventValidation(rawEvent, requireIds)
 		if err != nil {
-			return nil, http.StatusBadRequest, fmt.Errorf("invalid event at index %d: %s", i, err.Error())
+			return nil, statusCode, fmt.Errorf("invalid body: invalid event at index %d: %w", i, err)
 		}
 		events[i] = event
 	}
@@ -318,7 +347,7 @@ func (h *MarqoHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
 	var event *types.Event
 	event, err = services.GetMarqoEventByID(marqoClient, eventId, parseDates)
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo event: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
@@ -350,10 +379,9 @@ func (h *MarqoHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) 
 		transport.SendServerRes(w, []byte("Failed to extract event from payload: "+err.Error()), status, err)
 		return
 	}
-
 	res, err := services.BulkUpdateMarqoEventByID(marqoClient, events)
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo event: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
@@ -521,7 +549,7 @@ func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
 
 	res, err := services.BulkUpdateMarqoEventByID(marqoClient, updateEvents)
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo event: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
@@ -543,7 +571,7 @@ func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
 	// Extract parameter values from the request query parameters
-	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates := GetSearchParamsFromReq(r)
+	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
@@ -552,9 +580,9 @@ func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var res types.EventSearchResponse
-	res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates)
+	res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to search marqo events: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to search events: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 	json, err := json.Marshal(res)
@@ -634,7 +662,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// Validate inventory
 	var purchasableMap = map[string]internal_types.PurchasableItemInsert{}
 	if purchasableMap, err = validatePurchase(purchasable, createPurchase); err != nil {
-		transport.SendServerRes(w, []byte("Failed to validate inventory for event id: "+eventId+" + "+err.Error()), http.StatusBadRequest, err)
+		transport.SendServerRes(w, []byte("Failed to validate inventory for event id: "+eventId+": "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
 
@@ -988,6 +1016,7 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 			Inventory:        p.Inventory,
 			Cost:             p.Cost,
 			PurchasableIndex: i,
+			ExpiresOn:        p.ExpiresOn,
 		}
 	}
 
@@ -997,6 +1026,9 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 		// so we validate that the cost matches the cost fetched from the database in `purchasableMap`
 		if purchasableMap[item.Name].Cost != item.Cost {
 			return purchasableMap, fmt.Errorf("item '%s' has incorrect cost", item.Name)
+		}
+		if purchasableMap[item.Name].ExpiresOn != nil && time.Now().After(*purchasableMap[item.Name].ExpiresOn) {
+			return purchasableMap, fmt.Errorf("item '%s' has expired", item.Name)
 		}
 		total += int(item.Quantity) * int(item.Cost)
 		purchases[i] = &internal_types.PurchasedItem{

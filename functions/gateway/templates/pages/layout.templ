@@ -11,7 +11,11 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 	<!DOCTYPE html>
 	<html data-theme="cyberpunk">
 		<head>
-			<title>Meet Near Me - { sitePage.Name }</title>
+			if event.Id != "" && sitePage.Key == "event-detail" {
+				<title>Meet Near Me - { event.Name }</title>
+			} else {
+				<title>Meet Near Me - { sitePage.Name }</title>
+			}
 			<link rel="icon" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 			<link rel="preconnect" href="https://fonts.googleapis.com"/>
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -74,6 +78,9 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 
 			document.addEventListener('click', (event) => {
 				const target = event.target.closest('a');
+				if (!target?.getAttribute?.('href')?.startsWith('#')) {
+					return;
+				}
 				if (target && target.href && !target.target && !event.ctrlKey && !event.metaKey) {
 					showLoadingIndicator();
 				}

@@ -2,6 +2,7 @@ package transport
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -71,10 +72,34 @@ func SendHtmlErrorPartial(w http.ResponseWriter, body []byte, status int) http.H
 	}
 }
 
+// Helper function to create error JSON
+func createErrorJSON(message []byte) []byte {
+	messageString := string(message)
+	errorResponse := struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}{
+		Error: struct {
+			Message string `json:"message"`
+		}{
+			Message: messageString,
+		},
+	}
+
+	jsonBytes, err := json.Marshal(errorResponse)
+	if err != nil {
+		// Fallback in case marshaling fails
+		return []byte(`{"error":{"message":"Internal server error"}}`)
+	}
+	return jsonBytes
+}
+
 func SendServerRes(w http.ResponseWriter, body []byte, status int, err error) http.HandlerFunc {
 	msg := string(body)
 	if status >= 400 {
 		msg = "ERR: " + msg
+		msg = string(createErrorJSON([]byte(msg)))
 		log.Println(msg)
 	}
 

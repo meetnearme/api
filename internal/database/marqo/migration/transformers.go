@@ -11,21 +11,21 @@ type TransformFunc func(map[string]interface{}) (map[string]interface{}, error)
 
 type TimestampInfo struct {
 	OriginalTimestamp int64
-	UTCTime string
-	LocalTime string
-	Timezone string
+	UTCTime           string
+	LocalTime         string
+	Timezone          string
 }
 
 // TransformerRegistry holds all available transformers
 var TransformerRegistry = map[string]TransformFunc{
 	"name_transformer": func(doc map[string]interface{}) (map[string]interface{}, error) {
-        // Check if the "name" field exists and is a string
-        if name, ok := doc["name"].(string); ok {
-            // Modify the "name" field
-            doc["name"] = name + " - transformed"
-        }
-        return doc, nil
-    },
+		// Check if the "name" field exists and is a string
+		if name, ok := doc["name"].(string); ok {
+			// Modify the "name" field
+			doc["name"] = name + " - transformed"
+		}
+		return doc, nil
+	},
 	"timestamp_diagnostic": func(doc map[string]interface{}) (map[string]interface{}, error) {
 		startTime, ok := doc["startTime"].(float64)
 		if !ok {
@@ -47,9 +47,9 @@ var TransformerRegistry = map[string]TransformFunc{
 
 		info := TimestampInfo{
 			OriginalTimestamp: int64(startTime),
-			UTCTime: utcTime.Format(time.RFC3339),
-			LocalTime: localTime.Format(time.RFC3339),
-			Timezone: timezone,
+			UTCTime:           utcTime.Format(time.RFC3339),
+			LocalTime:         localTime.Format(time.RFC3339),
+			Timezone:          timezone,
 		}
 
 		infoBytes, _ := json.MarshalIndent(info, "", " ")
@@ -57,7 +57,7 @@ var TransformerRegistry = map[string]TransformFunc{
 
 		return doc, nil
 	},
-	"timestamp_correction": func(doc map[string]interface{}) (map[string]interface{}, error) {
+	"timestamp_correction_2024_12_01": func(doc map[string]interface{}) (map[string]interface{}, error) {
 		startTime, ok := doc["startTime"].(float64)
 		if !ok {
 			return doc, nil
@@ -118,15 +118,21 @@ var TransformerRegistry = map[string]TransformFunc{
 
 		return doc, nil
 	},
-    // "tensor_weights": func(doc map[string]interface{}) (map[string]interface{}, error) {
-    //     // Implement the actual tensor weights transformation
-    //     if _, ok := doc["name"].(string); ok {
-    //         doc["_tensor_weights"] = map[string]float64{
-    //             "name": 0.3,
-    //             "description": 0.5,
-    //             "address": 0.2,
-    //         }
-    //     }
-    //     return doc, nil
-    // },
+	"add_missing_ev_type_2024_12_01": func(doc map[string]interface{}) (map[string]interface{}, error) {
+		if _, ok := doc["name"].(string); ok && doc["eventSourceType"] == nil {
+			doc["eventSourceType"] = "SLF"
+		}
+		return doc, nil
+	},
+	// "tensor_weights": func(doc map[string]interface{}) (map[string]interface{}, error) {
+	//     // Implement the actual tensor weights transformation
+	//     if _, ok := doc["name"].(string); ok {
+	//         doc["_tensor_weights"] = map[string]float64{
+	//             "name": 0.3,
+	//             "description": 0.5,
+	//             "address": 0.2,
+	//         }
+	//     }
+	//     return doc, nil
+	// },
 }

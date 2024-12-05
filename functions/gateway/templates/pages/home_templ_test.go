@@ -59,6 +59,7 @@ func TestHomePage(t *testing.T) {
 	for _, element := range expectedElements {
 		if !strings.Contains(renderedContent, element) {
 			t.Errorf("Expected rendered content to contain '%s', but it didn't", element)
+			t.Errorf("rendered content \n'%s'", renderedContent)
 		}
 	}
 }
