@@ -1,5 +1,7 @@
 package helpers
 
+import "fmt"
+
 type AWSReqKey string
 
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
@@ -24,11 +26,16 @@ const JWT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bear
 const AUTH_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
 const AUTH_METADATA_KEY = "urn:zitadel:iam:user:metadata"
 
-// NOTE: this ensures that only SLF (self) event source types are searchable by default
-var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{"SLF", "EVS"}
+const (
+	ES_SINGLE_EVENT  = "SLF"
+	ES_EVENT_SERIES  = "EVS"
+	ES_SERIES_PARENT = "SLF_EVS"
+)
 
-// SLF_EVS => Self -> Event Series
-var DEFAULT_NON_SEARCHABLE_EVENT_SOURCE_TYPES = []string{"SLF_EVS"}
+// NOTE: these are the default searchable event source types that show up in the home event list view
+var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SINGLE_EVENT, ES_EVENT_SERIES}
+
+var DEFAULT_NON_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT}
 
 var ALL_EVENT_SOURCE_TYPES []string
 
@@ -45,6 +52,13 @@ func init() {
 	}
 
 	ALL_EVENT_SOURCE_TYPES = uniqueTypes
+
+	// Validate SitePages keys
+	for key, page := range SitePages {
+		if key != page.Key {
+			panic(fmt.Sprintf("SitePage key mismatch: map key %q != struct key %q", key, page.Key))
+		}
+	}
 }
 
 type UserInfo struct {

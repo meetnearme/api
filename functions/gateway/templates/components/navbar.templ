@@ -554,7 +554,21 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								this.reqInFlight = false;
 								this.purchaseComplete = true;
 								if (json?.stripe_checkout_url) {
+									// Validate the URL to ensure it's a trusted Stripe URL
+									const trustedDomain = 'https://checkout.stripe.com/';
+									if (json.stripe_checkout_url.startsWith(trustedDomain)) {
 										window.location.href = json.stripe_checkout_url;
+									} else {
+										this.errors['checkout'] = "Invalid checkout URL received.";
+									}
+								} else if (total <= 0) {
+									window.location.href = window.location.origin + window.location.pathname + "?checkout=registered";
+								} else {
+                  if (json?.error?.message) {
+                    this.errors['checkout'] = json.error.message;
+                  } else {
+                    this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
+                  }
 								} else if (total <= 0) {
 									window.location.href = window.location.origin + window.location.pathname + "?checkout=registered";
 								} else {
