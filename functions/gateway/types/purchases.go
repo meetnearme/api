@@ -8,7 +8,7 @@ import (
 // Purchase represents a purchase in the system
 type PurchasedItem struct {
 	Name                          string                   `json:"name" dynamodbav:"name" validate:"required"`
-	PurchasableIndex              int                      `json:"purchasable_index" dyamodbav:"purchasableIndex" validate:"required,gte=0"`
+	PurchasableIndex              int                      `json:"purchasable_index" dynamodbav:"purchasableIndex" validate:"required,gte=0"`
 	ItemType                      string                   `json:"item_type" dynamodbav:"itemType" validate:"required"`
 	Cost                          float64                  `json:"cost" dynamodbav:"cost" validate:"required,gte=0"`
 	Quantity                      int32                    `json:"quantity" dynamodbav:"quantity" validate:"required,gt=0"`
