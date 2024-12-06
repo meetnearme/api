@@ -176,6 +176,7 @@ func (app *App) addRoute(route Route) {
 
 			// First check Authorization header
 			authHeader := r.Header.Get("Authorization")
+			redirectUrl := r.URL.String()
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				accessToken = strings.TrimPrefix(authHeader, "Bearer ")
 			} else {
@@ -184,7 +185,7 @@ func (app *App) addRoute(route Route) {
 				if err != nil {
 					refreshTokenCookie, refreshTokenCookieErr = r.Cookie("refresh_token")
 					if refreshTokenCookieErr != nil {
-						http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
+						http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
 						return
 					}
 
@@ -225,7 +226,7 @@ func (app *App) addRoute(route Route) {
 					})
 
 					accessToken = newAccessToken
-					http.Redirect(w, r, route.Path, http.StatusFound)
+					http.Redirect(w, r, redirectUrl, http.StatusFound)
 					return
 				}
 				accessToken = accessTokenCookie.Value
@@ -238,7 +239,8 @@ func (app *App) addRoute(route Route) {
 				if strings.HasPrefix(authHeader, "Bearer ") {
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				} else {
-					http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
+					log.Printf("Redirecting to login, redirect is: %v", redirectUrl)
+					http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
 				}
 				return
 			}
@@ -249,12 +251,12 @@ func (app *App) addRoute(route Route) {
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
 			if err != nil {
-				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
 				return
 			}
 			err = json.Unmarshal(data, &userInfo)
 			if err != nil {
-				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
 				return
 			}
 			ctx := context.WithValue(r.Context(), "userInfo", userInfo)
