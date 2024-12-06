@@ -5,6 +5,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
+	"time"
 )
 
 templ MiniProfileInNav(userInfo helpers.UserInfo) {
@@ -41,51 +42,72 @@ templ NavListItems(userInfo helpers.UserInfo) {
 
 templ PurchasableItemsList(hasRegistrationFields bool) {
 	<template x-for="(purch, index) in purchasables" :key="index">
-		<label class="form-control w-full max-w-xs">
-			<span class="label-text text-lg mt-5" x-text="purch.name"></span>
-			<span class="label-text text-lg mt-5" x-text="`\$${(purch.cost / 100)}`"></span>
-			<div>
-				<div class="relative flex items-center max-w-[8rem] mb-5 mt-3">
-					<button @click="handleCounterClick($event.target, 'down', purch.name, index)" type="button" id="decrement-button" data-input-counter-decrement="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-s-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
-						<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
-							<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h16"></path>
-						</svg>
-					</button>
-					<input x-model="formData[`${purch.name}_count_${index}`]" type="number" id="quantity-input" data-input-counter aria-describedby="helper-text-explanation" class="input-number-counter bg-gray-50 border-x-0 border-gray-300 h-11 text-center text-gray-900 text-sm input-bordered input-primary bg-gray-700 border-gray-600 placeholder-gray-400 text-white" placeholder="" required/>
-					<button @click="handleCounterClick($event.target, 'up', purch.name, index)" type="button" id="increment-button" data-input-counter-increment="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-e-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
-						<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
-							<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 1v16M1 9h16"></path>
-						</svg>
-					</button>
-				</div>
-				// show per-purchasables item registration fields if needed
-				if hasRegistrationFields {
-					<template
-						x-if="purch.registration_fields_copy?.length"
-					>
+		<template x-if="purch.inventory > 0 && (new Date(purch.expires_on) > new Date() || !purch.expires_on)">
+			<label class="form-control w-full bg-base-200 card mb-5 p-2 px-4">
+				<span class="label-text text-lg mt-5" x-text="purch.name"></span>
+				<template x-if="purch.expires_on">
+					<div class="alert alert-info p-2 mt-2 w-fit">
+						<span>Available until</span>
+						<strong>
+							<span
+								class="text-md"
+								x-text="new Date(purch.expires_on).toLocaleString('en-US', {
+							year: 'numeric',
+							month: 'short',
+							day: 'numeric',
+							hour: 'numeric',
+							minute: '2-digit',
+							hour12: true,
+							timeZone: eventTimezone
+						}).replace(',', ' @')"
+							></span>
+						</strong>
+					</div>
+				</template>
+				<span class="label-text text-lg mt-5" x-text="`\$${(purch.cost / 100)}`"></span>
+				<div>
+					<div class="relative flex items-center max-w-[8rem] mb-5 mt-3 counter-click-container">
+						<button @click="handleCounterClick($event.target, 'down', purch.name, index)" type="button" id="decrement-button" data-input-counter-decrement="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-s-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
+							<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
+								<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h16"></path>
+							</svg>
+						</button>
+						<input x-model="formData[`${purch.name}_count_${index}`]" type="number" id="quantity-input" data-input-counter aria-describedby="helper-text-explanation" class="input-number-counter bg-gray-50 border-x-0 border-gray-300 h-11 text-center text-gray-900 text-sm input-bordered input-primary bg-gray-700 border-gray-600 placeholder-gray-400 text-white" placeholder="" required/>
+						<button @click="handleCounterClick($event.target, 'up', purch.name, index)" type="button" id="increment-button" data-input-counter-increment="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-e-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
+							<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
+								<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 1v16M1 9h16"></path>
+							</svg>
+						</button>
+					</div>
+					// show per-purchasables item registration fields if needed
+					if hasRegistrationFields {
 						<template
-							x-for="(field, idx) in purch.registration_fields_copy"
-							:key="field.name"
+							x-if="purch.registration_fields_copy?.length"
 						>
-							<div class="flex-none">
-								<label class="form-control w-full max-w-xs">
-									<template x-if="parseInt(formData[`${purch.name}_count_${index}`]) > 0 && field.type !== 'checkbox' ">
-										<div class="label">
-											<span class="label-text" x-text="field.description"></span>
-										</div>
-									</template>
-									<template x-for="i in parseInt(formData[`${purch.name}_count_${index}`] || 0)" :key="i">
-										<div class="my-2" x-data="{ _index: `purch_${eventId}_${purch.name}_field_${field.name}_count_${i}` }">
-											@RegistrationFieldsByType(true)
-										</div>
-									</template>
-								</label>
-							</div>
+							<template
+								x-for="(field, idx) in purch.registration_fields_copy"
+								:key="field.name"
+							>
+								<div class="flex-none">
+									<label class="form-control w-full">
+										<template x-if="parseInt(formData[`${purch.name}_count_${index}`]) > 0 && field.type !== 'checkbox' ">
+											<div class="label">
+												<span class="label-text" x-text="field.description"></span>
+											</div>
+										</template>
+										<template x-for="i in parseInt(formData[`${purch.name}_count_${index}`] || 0)" :key="i">
+											<div class="my-2" x-data="{ _index: `purch_${eventId}_${purch.name}_field_${field.name}_count_${i}` }">
+												@RegistrationFieldsByType(true)
+											</div>
+										</template>
+									</label>
+								</div>
+							</template>
 						</template>
-					</template>
-				}
-			</div>
-		</label>
+					}
+				</div>
+			</label>
+		</template>
 	</template>
 }
 
@@ -155,7 +177,7 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 			:type="field.type"
 			:placeholder="field.placeholder"
 			:required="field.required"
-			class="select w-full max-w-xs select-bordered border-opacity-100"
+			class="select w-full select-bordered border-opacity-100"
 		>
 			<template x-if="!field.placeholder && field.required">
 				<option disabled selected x-text=" 'Select One' "></option>
@@ -171,9 +193,9 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 }
 
 templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) {
-	<div class="drawer drawer-end overflow-hidden">
+	<div class="drawer drawer-end">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
-		<div class="drawer-content mt-24 flex flex-col">
+		<div class="drawer-content flex flex-col">
 			<!-- Navbar -->
 			<div class="navbar fixed z-50 top-0 w-full bg-base-100 bg-opacity-75 shadow-md mb-5">
 				<div class="container mx-auto flex items-center">
@@ -210,6 +232,49 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 				</div>
 			</div>
 			{ children... }
+			<footer class="footer footer-center p-10 mt-20 bg-primary text-primary-content">
+				<aside>
+					<a href="/" class="btn h-auto text-xl bg-base-200 hover:bg-opacity-80">
+						<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+					</a>
+					<p>
+						<br/>
+						<em>I saw a friend of mine the other day</em>
+						<br/>
+						<em>And he told me that my eyes were gleaming</em>
+						<br/>
+						<em>I said I had been away</em>
+						<br/>
+						<em>And he knew, oh, he knew the depths I was meaning</em>
+						<br/>
+						<em>It felt so good to see his face</em>
+						<br/>
+						<em>The comfort invested in my soul</em>
+						<br/>
+						<em>To feel the warmth of his smile</em>
+						<br/>
+						<em>When he said &lsquo;I'm happy to have you home&rsquo;</em>
+						<br/>
+						<br/>
+						~ <a href="https://open.spotify.com/track/5fpEDGQX0Ah3utGnFYulQZ?si=608b29dece2c4e74&nd=1&dlsi=4e5280a68a5544b7" target="_blank">Ben Howard</a>
+					</p>
+					<br/>
+					<br/>
+					<p>
+						&copy; { time.Now().Format("2006") }
+						<span class="font-bold">
+							Meet Near Me LLC.
+						</span> All rights reserved.
+					</p>
+				</aside>
+				<nav>
+					<div class="grid grid-flow-col gap-4">
+						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path></svg></a>
+						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"></path></svg></a>
+						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"></path></svg></a>
+					</div>
+				</nav>
+			</footer>
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
@@ -263,7 +328,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							>
 								<br/>
 								<br/>
-								// @click is a global shared from home_details.templ
+								// @click function call is a global shared from home_details.templ
 								<button
 									type="submit"
 									class="btn btn-primary w-full self-start sticky top-0 z-[10]"
@@ -273,7 +338,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								</button>
 								<br/>
 								<br/>
-								@NestedCheckboxList(false)
+								@NestedCheckboxList(false, []string{})
 							</form>
 						</div>
 					}
@@ -287,7 +352,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								</div>
 							</template>
 							<template x-for="(field, index) in registrationFields" :key="index">
-								<label class="form-control w-full max-w-xs" x-data="{ idx: '' }">
+								<label class="form-control w-full" x-data="{ idx: '' }">
 									<template x-if="field?.type !== 'checkbox' ">
 										<div class="label">
 											<span class="label-text" x-text="field.description"></span>
@@ -359,18 +424,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 			</div>
 		</div>
 	</div>
-	<script
-		id="registration-purchasables"
-		data-has-registration={ fmt.Sprint(event.HasRegistrationFields) }
-		data-has-purchasables={ fmt.Sprint(event.HasPurchasable) }
-		data-event-id={ event.Id }
-		data-event-name={ event.Name }
-		data-user-id={ userInfo.Sub }
-	>
+	<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone } data-user-id={ userInfo.Sub }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,
-    			registrationFieldsLoaded: false,
+					registrationFieldsLoaded: false,
 					purchasables: null,
 					purchasablesLoaded: false,
 					purchaseComplete: false,
@@ -379,8 +437,12 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					errors: {},
 					eventId: document.querySelector('#registration-purchasables').getAttribute('data-event-id'),
 					eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
+					eventTimezone: document.querySelector('#registration-purchasables').getAttribute('data-event-timezone'),
 					hasRegistration: document.querySelector('#registration-purchasables').getAttribute('data-has-registration') === "true",
 					hasPurchasable: document.querySelector('#registration-purchasables').getAttribute('data-has-purchasables') === "true",
+					eventSourceId: document.querySelector('#registration-purchasables').getAttribute('data-event-source-id'),
+					eventSourceType: document.querySelector('#registration-purchasables').getAttribute('data-event-source-type'),
+					userId: document.querySelector('#registration-purchasables').getAttribute('data-user-id'),
 					async init() {
 							const promises = [];
 							if (this.hasRegistration) {
@@ -391,6 +453,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							}
 							await Promise.all(promises);
 							this.checkAndMoveRegistrationFields();
+							console.log('this.purchasables', this.purchasables)
 					},
 					checkAndMoveRegistrationFields() {
 							if (this.hasRegistration && this.hasPurchasable &&
@@ -400,7 +463,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					},
 					async fetchRegistrationFields() {
 							try {
-									const response = await fetch(`/api/registration-fields/${this.eventId}`);
+									const response = await fetch(`/api/registration-fields/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
 									const json = await response.json();
 									this.registrationFields = json?.fields;
 									this.registrationFieldsLoaded = true;
@@ -449,26 +512,40 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 									})
 									.filter(item => item !== null);
 
-				        const total = purchasedItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
+								const total = purchasedItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
 								console.log(`purchasedItems:`, purchasedItems)
 								// TODO: do we need the total?
 								console.log(`total`, total)
 
-								const response = await fetch(`/api/checkout/${this.eventId}`, {
-									method: 'POST',
-									headers: {
-											'Content-Type': 'application/json'
-									},
-									body: JSON.stringify({
-										status: "PENDING",
-										event_name: this.eventName,
-										purchased_items: purchasedItems,
-										total: total,
-										currency: "USD"
-									})
-								});
+								let response;
+								if (total > 0) {
+									response = await fetch(`/api/checkout/${this.eventId}`, {
+										method: 'POST',
+										headers: {
+												'Content-Type': 'application/json'
+										},
+										body: JSON.stringify({
+											status: "PENDING",
+											event_name: this.eventName,
+											purchased_items: purchasedItems,
+											total: total,
+											currency: "USD"
+										})
+									});
+								} else {
+									const regResponses = purchasedItems.flatMap(item => item.reg_responses)
+									response = await fetch(`/api/registrations/${this.eventId}/${this.userId}`, {
+										method: 'PUT',
+										headers: {
+												'Content-Type': 'application/json'
+										},
+										body: JSON.stringify({
+											responses: regResponses,
+										})
+									});
+								}
 								if (response.status === 401) {
-									this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/events/${this.eventId}">Register or Login now</a>`;
+									this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/event/${this.eventId}">Register or Login now</a>`;
 									this.reqInFlight = false;
 									return
 								}
@@ -477,9 +554,21 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								this.reqInFlight = false;
 								this.purchaseComplete = true;
 								if (json?.stripe_checkout_url) {
+									// Validate the URL to ensure it's a trusted Stripe URL
+									const trustedDomain = 'https://checkout.stripe.com/';
+									if (json.stripe_checkout_url.startsWith(trustedDomain)) {
 										window.location.href = json.stripe_checkout_url;
+									} else {
+										this.errors['checkout'] = "Invalid checkout URL received.";
+									}
+								} else if (total <= 0) {
+									window.location.href = window.location.origin + window.location.pathname + "?checkout=registered";
 								} else {
-									this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
+									if (json?.error?.message) {
+										this.errors['checkout'] = json.error.message;
+									} else {
+										this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
+									}
 								}
 							} catch (error) {
 									console.error("Error submitting checkout:", error);
@@ -490,10 +579,9 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					},
 					async fetchPurchasables() {
 							try {
-									const response = await fetch(`/api/purchasables/${this.eventId}`);
+									const response = await fetch(`/api/purchasables/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
 									const json = await response.json();
 									this.purchasables = json?.purchasable_items;
-									console.log('purchasables', this.purchasables)
 									this.purchasablesLoaded = true;
 							} catch (error) {
 									console.error("Error fetching registration fields:", error);
@@ -563,11 +651,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							})
 						}
 						if (Object.keys(this.errors).length === 0) {
-        			this.submitPurchase()
-    				}
+							this.submitPurchase()
+						}
 					},
 					handleCounterClick(self, direction, purchName, idx) {
-						const inputElement = self.closest('.relative').querySelector('input[type="number"]');
+						const inputElement = self.closest('.counter-click-container').querySelector('input[type="number"]');
 						if (inputElement) {
 								const modelName = `${purchName}_count_${idx}`
 								if (modelName) {

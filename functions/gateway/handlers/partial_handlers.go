@@ -8,6 +8,7 @@ import (
 	"log"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -49,11 +50,11 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return transport.SendHtmlError(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
 	}
 	err = json.Unmarshal([]byte(body), &inputPayload)
 	if err != nil {
-		return transport.SendHtmlError(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
 	}
 	ctx := r.Context()
 
@@ -65,9 +66,9 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
 	if err != nil {
 		if err.Error() == helpers.ERR_KV_KEY_EXISTS {
-			return transport.SendHtmlError(w, []byte("Subdomain already taken"), http.StatusInternalServerError)
+			return transport.SendHtmlErrorPartial(w, []byte("Subdomain already taken"), http.StatusInternalServerError)
 		} else {
-			return transport.SendHtmlError(w, []byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
+			return transport.SendHtmlErrorPartial(w, []byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
 		}
 	}
 
@@ -86,7 +87,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	ctx := r.Context()
 
-	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates := GetSearchParamsFromReq(r)
+	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
@@ -101,18 +102,23 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		ownerIds = []string{subdomainValue}
 	}
 
-	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates)
+	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	events := res.Events
-
-	if err != nil {
-		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, err)
+	listMode := r.URL.Query().Get("list_mode")
+	if listMode == "" {
+		// TODO: make this an enum / type
+		listMode = "DETAILED"
 	}
+	// Sort events by StartTime
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].StartTime < events[j].StartTime
+	})
 
-	eventListPartial := pages.EventsInner(events)
+	eventListPartial := pages.EventsInner(events, listMode)
 
 	var buf bytes.Buffer
 	err = eventListPartial.Render(ctx, &buf)
@@ -560,7 +566,7 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 	err := helpers.UpdateUserMetadataKey(userID, helpers.INTERESTS_KEY, flattenedCategoriesString)
 	if err != nil {
-		return transport.SendHtmlError(w, []byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial(w, []byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`)

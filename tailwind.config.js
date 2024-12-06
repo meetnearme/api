@@ -1,6 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 
 export default {
+  mode: 'jit',
+  purge: ['**/*.templ'],
   content: ['**/*.templ'],
   theme: {
     fontSize: {
@@ -89,6 +91,10 @@ export default {
           '@screen xl': {
             maxWidth: '70vw',
           },
+        },
+        '.tab:is(input[type="radio"])': {
+          borderBottomRightRadius: 'inherit',
+          borderBottomLeftRadius: 'inherit',
         },
       });
     },

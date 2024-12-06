@@ -23,7 +23,7 @@ const (
 // considered the best embedding model as of 8/15/2024
 // var model = "hf/bge-large-en-v1.5"
 
-func GetMarqoIndexName () string {
+func GetMarqoIndexName() string {
 	sstStage := os.Getenv("SST_STAGE")
 	if sstStage == "prod" {
 		return os.Getenv("PROD_MARQO_INDEX_NAME")
@@ -40,8 +40,8 @@ func GetMarqoClient() (*marqo.Client, error) {
 	sstStage := os.Getenv("SST_STAGE")
 	if sstStage == "prod" {
 		apiBaseUrl = os.Getenv("PROD_MARQO_API_BASE_URL")
-	// IMPORTANT: This assumes we don't set `SST_STAGE`
-	// in unit tests, we assume this is a non-prod deployment
+		// IMPORTANT: This assumes we don't set `SST_STAGE`
+		// in unit tests, we assume this is a non-prod deployment
 	} else if sstStage != "" {
 		apiBaseUrl = os.Getenv("DEV_MARQO_API_BASE_URL")
 	} else if os.Getenv("GO_ENV") == helpers.GO_TEST_ENV {
@@ -56,8 +56,8 @@ func GetMarqoClient() (*marqo.Client, error) {
 
 	client, err := marqo.NewClient(apiBaseUrl, marqo.WithMarqoCloudAuth(marqoApiKey))
 	if err != nil {
-			log.Printf("Error creating marqo client: %v", err)
-			return nil, err
+		log.Printf("Error creating marqo client: %v", err)
+		return nil, err
 	}
 	return client, nil
 }
@@ -280,7 +280,6 @@ func GetMarqoClient() (*marqo.Client, error) {
 //   ]
 // }
 
-
 // NOTE: it's possible to programatically create index, but this is an expensive
 // mistake to do programmatically, as each index costs at minimum ~$250 / mo
 // hence we're commenting this out for now
@@ -316,21 +315,27 @@ func ConvertEventsToDocuments(events []types.Event, hasIds bool) (documents []in
 			createdAt = event.CreatedAt
 		}
 		document := map[string]interface{}{
-			"_id":         _uuid,
-			"eventOwners": event.EventOwners,
+			"_id":            _uuid,
+			"eventOwners":    event.EventOwners,
 			"eventOwnerName": event.EventOwnerName,
-			"name":        event.Name,
-			"description": event.Description,
-			"startTime":   int64(event.StartTime),
-			"address":     event.Address,
-			"lat":         float64(event.Lat),
-			"long":        float64(event.Long),
-			"timezone":    event.Timezone,
-			"createdAt":   createdAt,
-			"updatedAt":   updatedAt,
+			"name":           event.Name,
+			"description":    event.Description,
+			"startTime":      int64(event.StartTime),
+			"address":        event.Address,
+			"lat":            float64(event.Lat),
+			"long":           float64(event.Long),
+			"timezone":       event.Timezone,
+			"createdAt":      createdAt,
+			"updatedAt":      updatedAt,
 		}
 
 		// Add optional fields only if they are not nil
+		if event.EventSourceType != "" {
+			document["eventSourceType"] = string(event.EventSourceType)
+		}
+		if event.EventSourceId != "" {
+			document["eventSourceId"] = string(event.EventSourceId)
+		}
 		if event.EndTime != 0 {
 			document["endTime"] = int64(event.EndTime)
 		}
@@ -384,17 +389,17 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event, hasIds b
 	req := marqo.UpsertDocumentsRequest{
 		Documents: documents,
 		IndexName: indexName,
-    Mappings: map[string]interface{}{
-      "name_description_address": map[string]interface{}{
-        "type": "multimodal_combination",
-        "weights": map[string]float64{
-          "description":    0.5,
-          "address":        0.2,
-          "name":           0.3,
-          "eventOwnerName": 0.1,
-        },
-      },
-    },
+		Mappings: map[string]interface{}{
+			"name_description_address": map[string]interface{}{
+				"type": "multimodal_combination",
+				"weights": map[string]float64{
+					"description":    0.5,
+					"address":        0.2,
+					"name":           0.3,
+					"eventOwnerName": 0.1,
+				},
+			},
+		},
 	}
 	res, err := client.UpsertDocuments(&req)
 	if err != nil {
@@ -408,7 +413,7 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event, hasIds b
 // SearchMarqoEvents searches for events based on the given query, user location, and maximum distance.
 // It returns a list of events that match the search criteria.
 // EX : SearchMarqoEvents(client, "music", []float64{37.7749, -122.4194}, 10)
-func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime, endTime int64, ownerIds []string, categories string, address string, parseDates string) (types.EventSearchResponse, error) {
+func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime, endTime int64, ownerIds []string, categories string, address string, parseDates string, eventSourceTypes []string, eventSourceIds []string) (types.EventSearchResponse, error) {
 	// Calculate the maximum and minimum latitude and longitude based on the user's location and maximum distance
 	maxLat := userLocation[0] + miToLat(maxDistance)
 	maxLong := userLocation[1] + miToLong(maxDistance, userLocation[0])
@@ -418,7 +423,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	// Search for events based on the query
 	searchMethod := "HYBRID"
 	// TODO: parameterize this
-	limit := 50
+	limit := 100
 
 	var ownerFilter string
 	if len(ownerIds) > 0 {
@@ -438,7 +443,35 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		query = query + " {show matches for these categories(" + categories + ")}"
 	}
 
-	filter := fmt.Sprintf("%s %s startTime:[%v TO %v] AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]", addressFilter, ownerFilter, startTime, endTime, maxLong, minLong, maxLat, minLat)
+	var eventSourceTypeFilter string
+	var eventSourceIdFilter string
+
+	// Build eventSourceType filter using Marqo IN operator
+	if len(eventSourceTypes) > 0 {
+		eventSourceTypeFilter = fmt.Sprintf("eventSourceType IN (%s) AND ", strings.Join(eventSourceTypes, ", "))
+	} else {
+		eventSourceTypeFilter = fmt.Sprintf("eventSourceType IN (%s) AND ", strings.Join(helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES, ", "))
+	}
+
+	// Build eventSourceId filter using Marqo IN operator
+	if len(eventSourceIds) > 0 {
+		eventSourceIdFilter = fmt.Sprintf("eventSourceId IN (%s) AND ", strings.Join(eventSourceIds, ","))
+	}
+
+	// Update the filter string construction to include the new filters
+	filter := fmt.Sprintf("%s %s %s %s startTime:[%v TO %v] AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]",
+		addressFilter,
+		ownerFilter,
+		eventSourceTypeFilter,
+		eventSourceIdFilter,
+		startTime,
+		endTime,
+		maxLong,
+		minLong,
+		maxLat,
+		minLat,
+	)
+
 	indexName := GetMarqoIndexName()
 
 	searchRequest := marqo.SearchRequest{
@@ -457,49 +490,49 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		//   "categories",
 		//   "tags",
 		// },
-		HybridParameters: &marqo.HybridParameters {
+		HybridParameters: &marqo.HybridParameters{
 			RetrievalMethod: "disjunction",
 			RankingMethod:   "rrf",
-		// NOTE: none of these seemed to have much influence in
-		// testing around the time of initial launch, should be
-		// revisited and better understood
+			// NOTE: none of these seemed to have much influence in
+			// testing around the time of initial launch, should be
+			// revisited and better understood
 
-		// ScoreModifiersLexical: &marqo.ScoreModifiers{
-		//	"multiply_score_by": []marqo.ScoreModifier{
-		// 			{
-		// 					FieldName: "startTime",
-		// 					Weight:    0.8,
-		// 			},
-		// 			{
-		// 					FieldName: "createdAt",
-		// 					Weight:    0.0,
-		// 			},
-		// 			{
-		// 					FieldName: "updatedAt",
-		// 					Weight:    0.0,
-		// 			},
-		// 	},
-		//   "add_to_score": []marqo.ScoreModifier{
-		//       {
-		//         FieldName: "startTime",
-		//         Weight:    0.9,
-		//       },
-		// 			{
-		//         FieldName: "name_description_address",
-		//         Weight:    -0.8,
-		//     },
-		// 	},
-		// },
-		// ScoreModifiersTensor: &marqo.ScoreModifiers{
-		//   "add_to_score": []marqo.ScoreModifier{
-		//       {
-		//         FieldName: "startTime",
-		//         Weight:    0.00001,
-		//       },
-		// 	},
-		// },
+			// ScoreModifiersLexical: &marqo.ScoreModifiers{
+			//	"multiply_score_by": []marqo.ScoreModifier{
+			// 			{
+			// 					FieldName: "startTime",
+			// 					Weight:    0.8,
+			// 			},
+			// 			{
+			// 					FieldName: "createdAt",
+			// 					Weight:    0.0,
+			// 			},
+			// 			{
+			// 					FieldName: "updatedAt",
+			// 					Weight:    0.0,
+			// 			},
+			// 	},
+			//   "add_to_score": []marqo.ScoreModifier{
+			//       {
+			//         FieldName: "startTime",
+			//         Weight:    0.9,
+			//       },
+			// 			{
+			//         FieldName: "name_description_address",
+			//         Weight:    -0.8,
+			//     },
+			// 	},
+			// },
+			// ScoreModifiersTensor: &marqo.ScoreModifiers{
+			//   "add_to_score": []marqo.ScoreModifier{
+			//       {
+			//         FieldName: "startTime",
+			//         Weight:    0.00001,
+			//       },
+			// 	},
+			// },
 		},
-  }
+	}
 	searchResp, err := client.Search(&searchRequest)
 	if err != nil {
 		log.Printf("Error searching documents: %v", err)
@@ -520,7 +553,6 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	var events []types.Event
 	for _, doc := range interleavedEvents {
 
-
 		event := NormalizeMarqoDocOrSearchRes(doc)
 		if event != nil {
 			if parseDates == "1" {
@@ -535,12 +567,11 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	}
 
 	return types.EventSearchResponse{
-		Query: query,
+		Query:  query,
 		Filter: filter,
 		Events: events,
 	}, nil
 }
-
 
 func groupAndSortEvents(hits []map[string]interface{}) map[string][]map[string]interface{} {
 	groupA := []map[string]interface{}{}
@@ -635,7 +666,7 @@ func interleaveEvents(groupedEvents map[string][]map[string]interface{}) []map[s
 func BulkGetMarqoEventByID(client *marqo.Client, docIds []string, parseDates string) ([]*types.Event, error) {
 	indexName := GetMarqoIndexName()
 	getDocumentsReq := &marqo.GetDocumentsRequest{
-		IndexName: indexName,
+		IndexName:   indexName,
 		DocumentIDs: docIds,
 	}
 	res, err := client.GetDocuments(getDocumentsReq)
@@ -688,100 +719,112 @@ func BulkUpdateMarqoEventByID(client *marqo.Client, events []types.Event) (*marq
 	return BulkUpsertEventToMarqo(client, events, true)
 }
 
-func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *types.Event) {
+func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Event) {
 	// NOTE: seems to be a bug in Go that instantiates these `int64` values as
 	// `float64` when they are parsed / marshalled
 	startTimeFloat := getValue[float64](doc, "startTime")
 	startTimeInt := int64(startTimeFloat)
 
 	event = &types.Event{
-		Id:          getValue[string](doc, "_id"),
-		EventOwners: getStringSlice(doc, "eventOwners"),
-		EventOwnerName: getValue[string](doc, "eventOwnerName"),
-		Name:        getValue[string](doc, "name"),
-		Description: getValue[string](doc, "description"),
-		StartTime:   startTimeInt,
-		Address:     getValue[string](doc, "address"),
-		Lat:         getValue[float64](doc, "lat"),
-		Long:        getValue[float64](doc, "long"),
-		Timezone:    getValue[string](doc, "timezone"),
-		Categories:  getStringSlice(doc, "categories"),
-		Tags: 			 getStringSlice(doc, "tags"),
+		Id:              getValue[string](doc, "_id"),
+		EventOwners:     getStringSlice(doc, "eventOwners"),
+		EventOwnerName:  getValue[string](doc, "eventOwnerName"),
+		EventSourceId:   getValue[string](doc, "eventSourceId"),
+		EventSourceType: getValue[string](doc, "eventSourceType"),
+		Name:            getValue[string](doc, "name"),
+		Description:     getValue[string](doc, "description"),
+		StartTime:       startTimeInt,
+		Address:         getValue[string](doc, "address"),
+		Lat:             getValue[float64](doc, "lat"),
+		Long:            getValue[float64](doc, "long"),
+		Timezone:        getValue[string](doc, "timezone"),
+		Categories:      getStringSlice(doc, "categories"),
+		Tags:            getStringSlice(doc, "tags"),
 	}
 
-  // Handle optional fields
+	// Handle optional fields
 	optionalFields := []struct {
 		key      string
 		setField func()
-		}{
-			{"endTime", func() {
-				if v := getValue[*float64](doc, "endTime"); v != nil {
-						endTime := int64(*v)
-						event.EndTime = endTime
-				}
+	}{
+		{"endTime", func() {
+			if v := getValue[*float64](doc, "endTime"); v != nil {
+				endTime := int64(*v)
+				event.EndTime = endTime
+			}
+		}},
+		{"eventSourceType", func() {
+			if v := getValue[string](doc, "eventSourceType"); v != "" {
+				event.EventSourceType = v
+			}
+		}},
+		{"eventSourceId", func() {
+			if v := getValue[string](doc, "eventSourceId"); v != "" {
+				event.EventSourceId = v
+			}
 		}},
 		{"startingPrice", func() {
-				if v := getValue[float64](doc, "startingPrice"); v != 0 {
-						startingPrice := int32(v)
-						event.StartingPrice = startingPrice
-				}
+			if v := getValue[float64](doc, "startingPrice"); v != 0 {
+				startingPrice := int32(v)
+				event.StartingPrice = startingPrice
+			}
 		}},
 		{"currency", func() {
 			if v := getValue[string](doc, "currency"); v != "" {
-					event.Currency = v
+				event.Currency = v
 			}
 		}},
 		{"payeeId", func() {
-				if v := getValue[string](doc, "payeeId"); v != "" {
-						event.PayeeId = v
-				}
+			if v := getValue[string](doc, "payeeId"); v != "" {
+				event.PayeeId = v
+			}
 		}},
 		{"hasRegistrationFields", func() {
-				if v := getValue[bool](doc, "hasRegistrationFields"); v {
-						event.HasRegistrationFields = v
-				}
+			if v := getValue[bool](doc, "hasRegistrationFields"); v {
+				event.HasRegistrationFields = v
+			}
 		}},
 		{"hasPurchasable", func() {
-				if v := getValue[bool](doc, "hasPurchasable"); v {
-						event.HasPurchasable = v
-				}
+			if v := getValue[bool](doc, "hasPurchasable"); v {
+				event.HasPurchasable = v
+			}
 		}},
 		{"imageUrl", func() {
-				if v := getValue[string](doc, "imageUrl"); v != "" {
-						event.ImageUrl = v
-				}
+			if v := getValue[string](doc, "imageUrl"); v != "" {
+				event.ImageUrl = v
+			}
 		}},
 		{"categories", func() {
 			if v := getValue[[]string](doc, "categories"); v != nil {
-					event.Categories = v
+				event.Categories = v
 			}
 		}},
 		{"tags", func() {
 			if v := getValue[[]string](doc, "tags"); v != nil {
-					event.Tags = v
+				event.Tags = v
 			}
 		}},
 		{"createdAt", func() {
-				if v := getValue[float64](doc, "createdAt"); v != 0 {
-						createdAt := int64(v)
-						event.CreatedAt = createdAt
-				}
+			if v := getValue[float64](doc, "createdAt"); v != 0 {
+				createdAt := int64(v)
+				event.CreatedAt = createdAt
+			}
 		}},
 		{"updatedAt", func() {
-				if v := getValue[float64](doc, "updatedAt"); v != 0 {
-						updatedAt := int64(v)
-						event.UpdatedAt = updatedAt
-				}
+			if v := getValue[float64](doc, "updatedAt"); v != 0 {
+				updatedAt := int64(v)
+				event.UpdatedAt = updatedAt
+			}
 		}},
 		{"updatedBy", func() {
-				if v := getValue[string](doc, "updatedBy"); v != "" {
-						event.UpdatedBy = v
-				}
+			if v := getValue[string](doc, "updatedBy"); v != "" {
+				event.UpdatedBy = v
+			}
 		}},
 		{"hideCrossPromo", func() {
-				if v := getValue[bool](doc, "hideCrossPromo"); v {
-					event.HideCrossPromo = v
-				}
+			if v := getValue[bool](doc, "hideCrossPromo"); v {
+				event.HideCrossPromo = v
+			}
 		}},
 	}
 
@@ -793,7 +836,7 @@ func NormalizeMarqoDocOrSearchRes (doc map[string]interface{}) (event *types.Eve
 
 	// NOTE: this is a hack for Adalo, always sending `refUrl` for a link out
 	// to the platform event
-	event.RefUrl = os.Getenv("APEX_URL") + "/events/" + event.Id
+	event.RefUrl = os.Getenv("APEX_URL") + "/event/" + event.Id
 
 	// NOTE: this is also a hack for Adalo
 	if event.ImageUrl == "" {
@@ -815,74 +858,74 @@ func miToLong(mi float64, lat float64) float64 {
 
 func getValue[T string | *string | []string | *[]string | float64 | *float64 | int64 | *int64 | int32 | *int32 | bool | *bool](doc map[string]interface{}, key string) T {
 	if value, ok := doc[key]; ok && value != nil {
-			switch any((*new(T))).(type) {
-			case string:
-					if str, ok := value.(string); ok {
-							return any(str).(T)
-					}
-			case *string:
-					if str, ok := value.(string); ok {
-							return any(&str).(T)
-					}
-			case []string:
-				if slice, ok := value.([]interface{}); ok {
-						result := make([]string, 0, len(slice))
-						for _, item := range slice {
-								if str, ok := item.(string); ok {
-										result = append(result, str)
-								}
-						}
-						return any(result).(T)
-				}
-			case *[]string:
-				if slice, ok := value.([]interface{}); ok {
-						result := make([]string, 0, len(slice))
-						if slice == nil {
-							return any(result).(T)
-						}
-						for _, item := range slice {
-								if str, ok := item.(string); ok {
-										result = append(result, str)
-								}
-						}
-						return any(result).(T)
-				}
-			case float64:
-					if f, ok := value.(float64); ok {
-							return any(f).(T)
-					}
-			case *float64:
-					if f, ok := value.(float64); ok {
-							return any(&f).(T)
-					}
-			case int64:
-					if i, ok := value.(float64); ok {
-							return any(int64(i)).(T)
-					}
-			case *int64:
-					if i, ok := value.(float64); ok {
-							i64 := int64(i)
-							return any(&i64).(T)
-					}
-			case int32:
-					if i, ok := value.(float64); ok {
-							return any(int32(i)).(T)
-					}
-			case *int32:
-					if i, ok := value.(float64); ok {
-							i32 := int32(i)
-							return any(&i32).(T)
-					}
-			case bool:
-					if b, ok := value.(bool); ok {
-							return any(b).(T)
-					}
-			case *bool:
-					if b, ok := value.(bool); ok {
-							return any(&b).(T)
-					}
+		switch any((*new(T))).(type) {
+		case string:
+			if str, ok := value.(string); ok {
+				return any(str).(T)
 			}
-			log.Printf("key: %s, Unexpected Type: %T, Value: %v", key, value, value)
+		case *string:
+			if str, ok := value.(string); ok {
+				return any(&str).(T)
+			}
+		case []string:
+			if slice, ok := value.([]interface{}); ok {
+				result := make([]string, 0, len(slice))
+				for _, item := range slice {
+					if str, ok := item.(string); ok {
+						result = append(result, str)
+					}
+				}
+				return any(result).(T)
+			}
+		case *[]string:
+			if slice, ok := value.([]interface{}); ok {
+				result := make([]string, 0, len(slice))
+				if slice == nil {
+					return any(result).(T)
+				}
+				for _, item := range slice {
+					if str, ok := item.(string); ok {
+						result = append(result, str)
+					}
+				}
+				return any(result).(T)
+			}
+		case float64:
+			if f, ok := value.(float64); ok {
+				return any(f).(T)
+			}
+		case *float64:
+			if f, ok := value.(float64); ok {
+				return any(&f).(T)
+			}
+		case int64:
+			if i, ok := value.(float64); ok {
+				return any(int64(i)).(T)
+			}
+		case *int64:
+			if i, ok := value.(float64); ok {
+				i64 := int64(i)
+				return any(&i64).(T)
+			}
+		case int32:
+			if i, ok := value.(float64); ok {
+				return any(int32(i)).(T)
+			}
+		case *int32:
+			if i, ok := value.(float64); ok {
+				i32 := int32(i)
+				return any(&i32).(T)
+			}
+		case bool:
+			if b, ok := value.(bool); ok {
+				return any(b).(T)
+			}
+		case *bool:
+			if b, ok := value.(bool); ok {
+				return any(&b).(T)
+			}
+		}
+		log.Printf("key: %s, Unexpected Type: %T, Value: %v", key, value, value)
 	}
 	var zero T
 	return zero
@@ -902,4 +945,3 @@ func getStringSlice(doc map[string]interface{}, key string) []string {
 	}
 	return nil
 }
-

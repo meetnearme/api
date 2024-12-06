@@ -17,25 +17,27 @@ func TestEventDetailsPage(t *testing.T) {
 		t.Logf("Failed to convert unix time to UTC: %v", tm)
 	}
 	tests := []struct {
-		name     string
-		event    types.Event
+		name             string
+		event            types.Event
 		checkoutParamVal string
-		expected []string
+		expected         []string
+		canEdit          bool
 	}{
 		{
 			name: "Valid event",
 			event: types.Event{
-				Id:          "123",
-				Name:        "Test Event",
-				Description: "This is a test event",
-				Address:     "123 Test St",
-				StartTime:   validEventStartTime,
-				EventOwners: []string{"abc-uuid"},
-				EventOwnerName: "Brians Pub",
-				Lat: 38.896305,
-				Long: -77.023289,
+				Id:              "123",
+				Name:            "Test Event",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: helpers.ES_SINGLE_EVENT,
+				Lat:             38.896305,
+				Long:            -77.023289,
 			},
-			checkoutParamVal:  "",
+			checkoutParamVal: "",
 			expected: []string{
 				"Test Event",
 				"This is a test event",
@@ -45,6 +47,88 @@ func TestEventDetailsPage(t *testing.T) {
 				"abc-uuid",
 				"Brians Pub",
 			},
+			canEdit: false,
+		},
+		{
+			name: "Valid single event",
+			event: types.Event{
+				Id:              "123",
+				Name:            "Karaoke Nationals",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: helpers.ES_SINGLE_EVENT,
+				Lat:             38.896305,
+				Long:            -77.023289,
+			},
+			checkoutParamVal: "",
+			expected: []string{
+				"Karaoke Nationals",
+				"This is a test event",
+				"123 Test St",
+				"May 1, 2099",
+				"12:00pm",
+				"abc-uuid",
+				"Brians Pub",
+				"<title>Meet Near Me - Karaoke Nationals</title>",
+			},
+			canEdit: false,
+		},
+		{
+			name: "Valid series event",
+			event: types.Event{
+				Id:              "123",
+				Name:            "Weekly Karaoke at Buddys",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: helpers.ES_EVENT_SERIES,
+				Lat:             38.896305,
+				Long:            -77.023289,
+			},
+			checkoutParamVal: "",
+			expected: []string{
+				"Weekly Karaoke at Buddys",
+				"This is a test event",
+				"123 Test St",
+				"May 1, 2099",
+				"12:00pm",
+				"abc-uuid",
+				"Brians Pub",
+				"<title>Meet Near Me - Weekly Karaoke at Buddys</title>",
+			},
+			canEdit: false,
+		},
+		{
+			name: "Valid event, editor role sees edit button",
+			event: types.Event{
+				Id:              "123",
+				Name:            "Test Event",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: helpers.ES_SINGLE_EVENT,
+				Lat:             38.896305,
+				Long:            -77.023289,
+			},
+			checkoutParamVal: "",
+			expected: []string{
+				"Test Event",
+				"This is a test event",
+				"123 Test St",
+				"May 1, 2099",
+				"12:00pm",
+				"abc-uuid",
+				"Brians Pub",
+				"editor for this event",
+			},
+			canEdit: true,
 		},
 		{
 			name:  "Empty event",
@@ -52,15 +136,16 @@ func TestEventDetailsPage(t *testing.T) {
 			expected: []string{
 				"404 - Can't Find That Event",
 			},
+			canEdit: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := EventDetailsPage(tt.event, tt.checkoutParamVal)
+			component := EventDetailsPage(tt.event, tt.checkoutParamVal, tt.canEdit)
 
 			// Wrap the component with Layout
-			layoutTemplate := Layout(helpers.SitePages["events"], helpers.UserInfo{}, component, types.Event{})
+			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event)
 
 			// Render the component to a string
 			var buf bytes.Buffer

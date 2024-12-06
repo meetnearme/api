@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
@@ -21,9 +21,11 @@ func TestInsertRegistration(t *testing.T) {
 
 	now := time.Now()
 	registration := internal_types.RegistrationInsert{
-		EventId:   "eventId",
-		UserId:    "userId",
-		Responses:  []map[string]string{{"question1": "answer1"}},
+		EventId: "eventId",
+		UserId:  "userId",
+		Responses: []map[string]interface{}{
+			{"question1": "answer1"},
+		},
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -136,7 +138,7 @@ func TestUpdateRegistration(t *testing.T) {
 	service := NewRegistrationService()
 
 	updatedRegistration, err := service.UpdateRegistration(context.TODO(), mockDynamoDBClient, "eventId", "userId", internal_types.RegistrationUpdate{
-		Responses: []map[string]string{
+		Responses: []map[string]interface{}{
 			{"question1": "updatedAnswer"},
 		},
 		UpdatedAt: time.Now(),
@@ -168,4 +170,3 @@ func TestDeleteRegistration(t *testing.T) {
 		t.Errorf("expected no error, got %v", err)
 	}
 }
-

@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"bytes"
-	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -86,7 +86,7 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	return startTimeUnix, endTimeUnix
 }
 
-func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation, ownerIds []string, categories string, address string, parseDatesBool string) {
+func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation, ownerIds []string, categories string, address string, parseDatesBool string, eventSourceTypes []string, eventSourceIds []string) {
 	startTimeStr := r.URL.Query().Get("start_time")
 	endTimeStr := r.URL.Query().Get("end_time")
 	latStr := r.URL.Query().Get("lat")
@@ -95,8 +95,10 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	q := r.URL.Query().Get("q")
 	owners := r.URL.Query().Get("owners")
 	categoriesStr := r.URL.Query().Get("categories")
-	addressStr := r.URL.Query().Get("address")
+	address = r.URL.Query().Get("address")
 	parseDates := r.URL.Query().Get("parse_dates")
+	eventSourceTypesStr := r.URL.Query().Get("event_source_types")
+	eventSourceIdsStr := r.URL.Query().Get("event_source_ids")
 	cfRay := GetCfRay(r)
 	rayCode := ""
 
@@ -167,13 +169,21 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 		decodedCategories = categories // Use the original string if decoding fails
 	}
 
-	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, addressStr, parseDates
+	// Split comma-separated values into slices
+	if eventSourceTypesStr != "" {
+		eventSourceTypes = strings.Split(eventSourceTypesStr, ",")
+	}
+	if eventSourceIdsStr != "" {
+		eventSourceIds = strings.Split(eventSourceIdsStr, ",")
+	}
+
+	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, address, parseDates, eventSourceTypes, eventSourceIds
 }
 
 func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	ctx := r.Context()
-	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates := GetSearchParamsFromReq(r)
+	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
@@ -191,7 +201,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		ownerIds = []string{subdomainValue}
 	}
 
-	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates)
+	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 	}
@@ -248,23 +258,13 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		roleClaims = claims
 	}
 
-	var userInterests []string = []string{}
-	var interestMetadataBytes []byte
-
-	interestMetadataValue, err := helpers.GetUserMetadataByKey(userInfo.Sub, helpers.INTERESTS_KEY)
-	if err != nil {
-		log.Printf("Failed to fetch user interests metadata: %v", err)
-	} else {
-		interestMetadataBytes, err = base64.StdEncoding.DecodeString(interestMetadataValue)
+	userMetaClaims := map[string]interface{}{}
+	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
+		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
 	}
-
-	if err != nil {
-		log.Printf("Failed to decode user interests metadata: %v", err)
-	} else {
-		userInterests = strings.Split(string(interestMetadataBytes), "|")
-	}
-
-	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests)
+	userInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
+	userSubdomain := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.SUBDOMAIN_KEY)
+	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests, userSubdomain)
 	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, types.Event{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
@@ -281,15 +281,77 @@ func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.Handler
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
-	// roleClaims := ctx.Value("roleClaims").([]helpers.RoleClaim)
 
-	settingsPage := pages.ProfileSettingsPage()
+	userMetaClaims := map[string]interface{}{}
+	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
+		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
+	}
+	parsedInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
+	settingsPage := pages.ProfileSettingsPage(parsedInterests)
 	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, types.Event{})
+
+	var buf bytes.Buffer
+	err = layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
+	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+}
+
+func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	validRoles := []string{"superAdmin", "eventEditor"}
+	if !helpers.HasRequiredRole(roleClaims, validRoles) {
+		err := errors.New("Only event editors can add or edit events")
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, err)
+	}
+
+	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	var pageObj helpers.SitePage
+	var event types.Event
+	var isEditor bool = false
+	if eventId == "" {
+		pageObj = helpers.SitePages["add-event"]
+	} else {
+		pageObj = helpers.SitePages["edit-event"]
+		marqoClient, err := services.GetMarqoClient()
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		}
+		eventPtr, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
+		}
+		if eventPtr != nil {
+			event = *eventPtr
+		}
+		if event.EventOwners == nil {
+			event.EventOwners = []string{}
+		}
+		canEdit := helpers.CanEditEvent(&event, &userInfo, roleClaims)
+		if !canEdit {
+			err := errors.New("You are not authorized to edit this event")
+			return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, err)
+		}
+	}
+	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, event, isEditor)
+
+	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event)
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
 }
@@ -322,11 +384,6 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	// TODO: Extract reading param values into a helper method.
 	ctx := r.Context()
 	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
-	if eventId == "" {
-		// TODO: If no eventID is passed, return a 404 page or redirect to events list.
-		fmt.Println("No event ID provided. Redirecting to home page.")
-		http.Redirect(w, r, "/", http.StatusFound)
-	}
 	parseDates := r.URL.Query().Get("parse_dates")
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
@@ -336,14 +393,19 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	if err != nil || event.Id == "" {
 		event = &types.Event{}
 	}
-	checkoutParamVal := r.URL.Query().Get("checkout")
-	eventDetailsPage := pages.EventDetailsPage(*event, checkoutParamVal)
 	userInfo := helpers.UserInfo{}
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
+	roleClaims := []helpers.RoleClaim{}
+	if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
+	}
+	canEdit := helpers.CanEditEvent(event, &userInfo, roleClaims)
+	checkoutParamVal := r.URL.Query().Get("checkout")
 
-	layoutTemplate := pages.Layout(helpers.SitePages["events"], userInfo, eventDetailsPage, *event)
+	eventDetailsPage := pages.EventDetailsPage(*event, checkoutParamVal, canEdit)
+	layoutTemplate := pages.Layout(helpers.SitePages["event-detail"], userInfo, eventDetailsPage, *event)
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {

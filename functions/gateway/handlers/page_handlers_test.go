@@ -47,20 +47,20 @@ func TestGetHomePage(t *testing.T) {
 		response := map[string]interface{}{
 			"Hits": []map[string]interface{}{
 				{
-					"id":          "123",
-					"eventOwners": []interface{}{"789"},
+					"id":             "123",
+					"eventOwners":    []interface{}{"789"},
 					"eventOwnerName": "First Event Host",
-					"name":        "First Test Event",
-					"description": "Description of the first event",
-					"startTime":   "2099-05-01T12:00:00Z",
+					"name":           "First Test Event",
+					"description":    "Description of the first event",
+					"startTime":      "2099-05-01T12:00:00Z",
 				},
 				{
-					"id":          "456",
+					"id":             "456",
 					"eventOwnerName": "Second Event Host",
-					"eventOwners": []interface{}{"012"},
-					"name":        "Second Test Event",
-					"description": "Description of the second event",
-					"startTime":   "2099-05-01T17:00:00Z",
+					"eventOwners":    []interface{}{"012"},
+					"name":           "Second Test Event",
+					"description":    "Description of the second event",
+					"startTime":      "2099-05-01T17:00:00Z",
 				},
 			},
 		}
@@ -147,18 +147,18 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 		response := map[string]interface{}{
 			"Hits": []map[string]interface{}{
 				{
-					"id":          "123",
-					"eventOwners": []interface{}{"789"},
+					"id":             "123",
+					"eventOwners":    []interface{}{"789"},
 					"eventOwnerName": "Event Host Test",
-					"name":        "First Test Event",
-					"description": "Description of the first event",
+					"name":           "First Test Event",
+					"description":    "Description of the first event",
 				},
 				{
-					"id":          "456",
-					"eventOwners": []interface{}{"012"},
+					"id":             "456",
+					"eventOwners":    []interface{}{"012"},
 					"eventOwnerName": "Event Host Test",
-					"name":        "Second Test Event",
-					"description": "Description of the second event",
+					"name":           "Second Test Event",
+					"description":    "Description of the second event",
 				},
 			},
 		}
@@ -320,11 +320,11 @@ func TestGetEventDetailsPage(t *testing.T) {
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
-					"_id":         "123",
-					"eventOwners": []interface{}{"789"},
+					"_id":            "123",
+					"eventOwners":    []interface{}{"789"},
 					"eventOwnerName": "Event Host Test",
-					"name":        "Test Event",
-					"description": "This is a test event",
+					"name":           "Test Event",
+					"description":    "This is a test event",
 				},
 			},
 		}
@@ -351,7 +351,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 	defer mockMarqoServer.Close()
 
 	const eventID = "123"
-	req, err := http.NewRequest("GET", "/events/"+eventID, nil)
+	req, err := http.NewRequest("GET", "/event/"+eventID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,11 +362,33 @@ func TestGetEventDetailsPage(t *testing.T) {
 			helpers.EVENT_ID_KEY: eventID,
 		},
 	})
+
+	mockUserInfo := helpers.UserInfo{
+		Email:             "test@domain.com",
+		EmailVerified:     true,
+		GivenName:         "Demo",
+		FamilyName:        "User",
+		Name:              "Demo User",
+		PreferredUsername: "test@domain.com",
+		Sub:               "testID",
+		UpdatedAt:         123234234,
+	}
+
+	mockRoleClaims := []helpers.RoleClaim{
+		{
+			Role:        "superAdmin",
+			ProjectID:   "project-id",
+			ProjectName: "myapp.zitadel.cloud",
+		},
+	}
+
+	ctx = context.WithValue(req.Context(), "userInfo", mockUserInfo)
+	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
 	req = req.WithContext(ctx)
 
 	// Set up router to extract variables
 	router := mux.NewRouter()
-	router.HandleFunc("/events/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/event/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
 	})
 
@@ -498,11 +520,11 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			expectedCfLoc:  helpers.CdnLocation{},
 		},
 		{
-			name:        "Only CF-Ray header",
-			queryParams: map[string]string{},
-			cfRay:       "1234567890000-LAX",
-			expectedLoc: []float64{helpers.CfLocationMap["LAX"].Lat, helpers.CfLocationMap["LAX"].Lon}, // Los Angeles coordinates
-			expectedCfLoc: helpers.CfLocationMap["LAX"],
+			name:           "Only CF-Ray header",
+			queryParams:    map[string]string{},
+			cfRay:          "1234567890000-LAX",
+			expectedLoc:    []float64{helpers.CfLocationMap["LAX"].Lat, helpers.CfLocationMap["LAX"].Lon}, // Los Angeles coordinates
+			expectedCfLoc:  helpers.CfLocationMap["LAX"],
 			expectedRadius: 150.0,
 		},
 	}
@@ -518,7 +540,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			}
 
 			// TODO: need to test `categories` and `ownerIds` returned here
-			query, loc, radius, start, end, cfLoc, _, _, _, _ := GetSearchParamsFromReq(req)
+			query, loc, radius, start, end, cfLoc, _, _, _, _, _, _ := GetSearchParamsFromReq(req)
 
 			if query != tt.expectedQuery {
 				t.Errorf("Expected query %s, got %s", tt.expectedQuery, query)
@@ -577,4 +599,163 @@ func floatSliceEqual(a, b []float64, epsilon float64) bool {
 		}
 	}
 	return true
+}
+
+func TestGetAddOrEditEventPage(t *testing.T) {
+	// Save original environment variables
+	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
+	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
+	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
+
+	// Set test environment variables
+	testMarqoApiKey := "test-marqo-api-key"
+	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	testMarqoIndexName := "testing-index"
+
+	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
+	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
+	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
+
+	// Defer resetting environment variables
+	defer func() {
+		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
+		os.Setenv("DEV_MARQO_API_BASE_URL", originalMarqoEndpoint)
+		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
+	}()
+
+	// Create a mock HTTP server for Marqo
+	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Mock the response for event lookup
+		response := map[string]interface{}{
+			"results": []map[string]interface{}{
+				{
+					"_id":            "123",
+					"eventOwners":    []interface{}{"testID"}, // Match the test user's Sub
+					"eventOwnerName": "Event Host Test",
+					"name":           "Test Event",
+					"description":    "This is a test event",
+				},
+			},
+		}
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(responseBytes)
+	}))
+
+	// Set up and start mock Marqo server
+	mockMarqoServer.Listener.Close()
+	var err error
+	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	if err != nil {
+		t.Fatalf("Failed to start mock Marqo server: %v", err)
+	}
+	mockMarqoServer.Start()
+	defer mockMarqoServer.Close()
+
+	// Test cases
+	tests := []struct {
+		name           string
+		eventID        string
+		userInfo       helpers.UserInfo
+		roleClaims     []helpers.RoleClaim
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name:    "Add new event as superAdmin",
+			eventID: "",
+			userInfo: helpers.UserInfo{
+				Email: "test@domain.com",
+				Sub:   "testID",
+				Name:  "Test User",
+			},
+			roleClaims: []helpers.RoleClaim{
+				{Role: "superAdmin", ProjectID: "project-id"},
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   "Add Event",
+		},
+		{
+			name:    "Edit existing event as event owner",
+			eventID: "123",
+			userInfo: helpers.UserInfo{
+				Email: "test@domain.com",
+				Sub:   "testID",
+				Name:  "Test User",
+			},
+			roleClaims: []helpers.RoleClaim{
+				{Role: "eventEditor", ProjectID: "project-id"},
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   "Edit Event",
+		},
+		{
+			name:    "Unauthorized user",
+			eventID: "123",
+			userInfo: helpers.UserInfo{
+				Email: "test@domain.com",
+				Sub:   "testID",
+				Name:  "Test User",
+			},
+			roleClaims: []helpers.RoleClaim{
+				{Role: "user", ProjectID: "project-id"},
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   "Only event editors can add or edit events",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request path based on whether it's add or edit
+			path := "/event"
+			if tt.eventID != "" {
+				path = fmt.Sprintf("/event/%s/edit", tt.eventID)
+			}
+
+			req, err := http.NewRequest("GET", path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Set up context with user info and role claims
+			ctx := context.WithValue(req.Context(), "userInfo", tt.userInfo)
+			ctx = context.WithValue(ctx, "roleClaims", tt.roleClaims)
+			// Add API Gateway context with path parameters if we have an event ID
+			if tt.eventID != "" {
+				ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+					PathParameters: map[string]string{
+						helpers.EVENT_ID_KEY: tt.eventID,
+					},
+				})
+			}
+
+			req = req.WithContext(ctx)
+
+			// Set up router to extract variables
+			router := mux.NewRouter()
+			router.HandleFunc("/event", func(w http.ResponseWriter, r *http.Request) {
+				GetAddOrEditEventPage(w, r).ServeHTTP(w, r)
+			})
+			router.HandleFunc("/event/{"+helpers.EVENT_ID_KEY+"}/edit", func(w http.ResponseWriter, r *http.Request) {
+				GetAddOrEditEventPage(w, r).ServeHTTP(w, r)
+			})
+
+			rr := httptest.NewRecorder()
+			router.ServeHTTP(rr, req)
+
+			if status := rr.Code; status != tt.expectedStatus {
+				t.Errorf("Handler returned wrong status code: got %v want %v", status, tt.expectedStatus)
+			}
+
+			if !strings.Contains(rr.Body.String(), tt.expectedBody) {
+				t.Logf("Handler returned body: %s", rr.Body.String())
+				t.Errorf("Handler returned unexpected body: expected to contain %q", tt.expectedBody)
+			}
+		})
+	}
 }

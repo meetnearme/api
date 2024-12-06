@@ -1,5 +1,7 @@
 package helpers
 
+import "fmt"
+
 type AWSReqKey string
 
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
@@ -21,8 +23,43 @@ const MOCK_ZITADEL_HOST = "localhost:8998"
 const MOCK_MARQO_URL = "http://localhost:8997"
 
 const JWT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+const AUTH_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
+const AUTH_METADATA_KEY = "urn:zitadel:iam:user:metadata"
 
-const PROJECT_ID_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
+const (
+	ES_SINGLE_EVENT  = "SLF"
+	ES_EVENT_SERIES  = "EVS"
+	ES_SERIES_PARENT = "SLF_EVS"
+)
+
+// NOTE: these are the default searchable event source types that show up in the home event list view
+var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SINGLE_EVENT, ES_EVENT_SERIES}
+
+var DEFAULT_NON_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT}
+
+var ALL_EVENT_SOURCE_TYPES []string
+
+func init() {
+	ALL_EVENT_SOURCE_TYPES = append(DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES, DEFAULT_NON_SEARCHABLE_EVENT_SOURCE_TYPES...)
+
+	seen := make(map[string]bool)
+	uniqueTypes := []string{}
+	for _, sourceType := range ALL_EVENT_SOURCE_TYPES {
+		if !seen[sourceType] {
+			seen[sourceType] = true
+			uniqueTypes = append(uniqueTypes, sourceType)
+		}
+	}
+
+	ALL_EVENT_SOURCE_TYPES = uniqueTypes
+
+	// Validate SitePages keys
+	for key, page := range SitePages {
+		if key != page.Key {
+			panic(fmt.Sprintf("SitePage key mismatch: map key %q != struct key %q", key, page.Key))
+		}
+	}
+}
 
 type UserInfo struct {
 	Email             string `json:"email"`
@@ -56,6 +93,18 @@ type RoleClaim struct {
 	ProjectName string `json:"project_name"`
 }
 
+type Role string
+
+const (
+	SuperAdmin Role = "superAdmin"
+	OrgAdmin   Role = "orgAdmin"
+)
+
+var Roles = map[Role]string{
+	SuperAdmin: string(SuperAdmin),
+	OrgAdmin:   string(OrgAdmin),
+}
+
 type Category struct {
 	Name, Desc, Slug string
 	Items            []Subcategory
@@ -76,19 +125,22 @@ var SubnavItems = map[SubnavOption]string{
 }
 
 type SitePage struct {
+	Key         string
 	Slug        string
 	Name        string
 	SubnavItems []string
 }
 
 var SitePages = map[string]SitePage{
-	"home":             {Slug: "home", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
-	"about":            {Slug: "about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
-	"profile":          {Slug: "admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
-	"add-event-source": {Slug: "admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
-	"settings":         {Slug: "settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
-	"embed":            {Slug: "embed", Name: "Embed", SubnavItems: []string{SubnavItems[NvMain]}},
-	"events":           {Slug: "events", Name: "Event Details", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
+	"home":             {Key: "home", Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
+	"about":            {Key: "about", Slug: "/about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
+	"profile":          {Key: "profile", Slug: "/admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
+	"add-event-source": {Key: "add-event-source", Slug: "/admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
+	"settings":         {Key: "settings", Slug: "/admin/profile/settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
+	"map-embed":        {Key: "map-embed", Slug: "/map-embed", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
+	"event-detail":     {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
+	"add-event":        {Key: "add-event", Slug: "/admin/event/new", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
+	"edit-event":       {Key: "edit-event", Slug: "/admin/event/edit/{" + EVENT_ID_KEY + "}", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 type Subcategory struct {

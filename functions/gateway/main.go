@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -45,79 +46,82 @@ var Routes []Route
 
 func init() {
 	Routes = []Route{
-		{"/", "GET", handlers.GetHomePage, Check},
-		{"/about", "GET", handlers.GetAboutPage, Check},
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
-		// {"/admin/add-event-source", "GET", handlers.GetAddEventSourcePage, Require},
-		{"/admin/profile", "GET", handlers.GetProfilePage, Require},
-		{"/admin/profile/settings", "GET", handlers.GetProfileSettingsPage, Require},
-		{"/map-embed", "GET", handlers.GetMapEmbedPage, None},
+		{helpers.SitePages["home"].Slug, "GET", handlers.GetHomePage, Check},
+		{helpers.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
+		{helpers.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
+		{helpers.SitePages["profile"].Slug, "GET", handlers.GetProfilePage, Require},
+		{helpers.SitePages["settings"].Slug, "GET", handlers.GetProfileSettingsPage, Require},
+		{helpers.SitePages["add-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
+		{helpers.SitePages["edit-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
+		{helpers.SitePages["map-embed"].Slug, "GET", handlers.GetMapEmbedPage, None},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...
 		// the complexity is we might want "in the middle", which would be "auto-refresh
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
-		{"/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventDetailsPage, Check},
+		{helpers.SitePages["event-detail"].Slug, "GET", handlers.GetEventDetailsPage, Check},
 
 		// API routes
 
 		// == START == need to expose these via permanent key for headless clients
-		{"/api/event", "POST", handlers.PostEventHandler, None},
-		{"/api/events", "POST", handlers.PostBatchEventsHandler, None},
+		{"/api/event", "POST", handlers.PostEventHandler, Require},
+		{"/api/events", "POST", handlers.PostBatchEventsHandler, Require},
 		{"/api/events", "GET", handlers.SearchEventsHandler, None},
-		{"/api/events", "PUT", handlers.BulkUpdateEventsHandler, None},
+		{"/api/events", "PUT", handlers.BulkUpdateEventsHandler, Require},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
-		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, None},
+		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, Require},
 		{"/api/locations", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
-
-		{"/api/auth/users/set-subdomain", "POST", handlers.SetUserSubdomain, Check},
+		{"/api/auth/users/set-subdomain", "POST", handlers.SetUserSubdomain, Require},
 		{"/api/auth/users/update-interests", "POST", handlers.UpdateUserInterests, Require},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo", "POST", handlers.GeoLookup, None},
+		{"/api/user-search", "GET", handlers.SearchUsersHandler, Require},
+		{"/api/users", "GET", handlers.GetUsersHandler, Require},
 		{"/api/html/events", "GET", handlers.GetEventsPartial, None},
-		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, None},
-		{"/api/html/seshu/session/location", "PUT", handlers.GeoThenPatchSeshuSession, None},
-		{"/api/html/seshu/session/events", "PUT", handlers.SubmitSeshuEvents, None},
+		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, Require},
+		{"/api/html/seshu/session/location", "PUT", handlers.GeoThenPatchSeshuSession, Require},
+		{"/api/html/seshu/session/events", "PUT", handlers.SubmitSeshuEvents, Require},
 
 		// // Purchasables routes
-		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, None},   // Create a new purchasable
-		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasableHandler, None},       // Get all purchasables
-		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchasableHandler, None},    // Update an existing purchasable
-		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchasableHandler, None}, // Delete a purchasable
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, Require},   // Create a new purchasable
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasableHandler, None},          // Get all purchasables
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchasableHandler, Require},    // Update an existing purchasable
+		{"/api/purchasables/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchasableHandler, Require}, // Delete a purchasable
 
 		// // Event RSVPs routes
-		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateEventRsvpHandler, None},   // Create a new event RSVP
-		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpByPkHandler, None},   // Get a specific event RSVP
-		{"/api/event-rsvps/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpsByEventIDHandler, None},               // Get all event RSVPs
-		{"/api/event-rsvps/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpsByUserIDHandler, None},                  // Get a specific event RSVP
-		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateEventRsvpHandler, None},    // Update an existing event RSVP
-		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteEventRsvpHandler, None}, // Delete an event RSVP
+		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateEventRsvpHandler, None},      // Create a new event RSVP
+		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpByPkHandler, Require},   // Get a specific event RSVP
+		{"/api/event-rsvps/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpsByEventIDHandler, Require},               // Get all event RSVPs
+		{"/api/event-rsvps/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetEventRsvpsByUserIDHandler, Require},                  // Get a specific event RSVP
+		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateEventRsvpHandler, Require},    // Update an existing event RSVP
+		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteEventRsvpHandler, Require}, // Delete an event RSVP
 
 		// Registrations
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationHandler, None},   // Create a new event RSVP
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationByPkHandler, None},   // Get a registration by primary key
-		{"/api/registrations/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByUserIDHandler, None},                  // Get a specific event RSVP
-		{"/api/registrations/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByEventIDHandler, None},               // Get all event RSVPs
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationHandler, None},    // Update an existing event RSVP
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationHandler, None}, // Delete an event RSVP
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationHandler, Require},   // Create a new event RSVP
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationByPkHandler, Require},   // Get a registration by primary key
+		{"/api/registrations/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByUserIDHandler, Require},                  // Get a specific event RSVP
+		{"/api/registrations/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByEventIDHandler, Require},               // Get all event RSVPs
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationHandler, Require},    // Update an existing event RSVP
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationHandler, Require}, // Delete an event RSVP
 
 		// RegistrationFields
-		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, None},      // Create a new
+		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, Require},   // Create a new
 		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationFieldsByEventIDHandler, None}, // Get all
-		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationFieldsHandler, None},       // Update an existing
-		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationFieldsHandler, None},    // Delete an
+		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationFieldsHandler, Require},    // Update an existing
+		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationFieldsHandler, Require}, // Delete an
 
 		// Purchases
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchaseHandler, None},                     // Create a new event RSVP
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "GET", dynamodb_handlers.GetPurchaseByPkHandler, None}, // Get a specific event RSVP
-		{"/api/purchases/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByEventIDHandler, None},                                 // Get all event RSVPs
-		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, None},                                    // Get a specific event RSVP
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None},  // Update an existing event RSVP
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None},                   // Delete an event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchaseHandler, Require},                     // Create a new event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "GET", dynamodb_handlers.GetPurchaseByPkHandler, Require}, // Get a specific event RSVP
+		{"/api/purchases/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByEventIDHandler, Require},                                 // Get all event RSVPs
+		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, Require},                                    // Get a specific event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None},     // Update an existing event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None},                      // Delete an event RSVP
 
 		// Checkout Session
 		{"/api/checkout/{event_id:[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
@@ -168,80 +172,98 @@ func (app *App) addRoute(route Route) {
 	switch route.Auth {
 	case Require:
 		handler = func(w http.ResponseWriter, r *http.Request) {
-			accessTokenCookie, err = r.Cookie("access_token")
-			if err != nil {
-				refreshTokenCookie, refreshTokenCookieErr = r.Cookie("refresh_token")
-				if refreshTokenCookieErr != nil {
-					http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
+			var accessToken string
+
+			// First check Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				accessToken = strings.TrimPrefix(authHeader, "Bearer ")
+			} else {
+				// Fall back to cookie-based auth
+				accessTokenCookie, err = r.Cookie("access_token")
+				if err != nil {
+					refreshTokenCookie, refreshTokenCookieErr = r.Cookie("refresh_token")
+					if refreshTokenCookieErr != nil {
+						http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
+						return
+					}
+
+					tokens, refreshAccessTokenErr := services.RefreshAccessToken(refreshTokenCookie.Value)
+					if refreshAccessTokenErr != nil {
+						log.Printf("Authentication Failed: %v", refreshAccessTokenErr)
+						http.Error(w, "Authentication failed", http.StatusUnauthorized)
+						return
+					}
+
+					// Store the access token and refresh token securely
+					newAccessToken, ok := tokens["access_token"].(string)
+					if !ok {
+						http.Error(w, "Failed to get access token", http.StatusInternalServerError)
+						return
+					}
+
+					refreshToken, ok := tokens["refresh_token"].(string)
+					if !ok {
+						fmt.Printf("Refresh token error: %v", ok)
+						http.Error(w, "Failed to get refresh token", http.StatusInternalServerError)
+						return
+					}
+
+					// Store tokens in cookies
+					http.SetCookie(w, &http.Cookie{
+						Name:     "access_token",
+						Value:    newAccessToken,
+						Path:     "/",
+						HttpOnly: true,
+					})
+
+					http.SetCookie(w, &http.Cookie{
+						Name:     "refresh_token",
+						Value:    refreshToken,
+						Path:     "/",
+						HttpOnly: true,
+					})
+
+					accessToken = newAccessToken
+					http.Redirect(w, r, route.Path, http.StatusFound)
 					return
 				}
-
-				tokens, refreshAccessTokenErr := services.RefreshAccessToken(refreshTokenCookie.Value)
-				if refreshAccessTokenErr != nil {
-					log.Printf("Authentication Failed: %v", err)
-					http.Error(w, "Authentication failed", http.StatusUnauthorized)
-					return
-				}
-
-				// Store the access token and refresh token securely
-				accessToken, ok := tokens["access_token"].(string)
-				if !ok {
-					http.Error(w, "Failed to get access token", http.StatusInternalServerError)
-					return
-				}
-
-				refreshToken, ok := tokens["refresh_token"].(string)
-				if !ok {
-					fmt.Printf("Refresh token error: %v", ok)
-					http.Error(w, "Failed to get refresh token", http.StatusInternalServerError)
-					return
-				}
-
-				// Store tokens in a session or secure cookie
-				http.SetCookie(w, &http.Cookie{
-					Name:  "access_token",
-					Value: accessToken,
-					Path:  "/",
-				})
-
-				http.SetCookie(w, &http.Cookie{
-					Name:  "refresh_token",
-					Value: refreshToken,
-					Path:  "/",
-				})
-
-				var userRedirectURL string = route.Path
-				http.Redirect(w, r, userRedirectURL, http.StatusFound)
-				return
+				accessToken = accessTokenCookie.Value
 			}
 
-			accessToken := "Bearer " + accessTokenCookie.Value
-
 			// Use the Authorizer to introspect the access token
-			authCtx, err := app.AuthZ.CheckAuthorization(r.Context(), accessToken)
+			authCtx, err := app.AuthZ.CheckAuthorization(r.Context(), "Bearer "+accessToken)
 			if err != nil {
-				http.Error(w, "Unauthorized: Invalid access token", http.StatusUnauthorized)
+				log.Printf("Authorization Failed: %v", err)
+				if strings.HasPrefix(authHeader, "Bearer ") {
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				} else {
+					http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
+				}
 				return
 			}
 
 			claims := authCtx.Claims
-			roleClaims := services.ExtractRoleClaims(claims)
+			roleClaims, userMetaClaims := services.ExtractClaimsMeta(claims)
 
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
 			if err != nil {
-				http.Error(w, "Unauthorized: Unable to fetch user information", http.StatusUnauthorized)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
 				return
 			}
 			err = json.Unmarshal(data, &userInfo)
 			if err != nil {
-				http.Error(w, "Unauthorized: Unable to fetch user information", http.StatusUnauthorized)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
 				return
 			}
 			ctx := context.WithValue(r.Context(), "userInfo", userInfo)
 
 			if roleClaims != nil {
 				ctx = context.WithValue(ctx, "roleClaims", roleClaims)
+			}
+			if userMetaClaims != nil {
+				ctx = context.WithValue(ctx, "userMetaClaims", userMetaClaims)
 			}
 			r = r.WithContext(ctx)
 			route.Handler(w, r).ServeHTTP(w, r)
@@ -265,7 +287,7 @@ func (app *App) addRoute(route Route) {
 			}
 
 			claims := authCtx.Claims
-			roleClaims := services.ExtractRoleClaims(claims)
+			roleClaims, userMetaClaims := services.ExtractClaimsMeta(claims)
 
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
@@ -282,6 +304,9 @@ func (app *App) addRoute(route Route) {
 			ctx := context.WithValue(r.Context(), "userInfo", userInfo)
 			if roleClaims != nil {
 				ctx = context.WithValue(ctx, "roleClaims", roleClaims)
+			}
+			if userMetaClaims != nil {
+				ctx = context.WithValue(ctx, "userMetaClaims", userMetaClaims)
 			}
 			r = r.WithContext(ctx)
 			route.Handler(w, r).ServeHTTP(w, r)

@@ -7,11 +7,11 @@ import (
 
 templ DropdownNestedCheckbox() {
 	<details class="dropdown">
-		@NestedCheckboxList(true)
+		@NestedCheckboxList(true, []string{})
 	</details>
 }
 
-templ NestedCheckboxList(isInDropdown bool) {
+templ NestedCheckboxList(isInDropdown bool, interests []string) {
 	if isInDropdown {
 		<summary class="m-1 btn">Categories</summary>
 	}
@@ -40,6 +40,9 @@ templ NestedCheckboxList(isInDropdown bool) {
 											value={ cat.Name }
 											type="checkbox"
 											class="z-[9] checkbox checkbox-tertiary border-opacity-80 mr-5"
+											if helpers.ArrFindFirst(interests, []string{cat.Name}) != "" {
+												checked="checked"
+											}
 										/>
 										<span class="label-text">{ cat.Name }</span>
 									</div>
@@ -59,6 +62,9 @@ templ NestedCheckboxList(isInDropdown bool) {
 											name={ "itm-" + fmt.Sprint(idx) + "-subCategory" }
 											value={ item.Name }
 											type="checkbox"
+											if helpers.ArrFindFirst(interests, []string{item.Name}) != "" {
+												checked
+											}
 											class="z-[9] checkbox checkbox-xs checkbox-tertiary border-opacity-80 mr-5 my-1"
 										/>
 										<span class="label-text">{ item.Name }</span>

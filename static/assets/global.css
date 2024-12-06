@@ -28,6 +28,35 @@
   }
 }
 
+@layer components {
+  .carousel-control-left {
+    @apply no-animation absolute left-0 mr-8 -m-1 top-1/2 -translate-y-1/2 -translate-x-full;
+  }
+  .carousel-control-right {
+    @apply no-animation absolute right-0 ml-8 -m-1 top-1/2 -translate-y-1/2 translate-x-full;
+  }
+}
+
+body {
+  padding-top: 5rem;
+}
+
+body:has(.bottom-drawer) {
+  padding-bottom: 10rem;
+}
+
+.sticky-under-top-nav {
+  top: 4.5rem;
+}
+
+.sticky-under-top-nav.subheader {
+  top: 8.5rem;
+}
+
+.sticky-under-top-nav + *:first-child {
+  margin-top: 4.5rem;
+}
+
 .brand-logo {
   width: 3rem;
   height: 4.5rem;
@@ -198,6 +227,14 @@
   padding: 20px;
 }
 
+.btn.carousel-control-left:active:hover, .btn.carousel-control-left:active:focus {
+  transform: translate(-100%, -50%)
+}
+
+.btn.carousel-control-right:active:hover, .btn.carousel-control-right:active:focus {
+  transform: translate(100%, -50%)
+}
+
 .btn.btn-bold-outline {
   border: 5px solid oklch(var(--p));
 }
@@ -235,4 +272,11 @@ input[type='number'] {
   display: inline-flex;
   justify-content: center;
   vertical-align: middle;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
 }
