@@ -677,7 +677,7 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string, parseDates str
 
 	// Check if no documents were found
 	if len(res.Results) == 1 && res.Results[0]["_found"] == false {
-		log.Printf("No documents found for the given IDs")
+		log.Printf("No documents found for the given IDs, %v", docIds)
 		return []*types.Event{}, nil
 	}
 
