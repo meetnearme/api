@@ -554,7 +554,6 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 									return
 								}
 								const json = await response.json();
-								console.log('json checkout res!', json);
 								this.reqInFlight = false;
 								this.purchaseComplete = true;
 								if (json?.stripe_checkout_url) {
