@@ -34,6 +34,14 @@ func (s *RegistrationService) InsertRegistration(ctx context.Context, dynamodbCl
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
+	// Handle anonymous users by prefixing with unix timestamp
+	if userId == "anonymous" {
+		userId = fmt.Sprintf("%d-anonymous", time.Now().Unix())
+	}
+
+	// Update the userId in the registration object before marshaling
+	registration.UserId = userId
+
 	item, err := attributevalue.MarshalMap(&registration)
 	if err != nil {
 		return nil, err

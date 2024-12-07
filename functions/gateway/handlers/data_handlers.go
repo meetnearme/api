@@ -629,6 +629,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		return
 	}
 
+	// all purchases are pending and a client passing this status should be overridden
+	createPurchase.Status = "PENDING"
+
 	err = json.Unmarshal(body, &createPurchase)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
