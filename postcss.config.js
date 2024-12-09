@@ -2,6 +2,8 @@ import tailwindcss from 'tailwindcss';
 import crypto from 'crypto';
 import fs from 'fs';
 
+let previousHash = '';
+
 export default {
   plugins: [
     tailwindcss,
@@ -17,18 +19,22 @@ export default {
           const templatePath = 'functions/gateway/templates/pages/layout.templ';
           const template = fs.readFileSync(templatePath, 'utf8');
 
-          // Extract current hash if it exists (now including the ___ wrapping)
+          // Extract current hash if it exists
           const hashMatch = template.match(/___([^_]+)___/);
           const currentHash = hashMatch ? hashMatch[1] : null;
-          if (newHash !== currentHash) {
-            const pattern = /___[^_]+___/;  // Match content between ___ excluding underscores
+
+          // Only update if both conditions are met:
+          // 1. New hash is different from the current hash in the file
+          // 2. New hash is different from the previous hash we processed
+          if (newHash !== currentHash && newHash !== previousHash) {
+            const pattern = /___[^_]+___/;
             const updatedTemplate = template.replace(pattern, `___${newHash}___`);
-            // Only write if content actually changed
-            if (updatedTemplate !== template) {
-              fs.writeFileSync(templatePath, updatedTemplate);
-              console.log(`🔄 CSS hash changed, updated in layout.templ: ${newHash}`);
-            }
+            fs.writeFileSync(templatePath, updatedTemplate);
+            console.log(`🔄 CSS hash changed, updated in layout.templ: ${newHash}`);
           }
+
+          // Update previousHash for next run
+          previousHash = newHash;
         } catch (error) {
           console.warn('Warning: Could not update CSS hash:', error.message);
         }

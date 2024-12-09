@@ -76,7 +76,7 @@ func (h *PurchasableHandler) GetPurchasable(w http.ResponseWriter, r *http.Reque
 	db := transport.GetDB()
 	purchasables, err := h.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventId)
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get purchasable: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get purchasable: "+err.Error()), http.StatusNotFound, err)
 		return
 	}
 
