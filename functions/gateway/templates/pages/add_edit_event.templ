@@ -3,115 +3,34 @@ package pages
 import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"strconv"
 )
 
 templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor bool) {
-	<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
-		<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
-	</header>
-	<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Basic Information</h2>
-	<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box" x-data="addEditEventState()">
-		<div class="card">
-			<label class="form-control w-full max-w-xs">
-				<div class="label">Event Name</div>
-				<input class="input input-bordered w-full" id="name" type="text" placeholder="Enter event name" value={ event.Name }/>
-			</label>
-			<div class="form-control">
-				<label class="label" for="description">Description</label>
-				<textarea class="textarea textarea-bordered w-full" id="description" placeholder="Enter event description">{ event.Description }</textarea>
-			</div>
-			<div class="form-control">
-				<label class="label">Categories</label>
-				<div class="categories" id="categoriesList">
-					<template x-for="category in categories">
-						<span
-							class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
-						>
-							<span x-text="category"></span>
-							<button aria-label="remove category" class="btn btn-circle btn-neutral  btn-xs" @click="removeCategory(category)">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M6 18L18 6M6 6l12 12"
-									></path>
-								</svg>
-							</button>
-						</span>
-					</template>
-				</div>
-				<input
-					placeholder="Add categories (press Enter)"
-					class="input input-bordered"
-					id="categoryInput"
-					type="text"
-					x-model="categoryInput"
-					@keydown="handleCategoryKeydown"
-				/>
-			</div>
-			<div class="form-control">
-				<label class="label">Tags</label>
-				<div class="tags" id="tagsList">
-					<template x-for="tag in tags">
-						<span
-							class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
-						>
-							<span x-text="tag"></span>
-							<button aria-label="remove tag" class="btn btn-circle btn-neutral  btn-xs" @click="removeTag(tag)">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M6 18L18 6M6 6l12 12"
-									></path>
-								</svg>
-							</button>
-						</span>
-					</template>
-				</div>
-				<input
-					placeholder="Add tags (press Enter)"
-					class="input input-bordered"
-					id="tagInput"
-					type="text"
-					x-model="tagInput"
-					@keydown="handleTagKeydown"
-				/>
-			</div>
-		</div>
-		<div class="card">
-			<h2 class="card-title mt-4">Event Ownership</h2>
-			<div class="form-control">
+	<div x-data="addEditEventState()">
+		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
+			<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
+		</header>
+		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Basic Information</h2>
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+			<div class="card">
+				<label class="form-control w-full max-w-xs">
+					<div class="label">Event Name</div>
+					<input class="input input-bordered w-full" id="name" type="text" placeholder="Enter event name" value={ event.Name }/>
+				</label>
 				<div class="form-control">
-					<label class="label">Event Owners</label>
-					<div class="tags" id="ownersList">
-						<template x-for="owner in owners">
+					<label class="label" for="description">Description</label>
+					<textarea class="textarea textarea-bordered w-full" id="description" placeholder="Enter event description">{ event.Description }</textarea>
+				</div>
+				<div class="form-control">
+					<label class="label">Categories</label>
+					<div class="categories" id="categoriesList">
+						<template x-for="category in categories">
 							<span
 								class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
 							>
-								<template x-if="owner.label">
-									<span x-text="owner.label"></span>
-								</template>
-								<template x-if="!owner.label">
-									// show the `owner` value, which is an ID while loading the display name
-									// <span x-text="owner"></span>
-									<span class="loading loading-spinner loading-sm"></span>
-								</template>
-								<button aria-label="remove owner" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeOwner(owner)">
+								<span x-text="category"></span>
+								<button aria-label="remove category" class="btn btn-circle btn-neutral  btn-xs" @click="removeCategory(category)">
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										class="h-6 w-6"
@@ -130,45 +49,126 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							</span>
 						</template>
 					</div>
+					<input
+						placeholder="Add categories (press Enter)"
+						class="input input-bordered"
+						id="categoryInput"
+						type="text"
+						x-model="categoryInput"
+						@keydown="handleCategoryKeydown"
+					/>
+				</div>
+				<div class="form-control">
+					<label class="label">Tags</label>
+					<div class="tags" id="tagsList">
+						<template x-for="tag in tags">
+							<span
+								class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
+							>
+								<span x-text="tag"></span>
+								<button aria-label="remove tag" class="btn btn-circle btn-neutral  btn-xs" @click="removeTag(tag)">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-6 w-6"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M6 18L18 6M6 6l12 12"
+										></path>
+									</svg>
+								</button>
+							</span>
+						</template>
+					</div>
+					<input
+						placeholder="Add tags (press Enter)"
+						class="input input-bordered"
+						id="tagInput"
+						type="text"
+						x-model="tagInput"
+						@keydown="handleTagKeydown"
+					/>
 				</div>
 			</div>
-			<div class="form-control">
-				<div class="flex w-full flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
-					<div class="relative">
-						<input
-							type="text"
-							class="input input-bordered w-full disabled:cursor-not-allowed disabled:opacity-75 "
-							name="ownerSearch"
-							aria-label="Add event owners (search by name, organization, or email)"
-							@input.throttle="fetchUsers($event.target.value)"
-							x-ref="ownerSearch"
-							placeholder="Add event owners (search by name, organization, or email)"
-							class="input input-bordered"
-							role="combobox"
-							aria-controls="ownersList"
-							aria-haspopup="listbox"
-							x-on:click="isOpen = ! isOpen"
-							x-on:keydown.down.prevent="
+			<div class="card">
+				<h2 class="card-title mt-4">Event Ownership</h2>
+				<div class="form-control">
+					<div class="form-control">
+						<label class="label">Event Owners</label>
+						<div class="tags" id="ownersList">
+							<template x-for="owner in owners">
+								<span
+									class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
+								>
+									<template x-if="owner.label">
+										<span x-text="owner.label"></span>
+									</template>
+									<template x-if="!owner.label">
+										<span class="loading loading-spinner loading-sm"></span>
+									</template>
+									<button aria-label="remove owner" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeOwner(owner)">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-6 w-6"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M6 18L18 6M6 6l12 12"
+											></path>
+										</svg>
+									</button>
+								</span>
+							</template>
+						</div>
+					</div>
+				</div>
+				<div class="form-control">
+					<div class="flex w-full flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
+						<div class="relative">
+							<input
+								type="text"
+								class="input input-bordered w-full disabled:cursor-not-allowed disabled:opacity-75 "
+								name="ownerSearch"
+								aria-label="Add event owners (search by name, organization, or email)"
+								@input.throttle="fetchUsers($event.target.value)"
+								x-ref="ownerSearch"
+								placeholder="Add event owners (search by name, organization, or email)"
+								class="input input-bordered"
+								role="combobox"
+								aria-controls="ownersList"
+								aria-haspopup="listbox"
+								x-on:click="isOpen = ! isOpen"
+								x-on:keydown.down.prevent="
 								isOpen = true;
 								openedWithKeyboard = true;
 								$nextTick(() => {
 									$el.closest('.relative').querySelector('li[role=option]')?.focus()
 								})"
-							x-on:keydown.enter.prevent="openedWithKeyboard = true"
-							x-on:keydown.space.prevent="openedWithKeyboard = true"
-							x-bind:aria-expanded="isOpen || openedWithKeyboard"
-							autocomplete="new-password"
-						/>
-						<div
-							x-show="isOpen || openedWithKeyboard"
-							:class="{'opacity-100': isOpen || openedWithKeyboard}"
-							class="w-full opacity-0 transition-all absolute left-0 top-12 z-50 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
-							id="ownersList"
-							role="listbox"
-							aria-label="event owners list"
-							x-on:click.outside="isOpen = false, openedWithKeyboard = false"
-							x-on:keydown.down.prevent="$focus.wrap().next()"
-							x-on:keydown.up.prevent="
+								x-on:keydown.enter.prevent="openedWithKeyboard = true"
+								x-on:keydown.space.prevent="openedWithKeyboard = true"
+								x-bind:aria-expanded="isOpen || openedWithKeyboard"
+								autocomplete="new-password"
+							/>
+							<div
+								x-show="isOpen || openedWithKeyboard"
+								:class="{'opacity-100': isOpen || openedWithKeyboard}"
+								class="w-full opacity-0 transition-all absolute left-0 top-12 z-50 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
+								id="ownersList"
+								role="listbox"
+								aria-label="event owners list"
+								x-on:click.outside="isOpen = false, openedWithKeyboard = false"
+								x-on:keydown.down.prevent="$focus.wrap().next()"
+								x-on:keydown.up.prevent="
                 if ($el.querySelector('li:focus') === $refs.optionsList.querySelector('li[role=option]')) {
                   isOpen = false;
                   openedWithKeyboard = false;
@@ -179,172 +179,248 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
                     $focus.wrap().previous()
                 }
               "
-							x-transition
-							x-trap="openedWithKeyboard"
-						>
-							<!-- Options  -->
-							<ul x-ref="optionsList" class="flex max-h-44 flex-col overflow-y-auto">
-								<template x-if="options?.length < 1">
-									<li class="px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
-										<span>No matches found</span>
-									</li>
-								</template>
-								<template x-for="(item, index) in options" :key="index">
-									<li
-										class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white"
-										role="option"
-										@click="setSelectedOwner(item)"
-										@keydown.enter="setSelectedOwner(item)"
-										:id="'option-' + index"
-										tabindex="0"
-									>
-										<span x-text="item.label"></span>
-									</li>
-								</template>
-							</ul>
+								x-transition
+								x-trap="openedWithKeyboard"
+							>
+								<!-- Options  -->
+								<ul x-ref="optionsList" class="flex max-h-44 flex-col overflow-y-auto">
+									<template x-if="options?.length < 1">
+										<li class="px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
+											<span>No matches found</span>
+										</li>
+									</template>
+									<template x-for="(item, index) in options" :key="index">
+										<li
+											class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white"
+											role="option"
+											@click="setSelectedOwner(item)"
+											@keydown.enter="setSelectedOwner(item)"
+											:id="'option-' + index"
+											tabindex="0"
+										>
+											<span x-text="item.label"></span>
+										</li>
+									</template>
+								</ul>
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
-			<div class="form-control">
-				<label class="label" for="eventOwnerName">Owner Display Name</label>
-				<input class="input input-bordered" id="eventOwnerName" type="text" placeholder="Enter owner display name" value={ event.EventOwnerName }/>
-			</div>
-		</div>
-	</div>
-	<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Details</h2>
-	<div id="details" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
-		<div class="card">
-			<div class="grid grid-2">
 				<div class="form-control">
-					<label class="label">Start Date & Time</label>
-					<input
-						class="input input-bordered"
-						type="datetime-local"
-						if (event.StartTime > 0) {
-							value={ helpers.GetDatetimePickerFormatted(event.StartTime) }
-						}
-					/>
-				</div>
-				<div class="form-control">
-					<label class="label">End Date & Time</label>
-					<input
-						class="input input-bordered"
-						type="datetime-local"
-						if (event.EndTime > 0) {
-							value={ helpers.GetDatetimePickerFormatted(event.EndTime) }
-						}
-					/>
-				</div>
-			</div>
-			<div class="form-control">
-				<label class="label">Timezone</label>
-				<select class="select select-bordered" value={ event.Timezone }>
-					<option value="">Select timezone</option>
-					<option
-						if (event.Timezone == "America/New_York") {
-							selected
-						}
-						value="America/New_York"
-					>America/New_York</option>
-					<option
-						if (event.Timezone == "America/Chicago") {
-							selected
-						}
-						value="America/Chicago"
-					>America/Chicago</option>
-					<option
-						if (event.Timezone == "America/Denver") {
-							selected
-						}
-						value="America/Denver"
-					>America/Denver</option>
-					<option
-						if (event.Timezone == "America/Los_Angeles") {
-							selected
-						}
-						value="America/Los_Angeles"
-					>America/Los_Angeles</option>
-				</select>
-			</div>
-			<div class="form-control">
-				<label class="label">Image URL</label>
-				<input class="input input-bordered" type="text" placeholder="Enter image URL"/>
-			</div>
-		</div>
-	</div>
-	<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Location Details</h2>
-	<div id="location" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
-		<div class="card">
-			<h2 class="card-title">Location Details</h2>
-			<div class="form-control">
-				<label class="label">Address</label>
-				<textarea
-					class="textarea textarea-bordered"
-					placeholder="Enter full address"
-					if event.Address != "" {
-						value={ event.Address }
-					}
-				></textarea>
-			</div>
-			<div class="grid grid-2">
-				<div class="form-control">
-					<label class="label">Latitude</label>
-					<input class="input input-bordered" type="number" step="any" placeholder="Enter latitude"/>
-				</div>
-				<div class="form-control">
-					<label class="label">Longitude</label>
-					<input class="input input-bordered" type="number" step="any" placeholder="Enter longitude"/>
+					<label class="label" for="eventOwnerName">Owner Display Name</label>
+					<input class="input input-bordered" id="eventOwnerName" type="text" placeholder="Enter owner display name" value={ event.EventOwnerName }/>
 				</div>
 			</div>
 		</div>
-	</div>
-	<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Pricing & Registration</h2>
-	<div id="pricing" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
-		<div class="card">
-			<h2 class="card-title">Pricing & Registration</h2>
-			<div class="form-control w-52">
-				<label class="label cursor-pointer">
-					<span class="label-text">Enable Event Registration</span>
-					<input name="hasRegistrationFields" type="checkbox" class="toggle toggle-primary"/>
-				</label>
-			</div>
-			<div class="form-control w-52">
-				<label class="label cursor-pointer">
-					<span class="label-text">Enable Purchasable Items</span>
-					<input name="hasPurchasable" type="checkbox" class="toggle toggle-primary"/>
-				</label>
-			</div>
-			<div :class="hasPurchasable ? 'grid grid-2' : 'hidden'">
-				<div class="form-control">
-					<label class="label">Starting Price</label>
-					<input class="input" type="number" step="0.01" placeholder="Enter starting price"/>
+		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Details</h2>
+		<div id="details" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+			<div class="card">
+				<div class="grid grid-2">
+					<div class="form-control">
+						<label class="label">Start Date & Time</label>
+						<input
+							class="input input-bordered"
+							type="datetime-local"
+							if (event.StartTime > 0) {
+								value={ helpers.GetDatetimePickerFormatted(event.StartTime) }
+							}
+						/>
+					</div>
+					<div class="form-control">
+						<label class="label">End Date & Time</label>
+						<input
+							class="input input-bordered"
+							type="datetime-local"
+							if (event.EndTime > 0) {
+								value={ helpers.GetDatetimePickerFormatted(event.EndTime) }
+							}
+						/>
+					</div>
 				</div>
 				<div class="form-control">
-					<label class="label">Currency</label>
-					<select class="select">
-						<option value="">Select currency</option>
-						<option value="usd">USD</option>
-						<option value="eur">EUR</option>
-						<option value="gbp">GBP</option>
+					<label class="label">Timezone</label>
+					<select class="select select-bordered" value={ event.Timezone }>
+						<option value="">Select timezone</option>
+						<option
+							if (event.Timezone == "America/New_York") {
+								selected
+							}
+							value="America/New_York"
+						>America/New_York</option>
+						<option
+							if (event.Timezone == "America/Chicago") {
+								selected
+							}
+							value="America/Chicago"
+						>America/Chicago</option>
+						<option
+							if (event.Timezone == "America/Denver") {
+								selected
+							}
+							value="America/Denver"
+						>America/Denver</option>
+						<option
+							if (event.Timezone == "America/Los_Angeles") {
+								selected
+							}
+							value="America/Los_Angeles"
+						>America/Los_Angeles</option>
 					</select>
 				</div>
+				<div class="form-control">
+					<label class="label">Image URL</label>
+					<input class="input input-bordered" type="text" placeholder="Enter image URL"/>
+				</div>
 			</div>
 		</div>
-	</div>
-	<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
-		<button class="btn btn-outline">Cancel</button>
-		<button class="btn btn-primary mx-4">Publish</button>
-		<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
-			<div class="modal-box">
-				<h3 class="text-lg font-bold">YAY!</h3>
-				<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
-				<form method="dialog" class="modal-backdrop">
-					<!-- if there is a button in form, it will close the modal -->
-					<button class="btn btn-primary">Close</button>
-				</form>
+		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Location Details</h2>
+		<div id="location" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+			<div class="card">
+				<h2 class="card-title">Location Details</h2>
+				<div class="form-control">
+					<label class="label">Address</label>
+					<textarea
+						class="textarea textarea-bordered"
+						placeholder="Enter full address"
+						if event.Address != "" {
+							value={ event.Address }
+						}
+					></textarea>
+				</div>
+				<div class="grid grid-2">
+					<div class="form-control">
+						<label class="label">Latitude</label>
+						<input class="input input-bordered" type="number" step="any" placeholder="Enter latitude"/>
+					</div>
+					<div class="form-control">
+						<label class="label">Longitude</label>
+						<input class="input input-bordered" type="number" step="any" placeholder="Enter longitude"/>
+					</div>
+				</div>
 			</div>
-		</dialog>
+		</div>
+		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Pricing & Registration</h2>
+		<div id="pricing" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+			<div class="card">
+				<h2 class="card-title">Pricing & Registration</h2>
+				<div class="form-control w-52">
+					<label class="label cursor-pointer">
+						<span class="label-text">Enable Event Registration</span>
+						<input
+							name="hasRegistrationFields"
+							type="checkbox"
+							class="toggle toggle-primary"
+							if event.HasRegistrationFields {
+								checked
+							}
+						/>
+					</label>
+				</div>
+				<template x-if="hasRegistrationFields && registrationFields.length < 1">
+					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+				</template>
+				<template x-if="registrationFields.length > 0">
+					<ul class="list-disc list-inside">
+						<template x-for="field in registrationFields">
+							<li x-text="field.name"></li>
+						</template>
+					</ul>
+				</template>
+				<div class="form-control w-52">
+					<label class="label cursor-pointer">
+						<span class="label-text">Enable Purchasable Items</span>
+						<input
+							name="hasPurchasable"
+							type="checkbox"
+							class="toggle toggle-primary"
+							x-model="hasPurchasable"
+							if event.HasPurchasable {
+								checked
+							}
+						/>
+					</label>
+				</div>
+				<template x-if="hasPurchasable && purchasables.length < 1">
+					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+				</template>
+				<template x-if="purchasables.length > 0">
+					<ul class="list-disc">
+						<template x-for="purchasable in purchasables">
+							<li class="mt-4">
+								<div x-text="'Name: ' + purchasable.name"></div>
+								<div x-text="'Item Type: ' + purchasable.item_type"></div>
+								<div x-text="'Cost: ' + purchasable.cost"></div>
+								<div x-text="'Inventory: ' + purchasable.inventory"></div>
+								<div x-text="'Starting Quantity: ' + purchasable.starting_quantity"></div>
+								<div x-text="'Currency: ' + purchasable.currency"></div>
+								<div x-text="'Charge Recurrence Interval: ' + purchasable.charge_recurrence_interval"></div>
+								<div x-text="'Charge Recurrence Interval Count: ' + purchasable.charge_recurrence_interval_count"></div>
+								<div x-text="'Charge Recurrence End Date: ' + purchasable.charge_recurrence_end_date"></div>
+								<div x-text="'Donation Ratio: ' + purchasable.donation_ratio"></div>
+								<div x-text="'Registration Fields: ' + purchasable.registration_fields"></div>
+								<div x-text="'Expires On: ' + purchasable.expires_on"></div>
+								<div x-text="'Created At: ' + purchasable.created_at"></div>
+								<div x-text="'Updated At: ' + purchasable.updated_at"></div>
+							</li>
+						</template>
+					</ul>
+				</template>
+				<div :class="hasPurchasable ? 'grid grid-2' : 'hidden'">
+					<div class="form-control">
+						<label class="label">Starting Price</label>
+						<input
+							class="input"
+							type="number"
+							step="0.01"
+							placeholder="Enter starting price"
+							if event.StartingPrice > 0 {
+								value={ strconv.FormatInt(int64(event.StartingPrice/100), 10) }
+							}
+						/>
+					</div>
+					<div class="form-control">
+						<label class="label">Currency</label>
+						<select class="select" value={ event.Currency }>
+							<option value="">Select currency</option>
+							<option
+								value="USD"
+								if event.Currency == "USD" {
+									selected
+								}
+							>USD</option>
+							<option
+								value="EUR"
+								disabled
+								if event.Currency == "EUR" {
+									selected
+								}
+							>EUR</option>
+							<option
+								value="GBP"
+								disabled
+								if event.Currency == "GBP" {
+									selected
+								}
+							>GBP</option>
+						</select>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
+			<button class="btn btn-outline">Cancel</button>
+			<button class="btn btn-primary mx-4">Publish</button>
+			<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+				<div class="modal-box">
+					<h3 class="text-lg font-bold">YAY!</h3>
+					<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+					<form method="dialog" class="modal-backdrop">
+						<!-- if there is a button in form, it will close the modal -->
+						<button class="btn btn-primary">Close</button>
+					</form>
+				</div>
+			</dialog>
+		</div>
 	</div>
 	// 	<div class="bottom-drawer">
 	// 		<div class="container mx-auto">
@@ -365,7 +441,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 	// 		</div>
 	// 	</div>
 	// </div>
-	<script id="add-edit-event" data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) }>
+	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) }>
 
     function addEditEventState() {
         return {
@@ -392,8 +468,37 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
                   } catch (error) {
                       console.error('Failed to fetch users:', error);
                   }
+
+                  // TODO: delete this as it's only temporary for debugging and formatting
+                  // the response from `api/purchasables` and `api/registration-fields`
+                  // so we can see JSON output in a readable way
+
+                  try {
+                    const purchasablesResponse = await fetch(`/api/purchasables/${this.eventId}`);
+                    const purchasables = await purchasablesResponse.json();
+                    console.log('purchasables', purchasables);
+                    this.purchasables = purchasables?.purchasable_items ?? [];
+                  } catch (error) {
+                    console.error('Failed to fetch purchasables:', error);
+                  }
+
+                  try {
+                    const registrationFieldsResponse = await fetch(`/api/registration-fields/${this.eventId}`);
+                    const registrationFields = await registrationFieldsResponse.json();
+                    console.log('registrationFields', registrationFields);
+                    this.registrationFields = registrationFields?.fields ?? [];
+                  } catch (error) {
+                    console.error('Failed to fetch registration fields:', error);
+                  }
               })()
             },
+            // START: temporary debugging and formatting
+            purchasables: [],
+            registrationFields: [],
+            hasPurchasable: document.querySelector('[name=hasPurchasable]').value ?? false,
+            hasRegistrationFields: document.querySelector('[name=hasRegistrationFields]').value ?? false,
+            // END: temporary debugging and formatting
+            eventId: document.querySelector('#add-edit-event').getAttribute('data-event-id') ?? null,
             tags: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-tags')) ?? [],
             categories: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-categories')) ?? [],
             owners: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? [],
