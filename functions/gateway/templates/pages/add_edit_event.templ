@@ -473,22 +473,26 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
                   // the response from `api/purchasables` and `api/registration-fields`
                   // so we can see JSON output in a readable way
 
-                  try {
-                    const purchasablesResponse = await fetch(`/api/purchasables/${this.eventId}`);
-                    const purchasables = await purchasablesResponse.json();
-                    console.log('purchasables', purchasables);
-                    this.purchasables = purchasables?.purchasable_items ?? [];
-                  } catch (error) {
-                    console.error('Failed to fetch purchasables:', error);
+                  if (this.hasPurchasable) {
+                    try {
+                      const purchasablesResponse = await fetch(`/api/purchasables/${this.eventId}`);
+                      const purchasables = await purchasablesResponse.json();
+                      console.log('purchasables', purchasables);
+                      this.purchasables = purchasables?.purchasable_items ?? [];
+                    } catch (error) {
+                      console.error('Failed to fetch purchasables:', error);
+                    }
                   }
 
-                  try {
-                    const registrationFieldsResponse = await fetch(`/api/registration-fields/${this.eventId}`);
-                    const registrationFields = await registrationFieldsResponse.json();
-                    console.log('registrationFields', registrationFields);
-                    this.registrationFields = registrationFields?.fields ?? [];
-                  } catch (error) {
-                    console.error('Failed to fetch registration fields:', error);
+                  if (this.hasRegistrationFields) {
+                    try {
+                      const registrationFieldsResponse = await fetch(`/api/registration-fields/${this.eventId}`);
+                      const registrationFields = await registrationFieldsResponse.json();
+                      console.log('registrationFields', registrationFields);
+                      this.registrationFields = registrationFields?.fields ?? [];
+                    } catch (error) {
+                      console.error('Failed to fetch registration fields:', error);
+                    }
                   }
               })()
             },
