@@ -333,7 +333,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							name="hasPurchasable"
 							type="checkbox"
 							class="toggle toggle-primary"
-							x-model="hasPurchasable"
 							if event.HasPurchasable {
 								checked
 							}
@@ -499,8 +498,8 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
             // START: temporary debugging and formatting
             purchasables: [],
             registrationFields: [],
-            hasPurchasable: document.querySelector('[name=hasPurchasable]').value ?? false,
-            hasRegistrationFields: document.querySelector('[name=hasRegistrationFields]').value ?? false,
+            hasPurchasable: document.querySelector('[name=hasPurchasable]').checked ?? false,
+            hasRegistrationFields: document.querySelector('[name=hasRegistrationFields]').checked ?? false,
             // END: temporary debugging and formatting
             eventId: document.querySelector('#add-edit-event').getAttribute('data-event-id') ?? null,
             tags: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-tags')) ?? [],
