@@ -4,11 +4,12 @@ import path from 'path';
 import fs from 'fs';
 const dirs = process.argv.slice(2);
 
-let previousContent = '';
+const layoutTemplPath = 'functions/gateway/templates/pages/layout.templ';
+let prevLayoutTempl = '';
 
 // Function to read the current content of layout.templ
 function readLayoutTempl() {
-  return fs.readFileSync('functions/gateway/templates/pages/layout.templ', 'utf8');
+  return fs.readFileSync(layoutTemplPath, 'utf8');
 }
 
 dirs.forEach((dir) => {
@@ -20,15 +21,17 @@ dirs.forEach((dir) => {
     (eventType, filename) => {
       const fileExtension = path.extname(filename);
       if (fileExtension === '.templ') {
-        const currentContent = readLayoutTempl();
+        if (filename === layoutTemplPath) {
+          const currentContent = readLayoutTempl();
 
-        // Check if the content has changed
-        if (currentContent === previousContent) {
-          console.log(`No changes detected in layout.templ. Skipping 'templ generate' command.`);
-          return;
+          // Check if the content has changed
+          if (currentContent === prevLayoutTempl) {
+            console.log(`No changes detected in layout.templ. Skipping 'templ generate' command.`);
+            return;
+          }
+
+          prevLayoutTempl = currentContent;
         }
-
-        previousContent = currentContent;
 
         console.log(
           `File ${filename} has been ${eventType}d. Running 'templ generate' command...`,
