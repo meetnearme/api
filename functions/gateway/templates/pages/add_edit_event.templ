@@ -3,6 +3,7 @@ package pages
 import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"strconv"
 )
 
 templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor bool) {
@@ -306,27 +307,84 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 			<div class="form-control w-52">
 				<label class="label cursor-pointer">
 					<span class="label-text">Enable Event Registration</span>
-					<input name="hasRegistrationFields" type="checkbox" class="toggle toggle-primary"/>
+					<input
+						name="hasRegistrationFields"
+						type="checkbox"
+						class="toggle toggle-primary"
+						if event.HasRegistrationFields {
+							checked
+						}
+					/>
 				</label>
 			</div>
+			if event.HasRegistrationFields {
+				<div
+					hx-get={ "/api/registration-fields/" + event.Id }
+					hx-trigger="load"
+					hx-swap="outerHTML"
+				>
+					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+				</div>
+			}
 			<div class="form-control w-52">
 				<label class="label cursor-pointer">
 					<span class="label-text">Enable Purchasable Items</span>
-					<input name="hasPurchasable" type="checkbox" class="toggle toggle-primary"/>
+					<input
+						name="hasPurchasable"
+						type="checkbox"
+						class="toggle toggle-primary"
+						if event.HasPurchasable {
+							checked
+						}
+					/>
 				</label>
 			</div>
+			if event.HasPurchasable {
+				<div
+					hx-get={ "/api/purchasables/" + event.Id }
+					hx-trigger="load"
+					hx-swap="outerHTML"
+				>
+					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+				</div>
+			}
 			<div :class="hasPurchasable ? 'grid grid-2' : 'hidden'">
 				<div class="form-control">
 					<label class="label">Starting Price</label>
-					<input class="input" type="number" step="0.01" placeholder="Enter starting price"/>
+					<input
+						class="input"
+						type="number"
+						step="0.01"
+						placeholder="Enter starting price"
+						if event.StartingPrice > 0 {
+							value={ strconv.FormatInt(int64(event.StartingPrice/100), 10) }
+						}
+					/>
 				</div>
 				<div class="form-control">
 					<label class="label">Currency</label>
-					<select class="select">
+					<select class="select" value={ event.Currency }>
 						<option value="">Select currency</option>
-						<option value="usd">USD</option>
-						<option value="eur">EUR</option>
-						<option value="gbp">GBP</option>
+						<option
+							value="USD"
+							if event.Currency == "USD" {
+								selected
+							}
+						>USD</option>
+						<option
+							value="EUR"
+							disabled
+							if event.Currency == "EUR" {
+								selected
+							}
+						>EUR</option>
+						<option
+							value="GBP"
+							disabled
+							if event.Currency == "GBP" {
+								selected
+							}
+						>GBP</option>
 					</select>
 				</div>
 			</div>
