@@ -7,16 +7,16 @@ import (
 
 // Purchase represents a purchase in the system
 type PurchasedItem struct {
-	Name                          string                   `json:"name" dynamodbav:"name"`
-	PurchasableIndex              int                      `json:"purchasable_index" dyamodbav:"purchasableIndex"`
-	ItemType                      string                   `json:"item_type" dynamodbav:"itemType"` // Validate as email
-	Cost                          float64                  `json:"cost" dynamodbav:"cost"`
-	Quantity                      int32                    `json:"quantity" dynamodbav:"quantity"`
-	Currency                      string                   `json:"currency" dynamodbav:"currency"`
-	ChargeRecurrenceInterval      string                   `json:"charge_recurrence_interval" dynamodbav:"chargeRecurrenceInterval"`
+	Name                          string                   `json:"name" dynamodbav:"name" validate:"required"`
+	PurchasableIndex              int                      `json:"purchasable_index" dynamodbav:"purchasableIndex" validate:"required,gte=0"`
+	ItemType                      string                   `json:"item_type" dynamodbav:"itemType" validate:"required"`
+	Cost                          float64                  `json:"cost" dynamodbav:"cost" validate:"required,gte=0"`
+	Quantity                      int32                    `json:"quantity" dynamodbav:"quantity" validate:"required,gt=0"`
+	Currency                      string                   `json:"currency" dynamodbav:"currency" validate:"required,iso4217"`
+	ChargeRecurrenceInterval      string                   `json:"charge_recurrence_interval" dynamodbav:"chargeRecurrenceInterval" validate:"omitempty,oneof=daily weekly monthly yearly"`
 	ChargeRecurrenceIntervalCount int                      `json:"charge_recurrence_interval_count" dynamodbav:"chargeRecurrenceIntervalCount"`
 	ChargeRecurrenceEndDate       time.Time                `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
-	DonationRatio                 float64                  `json:"donation_ratio" dynamodbav:"donationRatio"`
+	DonationRatio                 float64                  `json:"donation_ratio" dynamodbav:"donationRatio" validate:"gte=0,lte=1"`
 	RegResponses                  []map[string]interface{} `json:"reg_responses" dynamodbav:"regResponses"`
 }
 

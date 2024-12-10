@@ -517,6 +517,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								// TODO: do we need the total?
 								console.log(`total`, total)
 
+								if (purchasedItems?.length < 1) {
+									this.errors['checkout'] = "You have no selected items.";
+									this.reqInFlight = false;
+									return
+								}
 								let response;
 								if (total > 0) {
 									response = await fetch(`/api/checkout/${this.eventId}`, {
@@ -525,7 +530,6 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 												'Content-Type': 'application/json'
 										},
 										body: JSON.stringify({
-											status: "PENDING",
 											event_name: this.eventName,
 											purchased_items: purchasedItems,
 											total: total,
@@ -534,8 +538,8 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 									});
 								} else {
 									const regResponses = purchasedItems.flatMap(item => item.reg_responses)
-									response = await fetch(`/api/registrations/${this.eventId}/${this.userId}`, {
-										method: 'PUT',
+									response = await fetch(`/api/registrations/${this.eventId}/${this.userId || 'anonymous'}`, {
+										method: !this.userId ? 'POST' : 'PUT',
 										headers: {
 												'Content-Type': 'application/json'
 										},
@@ -550,25 +554,30 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 									return
 								}
 								const json = await response.json();
-								console.log('json checkout res!', json);
 								this.reqInFlight = false;
 								this.purchaseComplete = true;
 								if (json?.stripe_checkout_url) {
+									// Validate the URL to ensure it's a trusted Stripe URL
+									const trustedDomain = 'https://checkout.stripe.com/';
+									if (json.stripe_checkout_url.startsWith(trustedDomain)) {
 										window.location.href = json.stripe_checkout_url;
+									} else {
+										this.errors['checkout'] = "Invalid checkout URL received.";
+									}
 								} else if (total <= 0) {
 									window.location.href = window.location.origin + window.location.pathname + "?checkout=registered";
 								} else {
 									if (json?.error?.message) {
 										this.errors['checkout'] = json.error.message;
 									} else {
-										this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
+										this.errors['checkout'] = "Unable to proceed. Please try again.";
 									}
 								}
 							} catch (error) {
-									console.error("Error submitting checkout:", error);
+									console.error("Error submitting:", error);
 									this.reqInFlight = false;
 									this.purchaseComplete = false;
-									this.errors['checkout'] = "Unable to proceed to checkout. Please try again.";
+									this.errors['checkout'] = "Unable to proceed. Please try again.";
 							}
 					},
 					async fetchPurchasables() {

@@ -102,12 +102,12 @@ func init() {
 		{"/api/event-rsvps/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteEventRsvpHandler, Require}, // Delete an event RSVP
 
 		// Registrations
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationHandler, Require},   // Create a new event RSVP
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationByPkHandler, Require},   // Get a registration by primary key
-		{"/api/registrations/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByUserIDHandler, Require},                  // Get a specific event RSVP
-		{"/api/registrations/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByEventIDHandler, Require},               // Get all event RSVPs
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationHandler, Require},    // Update an existing event RSVP
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationHandler, Require}, // Delete an event RSVP
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:(?:anonymous|[0-9a-fA-F-]+)}", "POST", dynamodb_handlers.CreateRegistrationHandler, None}, // Create a new Registration
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationByPkHandler, Require},            // Get a registration by primary key
+		{"/api/registrations/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByUserIDHandler, Require},                           // Get a specific event RSVP
+		{"/api/registrations/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByEventIDHandler, Require},                        // Get all event RSVPs
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationHandler, Require},             // Update an existing Registration
+		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationHandler, Require},          // Delete an event RSVP
 
 		// RegistrationFields
 		{"/api/registration-fields/{event_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, Require},   // Create a new
@@ -176,6 +176,7 @@ func (app *App) addRoute(route Route) {
 
 			// First check Authorization header
 			authHeader := r.Header.Get("Authorization")
+			redirectUrl := r.URL.String()
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				accessToken = strings.TrimPrefix(authHeader, "Bearer ")
 			} else {
@@ -184,13 +185,13 @@ func (app *App) addRoute(route Route) {
 				if err != nil {
 					refreshTokenCookie, refreshTokenCookieErr = r.Cookie("refresh_token")
 					if refreshTokenCookieErr != nil {
-						http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
+						http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
 						return
 					}
 
 					tokens, refreshAccessTokenErr := services.RefreshAccessToken(refreshTokenCookie.Value)
 					if refreshAccessTokenErr != nil {
-						log.Printf("Authentication Failed: %v", err)
+						log.Printf("Authentication Failed: %v", refreshAccessTokenErr)
 						http.Error(w, "Authentication failed", http.StatusUnauthorized)
 						return
 					}
@@ -211,19 +212,21 @@ func (app *App) addRoute(route Route) {
 
 					// Store tokens in cookies
 					http.SetCookie(w, &http.Cookie{
-						Name:  "access_token",
-						Value: newAccessToken,
-						Path:  "/",
+						Name:     "access_token",
+						Value:    newAccessToken,
+						Path:     "/",
+						HttpOnly: true,
 					})
 
 					http.SetCookie(w, &http.Cookie{
-						Name:  "refresh_token",
-						Value: refreshToken,
-						Path:  "/",
+						Name:     "refresh_token",
+						Value:    refreshToken,
+						Path:     "/",
+						HttpOnly: true,
 					})
 
 					accessToken = newAccessToken
-					http.Redirect(w, r, route.Path, http.StatusFound)
+					http.Redirect(w, r, redirectUrl, http.StatusFound)
 					return
 				}
 				accessToken = accessTokenCookie.Value
@@ -236,7 +239,8 @@ func (app *App) addRoute(route Route) {
 				if strings.HasPrefix(authHeader, "Bearer ") {
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				} else {
-					http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
+					log.Printf("Redirecting to login, redirect is: %v", redirectUrl)
+					http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
 				}
 				return
 			}
@@ -247,12 +251,12 @@ func (app *App) addRoute(route Route) {
 			userInfo := helpers.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
 			if err != nil {
-				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
 				return
 			}
 			err = json.Unmarshal(data, &userInfo)
 			if err != nil {
-				http.Redirect(w, r, "/auth/login"+"?redirect="+route.Path, http.StatusFound)
+				http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
 				return
 			}
 			ctx := context.WithValue(r.Context(), "userInfo", userInfo)

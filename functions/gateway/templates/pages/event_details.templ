@@ -60,7 +60,7 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 				<div class="alert alert-success">You are an editor for this event. <a class="btn btn-sm" href={ templ.URL("/admin/event/edit/" + event.Id) }>Edit Event</a></div>
 			}
 			<h2 class="text-3xl mt-2">{ event.Name }</h2>
-			if event.EventSourceType == "SLF_EVS" {
+			if event.EventSourceType == helpers.ES_SERIES_PARENT {
 				<h3 class="text-xl mt-2">Event Series</h3>
 				<div
 					hx-get={ "/api/html/events?list_mode=DATES_ONLY&end_time=2099-10-18T10:00:00Z&radius=5000&event_source_ids=" + event.Id }
@@ -103,7 +103,7 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 				<br/>
 				<h3 class="text-xl">EVENT DESCRIPTION</h3>
 				<br/>
-				{ event.Description }
+				<div class="whitespace-pre-wrap">{ event.Description }</div>
 			</p>
 			<div class="bottom-drawer">
 				<div class="container mx-auto">
