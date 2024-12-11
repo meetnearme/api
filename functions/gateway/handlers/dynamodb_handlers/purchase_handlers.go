@@ -8,7 +8,9 @@ import (
 	"strconv"
 	"time"
 
+	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -126,20 +128,53 @@ func (h *PurchaseHandler) GetPurchaseByPk(w http.ResponseWriter, r *http.Request
 
 func (h *PurchaseHandler) GetPurchasesByUserID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	ctx := r.Context()
 	id := vars["user_id"]
+
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	userId := userInfo.Sub
+	if userId == "" {
+		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
+		return
+	}
+
+	if id != userId {
+		transport.SendServerRes(w, []byte("You are not authorized to view this user's purchases"), http.StatusForbidden, nil)
+		return
+	}
+
+	limit := r.URL.Query().Get("limit")
+	limitInt, err := strconv.ParseInt(limit, 10, 32)
+	if err != nil || limit == "" {
+		limitInt = helpers.DEFAULT_PAGINATION_LIMIT
+	}
+	startKey := r.URL.Query().Get("start_key")
 	if id == "" {
-		transport.SendServerRes(w, []byte("Missing user_id ID"), http.StatusBadRequest, nil)
+		transport.SendServerRes(w, []byte("Missing event_id ID"), http.StatusBadRequest, nil)
 		return
 	}
 
 	db := transport.GetDB()
-	users, err := h.PurchaseService.GetPurchasesByUserID(r.Context(), db, id)
+	purchases, lastEvaluatedKey, err := h.PurchaseService.GetPurchasesByUserID(r.Context(), db, id, int32(limitInt), startKey)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get user's eventPurchases: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	response, err := json.Marshal(users)
+	responseData := struct {
+		Count     int                                      `json:"count"`
+		NextKey   map[string]dynamodb_types.AttributeValue `json:"nextKey"`
+		Purchases []internal_types.Purchase                `json:"purchases"`
+	}{
+		Count:     len(purchases),
+		NextKey:   lastEvaluatedKey,
+		Purchases: purchases,
+	}
+
+	response, err := json.Marshal(responseData)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
 		return
@@ -155,15 +190,31 @@ func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.R
 		transport.SendServerRes(w, []byte("Missing event_id ID"), http.StatusBadRequest, nil)
 		return
 	}
+	limit := r.URL.Query().Get("limit")
+	limitInt, err := strconv.ParseInt(limit, 10, 32)
+	if err != nil || limit == "" {
+		limitInt = helpers.DEFAULT_PAGINATION_LIMIT
+	}
+	startKey := r.URL.Query().Get("start_key")
 
 	db := transport.GetDB()
-	events, err := h.PurchaseService.GetPurchasesByEventID(r.Context(), db, id)
+	purchases, lastEvaluatedKey, err := h.PurchaseService.GetPurchasesByEventID(r.Context(), db, id, int32(limitInt), startKey)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get event's purchases: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	response, err := json.Marshal(events)
+	responseData := struct {
+		Count     int                                      `json:"count"`
+		NextKey   map[string]dynamodb_types.AttributeValue `json:"nextKey"`
+		Purchases []internal_types.Purchase                `json:"purchases"`
+	}{
+		Count:     len(purchases),
+		NextKey:   lastEvaluatedKey,
+		Purchases: purchases,
+	}
+
+	response, err := json.Marshal(responseData)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
 		return
