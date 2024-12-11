@@ -56,6 +56,7 @@ func init() {
 		{helpers.SitePages["settings"].Slug, "GET", handlers.GetProfileSettingsPage, Require},
 		{helpers.SitePages["add-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
 		{helpers.SitePages["edit-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
+		{helpers.SitePages["attendees-event"].Slug, "GET", handlers.GetEventAttendeesPage, Require},
 		{helpers.SitePages["map-embed"].Slug, "GET", handlers.GetMapEmbedPage, None},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...

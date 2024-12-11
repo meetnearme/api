@@ -26,6 +26,8 @@ const JWT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bear
 const AUTH_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
 const AUTH_METADATA_KEY = "urn:zitadel:iam:user:metadata"
 
+const DEFAULT_PAGINATION_LIMIT = 50
+
 const (
 	ES_SINGLE_EVENT  = "SLF"
 	ES_EVENT_SERIES  = "EVS"
@@ -140,7 +142,8 @@ var SitePages = map[string]SitePage{
 	"map-embed":        {Key: "map-embed", Slug: "/map-embed", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
 	"event-detail":     {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
 	"add-event":        {Key: "add-event", Slug: "/admin/event/new", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
-	"edit-event":       {Key: "edit-event", Slug: "/admin/event/edit/{" + EVENT_ID_KEY + "}", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
+	"edit-event":       {Key: "edit-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/edit", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
+	"attendees-event":  {Key: "attendees-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/attendees", Name: "Event Attendees", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 type Subcategory struct {
