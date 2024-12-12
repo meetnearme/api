@@ -172,17 +172,17 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 	loc, _ := time.LoadLocation("America/New_York")
 	startTime1, err := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
 	if err != nil || startTime1 == 0 {
-		t.Logf("failed to convert UTC to unix, %v", startTime1)
+		t.Fatalf("failed to convert UTC to unix, %v", startTime1)
 	}
 
 	startTime2, err := helpers.UtcToUnix64("2099-06-01T14:00:00Z", loc)
 	if err != nil || startTime2 == 0 {
-		t.Logf("failed to convert UTC to unix, %v", startTime2)
+		t.Fatalf("failed to convert UTC to unix, %v", startTime2)
 	}
 
 	startTime3, err := helpers.UtcToUnix64("2099-07-01T16:00:00Z", loc)
 	if err != nil || startTime3 == 0 {
-		t.Logf("failed to convert UTC to unix, %v", startTime3)
+		t.Fatalf("failed to convert UTC to unix, %v", startTime3)
 	}
 
 	tests := []struct {

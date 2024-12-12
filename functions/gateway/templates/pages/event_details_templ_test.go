@@ -16,12 +16,12 @@ func TestEventDetailsPage(t *testing.T) {
 	loc, _ := time.LoadLocation("America/Los_Angeles")
 	validEventDSTStartTime, err := helpers.UtcToUnix64(dstTm, loc)
 	if err != nil || validEventDSTStartTime == 0 {
-		t.Logf("Failed to convert UTC to unix: %v", dstTm)
+		t.Fatalf("Failed to convert UTC to unix: %v", err)
 	}
 	nonDstTm := "2099-01-31T00:00:00Z"
 	validEventNonDSTStartTime, err := helpers.UtcToUnix64(nonDstTm, loc)
 	if err != nil || validEventNonDSTStartTime == 0 {
-		t.Logf("Failed to convert UTC to unix: %v", nonDstTm)
+		t.Fatalf("Failed to convert UTC to unix: %v", err)
 	}
 
 	tests := []struct {
