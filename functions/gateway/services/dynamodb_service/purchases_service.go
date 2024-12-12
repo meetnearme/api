@@ -183,11 +183,6 @@ func (s *PurchaseService) UpdatePurchase(ctx context.Context, dynamodbClient int
 	input.ExpressionAttributeValues[":updatedAt"] = &dynamodb_types.AttributeValueMemberN{Value: strconv.FormatInt(currentTime, 10)}
 	*input.UpdateExpression += "#updatedAt = :updatedAt"
 
-	log.Printf("input: %+v", input)
-	log.Printf("purchase: %+v", purchase)
-	log.Printf("input.ExpressionAttributeNames: %+v", input.ExpressionAttributeNames)
-	log.Printf("input.ExpressionAttributeValues: %+v", input.ExpressionAttributeValues)
-	log.Printf("input.UpdateExpression: %+v", input.UpdateExpression)
 	// Execute the update
 	res, err := dynamodbClient.UpdateItem(ctx, input)
 	if err != nil {
