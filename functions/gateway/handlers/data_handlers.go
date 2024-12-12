@@ -140,14 +140,14 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	if raw.StartTime == nil {
 		return types.Event{}, fmt.Errorf("startTime is required")
 	}
-	startTime, err := helpers.UtcOrUnixToUnix64(raw.StartTime, loc)
+	startTime, err := helpers.UtcToUnix64(raw.StartTime, loc)
 	if err != nil || startTime == 0 {
 		return types.Event{}, fmt.Errorf("invalid StartTime: %w", err)
 	}
 	event.StartTime = startTime
 
 	if raw.EndTime != nil {
-		endTime, err := helpers.UtcOrUnixToUnix64(raw.EndTime, loc)
+		endTime, err := helpers.UtcToUnix64(raw.EndTime, loc)
 		if err != nil || endTime == 0 {
 			return types.Event{}, fmt.Errorf("invalid EndTime: %w", err)
 		}

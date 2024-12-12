@@ -31,22 +31,17 @@ func init() {
 	InitDefaultProtocol()
 }
 
-func UtcOrUnixToUnix64(t interface{}, timezone *time.Location) (int64, error) {
+func UtcToUnix64(t interface{}, timezone *time.Location) (int64, error) {
 	switch v := t.(type) {
-	case int64:
-		// Validate that the timestamp is within 100 years of now
-		now := time.Now().In(timezone).Unix()
-		hundredYearsInSeconds := int64(100 * 365.25 * 24 * 60 * 60)
-		if v < now-hundredYearsInSeconds || v > now+hundredYearsInSeconds {
-			return 0, fmt.Errorf("unix timestamp must be within 100 years of the current time")
-		}
-		return v, nil
 	case string:
-		parsedTime, err := time.Parse(time.RFC3339, v)
+		// Remove the 'Z' suffix and parse as if it were local time
+		timeStr := strings.TrimSuffix(v, "Z")
+		// Note the time layout here MUST NOT be RFC3339, it must be the local time layout
+		localTime, err := time.ParseInLocation("2006-01-02T15:04:05", timeStr, timezone)
 		if err != nil {
-			return 0, fmt.Errorf("invalid date format, must be RFC3339: %v", err)
+			return 0, fmt.Errorf("invalid date format: %v", err)
 		}
-		return parsedTime.Unix(), nil
+		return localTime.Unix(), nil
 	default:
 		return 0, fmt.Errorf("unsupported time format")
 	}
@@ -548,7 +543,6 @@ func GetLocalDateAndTime(datetime int64, timezone time.Location) (string, string
 	// Populate the local date and time fields
 	localStartDateStr, _ := FormatDateLocal(localStartTime)
 	localStartTimeStr, _ := FormatTimeLocal(localStartTime)
-
 	return localStartTimeStr, localStartDateStr
 }
 
