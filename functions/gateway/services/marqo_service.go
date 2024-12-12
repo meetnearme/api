@@ -737,7 +737,7 @@ func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Even
 		Address:         getValue[string](doc, "address"),
 		Lat:             getValue[float64](doc, "lat"),
 		Long:            getValue[float64](doc, "long"),
-		Timezone:        getValue[string](doc, "timezone"),
+		Timezone:        getValue[time.Location](doc, "timezone"),
 		Categories:      getStringSlice(doc, "categories"),
 		Tags:            getStringSlice(doc, "tags"),
 	}
@@ -856,7 +856,7 @@ func miToLong(mi float64, lat float64) float64 {
 	return (mi * milesPerKm) / (earthRadiusKm * math.Cos(lat*math.Pi/180)) * (180 / math.Pi)
 }
 
-func getValue[T string | *string | []string | *[]string | float64 | *float64 | int64 | *int64 | int32 | *int32 | bool | *bool](doc map[string]interface{}, key string) T {
+func getValue[T string | *string | []string | *[]string | float64 | *float64 | int64 | *int64 | int32 | *int32 | bool | *bool | time.Location | *time.Location](doc map[string]interface{}, key string) T {
 	if value, ok := doc[key]; ok && value != nil {
 		switch any((*new(T))).(type) {
 		case string:
@@ -924,7 +924,16 @@ func getValue[T string | *string | []string | *[]string | float64 | *float64 | i
 			if b, ok := value.(bool); ok {
 				return any(&b).(T)
 			}
+		case time.Location:
+			if loc, ok := value.(time.Location); ok {
+				return any(loc).(T)
+			}
+		case *time.Location:
+			if loc, ok := value.(*time.Location); ok {
+				return any(loc).(T)
+			}
 		}
+
 		log.Printf("key: %s, Unexpected Type: %T, Value: %v", key, value, value)
 	}
 	var zero T

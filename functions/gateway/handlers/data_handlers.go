@@ -80,6 +80,10 @@ type rawEvent struct {
 }
 
 func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
+	loc, err := time.LoadLocation(raw.Timezone)
+	if err != nil {
+		return types.Event{}, fmt.Errorf("invalid timezone: %w", err)
+	}
 	event := types.Event{
 		Id:              raw.Id,
 		EventOwners:     raw.EventOwners,
@@ -90,7 +94,7 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 		Address:         raw.Address,
 		Lat:             raw.Lat,
 		Long:            raw.Long,
-		Timezone:        raw.Timezone,
+		Timezone:        *loc,
 	}
 
 	// Safely assign pointer values
@@ -136,14 +140,14 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	if raw.StartTime == nil {
 		return types.Event{}, fmt.Errorf("startTime is required")
 	}
-	startTime, err := helpers.UtcOrUnixToUnix64(raw.StartTime)
+	startTime, err := helpers.UtcOrUnixToUnix64(raw.StartTime, loc)
 	if err != nil || startTime == 0 {
 		return types.Event{}, fmt.Errorf("invalid StartTime: %w", err)
 	}
 	event.StartTime = startTime
 
 	if raw.EndTime != nil {
-		endTime, err := helpers.UtcOrUnixToUnix64(raw.EndTime)
+		endTime, err := helpers.UtcOrUnixToUnix64(raw.EndTime, loc)
 		if err != nil || endTime == 0 {
 			return types.Event{}, fmt.Errorf("invalid EndTime: %w", err)
 		}
