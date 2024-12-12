@@ -278,12 +278,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 			</div>
 			<div class="form-control">
 				<label class="label">Timezone</label>
-				<select
-					class="select select-bordered"
-					x-model.fill={ "formData.event.timezone" }
-					value={ event.Timezone.String() }
-					:disabled="saveReqInFlight"
-				>
+				<select class="select select-bordered" value={ event.Timezone.String() }>
 					<option value="">Select timezone</option>
 					<option
 						if (event.Timezone.String() == "America/New_York") {
