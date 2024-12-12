@@ -5,12 +5,14 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func TestAddOrEditEventPage(t *testing.T) {
+	lALoc, _ := time.LoadLocation("America/Los_Angeles")
 	tests := []struct {
 		name     string
 		event    types.Event
@@ -41,6 +43,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 				Address:        "123 Test St",
 				EventOwners:    []string{"abc-uuid"},
 				EventOwnerName: "Brians Pub",
+				Timezone:       *lALoc,
 			},
 			isEditor: true,
 			sitePage: helpers.SitePages["edit-event"],
