@@ -314,6 +314,9 @@ func ConvertEventsToDocuments(events []types.Event, hasIds bool) (documents []in
 		if event.CreatedAt > 0 {
 			createdAt = event.CreatedAt
 		}
+		// timezones come in as string, get validated to `time.Location` and now must
+		// be converted back to string for DB storage
+		timezone := event.Timezone.String()
 		document := map[string]interface{}{
 			"_id":            _uuid,
 			"eventOwners":    event.EventOwners,
@@ -324,7 +327,7 @@ func ConvertEventsToDocuments(events []types.Event, hasIds bool) (documents []in
 			"address":        event.Address,
 			"lat":            float64(event.Lat),
 			"long":           float64(event.Long),
-			"timezone":       event.Timezone,
+			"timezone":       timezone,
 			"createdAt":      createdAt,
 			"updatedAt":      updatedAt,
 		}
@@ -725,6 +728,12 @@ func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Even
 	startTimeFloat := getValue[float64](doc, "startTime")
 	startTimeInt := int64(startTimeFloat)
 
+	timezone := getValue[string](doc, "timezone")
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		log.Printf("Error loading timezone: %v", err)
+	}
+
 	event = &types.Event{
 		Id:              getValue[string](doc, "_id"),
 		EventOwners:     getStringSlice(doc, "eventOwners"),
@@ -737,7 +746,7 @@ func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Even
 		Address:         getValue[string](doc, "address"),
 		Lat:             getValue[float64](doc, "lat"),
 		Long:            getValue[float64](doc, "long"),
-		Timezone:        getValue[time.Location](doc, "timezone"),
+		Timezone:        *loc,
 		Categories:      getStringSlice(doc, "categories"),
 		Tags:            getStringSlice(doc, "tags"),
 	}

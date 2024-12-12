@@ -170,17 +170,17 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 	defer mockMarqoServer.Close()
 
 	loc, _ := time.LoadLocation("America/New_York")
-	startTime1, err := helpers.UtcOrUnixToUnix64("2099-05-01T12:00:00Z", loc)
+	startTime1, err := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
 	if err != nil || startTime1 == 0 {
 		t.Logf("failed to convert UTC to unix, %v", startTime1)
 	}
 
-	startTime2, err := helpers.UtcOrUnixToUnix64("2099-06-01T14:00:00Z", loc)
+	startTime2, err := helpers.UtcToUnix64("2099-06-01T14:00:00Z", loc)
 	if err != nil || startTime2 == 0 {
 		t.Logf("failed to convert UTC to unix, %v", startTime2)
 	}
 
-	startTime3, err := helpers.UtcOrUnixToUnix64("2099-07-01T16:00:00Z", loc)
+	startTime3, err := helpers.UtcToUnix64("2099-07-01T16:00:00Z", loc)
 	if err != nil || startTime3 == 0 {
 		t.Logf("failed to convert UTC to unix, %v", startTime3)
 	}
@@ -453,7 +453,7 @@ func TestGetMarqoEventByID(t *testing.T) {
 	)
 
 	loc, _ := time.LoadLocation("America/New_York")
-	testEventStartTime, tmErr := helpers.UtcOrUnixToUnix64("2099-05-01T12:00:00Z", loc)
+	testEventStartTime, tmErr := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
 	if tmErr != nil || testEventStartTime == 0 {
 		t.Logf("tmError converting UTC to unix: %v", tmErr)
 	}
@@ -548,12 +548,12 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 	}()
 
 	loc, _ := time.LoadLocation("America/New_York")
-	testEventStartTime1, _err := helpers.UtcOrUnixToUnix64("2099-05-01T12:00:00Z", loc)
+	testEventStartTime1, _err := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
 	if _err != nil {
 		log.Printf("failed to convert UTC to unix 64, err: %v", _err)
 	}
 
-	testEventStartTime2, _err := helpers.UtcOrUnixToUnix64("2099-06-01T14:00:00Z", loc)
+	testEventStartTime2, _err := helpers.UtcToUnix64("2099-06-01T14:00:00Z", loc)
 	if _err != nil {
 		log.Printf("failed to convert UTC to unix 64, err: %v", _err)
 	}
