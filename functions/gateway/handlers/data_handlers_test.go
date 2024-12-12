@@ -243,6 +243,18 @@ func TestPostEvent(t *testing.T) {
 				return nil
 			},
 		},
+		{
+			name:           "Invalid timezone field",
+			requestBody:    `{"timezone":"Does_Not_Exist/Nowhere","eventOwnerName":"Event Owner","eventOwners":["123"], "eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+			mockUpsertFunc: nil,
+			expectedStatus: http.StatusBadRequest,
+			expectedBodyCheck: func(body string) error {
+				if !strings.Contains(body, `invalid timezone: unknown time zone Does_Not_Exist/Nowhere`) {
+					return fmt.Errorf("expected `invalid timezone: unknown time zone Does_Not_Exist/Nowhere`, got '%s'", body)
+				}
+				return nil
+			},
+		},
 	}
 
 	for _, tt := range tests {
