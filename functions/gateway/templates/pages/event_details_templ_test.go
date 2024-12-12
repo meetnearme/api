@@ -5,17 +5,25 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func TestEventDetailsPage(t *testing.T) {
-	tm := "2099-05-01T12:00:00Z"
-	validEventStartTime, err := helpers.UtcOrUnixToUnix64(tm)
-	if err != nil || validEventStartTime == 0 {
-		t.Logf("Failed to convert unix time to UTC: %v", tm)
+	dstTm := "2099-05-02T00:00:00Z"
+	loc, _ := time.LoadLocation("America/Los_Angeles")
+	validEventDSTStartTime, err := helpers.UtcToUnix64(dstTm, loc)
+	if err != nil || validEventDSTStartTime == 0 {
+		t.Fatalf("Failed to convert UTC to unix: %v", err)
 	}
+	nonDstTm := "2099-01-31T00:00:00Z"
+	validEventNonDSTStartTime, err := helpers.UtcToUnix64(nonDstTm, loc)
+	if err != nil || validEventNonDSTStartTime == 0 {
+		t.Fatalf("Failed to convert UTC to unix: %v", err)
+	}
+
 	tests := []struct {
 		name             string
 		event            types.Event
@@ -24,26 +32,54 @@ func TestEventDetailsPage(t *testing.T) {
 		canEdit          bool
 	}{
 		{
-			name: "Valid event",
+			name: "Valid DST event",
 			event: types.Event{
 				Id:              "123",
 				Name:            "Test Event",
 				Description:     "This is a test event",
 				Address:         "123 Test St",
-				StartTime:       validEventStartTime,
+				StartTime:       validEventDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
 				EventSourceType: helpers.ES_SINGLE_EVENT,
 				Lat:             38.896305,
 				Long:            -77.023289,
+				Timezone:        *loc,
 			},
 			checkoutParamVal: "",
 			expected: []string{
 				"Test Event",
 				"This is a test event",
 				"123 Test St",
-				"May 1, 2099",
-				"12:00pm",
+				"May 2, 2099",
+				"12:00am",
+				"abc-uuid",
+				"Brians Pub",
+			},
+			canEdit: false,
+		},
+		{
+			name: "Valid Non-DST event",
+			event: types.Event{
+				Id:              "123",
+				Name:            "Test Event",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventNonDSTStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: helpers.ES_SINGLE_EVENT,
+				Lat:             38.896305,
+				Long:            -77.023289,
+				Timezone:        *loc,
+			},
+			checkoutParamVal: "",
+			expected: []string{
+				"Test Event",
+				"This is a test event",
+				"123 Test St",
+				"Jan 31, 2099",
+				"12:00am",
 				"abc-uuid",
 				"Brians Pub",
 			},
@@ -56,20 +92,21 @@ func TestEventDetailsPage(t *testing.T) {
 				Name:            "Karaoke Nationals",
 				Description:     "This is a test event",
 				Address:         "123 Test St",
-				StartTime:       validEventStartTime,
+				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
 				EventSourceType: helpers.ES_SINGLE_EVENT,
 				Lat:             38.896305,
 				Long:            -77.023289,
+				Timezone:        *loc,
 			},
 			checkoutParamVal: "",
 			expected: []string{
 				"Karaoke Nationals",
 				"This is a test event",
 				"123 Test St",
-				"May 1, 2099",
-				"12:00pm",
+				"Jan 31, 2099",
+				"12:00am",
 				"abc-uuid",
 				"Brians Pub",
 				"<title>Meet Near Me - Karaoke Nationals</title>",
@@ -83,20 +120,21 @@ func TestEventDetailsPage(t *testing.T) {
 				Name:            "Weekly Karaoke at Buddys",
 				Description:     "This is a test event",
 				Address:         "123 Test St",
-				StartTime:       validEventStartTime,
+				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
 				EventSourceType: helpers.ES_EVENT_SERIES,
 				Lat:             38.896305,
 				Long:            -77.023289,
+				Timezone:        *loc,
 			},
 			checkoutParamVal: "",
 			expected: []string{
 				"Weekly Karaoke at Buddys",
 				"This is a test event",
 				"123 Test St",
-				"May 1, 2099",
-				"12:00pm",
+				"Jan 31, 2099",
+				"12:00am",
 				"abc-uuid",
 				"Brians Pub",
 				"<title>Meet Near Me - Weekly Karaoke at Buddys</title>",
@@ -110,20 +148,21 @@ func TestEventDetailsPage(t *testing.T) {
 				Name:            "Test Event",
 				Description:     "This is a test event",
 				Address:         "123 Test St",
-				StartTime:       validEventStartTime,
+				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
 				EventSourceType: helpers.ES_SINGLE_EVENT,
 				Lat:             38.896305,
 				Long:            -77.023289,
+				Timezone:        *loc,
 			},
 			checkoutParamVal: "",
 			expected: []string{
 				"Test Event",
 				"This is a test event",
 				"123 Test St",
-				"May 1, 2099",
-				"12:00pm",
+				"Jan 31, 2099",
+				"12:00am",
 				"abc-uuid",
 				"Brians Pub",
 				"editor for this event",
@@ -158,6 +197,7 @@ func TestEventDetailsPage(t *testing.T) {
 			for _, exp := range tt.expected {
 				if !strings.Contains(result, exp) {
 					t.Errorf("Expected string not found: %s", exp)
+					t.Logf("Result: %s", result)
 				}
 			}
 		})

@@ -119,7 +119,7 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 							href={ templ.URL(fmt.Sprintf("https://calendar.google.com/calendar/render?action=TEMPLATE&dates=%s/%s&ctz=%s&details=%s&location=%s&text=%s",
 						helpers.FormatTimeForGoogleCalendar(event.StartTime, event.Timezone),
 						helpers.FormatTimeForGoogleCalendar(event.StartTime + (60*60), event.Timezone),
-						event.Timezone,
+						event.Timezone.String(),
 						url.QueryEscape(event.Description),
 						url.QueryEscape(event.Address),
 						url.QueryEscape(event.Name))) }

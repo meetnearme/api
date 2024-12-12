@@ -31,22 +31,24 @@ func init() {
 	InitDefaultProtocol()
 }
 
-func UtcOrUnixToUnix64(t interface{}) (int64, error) {
+func UtcToUnix64(t interface{}, timezone *time.Location) (int64, error) {
 	switch v := t.(type) {
-	case int64:
-		// Validate that the timestamp is within 100 years of now
-		now := time.Now().Unix()
-		hundredYearsInSeconds := int64(100 * 365.25 * 24 * 60 * 60)
-		if v < now-hundredYearsInSeconds || v > now+hundredYearsInSeconds {
-			return 0, fmt.Errorf("unix timestamp must be within 100 years of the current time")
-		}
-		return v, nil
 	case string:
-		parsedTime, err := time.Parse(time.RFC3339, v)
+		// First validate by parsing as RFC3339
+		_, err := time.Parse(time.RFC3339, v)
 		if err != nil {
-			return 0, fmt.Errorf("invalid date format, must be RFC3339: %v", err)
+			return 0, fmt.Errorf("invalid date format: %v", err)
 		}
-		return parsedTime.Unix(), nil
+
+		// Now do local time parsing
+		timeStr := strings.TrimSuffix(v, "Z")
+		// Note the time layout here MUST NOT be RFC3339, it must be the local time layout
+		localTime, err := time.ParseInLocation("2006-01-02T15:04:05", timeStr, timezone)
+		if err != nil {
+			return 0, fmt.Errorf("invalid date format: %v", err)
+		}
+		return localTime.Unix(), nil
+
 	default:
 		return 0, fmt.Errorf("unsupported time format")
 	}
@@ -514,7 +516,7 @@ func ArrFindFirst(needles []string, haystack []string) string {
 	return ""
 }
 
-func GetDateOrShowNone(datetime int64, timezone string) string {
+func GetDateOrShowNone(datetime int64, timezone time.Location) string {
 	_, formattedDate := GetLocalDateAndTime(datetime, timezone)
 	if formattedDate == "" {
 		return ""
@@ -522,7 +524,7 @@ func GetDateOrShowNone(datetime int64, timezone string) string {
 	return formattedDate
 }
 
-func GetTimeOrShowNone(datetime int64, timezone string) string {
+func GetTimeOrShowNone(datetime int64, timezone time.Location) string {
 	formattedTime, _ := GetLocalDateAndTime(datetime, timezone)
 	if formattedTime == "" {
 		return ""
@@ -534,9 +536,9 @@ func GetDatetimePickerFormatted(datetime int64) string {
 	return time.Unix(datetime, 0).Format("2006-01-02T15:04")
 }
 
-func GetLocalDateAndTime(datetime int64, timezone string) (string, string) {
+func GetLocalDateAndTime(datetime int64, timezone time.Location) (string, string) {
 	// Load the location based on the event's timezone
-	loc, err := time.LoadLocation(timezone)
+	loc, err := time.LoadLocation(timezone.String())
 	if err != nil {
 		fmt.Println("Error loading timezone:", err)
 		return "", ""
@@ -548,7 +550,6 @@ func GetLocalDateAndTime(datetime int64, timezone string) (string, string) {
 	// Populate the local date and time fields
 	localStartDateStr, _ := FormatDateLocal(localStartTime)
 	localStartTimeStr, _ := FormatTimeLocal(localStartTime)
-
 	return localStartTimeStr, localStartDateStr
 }
 
@@ -557,8 +558,8 @@ func FormatTimeRFC3339(unixTimestamp int64) string {
 	return t.Format("20060102T150405Z")
 }
 
-func FormatTimeForGoogleCalendar(timestamp int64, timezone string) string {
-	loc, err := time.LoadLocation(timezone)
+func FormatTimeForGoogleCalendar(timestamp int64, timezone time.Location) string {
+	loc, err := time.LoadLocation(timezone.String())
 	if err != nil {
 		// If there's an error loading the timezone, fall back to UTC
 		loc = time.UTC
