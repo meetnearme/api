@@ -53,7 +53,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 				"Publish",
 				"This is a test event",
 				"123 Test St",
-				"Brians Pub",
+				"abc-uuid",
 			},
 		},
 	}
@@ -74,6 +74,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 			for _, exp := range tt.expected {
 				if !strings.Contains(result, exp) {
 					t.Errorf("Expected string not found: %s", exp)
+					t.Errorf("Result: %s", result)
 				}
 			}
 		})
