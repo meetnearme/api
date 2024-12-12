@@ -52,6 +52,7 @@ export function StorageStack({ stack }: StackContext) {
       total: 'number',
       currency: 'string',
       stripeSessionId: 'string',
+      stripeTransactionId: 'string',
     },
     primaryIndex: { partitionKey: 'compositeKey' },
     globalIndexes: {

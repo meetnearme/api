@@ -1,0 +1,220 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
+	"strings"
+)
+
+templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor bool) {
+	if event.Id == "" {
+		<br/>
+		<br/>
+		<br/>
+		<br/>
+		<br/>
+		<h2 class="text-3xl mt-2 text-center">404 - Can't Find That Event</h2>
+		<br/>
+		<br/>
+		<br/>
+		<br/>
+		<br/>
+		<br/>
+		<br/>
+		<br/>
+		<br/>
+	} else {
+		<div x-data="attendeeEventState()">
+			<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
+				<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
+				<a class="btn btn-sm" href={ templ.URL(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1)) }>Edit Event</a>
+			</header>
+			<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Purchases</h2>
+			<div id="tickets-sales" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+				<div class="card">
+					<template x-if="!hasPurchasesResults && hasPurchasable">
+						<div class="flex w-full flex-col gap-4">
+							<div class="skeleton h-4 w-full"></div>
+							<div class="skeleton h-4 w-1/2"></div>
+							<div class="skeleton h-4 w-full"></div>
+						</div>
+					</template>
+					<template x-if="purchases.length > 0">
+						<div>
+							<template x-if="purchasesNextCursor">
+								<a class="btn btn-sm float-end" :href=" window.location.pathname + '?start_key=' + purchasesNextCursor">Show Next &rarr;</a>
+							</template>
+							<table class="table top-align table-pin-rows table-pin-cols table-zebra">
+								<thead>
+									<tr>
+										<th>Buyer</th>
+										<th>Status</th>
+										<th colspan="5">Purchase Type(s)</th>
+										<th>Total</th>
+										<th>Time</th>
+										<th></th>
+										<th></th>
+									</tr>
+								</thead>
+								<tbody>
+									<template x-for="purchase in purchases" :key="purchase.composite_key">
+										<tr>
+											<td x-text="purchase.user_id"></td>
+											<td x-text="purchase.status"></td>
+											<td colspan="5">
+												<template x-for="(item, idx) in purchase.purchased_items" :key="item.name">
+													<div>
+														<template x-if="idx >= 1">
+															<div class="divider"></div>
+														</template>
+														<div x-text="item.name"></div>
+														<div x-text="'Quantity: ' + item.quantity"></div>
+														<div>
+															<span x-text="`\$${(item.cost / 100).toFixed(2)}`"></span>
+															<span x-text="item.currency"></span>
+														</div>
+														<div x-show="item.reg_responses && item.reg_responses.length > 0">
+															<h2 class="text-md mt-2">Registration Responses</h2>
+															<div class="card bg-base-100 px-4 py-2 my-2">
+																<template x-for="(response, index) in item.reg_responses" :key="index">
+																	<div>
+																		<template x-if="index >= 1">
+																			<div class="divider my-1"></div>
+																		</template>
+																		<template x-for="(value, key) in response" :key="key">
+																			<div>
+																				<span class="font-medium font-bold" x-text="key + ': '"></span>
+																				<span x-text="value"></span>
+																			</div>
+																		</template>
+																	</div>
+																</template>
+															</div>
+														</div>
+													</div>
+												</template>
+											</td>
+											<td x-text="`\$${(purchase.total / 100).toFixed(2)}`"></td>
+											<td x-text="new Date(purchase.created_at * 1000).toLocaleString()"></td>
+											<td></td>
+											<template x-if="purchase.stripe_transaction_id">
+												<a class="btn btn-sm btn-primary mt-2" target="_blank" :href=" 'https://dashboard.stripe.com/payments/' + purchase.stripe_transaction_id ">View on Stripe</a>
+											</template>
+										</tr>
+									</template>
+								</tbody>
+								<tfoot>
+									<tr>
+										<th>Buyer</th>
+										<th>Status</th>
+										<th colspan="5">Purchase Type(s)</th>
+										<th>Total</th>
+										<th>Time</th>
+										<th></th>
+										<th></th>
+									</tr>
+								</tfoot>
+							</table>
+						</div>
+					</template>
+				</div>
+			</div>
+			<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Registrations</h2>
+			<div id="tickets-sales" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+				<div class="card">
+					<template x-if="!hasRegistrationResults && hasRegistrationFields">
+						<div class="flex w-full flex-col gap-4">
+							<div class="skeleton h-4 w-full"></div>
+							<div class="skeleton h-4 w-1/2"></div>
+							<div class="skeleton h-4 w-full"></div>
+						</div>
+					</template>
+					<template x-if="hasRegistrationResults">
+						<div>
+							<table class="table top-align table-pin-rows table-pin-cols table-zebra">
+								<thead>
+									<tr>
+										<th>Buyer</th>
+										<th>Field</th>
+										<th>Time</th>
+									</tr>
+								</thead>
+								<tbody>
+									<template x-for="registration in registrations" :key="registration.id">
+										<tr>
+											<td x-text="registration.user_id"></td>
+											<td colspan="5">
+												<h2 class="text-md mt-2">Registration Responses</h2>
+												<div class="card bg-base-100 px-4 py-2 my-2">
+													<template x-for="(response, idx) in registration.responses" :key="idx">
+														<div>
+															<template x-if="idx >= 1">
+																<div class="divider my-1"></div>
+															</template>
+															<template x-for="(entry, idx) in Object.entries(response)" :key="entry[0]">
+																<div>
+																	<span class="font-medium font-bold" x-text="entry[0] + ': '"></span>
+																	<span x-text="entry[1]"></span>
+																</div>
+															</template>
+														</div>
+													</template>
+												</div>
+											</td>
+											<td x-text="new Date(registration.created_at * 1000).toLocaleString()"></td>
+										</tr>
+									</template>
+								</tbody>
+							</table>
+						</div>
+					</template>
+				</div>
+			</div>
+		</div>
+		<script id="attendee-event" data-event-id={ event.Id } data-event-has-purchasable={ fmt.Sprintf("%t", event.HasPurchasable) } data-event-has-registration-fields={ fmt.Sprintf("%t", event.HasRegistrationFields) } data-event={ string(helpers.ToJSON(event)) }>
+
+    function attendeeEventState() {
+        return {
+            init() {
+              (async () => {
+                  if (this.hasPurchasable) {
+                    try {
+                      const startKey = new URLSearchParams(window.location.search).get('start_key') ?? '';
+                      const reqUrl = `/api/purchases/event/${this.eventId}${ startKey ? `?start_key=${encodeURIComponent(startKey)}` : '' }`;
+                      const purchasesResponse = await fetch(reqUrl);
+                      const purchasesResData = await purchasesResponse.json();
+                      this.purchases = purchasesResData.purchases ?? [];
+                      this.purchasesNextCursor = purchasesResData?.nextKey?.compositeKey?.Value;
+                      this.hasPurchasesResults = true;
+                    } catch (error) {
+                      console.error('Failed to fetch purchasables:', error);
+                    }
+                  }
+
+                  if (this.hasRegistrationFields) {
+                    try {
+                      const registrationFieldsResponse = await fetch(`/api/registrations/event/${this.eventId}`);
+                      const registrations = await registrationFieldsResponse.json();
+                      console.log('registrations', registrations);
+                      this.registrations = registrations ?? [];
+                      this.hasRegistrationResults = true;
+                    } catch (error) {
+                      console.error('Failed to fetch registration fields:', error);
+                    }
+                  }
+              })()
+            },
+            eventId: document.querySelector('#attendee-event').getAttribute('data-event-id'),
+            hasPurchasable: document.querySelector('#attendee-event').getAttribute('data-event-has-purchasable') ?? false,
+            hasPurchasesResults: false,
+            hasRegistrationFields: document.querySelector('#attendee-event').getAttribute('data-event-has-registration-fields') ?? false,
+            hasRegistrationResults: false,
+            registrations: [],
+            purchases: [],
+          }
+			}
+
+		</script>
+	}
+}

@@ -40,7 +40,8 @@ import (
 // 12. Check for "Fake Event Title 1" (and the same for `location`, `time`, and `url`) and null those values before sending to client
 // 13. Was discovered that google.com/events requires a "premium proxy" (20 scrape credits instead of 5)
 //     so we want to create a "deny list" of sites we don't support and respond with an API error to let users know
-// 14. Handle the scenario below where the scraped Markdown data is so large, that it exceeds the OpenAI API limit
+// 14. For Meetup.com URLs, we want to ensure the query param `&eventType=inPerson` is present to avoid online events
+// 15. Handle the scenario below where the scraped Markdown data is so large, that it exceeds the OpenAI API limit
 //    and results in the error `Error: unexpected response format, `id` missing` because OpenAI literally returns an empty
 //    Chat GPT response:  {  0  [] map[]}
 
@@ -87,12 +88,33 @@ type Choice struct {
 }
 
 type ChatCompletionResponse struct {
-	ID      string         `json:"id"`
-	Object  string         `json:"object"`
-	Created int64          `json:"created"`
-	Model   string         `json:"model"`
-	Choices []Choice       `json:"choices"`
-	Usage   map[string]int `json:"usage"`
+	ID                string   `json:"id"`
+	Object            string   `json:"object"`
+	Created           int64    `json:"created"`
+	Model             string   `json:"model"`
+	Choices           []Choice `json:"choices"`
+	Usage             Usage    `json:"usage"`
+	SystemFingerprint string   `json:"system_fingerprint"`
+}
+
+type Usage struct {
+	PromptTokens            int                     `json:"prompt_tokens"`
+	CompletionTokens        int                     `json:"completion_tokens"`
+	TotalTokens             int                     `json:"total_tokens"`
+	PromptTokensDetails     PromptTokensDetails     `json:"prompt_tokens_details"`
+	CompletionTokensDetails CompletionTokensDetails `json:"completion_tokens_details"`
+}
+
+type PromptTokensDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+	AudioTokens  int `json:"audio_tokens"`
+}
+
+type CompletionTokensDetails struct {
+	ReasoningTokens          int `json:"reasoning_tokens"`
+	AudioTokens              int `json:"audio_tokens"`
+	AcceptedPredictionTokens int `json:"accepted_prediction_tokens"`
+	RejectedPredictionTokens int `json:"rejected_prediction_tokens"`
 }
 
 var systemPrompt = `You are a helpful LLM capable of accepting an array of strings and reorganizing them according to patterns only an LLM is capable of recognizing.
@@ -115,9 +137,10 @@ The categories to search for relevance matches in are as follows:
 =====
 1. Event title
 2. Event location
-3. Event date
-4. Event URL
-5. Event description
+3. Event start date / time
+4. Event end date / time
+5. Event URL
+6. Event description
 
 Note that some keys may be missing, for example, in the example below, the "event description" is missing. This is acceptable. The event metadata keys are not guaranteed to be present in the input array of strings.
 
@@ -125,7 +148,7 @@ Do not truncate the response with an ellipsis ` + "`...`" + `, list the full eve
 
 
 ` + "```" + `
-[{"event_title": "` + services.FakeEventTitle1 + `", "event_location": "` + services.FakeCity + `", "event_start_time": "` + services.FakeStartTime1 + `", "event_end_time": "` + services.FakeEndTime1 + `", event_url": "` + services.FakeUrl1 + `"},{"event_title": "` + services.FakeEventTitle2 + `", "event_location": "` + services.FakeCity + `", "event_start_time": "` + services.FakeStartTime2 + `", "event_end_time": "` + services.FakeEndTime2 + `", "event_url": "` + services.FakeUrl2 + `"}]
+[{"event_title": "` + services.FakeEventTitle1 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime1 + `", "event_end_datetime": "` + services.FakeEndTime1 + `", "event_url": "` + services.FakeUrl1 + `"},{"event_title": "` + services.FakeEventTitle2 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime2 + `", "event_end_datetime": "` + services.FakeEndTime2 + `", "event_url": "` + services.FakeUrl2 + `"}]
 ` + "```" + `
 
 The input is:
@@ -170,7 +193,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 		return serverError(err)
 	}
 
-	htmlString, err := scraper.GetHTMLFromURL(inputPayload.Url, 4500, true)
+	htmlString, err := scraper.GetHTMLFromURL(inputPayload.Url, 4500, true, "")
 	if err != nil {
 		return _SendHtmlErrorPartial(err, ctx, req)
 	}
@@ -403,7 +426,7 @@ func SendMessage(sessionID string, message string) (string, error) {
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.openai.com/v1/chat/completions/%s/messages", sessionID), bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequest("POST", fmt.Sprintf(os.Getenv("OPENAI_API_BASE_URL")+"/chat/completions/%s/messages", sessionID), bytes.NewBuffer(payloadBytes))
 
 	if err != nil {
 		return "", err

@@ -42,6 +42,10 @@ func (s *RegistrationService) InsertRegistration(ctx context.Context, dynamodbCl
 	// Update the userId in the registration object before marshaling
 	registration.UserId = userId
 
+	if registration.CreatedAt.IsZero() {
+		registration.CreatedAt = time.Now()
+	}
+
 	item, err := attributevalue.MarshalMap(&registration)
 	if err != nil {
 		return nil, err
