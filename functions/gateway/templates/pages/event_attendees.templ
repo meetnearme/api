@@ -33,8 +33,12 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 			<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Purchases</h2>
 			<div id="tickets-sales" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
 				<div class="card">
-					<template x-if="purchases.length < 1">
-						<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+					<template x-if="!hasPurchasesResults && hasPurchasable">
+						<div class="flex w-full flex-col gap-4">
+							<div class="skeleton h-4 w-full"></div>
+							<div class="skeleton h-4 w-1/2"></div>
+							<div class="skeleton h-4 w-full"></div>
+						</div>
 					</template>
 					<template x-if="purchases.length > 0">
 						<div>
@@ -119,7 +123,52 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 			<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Registrations</h2>
 			<div id="tickets-sales" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
 				<div class="card">
-					test content
+					<template x-if="!hasRegistrationResults && hasRegistrationFields">
+						<div class="flex w-full flex-col gap-4">
+							<div class="skeleton h-4 w-full"></div>
+							<div class="skeleton h-4 w-1/2"></div>
+							<div class="skeleton h-4 w-full"></div>
+						</div>
+					</template>
+					<template x-if="hasRegistrationResults">
+						<div>
+							<table class="table top-align table-pin-rows table-pin-cols table-zebra">
+								<thead>
+									<tr>
+										<th>Buyer</th>
+										<th>Field</th>
+										<th>Time</th>
+									</tr>
+								</thead>
+								<tbody>
+									<template x-for="registration in registrations" :key="registration.id">
+										<tr>
+											<td x-text="registration.user_id"></td>
+											<td colspan="5">
+												<h2 class="text-md mt-2">Registration Responses</h2>
+												<div class="card bg-base-100 px-4 py-2 my-2">
+													<template x-for="(response, idx) in registration.responses" :key="idx">
+														<div>
+															<template x-if="idx >= 1">
+																<div class="divider my-1"></div>
+															</template>
+															<template x-for="(entry, idx) in Object.entries(response)" :key="entry[0]">
+																<div>
+																	<span class="font-medium font-bold" x-text="entry[0] + ': '"></span>
+																	<span x-text="entry[1]"></span>
+																</div>
+															</template>
+														</div>
+													</template>
+												</div>
+											</td>
+											<td x-text="new Date(registration.created_at * 1000).toLocaleString()"></td>
+										</tr>
+									</template>
+								</tbody>
+							</table>
+						</div>
+					</template>
 				</div>
 			</div>
 		</div>
@@ -137,6 +186,7 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
                       const purchasesResData = await purchasesResponse.json();
                       this.purchases = purchasesResData.purchases ?? [];
                       this.purchasesNextCursor = purchasesResData?.nextKey?.compositeKey?.Value;
+                      this.hasPurchasesResults = true;
                     } catch (error) {
                       console.error('Failed to fetch purchasables:', error);
                     }
@@ -148,6 +198,7 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
                       const registrations = await registrationFieldsResponse.json();
                       console.log('registrations', registrations);
                       this.registrations = registrations ?? [];
+                      this.hasRegistrationResults = true;
                     } catch (error) {
                       console.error('Failed to fetch registration fields:', error);
                     }
@@ -156,10 +207,11 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
             },
             eventId: document.querySelector('#attendee-event').getAttribute('data-event-id'),
             hasPurchasable: document.querySelector('#attendee-event').getAttribute('data-event-has-purchasable') ?? false,
+            hasPurchasesResults: false,
             hasRegistrationFields: document.querySelector('#attendee-event').getAttribute('data-event-has-registration-fields') ?? false,
+            hasRegistrationResults: false,
             registrations: [],
             purchases: [],
-            hasMorePurchases: false,
           }
 			}
 

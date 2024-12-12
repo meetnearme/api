@@ -35,6 +35,10 @@ func (s *PurchaseService) InsertPurchase(ctx context.Context, dynamodbClient int
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
+	if purchase.CreatedAt == 0 {
+		purchase.CreatedAt = time.Now().Unix()
+	}
+
 	item, err := attributevalue.MarshalMap(&purchase)
 	if err != nil {
 		return nil, err
