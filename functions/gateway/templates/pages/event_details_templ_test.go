@@ -5,6 +5,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -12,7 +13,8 @@ import (
 
 func TestEventDetailsPage(t *testing.T) {
 	tm := "2099-05-01T12:00:00Z"
-	validEventStartTime, err := helpers.UtcOrUnixToUnix64(tm)
+	loc, _ := time.LoadLocation("America/New_York")
+	validEventStartTime, err := helpers.UtcOrUnixToUnix64(tm, loc)
 	if err != nil || validEventStartTime == 0 {
 		t.Logf("Failed to convert unix time to UTC: %v", tm)
 	}
