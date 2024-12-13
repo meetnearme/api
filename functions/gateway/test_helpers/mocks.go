@@ -137,20 +137,27 @@ func BindToPort(t *testing.T, endpoint string) (net.Listener, error) {
 		}
 
 		_, err := client.Get(fmt.Sprintf("http://%s", hostPort))
+
+		// Check for various error conditions that indicate the port is available
 		if err != nil {
-			// If we get a connection refused error, the port is available
-			if strings.Contains(err.Error(), "connection refused") ||
-				strings.Contains(err.Error(), "connect: connection refused") {
+			isPortAvailable := strings.Contains(err.Error(), "connection refused") ||
+				strings.Contains(err.Error(), "connect: connection refused") ||
+				strings.Contains(err.Error(), "EOF") || // Add EOF as an indicator of available port
+				strings.Contains(err.Error(), "no response")
+
+			if isPortAvailable {
 				// Try to bind to the port
 				listener, err = net.Listen("tcp", hostPort)
 				if err == nil {
 					t.Logf("Successfully bound to: %s", hostPort)
 					return listener, nil
 				}
+				t.Logf("Failed to bind despite port appearing available: %v", err)
+			} else {
+				t.Logf("Port %s has existing server or other issue: %v", hostPort, err)
 			}
-			t.Logf("Port %s has existing server or other issue: %v", hostPort, err)
 		} else {
-			t.Logf("Port %s is already in use", hostPort)
+			t.Logf("Port %s is already in use (received HTTP response)", hostPort)
 		}
 
 		currentEndpoint = GetNextPort()
