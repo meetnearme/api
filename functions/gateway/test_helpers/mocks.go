@@ -121,7 +121,7 @@ func BindToPort(t *testing.T, endpoint string) (net.Listener, error) {
 	var err error
 	currentEndpoint := endpoint
 
-	for retries := 0; retries < 3; retries++ {
+	for retries := 0; retries < 10; retries++ {
 		// Strip any http:// prefix if present
 		hostPort := currentEndpoint
 		if strings.HasPrefix(hostPort, "http://") {
