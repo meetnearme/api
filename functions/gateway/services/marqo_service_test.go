@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -72,13 +71,11 @@ func TestGetMarqoClient(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
-	} else {
-		t.Log("Started mock Marqo server")
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
@@ -161,11 +158,11 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
@@ -324,11 +321,11 @@ func TestSearchMarqoEvents(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
@@ -484,13 +481,11 @@ func TestGetMarqoEventByID(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
-	} else {
-		t.Log("Started mock Marqo server")
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
@@ -609,13 +604,11 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
-	} else {
-		t.Log("Started mock Marqo server")
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
