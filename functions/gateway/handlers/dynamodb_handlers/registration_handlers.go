@@ -23,7 +23,6 @@ var validate *validator.Validate = validator.New()
 
 func init() {
 	db = transport.CreateDbClient()
-	log.Printf("db client: %v", db)
 }
 
 // UserHandler handles user-related requests

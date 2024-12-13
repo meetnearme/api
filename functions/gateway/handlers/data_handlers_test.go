@@ -309,7 +309,9 @@ func TestPostBatchEvents(t *testing.T) {
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
+
+	// set below in response to binding
+	// os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
@@ -379,6 +381,11 @@ func TestPostBatchEvents(t *testing.T) {
 	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
+
+	// Update the environment variable with the actual bound address
+	boundAddress := mockMarqoServer.Listener.Addr().String()
+	os.Setenv("DEV_MARQO_API_BASE_URL", fmt.Sprintf("http://%s", boundAddress))
+	t.Logf("Updated Marqo endpoint to: %s", os.Getenv("DEV_MARQO_API_BASE_URL"))
 
 	tests := []struct {
 		name                    string
