@@ -124,6 +124,7 @@ func TestPostEvent(t *testing.T) {
 				if err := json.Unmarshal([]byte(body), &response); err != nil {
 					return fmt.Errorf("failed to unmarshal response body: %v", err)
 				}
+				t.Logf("<<< response: %v", response)
 				items, ok := response["items"].([]interface{})
 				if !ok || len(items) == 0 {
 					return fmt.Errorf("expected non-empty Items array, got '%v'", items)
