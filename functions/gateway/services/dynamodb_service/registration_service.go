@@ -104,7 +104,7 @@ func (s *RegistrationService) GetRegistrationByPk(ctx context.Context, dynamodbC
 func (s *RegistrationService) GetRegistrationsByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Registration, map[string]dynamodb_types.AttributeValue, error) {
 	queryInput := &dynamodb.QueryInput{
 		TableName: aws.String(registrationTableName),
-		Limit:     aws.Int32(1),
+		Limit:     aws.Int32(limit),
 		KeyConditions: map[string]dynamodb_types.Condition{
 			"eventId": {
 				ComparisonOperator: dynamodb_types.ComparisonOperatorEq,
