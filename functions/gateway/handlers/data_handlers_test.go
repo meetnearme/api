@@ -77,7 +77,7 @@ func TestPostEvent(t *testing.T) {
 		// Mock the response
 		response := &marqo.UpsertDocumentsResponse{
 			Errors:    false,
-			IndexName: "mock-events-search",
+			IndexName: testMarqoIndexName,
 			Items: []marqo.Item{
 				{
 					ID:     "123",
