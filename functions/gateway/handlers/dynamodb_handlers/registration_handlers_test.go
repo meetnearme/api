@@ -84,7 +84,11 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 	t.Log("84 << got to")
 	// Set up mock Marqo server
 	mockMarqoServer.Listener.Close()
-	mockMarqoServer.Listener, _ = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	var err error
+	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	if err != nil {
+		t.Fatalf("Failed to start mock Marqo server: %v", err)
+	}
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 	t.Log("90 << got to")
