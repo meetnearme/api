@@ -110,7 +110,7 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
+			t.Log("113 << got to")
 			mockService := &dynamodb_service.MockRegistrationService{
 				GetRegistrationsByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Registration, map[string]dynamodb_types.AttributeValue, error) {
 					return []internal_types.Registration{{EventId: eventId, UserId: "user1"}}, nil, nil
