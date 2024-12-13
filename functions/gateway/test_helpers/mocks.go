@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -129,18 +130,33 @@ func BindToPort(t *testing.T, endpoint string) (net.Listener, error) {
 		}
 
 		t.Logf("Attempting to bind to: %s", hostPort)
-		listener, err = net.Listen("tcp", hostPort)
 
-		if err == nil {
-			t.Logf("Successfully bound to: %s", hostPort)
-			return listener, nil
+		// Try to connect to the port first to check if it's in use
+		client := &http.Client{
+			Timeout: 100 * time.Millisecond,
 		}
 
-		t.Logf("Failed to bind to %s: %v", hostPort, err)
+		_, err := client.Get(fmt.Sprintf("http://%s", hostPort))
+		if err != nil {
+			// If we get a connection refused error, the port is available
+			if strings.Contains(err.Error(), "connection refused") ||
+				strings.Contains(err.Error(), "connect: connection refused") {
+				// Try to bind to the port
+				listener, err = net.Listen("tcp", hostPort)
+				if err == nil {
+					t.Logf("Successfully bound to: %s", hostPort)
+					return listener, nil
+				}
+			}
+			t.Logf("Port %s has existing server or other issue: %v", hostPort, err)
+		} else {
+			t.Logf("Port %s is already in use", hostPort)
+		}
+
 		currentEndpoint = GetNextPort()
-		time.Sleep(250 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
-	return nil, fmt.Errorf("failed to bind to port after 3 retries: %v", err)
+	return nil, fmt.Errorf("failed to bind to port after 10 retries: %v", err)
 }
 
 type MockRdsDataClient struct {
