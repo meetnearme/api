@@ -57,6 +57,35 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 		t.Logf("tmError converting UTC to unix: %v", tmErr)
 	}
 
+	// Create a mock HTTP server for Marqo
+	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"results": []map[string]interface{}{
+				{
+					"_id":            testEventID,
+					"startTime":      testEventStartTime,
+					"eventOwners":    []interface{}{testEventOwnerID},
+					"eventOwnerName": "Event Host Test",
+					"name":           testEventName,
+					"description":    testEventDescription,
+				},
+			},
+		}
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(responseBytes)
+	}))
+
+	// Set up mock Marqo server
+	mockMarqoServer.Listener.Close()
+	mockMarqoServer.Listener, _ = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	mockMarqoServer.Start()
+	defer mockMarqoServer.Close()
+
 	tests := []struct {
 		name          string
 		userID        string
@@ -67,13 +96,11 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 		{
 			name:         "authorized event owner",
 			userID:       testEventOwnerID,
-			eventOwners:  []interface{}{testEventOwnerID},
 			expectedCode: http.StatusOK,
 		},
 		{
 			name:          "unauthorized user",
 			userID:        "unauthorized_user",
-			eventOwners:   []interface{}{testEventOwnerID},
 			expectedCode:  http.StatusForbidden,
 			expectedError: "You are not authorized to view this event's registrations",
 		},
@@ -81,34 +108,6 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock HTTP server for Marqo
-			mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				response := map[string]interface{}{
-					"results": []map[string]interface{}{
-						{
-							"_id":            testEventID,
-							"startTime":      testEventStartTime,
-							"eventOwners":    tt.eventOwners,
-							"eventOwnerName": "Event Host Test",
-							"name":           testEventName,
-							"description":    testEventDescription,
-						},
-					},
-				}
-				responseBytes, err := json.Marshal(response)
-				if err != nil {
-					http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-					return
-				}
-				w.WriteHeader(http.StatusOK)
-				w.Write(responseBytes)
-			}))
-
-			// Set up mock Marqo server
-			mockMarqoServer.Listener.Close()
-			mockMarqoServer.Listener, _ = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
-			mockMarqoServer.Start()
-			defer mockMarqoServer.Close()
 
 			mockService := &dynamodb_service.MockRegistrationService{
 				GetRegistrationsByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Registration, map[string]dynamodb_types.AttributeValue, error) {
