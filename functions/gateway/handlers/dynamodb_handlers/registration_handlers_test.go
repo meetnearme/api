@@ -33,6 +33,7 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
 	testMarqoIndexName := "testing-index"
 
+	t.Logf("36 << testMarqoEndpoint: %v", testMarqoEndpoint)
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
@@ -51,6 +52,7 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 		testEventDescription = "This is a test event"
 	)
 
+	t.Logf("54 << got to: %v", "testEventStartTime")
 	loc, _ := time.LoadLocation("America/New_York")
 	testEventStartTime, tmErr := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
 	if tmErr != nil || testEventStartTime == 0 {
@@ -79,13 +81,13 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		w.Write(responseBytes)
 	}))
-
+	t.Logf("84 << got to: %v", "testEventStartTime")
 	// Set up mock Marqo server
 	mockMarqoServer.Listener.Close()
 	mockMarqoServer.Listener, _ = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
-
+	t.Logf("90 << got to: %v", "testEventStartTime")
 	tests := []struct {
 		name          string
 		userID        string
@@ -115,7 +117,7 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 				},
 			}
 			handler := NewRegistrationHandler(mockService)
-
+			t.Log("120 << got to: %v", "testEventStartTime")
 			req := httptest.NewRequest(http.MethodGet, "/registrations/event_id", nil)
 			req = mux.SetURLVars(req, map[string]string{"event_id": testEventID})
 
@@ -128,7 +130,7 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			handler.GetRegistrationsByEventID(w, req)
-
+			t.Log("133 << got to: %v", "testEventStartTime")
 			res := w.Result()
 			if res.StatusCode != tt.expectedCode {
 				t.Errorf("Expected status code %d, got %d", tt.expectedCode, res.StatusCode)
