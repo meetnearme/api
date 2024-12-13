@@ -78,39 +78,98 @@ func TestGetRegistrationByPk(t *testing.T) {
 	}
 }
 func TestGetRegistrationsByEventID(t *testing.T) {
-	mockDynamoDBClient := &test_helpers.MockDynamoDBClient{
-		QueryFunc: func(ctx context.Context, input *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
-			return &dynamodb.QueryOutput{
-				Items: []map[string]types.AttributeValue{
-					{
-						"eventId": &types.AttributeValueMemberS{Value: "eventId"},
-						"userId":  &types.AttributeValueMemberS{Value: "userId"},
-						"responses": &types.AttributeValueMemberL{
-							Value: []types.AttributeValue{
-								&types.AttributeValueMemberM{
-									Value: map[string]types.AttributeValue{
-										"question1": &types.AttributeValueMemberS{Value: "answer1"},
+	t.Run("basic query", func(t *testing.T) {
+		mockDynamoDBClient := &test_helpers.MockDynamoDBClient{
+			QueryFunc: func(ctx context.Context, input *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+				return &dynamodb.QueryOutput{
+					Items: []map[string]types.AttributeValue{
+						{
+							"eventId": &types.AttributeValueMemberS{Value: "eventId"},
+							"userId":  &types.AttributeValueMemberS{Value: "userId"},
+							"responses": &types.AttributeValueMemberL{
+								Value: []types.AttributeValue{
+									&types.AttributeValueMemberM{
+										Value: map[string]types.AttributeValue{
+											"question1": &types.AttributeValueMemberS{Value: "answer1"},
+										},
 									},
 								},
 							},
+							"createdAt": &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
+							"updatedAt": &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
 						},
-						"createdAt": &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
-						"updatedAt": &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
 					},
-				},
-			}, nil
-		},
-	}
-	service := NewRegistrationService()
+				}, nil
+			},
+		}
+		service := NewRegistrationService()
 
-	results, err := service.GetRegistrationsByEventID(context.TODO(), mockDynamoDBClient, "eventId")
+		results, _, err := service.GetRegistrationsByEventID(context.TODO(), mockDynamoDBClient, "eventId", 100, "")
 
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
-	if len(results) == 0 {
-		t.Error("expected non-empty results")
-	}
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+		if len(results) == 0 {
+			t.Error("expected non-empty results")
+		}
+	})
+
+	t.Run("with pagination", func(t *testing.T) {
+		mockDynamoDBClient := &test_helpers.MockDynamoDBClient{
+			QueryFunc: func(ctx context.Context, input *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+				// Verify the ExclusiveStartKey was set correctly
+				if input.ExclusiveStartKey != nil {
+					expectedUserId := "user123"
+					expectedEventId := "event456"
+					gotUserId := input.ExclusiveStartKey["userId"].(*types.AttributeValueMemberS).Value
+					gotEventId := input.ExclusiveStartKey["eventId"].(*types.AttributeValueMemberS).Value
+
+					if gotUserId != expectedUserId || gotEventId != expectedEventId {
+						t.Errorf("incorrect ExclusiveStartKey values, got userId=%s, eventId=%s, want userId=%s, eventId=%s",
+							gotUserId, gotEventId, expectedUserId, expectedEventId)
+					}
+				}
+
+				return &dynamodb.QueryOutput{
+					Items: []map[string]types.AttributeValue{
+						{
+							"eventId": &types.AttributeValueMemberS{Value: "event456"},
+							"userId":  &types.AttributeValueMemberS{Value: "nextUser"},
+							"responses": &types.AttributeValueMemberL{
+								Value: []types.AttributeValue{
+									&types.AttributeValueMemberM{
+										Value: map[string]types.AttributeValue{
+											"question1": &types.AttributeValueMemberS{Value: "answer1"},
+										},
+									},
+								},
+							},
+							"createdAt": &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
+							"updatedAt": &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
+						},
+					},
+					LastEvaluatedKey: map[string]types.AttributeValue{
+						"eventId": &types.AttributeValueMemberS{Value: "event456"},
+						"userId":  &types.AttributeValueMemberS{Value: "nextUser"},
+					},
+				}, nil
+			},
+		}
+		service := NewRegistrationService()
+
+		startKey := "user123_event456"
+		results, lastKey, err := service.GetRegistrationsByEventID(context.TODO(), mockDynamoDBClient, "event456", 100, startKey)
+
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+		if len(results) == 0 {
+			t.Error("expected non-empty results")
+		}
+		if lastKey == nil {
+			t.Error("expected LastEvaluatedKey to be present")
+		}
+	})
 }
 
 func TestUpdateRegistration(t *testing.T) {

@@ -56,10 +56,10 @@ func TestRouter(t *testing.T) {
 					FinishReason: "stop",
 				},
 			},
-			Usage: map[string]int{
-				"prompt_tokens":     100,
-				"completion_tokens": 50,
-				"total_tokens":      150,
+			Usage: Usage{
+				PromptTokens:     100,
+				CompletionTokens: 50,
+				TotalTokens:      150,
 			},
 		}
 		json.NewEncoder(w).Encode(response)
@@ -96,7 +96,7 @@ func TestRouter(t *testing.T) {
 	}{
 		// currently this test case doesn't fully thread data through, we should improve this
 		// it's a bit of a false positive, but a good faith attempt toward more coverage here
-		{"POST request", "POST", http.StatusOK, `<form class="group" novalidate><div role="alert" class="alert alert-info mt-3 mb-11">Mark each field such as "title" and "location" as correct or incorrect with the adjacent toggle. If the proposed event is not an event, toggle "This is an event" to "This is not an event".</div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"><div class="checkbox-card card card-compact shadow-lg"><div class="checkbox-card-header bg-success content-success has-toggleable-text"><label class="label cursor-pointer justify-normal"><input value="candidate-0" x-model.fill="eventCandidates" id="main-toggle-0" type="checkbox" class="toggle mr-4" onclick="this.parentNode.parentNode.parentNode.querySelectorAll(&#39;input.toggle&#39;).forEach(item =&gt; item.checked = this.checked)" checked> <span class="label-text flex contents">This is <strong class="hidden-when-checked">not </strong>an event</span></label></div><div class="card-body"><h2 class="card-title">Mock Event</h2><p><label for="cand_title_0" class="label items-start justify-normal cursor-pointer"><input name="cand_title_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked><span class="label-text"><strong>Title:</strong> Mock Event</span></label></p><p><label for="cand_location_0" class="label items-start justify-normal cursor-pointer"><input name="cand_location_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked><span class="label-text"><strong>Location:</strong> Mock Location</span></label></p><p><label for="cand_date_0" class="label items-start justify-normal cursor-pointer"><input name="cand_date_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked><span class="label-text"><strong>Start Time:</strong> 2023-05-01T10:00:00Z</span></label></p><p><label for="cand_date_0" class="label items-start justify-normal cursor-pointer"><input name="cand_date_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked><span class="label-text"><strong>End Time:</strong> 2023-05-01T12:00:00Z</span></label></p><p><label for="cand_url_0" class="label items-start justify-normal cursor-pointer"><input name="cand_url_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked><span class="label-text"><strong>URL:</strong> https://mock-event.com</span></label></p><p><label for="cand_description_0" class="label items-start justify-normal cursor-pointer"><input name="cand_description_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2"><span class="label-text"><strong>Description:</strong> </span></label></p></div></div></div></form>`, nil},
+		{"POST request", "POST", http.StatusOK, `<form class="group" novalidate><div role="alert" class="alert alert-info mt-3 mb-11">Mark each field such as "title" and "location" as correct or incorrect with the adjacent toggle. If the proposed event is not an event, toggle "This is an event" to "This is not an event".</div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"><div class="checkbox-card card card-compact shadow-lg"><div class="checkbox-card-header bg-success content-success has-toggleable-text"><label class="label cursor-pointer justify-normal"><input value="candidate-0" x-model.fill="eventCandidates" id="main-toggle-0" type="checkbox" class="toggle mr-4" onclick="this.parentNode.parentNode.parentNode.querySelectorAll(&#39;input.toggle&#39;).forEach(item =&gt; item.checked = this.checked)" checked> <span class="label-text flex contents">This is <strong class="hidden-when-checked">not </strong>an event</span></label></div><div class="card-body"><h2 class="card-title">Mock Event</h2><p><label for="cand_title_0" class="label items-start justify-normal cursor-pointer"><input name="cand_title_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked><span class="label-text"><strong>Title:</strong> Mock Event</span></label></p><p><label for="cand_location_0" class="label items-start justify-normal cursor-pointer"><input name="cand_location_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked><span class="label-text"><strong>Location:</strong> Mock Location</span></label></p><p><label for="cand_date_0" class="label items-start justify-normal cursor-pointer"><input name="cand_date_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2"><span class="label-text"><strong>Start Time:</strong> </span></label></p><p><label for="cand_date_0" class="label items-start justify-normal cursor-pointer"><input name="cand_date_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2"><span class="label-text"><strong>End Time:</strong> </span></label></p><p><label for="cand_url_0" class="label items-start justify-normal cursor-pointer"><input name="cand_url_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked><span class="label-text"><strong>URL:</strong> https://mock-event.com</span></label></p><p><label for="cand_description_0" class="label items-start justify-normal cursor-pointer"><input name="cand_description_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2"><span class="label-text"><strong>Description:</strong> </span></label></p></div></div></div></form>`, nil},
 		{"Unsupported method", "GET", http.StatusMethodNotAllowed, "", nil},
 		// Remove the "Scraping error" test case as it's now handled by the mock server
 	}
@@ -142,7 +142,7 @@ func TestRouter(t *testing.T) {
 				// 	t.Errorf("Failed to unmarshal response body: %v", err)
 				// }
 				if result != tt.mockHTML {
-					t.Errorf("Expected HTML %q, got %q", tt.mockHTML, result)
+					t.Errorf("Expected HTML %s, got %s", tt.mockHTML, result)
 				}
 			}
 		})
