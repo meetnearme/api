@@ -4,7 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"sync/atomic"
+	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/rdsdata"
@@ -13,38 +17,38 @@ import (
 )
 
 type MockDynamoDBClient struct {
-    ScanFunc func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
-    PutItemFunc func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
-    GetItemFunc func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
-    DeleteItemFunc func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
-    UpdateItemFunc func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
-    QueryFunc func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) // New Query method
+	ScanFunc       func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
+	PutItemFunc    func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
+	GetItemFunc    func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
+	DeleteItemFunc func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
+	UpdateItemFunc func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	QueryFunc      func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) // New Query method
 }
 
 func (m *MockDynamoDBClient) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
-    return m.ScanFunc(ctx, params, optFns...)
+	return m.ScanFunc(ctx, params, optFns...)
 }
 
 func (m *MockDynamoDBClient) PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
-    if m.PutItemFunc != nil {
-        return m.PutItemFunc(ctx, params, optFns...)
-    }
-    return &dynamodb.PutItemOutput{}, nil
+	if m.PutItemFunc != nil {
+		return m.PutItemFunc(ctx, params, optFns...)
+	}
+	return &dynamodb.PutItemOutput{}, nil
 }
 
 func (m *MockDynamoDBClient) GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
-    return m.GetItemFunc(ctx, params, optFns...)
+	return m.GetItemFunc(ctx, params, optFns...)
 }
 
 func (m *MockDynamoDBClient) Query(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
-    return m.QueryFunc(ctx, params, optFns...)
+	return m.QueryFunc(ctx, params, optFns...)
 }
 
 func (m *MockDynamoDBClient) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
-    if m.UpdateItemFunc != nil {
-        return m.UpdateItemFunc(ctx, params, optFns...)
-    }
-    return &dynamodb.UpdateItemOutput{}, nil
+	if m.UpdateItemFunc != nil {
+		return m.UpdateItemFunc(ctx, params, optFns...)
+	}
+	return &dynamodb.UpdateItemOutput{}, nil
 }
 
 func (m *MockDynamoDBClient) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
@@ -54,50 +58,49 @@ func (m *MockDynamoDBClient) DeleteItem(ctx context.Context, params *dynamodb.De
 	return &dynamodb.DeleteItemOutput{}, nil
 }
 
-
 // MockGeoService
-type MockGeoService struct{
-    GetGeoFunc func(location, baseUrl string) (string, string, string, error)
+type MockGeoService struct {
+	GetGeoFunc func(location, baseUrl string) (string, string, string, error)
 }
 
 func (m *MockGeoService) GetGeo(location, baseUrl string) (string, string, string, error) {
-    return "40.7128", "-74.0060", "New York, NY 10001, USA", nil
+	return "40.7128", "-74.0060", "New York, NY 10001, USA", nil
 }
 
 // MochSeshuService mocks the UpdateSeshuSession function
 type MockSeshuService struct{}
 
 func (m *MockSeshuService) UpdateSeshuSession(ctx context.Context, db types.DynamoDBAPI, update types.SeshuSessionUpdate) (*types.SeshuSessionUpdate, error) {
-    return &update, nil
+	return &update, nil
 }
 
 func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionGet) (*types.SeshuSession, error) {
-    // Return mock data
-    return &types.SeshuSession{
-        OwnerId: "mockOwner",
-        Url: seshuPayload.Url,
-        Status: "draft",
-        // Fill in other fields as needed
-    }, nil
+	// Return mock data
+	return &types.SeshuSession{
+		OwnerId: "mockOwner",
+		Url:     seshuPayload.Url,
+		Status:  "draft",
+		// Fill in other fields as needed
+	}, nil
 }
 
 func (m *MockSeshuService) InsertSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionInput) (*types.SeshuSessionInsert, error) {
-    // Return mock data
-    return &types.SeshuSessionInsert{
-        OwnerId: seshuPayload.OwnerId,
-        Url: seshuPayload.Url,
-        Status: "draft",
-        // Fill in other fields as needed
-    }, nil
+	// Return mock data
+	return &types.SeshuSessionInsert{
+		OwnerId: seshuPayload.OwnerId,
+		Url:     seshuPayload.Url,
+		Status:  "draft",
+		// Fill in other fields as needed
+	}, nil
 }
 
 // MockTemplateRenderer mocks the template rendering process
 type MockTemplateRenderer struct{}
 
 func (m *MockTemplateRenderer) Render(ctx context.Context, buf *bytes.Buffer) error {
-    // Simulate rendering by writing a mock HTML string to the buffer
-    _, err := buf.WriteString("<div>Mock rendered template</div>")
-    return err
+	// Simulate rendering by writing a mock HTML string to the buffer
+	_, err := buf.WriteString("<div>Mock rendered template</div>")
+	return err
 }
 
 var PortCounter int32 = 8000
@@ -105,7 +108,24 @@ var PortCounter int32 = 8000
 // NOTE: this is due to an issue where github auto paralellizes these
 // test to run in serial, which causes port collisions
 func GetNextPort() int {
-    return int(atomic.AddInt32(&PortCounter, 1))
+	return int(atomic.AddInt32(&PortCounter, 1))
+}
+
+// Go tests run in parallel by default, which causes port collisions
+// This function binds to a port and returns a listener and adds a
+// retry mechanism to rotate and attempt to prevent collision
+func BindToPort(t *testing.T, endpoint string) (net.Listener, error) {
+	var listener net.Listener
+	var err error
+	for retries := 0; retries < 3; retries++ {
+		listener, err = net.Listen("tcp", endpoint[len("http://"):])
+		if err == nil {
+			return listener, nil
+		}
+		time.Sleep(100 * time.Millisecond)
+		endpoint = fmt.Sprintf("http://localhost:%d", GetNextPort())
+	}
+	return nil, err
 }
 
 type MockRdsDataClient struct {
@@ -122,14 +142,14 @@ func (m *MockRdsDataClient) ExecStatement(ctx context.Context, sql string, param
 func NewMockRdsDataClientWithJSONRecords(records []map[string]interface{}) *MockRdsDataClient {
 	recordsJSON, _ := json.Marshal(records)
 	recordsString := string(recordsJSON)
-    return &MockRdsDataClient{
-        ExecStatementFunc: func(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
-            // Convert records to AWS SDK's expected format
-            return &rdsdata.ExecuteStatementOutput{
-                FormattedRecords: &recordsString, // Directly return JSON bytes
-            }, nil
-        },
-    }
+	return &MockRdsDataClient{
+		ExecStatementFunc: func(ctx context.Context, sql string, params []rds_types.SqlParameter) (*rdsdata.ExecuteStatementOutput, error) {
+			// Convert records to AWS SDK's expected format
+			return &rdsdata.ExecuteStatementOutput{
+				FormattedRecords: &recordsString, // Directly return JSON bytes
+			}, nil
+		},
+	}
 }
 
 // Ensure MockRdsDataClient implements the RDSDataAPI interface
