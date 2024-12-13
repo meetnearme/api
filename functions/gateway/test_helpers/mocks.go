@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -107,8 +108,9 @@ var PortCounter int32 = 8000
 
 // NOTE: this is due to an issue where github auto paralellizes these
 // test to run in serial, which causes port collisions
-func GetNextPort() int {
-	return int(atomic.AddInt32(&PortCounter, 1))
+func GetNextPort() string {
+	port := atomic.AddInt32(&PortCounter, 1)
+	return fmt.Sprintf("localhost:%d", port)
 }
 
 // Go tests run in parallel by default, which causes port collisions
@@ -117,15 +119,28 @@ func GetNextPort() int {
 func BindToPort(t *testing.T, endpoint string) (net.Listener, error) {
 	var listener net.Listener
 	var err error
+	currentEndpoint := endpoint
+
 	for retries := 0; retries < 3; retries++ {
-		listener, err = net.Listen("tcp", endpoint[len("http://"):])
+		// Strip any http:// prefix if present
+		hostPort := currentEndpoint
+		if strings.HasPrefix(hostPort, "http://") {
+			hostPort = hostPort[len("http://"):]
+		}
+
+		t.Logf("Attempting to bind to: %s", hostPort)
+		listener, err = net.Listen("tcp", hostPort)
+
 		if err == nil {
+			t.Logf("Successfully bound to: %s", hostPort)
 			return listener, nil
 		}
-		time.Sleep(100 * time.Millisecond)
-		endpoint = fmt.Sprintf("http://localhost:%d", GetNextPort())
+
+		t.Logf("Failed to bind to %s: %v", hostPort, err)
+		currentEndpoint = GetNextPort()
+		time.Sleep(250 * time.Millisecond)
 	}
-	return nil, err
+	return nil, fmt.Errorf("failed to bind to port after 3 retries: %v", err)
 }
 
 type MockRdsDataClient struct {

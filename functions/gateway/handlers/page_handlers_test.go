@@ -26,7 +26,9 @@ func TestGetHomePage(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	// Get port and create full URL
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -124,7 +126,9 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	// Get port and create full URL
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -295,7 +299,9 @@ func TestGetEventDetailsPage(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	// Get port and create full URL
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -602,7 +608,9 @@ func TestGetAddOrEditEventPage(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	// Get port and create full URL
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)

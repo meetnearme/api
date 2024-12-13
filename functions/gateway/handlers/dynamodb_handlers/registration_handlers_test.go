@@ -29,10 +29,11 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	// Get port and create full URL
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
-	t.Logf("36 << testMarqoEndpoint: %v", testMarqoEndpoint)
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
 	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
@@ -90,6 +91,7 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
+
 	t.Log("90 << got to")
 	tests := []struct {
 		name          string
