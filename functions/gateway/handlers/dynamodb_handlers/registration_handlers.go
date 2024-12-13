@@ -197,9 +197,27 @@ func (h *RegistrationHandler) GetRegistrationsByEventID(w http.ResponseWriter, r
 
 func (h *RegistrationHandler) GetRegistrationsByUserID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	ctx := r.Context()
 	userId := vars["user_id"]
 	if userId == "" {
-		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusBadRequest, nil)
+		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
+		return
+	}
+
+	// Get user info from context
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	_userId := userInfo.Sub
+
+	if _userId == "" {
+		transport.SendServerRes(w, []byte("You must be loggged in to get your registrations"), http.StatusBadRequest, nil)
+		return
+	}
+
+	if _userId != userId {
+		transport.SendServerRes(w, []byte("You are not authorized to view this user's registrations"), http.StatusForbidden, nil)
 		return
 	}
 
