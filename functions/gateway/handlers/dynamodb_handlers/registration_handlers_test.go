@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -13,8 +14,8 @@ import (
 
 func TestGetRegistrationsByEventID(t *testing.T) {
 	mockService := &dynamodb_service.MockRegistrationService{
-		GetRegistrationsByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.Registration, error) {
-			return []internal_types.Registration{{EventId: eventId, UserId: "user1"}}, nil
+		GetRegistrationsByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Registration, map[string]dynamodb_types.AttributeValue, error) {
+			return []internal_types.Registration{{EventId: eventId, UserId: "user1"}}, nil, nil
 		},
 	}
 	handler := NewRegistrationHandler(mockService)
@@ -50,4 +51,3 @@ func TestGetRegistrationsByUserID(t *testing.T) {
 		t.Errorf("Expected status code 200, got %d", res.StatusCode)
 	}
 }
-

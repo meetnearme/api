@@ -93,7 +93,6 @@ func (s *PurchaseService) GetPurchaseByPk(ctx context.Context, dynamodbClient in
 }
 
 func (s *PurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error) {
-	log.Printf("startKey: %s", startKey)
 	queryInput := &dynamodb.QueryInput{
 		TableName: aws.String(purchasesTableName),
 		IndexName: aws.String("eventIdIndex"), // Use the eventIdIndex GSI
@@ -129,8 +128,6 @@ func (s *PurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbCli
 	if err != nil {
 		return nil, nil, err
 	}
-
-	log.Printf("result: %+v", result)
 
 	var purchases []internal_types.Purchase
 	err = attributevalue.UnmarshalListOfMaps(result.Items, &purchases)
