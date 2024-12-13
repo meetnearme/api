@@ -3,7 +3,6 @@ package helpers
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -116,12 +116,18 @@ func TestSetCloudFlareKV(t *testing.T) {
 	originalCfApiBaseUrl := os.Getenv("CLOUDFLARE_API_BASE_URL")
 	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
 
-	// Set test environment variables
+	// Get initial endpoints
+	port := test_helpers.GetNextPort()
+	cfEndpoint := fmt.Sprintf("http://%s", port)
+	zitadelEndpoint := test_helpers.GetNextPort()
+
+	// Set environment variables with http:// prefix
 	os.Setenv("CLOUDFLARE_ACCOUNT_ID", "test-account-id")
 	os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", "test-namespace-id")
 	os.Setenv("CLOUDFLARE_API_TOKEN", "test-api-token")
-	os.Setenv("CLOUDFLARE_API_BASE_URL", MOCK_CLOUDFLARE_URL)
-	os.Setenv("ZITADEL_INSTANCE_HOST", MOCK_ZITADEL_HOST)
+	os.Setenv("CLOUDFLARE_API_BASE_URL", cfEndpoint)
+	os.Setenv("ZITADEL_INSTANCE_HOST", zitadelEndpoint)
+
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("CLOUDFLARE_ACCOUNT_ID", originalAccountID)
@@ -131,7 +137,7 @@ func TestSetCloudFlareKV(t *testing.T) {
 		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
 	}()
 
-	// Create a mock HTTP server for Cloudflare
+	// Create mock servers
 	mockCloudflareServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Mock the GET request to check if the key exists
 		if r.Method == "GET" {
@@ -154,18 +160,6 @@ func TestSetCloudFlareKV(t *testing.T) {
 
 		http.Error(w, fmt.Sprintf("unexpected request: %s %s", r.Method, r.URL), http.StatusBadRequest)
 	}))
-
-	// Set the mock Cloudflare server URL
-	mockCloudflareServer.Listener.Close()
-	var err error
-	mockCloudflareServer.Listener, err = net.Listen("tcp", MOCK_CLOUDFLARE_URL[len("http://"):])
-	if err != nil {
-		t.Fatalf("Failed to start mock Cloudflare server: %v", err)
-	}
-	mockCloudflareServer.Start()
-	defer mockCloudflareServer.Close()
-
-	// Create a mock HTTP server for Zitadel
 	mockZitadelServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Mock the GET request to return user metadata
 		if r.Method == "GET" {
@@ -184,14 +178,26 @@ func TestSetCloudFlareKV(t *testing.T) {
 		http.Error(w, fmt.Sprintf("unexpected request: %s %s", r.Method, r.URL), http.StatusBadRequest)
 	}))
 
-	// Set the mock Zitadel server URL
-	mockZitadelServer.Listener.Close()
-	mockZitadelServer.Listener, err = net.Listen("tcp", MOCK_ZITADEL_HOST)
+	// Bind to ports
+	cfListener, err := test_helpers.BindToPort(t, cfEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Zitadel server: %v", err)
+		t.Fatalf("Failed to bind Cloudflare server: %v", err)
 	}
+	mockCloudflareServer.Listener = cfListener
+	mockCloudflareServer.Start()
+	defer mockCloudflareServer.Close()
+
+	zitadelListener, err := test_helpers.BindToPort(t, zitadelEndpoint)
+	if err != nil {
+		t.Fatalf("Failed to bind Zitadel server: %v", err)
+	}
+	mockZitadelServer.Listener = zitadelListener
 	mockZitadelServer.Start()
 	defer mockZitadelServer.Close()
+
+	// Set environment variables with actual bound addresses
+	// os.Setenv("CLOUDFLARE_API_BASE_URL", mockCloudflareServer.Listener.Addr().String())
+	// os.Setenv("ZITADEL_INSTANCE_HOST", mockZitadelServer.Listener.Addr().String())
 
 	// Test cases
 	tests := []struct {
@@ -243,7 +249,8 @@ func TestSearchUsersByIDs(t *testing.T) {
 	// Initialize and setup environment
 	InitDefaultProtocol()
 	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
-	os.Setenv("ZITADEL_INSTANCE_HOST", MOCK_ZITADEL_HOST)
+	testZitadelEndpoint := test_helpers.GetNextPort()
+	os.Setenv("ZITADEL_INSTANCE_HOST", testZitadelEndpoint)
 	defer func() {
 		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
 	}()
@@ -344,10 +351,12 @@ func TestSearchUsersByIDs(t *testing.T) {
 	// Set up mock server
 	mockZitadelServer.Listener.Close()
 	var err error
-	mockZitadelServer.Listener, err = net.Listen("tcp", MOCK_ZITADEL_HOST)
+
+	listener, err := test_helpers.BindToPort(t, testZitadelEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Zitadel server: %v", err)
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockZitadelServer.Listener = listener
 	mockZitadelServer.Start()
 	defer mockZitadelServer.Close()
 
@@ -430,7 +439,8 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 	// Initialize and setup environment
 	InitDefaultProtocol()
 	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
-	os.Setenv("ZITADEL_INSTANCE_HOST", MOCK_ZITADEL_HOST)
+	testZitadelEndpoint := test_helpers.GetNextPort()
+	os.Setenv("ZITADEL_INSTANCE_HOST", testZitadelEndpoint)
 	defer func() {
 		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
 	}()
@@ -550,10 +560,11 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 	// Set up mock server
 	mockZitadelServer.Listener.Close()
 	var err error
-	mockZitadelServer.Listener, err = net.Listen("tcp", MOCK_ZITADEL_HOST)
+	listener, err := test_helpers.BindToPort(t, testZitadelEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Zitadel server: %v", err)
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockZitadelServer.Listener = listener
 	mockZitadelServer.Start()
 	defer mockZitadelServer.Close()
 
@@ -629,7 +640,8 @@ func TestUpdateUserMetadataKey(t *testing.T) {
 	// Initialize and setup environment
 	InitDefaultProtocol()
 	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
-	os.Setenv("ZITADEL_INSTANCE_HOST", MOCK_ZITADEL_HOST)
+	testZitadelEndpoint := test_helpers.GetNextPort()
+	os.Setenv("ZITADEL_INSTANCE_HOST", testZitadelEndpoint)
 	defer func() {
 		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
 	}()
@@ -687,10 +699,11 @@ func TestUpdateUserMetadataKey(t *testing.T) {
 	// Set up mock server
 	mockZitadelServer.Listener.Close()
 	var err error
-	mockZitadelServer.Listener, err = net.Listen("tcp", MOCK_ZITADEL_HOST)
+	listener, err := test_helpers.BindToPort(t, testZitadelEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Zitadel server: %v", err)
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockZitadelServer.Listener = listener
 	mockZitadelServer.Start()
 	defer mockZitadelServer.Close()
 
