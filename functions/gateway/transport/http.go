@@ -23,11 +23,11 @@ func SendHtmlRes(w http.ResponseWriter, body []byte, status int, mode string, er
 			log.Println(internalMsg + " || Internal error msg: " + err.Error())
 			body = []byte(msg)
 			if mode == "partial" {
-				SendHtmlErrorPartial(body, status)
-			} else if mode == "page" {
-				SendHtmlErrorPage(body, status)
+				handler := SendHtmlErrorPartial(body, status)
+				handler.ServeHTTP(w, r)
 			} else {
-				SendHtmlErrorPage(body, status)
+				handler := SendHtmlErrorPage(body, status)
+				handler.ServeHTTP(w, r)
 			}
 			return
 		}

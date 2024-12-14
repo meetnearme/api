@@ -44,7 +44,7 @@ func TestSendHtmlRes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rr := httptest.NewRecorder()
-			handler := SendHtmlRes(rr, tt.body, tt.status, tt.err, "page")
+			handler := SendHtmlRes(rr, tt.body, tt.status, "page", tt.err)
 
 			req := httptest.NewRequest("GET", "/", nil)
 			// Set up context with APIGatewayV2HTTPRequest
@@ -83,7 +83,7 @@ func TestSendHtmlErrorPartial(t *testing.T) {
 	})
 	req = req.WithContext(ctx)
 
-	handler := SendHtmlErrorPartial(rr, body, status)
+	handler := SendHtmlErrorPartial(body, status)
 	handler.ServeHTTP(rr, req)
 
 	if rr.Code != status {
@@ -167,7 +167,8 @@ func TestSendHtmlErrorPage(t *testing.T) {
 
 	// Test
 	errorBody := []byte("test error message")
-	SendHtmlErrorPage(w, r, errorBody, http.StatusBadRequest)
+	handler := SendHtmlErrorPage(errorBody, http.StatusBadRequest)
+	handler.ServeHTTP(w, r)
 
 	// Assertions
 	resp := w.Result()

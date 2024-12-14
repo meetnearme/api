@@ -24,19 +24,19 @@ type PurchasedItem struct {
 
 // PurchaseInsert represents the data required to insert a new purchase
 type PurchaseInsert struct {
-	UserID            string          `json:"user_id" validate:"required" dynamodbav:"userId"`
-	EventID           string          `json:"event_id" validate:"required" dynamodbav:"eventId"`
-	CompositeKey      string          `json:"composite_key" validate:"required" dynamodbav:"compositeKey"`
-	EventName         string          `json:"event_name" validate:"required"  dynamodbav:"eventName"`
-	Status            string          `json:"status" validate:"required" dynamodbav:"status"`
-	PurchasedItems    []PurchasedItem `json:"purchased_items" validate:"required" dynamodbav:"purchasedItems"`
-	Total             int32           `json:"total" validate:"required" dynamodbav:"total"`
-	Currency          string          `json:"currency" validate:"required" dynamodbav:"currency"`
-	StripeSessionId   string          `json:"stripe_session_id" dynamodbav:"stripeSessionId"`
-	StripeTransaction string          `json:"stripe_transaction" dynamodbav:"stripeTransactionId"`
-	CreatedAt         int64           `json:"created_at" validate:"required" dynamodbav:"createdAt"` // Adjust based on your date format
-	CreatedAtString   string          `json:"created_at_string" validate:"required" dynamodbav:"createdAtString"`
-	UpdatedAt         int64           `json:"updated_at" validate:"required" dynamodbav:"updatedAt"` // Adjust based on your date format
+	UserID              string          `json:"user_id" validate:"required" dynamodbav:"userId"`
+	EventID             string          `json:"event_id" validate:"required" dynamodbav:"eventId"`
+	CompositeKey        string          `json:"composite_key" validate:"required" dynamodbav:"compositeKey"`
+	EventName           string          `json:"event_name" validate:"required"  dynamodbav:"eventName"`
+	Status              string          `json:"status" validate:"required" dynamodbav:"status"`
+	PurchasedItems      []PurchasedItem `json:"purchased_items" validate:"required" dynamodbav:"purchasedItems"`
+	Total               int32           `json:"total" validate:"required" dynamodbav:"total"`
+	Currency            string          `json:"currency" validate:"required" dynamodbav:"currency"`
+	StripeSessionId     string          `json:"stripe_session_id" dynamodbav:"stripeSessionId"`
+	StripeTransactionId string          `json:"stripe_transaction_id" dynamodbav:"stripeTransactionId"`
+	CreatedAt           int64           `json:"created_at" validate:"required" dynamodbav:"createdAt"` // Adjust based on your date format
+	CreatedAtString     string          `json:"created_at_string" validate:"required" dynamodbav:"createdAtString"`
+	UpdatedAt           int64           `json:"updated_at" validate:"required" dynamodbav:"updatedAt"` // Adjust based on your date format
 }
 
 // Purchases represents a purchase in the system

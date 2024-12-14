@@ -232,28 +232,28 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 			</div>
 			<div class="form-control">
 				<label class="label">Timezone</label>
-				<select class="select select-bordered" value={ event.Timezone }>
+				<select class="select select-bordered" value={ event.Timezone.String() }>
 					<option value="">Select timezone</option>
 					<option
-						if (event.Timezone == "America/New_York") {
+						if (event.Timezone.String() == "America/New_York") {
 							selected
 						}
 						value="America/New_York"
 					>America/New_York</option>
 					<option
-						if (event.Timezone == "America/Chicago") {
+						if (event.Timezone.String() == "America/Chicago") {
 							selected
 						}
 						value="America/Chicago"
 					>America/Chicago</option>
 					<option
-						if (event.Timezone == "America/Denver") {
+						if (event.Timezone.String() == "America/Denver") {
 							selected
 						}
 						value="America/Denver"
 					>America/Denver</option>
 					<option
-						if (event.Timezone == "America/Los_Angeles") {
+						if (event.Timezone.String() == "America/Los_Angeles") {
 							selected
 						}
 						value="America/Los_Angeles"

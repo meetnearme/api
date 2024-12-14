@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -74,9 +75,6 @@ func (s *RegistrationService) InsertRegistration(ctx context.Context, dynamodbCl
 		return nil, err
 	}
 
-	log.Printf("inserted reg fields after creation: %v", insertedRegistration)
-
-	// return registration, nil
 	return &insertedRegistration, nil
 }
 
@@ -103,9 +101,10 @@ func (s *RegistrationService) GetRegistrationByPk(ctx context.Context, dynamodbC
 	return &registration, nil
 }
 
-func (s *RegistrationService) GetRegistrationsByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.Registration, error) {
+func (s *RegistrationService) GetRegistrationsByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Registration, map[string]dynamodb_types.AttributeValue, error) {
 	queryInput := &dynamodb.QueryInput{
 		TableName: aws.String(registrationTableName),
+		Limit:     aws.Int32(limit),
 		KeyConditions: map[string]dynamodb_types.Condition{
 			"eventId": {
 				ComparisonOperator: dynamodb_types.ComparisonOperatorEq,
@@ -116,19 +115,34 @@ func (s *RegistrationService) GetRegistrationsByEventID(ctx context.Context, dyn
 		},
 	}
 
-	// Run the query with the constructed QueryInput
+	// If startKey is provided, use it for pagination
+	if startKey != "" {
+		// Extract createdAtString from the composite key (value after second '_')
+		parts := strings.Split(startKey, "_")
+		if len(parts) != 2 {
+			return nil, nil, fmt.Errorf("invalid startKey format")
+		}
+		userId := parts[0]
+		eventId := parts[1]
+
+		queryInput.ExclusiveStartKey = map[string]dynamodb_types.AttributeValue{
+			"userId":  &dynamodb_types.AttributeValueMemberS{Value: userId},
+			"eventId": &dynamodb_types.AttributeValueMemberS{Value: eventId},
+		}
+	}
+
 	result, err := dynamodbClient.Query(ctx, queryInput)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var registrations []internal_types.Registration
 	err = attributevalue.UnmarshalListOfMaps(result.Items, &registrations)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return registrations, nil
+	return registrations, result.LastEvaluatedKey, nil
 }
 
 func (s *RegistrationService) GetRegistrationsByUserID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string) ([]internal_types.Registration, error) {
@@ -227,7 +241,7 @@ func (s *RegistrationService) DeleteRegistration(ctx context.Context, dynamodbCl
 type MockRegistrationService struct {
 	InsertRegistrationFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registration internal_types.RegistrationInsert, eventId, userId string) (*internal_types.Registration, error)
 	GetRegistrationByPkFunc       func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) (*internal_types.Registration, error)
-	GetRegistrationsByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.Registration, error)
+	GetRegistrationsByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Registration, map[string]dynamodb_types.AttributeValue, error)
 	GetRegistrationsByUserIDFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string) ([]internal_types.Registration, error)
 	UpdateRegistrationFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string, registration internal_types.RegistrationUpdate) (*internal_types.Registration, error)
 	DeleteRegistrationFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error
@@ -241,8 +255,8 @@ func (m *MockRegistrationService) GetRegistrationByPk(ctx context.Context, dynam
 	return m.GetRegistrationByPkFunc(ctx, dynamodbClient, eventId, userId)
 }
 
-func (m *MockRegistrationService) GetRegistrationsByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.Registration, error) {
-	return m.GetRegistrationsByEventIDFunc(ctx, dynamodbClient, eventId)
+func (m *MockRegistrationService) GetRegistrationsByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Registration, map[string]dynamodb_types.AttributeValue, error) {
+	return m.GetRegistrationsByEventIDFunc(ctx, dynamodbClient, eventId, limit, startKey)
 }
 
 func (m *MockRegistrationService) GetRegistrationsByUserID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string) ([]internal_types.Registration, error) {

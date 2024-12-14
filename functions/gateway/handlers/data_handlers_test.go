@@ -46,11 +46,13 @@ func TestPostEvent(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	// Get port and create full URL
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
+	// os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
@@ -75,7 +77,7 @@ func TestPostEvent(t *testing.T) {
 		// Mock the response
 		response := &marqo.UpsertDocumentsResponse{
 			Errors:    false,
-			IndexName: "mock-events-search",
+			IndexName: testMarqoIndexName,
 			Items: []marqo.Item{
 				{
 					ID:     "123",
@@ -96,15 +98,17 @@ func TestPostEvent(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
-	} else {
-		t.Log("Started mock Marqo server")
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
+
+	// Update the environment variable with the actual bound address
+	boundAddress := mockMarqoServer.Listener.Addr().String()
+	os.Setenv("DEV_MARQO_API_BASE_URL", fmt.Sprintf("http://%s", boundAddress))
 
 	tests := []struct {
 		name                    string
@@ -115,21 +119,16 @@ func TestPostEvent(t *testing.T) {
 		expectMissingAuthHeader bool
 	}{
 		{
-			name:        "Valid event",
-			requestBody: `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
-			mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
-				res, err := services.BulkUpsertEventToMarqo(client, events, false)
-				if err != nil {
-					log.Printf("mocked request to upsert event failed: %v", err)
-				}
-				return &marqo.UpsertDocumentsResponse{}, fmt.Errorf("mocked request to upsert event res: %v", res)
-			},
+			name:           "Valid event",
+			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+			mockUpsertFunc: nil,
 			expectedStatus: http.StatusCreated,
 			expectedBodyCheck: func(body string) error {
 				var response map[string]interface{}
 				if err := json.Unmarshal([]byte(body), &response); err != nil {
 					return fmt.Errorf("failed to unmarshal response body: %v", err)
 				}
+				t.Logf("<<< response: %v", response)
 				items, ok := response["items"].([]interface{})
 				if !ok || len(items) == 0 {
 					return fmt.Errorf("expected non-empty Items array, got '%v'", items)
@@ -308,11 +307,15 @@ func TestPostBatchEvents(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	// Get port and create full URL
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
+
+	// set below in response to binding
+	// os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
@@ -375,15 +378,17 @@ func TestPostBatchEvents(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
-	} else {
-		t.Log("Started mock Marqo server")
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
+
+	// Update the environment variable with the actual bound address
+	boundAddress := mockMarqoServer.Listener.Addr().String()
+	os.Setenv("DEV_MARQO_API_BASE_URL", fmt.Sprintf("http://%s", boundAddress))
 
 	tests := []struct {
 		name                    string
@@ -526,11 +531,13 @@ func TestSearchEvents(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	// Get port and create full URL
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
+	// os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
@@ -587,13 +594,17 @@ func TestSearchEvents(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
+
+	// Update the environment variable with the actual bound address
+	boundAddress := mockMarqoServer.Listener.Addr().String()
+	os.Setenv("DEV_MARQO_API_BASE_URL", fmt.Sprintf("http://%s", boundAddress))
 
 	tests := []struct {
 		name           string
@@ -679,11 +690,13 @@ func TestBulkUpdateEvents(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	// Get port and create full URL
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
+	// os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
@@ -746,13 +759,17 @@ func TestBulkUpdateEvents(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
+
+	// Update the environment variable with the actual bound address
+	boundAddress := mockMarqoServer.Listener.Addr().String()
+	os.Setenv("DEV_MARQO_API_BASE_URL", fmt.Sprintf("http://%s", boundAddress))
 
 	tests := []struct {
 		name                    string
@@ -837,11 +854,13 @@ func TestUpdateOneEvent(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	// Get port and create full URL
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
+	// os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables
@@ -887,15 +906,17 @@ func TestUpdateOneEvent(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
-	} else {
-		t.Log("Started mock Marqo server")
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
+
+	// Update the environment variable with the actual bound address
+	boundAddress := mockMarqoServer.Listener.Addr().String()
+	os.Setenv("DEV_MARQO_API_BASE_URL", fmt.Sprintf("http://%s", boundAddress))
 
 	tests := []struct {
 		name                    string
