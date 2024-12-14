@@ -186,11 +186,11 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		db := transport.GetDB()
-		geoThenPatchSeshuSessionHandler(w, r, db)
+		GeoThenPatchSeshuSessionHandler(w, r, db)
 	}
 }
 
-func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db internal_types.DynamoDBAPI) {
+func GeoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db internal_types.DynamoDBAPI) {
 	ctx := r.Context()
 	var inputPayload GeoThenSeshuPatchInputPayload
 	body, err := io.ReadAll(r.Body)
