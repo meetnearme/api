@@ -80,6 +80,10 @@ type rawEvent struct {
 }
 
 func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
+	loc, err := time.LoadLocation(raw.Timezone)
+	if err != nil {
+		return types.Event{}, fmt.Errorf("invalid timezone: %w", err)
+	}
 	event := types.Event{
 		Id:              raw.Id,
 		EventOwners:     raw.EventOwners,
@@ -90,7 +94,7 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 		Address:         raw.Address,
 		Lat:             raw.Lat,
 		Long:            raw.Long,
-		Timezone:        raw.Timezone,
+		Timezone:        *loc,
 	}
 
 	// Safely assign pointer values
@@ -136,14 +140,14 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	if raw.StartTime == nil {
 		return types.Event{}, fmt.Errorf("startTime is required")
 	}
-	startTime, err := helpers.UtcOrUnixToUnix64(raw.StartTime)
+	startTime, err := helpers.UtcToUnix64(raw.StartTime, loc)
 	if err != nil || startTime == 0 {
 		return types.Event{}, fmt.Errorf("invalid StartTime: %w", err)
 	}
 	event.StartTime = startTime
 
 	if raw.EndTime != nil {
-		endTime, err := helpers.UtcOrUnixToUnix64(raw.EndTime)
+		endTime, err := helpers.UtcToUnix64(raw.EndTime, loc)
 		if err != nil || endTime == 0 {
 			return types.Event{}, fmt.Errorf("invalid EndTime: %w", err)
 		}
@@ -765,13 +769,12 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		createPurchase.Status = helpers.StripeCheckoutStatus.Pending
 
 		// Create the composite key
-		compositeKey := fmt.Sprintf("%s#%s#%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
+		compositeKey := fmt.Sprintf("%s_%s_%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
 
 		// Add the composite key and createdAt to the purchase object
 		createPurchase.CompositeKey = compositeKey
 
 		log.Printf("db payload `createPurchase`: %+v", createPurchase)
-
 		db := transport.GetDB()
 		_, err := h.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
@@ -827,12 +830,14 @@ func CreateCheckoutSessionHandler(w http.ResponseWriter, r *http.Request) http.H
 // Function to transform Purchase to PurchaseUpdate
 func TransformPurchaseToUpdate(purchase internal_types.Purchase) internal_types.PurchaseUpdate {
 	return internal_types.PurchaseUpdate{
-		UserID:       purchase.UserID,
-		EventID:      purchase.EventID,
-		CompositeKey: purchase.CompositeKey,
-		EventName:    purchase.EventName,
-		Status:       purchase.Status,
-		UpdatedAt:    time.Now().Unix(),
+		UserID:              purchase.UserID,
+		EventID:             purchase.EventID,
+		CompositeKey:        purchase.CompositeKey,
+		EventName:           purchase.EventName,
+		Status:              purchase.Status,
+		UpdatedAt:           time.Now().Unix(),
+		StripeTransactionId: purchase.StripeTransactionId,
+		StripeSessionId:     purchase.StripeSessionId,
 	}
 }
 
@@ -885,13 +890,16 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			createdAt = matches[3]
 		}
 		purchase, err := h.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
-		// purchase, err := purchaseHandler.PurchaseService.GetPurchaseByPk(r.Context(), db, eventID, userID, createdAt)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to get purchases for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
 			return err
 		}
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
 		purchaseUpdate.Status = helpers.StripeCheckoutStatus.Settled
+		if checkoutSession.PaymentIntent != nil {
+			purchaseUpdate.StripeTransactionId = checkoutSession.PaymentIntent.ID
+		}
+
 		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to update purchase status to SETTLED: "), http.StatusInternalServerError, err)

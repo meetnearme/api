@@ -3,6 +3,8 @@ package types
 import (
 	"context"
 	"time"
+
+	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 // RegistrationsInsert represents the data required to insert a new user
@@ -36,7 +38,7 @@ type RegistrationServiceInterface interface {
 	InsertRegistration(ctx context.Context, dynamoClient DynamoDBAPI, registration RegistrationInsert, eventId, userId string) (*Registration, error)
 	GetRegistrationByPk(ctx context.Context, dynamoClient DynamoDBAPI, eventId, userId string) (*Registration, error)
 	GetRegistrationsByUserID(ctx context.Context, dynamoClient DynamoDBAPI, userId string) ([]Registration, error)
-	GetRegistrationsByEventID(ctx context.Context, dynamoClient DynamoDBAPI, eventId string) ([]Registration, error)
+	GetRegistrationsByEventID(ctx context.Context, dynamoClient DynamoDBAPI, eventId string, limit int32, startKey string) ([]Registration, map[string]dynamodb_types.AttributeValue, error)
 	UpdateRegistration(ctx context.Context, dynamoClient DynamoDBAPI, eventId, userId string, registration RegistrationUpdate) (*Registration, error)
 	DeleteRegistration(ctx context.Context, dynamoClient DynamoDBAPI, eventId, userId string) error
 }

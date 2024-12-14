@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
+	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
@@ -30,7 +30,8 @@ func TestGetMarqoClient(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -72,13 +73,11 @@ func TestGetMarqoClient(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
-	} else {
-		t.Log("Started mock Marqo server")
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
@@ -105,7 +104,8 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -161,27 +161,28 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
-	startTime1, err := helpers.UtcOrUnixToUnix64("2099-05-01T12:00:00Z")
+	loc, _ := time.LoadLocation("America/New_York")
+	startTime1, err := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
 	if err != nil || startTime1 == 0 {
-		t.Logf("failed to convert UTC to unix, %v", startTime1)
+		t.Fatalf("failed to convert UTC to unix, %v", startTime1)
 	}
 
-	startTime2, err := helpers.UtcOrUnixToUnix64("2099-06-01T14:00:00Z")
+	startTime2, err := helpers.UtcToUnix64("2099-06-01T14:00:00Z", loc)
 	if err != nil || startTime2 == 0 {
-		t.Logf("failed to convert UTC to unix, %v", startTime2)
+		t.Fatalf("failed to convert UTC to unix, %v", startTime2)
 	}
 
-	startTime3, err := helpers.UtcOrUnixToUnix64("2099-07-01T16:00:00Z")
-	if err != nil || startTime1 == 0 {
-		t.Logf("failed to convert UTC to unix, %v", startTime3)
+	startTime3, err := helpers.UtcToUnix64("2099-07-01T16:00:00Z", loc)
+	if err != nil || startTime3 == 0 {
+		t.Fatalf("failed to convert UTC to unix, %v", startTime3)
 	}
 
 	tests := []struct {
@@ -200,7 +201,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 					Address:        "123 Test St",
 					Lat:            51.5074,
 					Long:           -0.1278,
-					Timezone:       "America/New_York",
+					Timezone:       *loc,
 				},
 				{
 					EventOwners:    []string{"456"},
@@ -211,7 +212,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 					Address:        "456 Test Ave",
 					Lat:            40.7128,
 					Long:           -74.0060,
-					Timezone:       "America/New_York",
+					Timezone:       *loc,
 				},
 				{
 					EventOwners:    []string{"789"},
@@ -222,7 +223,7 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 					Address:        "789 Test Blvd",
 					Lat:            34.0522,
 					Long:           -118.2437,
-					Timezone:       "America/New_York",
+					Timezone:       *loc,
 				},
 			},
 		},
@@ -270,7 +271,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -284,36 +286,82 @@ func TestSearchMarqoEvents(t *testing.T) {
 		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
-	// Create a mock HTTP server for Marqo
+	now := time.Now()
+	testEvents := []map[string]interface{}{
+		{
+			"_id":            "1",
+			"name":           "Today's Event",
+			"startTime":      now.Unix(),
+			"eventOwners":    []interface{}{"789"},
+			"eventOwnerName": "Today Host",
+			"description":    "Event happening today",
+		},
+		{
+			"_id":            "2",
+			"name":           "Next Week Event",
+			"startTime":      now.AddDate(0, 0, 5).Unix(),
+			"eventOwners":    []interface{}{"012"},
+			"eventOwnerName": "Week Host",
+			"description":    "Event happening next week",
+		},
+		{
+			"_id":            "3",
+			"name":           "Next Month Event",
+			"startTime":      now.AddDate(0, 1, 0).Unix(),
+			"eventOwners":    []interface{}{"345"},
+			"eventOwnerName": "Month Host",
+			"description":    "Event happening next month",
+		},
+	}
+
+	// Modify mock server to filter events based on startTime and endTime
 	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		query := r.URL.Query().Get("q")
-		decodedQuery, err := url.QueryUnescape(query)
-		if err != nil {
-			http.Error(w, "Failed to decode query", http.StatusBadRequest)
+		// Parse the request body to get the filter string
+		var searchRequest struct {
+			Filter *string `json:"filter"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&searchRequest); err != nil {
+			t.Logf("Failed to decode request body: %v", err)
+			http.Error(w, "Failed to decode request body", http.StatusBadRequest)
 			return
 		}
 
-		response := map[string]interface{}{
-			"hits": []map[string]interface{}{
-				{
-					"_id":            "123",
-					"eventOwners":    []interface{}{"789"},
-					"eventOwnerName": "First Event Host Test",
-					"name":           "First Test Event",
-					"description":    "Description of the first event",
-				},
-				{
-					"_id":            "456",
-					"eventOwners":    []interface{}{"012"},
-					"eventOwnerName": "Second Event Host Test",
-					"name":           "Second Test Event",
-					"description":    "Description of the second event",
-				},
-			},
-			"query": decodedQuery,
+		t.Logf("Received filter: %v", *searchRequest.Filter)
+
+		// Extract start and end time from the filter string
+		// The filter string format is: "... startTime:[{start} TO {end}] AND ..."
+		filterStr := *searchRequest.Filter
+		startTimeStr := regexp.MustCompile(`startTime:\[(\d+) TO`).FindStringSubmatch(filterStr)
+		endTimeStr := regexp.MustCompile(`TO (\d+)\]`).FindStringSubmatch(filterStr)
+
+		var startTime, endTime int64
+		if len(startTimeStr) > 1 {
+			startTime, _ = strconv.ParseInt(startTimeStr[1], 10, 64)
 		}
+		if len(endTimeStr) > 1 {
+			endTime, _ = strconv.ParseInt(endTimeStr[1], 10, 64)
+		}
+
+		t.Logf("Extracted time range: %d to %d", startTime, endTime)
+
+		// Filter events based on the time range
+		filteredEvents := []map[string]interface{}{}
+		for _, event := range testEvents {
+			eventTime := event["startTime"].(int64)
+			if eventTime >= startTime && eventTime <= endTime {
+				filteredEvents = append(filteredEvents, event)
+			}
+		}
+
+		t.Logf("Returning %d filtered events", len(filteredEvents))
+
+		response := map[string]interface{}{
+			"hits": filteredEvents,
+		}
+
 		responseBytes, err := json.Marshal(response)
 		if err != nil {
+			t.Logf("Failed to marshal response: %v", err)
 			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
 			return
 		}
@@ -323,55 +371,41 @@ func TestSearchMarqoEvents(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
 	tests := []struct {
-		name           string
-		query          string
-		expectedQuery  string
-		userLocation   []float64
-		maxDistance    float64
-		startTime      int64
-		endTime        int64
-		ownerIds       []string
-		categories     string
-		address        string
-		expectedEvents int
-		expectedError  bool
+		name        string
+		query       string
+		startTime   int64
+		endTime     int64
+		expectedIds []string
 	}{
 		{
-			name:           "Valid search",
-			query:          "test search",
-			expectedQuery:  "keywords: { test search }",
-			userLocation:   []float64{51.5074, -0.1278},
-			maxDistance:    10000,
-			startTime:      time.Now().Unix(),
-			endTime:        time.Now().AddDate(1, 0, 0).Unix(),
-			ownerIds:       []string{},
-			categories:     string(""),
-			address:        string(""),
-			expectedEvents: 2,
-			expectedError:  false,
+			name:        "Today's events",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.Add(24 * time.Hour).Unix(),
+			expectedIds: []string{"1"},
 		},
 		{
-			name:           "Empty query",
-			query:          "",
-			expectedQuery:  "",
-			userLocation:   []float64{51.5074, -0.1278},
-			maxDistance:    10000,
-			startTime:      time.Now().Unix(),
-			endTime:        time.Now().AddDate(1, 0, 0).Unix(),
-			ownerIds:       []string{},
-			categories:     string(""),
-			address:        string(""),
-			expectedEvents: 2,
-			expectedError:  false,
+			name:        "This week's events",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.AddDate(0, 0, 7).Unix(),
+			expectedIds: []string{"1", "2"},
+		},
+		{
+			name:        "This month's events",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.AddDate(0, 1, 0).Unix(),
+			expectedIds: []string{"1", "2", "3"},
 		},
 	}
 
@@ -382,39 +416,47 @@ func TestSearchMarqoEvents(t *testing.T) {
 				t.Fatalf("Failed to get Marqo client: %v", err)
 			}
 
-			// TODO: add meaningful test with categories
 			result, err := SearchMarqoEvents(
 				client,
 				tt.query,
-				tt.userLocation,
-				tt.maxDistance,
+				[]float64{51.5074, -0.1278},
+				10000,
 				tt.startTime,
 				tt.endTime,
-				tt.ownerIds,
-				tt.categories,
-				tt.address,
+				[]string{},
+				"",
+				"",
 				"0",
 				[]string{helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES[0]},
 				[]string{},
 			)
 
-			if tt.expectedError && err == nil {
-				t.Errorf("Expected an error, but got none")
-			}
-
-			if !tt.expectedError && err != nil {
+			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
 
-			if len(result.Events) != tt.expectedEvents {
-				t.Errorf("Expected %d events, but got %d", tt.expectedEvents, len(result.Events))
+			// Verify the number of returned events
+			if len(result.Events) != len(tt.expectedIds) {
+				t.Errorf("Expected %d events, got %d", len(tt.expectedIds), len(result.Events))
 			}
 
-			if result.Query != tt.expectedQuery {
-				t.Errorf("Expected query to be '%s', but got '%s'", tt.expectedQuery, result.Query)
+			// Verify the correct events were returned
+			returnedIds := make([]string, len(result.Events))
+			for i, event := range result.Events {
+				returnedIds[i] = event.Id
 			}
-
-			// Add more specific checks for the returned events if needed
+			for _, expectedId := range tt.expectedIds {
+				found := false
+				for _, returnedId := range returnedIds {
+					if expectedId == returnedId {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected event with ID %s not found in results", expectedId)
+				}
+			}
 		})
 	}
 }
@@ -430,7 +472,8 @@ func TestGetMarqoEventByID(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -451,7 +494,8 @@ func TestGetMarqoEventByID(t *testing.T) {
 		testEventDescription = "This is a test event"
 	)
 
-	testEventStartTime, tmErr := helpers.UtcOrUnixToUnix64("2099-05-01T12:00:00Z")
+	loc, _ := time.LoadLocation("America/New_York")
+	testEventStartTime, tmErr := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
 	if tmErr != nil || testEventStartTime == 0 {
 		t.Logf("tmError converting UTC to unix: %v", tmErr)
 	}
@@ -482,13 +526,11 @@ func TestGetMarqoEventByID(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
-	} else {
-		t.Log("Started mock Marqo server")
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
@@ -531,7 +573,8 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 
 	// Set test environment variables
 	testMarqoApiKey := "test-marqo-api-key"
-	testMarqoEndpoint := fmt.Sprintf("http://localhost:%d", test_helpers.GetNextPort())
+	port := test_helpers.GetNextPort()
+	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
@@ -545,12 +588,13 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
 	}()
 
-	testEventStartTime1, _err := helpers.UtcOrUnixToUnix64("2099-05-01T12:00:00Z")
+	loc, _ := time.LoadLocation("America/New_York")
+	testEventStartTime1, _err := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
 	if _err != nil {
 		log.Printf("failed to convert UTC to unix 64, err: %v", _err)
 	}
 
-	testEventStartTime2, _err := helpers.UtcOrUnixToUnix64("2099-06-01T14:00:00Z")
+	testEventStartTime2, _err := helpers.UtcToUnix64("2099-06-01T14:00:00Z", loc)
 	if _err != nil {
 		log.Printf("failed to convert UTC to unix 64, err: %v", _err)
 	}
@@ -606,13 +650,11 @@ func TestBulkGetMarqoEventByID(t *testing.T) {
 
 	// Set the mock Marqo server URL
 	mockMarqoServer.Listener.Close()
-	var err error
-	mockMarqoServer.Listener, err = net.Listen("tcp", testMarqoEndpoint[len("http://"):])
+	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
 	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server: %v", err)
-	} else {
-		t.Log("Started mock Marqo server")
+		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
 	}
+	mockMarqoServer.Listener = listener
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 

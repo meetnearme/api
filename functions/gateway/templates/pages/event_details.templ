@@ -7,6 +7,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 	"net/url"
 	"os"
+	"strings"
 )
 
 templ IconLeftSection(labelText, labelValue, icon, url string, venueSection bool, event types.Event) {
@@ -57,7 +58,7 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 			<br/>
 		} else {
 			if (canEdit) {
-				<div class="alert alert-success">You are an editor for this event. <a class="btn btn-sm" href={ templ.URL("/admin/event/edit/" + event.Id) }>Edit Event</a></div>
+				<div class="alert alert-success">You are an editor for this event. <a class="btn btn-sm" href={ templ.URL(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1)) }>Edit Event</a></div>
 			}
 			<h2 class="text-3xl mt-2">{ event.Name }</h2>
 			if event.EventSourceType == helpers.ES_SERIES_PARENT {
@@ -119,7 +120,7 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 							href={ templ.URL(fmt.Sprintf("https://calendar.google.com/calendar/render?action=TEMPLATE&dates=%s/%s&ctz=%s&details=%s&location=%s&text=%s",
 						helpers.FormatTimeForGoogleCalendar(event.StartTime, event.Timezone),
 						helpers.FormatTimeForGoogleCalendar(event.StartTime + (60*60), event.Timezone),
-						event.Timezone,
+						event.Timezone.String(),
 						url.QueryEscape(event.Description),
 						url.QueryEscape(event.Address),
 						url.QueryEscape(event.Name))) }

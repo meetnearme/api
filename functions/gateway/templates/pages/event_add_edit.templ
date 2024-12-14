@@ -2,14 +2,17 @@ package pages
 
 import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"strconv"
+	"strings"
 )
 
 templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor bool) {
 	<div x-data="addEditEventState()">
 		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
 			<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
+			<a class="btn btn-sm" href={ templ.URL(strings.Replace(helpers.SitePages["attendees-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1)) }>View Attendees</a>
 		</header>
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Basic Information</h2>
 		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
@@ -207,9 +210,59 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					</div>
 				</div>
 				<div class="form-control">
-					<label class="label" for="eventOwnerName">Owner Display Name</label>
-					<input class="input input-bordered" id="eventOwnerName" type="text" placeholder="Enter owner display name" value={ event.EventOwnerName }/>
+					<label class="label">Start Date & Time</label>
+					<input
+						class="input input-bordered"
+						type="datetime-local"
+						if (event.StartTime > 0) {
+							value={ helpers.GetDatetimePickerFormatted(event.StartTime) }
+						}
+					/>
 				</div>
+				<div class="form-control">
+					<label class="label">End Date & Time</label>
+					<input
+						class="input input-bordered"
+						type="datetime-local"
+						if (event.EndTime > 0) {
+							value={ helpers.GetDatetimePickerFormatted(event.EndTime) }
+						}
+					/>
+				</div>
+			</div>
+			<div class="form-control">
+				<label class="label">Timezone</label>
+				<select class="select select-bordered" value={ event.Timezone.String() }>
+					<option value="">Select timezone</option>
+					<option
+						if (event.Timezone.String() == "America/New_York") {
+							selected
+						}
+						value="America/New_York"
+					>America/New_York</option>
+					<option
+						if (event.Timezone.String() == "America/Chicago") {
+							selected
+						}
+						value="America/Chicago"
+					>America/Chicago</option>
+					<option
+						if (event.Timezone.String() == "America/Denver") {
+							selected
+						}
+						value="America/Denver"
+					>America/Denver</option>
+					<option
+						if (event.Timezone.String() == "America/Los_Angeles") {
+							selected
+						}
+						value="America/Los_Angeles"
+					>America/Los_Angeles</option>
+				</select>
+			</div>
+			<div class="form-control">
+				<label class="label">Image URL</label>
+				<input class="input input-bordered" type="text" placeholder="Enter image URL"/>
 			</div>
 		</div>
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Details</h2>
@@ -239,28 +292,28 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				</div>
 				<div class="form-control">
 					<label class="label">Timezone</label>
-					<select class="select select-bordered" value={ event.Timezone }>
+					<select class="select select-bordered" value={ event.Timezone.String() }>
 						<option value="">Select timezone</option>
 						<option
-							if (event.Timezone == "America/New_York") {
+							if (event.Timezone.String() == "America/New_York") {
 								selected
 							}
 							value="America/New_York"
 						>America/New_York</option>
 						<option
-							if (event.Timezone == "America/Chicago") {
+							if (event.Timezone.String() == "America/Chicago") {
 								selected
 							}
 							value="America/Chicago"
 						>America/Chicago</option>
 						<option
-							if (event.Timezone == "America/Denver") {
+							if (event.Timezone.String() == "America/Denver") {
 								selected
 							}
 							value="America/Denver"
 						>America/Denver</option>
 						<option
-							if (event.Timezone == "America/Los_Angeles") {
+							if (event.Timezone.String() == "America/Los_Angeles") {
 								selected
 							}
 							value="America/Los_Angeles"
@@ -276,27 +329,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Location Details</h2>
 		<div id="location" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
 			<div class="card">
-				<h2 class="card-title">Location Details</h2>
-				<div class="form-control">
-					<label class="label">Address</label>
-					<textarea
-						class="textarea textarea-bordered"
-						placeholder="Enter full address"
-						if event.Address != "" {
-							value={ event.Address }
-						}
-					></textarea>
-				</div>
-				<div class="grid grid-2">
-					<div class="form-control">
-						<label class="label">Latitude</label>
-						<input class="input input-bordered" type="number" step="any" placeholder="Enter latitude"/>
-					</div>
-					<div class="form-control">
-						<label class="label">Longitude</label>
-						<input class="input input-bordered" type="number" step="any" placeholder="Enter longitude"/>
-					</div>
-				</div>
+				@components.LocationLookupPartial("post", "/api/location/geo", "", "formData.url", "Update Location", event.Lat, event.Long, event.Address)
 			</div>
 		</div>
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Pricing & Registration</h2>

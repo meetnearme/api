@@ -33,7 +33,10 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 
 	// NOTE: This assumes the UI home page default is "THIS MONTH" and the absence
 	// of an explicit start_time query param ...
-	if (startTimeStr == "" && endTimeStr == "") || strings.ToLower(startTimeStr) == "this_month" {
+	if (startTimeStr == "" && endTimeStr == "") || strings.ToLower(startTimeStr) == "this_year" {
+		startTime = time.Now()
+		endTime = startTime.AddDate(1, 0, 0)
+	} else if strings.ToLower(startTimeStr) == "this_month" {
 		startTime = time.Now()
 		endTime = startTime.AddDate(0, 1, 0)
 	} else if strings.ToLower(startTimeStr) == "today" {
@@ -228,7 +231,7 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
 func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -241,7 +244,7 @@ func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
 func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -271,7 +274,7 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
 func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -295,7 +298,7 @@ func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.Handler
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
 func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -313,7 +316,7 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 	validRoles := []string{"superAdmin", "eventEditor"}
 	if !helpers.HasRequiredRole(roleClaims, validRoles) {
 		err := errors.New("Only event editors can add or edit events")
-		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, err)
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
 	}
 
 	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
@@ -326,11 +329,11 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		pageObj = helpers.SitePages["edit-event"]
 		marqoClient, err := services.GetMarqoClient()
 		if err != nil {
-			return transport.SendHtmlRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+			return transport.SendHtmlRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, "page", err)
 		}
 		eventPtr, err := services.GetMarqoEventByID(marqoClient, eventId, "")
 		if err != nil {
-			return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
+			return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, "page", err)
 		}
 		if eventPtr != nil {
 			event = *eventPtr
@@ -341,7 +344,7 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		canEdit := helpers.CanEditEvent(&event, &userInfo, roleClaims)
 		if !canEdit {
 			err := errors.New("You are not authorized to edit this event")
-			return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, err)
+			return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, "page", err)
 		}
 	}
 	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, event, isEditor)
@@ -351,9 +354,65 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, err)
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, "page", err)
 	}
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
+}
+
+func GetEventAttendeesPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	validRoles := []string{"superAdmin", "eventEditor"}
+	if !helpers.HasRequiredRole(roleClaims, validRoles) {
+		err := errors.New("Only event editors can add or edit events")
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
+	}
+
+	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	var pageObj helpers.SitePage
+	pageObj = helpers.SitePages["attendees-event"]
+	var event types.Event
+	var isEditor bool = false
+	if eventId != "" {
+		marqoClient, err := services.GetMarqoClient()
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, "page", err)
+		}
+		eventPtr, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, "page", err)
+		}
+		if eventPtr != nil {
+			event = *eventPtr
+		}
+		if event.EventOwners == nil {
+			event.EventOwners = []string{}
+		}
+		canEdit := helpers.CanEditEvent(&event, &userInfo, roleClaims)
+		if !canEdit {
+			err := errors.New("You are not authorized to edit this event")
+			return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, "page", err)
+		}
+	}
+	addOrEditEventPage := pages.EventAttendeesPage(pageObj, event, isEditor)
+
+	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event)
+
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, "page", err)
+	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
 func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -370,7 +429,7 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
 func GetCfRay(r *http.Request) string {
@@ -412,7 +471,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
 func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -428,5 +487,5 @@ func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerF
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }

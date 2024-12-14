@@ -22,6 +22,7 @@ export default {
     // oddly, order matters here, don't switch the order
     app.setDefaultFunctionProps({
       runtime: 'go',
+      timeout: '30 seconds',
     });
     app
       .stack(StaticSiteStack)

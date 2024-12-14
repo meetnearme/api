@@ -17,7 +17,6 @@ var db internal_types.DynamoDBAPI
 
 func init() {
 	db = transport.CreateDbClient()
-	log.Printf("db client: %v", db)
 }
 
 // UserHandler handles user-related requests
@@ -33,139 +32,138 @@ func NewRegistrationFieldsHandler(registrationFieldsService internal_types.Regis
 func (h *RegistrationFieldsHandler) CreateRegistrationFields(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventId := vars["event_id"]
-    if eventId == "" {
-        transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
-        return
-    }
+	if eventId == "" {
+		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
+		return
+	}
 
-    var createRegistrationFields internal_types.RegistrationFieldsInsert
-    body, err := io.ReadAll(r.Body)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
-        return
-    }
+	var createRegistrationFields internal_types.RegistrationFieldsInsert
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
+		return
+	}
 
 	createRegistrationFields.CreatedAt = time.Now()
 	createRegistrationFields.UpdatedAt = time.Now()
 	createRegistrationFields.EventId = eventId
 
-    err = json.Unmarshal(body, &createRegistrationFields)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
-        return
-    }
+	err = json.Unmarshal(body, &createRegistrationFields)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
+		return
+	}
 
-    err = validate.Struct(&createRegistrationFields)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
-        return
-    }
+	err = validate.Struct(&createRegistrationFields)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
+		return
+	}
 
-    res, err := h.RegistrationFieldsService.InsertRegistrationFields(r.Context(), db, createRegistrationFields, eventId)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Failed to create registration fields: "+err.Error()), http.StatusInternalServerError, err)
-        return
-    }
+	res, err := h.RegistrationFieldsService.InsertRegistrationFields(r.Context(), db, createRegistrationFields, eventId)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to create registration fields: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
 
-    response, err := json.Marshal(res)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
-        return
-    }
+	response, err := json.Marshal(res)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+		return
+	}
 
-    transport.SendServerRes(w, response, http.StatusCreated, nil)
+	transport.SendServerRes(w, response, http.StatusCreated, nil)
 }
 
 // This needs to change for use cases of fetching multiple users based on org ID or other
 func (h *RegistrationFieldsHandler) GetRegistrationFieldsByEventID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventId := vars["event_id"]
-    if eventId == "" {
-        transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
-        return
-    }
+	if eventId == "" {
+		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
+		return
+	}
 
-    registrationFields, err := h.RegistrationFieldsService.GetRegistrationFieldsByEventID(r.Context(), db, eventId)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Failed to get users: "+err.Error()), http.StatusInternalServerError, err)
-        return
-    }
+	registrationFields, err := h.RegistrationFieldsService.GetRegistrationFieldsByEventID(r.Context(), db, eventId)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get users: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
 
-    response, err := json.Marshal(registrationFields)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
-        return
-    }
+	response, err := json.Marshal(registrationFields)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+		return
+	}
 
-    transport.SendServerRes(w, response, http.StatusOK, nil)
+	transport.SendServerRes(w, response, http.StatusOK, nil)
 }
 
 func (h *RegistrationFieldsHandler) UpdateRegistrationFields(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventId := vars["event_id"]
-    if eventId == "" {
-        transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
-        return
-    }
+	if eventId == "" {
+		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
+		return
+	}
 
-    var updateRegistrationFields internal_types.RegistrationFieldsUpdate
-    body, err := io.ReadAll(r.Body)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
-        return
-    }
+	var updateRegistrationFields internal_types.RegistrationFieldsUpdate
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
+		return
+	}
 
 	updateRegistrationFields.UpdatedAt = time.Now()
 
-    err = json.Unmarshal(body, &updateRegistrationFields)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
-        return
-    }
+	err = json.Unmarshal(body, &updateRegistrationFields)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
+		return
+	}
 
-    err = validate.Struct(&updateRegistrationFields)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
-        return
-    }
+	err = validate.Struct(&updateRegistrationFields)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
+		return
+	}
 
-    updatedRegistrationFields, err := h.RegistrationFieldsService.UpdateRegistrationFields(r.Context(), db, eventId, updateRegistrationFields)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Failed to update user: "+err.Error()), http.StatusInternalServerError, err)
-        return
-    }
+	updatedRegistrationFields, err := h.RegistrationFieldsService.UpdateRegistrationFields(r.Context(), db, eventId, updateRegistrationFields)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to update user: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
 
-    if updatedRegistrationFields == nil {
-        transport.SendServerRes(w, []byte("Registration not found"), http.StatusNotFound, nil)
-        return
-    }
+	if updatedRegistrationFields == nil {
+		transport.SendServerRes(w, []byte("Registration not found"), http.StatusNotFound, nil)
+		return
+	}
 
-    response, err := json.Marshal(updatedRegistrationFields)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
-        return
-    }
+	response, err := json.Marshal(updatedRegistrationFields)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+		return
+	}
 
-    transport.SendServerRes(w, response, http.StatusOK, nil)
+	transport.SendServerRes(w, response, http.StatusOK, nil)
 }
 
 func (h *RegistrationFieldsHandler) DeleteRegistrationFields(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventId := vars["event_id"]
-    if eventId == "" {
-        transport.SendServerRes(w, []byte("Missing user ID"), http.StatusBadRequest, nil)
-        return
-    }
+	if eventId == "" {
+		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusBadRequest, nil)
+		return
+	}
 
-    err := h.RegistrationFieldsService.DeleteRegistrationFields(r.Context(), db, eventId)
-    if err != nil {
-        transport.SendServerRes(w, []byte("Failed to delete user: "+err.Error()), http.StatusInternalServerError, err)
-        return
-    }
+	err := h.RegistrationFieldsService.DeleteRegistrationFields(r.Context(), db, eventId)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to delete user: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
 
-    transport.SendServerRes(w, []byte("Registration successfully deleted"), http.StatusOK, nil)
+	transport.SendServerRes(w, []byte("Registration successfully deleted"), http.StatusOK, nil)
 }
-
 
 func CreateRegistrationFieldsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	log.Printf("in reg fields wrapper")
@@ -202,4 +200,3 @@ func DeleteRegistrationFieldsHandler(w http.ResponseWriter, r *http.Request) htt
 		handler.DeleteRegistrationFields(w, r)
 	}
 }
-

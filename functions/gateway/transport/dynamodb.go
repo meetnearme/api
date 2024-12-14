@@ -18,9 +18,9 @@ import (
 )
 
 var (
-	db   internal_types.DynamoDBAPI
-	once sync.Once
-    testDB internal_types.DynamoDBAPI
+	db     internal_types.DynamoDBAPI
+	once   sync.Once
+	testDB internal_types.DynamoDBAPI
 )
 
 func init() {
@@ -58,7 +58,6 @@ func CreateDbClient() internal_types.DynamoDBAPI {
 			},
 		})
 		cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
-		log.Println("Connected to LOCAL DB")
 	}
 
 	if err != nil {
@@ -69,7 +68,7 @@ func CreateDbClient() internal_types.DynamoDBAPI {
 }
 
 func SetTestDB(db internal_types.DynamoDBAPI) {
-    testDB = db
+	testDB = db
 }
 
 func GetDB() internal_types.DynamoDBAPI {
@@ -77,11 +76,11 @@ func GetDB() internal_types.DynamoDBAPI {
 		if testDB == nil {
 			log.Println("Creating mock DB for testing")
 			testDB = &test_helpers.MockDynamoDBClient{
-					ScanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
-							return &dynamodb.ScanOutput{
-									Items: []map[string]types.AttributeValue{},
-							}, nil
-					},
+				ScanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+					return &dynamodb.ScanOutput{
+						Items: []map[string]types.AttributeValue{},
+					}, nil
+				},
 			}
 		}
 		log.Println("Returning mock DB for testing")
@@ -91,4 +90,4 @@ func GetDB() internal_types.DynamoDBAPI {
 		db = CreateDbClient()
 	})
 	return db
-	}
+}
