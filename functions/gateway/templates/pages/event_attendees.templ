@@ -31,8 +31,8 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				<a class="btn btn-sm" href={ templ.URL(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1)) }>Edit Event</a>
 			</header>
 			<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Purchases</h2>
-			<div id="tickets-sales" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
-				<div class="card">
+			<div id="tickets-sales" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box overflow-scroll">
+				<div>
 					<template x-if="!hasPurchasesResults && hasPurchasable">
 						<div class="flex w-full flex-col gap-4">
 							<div class="skeleton h-4 w-full"></div>
@@ -45,7 +45,7 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							<template x-if="purchasesNextCursor">
 								<a class="btn btn-sm float-end" :href=" window.location.pathname + '?purch_start_key=' + purchasesNextCursor">Show Next &rarr;</a>
 							</template>
-							<table class="table top-align table-pin-rows table-pin-cols table-zebra">
+							<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
 								<thead>
 									<tr>
 										<th>Buyer</th>
@@ -121,8 +121,8 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				</div>
 			</div>
 			<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2 mt-4">Registrations</h2>
-			<div id="tickets-sales" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
-				<div class="card">
+			<div id="tickets-registrations" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box overflow-scroll">
+				<div>
 					<template x-if="!hasRegistrationResults && hasRegistrationFields">
 						<div class="flex w-full flex-col gap-4">
 							<div class="skeleton h-4 w-full"></div>
@@ -135,7 +135,7 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							<template x-if="registrationsNextCursor">
 								<a class="btn btn-sm float-end" :href="getRegistrationNextLink()">Show Next &rarr;</a>
 							</template>
-							<table class="table top-align table-pin-rows table-pin-cols table-zebra">
+							<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
 								<thead>
 									<tr>
 										<th>Buyer</th>
