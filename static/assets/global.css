@@ -46,24 +46,24 @@ body:has(.bottom-drawer) {
 }
 
 .sticky-under-top-nav {
-  top: 4.5rem;
+  top: 4rem;
 }
 
 .sticky-under-top-nav.subheader {
-  top: 8.5rem;
+  top: 8rem;
 }
 
 .sticky-under-top-nav + *:first-child {
-  margin-top: 4.5rem;
+  margin-top: 4rem;
 }
 
 .brand-logo {
   width: 3rem;
-  height: 4.5rem;
+  height: 4rem;
 }
 
 .brand-type {
-  width: 8.2rem;
+  width: 7.7rem;
 }
 
 .drawer-end .drawer-toggle ~ .drawer-side {
