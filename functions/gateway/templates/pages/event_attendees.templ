@@ -144,7 +144,7 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 									</tr>
 								</thead>
 								<tbody>
-									<template x-for="registration in registrations" :key="registration.id">
+									<template x-for="registration in registrations" :key="registration.created_at">
 										<tr>
 											<td x-text="registration.user_id"></td>
 											<td colspan="5">
@@ -201,7 +201,6 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
                       const reqUrl = `/api/registrations/event/${this.eventId}${ startKey ? `?start_key=${encodeURIComponent(startKey)}` : '' }`;
                       const registrationResponse = await fetch(reqUrl);
                       const regResponseData = await registrationResponse.json();
-                      console.log('regResponseData', regResponseData);
                       this.registrations = regResponseData?.registrations ?? [];
                       this.registrationsNextCursor = regResponseData?.nextKey?.userId?.Value;
                       this.hasRegistrationResults = true;
