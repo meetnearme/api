@@ -187,6 +187,9 @@ func TestSetCloudFlareKV(t *testing.T) {
 	mockCloudflareServer.Start()
 	defer mockCloudflareServer.Close()
 
+	boundCfAddress := mockCloudflareServer.Listener.Addr().String()
+	os.Setenv("ZITADEL_INSTANCE_HOST", boundCfAddress)
+
 	zitadelListener, err := test_helpers.BindToPort(t, zitadelEndpoint)
 	if err != nil {
 		t.Fatalf("Failed to bind Zitadel server: %v", err)
@@ -195,9 +198,8 @@ func TestSetCloudFlareKV(t *testing.T) {
 	mockZitadelServer.Start()
 	defer mockZitadelServer.Close()
 
-	// Set environment variables with actual bound addresses
-	// os.Setenv("CLOUDFLARE_API_BASE_URL", mockCloudflareServer.Listener.Addr().String())
-	// os.Setenv("ZITADEL_INSTANCE_HOST", mockZitadelServer.Listener.Addr().String())
+	boundZtAddress := mockZitadelServer.Listener.Addr().String()
+	os.Setenv("ZITADEL_INSTANCE_HOST", boundZtAddress)
 
 	// Test cases
 	tests := []struct {
