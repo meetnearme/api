@@ -31,7 +31,7 @@ func TestLayout(t *testing.T) {
 				`<meta charset="UTF-8"`,
 				`<title>Meet Near Me - Events</title>`,
 				// NOTE: the hash is generated and should be committed to version control with each hash change to the CSS output
-				`<link rel="stylesheet" href=.*\?h=___[a-f0-9]{8}___`,
+				`<link rel="stylesheet" href=.*styles\.[a-f0-9]{8}\.css`,
 				`<meta name="viewport" content="width=device-width, initial-scale=1"`,
 				"hello world!",
 			},
@@ -51,7 +51,7 @@ func TestLayout(t *testing.T) {
 				`<meta charset="UTF-8"`,
 				`<title>Meet Near Me - Test Event 1</title>`,
 				// NOTE: the hash is generated and should be committed to version control with each hash change to the CSS output
-				`<link rel="stylesheet" href=.*\?h=___[a-f0-9]{8}___`,
+				`<link rel="stylesheet" href=.*styles\.[a-f0-9]{8}\.css`,
 				`<meta name="viewport" content="width=device-width, initial-scale=1"`,
 				"hello world!",
 			},
