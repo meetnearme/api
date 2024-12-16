@@ -54,7 +54,6 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 										<th>Total</th>
 										<th>Time</th>
 										<th></th>
-										<th></th>
 									</tr>
 								</thead>
 								<tbody>
@@ -112,7 +111,6 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 										<th>Total</th>
 										<th>Time</th>
 										<th></th>
-										<th></th>
 									</tr>
 								</tfoot>
 							</table>
@@ -165,7 +163,7 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 													</template>
 												</div>
 											</td>
-											<td x-text="new Date(registration.created_at * 1000).toLocaleString()"></td>
+											<td x-text="new Date(registration.created_at).toLocaleString()"></td>
 										</tr>
 									</template>
 								</tbody>
