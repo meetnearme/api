@@ -96,10 +96,14 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 											</td>
 											<td x-text="`\$${(purchase.total / 100).toFixed(2)}`"></td>
 											<td x-text="new Date(purchase.created_at * 1000).toLocaleString()"></td>
-											<td></td>
-											<template x-if="purchase.stripe_transaction_id">
-												<a class="btn btn-sm btn-primary mt-2" target="_blank" :href=" 'https://dashboard.stripe.com/payments/' + purchase.stripe_transaction_id ">View on Stripe</a>
-											</template>
+											<td>
+												<template x-if="purchase.stripe_transaction_id">
+													<a class="btn btn-sm btn-primary mt-2" target="_blank" :href=" 'https://dashboard.stripe.com/payments/' + purchase.stripe_transaction_id ">View on Stripe</a>
+												</template>
+												<template x-if="!purchase.stripe_transaction_id && purchase.stripe_session_id">
+													<a class="btn btn-sm btn-primary mt-2" target="_blank" :href=" 'https://dashboard.stripe.com/workbench/logs?object=' + purchase.stripe_session_id + '&filtered=true' ">View Incomplete on Stripe</a>
+												</template>
+											</td>
 										</tr>
 									</template>
 								</tbody>
