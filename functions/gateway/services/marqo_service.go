@@ -547,14 +547,16 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	}
 
 	// Group and sort the search results
-	groupedEvents := groupAndSortEvents(searchResp.Hits)
+	// groupedEvents := groupAndSortEvents(searchResp.Hits)
 
 	// Interleave the grouped events
-	interleavedEvents := interleaveEvents(groupedEvents)
+	// interleavedEvents := interleaveEvents(groupedEvents)
 
 	// Extract the events from the search response
 	var events []types.Event
-	for _, doc := range interleavedEvents {
+
+	// for _, doc := range interleavedEvents {
+	for _, doc := range searchResp.Hits {
 
 		event := NormalizeMarqoDocOrSearchRes(doc)
 		if event != nil {
