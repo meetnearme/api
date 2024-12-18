@@ -14,7 +14,6 @@ export default {
         try {
           const css = root.toString();
           const newHash = crypto.createHash('md5').update(css).digest('hex').slice(0, 8);
-
           // Define paths
           const baseStylesPath = './static/assets/styles';
           const tempFile = `${baseStylesPath}.css`;
@@ -24,17 +23,21 @@ export default {
           const templatePath = 'functions/gateway/templates/pages/layout.templ';
           const template = fs.readFileSync(templatePath, 'utf8');
 
-          // Update pattern to match the old style with query parameter
-          const pattern = /styles\.css\?h=___[^_]+___/;
-          const updatedTemplate = template.replace(pattern, `styles.${newHash}.css`);
+          // Extract current hash from filename in template
+          const hashMatch = template.match(/styles\.(.*?)\.css/);
+          const currentHash = hashMatch ? hashMatch[1] : null;
 
-          if (template !== updatedTemplate) {
+          // Only update if both conditions are met:
+          // 1. New hash is different from the current hash in the file
+          // 2. New hash is different from the previous hash we processed
+          if (newHash !== currentHash && newHash !== previousHash) {
+            const pattern = /styles\..*?\.css/;
+            const updatedTemplate = template.replace(pattern, `styles.${newHash}.css`);
             fs.writeFileSync(templatePath, updatedTemplate);
 
             // Wait for the temp file to be written
             setTimeout(() => {
               if (fs.existsSync(tempFile)) {
-                // Copy temp file to hashed filename
                 fs.copyFileSync(tempFile, newFileName);
 
                 // Remove old CSS file if it exists
@@ -47,7 +50,7 @@ export default {
 
                 console.log(`🔄 CSS updated: ${newFileName}`);
               }
-            }, 100); // Small delay to ensure file is written
+            }, 100);
           }
 
           previousHash = newHash;
