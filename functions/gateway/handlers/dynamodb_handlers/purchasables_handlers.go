@@ -7,11 +7,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
+
+var validate *validator.Validate = validator.New()
 
 type PurchasableHandler struct {
 	PurchasableService internal_types.PurchasableServiceInterface
