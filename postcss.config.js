@@ -14,6 +14,13 @@ function updateCSSFiles(css, result) {
   // Define paths
   const baseStylesPath = './static/assets/styles';
   const tempFile = `${baseStylesPath}.css`;
+
+  // Add initial file creation
+  if (!fs.existsSync(tempFile)) {
+    console.log('Creating initial styles.css file');
+    fs.writeFileSync(tempFile, css);
+  }
+
   const newFileName = `${baseStylesPath}.${newHash}.css`;
   const templatePath = 'functions/gateway/templates/pages/layout.templ';
 
