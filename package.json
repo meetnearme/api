@@ -22,7 +22,7 @@
     "deploy:prod": "sst deploy --stage prod",
     "remove": "sst remove",
     "console": "sst console",
-    "tailwind:prod": "tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --minify",
+    "tailwind:prod": "NODE_ENV=production tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --minify",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
