@@ -155,7 +155,6 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						registrationsNextCursor: null,
 						purchasesNextCursor: null,
 						getRegistrationNextLink() {
-							// TODO: handle this better, should query other query params and overwrite only `reg_start_key`
 							return window.location.href + '?reg_start_key=' + this.registrationsNextCursor + '_' + this.eventId;
 						}
 					}

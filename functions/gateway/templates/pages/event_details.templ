@@ -184,8 +184,6 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, checkoutPar
 							type: 'application/json',
 						};
 						const blob = new Blob([JSON.stringify(body)], headers);
-
-						// TODO: is this correct?
 						navigator.sendBeacon(`/api/checkout/${this.eventId}`, blob);
 						return
 					}

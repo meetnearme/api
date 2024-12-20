@@ -297,7 +297,6 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 				purchasesNextCursor: null,
 				userId: document.querySelector('#profile-state').getAttribute('data-user-id'),
 				getPurchasesNextLink() {
-					// TODO: handle this better, should query other query params and overwrite only `purch_start_key`
 					return window.location.href + '?purch_start_key=' + this.purchasesNextCursor + '_' + this.userId;
 				},
 				handleSubdomainPostRes: function(event) {
