@@ -173,7 +173,6 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, checkoutPar
 				formData: {},
 				handleCtaClick(tab) {
 					if (tab === 'rsvp' || tab === 'icmi' && this.userId) {
-						// TODO: refactor `body` payloadfor `purchases` endpoint
 						const body = {
               status: tab === 'rsvp' ? this.registeredStatus : this.interestedStatus,
               event_name: this.eventName,
