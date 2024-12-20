@@ -146,8 +146,9 @@ body:has(.bottom-drawer) {
   display: none;
 }
 
-.margins-when-children.my-8:has(*) {
-  margin: 2rem 0;
+.margins-when-children:not(:has(:first-child)) {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
 }
 
 /* BEGIN seshu ingestion "add event source" section */

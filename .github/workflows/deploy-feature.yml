@@ -28,7 +28,20 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21.x'
+      - name: npm install
+        id: npm-install
+        needs: npm-install
+        run: |
+          npm i
+      - name: Generate Tailwind CSS
+        # 🚨 Must come before `templ_generate` to ensure CSS hash in
+        # layout.templ is updated first, before go templates compile
+        id: generate-tailwind
+        run: |
+          npm run tailwind:prod
       - name: Generate templ code
+        id: generate-templ
+        needs: generate-tailwind
         uses: './.github/actions/templ_generate'
         with:
           templ-version: 'v0.2.747'
@@ -78,7 +91,7 @@ jobs:
         uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Deploy AWS resources via SST
         run: |
-          npm i && npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}
+          npx sst deploy --stage ${{ steps.extract_branch.outputs.branch }}
       - name: Deploy to Cloudflare Workers with Wrangler
         uses: cloudflare/wrangler-action@v3.7.0
         env:

@@ -50,26 +50,6 @@ func TestEventAttendeesPage(t *testing.T) {
 			},
 		},
 		{
-			name: "Valid event with registration fields",
-			pageObj: helpers.SitePage{
-				Name: "Event Attendees",
-			},
-			event: types.Event{
-				Id:                    "test-456",
-				Name:                  "Test Event",
-				HasPurchasable:        false,
-				HasRegistrationFields: true,
-			},
-			isEditor: true,
-			expected: []string{
-				"Event Attendees",
-				"Registrations",
-				"data-event-id=\"test-456\"",
-				"data-event-has-purchasable=\"false\"",
-				"data-event-has-registration-fields=\"true\"",
-			},
-		},
-		{
 			name: "Valid event with both purchasable and registration fields",
 			pageObj: helpers.SitePage{
 				Name: "Event Attendees",
@@ -84,7 +64,6 @@ func TestEventAttendeesPage(t *testing.T) {
 			expected: []string{
 				"Event Attendees",
 				"Purchases",
-				"Registrations",
 				"data-event-id=\"test-789\"",
 				"data-event-has-purchasable=\"true\"",
 				"data-event-has-registration-fields=\"true\"",

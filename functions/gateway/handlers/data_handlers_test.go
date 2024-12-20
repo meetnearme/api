@@ -1171,7 +1171,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 					EventID:         eventId,
 					UserID:          userId,
 					CreatedAtString: createdAt,
-					Status:          helpers.StripeCheckoutStatus.Pending,
+					Status:          helpers.PurchaseStatus.Pending,
 					PurchasedItems: []internal_types.PurchasedItem{
 						{
 							Name:     "Test Item",
@@ -1182,8 +1182,8 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 				}, nil
 			},
 			UpdatePurchaseFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string, update internal_types.PurchaseUpdate) (*internal_types.Purchase, error) {
-				if update.Status != helpers.StripeCheckoutStatus.Settled {
-					t.Errorf("expected status %v, got %v", helpers.StripeCheckoutStatus.Settled, update.Status)
+				if update.Status != helpers.PurchaseStatus.Settled {
+					t.Errorf("expected status %v, got %v", helpers.PurchaseStatus.Settled, update.Status)
 				}
 				return nil, nil
 			},
@@ -1357,7 +1357,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 							EventID:         eventId,
 							UserID:          userId,
 							CreatedAtString: createdAt,
-							Status:          helpers.StripeCheckoutStatus.Pending,
+							Status:          helpers.PurchaseStatus.Pending,
 							PurchasedItems: []internal_types.PurchasedItem{
 								{
 									Name:     "Test Item",
@@ -1368,8 +1368,8 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 						}, nil
 					},
 					UpdatePurchaseFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string, update internal_types.PurchaseUpdate) (*internal_types.Purchase, error) {
-						if update.Status != helpers.StripeCheckoutStatus.Canceled {
-							t.Errorf("expected status %v, got %v", helpers.StripeCheckoutStatus.Canceled, update.Status)
+						if update.Status != helpers.PurchaseStatus.Canceled {
+							t.Errorf("expected status %v, got %v", helpers.PurchaseStatus.Canceled, update.Status)
 						}
 						return nil, nil
 					},

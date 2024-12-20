@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,10 +17,11 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-func TestGetRegistrationsByEventID(t *testing.T) {
+func TestGetPurchasesByEventID(t *testing.T) {
 	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
 	// Save original environment variables
@@ -52,7 +54,6 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 		testEventDescription = "This is a test event"
 	)
 
-	t.Log("54 << got to")
 	loc, _ := time.LoadLocation("America/New_York")
 	testEventStartTime, tmErr := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
 	if tmErr != nil || testEventStartTime == 0 {
@@ -81,7 +82,6 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		w.Write(responseBytes)
 	}))
-	t.Log("84 << got to")
 	// Set up mock Marqo server
 	mockMarqoServer.Listener.Close()
 	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
@@ -96,7 +96,6 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 	boundAddress := mockMarqoServer.Listener.Addr().String()
 	os.Setenv("DEV_MARQO_API_BASE_URL", fmt.Sprintf("http://%s", boundAddress))
 
-	t.Log("90 << got to")
 	tests := []struct {
 		name          string
 		userID        string
@@ -113,21 +112,19 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 			name:          "unauthorized user",
 			userID:        "unauthorized_user",
 			expectedCode:  http.StatusForbidden,
-			expectedError: "You are not authorized to view this event's registrations",
+			expectedError: "You are not authorized to view this event's purchases",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Log("113 << got to")
-			mockService := &dynamodb_service.MockRegistrationService{
-				GetRegistrationsByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Registration, map[string]dynamodb_types.AttributeValue, error) {
-					return []internal_types.Registration{{EventId: eventId, UserId: "user1"}}, nil, nil
+			mockService := &dynamodb_service.MockPurchaseService{
+				GetPurchasesByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error) {
+					return []internal_types.Purchase{{EventID: eventId, UserID: "user1"}}, nil, nil
 				},
 			}
-			handler := NewRegistrationHandler(mockService)
-			t.Log("120 << got to")
-			req := httptest.NewRequest(http.MethodGet, "/registrations/event_id", nil)
+			handler := NewPurchaseHandler(mockService)
+			req := httptest.NewRequest(http.MethodGet, "/purchases/event_id", nil)
 			req = mux.SetURLVars(req, map[string]string{"event_id": testEventID})
 
 			// Add authentication context with test user
@@ -138,62 +135,112 @@ func TestGetRegistrationsByEventID(t *testing.T) {
 			req = req.WithContext(ctx)
 
 			w := httptest.NewRecorder()
-			handler.GetRegistrationsByEventID(w, req)
-			t.Log("133 << got to")
+			handler.GetPurchasesByEventID(w, req)
 			res := w.Result()
 			if res.StatusCode != tt.expectedCode {
 				t.Errorf("Expected status code %d, got %d", tt.expectedCode, res.StatusCode)
 			}
+			responseBody, _ := io.ReadAll(res.Body)
 			// If we expect an error, verify the error message
 			if tt.expectedError != "" {
-				var response map[string]interface{}
-				if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-					t.Fatalf("Failed to decode response: %v", err)
-				}
-
-				if msg, ok := response["error"].(map[string]interface{})["message"].(string); !ok ||
-					!strings.Contains(msg, tt.expectedError) {
-					t.Errorf("Expected error message to contain %q, got %q", tt.expectedError, msg)
+				if !strings.Contains(string(responseBody), tt.expectedError) {
+					t.Errorf("Expected error message to contain %q, got %q", tt.expectedError, string(responseBody))
 				}
 			}
 		})
 	}
 }
 
-func TestGetRegistrationsByUserID(t *testing.T) {
-	mockService := &dynamodb_service.MockRegistrationService{
-		GetRegistrationsByUserIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string) ([]internal_types.Registration, error) {
-			return []internal_types.Registration{{EventId: "event1", UserId: userId}}, nil
+func TestGetPurchasesByUserID(t *testing.T) {
+	tests := []struct {
+		name          string
+		requestUserID string // user ID in the request path
+		contextUserID string // user ID in the context
+		expectedCode  int
+		expectedError string
+	}{
+		{
+			name:          "authorized user",
+			requestUserID: "test_user_123",
+			contextUserID: "test_user_123",
+			expectedCode:  http.StatusOK,
+		},
+		{
+			name:          "unauthorized user",
+			requestUserID: "test_user_123",
+			contextUserID: "different_user",
+			expectedCode:  http.StatusForbidden,
+			expectedError: "You are not authorized to view this user's purchases",
 		},
 	}
-	handler := NewRegistrationHandler(mockService)
 
-	// Create request with user_id in path params
-	req := httptest.NewRequest(http.MethodGet, "/registrations/user123", nil)
-	req = mux.SetURLVars(req, map[string]string{"user_id": "user123"})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &dynamodb_service.MockPurchaseService{
+				GetPurchasesByUserIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userId string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error) {
+					return []internal_types.Purchase{{UserID: userId}}, nil, nil
+				},
+			}
+			handler := NewPurchaseHandler(mockService)
+			req := httptest.NewRequest(http.MethodGet, "/purchases/user_id", nil)
+			req = mux.SetURLVars(req, map[string]string{"user_id": tt.requestUserID})
 
-	// Create context with user info
+			// Add authentication context with test user
+			userInfo := helpers.UserInfo{
+				Sub: tt.contextUserID,
+			}
+			ctx := context.WithValue(req.Context(), "userInfo", userInfo)
+			req = req.WithContext(ctx)
+
+			w := httptest.NewRecorder()
+			handler.GetPurchasesByUserID(w, req)
+			res := w.Result()
+			if res.StatusCode != tt.expectedCode {
+				t.Errorf("Expected status code %d, got %d", tt.expectedCode, res.StatusCode)
+			}
+			responseBody, _ := io.ReadAll(res.Body)
+			// If we expect an error, verify the error message
+			if tt.expectedError != "" {
+				if !strings.Contains(string(responseBody), tt.expectedError) {
+					t.Errorf("Expected error message to contain %q, got %q", tt.expectedError, string(responseBody))
+				}
+			}
+		})
+	}
+}
+
+func TestDeletePurchase(t *testing.T) {
+	mockService := &dynamodb_service.MockPurchaseService{
+		DeletePurchaseFunc: func(ctx context.Context, dynamodbClient types.DynamoDBAPI, eventId string, userId string) error {
+			return nil
+		},
+	}
+	handler := NewPurchaseHandler(mockService)
+
+	// Add user context
+	const (
+		testEventID = "event-123"
+		testUserID  = "user-456"
+	)
+
+	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/purchases/%s/%s", testEventID, testUserID), nil)
+	req = mux.SetURLVars(req, map[string]string{
+		"event_id": testEventID,
+		"user_id":  testUserID,
+	})
+
+	// Add user context
 	userInfo := helpers.UserInfo{
-		Sub: "user123", // This should match the user_id in path params
-		// Add other required UserInfo fields if needed
+		Sub: testUserID, // Using the same user ID to test authorized deletion
 	}
 	ctx := context.WithValue(req.Context(), "userInfo", userInfo)
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
-	handler.GetRegistrationsByUserID(w, req)
+	handler.DeletePurchase(w, req)
 
 	res := w.Result()
 	if res.StatusCode != http.StatusOK {
 		t.Errorf("Expected status code 200, got %d", res.StatusCode)
-	}
-
-	// Optionally verify response body
-	var response []internal_types.Registration
-	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
-	if len(response) != 1 || response[0].UserId != "user123" {
-		t.Errorf("Unexpected response content")
 	}
 }

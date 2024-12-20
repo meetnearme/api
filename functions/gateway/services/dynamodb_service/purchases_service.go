@@ -54,15 +54,14 @@ func (s *PurchaseService) InsertPurchase(ctx context.Context, dynamodbClient int
 		ConditionExpression: aws.String("attribute_not_exists(compositeKey)"),
 	}
 
-	res, err := dynamodbClient.PutItem(ctx, input)
+	_, err = dynamodbClient.PutItem(ctx, input)
 	if err != nil {
-		log.Print("hitting error in put item dynamo")
+		log.Print("error inserting item in database")
 		return nil, err
 	}
 
 	var insertedPurchase internal_types.Purchase
-
-	err = attributevalue.UnmarshalMap(res.Attributes, &insertedPurchase)
+	err = attributevalue.UnmarshalMap(item, &insertedPurchase)
 	if err != nil {
 		return nil, err
 	}

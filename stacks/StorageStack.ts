@@ -1,8 +1,7 @@
 import { StackContext, Table } from 'sst/constructs';
 
 export function StorageStack({ stack }: StackContext) {
-  // Create the `Registrations` table
-  //
+  // 🚨 WARNING 🚨 Deprecated, do not use
   const eventRsvpsTable = new Table(stack, 'EventRsvps', {
     fields: {
       id: 'string',
@@ -72,6 +71,7 @@ export function StorageStack({ stack }: StackContext) {
     primaryIndex: { partitionKey: 'eventId' },
   });
 
+  // 🚨 WARNING 🚨 Deprecated, do not use
   const registrationsTable = new Table(stack, 'Registrations', {
     fields: {
       eventId: 'string',
