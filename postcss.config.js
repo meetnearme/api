@@ -23,14 +23,16 @@ function updateCSSFiles(css, result) {
 
   const newFileName = `${baseStylesPath}.${newHash}.css`;
   const templatePath = 'functions/gateway/templates/pages/layout.templ';
-
+  console.log('newHash', newHash);
   // Always copy the file in production mode
   if (process.env.NODE_ENV === 'production') {
+    console.log('PRODUCTION: copying file');
     if (fs.existsSync(tempFile)) {
       fs.copyFileSync(tempFile, newFileName);
 
       // Update template with new hash
       if (fs.existsSync(templatePath)) {
+        console.log('PRODUCTION: updating template');
         const template = fs.readFileSync(templatePath, 'utf8');
         const pattern = /styles\..*?\.css/;
         const updatedTemplate = template.replace(pattern, `styles.${newHash}.css`);
@@ -44,6 +46,7 @@ function updateCSSFiles(css, result) {
 
   // Rest of the watch mode logic
   try {
+    console.log('WATCH: checking for changes');
     // Read the template file
     const template = fs.readFileSync(templatePath, 'utf8');
 
@@ -64,6 +67,7 @@ function updateCSSFiles(css, result) {
                        templateHash !== previousTemplateHash;
 
     if (needsUpdate) {
+      console.log('WATCH: updating template');
       previousTemplateHash = templateHash;  // Store the new template hash
       const pattern = /styles\..*?\.css/;
       const updatedTemplate = template.replace(pattern, `styles.${newHash}.css`);
@@ -71,12 +75,15 @@ function updateCSSFiles(css, result) {
 
       // Ensure the temp file exists and copy it
       if (fs.existsSync(tempFile)) {
+        console.log('WATCH: copying file');
         fs.copyFileSync(tempFile, newFileName);
 
         // Remove old CSS file if it exists
         if (previousHash) {
+          console.log('WATCH: removing old file');
           const oldFile = `${baseStylesPath}.${previousHash}.css`;
           if (fs.existsSync(oldFile)) {
+            console.log('WATCH: removing old file');
             fs.unlinkSync(oldFile);
           }
         }
