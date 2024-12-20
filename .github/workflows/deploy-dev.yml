@@ -24,12 +24,12 @@ jobs:
           go-version: '1.21.x'
       - name: npm install
         id: npm-install
-        needs: npm-install
         run: |
           npm i
       - name: Generate Tailwind CSS
         # 🚨 Must come before `templ_generate` to ensure CSS hash in
         # layout.templ is updated first, before go templates compile
+        needs: npm-install
         id: generate-tailwind
         run: |
           npm run tailwind:prod
