@@ -26,7 +26,7 @@ curl -X POST https://devnear.me/api/users \
      "role": "standard_user"
  }'
 
- 
+
 ```
 
 2. Get User by ID
@@ -62,7 +62,7 @@ curl -X PUT https://devnear.me/api/users/<:user_id> \
 
 4. Delete User
 ```bash
-curl -X DELETE https://devnear.me/api/users/<:user_id> 
+curl -X DELETE https://devnear.me/api/users/<:user_id>
 ```
 
 ## Purchasables
@@ -161,7 +161,7 @@ curl -X POST https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/event-rs
 }'
 ```
 
-2. GET EventRsvp By PK 
+2. GET EventRsvp By PK
 ```bash
 curl -X GET https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/event-rsvps/6ce1be30-f700-475c-b84a-49af0c73f337/ea49a5f8-e27c-47b0-8237-6f6f380a048c \
   -H "Content-Type: application/json"
@@ -278,58 +278,6 @@ curl -X DELETE https://devnear.me/api/registration-fields/<:event_id> \
 -H "Content-Type: application/json"
 ```
 
-
-## Registrations
-
-#### Note eventId comes before userId in url params
-
-1. Create Registration
-```bash
-curl -X POST https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/62352e94-b34d-4ee7-a9d1-f1c8e404dec0/99413f71-bb0e-43c9-bc3a-fafc64c5c799 \
-     -H "Content-Type: application/json" \
-     -d '{
-           "responses": [
-             {"attendeeEmail": "me@meetnear.ne"},
-             {"tShirtSize": "XL"}
-           ]
-         }'
-```
-2. Get Registration by Primary Key
-```bash
-/api/registrations/{:event_id}/{:user_id}
-curl -X GET https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/62352e94-b34d-4ee7-a9d1-f1c8e404dec0/c9413f71-bb0e-43c9-bc3a-fafc64c5c799 \
-     -H "Content-Type: application/json"
-```
-
-3. Get Registration by EventId
-```bash
-curl -X GET https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/event/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
-     -H "Content-Type: application/json"
-```
-
-4. Get Registration by UserId
-```bash
-curl -X GET https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/user/c9413f71-bb0e-43c9-bc3a-fafc64c5c799 \
-     -H "Content-Type: application/json"
-```
-
-5. Update registration (uses PK)
-```bash
-curl -X PUT https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/62352e94-b34d-4ee7-a9d1-f1c8e404dec0/c9413f71-bb0e-43c9-bc3a-fafc64c5c799 \
-     -H "Content-Type: application/json" \
-     -d '{
-           "responses": [
-             {"attendeeEmail": "newemail@meetnear.ne"},
-             {"tShirtSize": "L"}
-           ]
-         }'
-```
-
-6. Delete Registration (uses PK)
-```bash
-curl -X DELETE https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/62352e94-b34d-4ee7-a9d1-f1c8e404dec0/c9413f71-bb0e-43c9-bc3a-fafc64c5c799 \
-     -H "Content-Type: application/json"
-```
 
 
 

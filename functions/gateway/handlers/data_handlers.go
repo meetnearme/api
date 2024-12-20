@@ -79,6 +79,12 @@ type rawEvent struct {
 	HideCrossPromo        *bool       `json:"hideCrossPromo,omitempty"`
 }
 
+// Create a new struct that includes the createPurchase fields and the Stripe checkout URL
+type PurchaseResponse struct {
+	internal_types.PurchaseInsert
+	StripeCheckoutURL string `json:"stripe_checkout_url"`
+}
+
 func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	loc, err := time.LoadLocation(raw.Timezone)
 	if err != nil {
@@ -634,7 +640,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	}
 
 	// all purchases are pending and a client passing this status should be overridden
-	createPurchase.Status = "PENDING"
+	if createPurchase.Status == "" {
+		createPurchase.Status = "PENDING"
+	}
 
 	err = json.Unmarshal(body, &createPurchase)
 	if err != nil {
@@ -655,12 +663,51 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	createdAtString := fmt.Sprintf("%020d", _createdAt) // Pad with zeros to a fixed width of 20 digits
 
 	createPurchase.CreatedAtString = createdAtString
+	referenceId := "event-" + eventId + "-user-" + userId + "-time-" + createPurchase.CreatedAtString
+
+	// Create the composite key
+	compositeKey := fmt.Sprintf("%s_%s_%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
+
+	// Add the composite key and createdAt to the purchase object
+	createPurchase.CompositeKey = compositeKey
+
+	// Create the purchase record immediately instead of deferring it
+	purchaseService := dynamodb_service.NewPurchaseService()
+	purchaseHandler := dynamodb_handlers.NewPurchaseHandler(purchaseService)
+
+	// when there are no purchased items, we treat this as an "RSVP" or "INTERESTED" status that shows
+	// in the users purchase / registration history. The empty PurchasedItems array signals that this
+	// is an event that does not have `RegistrationFields` or `PurchasableItems`
+	if len(createPurchase.PurchasedItems) == 0 {
+		db := transport.GetDB()
+		log.Printf("createPurchase: %+v", createPurchase)
+		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to insert free purchase into database: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+
+		// Create the response object
+		response := PurchaseResponse{
+			PurchaseInsert:    createPurchase,
+			StripeCheckoutURL: "", // Empty URL for free items
+		}
+
+		// Marshal and send the response
+		purchaseJSON, err := json.Marshal(response)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to marshal purchase response: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+		transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
+		return nil
+	}
 
 	purchasableService := dynamodb_service.NewPurchasableService()
-	h := dynamodb_handlers.NewPurchasableHandler(purchasableService)
+	purchasableHandler := dynamodb_handlers.NewPurchasableHandler(purchasableService)
 
 	db := transport.GetDB()
-	purchasable, err := h.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventId)
+	purchasable, err := purchasableHandler.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventId)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get purchasables for event id: "+eventId+" "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -683,13 +730,11 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
-	// this boolean gets toggled in the scenario where stripe
-	// checkout instantiation or other unrelated checkout steps
-	// AFTER the inventory is officially "held" + optimistically
-	// decremented
+	// this boolean gets toggled in the scenario where stripe checkout fails to complete or other
+	// unrelated checkout failures AFTER the inventory is officially "held" + optimistically decremented
 	var needsRevert bool
 
-	err = h.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventId, inventoryUpdates, purchasableMap)
+	err = purchasableHandler.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventId, inventoryUpdates, purchasableMap)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to update inventory: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -706,13 +751,46 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 					PurchasableIndex: update.PurchasableIndex,
 				}
 			}
-			revertErr := h.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventId, revertUpdates, purchasableMap)
+			revertErr := purchasableHandler.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventId, revertUpdates, purchasableMap)
 			if revertErr != nil {
 				log.Printf("ERR: Failed to revert inventory changes: %v", revertErr)
 			}
 		}
 	}()
 
+	// Handle for free item purchases. These still need to track inventory and update the database, though we don't
+	// need to create a Stripe checkout session
+	if createPurchase.Total == 0 {
+		// Skip Stripe checkout for free items
+		createPurchase.Status = helpers.PurchaseStatus.Registered // Mark as registered immediately since it's free
+
+		db := transport.GetDB()
+		log.Printf("createPurchase: %+v", createPurchase)
+		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
+		if err != nil {
+			needsRevert = true
+			transport.SendServerRes(w, []byte("Failed to insert free purchase into database: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+
+		// Create the response object
+		response := PurchaseResponse{
+			PurchaseInsert:    createPurchase,
+			StripeCheckoutURL: "", // Empty URL for free items
+		}
+
+		// Marshal and send the response
+		purchaseJSON, err := json.Marshal(response)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to marshal purchase response: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+		log.Printf("purchaseJSON: %s", string(purchaseJSON)) // Conve
+		transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
+		return nil
+	}
+
+	// Continue with existing Stripe checkout logic for paid items
 	_, stripePrivKey := services.GetStripeKeyPair()
 	stripe.Key = stripePrivKey
 
@@ -736,10 +814,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
-	referenceId := "event-" + eventId + "-user-" + userId + "-time-" + createPurchase.CreatedAtString
 	params := &stripe.CheckoutSessionParams{
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
-		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=success"),
+		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin/profile?new_purch_key=" + createPurchase.CompositeKey),
 		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=cancel"),
 		LineItems:         lineItems,
 		// NOTE: `mode` needs to be "subscription" if there's a subscription / recurring item,
@@ -764,31 +841,17 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// Now that the checks are in place, we defer the transaction creation in the database
 	// to respond to the client as quickly as possible
 	defer func() {
-		purchaseService := dynamodb_service.NewPurchaseService()
-		h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
-		createPurchase.Status = helpers.StripeCheckoutStatus.Pending
-
-		// Create the composite key
-		compositeKey := fmt.Sprintf("%s_%s_%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
-
-		// Add the composite key and createdAt to the purchase object
-		createPurchase.CompositeKey = compositeKey
+		createPurchase.Status = helpers.PurchaseStatus.Pending
 
 		log.Printf("db payload `createPurchase`: %+v", createPurchase)
 		db := transport.GetDB()
-		_, err := h.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
+		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
 			log.Printf("ERR: failed to insert purchase into purchases database for stripe session ID: %+v, err: %+v", stripeCheckoutResult.ID, err)
 		}
 	}()
 
 	log.Printf("\nstripe result: %+v", stripeCheckoutResult)
-
-	// Create a new struct that includes the createPurchase fields and the Stripe checkout URL
-	type PurchaseResponse struct {
-		internal_types.PurchaseInsert
-		StripeCheckoutURL string `json:"stripe_checkout_url"`
-	}
 
 	// Create the response object
 	response := PurchaseResponse{
@@ -895,7 +958,7 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			return err
 		}
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
-		purchaseUpdate.Status = helpers.StripeCheckoutStatus.Settled
+		purchaseUpdate.Status = helpers.PurchaseStatus.Settled
 		if checkoutSession.PaymentIntent != nil {
 			purchaseUpdate.StripeTransactionId = checkoutSession.PaymentIntent.ID
 		}
@@ -980,7 +1043,7 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			return err
 		}
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
-		purchaseUpdate.Status = helpers.StripeCheckoutStatus.Canceled
+		purchaseUpdate.Status = helpers.PurchaseStatus.Canceled
 
 		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
 		if err != nil {

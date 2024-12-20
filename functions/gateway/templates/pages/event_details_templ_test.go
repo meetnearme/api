@@ -181,7 +181,7 @@ func TestEventDetailsPage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := EventDetailsPage(tt.event, tt.checkoutParamVal, tt.canEdit)
+			component := EventDetailsPage(tt.event, helpers.UserInfo{}, tt.checkoutParamVal, tt.canEdit)
 
 			// Wrap the component with Layout
 			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event)

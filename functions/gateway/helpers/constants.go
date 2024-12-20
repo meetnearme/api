@@ -76,16 +76,20 @@ type UserInfo struct {
 	Metadata          string `json:"metadata"`
 }
 
-type StripeCheckoutStatuses struct {
-	Settled  string
-	Pending  string
-	Canceled string
+type PurchaseStatuses struct {
+	Settled    string
+	Pending    string
+	Canceled   string
+	Registered string
+	Interested string
 }
 
-var StripeCheckoutStatus = StripeCheckoutStatuses{
-	Settled:  "SETTLED",
-	Pending:  "PENDING",
-	Canceled: "CANCELED",
+var PurchaseStatus = PurchaseStatuses{
+	Settled:    "SETTLED",
+	Pending:    "PENDING",
+	Canceled:   "CANCELED",
+	Registered: "REGISTERED",
+	Interested: "INTERESTED",
 }
 
 // RoleClaim represents a formatted role claim.
@@ -134,16 +138,18 @@ type SitePage struct {
 }
 
 var SitePages = map[string]SitePage{
+	// NOTE: the {trailingslash:\\/?} is required for a route to match with or without a trailing slash, the
+	// solution is from this github comment (see discussion as well) https://github.com/gorilla/mux/issues/30#issuecomment-1666428538
 	"home":             {Key: "home", Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
-	"about":            {Key: "about", Slug: "/about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
-	"profile":          {Key: "profile", Slug: "/admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
-	"add-event-source": {Key: "add-event-source", Slug: "/admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
-	"settings":         {Key: "settings", Slug: "/admin/profile/settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
-	"map-embed":        {Key: "map-embed", Slug: "/map-embed", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
-	"event-detail":     {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
-	"add-event":        {Key: "add-event", Slug: "/admin/event/new", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
-	"edit-event":       {Key: "edit-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/edit", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
-	"attendees-event":  {Key: "attendees-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/attendees", Name: "Event Attendees", SubnavItems: []string{SubnavItems[NvMain]}},
+	"about":            {Key: "about", Slug: "/about{trailingslash:\\/?}", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
+	"profile":          {Key: "profile", Slug: "/admin/profile{trailingslash:\\/?}", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
+	"add-event-source": {Key: "add-event-source", Slug: "/admin/add-event-source{trailingslash:\\/?}", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
+	"settings":         {Key: "settings", Slug: "/admin/profile/settings{trailingslash:\\/?}", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
+	"map-embed":        {Key: "map-embed", Slug: "/map-embed{trailingslash:\\/?}", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
+	"event-detail":     {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}{trailingslash:\\/?}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
+	"add-event":        {Key: "add-event", Slug: "/admin/event/new{trailingslash:\\/?}", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
+	"edit-event":       {Key: "edit-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/edit{trailingslash:\\/?}", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
+	"attendees-event":  {Key: "attendees-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/attendees{trailingslash:\\/?}", Name: "Event Attendees", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 type Subcategory struct {
