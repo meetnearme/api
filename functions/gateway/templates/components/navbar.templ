@@ -516,38 +516,23 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								console.log(`purchasedItems:`, purchasedItems)
 								// TODO: do we need the total?
 								console.log(`total`, total)
-
 								if (purchasedItems?.length < 1) {
 									this.errors['checkout'] = "You have no selected items.";
 									this.reqInFlight = false;
 									return
 								}
-								let response;
-								if (total > 0) {
-									response = await fetch(`/api/checkout/${this.eventId}`, {
-										method: 'POST',
-										headers: {
-												'Content-Type': 'application/json'
-										},
-										body: JSON.stringify({
-											event_name: this.eventName,
-											purchased_items: purchasedItems,
-											total: total,
-											currency: "USD"
-										})
-									});
-								} else {
-									const regResponses = purchasedItems.flatMap(item => item.reg_responses)
-									response = await fetch(`/api/registrations/${this.eventId}/${this.userId || 'anonymous'}`, {
-										method: !this.userId ? 'POST' : 'PUT',
-										headers: {
-												'Content-Type': 'application/json'
-										},
-										body: JSON.stringify({
-											responses: regResponses,
-										})
-									});
-								}
+								const response = await fetch(`/api/checkout/${this.eventId}`, {
+									method: 'POST',
+									headers: {
+											'Content-Type': 'application/json'
+									},
+									body: JSON.stringify({
+										event_name: this.eventName,
+										purchased_items: purchasedItems,
+										total: total,
+										currency: "USD"
+									})
+								});
 								if (response.status === 401) {
 									this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/event/${this.eventId}">Register or Login now</a>`;
 									this.reqInFlight = false;
@@ -565,7 +550,9 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 										this.errors['checkout'] = "Invalid checkout URL received.";
 									}
 								} else if (total <= 0) {
-									window.location.href = window.location.origin + window.location.pathname + "?checkout=registered";
+									// `?new_purch_key` is received by the profile page to both highlight, scroll to, and poll in
+									// wait for the new event because of dynamo's eventual consistency.
+									window.location.href = window.location.origin + `/admin/profile#registration-history${this.userId ? `?new_purch_key=${json?.composite_key}` : ''}`;
 								} else {
 									if (json?.error?.message) {
 										this.errors['checkout'] = json.error.message;

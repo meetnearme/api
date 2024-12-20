@@ -38,7 +38,7 @@ templ IconLeftSection(labelText, labelValue, icon, url string, venueSection bool
 	</div>
 }
 
-templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool) {
+templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, checkoutParamVal string, canEdit bool) {
 	<div class="max-w-prose mx-auto" x-data="getEventDetailsData()">
 		if event.Id == "" {
 			<br/>
@@ -58,13 +58,15 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 			<br/>
 		} else {
 			if (canEdit) {
-				<div class="alert alert-success">You are an editor for this event. <a class="btn btn-sm" href={ templ.URL(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1)) }>Edit Event</a></div>
+				<div class="alert alert-success">
+					You are an editor for this event. <a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>Edit Event</a>
+				</div>
 			}
 			<h2 class="text-3xl mt-2">{ event.Name }</h2>
 			if event.EventSourceType == helpers.ES_SERIES_PARENT {
 				<h3 class="text-xl mt-2">Event Series</h3>
 				<div
-					hx-get={ "/api/html/events?list_mode=DATES_ONLY&end_time=2099-10-18T10:00:00Z&radius=5000&event_source_ids=" + event.Id }
+					hx-get={ "/api/html/events?list_mode=DATES_ONLY&end_time=2099-10-18T10:00:00Z&radius=20000&event_source_ids=" + event.Id }
 					hx-trigger="load"
 					hx-swap="outerHTML"
 				>
@@ -108,9 +110,9 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 			</p>
 			<div class="bottom-drawer">
 				<div class="container mx-auto">
-					if event.HasPurchasable {
+					if event.StartingPrice > 0 {
 						<button data-umami-event={ "buy-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">BUY TICKETS</button>
-					} else if event.HasRegistrationFields {
+					} else if event.HasRegistrationFields && event.StartingPrice == 0 {
 						<button data-umami-event={ "reg-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
 					} else {
 						<a
@@ -126,52 +128,65 @@ templ EventDetailsPage(event types.Event, checkoutParamVal string, canEdit bool)
 						url.QueryEscape(event.Name))) }
 							@click="handleCtaClick('rsvp')"
 							class="btn btn-block btn-primary"
-						>RSVP</a>
+						>
+							if userInfo.Sub == "" {
+								ADD TO CALENDAR
+							} else {
+								RSVP
+							}
+						</a>
 					}
-					<br/>
-					<br/>
-					<button
-						data-umami-event={ "intrst-click" }
-						data-umami-event-event-id={ event.Id }
-						@click="document.getElementById('icmi-modal').showModal(); handleCtaClick('icmi')"
-						class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content"
-					>Interested, can't make it!</button>
-					<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
-						<div class="modal-box">
-							<h3 class="text-lg font-bold">YAY!</h3>
-							<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
-							<form method="dialog" class="modal-backdrop">
-								<!-- if there is a button in form, it will close the modal -->
-								<button class="btn btn-primary">Close</button>
-							</form>
-						</div>
-					</dialog>
+					if userInfo.Sub != "" {
+						<br/>
+						<br/>
+						<button
+							data-umami-event={ "intrst-click" }
+							data-umami-event-event-id={ event.Id }
+							@click="document.getElementById('icmi-modal').showModal(); handleCtaClick('icmi')"
+							class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content"
+						>Interested, can't make it!</button>
+						<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+							<div class="modal-box">
+								<h3 class="text-lg font-bold">YAY!</h3>
+								<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+								<form method="dialog" class="modal-backdrop">
+									<!-- if there is a button in form, it will close the modal -->
+									<button class="btn btn-primary">Close</button>
+								</form>
+							</div>
+						</dialog>
+					}
 				</div>
 			</div>
 		}
 	</div>
 	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
-	<script id="event-details-script">
+	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered }>
 		function getEventDetailsData() {
 			return {
 				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),
 				eventId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-event-id'),
+        eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
+				interestedStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-interested-status'),
+				registeredStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-registered-status'),
 				init() {},
 				formData: {},
 				handleCtaClick(tab) {
 					if (tab === 'rsvp' || tab === 'icmi' && this.userId) {
+						// TODO: refactor `body` payloadfor `purchases` endpoint
 						const body = {
-							status: tab === 'rsvp' ? 'yes' : 'icmi',
-							event_source_type: 'silence',
-							event_type: 'is',
-							event_source_id: 'golden',
-						};
+              status: tab === 'rsvp' ? this.registeredStatus : this.interestedStatus,
+              event_name: this.eventName,
+              purchased_items: [],
+              total: 0,
+            }
 						const headers = {
 							type: 'application/json',
 						};
 						const blob = new Blob([JSON.stringify(body)], headers);
 
-						navigator.sendBeacon(`/api/event-rsvps/${this.eventId}/${this.userId}`, blob);
+						// TODO: is this correct?
+						navigator.sendBeacon(`/api/checkout/${this.eventId}`, blob);
 						return
 					}
 					if (tab === 'cart') {

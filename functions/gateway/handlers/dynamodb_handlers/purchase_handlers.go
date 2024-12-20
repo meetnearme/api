@@ -11,6 +11,7 @@ import (
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -185,11 +186,48 @@ func (h *PurchaseHandler) GetPurchasesByUserID(w http.ResponseWriter, r *http.Re
 
 func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["event_id"]
-	if id == "" {
-		transport.SendServerRes(w, []byte("Missing event_id ID"), http.StatusBadRequest, nil)
+	ctx := r.Context()
+	eventId := vars["event_id"]
+	if eventId == "" {
+		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
 	}
+
+	// Get user info from context
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	userId := userInfo.Sub
+	if userId == "" {
+		transport.SendServerRes(w, []byte("You must be logged in to view this event's purchases"), http.StatusUnauthorized, nil)
+		return
+	}
+
+	roleClaims := []helpers.RoleClaim{}
+	if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
+	}
+	// Validate event ownership
+	marqoClient, err := services.GetMarqoClient()
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get Marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+	event, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	canEdit := helpers.CanEditEvent(event, &userInfo, roleClaims)
+
+	if !canEdit {
+		transport.SendServerRes(w, []byte("You are not authorized to view this event's purchases"), http.StatusForbidden, nil)
+		return
+	}
+
+	// Handle pagination
 	limit := r.URL.Query().Get("limit")
 	limitInt, err := strconv.ParseInt(limit, 10, 32)
 	if err != nil || limit == "" {
@@ -198,7 +236,7 @@ func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.R
 	startKey := r.URL.Query().Get("start_key")
 
 	db := transport.GetDB()
-	purchases, lastEvaluatedKey, err := h.PurchaseService.GetPurchasesByEventID(r.Context(), db, id, int32(limitInt), startKey)
+	purchases, lastEvaluatedKey, err := h.PurchaseService.GetPurchasesByEventID(r.Context(), db, eventId, int32(limitInt), startKey)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get event's purchases: "+err.Error()), http.StatusInternalServerError, err)
 		return
