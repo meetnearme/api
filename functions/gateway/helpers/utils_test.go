@@ -188,7 +188,7 @@ func TestSetCloudFlareKV(t *testing.T) {
 	defer mockCloudflareServer.Close()
 
 	boundCfAddress := mockCloudflareServer.Listener.Addr().String()
-	os.Setenv("ZITADEL_INSTANCE_HOST", boundCfAddress)
+	os.Setenv("CLOUDFLARE_API_BASE_URL", boundCfAddress)
 
 	zitadelListener, err := test_helpers.BindToPort(t, zitadelEndpoint)
 	if err != nil {
