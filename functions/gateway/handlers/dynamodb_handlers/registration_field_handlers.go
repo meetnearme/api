@@ -3,7 +3,6 @@ package dynamodb_handlers
 import (
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"time"
 
@@ -166,7 +165,6 @@ func (h *RegistrationFieldsHandler) DeleteRegistrationFields(w http.ResponseWrit
 }
 
 func CreateRegistrationFieldsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	log.Printf("in reg fields wrapper")
 	registrationFieldsService := dynamodb_service.NewRegistrationFieldsService()
 	handler := NewRegistrationFieldsHandler(registrationFieldsService)
 	return func(w http.ResponseWriter, r *http.Request) {
