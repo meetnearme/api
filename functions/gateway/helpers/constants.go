@@ -12,7 +12,13 @@ const PurchasablesTablePrefix = "Purchasables"
 const SeshuSessionTablePrefix = "SeshuSessions"
 const RegistrationsTablePrefix = "Registrations"
 const RegistrationFieldsTablePrefix = "RegistrationFields"
+const CompetitionResultsTablePrefix = "CompetitionResults"
+const CompetitionConfigTablePrefix = "CompetitionConfig"
+const CompetitionRoundsTablePrefix = "CompetitionRounds"
+const VotesTablePrefix = "Votes"
+
 const EVENT_ID_KEY string = "eventId"
+const COMPETITIONS_ID_KEY string = "competitionId"
 const SUBDOMAIN_KEY = "subdomain"
 const INTERESTS_KEY = "interests"
 const ERR_KV_KEY_EXISTS = "key already exists in KV store"
@@ -134,16 +140,18 @@ type SitePage struct {
 }
 
 var SitePages = map[string]SitePage{
-	"home":             {Key: "home", Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
-	"about":            {Key: "about", Slug: "/about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
-	"profile":          {Key: "profile", Slug: "/admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
-	"add-event-source": {Key: "add-event-source", Slug: "/admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
-	"settings":         {Key: "settings", Slug: "/admin/profile/settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
-	"map-embed":        {Key: "map-embed", Slug: "/map-embed", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
-	"event-detail":     {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
-	"add-event":        {Key: "add-event", Slug: "/admin/event/new", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
-	"edit-event":       {Key: "edit-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/edit", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
-	"attendees-event":  {Key: "attendees-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/attendees", Name: "Event Attendees", SubnavItems: []string{SubnavItems[NvMain]}},
+	"home":              {Key: "home", Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
+	"about":             {Key: "about", Slug: "/about", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
+	"profile":           {Key: "profile", Slug: "/admin/profile", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
+	"add-event-source":  {Key: "add-event-source", Slug: "/admin/add-event-source", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
+	"settings":          {Key: "settings", Slug: "/admin/profile/settings", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
+	"map-embed":         {Key: "map-embed", Slug: "/map-embed", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
+	"event-detail":      {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
+	"add-event":         {Key: "add-event", Slug: "/admin/event/new", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
+	"edit-event":        {Key: "edit-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/edit", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
+	"attendees-event":   {Key: "attendees-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/attendees", Name: "Event Attendees", SubnavItems: []string{SubnavItems[NvMain]}},
+	"competitions":      {Key: "competitions", Slug: "/competitions", Name: "Competitions", SubnavItems: []string{SubnavItems[NvMain]}},
+	"competitions-edit": {Key: "competitions-edit", Slug: "/admin/competitions/{" + COMPETITIONS_ID_KEY + "}/edit", Name: "Edit Competition", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 type Subcategory struct {
