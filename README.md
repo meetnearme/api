@@ -19,7 +19,6 @@
     const cfLocations = `<replace me>`
     ```
     in the `cloudflare_locations.go` file and replace the `<replace me>` (keep the wrapping backtick characters) with the JSON from [speed.cloudflare.com/locations](https://speed.cloudflare.com/locations)... this file is used to intercept incoming request headers and look at the `Request['Headers']['Cf-Ray']` string, which terminates with a 3 letter code like `EWR` which correlates with an `iata` airport code. This is the Cloudflare datacenter serving the request
-1. Add your `APEX_URL` from your local deployment to the allow lists for both **Redirect** and **Post Logout URls** in Zitadel under **Redirect Settings** in [the admin UI](https://meet-near-me-production-8baqim.zitadel.cloud/ui/console/projects/273257176187855242/apps/273257486885118346) following the existing URL path schema for both
 1. Run `npm run dev:sst` to run the initial AWS project deployment. **NOTE** that you will NOT use the same command after the initial deployment of your project
 1. Give the project a an SST `stage` name, it can be anything 
 1. Once you see `✔  Deployed:` ... look for `ApexUrl: https://<abcxyz>.execute-api.us-east-1.amazonaws.com` where `abcxyz` is a hash unique to your project
@@ -30,7 +29,7 @@
    1. **Local static asset server**
    1. **Local node.js based `templ`** – our [golang templating engine pkg](https://templ.guide/)) watch script to rebuild templates as they're modified
    1. **Local tailwind watcher**  – this includes some complexity, because we use a hashing algorithim that updates `layout.templ` with a new hash value whenever the tailwind styles in the template change for cache-busting when new deployments are pushed to prod. The dev experience here is a work-in-progress. I've noticed that sometimes updates to `layout.templ` can require a FULL stop / restart of the `npm run dev` processes to take effect.
-   
+1. Add your `APEX_URL` from your local deployment to the allow lists for both **Redirect** and **Post Logout URls** in Zitadel under **Redirect Settings** in [the admin UI](https://meet-near-me-production-8baqim.zitadel.cloud/ui/console/projects/273257176187855242/apps/273257486885118346) following the existing URL path schema for both. If you don't have admin access in Zitadel, ask someone on the team   
 
 ### Generate Go templates from \*.templ files
 
