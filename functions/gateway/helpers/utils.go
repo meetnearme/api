@@ -405,8 +405,8 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 							}
 						},
 						{
-							"userNameQuery": {
-								"userName": "%s",
+							"displayNameQuery": {
+								"displayName": "%s",
 								"method": "TEXT_QUERY_METHOD_CONTAINS_IGNORE_CASE"
 							}
 						}
@@ -532,8 +532,8 @@ func GetTimeOrShowNone(datetime int64, timezone time.Location) string {
 	return formattedTime
 }
 
-func GetDatetimePickerFormatted(datetime int64) string {
-	return time.Unix(datetime, 0).Format("2006-01-02T15:04")
+func GetDatetimePickerFormatted(datetime int64, timezone time.Location) string {
+	return time.Unix(datetime, 0).In(&timezone).Format("2006-01-02T15:04")
 }
 
 func GetLocalDateAndTime(datetime int64, timezone time.Location) (string, string) {

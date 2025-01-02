@@ -3,37 +3,59 @@ package pages
 import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
+	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"strconv"
 	"strings"
 )
 
 templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor bool) {
-	<div x-data="addEditEventState()">
+	<div
+		x-data="addEditEventState()"
+		@child-updated.window="formData.eventChildren[$event.detail.index] = $event.detail.value"
+		@lat-updated.window="formData.event.lat = $event.detail.value"
+		@lon-updated.window="formData.event.long = $event.detail.value"
+		@address-updated.window="formData.event.address = $event.detail.value"
+	>
+		// NOTE: intentionally hidden fields that users can't affect directly
 		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
 			<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
 			<a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["attendees-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>View Attendees</a>
 		</header>
-		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Basic Information</h2>
-		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Overview</h2>
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
 			<div class="card">
 				<label class="form-control w-full max-w-xs">
 					<div class="label">Event Name</div>
-					<input class="input input-bordered w-full" id="name" type="text" placeholder="Enter event name" value={ event.Name }/>
+					<input
+						class="input input-bordered w-full"
+						id="name"
+						type="text"
+						placeholder="Enter event name"
+						x-model.fill={ "formData.event.name" }
+						value={ event.Name }
+						:disabled="saveReqInFlight"
+					/>
 				</label>
 				<div class="form-control">
 					<label class="label" for="description">Description</label>
-					<textarea class="textarea textarea-bordered w-full" id="description" placeholder="Enter event description">{ event.Description }</textarea>
+					<textarea
+						class="textarea textarea-bordered w-full"
+						id="description"
+						placeholder="Enter event description"
+						x-model.fill={ "formData.event.description" }
+						:disabled="saveReqInFlight"
+					>{ event.Description }</textarea>
 				</div>
 				<div class="form-control">
 					<label class="label">Categories</label>
 					<div class="categories" id="categoriesList">
-						<template x-for="category in categories">
+						<template x-for="category in formData.event.categories">
 							<span
 								class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
 							>
 								<span x-text="category"></span>
-								<button aria-label="remove category" class="btn btn-circle btn-neutral  btn-xs" @click="removeCategory(category)">
+								<button aria-label="remove category" class="btn btn-circle btn-neutral  btn-xs" @click="removeCategory(category)" :disabled="saveReqInFlight">
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										class="h-6 w-6"
@@ -59,17 +81,18 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						type="text"
 						x-model="categoryInput"
 						@keydown="handleCategoryKeydown"
+						:disabled="saveReqInFlight"
 					/>
 				</div>
 				<div class="form-control">
 					<label class="label">Tags</label>
 					<div class="tags" id="tagsList">
-						<template x-for="tag in tags">
+						<template x-for="tag in formData.event.tags">
 							<span
 								class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
 							>
 								<span x-text="tag"></span>
-								<button aria-label="remove tag" class="btn btn-circle btn-neutral  btn-xs" @click="removeTag(tag)">
+								<button aria-label="remove tag" class="btn btn-circle btn-neutral  btn-xs" @click="removeTag(tag)" :disabled="saveReqInFlight">
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										class="h-6 w-6"
@@ -95,14 +118,15 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						type="text"
 						x-model="tagInput"
 						@keydown="handleTagKeydown"
+						:disabled="saveReqInFlight"
 					/>
 				</div>
 			</div>
 			<div class="card">
-				<h2 class="card-title mt-4">Event Ownership</h2>
+				<h2 class="text-2xl mt-4">Event Ownership</h2>
 				<div class="form-control">
 					<div class="form-control">
-						<label class="label">Event Owners</label>
+						<label class="label">{ helpers.GetFieldDisplayName("EventOwners") }</label>
 						<div class="tags" id="ownersList">
 							<template x-for="owner in owners">
 								<span
@@ -114,7 +138,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 									<template x-if="!owner.label">
 										<span class="loading loading-spinner loading-sm"></span>
 									</template>
-									<button aria-label="remove owner" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeOwner(owner)">
+									<button aria-label="remove owner" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeOwner(owner)" :disabled="saveReqInFlight">
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
 											class="h-6 w-6"
@@ -157,10 +181,9 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								$nextTick(() => {
 									$el.closest('.relative').querySelector('li[role=option]')?.focus()
 								})"
-								x-on:keydown.enter.prevent="openedWithKeyboard = true"
-								x-on:keydown.space.prevent="openedWithKeyboard = true"
 								x-bind:aria-expanded="isOpen || openedWithKeyboard"
 								autocomplete="new-password"
+								:disabled="saveReqInFlight"
 							/>
 							<div
 								x-show="isOpen || openedWithKeyboard"
@@ -172,16 +195,16 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								x-on:click.outside="isOpen = false, openedWithKeyboard = false"
 								x-on:keydown.down.prevent="$focus.wrap().next()"
 								x-on:keydown.up.prevent="
-                if ($el.querySelector('li:focus') === $refs.optionsList.querySelector('li[role=option]')) {
-                  isOpen = false;
-                  openedWithKeyboard = false;
-                  $nextTick(() => {
-                      document.querySelector('[x-ref=ownerSearch]').focus();
-                  });
-                } else {
-                    $focus.wrap().previous()
-                }
-              "
+								if ($el.querySelector('li:focus') === $refs.optionsList.querySelector('li[role=option]')) {
+									isOpen = false;
+									openedWithKeyboard = false;
+									$nextTick(() => {
+											document.querySelector('[x-ref=ownerSearch]').focus();
+									});
+								} else {
+										$focus.wrap().previous()
+								}
+							"
 								x-transition
 								x-trap="openedWithKeyboard"
 							>
@@ -209,30 +232,60 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						</div>
 					</div>
 				</div>
+				<h2 class="text-2xl mt-4">Related Events</h2>
+				<div class="form-control w-full">
+					<label class="label cursor-pointer">
+						<span class="label-text">Only show my events as recommendations</span>
+						<input
+							name="hideCrossPromo"
+							type="checkbox"
+							class="toggle toggle-primary"
+							x-model.fill="formData.event.hideCrossPromo"
+							if event.HideCrossPromo {
+								checked
+							}
+							:disabled="saveReqInFlight"
+						/>
+					</label>
+				</div>
+			</div>
+		</div>
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Date &amp; Media</h2>
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
+			<div class="card">
 				<div class="form-control">
-					<label class="label">Start Date & Time</label>
+					<label class="label">{ helpers.GetFieldDisplayName("StartTime") }</label>
 					<input
 						class="input input-bordered"
 						type="datetime-local"
+						x-model.fill={ "formData.event.startTime" }
 						if (event.StartTime > 0) {
-							value={ helpers.GetDatetimePickerFormatted(event.StartTime) }
+							value={ helpers.GetDatetimePickerFormatted(event.StartTime, event.Timezone) }
 						}
+						:disabled="saveReqInFlight"
 					/>
 				</div>
 				<div class="form-control">
-					<label class="label">End Date & Time</label>
+					<label class="label">{ helpers.GetFieldDisplayName("EndTime") }</label>
 					<input
 						class="input input-bordered"
 						type="datetime-local"
+						x-model.fill={ "formData.event.endTime" }
 						if (event.EndTime > 0) {
-							value={ helpers.GetDatetimePickerFormatted(event.EndTime) }
+							value={ helpers.GetDatetimePickerFormatted(event.EndTime, event.Timezone) }
 						}
+						:disabled="saveReqInFlight"
 					/>
 				</div>
 			</div>
 			<div class="form-control">
 				<label class="label">Timezone</label>
-				<select class="select select-bordered" value={ event.Timezone.String() }>
+				<select
+					class="select select-bordered"
+					x-model.fill={ "formData.event.timezone" }
+					value={ event.Timezone.String() }
+					:disabled="saveReqInFlight"
+				>
 					<option value="">Select timezone</option>
 					<option
 						if (event.Timezone.String() == "America/New_York") {
@@ -260,96 +313,95 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					>America/Los_Angeles</option>
 				</select>
 			</div>
-			<div class="form-control">
-				<label class="label">Image URL</label>
-				<input class="input input-bordered" type="text" placeholder="Enter image URL"/>
-			</div>
 		</div>
-		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Details</h2>
-		<div id="details" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Series</h2>
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
 			<div class="card">
-				<div class="grid grid-2">
-					<div class="form-control">
-						<label class="label">Start Date & Time</label>
-						<input
-							class="input input-bordered"
-							type="datetime-local"
-							if (event.StartTime > 0) {
-								value={ helpers.GetDatetimePickerFormatted(event.StartTime) }
-							}
-						/>
+				<label class="label cursor-pointer">
+					<span class="label-text">Enable Multi-Event Series</span>
+					<input
+						name="isEventSeries"
+						type="checkbox"
+						class="toggle toggle-primary"
+						x-model="isEventSeries"
+						@change={ `formData.event.eventSourceType = isEventSeries ? "` + helpers.ES_SERIES_PARENT + `" : "` + helpers.ES_SINGLE_EVENT + `"` }
+						if event.EventSourceType == helpers.ES_SERIES_PARENT {
+							checked
+						}
+						:disabled="saveReqInFlight"
+					/>
+				</label>
+				<template x-if="isEventSeries">
+					<div>
+						if event.EventSourceType == helpers.ES_SERIES_PARENT {
+							<div
+								hx-get={ "/api/html/event-series-form/" + event.Id + "?end_time=2099-10-18T10:00:00Z&radius=20000" }
+								hx-trigger="load"
+								hx-swap="outerHTML"
+							>
+								<div class="flex w-full flex-col gap-4 my-3">
+									<div class="skeleton h-4 w-1/2"></div>
+									<div class="skeleton h-4 w-full"></div>
+									<div class="skeleton h-4 w-full"></div>
+								</div>
+							</div>
+						}
+						<template x-for="(child, idx) in formData.eventChildren">
+							<div>
+								<template x-if="idx > 0">
+									<div class="divider my-3"></div>
+								</template>
+								<h3 x-text=" 'Event #' + (idx + 1) + ' in Series' "></h3>
+								<div class="form-control">
+									for _, diffField := range partials.AlwaysShowEventDiffFields {
+										<label class="label">{ helpers.GetFieldDisplayName(diffField) }</label>
+										<input
+											class="input input-bordered w-full"
+											type="datetime-local"
+											name={ string(` 'event_' + idx + '_' + ` + string(diffField)) }
+											x-model={ "formData.eventChildren[idx]." + strings.ToLower(string(diffField[0])) + diffField[1:] }
+											:disabled="saveReqInFlight"
+										/>
+									}
+								</div>
+							</div>
+						</template>
+						// <h3>Event Children formData</h3>
+						// <div x-effect="$el.textContent = JSON.stringify(formData.eventChildren)"></div>
+						<button class="btn btn-primary mt-3 w-full" @click="addNewEventChild()" :disabled="saveReqInFlight">
+							<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
+							Add New Event
+						</button>
 					</div>
-					<div class="form-control">
-						<label class="label">End Date & Time</label>
-						<input
-							class="input input-bordered"
-							type="datetime-local"
-							if (event.EndTime > 0) {
-								value={ helpers.GetDatetimePickerFormatted(event.EndTime) }
-							}
-						/>
-					</div>
-				</div>
-				<div class="form-control">
-					<label class="label">Timezone</label>
-					<select class="select select-bordered" value={ event.Timezone.String() }>
-						<option value="">Select timezone</option>
-						<option
-							if (event.Timezone.String() == "America/New_York") {
-								selected
-							}
-							value="America/New_York"
-						>America/New_York</option>
-						<option
-							if (event.Timezone.String() == "America/Chicago") {
-								selected
-							}
-							value="America/Chicago"
-						>America/Chicago</option>
-						<option
-							if (event.Timezone.String() == "America/Denver") {
-								selected
-							}
-							value="America/Denver"
-						>America/Denver</option>
-						<option
-							if (event.Timezone.String() == "America/Los_Angeles") {
-								selected
-							}
-							value="America/Los_Angeles"
-						>America/Los_Angeles</option>
-					</select>
-				</div>
-				<div class="form-control">
-					<label class="label">Image URL</label>
-					<input class="input input-bordered" type="text" placeholder="Enter image URL"/>
-				</div>
+				</template>
 			</div>
 		</div>
-		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Location Details</h2>
-		<div id="location" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Venue Information</h2>
+		<div id="location" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
 			<div class="card">
 				@components.LocationLookupPartial("post", "/api/location/geo", "", "formData.url", "Update Location", event.Lat, event.Long, event.Address)
 			</div>
 		</div>
-		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Pricing & Registration</h2>
-		<div id="pricing" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Tickets, Sales, & Registrations</h2>
+		<div id="pricing" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
 			<div class="card">
-				<h2 class="card-title">Pricing & Registration</h2>
-				<div class="form-control w-52">
+				<h3 class="text-xl">Registration</h3>
+				<div class="form-control w-full">
 					<label class="label cursor-pointer">
-						<span class="label-text">Enable Event Registration</span>
+						<span class="label-text">Enable Event Registration (collect attendee question responses)</span>
 						<input
 							name="hasRegistrationFields"
 							type="checkbox"
 							class="toggle toggle-primary"
+							x-model.fill="formData.event.hasRegistrationFields"
 							if event.HasRegistrationFields {
 								checked
 							}
+							:disabled="saveReqInFlight"
 						/>
 					</label>
 				</div>
-				<template x-if="hasRegistrationFields && registrationFields.length < 1">
+				<template x-if="formData.event.hasRegistrationFields && !formData.registrationFieldsLoaded && registrationFields.length < 1">
 					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
 				</template>
 				<template x-if="registrationFields.length > 0">
@@ -359,20 +411,23 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						</template>
 					</ul>
 				</template>
-				<div class="form-control w-52">
+				<h3 class="text-xl mt-4">Purchasable Items, Tickets, Merch, etc.</h3>
+				<div class="form-control w-full">
 					<label class="label cursor-pointer">
 						<span class="label-text">Enable Purchasable Items</span>
 						<input
 							name="hasPurchasable"
 							type="checkbox"
 							class="toggle toggle-primary"
+							x-model.fill="formData.event.hasPurchasable"
 							if event.HasPurchasable {
 								checked
 							}
+							:disabled="saveReqInFlight"
 						/>
 					</label>
 				</div>
-				<template x-if="hasPurchasable && purchasables.length < 1">
+				<template x-if="formData.event.hasPurchasable && !formData.purchasablesLoaded && purchasables.length < 1">
 					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
 				</template>
 				<template x-if="purchasables.length > 0">
@@ -397,7 +452,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						</template>
 					</ul>
 				</template>
-				<div :class="hasPurchasable ? 'grid grid-2' : 'hidden'">
+				<div :class="formData.event.hasPurchasable ? 'grid grid-2' : 'hidden'">
 					<div class="form-control">
 						<label class="label">Starting Price</label>
 						<input
@@ -405,6 +460,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							type="number"
 							step="0.01"
 							placeholder="Enter starting price"
+							x-model.fill={ "formData.event.startingPrice" }
 							if event.StartingPrice > 0 {
 								value={ strconv.FormatInt(int64(event.StartingPrice/100), 10) }
 							}
@@ -416,6 +472,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							<option value="">Select currency</option>
 							<option
 								value="USD"
+								x-model.fill={ "formData.event.currency" }
 								if event.Currency == "USD" {
 									selected
 								}
@@ -436,12 +493,29 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							>GBP</option>
 						</select>
 					</div>
+					<div class="form-control">
+						// TODO: make this a typeahead like other user lookup for event owners
+						<label class="label">Payee</label>
+						<input
+							class="input"
+							type="text"
+							x-model="formData.event.payeeId"
+							value={ event.PayeeId }
+							:disabled="saveReqInFlight"
+						/>
+					</div>
 				</div>
+				<div x-effect="$el.textContent = JSON.stringify(formData)"></div>
 			</div>
 		</div>
 		<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
 			<button class="btn btn-outline">Cancel</button>
-			<button class="btn btn-primary mx-4">Publish</button>
+			<button type="submit" class="btn btn-primary mx-4" @click="handlePublishClick()">
+				Publish
+				<template x-if="saveReqInFlight">
+					<span class="loading loading-spinner loading-sm"></span>
+				</template>
+			</button>
 			<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
 				<div class="modal-box">
 					<h3 class="text-lg font-bold">YAY!</h3>
@@ -453,6 +527,17 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				</div>
 			</dialog>
 		</div>
+		<div>Show Toast: <span x-text="showToast ? 'true' : 'false'"></span></div>
+		<template x-if="showToast === true">
+			<div class="toast m-4 z-50 ">
+				<div :class="toastContent.type == 'error' ? 'alert-error' : 'alert-success'" class="alert  border-2 border-base-300">
+					<span x-text="toastContent.message"></span>
+					<div class="block justify-end">
+						<button class="btn btn-sm btn-circle btn-ghost text-2xl float-end" @click="showToast = false"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
+					</div>
+				</div>
+			</div>
+		</template>
 	</div>
 	// 	<div class="bottom-drawer">
 	// 		<div class="container mx-auto">
@@ -473,181 +558,268 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 	// 		</div>
 	// 	</div>
 	// </div>
-	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) }>
+	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) }>
 
-    function addEditEventState() {
-        return {
-            init() {
-              (async () => {
-                  const ownerIds = JSON.parse(
-                      document.querySelector('#add-edit-event').getAttribute('data-event-owners')
-                  );
-                  if (!ownerIds || ownerIds.length === 0) return [];
+		function addEditEventState() {
+				return {
+						init() {
+							(async () => {
+									const ownerNames = this.formData.event.eventOwnerName.split(this.eventOwnerDelimiter);
+									const ownerIds = JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? []
+									this.owners = ownerIds.map((ownerId, idx) => {
+										return { label: ownerNames?.[idx], value: ownerId };
+									});
+									this.allOptions = this.owners
+									if (this.formData.event.hasPurchasable) {
+										try {
+											const purchasablesResponse = await fetch(`/api/purchasables/${this.formData.event.id}`);
+											const purchasables = await purchasablesResponse.json();
+											this.purchasables = purchasables?.purchasable_items ?? [];
+											this.purchasablesCreatedAt = purchasables?.created_at ?? '';
+											this.purchasablesLoaded = true;
+										} catch (error) {
+											console.error('Failed to fetch purchasables:', error);
+                      this.showToast = true;
+                      this.toastContent = {
+                        type: 'error',
+                        message: 'Failed to fetch purchasables',
+                      }
+										}
+									}
 
-                  const idsParam = ownerIds.join(',');
-                  try {
-                      const response = await fetch(`/api/users?ids=${idsParam}`);
-                      let users = await response.json();
-                      const usersMap = new Map(users.map(user => [
-                        user.userId,
-                        { value: user.userId, label: user.displayName }
-                      ]));
-                      const filteredOptions = users.filter(user =>
-                        !this.options.some(owner => owner.value === user.userId)
-                      );
-                      this.owners = this.owners.map(owner => usersMap.get(owner));
-                      this.options = filteredOptions.map(owner => usersMap.get(owner));
-                  } catch (error) {
-                      console.error('Failed to fetch users:', error);
-                  }
-
-                  // TODO: delete this as it's only temporary for debugging and formatting
-                  // the response from `api/purchasables` and `api/registration-fields`
-                  // so we can see JSON output in a readable way
-
-                  if (this.hasPurchasable) {
-                    try {
-                      const purchasablesResponse = await fetch(`/api/purchasables/${this.eventId}`);
-                      const purchasables = await purchasablesResponse.json();
-                      console.log('purchasables', purchasables);
-                      this.purchasables = purchasables?.purchasable_items ?? [];
-                    } catch (error) {
-                      console.error('Failed to fetch purchasables:', error);
-                    }
-                  }
-
-                  if (this.hasRegistrationFields) {
-                    try {
-                      const registrationFieldsResponse = await fetch(`/api/registration-fields/${this.eventId}`);
-                      const registrationFields = await registrationFieldsResponse.json();
-                      console.log('registrationFields', registrationFields);
-                      this.registrationFields = registrationFields?.fields ?? [];
-                    } catch (error) {
-                      console.error('Failed to fetch registration fields:', error);
-                    }
-                  }
-              })()
+									if (this.formData.event.hasRegistrationFields) {
+										try {
+											const registrationFieldsResponse = await fetch(`/api/registration-fields/${this.formData.event.id}`);
+											const registrationFields = await registrationFieldsResponse.json();
+											this.registrationFields = registrationFields?.fields ?? [];
+											this.registrationFieldsCreatedAt = registrationFields?.created_at ?? '';
+											this.registrationFieldsLoaded = true;
+										} catch (error) {
+											console.error('Failed to fetch registration fields:', error);
+										}
+									}
+							})()
+						},
+						formData: {
+							eventChildren: [],
+							event: {
+								id: document.querySelector('#add-edit-event').getAttribute('data-event-id') ?? null,
+								eventSourceId: document.querySelector('#add-edit-event').getAttribute('data-event-source-id') ?? null,
+								eventOwners: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? [],
+								eventOwnerName: document.querySelector('#add-edit-event').getAttribute('data-event-owner-name') ?? '',
+								eventSourceType: document.querySelector('[name=isEventSeries]').checked ? document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent') : document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
+								tags: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-tags')) ?? [],
+								categories: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-categories')) ?? [],
+								hasPurchasable: document.querySelector('[name=hasPurchasable]').checked ?? false,
+								payeeId: document.querySelector('#add-edit-event').getAttribute('data-payee-id') ?? null,
+								hasRegistrationFields: document.querySelector('[name=hasRegistrationFields]').checked ?? false,
+								lat: document.querySelector('#add-edit-event').getAttribute('data-event-lat') ?? null,
+								long: document.querySelector('#add-edit-event').getAttribute('data-event-long') ?? null,
+								address: document.querySelector('#add-edit-event').getAttribute('data-event-address') ?? null,
+								hideCrossPromo: document.querySelector('[name=hideCrossPromo]').checked ?? false,
+							},
+						},
+						purchasablesLoaded: false,
+						purchasablesCreatedAt: '',
+						registrationFieldsLoaded: false,
+						registrationFieldsCreatedAt: '',
+						purchasables: [],
+						registrationFields: [],
+						owners: [],
+						isEventSeries: document.querySelector('[name=isEventSeries]').checked ?? false,
+						categoryInput: '',
+						tagInput: '',
+						ownerInput: '',
+						saveReqInFlight: false,
+            showToast: false,
+            toastContent: {
+              type: '',
+              message: ' updated successfully',
             },
-            // START: temporary debugging and formatting
-            purchasables: [],
-            registrationFields: [],
-            hasPurchasable: document.querySelector('[name=hasPurchasable]').checked ?? false,
-            hasRegistrationFields: document.querySelector('[name=hasRegistrationFields]').checked ?? false,
-            // END: temporary debugging and formatting
-            eventId: document.querySelector('#add-edit-event').getAttribute('data-event-id') ?? null,
-            tags: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-tags')) ?? [],
-            categories: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-categories')) ?? [],
-            owners: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? [],
-            categoryInput: '',
-            tagInput: '',
-            ownerInput: '',
+						eventOwnerDelimiter: document.querySelector('#add-edit-event').getAttribute('data-event-owner-delimiter'),
+						eventTypeSingleConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
+						eventTypeSeriesParentConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent'),
+						eventTypeSeriesChildConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-child'),
+            // The API expects RFC3339 HH:MM:SS, but datetime-local is in HH:MM
+						timeZuluSuffix: ":00Z",
+						// BEGIN: Event Owners typeahead state
 
-            // BEGIN: Event Owners typeahead state
+						allOptions: [],
+						options: [],
+						isOpen: false,
+						openedWithKeyboard: false,
+						// END: Event Owners typeahead state
+						getFormChildrenData() {
+							return JSON.stringify(this.formData.eventChildren);
+						},
+						// BEGIN: Event Owners typeahead helper functions
+						async fetchUsers(query) {
+							if (query.length >= 3) {
+								await fetch(`/api/user-search?q=${query}`).then(res => {
+									return res.json()
+								}).then(json => {
+									// Filter out users that are already owners
+									const filteredUsers = json.filter(user =>
+										!this.owners.some(owner => owner.value === user.userId)
+									);
+									this.options = filteredUsers.map((user) => ({
+											label: user.displayName,
+											value: user.userId,
+									}))
+									this.$nextTick(() => {
+										this.isOpen = true
+									})
+								});
+							}
+						},
+						removeOwner(ownerToRemove) {
+								this.owners = this.owners.filter(owner => owner !== ownerToRemove);
+						},
+						setSelectedOwner(option) {
+								this.isOpen = false
+								this.owners.push(option);
+								this.options = this.options.filter(o => o.value !== option.value)
+								this.$nextTick(() => {
+									document.querySelector('[x-ref=ownerSearch]').focus();
+								})
+						},
+						getFilteredOptions(query) {
+								this.options = this.allOptions.filter((option) =>
+										option.label.toLowerCase().includes(query.toLowerCase()),
+								)
+								if (this.options.length === 0) {
+										this.$refs.noResultsMessage.classList.remove('hidden')
+								} else {
+										this.$refs.noResultsMessage.classList.add('hidden')
+								}
+						},
+						handleKeydownOnOptions(event) {
+								// if the user presses backspace or the alpha-numeric keys, focus on the search field
+								if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
+										this.$refs.ownerSearch.focus()
+								}
+						},
 
-            allOptions: JSON.parse(
-							document.querySelector('#add-edit-event').getAttribute('data-event-owners')
-						).map((owner) => {
-              return ({
-								label: owner,
-								value: owner,
+						// END: Event Owners typeahead helper functions
+
+						addTag() {
+								if (this.tagInput.trim() !== '') {
+										this.formData.event.tags.push(this.tagInput.trim());
+										this.tagInput = '';
+								}
+						},
+
+						removeTag(tagToRemove) {
+								this.formData.event.tags = this.formData.event.tags.filter(tag => tag !== tagToRemove);
+						},
+
+						handleTagKeydown(e) {
+								if (e.key === 'Enter') {
+										e.preventDefault();
+										this.addTag();
+								}
+						},
+
+						addCategory() {
+								if (this.categoryInput.trim() !== '') {
+										this.formData.event.categories.push(this.categoryInput.trim());
+										this.categoryInput = '';
+								}
+						},
+
+						removeCategory(categoryToRemove) {
+								this.formData.event.categories = this.formData.event.categories.filter(category => category !== categoryToRemove);
+						},
+
+						handleCategoryKeydown(e) {
+								if (e.key === 'Enter') {
+										e.preventDefault();
+										this.addCategory();
+								}
+						},
+						addNewEventChild() {
+							this.formData.eventChildren.push({
+								startTime: '',
+								endTime: '',
 							})
-						}),
-				    options: [],
-				    isOpen: false,
-				    openedWithKeyboard: false,
-            // END: Event Owners typeahead state
+						},
+						transformEventToPayload(event) {
+							return {
+								...Object.fromEntries(
+									Object.entries(this.formData.event)
+										.filter(([_, value]) => value !== '')
+								),
+								startTime: this.formData.event.startTime ? this.formData.event.startTime + this.timeZuluSuffix : null,
+								endTime: this.formData.event.endTime ? this.formData.event.endTime + this.timeZuluSuffix : null,
+								lat: parseFloat(this.formData.event.lat),
+								long: parseFloat(this.formData.event.long),
+								eventSourceType: this.isEventSeries ? this.eventTypeSeriesParentConstant : this.eventTypeSingleConstant,
+								eventOwners: this.owners.map(owner => owner.value),
+								eventOwnerName: this.owners.map(owner => owner.label).join(this.eventOwnerDelimiter),
+								startingPrice: this.formData.event.startingPrice * 100,
+							}
+						},
+						async handlePublishClick() {
+							this.saveReqInFlight = true
+							const parentEvent = this.transformEventToPayload(this.formData.event)
+							let payload = {
+								events: [{
+									...parentEvent,
+								}],
+								purchasableUpdate: {
+									event_id: this.formData.event.id,
+									...(this.purchasablesCreatedAt !== '' ? {created_at: this.purchasablesCreatedAt} : {}),
+									purchasable_items: this.purchasables,
+								},
+								registrationFieldsUpdate: {
+									...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
+									fields: this.registrationFields,
+								},
+							}
+							if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
+								this.formData.eventChildren.forEach(child => {
+									payload.events.push({
+										...parentEvent,
+										...child,
+                    eventSourceId: this.formData.event.id,
+										startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
+										endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,
+										eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
+									})
+								})
+							}
 
-            // BEGIN: Event Owners typeahead helper functions
-
-            async fetchUsers(query) {
-              if (query.length >= 3) {
-                await fetch(`/api/user-search?q=${query}`).then(res => {
-                  return res.json()
-                }).then(json => {
-                  // Filter out users that are already owners
-                  const filteredUsers = json.filter(user =>
-                    !this.owners.some(owner => owner.value === user.userId)
-                  );
-                  this.options = filteredUsers.map((user) => ({
-                      label: user.displayName,
-                      value: user.userId,
-                  }))
-                  console.log('this.options',this.options)
-                  console.log('this.owners',this.owners)
-                  this.$nextTick(() => {
-                  this.isOpen = true
-                  })
-                });
-              }
-            },
-            removeOwner(ownerToRemove) {
-                this.owners = this.owners.filter(owner => owner !== ownerToRemove);
-            },
-            setSelectedOwner(option) {
-                this.isOpen = false
-                console.log('option',option)
-                this.owners.push(option);
-                this.options = this.options.filter(o => o.value !== option.value)
-                this.$nextTick(() => {
-                  document.querySelector('[x-ref=ownerSearch]').focus();
-                })
-            },
-            getFilteredOptions(query) {
-                this.options = this.allOptions.filter((option) =>
-                    option.label.toLowerCase().includes(query.toLowerCase()),
-                )
-                if (this.options.length === 0) {
-                    this.$refs.noResultsMessage.classList.remove('hidden')
-                } else {
-                    this.$refs.noResultsMessage.classList.add('hidden')
+							try {
+								const response = await fetch(`/api/event-reg-purch/${this.formData.event.id}`, {
+									method: 'PUT',
+									headers: {
+										'Content-Type': 'application/json',
+									},
+									body: JSON.stringify(payload),
+								});
+								const json = await response.json()
+								if (json.status === 'success') {
+									this.saveReqInFlight = false
+                  this.showToast = true;
+                  this.toastContent = {
+                    type: 'success',
+                    message: 'Event updated successfully',
+                  }
+								} else {
+									throw new Error('Failed to update event')
+								}
+							} catch (error) {
+								console.error('Failed to update event:', error);
+								this.saveReqInFlight = false
+                this.showToast = true;
+                this.toastContent = {
+                  type: 'error',
+                  message: 'Error: ' + error,
                 }
-            },
-            handleKeydownOnOptions(event) {
-                // if the user presses backspace or the alpha-numeric keys, focus on the search field
-                if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
-                    this.$refs.ownerSearch.focus()
-                }
-            },
+							}
+						}
 
-            // END: Event Owners typeahead helper functions
-
-            addTag() {
-                if (this.tagInput.trim() !== '') {
-                    this.tags.push(this.tagInput.trim());
-                    this.tagInput = '';
-                }
-            },
-
-            removeTag(tagToRemove) {
-                this.tags = this.tags.filter(tag => tag !== tagToRemove);
-            },
-
-            handleTagKeydown(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    this.addTag();
-                }
-            },
-
-            addCategory() {
-                if (this.categoryInput.trim() !== '') {
-                    this.categories.push(this.categoryInput.trim());
-                    this.categoryInput = '';
-                }
-            },
-
-            removeCategory(categoryToRemove) {
-                this.categories = this.categories.filter(category => category !== categoryToRemove);
-            },
-
-            handleCategoryKeydown(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    this.addCategory();
-                }
-            },
-
-        }
-    }
+				}
+		}
 		</script>
 }

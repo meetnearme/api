@@ -157,6 +157,7 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 		if err != nil || endTime == 0 {
 			return types.Event{}, fmt.Errorf("invalid EndTime: %w", err)
 		}
+		event.EndTime = endTime
 	}
 	if raw.PayeeId != nil || raw.StartingPrice != nil || raw.Currency != nil {
 
@@ -213,7 +214,7 @@ func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
 
 	createEvents := []types.Event{createEvent}
 
-	res, err := services.BulkUpsertEventToMarqo(marqoClient, createEvents, false)
+	res, err := services.BulkUpsertEventToMarqo(marqoClient, createEvents)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -324,7 +325,7 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := services.BulkUpsertEventToMarqo(marqoClient, events, false)
+	res, err := services.BulkUpsertEventToMarqo(marqoClient, events)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert events: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -614,7 +615,7 @@ func SearchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFun
 func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
@@ -1130,4 +1131,113 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 		}
 	}
 	return purchasableMap, nil
+}
+
+type UpdateEventRegPurchPayload struct {
+	Events                   []rawEvent                              `json:"events" validate:"required"`
+	RegistrationFieldsUpdate internal_types.RegistrationFieldsUpdate `json:"registration_fields"`
+	PurchasableUpdate        internal_types.PurchasableUpdate        `json:"purchasables"`
+}
+
+func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		UpdateEventRegPurch(w, r)
+	}
+}
+
+func UpdateEventRegPurch(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	eventId := vars[helpers.EVENT_ID_KEY]
+	if eventId == "" {
+		transport.SendServerRes(w, []byte("Missing purchasable event_id"), http.StatusBadRequest, nil)
+		return
+	}
+
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	userId := userInfo.Sub
+	if userId == "" {
+		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
+		return
+	}
+
+	var updateEventRegPurchPayload UpdateEventRegPurchPayload
+	updateEventRegPurchPayload.RegistrationFieldsUpdate.UpdatedBy = userId
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
+		return
+	}
+
+	err = json.Unmarshal(body, &updateEventRegPurchPayload)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	// we should use goroutines to parallelize the three distinct database update operations here
+
+	db := transport.GetDB()
+
+	// Update purchasable
+	var updatePurchasable internal_types.PurchasableUpdate
+	updatePurchasable.EventId = eventId
+	updatePurchasable.PurchasableItems = updateEventRegPurchPayload.PurchasableUpdate.PurchasableItems
+
+	purchService := dynamodb_service.NewPurchasableService()
+	purchHandler := dynamodb_handlers.NewPurchasableHandler(purchService)
+	_, err = purchHandler.PurchasableService.UpdatePurchasable(r.Context(), db, updatePurchasable)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to update purchasable: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	// Update registration fields
+	updateEventRegPurchPayload.RegistrationFieldsUpdate.EventId = eventId
+	regFieldsService := dynamodb_service.NewRegistrationFieldsService()
+	regFieldsHandler := dynamodb_handlers.NewRegistrationFieldsHandler(regFieldsService)
+	_, err = regFieldsHandler.RegistrationFieldsService.UpdateRegistrationFields(r.Context(), db, eventId, updateEventRegPurchPayload.RegistrationFieldsUpdate)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to update registration fields: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	// Update events
+	marqoClient, err := services.GetMarqoClient()
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	// events, status, err := HandleBatchEventValidation(w, r, false)
+
+	events := make([]types.Event, len(updateEventRegPurchPayload.Events))
+	for i, rawEvent := range updateEventRegPurchPayload.Events {
+		event, statusCode, err := HandleSingleEventValidation(rawEvent, false)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to validate events: "+err.Error()), statusCode, err)
+			return
+		}
+		events[i] = event
+	}
+
+	services.BulkUpsertEventToMarqo(marqoClient, events)
+
+	// Create response object
+	response := map[string]interface{}{
+		"status":  "success",
+		"message": "Event(s), registration fields, and purchasable(s) updated successfully",
+	}
+
+	// Marshal the response
+	jsonResponse, err := json.Marshal(response)
+	if err != nil {
+		transport.SendServerRes(w, []byte(`{"error": "Failed to create response"}`), http.StatusInternalServerError, err)
+		return
+	}
+
+	transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
 }

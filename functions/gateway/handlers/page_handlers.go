@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"golang.org/x/exp/rand"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -183,46 +184,76 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, address, parseDates, eventSourceTypes, eventSourceIds
 }
 
-func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocation, []float64, *helpers.UserSearchResult, int, error) {
 	// Extract parameter values from the request query parameters
-	ctx := r.Context()
 	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
-
-	originalQueryLat := r.URL.Query().Get("lat")
-	originalQueryLong := r.URL.Query().Get("lon")
-
+	userId := mux.Vars(r)[helpers.USER_ID_KEY]
+	users := []helpers.UserSearchResult{}
+	if userId != "" {
+		users, err = helpers.SearchUsersByIDs([]string{userId})
+		if err != nil {
+			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, err
+		}
+		if len(users) == 0 {
+			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusNotFound, errors.New("user not found")
+		}
+	}
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, errors.New("failed to get marqo client: " + err.Error())
 	}
-
 	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
 
 	// we override the `owners` query param here, because subdomains should always show only
 	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
 	if subdomainValue != "" {
 		ownerIds = []string{subdomainValue}
+	} else if userId != "" {
+		ownerIds = []string{userId}
 	}
 
 	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
+		return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, errors.New("failed to get events via search: " + err.Error())
 	}
-
 	events := res.Events
-
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	var user *helpers.UserSearchResult
+	if len(users) > 0 {
+		user = &users[0]
 	}
+	return events, cfLocation, userLocation, user, http.StatusOK, nil
+}
+
+func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	originalQueryLat := r.URL.Query().Get("lat")
+	originalQueryLong := r.URL.Query().Get("lon")
+	_pageUser := mux.Vars(r)[helpers.USER_ID_KEY]
+	if _pageUser != "" {
+		q := r.URL.Query()
+		q.Set("radius", strconv.Itoa(helpers.DEFAULT_MAX_RADIUS))
+		r.URL.RawQuery = q.Encode()
+	}
+	events, cfLocation, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
+	if err != nil {
+		return transport.SendServerRes(w, []byte(err.Error()), status, err)
+	}
+
 	homePage := pages.HomePage(
 		events,
+		pageUser,
 		cfLocation,
 		fmt.Sprint(userLocation[0]),
 		fmt.Sprint(userLocation[1]),
 		fmt.Sprint(originalQueryLat),
 		fmt.Sprint(originalQueryLong),
 	)
+
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+
 	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage, types.Event{})
 
 	var buf bytes.Buffer
@@ -231,6 +262,35 @@ func GetHomePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
+}
+
+func GetUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	q := r.URL.Query()
+	q.Set("radius", strconv.Itoa(helpers.DEFAULT_MAX_RADIUS))
+	r.URL.RawQuery = q.Encode()
+	events, _, _, pageUser, status, err := DeriveEventsFromRequest(r)
+	if err != nil {
+		return transport.SendServerRes(w, []byte(err.Error()), status, err)
+	}
+
+	// TODO: probably delete this shuffle, but it could be
+	// useful for the sameness grouping problem
+	// Shuffle the events array
+	rand.Seed(uint64(time.Now().UnixNano()))
+	rand.Shuffle(len(events), func(i, j int) {
+		events[i], events[j] = events[j], events[i]
+	})
+
+	userPage := pages.UserPage(pageUser, events)
+
+	layoutTemplate := pages.Layout(helpers.SitePages["user"], helpers.UserInfo{}, userPage, types.Event{})
+	var buf bytes.Buffer
+	err = layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
+	}
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
@@ -461,9 +521,8 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
 	}
 	canEdit := helpers.CanEditEvent(event, &userInfo, roleClaims)
-	checkoutParamVal := r.URL.Query().Get("checkout")
 
-	eventDetailsPage := pages.EventDetailsPage(*event, userInfo, checkoutParamVal, canEdit)
+	eventDetailsPage := pages.EventDetailsPage(*event, userInfo, canEdit)
 	layoutTemplate := pages.Layout(helpers.SitePages["event-detail"], userInfo, eventDetailsPage, *event)
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)

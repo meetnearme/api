@@ -39,7 +39,7 @@ func TestHomePage(t *testing.T) {
 	origLonStr := ""
 
 	// Call the HomePage function
-	component := HomePage(events, cfLocation, latStr, lonStr, origLatStr, origLonStr)
+	component := HomePage(events, nil, cfLocation, latStr, lonStr, origLatStr, origLonStr)
 
 	// Render the component
 	var buf bytes.Buffer

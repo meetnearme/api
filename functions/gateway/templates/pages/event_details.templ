@@ -3,14 +3,13 @@ package pages
 import (
 	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"net/url"
 	"os"
 	"strings"
 )
 
-templ IconLeftSection(labelText, labelValue, icon, url string, venueSection bool, event types.Event) {
+templ IconLeftSection(labelText, labelValue, icon string, urlString string, sectionType string, event types.Event) {
 	<div class="flex">
 		<div class="flex-none">
 			// Left column content (fit to width)
@@ -20,13 +19,24 @@ templ IconLeftSection(labelText, labelValue, icon, url string, venueSection bool
 		</div>
 		<div class="flex-grow">
 			<p>
-				if url != "" {
-					<strong>{ labelText }:</strong> <a class="link link-primary" href={ templ.URL(url) }>{ labelValue }</a>
+				if sectionType == "OWNER_NAME" {
+					<strong>{ labelText }:</strong>
+					// TODO: rewrite this after migrating to `event.EventOwners` array (required marqo db migration)
+					{{ eventOwnersArr := strings.Split(event.EventOwnerName, helpers.EventOwnerNameDelimiter) }}
+					for idx, owner := range event.EventOwners {
+						if idx > 0 {
+							,&nbsp;
+						}
+						<a class="link link-primary" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + owner) }>{ eventOwnersArr[idx] }</a>
+						// <a class="link link-primary" href={ templ.URL("https://" + owner + "." + os.Getenv("APEX_URL")) }>{ eventOwnersArr[idx] }</a>
+					}
+				} else if urlString != "" {
+					<strong>{ labelText }:</strong> <a class="link link-primary" href={ templ.URL(urlString) }>{ labelValue }</a>
 				} else {
 					<strong>{ labelText }:</strong> { labelValue }
 				}
 				// This is a hack because it wasn't clear how to get nested templ components working
-				if venueSection {
+				if sectionType == "venue" {
 					<p>
 						<a class="link link-primary" href={ templ.URL(fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=%f,%f", event.Lat, event.Long)) }>
 							{ "(Map Link)" }
@@ -38,7 +48,7 @@ templ IconLeftSection(labelText, labelValue, icon, url string, venueSection bool
 	</div>
 }
 
-templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, checkoutParamVal string, canEdit bool) {
+templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit bool) {
 	<div class="max-w-prose mx-auto" x-data="getEventDetailsData()">
 		if event.Id == "" {
 			<br/>
@@ -59,14 +69,25 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, checkoutPar
 		} else {
 			if (canEdit) {
 				<div class="alert alert-success">
-					You are an editor for this event. <a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>Edit Event</a>
+					You are an editor for this event.
+					if event.EventSourceType == helpers.ES_EVENT_SERIES {
+						<a
+							class="btn btn-sm"
+							href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.EventSourceId, 1), "{trailingslash:\\/?}", "", 1)) }
+						>Edit Series</a>
+					} else {
+						<a
+							class="btn btn-sm"
+							href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }
+						>Edit Event</a>
+					}
 				</div>
 			}
 			<h2 class="text-3xl mt-2">{ event.Name }</h2>
 			if event.EventSourceType == helpers.ES_SERIES_PARENT {
 				<h3 class="text-xl mt-2">Event Series</h3>
 				<div
-					hx-get={ "/api/html/events?list_mode=DATES_ONLY&end_time=2099-10-18T10:00:00Z&radius=20000&event_source_ids=" + event.Id }
+					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&end_time=2099-10-18T10:00:00Z&radius=20000&event_source_ids=" + event.Id }
 					hx-trigger="load"
 					hx-swap="outerHTML"
 				>
@@ -75,33 +96,34 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, checkoutPar
 			}
 			<br/>
 			<p>
-				if checkoutParamVal == "success" {
-					@partials.SuccessBannerHTML("Thanks for your support, we hope to see you at the event!")
-					<br/>
-					<br/>
-				}
-				if checkoutParamVal == "registered" {
-					@partials.SuccessBannerHTML("Thanks for your interest, can't wait to see you at the event!")
-					<br/>
-					<br/>
-				}
-				@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], false, event)
+				@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
 				<br/>
-				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, true, event)
+				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, "VENUE", event)
 				<br/>
 				if event.EventSourceType != "SLF_EVS" {
 					if helpers.GetDateOrShowNone(event.StartTime, event.Timezone) != "" {
-						@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime, event.Timezone), "calendar", "", false, event)
+						@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime, event.Timezone), "calendar", "", "", event)
 					}
 					<br/>
 					if helpers.GetTimeOrShowNone(event.StartTime, event.Timezone) != "" {
-						@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime, event.Timezone), "clock", "", false, event)
+						@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime, event.Timezone), "clock", "", "", event)
 					}
 					<br/>
 				}
 				if event.StartingPrice > 0 {
 					// TODO: handle basecurrency
-					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", false, event)
+					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", "", event)
+				}
+				if event.EventSourceType == helpers.ES_EVENT_SERIES {
+					<div class="divider my-3"></div>
+					<h3 class="text-xl mt-2 mb-2">All Events in this Series</h3>
+					<div
+						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&end_time=2099-10-18T10:00:00Z&radius=20000&event_source_ids=" + event.EventSourceId }
+						hx-trigger="load"
+						hx-swap="outerHTML"
+					>
+						<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+					</div>
 				}
 				<br/>
 				<h3 class="text-xl">EVENT DESCRIPTION</h3>

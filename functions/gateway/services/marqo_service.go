@@ -300,13 +300,13 @@ func GetMarqoClient() (*marqo.Client, error) {
 // 	return res, nil
 // }
 
-func ConvertEventsToDocuments(events []types.Event, hasIds bool) (documents []interface{}) {
+func ConvertEventsToDocuments(events []types.Event) (documents []interface{}) {
 	now := time.Now().Unix()
 	createdAt := now
 	updatedAt := now
 	for _, event := range events {
 		var _uuid string
-		if !hasIds {
+		if event.Id == "" {
 			_uuid = uuid.NewString()
 		} else {
 			_uuid = event.Id
@@ -385,9 +385,9 @@ func ConvertEventsToDocuments(events []types.Event, hasIds bool) (documents []in
 	return documents
 }
 
-func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event, hasIds bool) (*marqo.UpsertDocumentsResponse, error) {
+func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
 	// Bulk upsert multiple events
-	documents := ConvertEventsToDocuments(events, hasIds)
+	documents := ConvertEventsToDocuments(events)
 	indexName := GetMarqoIndexName()
 	req := marqo.UpsertDocumentsRequest{
 		Documents: documents,
@@ -719,7 +719,7 @@ func BulkUpdateMarqoEventByID(client *marqo.Client, events []types.Event) (*marq
 	}
 
 	// If all events have IDs, proceed with the bulk upsert
-	return BulkUpsertEventToMarqo(client, events, true)
+	return BulkUpsertEventToMarqo(client, events)
 }
 
 func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Event) {

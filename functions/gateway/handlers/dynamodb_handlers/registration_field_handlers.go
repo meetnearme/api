@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -30,7 +31,7 @@ func NewRegistrationFieldsHandler(registrationFieldsService internal_types.Regis
 
 func (h *RegistrationFieldsHandler) CreateRegistrationFields(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
@@ -77,7 +78,7 @@ func (h *RegistrationFieldsHandler) CreateRegistrationFields(w http.ResponseWrit
 // This needs to change for use cases of fetching multiple users based on org ID or other
 func (h *RegistrationFieldsHandler) GetRegistrationFieldsByEventID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
@@ -100,7 +101,7 @@ func (h *RegistrationFieldsHandler) GetRegistrationFieldsByEventID(w http.Respon
 
 func (h *RegistrationFieldsHandler) UpdateRegistrationFields(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
@@ -149,7 +150,7 @@ func (h *RegistrationFieldsHandler) UpdateRegistrationFields(w http.ResponseWrit
 
 func (h *RegistrationFieldsHandler) DeleteRegistrationFields(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusBadRequest, nil)
 		return
