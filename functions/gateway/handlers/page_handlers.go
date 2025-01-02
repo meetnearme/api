@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"golang.org/x/exp/rand"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -262,35 +261,6 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
-}
-
-func GetUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-	q := r.URL.Query()
-	q.Set("radius", strconv.Itoa(helpers.DEFAULT_MAX_RADIUS))
-	r.URL.RawQuery = q.Encode()
-	events, _, _, pageUser, status, err := DeriveEventsFromRequest(r)
-	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), status, err)
-	}
-
-	// TODO: probably delete this shuffle, but it could be
-	// useful for the sameness grouping problem
-	// Shuffle the events array
-	rand.Seed(uint64(time.Now().UnixNano()))
-	rand.Shuffle(len(events), func(i, j int) {
-		events[i], events[j] = events[j], events[i]
-	})
-
-	userPage := pages.UserPage(pageUser, events)
-
-	layoutTemplate := pages.Layout(helpers.SitePages["user"], helpers.UserInfo{}, userPage, types.Event{})
-	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
-	}
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
