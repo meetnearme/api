@@ -22,8 +22,6 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
   const api = new Api(stack, 'api', {
     defaults: {
       function: {
-        // Bind the eventsTable name to our API
-
         bind: [
           seshuSessionsTable,
           // registrationsTable,  // deprecated

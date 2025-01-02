@@ -120,12 +120,12 @@ export function StorageStack({ stack }: StackContext) {
   });
 
   return {
-    // registrationsTable,
+    // registrationsTable,  // deprecated
     registrationFieldsTable,
     seshuSessionsTable,
     // purchasesTable, // deprecated
     purchasesTableV2,
-    // purchasablesTable,
-    // eventRsvpsTable,
+    purchasablesTable,
+    // eventRsvpsTable, // deprecated
   };
 }
