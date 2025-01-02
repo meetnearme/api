@@ -9,12 +9,12 @@ import { SeshuFunction } from './SeshuFunction';
 export function ApiStack({ stack, app }: StackContext & { app: any }) {
   const {
     seshuSessionsTable,
-    registrationsTable,
+    // registrationsTable, // deprecated
     registrationFieldsTable,
     purchasablesTable,
     // purchasesTable, // deprecated
     purchasesTableV2,
-    eventRsvpsTable,
+    // eventRsvpsTable,  // deprecated
   } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
   const { seshuFn } = use(SeshuFunction);
@@ -26,12 +26,12 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
 
         bind: [
           seshuSessionsTable,
-          registrationsTable,
+          // registrationsTable,  // deprecated
           registrationFieldsTable,
           purchasablesTable,
           // purchasesTable, // deprecated
           purchasesTableV2,
-          eventRsvpsTable,
+          // eventRsvpsTable,  // deprecated
         ],
 
         environment: {
