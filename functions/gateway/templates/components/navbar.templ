@@ -521,7 +521,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 									this.reqInFlight = false;
 									return
 								}
-								const response = await fetch(`/api/checkout/${this.eventId}`, {
+								const response = await fetch(`/api/checkout/${this.eventId}${this.eventSourceId ? `?event_source_id=${this.eventSourceId}&event_source_type=${this.eventSourceType}` : ''}`, {
 									method: 'POST',
 									headers: {
 											'Content-Type': 'application/json'

@@ -616,6 +616,11 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	eventId := vars[helpers.EVENT_ID_KEY]
+	eventSourceId := r.URL.Query().Get("event_source_id")
+	eventSourceType := r.URL.Query().Get("event_source_type")
+	if eventSourceId != "" && eventSourceType == helpers.ES_EVENT_SERIES {
+		eventId = eventSourceId
+	}
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
