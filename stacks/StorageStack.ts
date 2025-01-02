@@ -2,23 +2,24 @@ import { StackContext, Table } from 'sst/constructs';
 
 export function StorageStack({ stack }: StackContext) {
   // 🚨 WARNING 🚨 Deprecated, do not use
-  // const eventRsvpsTable = new Table(stack, 'EventRsvps', {
-  //   fields: {
-  //     id: 'string',
-  //     userId: 'string',
-  //     eventId: 'string',
-  //     eventSourceId: 'string',
-  //     eventSourceType: 'string',
-  //     status: 'string',
-  //     createdAt: 'number',
-  //     updatedAt: 'number',
-  //   },
-  //   primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
-  //   globalIndexes: {
-  //     userIdGsi: { partitionKey: 'userId', sortKey: 'eventId' },
-  //   },
-  // });
+  const eventRsvpsTable = new Table(stack, 'EventRsvps', {
+    fields: {
+      id: 'string',
+      userId: 'string',
+      eventId: 'string',
+      eventSourceId: 'string',
+      eventSourceType: 'string',
+      status: 'string',
+      createdAt: 'number',
+      updatedAt: 'number',
+    },
+    primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
+    globalIndexes: {
+      userIdGsi: { partitionKey: 'userId', sortKey: 'eventId' },
+    },
+  });
 
+  // 🚨 WARNING 🚨 Deprecated, do not use
   // const purchasesTable = new Table(stack, 'Purchases', {
   //   fields: {
   //     id: 'string',
@@ -72,19 +73,19 @@ export function StorageStack({ stack }: StackContext) {
   });
 
   // 🚨 WARNING 🚨 Deprecated, do not use
-  // const registrationsTable = new Table(stack, 'Registrations', {
-  //   fields: {
-  //     eventId: 'string',
-  //     userId: 'string',
-  //     responses: 'string', // this is an array, no type for arrays
-  //     createdAt: 'number',
-  //     updatedAt: 'number',
-  //   },
-  //   primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
-  //   globalIndexes: {
-  //     userIdGsi: { partitionKey: 'userId', sortKey: 'eventId' },
-  //   },
-  // });
+  const registrationsTable = new Table(stack, 'Registrations', {
+    fields: {
+      eventId: 'string',
+      userId: 'string',
+      responses: 'string', // this is an array, no type for arrays
+      createdAt: 'number',
+      updatedAt: 'number',
+    },
+    primaryIndex: { partitionKey: 'eventId', sortKey: 'userId' },
+    globalIndexes: {
+      userIdGsi: { partitionKey: 'userId', sortKey: 'eventId' },
+    },
+  });
 
   const registrationFieldsTable = new Table(stack, 'RegistrationFields', {
     fields: {
