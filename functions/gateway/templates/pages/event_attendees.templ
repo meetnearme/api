@@ -101,7 +101,7 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 													<a class="btn btn-sm btn-primary mt-2" target="_blank" :href=" 'https://dashboard.stripe.com/payments/' + purchase.stripe_transaction_id ">View on Stripe</a>
 												</template>
 												<template x-if="!purchase.stripe_transaction_id && purchase.total > 0">
-													<a class="btn btn-sm btn-primary mt-2" target="_blank" :href=" 'https://dashboard.stripe.com/workbench/logs?object=' + purchase.stripe_transaction_id + '&filtered=true' ">View Incomplete on Stripe</a>
+													<a class="btn btn-sm btn-primary mt-2" target="_blank" :href=" 'https://dashboard.stripe.com/workbench/logs?object=' + purchase.stripe_checkout_url + '&filtered=true' ">View Incomplete on Stripe</a>
 												</template>
 											</td>
 										</tr>
