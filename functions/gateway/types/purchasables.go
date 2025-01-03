@@ -69,22 +69,22 @@ type PurchasableItemUpdate struct {
 type PurchasableInsert struct {
 	EventId          string                  `json:"event_id" validate:"required" dynamodbav:"eventId"`
 	PurchasableItems []PurchasableItemInsert `json:"purchasable_items" validate:"required" dynamodbav:"purchasableItems"`
-	CreatedAt        time.Time               `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
-	UpdatedAt        time.Time               `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
+	CreatedAt        time.Time               `json:"created_at" dynamodbav:"createdAt"`
+	UpdatedAt        time.Time               `json:"updated_at" dynamodbav:"updatedAt"`
 }
 
 type Purchasable struct {
 	EventId          string                  `json:"event_id" dynamodbav:"eventId"`
 	PurchasableItems []PurchasableItemInsert `json:"purchasable_items"  dynamodbav:"purchasableItems"`
-	CreatedAt        time.Time               `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
-	UpdatedAt        time.Time               `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
+	CreatedAt        time.Time               `json:"created_at" dynamodbav:"createdAt"`
+	UpdatedAt        time.Time               `json:"updated_at" dynamodbav:"updatedAt"`
 }
 
 type PurchasableUpdate struct {
-	EventId          string                  `json:"event_id" validastringte:"required" dynamodbav:"eventId"`
-	PurchasableItems []PurchasableItemInsert `json:"purchasable_items" dynamodbav:"purchasableItems"`
-	CreatedAt        time.Time               `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
-	UpdatedAt        time.Time               `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
+	EventId          string                  `json:"event_id" dynamodbav:"eventId"`
+	PurchasableItems []PurchasableItemInsert `json:"purchasable_items" validate:"required" dynamodbav:"purchasableItems"`
+	CreatedAt        time.Time               `json:"created_at" dynamodbav:"createdAt"`
+	UpdatedAt        time.Time               `json:"updated_at" dynamodbav:"updatedAt"`
 }
 
 // PurchasablesServiceInterface defines the methods for user-related operations using the RDSDataAPI

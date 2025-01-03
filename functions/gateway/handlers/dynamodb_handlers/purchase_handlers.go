@@ -27,7 +27,7 @@ func NewPurchaseHandler(eventPurchaseService internal_types.PurchaseServiceInter
 
 func (h *PurchaseHandler) CreatePurchase(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
@@ -82,7 +82,7 @@ func (h *PurchaseHandler) CreatePurchase(w http.ResponseWriter, r *http.Request)
 
 func (h *PurchaseHandler) GetPurchaseByPk(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing eventPurchase ID"), http.StatusBadRequest, nil)
 		return
@@ -187,7 +187,7 @@ func (h *PurchaseHandler) GetPurchasesByUserID(w http.ResponseWriter, r *http.Re
 func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	ctx := r.Context()
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
@@ -263,7 +263,7 @@ func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.R
 
 func (h *PurchaseHandler) UpdatePurchase(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing eventPurchase ID"), http.StatusBadRequest, nil)
 		return
@@ -322,7 +322,7 @@ func (h *PurchaseHandler) UpdatePurchase(w http.ResponseWriter, r *http.Request)
 
 func (h *PurchaseHandler) DeletePurchase(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return

@@ -19,7 +19,7 @@ import (
 
 var registrationFieldsTableName = helpers.GetDbTableName(helpers.RegistrationFieldsTablePrefix)
 
-func init () {
+func init() {
 	registrationFieldsTableName = helpers.GetDbTableName(helpers.RegistrationFieldsTablePrefix)
 }
 
@@ -31,7 +31,7 @@ type RegistrationFieldsServiceInterface interface {
 	InsertRegistrationFields(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registrationFields internal_types.RegistrationFieldsInsert, eventId string) (*internal_types.RegistrationFields, error)
 	GetRegistrationFieldsByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) (*internal_types.RegistrationFields, error)
 	UpdateRegistrationFields(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, registrationFields internal_types.RegistrationFieldsUpdate) (*internal_types.RegistrationFields, error)
-	DeleteRegistrationFields(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string)  error
+	DeleteRegistrationFields(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) error
 }
 
 // RegistrationFieldsService is the concrete implementation of the RegistrationFieldsServiceInterface.
@@ -42,32 +42,25 @@ func NewRegistrationFieldsService() RegistrationFieldsServiceInterface {
 }
 
 func (s *RegistrationFieldsService) InsertRegistrationFields(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registrationFields internal_types.RegistrationFieldsInsert, eventId string) (*internal_types.RegistrationFields, error) {
-    // Validate the registrationFields object
-    if err := validate.Struct(registrationFields); err != nil {
-        return nil, fmt.Errorf("validation failed: %w", err)
-    }
-
-	log.Printf("reg fields in service insert: %v", registrationFields.EventId)
+	// Validate the registrationFields object
+	if err := validate.Struct(registrationFields); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
+	}
 
 	item, err := attributevalue.MarshalMap(&registrationFields)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Printf("item in insert: %v", item)
-
-	if (registrationFieldsTableName == "") {
+	if registrationFieldsTableName == "" {
 		return nil, fmt.Errorf("ERR: registrationFieldsTableName is empty")
 	}
 
 	input := &dynamodb.PutItemInput{
-		Item:                                item,
-		TableName:                           aws.String(registrationFieldsTableName),
+		Item:                item,
+		TableName:           aws.String(registrationFieldsTableName),
 		ConditionExpression: aws.String("attribute_not_exists(eventId)"),
 	}
-
-	log.Printf("input in insert reg fields: %v", input)
-
 
 	res, err := dynamodbClient.PutItem(ctx, input)
 	if err != nil {
@@ -79,7 +72,6 @@ func (s *RegistrationFieldsService) InsertRegistrationFields(ctx context.Context
 
 	var insertedRegistrationFields internal_types.RegistrationFields
 
-
 	err = attributevalue.UnmarshalMap(res.Attributes, &insertedRegistrationFields)
 	if err != nil {
 		return nil, err
@@ -87,10 +79,9 @@ func (s *RegistrationFieldsService) InsertRegistrationFields(ctx context.Context
 
 	log.Printf("inserted reg fields after creation: %v", insertedRegistrationFields)
 
-    // return registrationFields, nil
+	// return registrationFields, nil
 	return &insertedRegistrationFields, nil
 }
-
 
 func (s *RegistrationFieldsService) GetRegistrationFieldsByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) (*internal_types.RegistrationFields, error) {
 	input := &dynamodb.GetItemInput{
@@ -115,7 +106,7 @@ func (s *RegistrationFieldsService) GetRegistrationFieldsByEventID(ctx context.C
 }
 
 func (s *RegistrationFieldsService) UpdateRegistrationFields(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, registrationFields internal_types.RegistrationFieldsUpdate) (*internal_types.RegistrationFields, error) {
-	if (registrationFieldsTableName == "") {
+	if registrationFieldsTableName == "" {
 		return nil, fmt.Errorf("ERR: registrationFieldsTableName is empty")
 	}
 
@@ -127,7 +118,7 @@ func (s *RegistrationFieldsService) UpdateRegistrationFields(ctx context.Context
 		ExpressionAttributeNames:  make(map[string]string),
 		ExpressionAttributeValues: make(map[string]dynamodb_types.AttributeValue),
 		UpdateExpression:          aws.String("SET"),
-		ReturnValues: dynamodb_types.ReturnValueAllNew,
+		ReturnValues:              dynamodb_types.ReturnValueAllNew,
 	}
 
 	if registrationFields.Fields != nil {
@@ -157,11 +148,11 @@ func (s *RegistrationFieldsService) UpdateRegistrationFields(ctx context.Context
 		return nil, err
 	}
 
-    // return registrationFields, nil
+	// return registrationFields, nil
 	return &updatedRegistrationFields, nil
 }
 
-func (s *RegistrationFieldsService) DeleteRegistrationFields(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string)  error {
+func (s *RegistrationFieldsService) DeleteRegistrationFields(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) error {
 	input := &dynamodb.DeleteItemInput{
 		TableName: aws.String(registrationFieldsTableName),
 		Key: map[string]dynamodb_types.AttributeValue{
@@ -171,7 +162,7 @@ func (s *RegistrationFieldsService) DeleteRegistrationFields(ctx context.Context
 
 	_, err := dynamodbClient.DeleteItem(ctx, input)
 	if err != nil {
-		return  err
+		return err
 	}
 
 	log.Printf("registration fields successfully deleted")
@@ -179,10 +170,10 @@ func (s *RegistrationFieldsService) DeleteRegistrationFields(ctx context.Context
 }
 
 type MockRegistrationFieldsService struct {
-	InsertRegistrationFieldsFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registrationFields internal_types.RegistrationFieldsInsert) (*internal_types.RegistrationFields, error)
+	InsertRegistrationFieldsFunc       func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registrationFields internal_types.RegistrationFieldsInsert) (*internal_types.RegistrationFields, error)
 	GetRegistrationFieldsByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) (*internal_types.RegistrationFields, error)
-	UpdateRegistrationFieldsFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, registrationFields internal_types.RegistrationFieldsUpdate) (*internal_types.RegistrationFields, error)
-	DeleteRegistrationFieldsFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string)  error
+	UpdateRegistrationFieldsFunc       func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, registrationFields internal_types.RegistrationFieldsUpdate) (*internal_types.RegistrationFields, error)
+	DeleteRegistrationFieldsFunc       func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) error
 }
 
 func (m *MockRegistrationFieldsService) InsertRegistrationFields(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, registrationFields internal_types.RegistrationFieldsInsert, eventId string) (*internal_types.RegistrationFields, error) {
@@ -197,6 +188,6 @@ func (m *MockRegistrationFieldsService) UpdateRegistrationFields(ctx context.Con
 	return m.UpdateRegistrationFieldsFunc(ctx, dynamodbClient, eventId, registrationFields)
 }
 
-func (m *MockRegistrationFieldsService) DeleteRegistrationFields(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string)  error {
+func (m *MockRegistrationFieldsService) DeleteRegistrationFields(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) error {
 	return m.DeleteRegistrationFieldsFunc(ctx, dynamodbClient, eventId)
 }

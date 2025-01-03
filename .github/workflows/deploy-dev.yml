@@ -21,7 +21,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21.x'
+          go-version: '1.23.x'
       - name: npm install
         run: |
           npm i
@@ -33,7 +33,7 @@ jobs:
       - name: Generate templ code
         uses: './.github/actions/templ_generate'
         with:
-          templ-version: 'v0.2.747'
+          templ-version: 'v0.2.793'
           setup-go: 'false'
           commit: 'false'
       - name: Breakpoint if `templ` generate failed

@@ -9,32 +9,32 @@ import (
 )
 
 script navigateToSlideHandler(index int) {
-    const currentIndex = parseInt(document.getElementById('current-slide-index').value);
-    const newIndex = currentIndex + index;
-    const totalSlides = document.querySelectorAll('.carousel-item').length;
+		const currentIndex = parseInt(document.getElementById('current-slide-index').value);
+		const newIndex = currentIndex + index;
+		const totalSlides = document.querySelectorAll('.carousel-item').length;
 
-    // Only proceed if newIndex is within bounds (0 to totalSlides-1)
-    if (newIndex >= 0 && newIndex < totalSlides) {
-        const slide = document.getElementById(`slide-${newIndex}`);
-        if (slide) {
-            slide.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-            document.getElementById('current-slide-index').value = newIndex;
-            if (newIndex == 0) {
-                document.getElementsByClassName('carousel-control-left')[0].classList.add('hidden');
-            } else {
-                document.getElementsByClassName('carousel-control-left')[0].classList.remove('hidden');
-            }
-            if (newIndex == totalSlides - 1) {
-                document.getElementsByClassName('carousel-control-right')[0].classList.add('hidden');
-            } else {
-                document.getElementsByClassName('carousel-control-right')[0].classList.remove('hidden');
-            }
-        }
-    }
+		// Only proceed if newIndex is within bounds (0 to totalSlides-1)
+		if (newIndex >= 0 && newIndex < totalSlides) {
+				const slide = document.getElementById(`slide-${newIndex}`);
+				if (slide) {
+						slide.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+						document.getElementById('current-slide-index').value = newIndex;
+						if (newIndex == 0) {
+								document.getElementsByClassName('carousel-control-left')[0].classList.add('hidden');
+						} else {
+								document.getElementsByClassName('carousel-control-left')[0].classList.remove('hidden');
+						}
+						if (newIndex == totalSlides - 1) {
+								document.getElementsByClassName('carousel-control-right')[0].classList.add('hidden');
+						} else {
+								document.getElementsByClassName('carousel-control-right')[0].classList.remove('hidden');
+						}
+				}
+		}
 }
 
 templ EventsInner(events []types.Event, mode string) {
-	if mode == "DETAILED" || mode == "" {
+	if mode == helpers.EV_MODE_UPCOMING || mode == "" {
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
 				No events found, try changing your filters like location, date, and time, or
@@ -50,7 +50,7 @@ templ EventsInner(events []types.Event, mode string) {
 							loading="lazy"
 							src={ helpers.GetImgUrlFromHash(ev) }
 							alt=""
-							class="object-cover w-full aspect-[4/3] md:aspect-[16/9] opacity-50 md:opacity-30 md:hover:opacity-75 transition-all"
+							class="object-cover object-position-25-25 w-full aspect-[4/3] md:aspect-[16/9] opacity-50 md:opacity-30 md:hover:opacity-75 transition-all"
 						/>
 					</a>
 					<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
@@ -68,7 +68,7 @@ templ EventsInner(events []types.Event, mode string) {
 			}
 		}
 	}
-	if mode == "DATES_ONLY" {
+	if mode == helpers.EV_MODE_CAROUSEL {
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
 				This event series has no events yet.
@@ -95,6 +95,44 @@ templ EventsInner(events []types.Event, mode string) {
 					onClick={ navigateToSlideHandler(1) }
 				>❯</button>
 			</div>
+		}
+	}
+	if mode == helpers.EV_MODE_LIST {
+		if (len(events) < 1) {
+			<p class="text-md md:text-lg text-center mt-5">
+				No events found.
+				<br/>
+				<br/>
+				<a class="btn btn-primary btn-small" href="/?radius=500">Expand Your Search</a>
+			</p>
+		} else {
+			for _, ev := range events {
+				<div class="flex w-full relative pb-12 md:pb-4">
+					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
+						<img
+							loading="lazy"
+							src={ helpers.GetImgUrlFromHash(ev) }
+							alt=""
+							class="object-cover object-position-25-25 w-full aspect-[4/1] md:aspect-[4/1] opacity-30 md:hover:opacity-75 transition-all"
+						/>
+					</a>
+					<div class="flex justify-between w-full p-4 md:py-8 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
+						<div class="mb-2">
+							<h2 class="text-xl font-bold">{ ev.Name }</h2>
+							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
+						</div>
+						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
+							if ev.HasPurchasable {
+								BUY TICKETS
+								&rarr;
+							} else {
+								LEARN MORE
+								&rarr;
+							}
+						</a>
+					</div>
+				</div>
+			}
 		}
 	}
 }
@@ -131,32 +169,58 @@ func GetCitiesAsJsonStr() string {
 	return cityStateJsonString
 }
 
-templ HomePage(events []types.Event, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong string) {
-	<div class="header-hero bg-[#00ffzz]">
-		<h1 class="text-xl md:text-4xl text-center mb-5">
-			<span class="opener">People Over Screens!</span>
-			<br/>
-			<span>Find Connection at Local Events.</span>
-		</h1>
-	</div>
+templ FilterButton() {
+	<button onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
+		FILTER <svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96" fill="#FFFFFF"></path></svg>
+	</button>
+}
+
+func GetPageUserID(pageUser *helpers.UserSearchResult) string {
+	if pageUser == nil {
+		return ""
+	}
+	return pageUser.UserID
+}
+
+templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong string) {
+	if pageUser == nil {
+		<div class="header-hero bg-[#00ffzz]">
+			<h1 class="text-xl md:text-4xl text-center mb-5">
+				<span class="opener">People Over Screens!</span>
+				<br/>
+				<span>Find Connection at Local Events.</span>
+			</h1>
+		</div>
+	} else {
+		<div class="space-y-10">
+			<h1 class="text-5xl alt-title font-bold text-center uppercase">{ pageUser.DisplayName }</h1>
+			<h2 class="text-3xl font-bold uppercase my-10">About Us</h2>
+			<p>United Karaoke is lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec et nulla neque. Aenean pellentesque quam at neque finibus, sit amet suscipit tortor egestas. Vivamus eleifend mi nec dui ultrices, vel porttitor justo maximus. Pellentesque a velit volutpat tellus interdum sollicitudin sit amet non nulla. Nunc gravida erat eget rhoncus consequat. Quisque sed fermentum lectus. In augue libero, sodales eu nunc molestie, placerat lobortis est. In in dignissim sem.</p>
+		</div>
+	}
 	<div class="min-h-screen">
-		<header class="flex justify-between p-4 bg-black border-b border-gray-700">
-			<nav class="flex space-x-4">
-				<button href="#" class="text-sm md:text-xl font-bold border-b-2 border-white">
-					EVENTS
-				</button>
-				<button href="#" class="text-sm md:text-xl">
-					GROUPS
-				</button>
-				<button href="#" class="text-sm md:text-xl">
-					ORGANIZERS
-				</button>
-			</nav>
-			//
-			<button onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
-				FILTER <svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96" fill="#FFFFFF"></path></svg>
-			</button>
-		</header>
+		if pageUser == nil {
+			<header class="flex justify-between p-4 bg-black border-b border-gray-700">
+				<nav class="flex space-x-4">
+					<button href="#" class="text-sm md:text-xl font-bold border-b-2 border-white">
+						EVENTS
+					</button>
+					// <button href="#" class="text-sm md:text-xl">
+					// 	GROUPS
+					// </button>
+					// <button href="#" class="text-sm md:text-xl">
+					// 	ORGANIZERS
+					// </button>
+				</nav>
+				//
+				@FilterButton()
+			</header>
+		} else {
+			<header class="flex justify-between items-center">
+				<h2 class="text-3xl font-bold uppercase my-10">Events</h2>
+				@FilterButton()
+			</header>
+		}
 		// Source: https://www.penguinui.com/components/combobox
 		<div x-data="getLocationSearchData()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
 			<div class="relative px-4">
@@ -258,7 +322,11 @@ templ HomePage(events []types.Event, cfLocation helpers.CdnLocation, latStr, lon
 				id="event-search-form"
 				class="flex"
 				novalidate
-				hx-get="/api/html/events"
+				if pageUser == nil {
+					hx-get="/api/html/events"
+				} else {
+					hx-get={ `/api/html/events?list_mode=` + helpers.EV_MODE_LIST }
+				}
 				hx-indicator="#events-container"
 				hx-ext="json-enc"
 				hx-target="#events-container-inner"
@@ -345,20 +413,49 @@ templ HomePage(events []types.Event, cfLocation helpers.CdnLocation, latStr, lon
 			</form>
 		</div>
 		<main id="events-container">
-			<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
-				<span class="loading loading-spinner loading-lg text-primary"></span>
-			</div>
-			<div id="events-container-inner">
-				@EventsInner(events, "")
-			</div>
+			if pageUser == nil {
+				<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
+					<span class="loading loading-spinner loading-lg text-primary"></span>
+				</div>
+				<div id="events-container-inner">
+					@EventsInner(events, "")
+				</div>
+			} else {
+				<div role="tablist" class="tabs tabs-bordered">
+					<input
+						type="radio"
+						name="org-events-tabs"
+						role="tab"
+						class="tab text-lg leading-5 uppercase"
+						aria-label="Upcoming"
+						checked="checked"
+					/>
+					<div role="tabpanel" class="tab-content py-10">
+						<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
+							<span class="loading loading-spinner loading-lg text-primary"></span>
+						</div>
+						<div id="events-container-inner">
+							@EventsInner(events, helpers.EV_MODE_LIST)
+						</div>
+					</div>
+					<input
+						type="radio"
+						name="org-events-tabs"
+						role="tab"
+						class="tab text-lg leading-5 uppercase"
+						aria-label="Past"
+					/>
+					<div role="tabpanel" class="tab-content p-10">Past Events</div>
+				</div>
+			}
 		</main>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-page-user-id={ GetPageUserID(pageUser) }>
 
-    function sendParmsFromQs() {
+		function sendParmsFromQs() {
 			const urlParams = new URLSearchParams(window.location.search);
-
 			return {
+				...(document.querySelector('#alpine-state').getAttribute('data-page-user-id') !== "") ? { owners: document.querySelector('#alpine-state').getAttribute('data-page-user-id') } : {},
 				...(urlParams.get('start_time')?.length > 1) ? { start_time: urlParams.get('start_time') } : {},
 				...(urlParams.get('end_time')?.length > 1) ? { end_time: urlParams.get('end_time') } : {},
 				...(urlParams.get('q')?.length > 1) ? { q: urlParams.get('q') } : {},
@@ -366,8 +463,9 @@ templ HomePage(events []types.Event, cfLocation helpers.CdnLocation, latStr, lon
 				...(urlParams.get('lat')?.length > 1) ? { lat: urlParams.get('lat') } : {},
 				...(urlParams.get('lon')?.length > 1) ? { lon: urlParams.get('lon') } : {},
 				...(urlParams.get('categories')?.length > 1) ? { categories: urlParams.get('categories') } : {},
+
 			}
-    }
+		}
 
 		function getLocationSearchData() {
 			return {
@@ -385,9 +483,9 @@ templ HomePage(events []types.Event, cfLocation helpers.CdnLocation, latStr, lon
 				selectedOption: {
 					label: document.querySelector('#alpine-state').getAttribute('data-city-label-initial')
 				},
-        async fetchLocations(query) {
+				async fetchLocations(query) {
 						if (query.length >= 3) {
-            	this.options = await fetch(`/api/locations?q=${query}`).then(res => {
+							this.options = await fetch(`/api/locations?q=${query}`).then(res => {
 								return res.json()
 							}).then(json => {
 								return json.map((city) => ({
@@ -398,7 +496,7 @@ templ HomePage(events []types.Event, cfLocation helpers.CdnLocation, latStr, lon
 								}))
 							});
 						}
-        },
+				},
 				setSelectedOption(option) {
 						this.selectedOption = option
 						this.isOpen = false

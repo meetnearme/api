@@ -125,7 +125,7 @@ func TestGetPurchasesByEventID(t *testing.T) {
 			}
 			handler := NewPurchaseHandler(mockService)
 			req := httptest.NewRequest(http.MethodGet, "/purchases/event_id", nil)
-			req = mux.SetURLVars(req, map[string]string{"event_id": testEventID})
+			req = mux.SetURLVars(req, map[string]string{helpers.EVENT_ID_KEY: testEventID})
 
 			// Add authentication context with test user
 			userInfo := helpers.UserInfo{
@@ -225,8 +225,8 @@ func TestDeletePurchase(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/purchases/%s/%s", testEventID, testUserID), nil)
 	req = mux.SetURLVars(req, map[string]string{
-		"event_id": testEventID,
-		"user_id":  testUserID,
+		helpers.EVENT_ID_KEY: testEventID,
+		"user_id":            testUserID,
 	})
 
 	// Add user context

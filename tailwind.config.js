@@ -5,6 +5,11 @@ export default {
   purge: ['**/*.templ'],
   content: ['**/*.templ'],
   theme: {
+    extend: {
+      aspectRatio: {
+        '4/1': '4 / 1',
+      },
+    },
     fontSize: {
       sm: '0.8rem',
       base: '1rem',
