@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"os"
 	"strings"
 )
 
@@ -100,8 +101,16 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 												<template x-if="purchase.stripe_transaction_id">
 													<a class="btn btn-sm btn-primary mt-2" target="_blank" :href=" 'https://dashboard.stripe.com/payments/' + purchase.stripe_transaction_id ">View on Stripe</a>
 												</template>
-												<template x-if="!purchase.stripe_transaction_id && purchase.total > 0">
-													<a class="btn btn-sm btn-primary mt-2" target="_blank" :href=" 'https://dashboard.stripe.com/workbench/logs?object=' + purchase.stripe_checkout_url + '&filtered=true' ">View Incomplete on Stripe</a>
+												<template x-if="purchase.stripe_session_id && purchase.total > 0">
+													<a
+														class="btn btn-sm btn-primary mt-2"
+														target="_blank"
+														if os.Getenv("SST_STAGE") != "prod" {
+															:href=" 'https://dashboard.stripe.com/test/workbench/logs?object=' + purchase.stripe_session_id + '&filtered=true' "
+														} else {
+															:href=" 'https://dashboard.stripe.com/workbench/logs?object=' + purchase.stripe_session_id + '&filtered=true' "
+														}
+													>View Incomplete on Stripe</a>
 												</template>
 											</td>
 										</tr>
