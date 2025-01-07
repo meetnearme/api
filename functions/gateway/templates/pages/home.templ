@@ -189,13 +189,16 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 				<span class="opener">People Over Screens!</span>
 				<br/>
 				<span>Find Connection at Local Events.</span>
+				// <span class="opener">Journey to exotic realms <br/> unreachable by AI bots 🚀</span>
 			</h1>
 		</div>
 	} else {
 		<div class="space-y-10">
 			<h1 class="text-5xl alt-title font-bold text-center uppercase">{ pageUser.DisplayName }</h1>
-			<h2 class="text-3xl font-bold uppercase my-10">About Us</h2>
-			<p>United Karaoke is lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec et nulla neque. Aenean pellentesque quam at neque finibus, sit amet suscipit tortor egestas. Vivamus eleifend mi nec dui ultrices, vel porttitor justo maximus. Pellentesque a velit volutpat tellus interdum sollicitudin sit amet non nulla. Nunc gravida erat eget rhoncus consequat. Quisque sed fermentum lectus. In augue libero, sodales eu nunc molestie, placerat lobortis est. In in dignissim sem.</p>
+			if pageUser.Metadata != nil && pageUser.Metadata[helpers.META_ABOUT_KEY] != "" {
+				<h2 class="text-3xl font-bold uppercase my-10">About</h2>
+				<p class="whitespace-pre-wrap">{ pageUser.Metadata[helpers.META_ABOUT_KEY] }</p>
+			}
 		</div>
 	}
 	<div class="min-h-screen">
@@ -445,7 +448,7 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 						class="tab text-lg leading-5 uppercase"
 						aria-label="Past"
 					/>
-					<div role="tabpanel" class="tab-content p-10">Past Events</div>
+					<div role="tabpanel" class="tab-content p-10">(Coming Soon...)</div>
 				</div>
 			}
 		</main>

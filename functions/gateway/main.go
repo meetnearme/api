@@ -80,6 +80,7 @@ func init() {
 		//  == END == need to expose these via permanent key for headless clients
 		{"/api/auth/users/set-subdomain", "POST", handlers.SetUserSubdomain, Require},
 		{"/api/auth/users/update-interests", "POST", handlers.UpdateUserInterests, Require},
+		{"/api/auth/users/update-about", "POST", handlers.UpdateUserAbout, Require},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo", "POST", handlers.GeoLookup, None},

@@ -338,12 +338,16 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								hx-get={ "/api/html/event-series-form/" + event.Id + "?end_time=2099-10-18T10:00:00Z&radius=20000" }
 								hx-trigger="load"
 								hx-swap="outerHTML"
+								@htmx:after-request="setEventChildrenLoaded()"
 							>
-								<div class="flex w-full flex-col gap-4 my-3">
-									<div class="skeleton h-4 w-1/2"></div>
-									<div class="skeleton h-4 w-full"></div>
-									<div class="skeleton h-4 w-full"></div>
-								</div>
+								// TODO: add htmx response callback behavior to set eventChildrenLoaded to true
+								<template x-if="!eventChildrenLoaded && formData.eventChildren.length < 1">
+									<div class="flex w-full flex-col gap-4 my-3">
+										<div class="skeleton h-4 w-1/2"></div>
+										<div class="skeleton h-4 w-full"></div>
+										<div class="skeleton h-4 w-full"></div>
+									</div>
+								</template>
 							</div>
 						}
 						<template x-for="(child, idx) in formData.eventChildren">
@@ -527,7 +531,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				</div>
 			</dialog>
 		</div>
-		<div>Show Toast: <span x-text="showToast ? 'true' : 'false'"></span></div>
 		<template x-if="showToast === true">
 			<div class="toast m-4 z-50 ">
 				<div :class="toastContent.type == 'error' ? 'alert-error' : 'alert-success'" class="alert  border-2 border-base-300">
@@ -579,11 +582,11 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 											this.purchasablesLoaded = true;
 										} catch (error) {
 											console.error('Failed to fetch purchasables:', error);
-                      this.showToast = true;
-                      this.toastContent = {
-                        type: 'error',
-                        message: 'Failed to fetch purchasables',
-                      }
+											this.showToast = true;
+											this.toastContent = {
+												type: 'error',
+												message: 'Failed to fetch purchasables',
+											}
 										}
 									}
 
@@ -619,6 +622,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								hideCrossPromo: document.querySelector('[name=hideCrossPromo]').checked ?? false,
 							},
 						},
+						eventChildrenLoaded: false,
 						purchasablesLoaded: false,
 						purchasablesCreatedAt: '',
 						registrationFieldsLoaded: false,
@@ -631,16 +635,16 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						tagInput: '',
 						ownerInput: '',
 						saveReqInFlight: false,
-            showToast: false,
-            toastContent: {
-              type: '',
-              message: ' updated successfully',
-            },
+						showToast: false,
+						toastContent: {
+							type: '',
+							message: ' updated successfully',
+						},
 						eventOwnerDelimiter: document.querySelector('#add-edit-event').getAttribute('data-event-owner-delimiter'),
 						eventTypeSingleConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
 						eventTypeSeriesParentConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent'),
 						eventTypeSeriesChildConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-child'),
-            // The API expects RFC3339 HH:MM:SS, but datetime-local is in HH:MM
+						// The API expects RFC3339 HH:MM:SS, but datetime-local is in HH:MM
 						timeZuluSuffix: ":00Z",
 						// BEGIN: Event Owners typeahead state
 
@@ -759,6 +763,9 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								startingPrice: this.formData.event.startingPrice * 100,
 							}
 						},
+						setEventChildrenLoaded() {
+							this.eventChildrenLoaded = true
+						},
 						async handlePublishClick() {
 							this.saveReqInFlight = true
 							const parentEvent = this.transformEventToPayload(this.formData.event)
@@ -781,7 +788,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 									payload.events.push({
 										...parentEvent,
 										...child,
-                    eventSourceId: this.formData.event.id,
+										eventSourceId: this.formData.event.id,
 										startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
 										endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,
 										eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
@@ -800,22 +807,22 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								const json = await response.json()
 								if (json.status === 'success') {
 									this.saveReqInFlight = false
-                  this.showToast = true;
-                  this.toastContent = {
-                    type: 'success',
-                    message: 'Event updated successfully',
-                  }
+									this.showToast = true;
+									this.toastContent = {
+										type: 'success',
+										message: 'Event updated successfully',
+									}
 								} else {
 									throw new Error('Failed to update event')
 								}
 							} catch (error) {
 								console.error('Failed to update event:', error);
 								this.saveReqInFlight = false
-                this.showToast = true;
-                this.toastContent = {
-                  type: 'error',
-                  message: 'Error: ' + error,
-                }
+								this.showToast = true;
+								this.toastContent = {
+									type: 'error',
+									message: 'Error: ' + error,
+								}
 							}
 						}
 

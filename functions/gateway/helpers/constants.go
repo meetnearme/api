@@ -21,6 +21,7 @@ const EVENT_ID_KEY string = "eventId"
 const USER_ID_KEY string = "userId"
 const SUBDOMAIN_KEY = "subdomain"
 const INTERESTS_KEY = "interests"
+const META_ABOUT_KEY = "about"
 const ERR_KV_KEY_EXISTS = "key already exists in KV store"
 const GO_TEST_ENV = "test"
 

@@ -46,6 +46,10 @@ type SetSubdomainRequestPayload struct {
 	Subdomain string `json:"subdomain" validate:"required"`
 }
 
+type UpdateUserAboutRequestPayload struct {
+	About string `json:"about" validate:"required"`
+}
+
 type eventSearchResult struct {
 	events []internal_types.Event
 	err    error
@@ -658,6 +662,37 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`)
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	var inputPayload UpdateUserAboutRequestPayload
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+	}
+	err = json.Unmarshal([]byte(body), &inputPayload)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
+	}
+	ctx := r.Context()
+
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userID := userInfo.Sub
+	err = helpers.UpdateUserMetadataKey(userID, helpers.META_ABOUT_KEY, inputPayload.About)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to update 'about' field: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	var buf bytes.Buffer
+	successPartial := partials.SuccessBannerHTML(`About section successfully saved`)
+
+	err = successPartial.Render(r.Context(), &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}

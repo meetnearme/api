@@ -187,52 +187,111 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	// Extract parameter values from the request query parameters
 	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 	userId := mux.Vars(r)[helpers.USER_ID_KEY]
-	users := []helpers.UserSearchResult{}
+
+	// Setup channels for concurrent operations
+	type userResult struct {
+		user helpers.UserSearchResult
+		err  error
+	}
+	type searchResult struct {
+		res types.EventSearchResponse
+		err error
+	}
+	type aboutResult struct {
+		data string
+		err  error
+	}
+
+	userChan := make(chan userResult, 1)
+	searchChan := make(chan searchResult, 1)
+	aboutChan := make(chan aboutResult, 1)
+
+	var pageUser *helpers.UserSearchResult
+
+	// Start concurrent operations if userId exists
 	if userId != "" {
-		users, err = helpers.SearchUsersByIDs([]string{userId})
+		// Single goroutine for all three requests when userId exists
+		go func() {
+			// Get user data
+			user, err := helpers.GetOtherUserByID(userId)
+			userChan <- userResult{user, err}
+
+			// Get about data
+			aboutData, err := helpers.GetOtherUserMetaByID(userId, helpers.META_ABOUT_KEY)
+			aboutChan <- aboutResult{aboutData, err}
+
+			// Get search results
+			marqoClient, err := services.GetMarqoClient()
+			if err != nil {
+				searchChan <- searchResult{types.EventSearchResponse{}, errors.New("failed to get marqo client: " + err.Error())}
+				return
+			}
+
+			subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+			if subdomainValue != "" {
+				ownerIds = []string{subdomainValue}
+			} else {
+				ownerIds = []string{userId}
+			}
+
+			res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+			searchChan <- searchResult{res, err}
+		}()
+	} else {
+		// Just do the search request directly when userId doesn't exist
+		close(userChan)
+		close(aboutChan)
+
+		marqoClient, err := services.GetMarqoClient()
 		if err != nil {
+			searchChan <- searchResult{types.EventSearchResponse{}, errors.New("failed to get marqo client: " + err.Error())}
 			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, err
 		}
-		if len(users) == 0 {
-			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusNotFound, errors.New("user not found")
+
+		subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+		if subdomainValue != "" {
+			ownerIds = []string{subdomainValue}
+		}
+
+		res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+		searchChan <- searchResult{res, err}
+	}
+
+	// fetch the `about` metadata for the user
+	var aboutData string
+	if userId != "" {
+		// here we ignore the error because we allow the page/user to not have an about section
+		aboutData, _ = helpers.GetOtherUserMetaByID(userId, helpers.META_ABOUT_KEY)
+		// Get user result from channel
+		userResult := <-userChan
+		if userResult.err != nil {
+			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, userResult.err
+		}
+		pageUser = &userResult.user
+	}
+
+	// Get search results from channel
+	result := <-searchChan
+	if result.err != nil {
+		return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, result.err
+	}
+
+	events := result.res.Events
+	if pageUser != nil {
+		// Initialize the metadata map if it's nil
+		if aboutData != "" && pageUser.Metadata == nil {
+			pageUser.Metadata = make(map[string]string)
+			pageUser.Metadata[helpers.META_ABOUT_KEY] = aboutData
 		}
 	}
-	marqoClient, err := services.GetMarqoClient()
-	if err != nil {
-		return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, errors.New("failed to get marqo client: " + err.Error())
-	}
-	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
 
-	// we override the `owners` query param here, because subdomains should always show only
-	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
-	if subdomainValue != "" {
-		ownerIds = []string{subdomainValue}
-	} else if userId != "" {
-		ownerIds = []string{userId}
-	}
-
-	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
-	if err != nil {
-		return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, errors.New("failed to get events via search: " + err.Error())
-	}
-	events := res.Events
-	var user *helpers.UserSearchResult
-	if len(users) > 0 {
-		user = &users[0]
-	}
-	return events, cfLocation, userLocation, user, http.StatusOK, nil
+	return events, cfLocation, userLocation, pageUser, http.StatusOK, nil
 }
 
 func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
-	_pageUser := mux.Vars(r)[helpers.USER_ID_KEY]
-	if _pageUser != "" {
-		q := r.URL.Query()
-		q.Set("radius", strconv.Itoa(helpers.DEFAULT_MAX_RADIUS))
-		r.URL.RawQuery = q.Encode()
-	}
 	events, cfLocation, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), status, err)
@@ -297,7 +356,8 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 	userInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
 	userSubdomain := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.SUBDOMAIN_KEY)
-	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests, userSubdomain)
+	userAbout := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.META_ABOUT_KEY)
+	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests, userSubdomain, userAbout)
 	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, types.Event{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
