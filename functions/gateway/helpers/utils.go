@@ -309,7 +309,7 @@ type ZitadelUserSearchResponse struct {
 type UserSearchResult struct {
 	UserID      string            `json:"userId"`
 	DisplayName string            `json:"displayName"`
-	Metadata    map[string]string `json:"metadata"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
 func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {

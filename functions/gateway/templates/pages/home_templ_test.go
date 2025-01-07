@@ -32,34 +32,78 @@ func TestHomePage(t *testing.T) {
 
 	latStr := "40.7128"
 	lonStr := "-74.0060"
-
-	// NOTE: we need an additional test to cover the scenario where there is discrepancy
-	// between cfLocation from cloudflare for lat / lon and query params set by user in URL
 	origLatStr := ""
 	origLonStr := ""
 
-	// Call the HomePage function
-	component := HomePage(events, nil, cfLocation, latStr, lonStr, origLatStr, origLonStr)
-
-	// Render the component
-	var buf bytes.Buffer
-	err := component.Render(context.Background(), &buf)
-	if err != nil {
-		t.Fatalf("Error rendering HomePage: %v", err)
+	// Test cases
+	tests := []struct {
+		name          string
+		pageUser      *helpers.UserSearchResult
+		expectedItems []string
+	}{
+		{
+			name:     "Without page user",
+			pageUser: nil,
+			expectedItems: []string{
+				"Test Event 1",
+				"Test Event 2",
+				"New York, US",
+			},
+		},
+		{
+			name: "With page user",
+			// pageUser: &helpers.UserSearchResult{ID: "1234567890", DisplayName: "Test User", Meta: map[string]string{"about": "Welcome to Brian's Pub"}},
+			pageUser: &helpers.UserSearchResult{
+				UserID:      "1234567890",
+				DisplayName: "Brian Feister",
+			},
+			expectedItems: []string{
+				"Test Event 1",
+				"Test Event 2",
+				"New York, US",
+				"data-page-user-id=\"1234567890\"",
+			},
+		},
+		{
+			name: "With page user and `about` section",
+			pageUser: &helpers.UserSearchResult{
+				UserID:      "1234567890",
+				DisplayName: "Brian's Pub",
+				Metadata: map[string]string{
+					helpers.META_ABOUT_KEY: "Welcome to Brian's Pub",
+				},
+			},
+			expectedItems: []string{
+				"Test Event 1",
+				"Test Event 2",
+				"New York, US",
+				"data-page-user-id=\"1234567890\"",
+				"Welcome to Brian&#39;s Pub",
+				"Brian&#39;s Pub</h1>",
+			},
+		},
 	}
 
-	// Check if the rendered content contains expected elements
-	renderedContent := buf.String()
-	expectedElements := []string{
-		"Test Event 1",
-		"Test Event 2",
-		"New York, US",
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Call the HomePage function
+			component := HomePage(events, tt.pageUser, cfLocation, latStr, lonStr, origLatStr, origLonStr)
 
-	for _, element := range expectedElements {
-		if !strings.Contains(renderedContent, element) {
-			t.Errorf("Expected rendered content to contain '%s', but it didn't", element)
-			t.Errorf("rendered content \n'%s'", renderedContent)
-		}
+			// Render the component
+			var buf bytes.Buffer
+			err := component.Render(context.Background(), &buf)
+			if err != nil {
+				t.Fatalf("Error rendering HomePage: %v", err)
+			}
+
+			// Check if the rendered content contains expected elements
+			renderedContent := buf.String()
+			for _, element := range tt.expectedItems {
+				if !strings.Contains(renderedContent, element) {
+					t.Errorf("Expected rendered content to contain '%s', but it didn't", element)
+					t.Errorf("rendered content \n'%s'", renderedContent)
+				}
+			}
+		})
 	}
 }
