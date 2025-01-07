@@ -214,7 +214,7 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	var inputPayload GeoLookupInputPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, "partial", err)
 	}
 
 	err = json.Unmarshal([]byte(body), &inputPayload)
@@ -224,41 +224,38 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(string("Invalid Body: ")+err.Error()), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte(string("Invalid Body: ")+err.Error()), http.StatusBadRequest, "partial", err)
 	}
 
 	baseUrl := helpers.GetBaseUrlFromReq(r)
 
 	if baseUrl == "" {
-		return transport.SendServerRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, "partial", err)
 	}
 
 	geoService := services.GetGeoService()
 	lat, lon, address, err := geoService.GetGeo(inputPayload.Location, baseUrl)
-
 	if err != nil {
-		return transport.SendServerRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, "partial", err)
 	}
-
+	log.Println("241")
 	// Convert lat and lon to float64
 	latFloat, err := strconv.ParseFloat(lat, 64)
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Invalid latitude value"), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusInternalServerError, "partial", err)
 	}
-
+	log.Println("243")
 	lonFloat, err := strconv.ParseFloat(lon, 64)
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Invalid longitude value"), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusInternalServerError, "partial", err)
 	}
-
-	geoLookupPartial := partials.GeoLookup(latFloat, lonFloat, address, "form")
+	geoLookupPartial := partials.GeoLookup(latFloat, lonFloat, address, "form-hidden")
 
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
 	}
-
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 

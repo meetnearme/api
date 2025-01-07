@@ -437,7 +437,20 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 			return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, "page", err)
 		}
 	}
-	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, event, isEditor)
+
+	cfRay := GetCfRay(r)
+	rayCode := ""
+	cfLocation := helpers.CdnLocation{}
+	cfLocationLat := services.InitialEmptyLatLong
+	cfLocationLon := services.InitialEmptyLatLong
+
+	if len(cfRay) > 2 {
+		rayCode = cfRay[len(cfRay)-3:]
+		cfLocation = helpers.CfLocationMap[rayCode]
+		cfLocationLat = cfLocation.Lat
+		cfLocationLon = cfLocation.Lon
+	}
+	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, event, isEditor, cfLocationLat, cfLocationLon)
 
 	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event)
 
