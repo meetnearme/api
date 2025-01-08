@@ -47,7 +47,7 @@ func TestProfilePage(t *testing.T) {
 	subdomain := "brians-pub"
 
 	// Call the ProfilePage function
-	profilePage := ProfilePage(mockUserInfo, mockRoleClaims, interests, subdomain)
+	profilePage := ProfilePage(mockUserInfo, mockRoleClaims, interests, subdomain, "Test about me text")
 
 	// Create a layout template
 	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, profilePage, types.Event{})
@@ -69,6 +69,7 @@ func TestProfilePage(t *testing.T) {
 		mockUserInfo.Sub,
 		mockUserInfo.Locale,
 		"Yes", // mockUserInfo.EmailVerified yields a value "Yes" or "No"
+		"Test about me text",
 	}
 
 	for _, element := range expectedContent {

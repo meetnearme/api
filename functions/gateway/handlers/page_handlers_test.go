@@ -18,7 +18,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
 
-func TestGetHomePage(t *testing.T) {
+func TestGetHomeOrUserPage(t *testing.T) {
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
@@ -100,7 +100,7 @@ func TestGetHomePage(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Call the handler
-	handler := GetHomePage(rr, req)
+	handler := GetHomeOrUserPage(rr, req)
 	handler.ServeHTTP(rr, req)
 
 	// Check the status code
@@ -208,7 +208,7 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Call the handler
-	handler := GetHomePage(rr, req)
+	handler := GetHomeOrUserPage(rr, req)
 	handler.ServeHTTP(rr, req)
 
 	// Check the status code

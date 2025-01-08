@@ -1,57 +1,46 @@
 package partials
 
-import (
-	"fmt"
-	"html"
-)
+import "fmt"
 
 templ GeoLookup(lat float64, lon float64, address string, variant string) {
-	if variant == "badge" {
-		<div role="alert" class="alert alert-success">
-			<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-10 w-10" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-			<div>
-				<h3 class="text-xl">Location Confirmed</h3>
-				<p><strong>Address</strong>: { address }</p>
-				<p><strong>Latitude</strong>: { fmt.Sprintf("%.6f", lat) }</p>
-				<p><strong>Longitude</strong>: { fmt.Sprintf("%.6f", lon) }</p>
+	switch variant {
+		case "badge":
+			<div role="alert" class="alert alert-success">
+				<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-10 w-10" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+				<div>
+					<h3 class="text-xl">Location Confirmed</h3>
+					<p><strong>Address</strong>: { address }</p>
+					<p><strong>Latitude</strong>: { fmt.Sprintf("%.6f", lat) }</p>
+					<p><strong>Longitude</strong>: { fmt.Sprintf("%.6f", lon) }</p>
+				</div>
 			</div>
-		</div>
-	}
-	if variant == "form" {
-		<div class="form-control">
-			<label class="label">Address</label>
-			<textarea
-				disabled
-				data-value-address={ html.EscapeString(address) }
-				x-model.fill="formData.address"
-				class="input input-bordered max-w-full min-h-fit h-auto resize-none"
-				type="text"
-				placeholder="Confirm Location Above"
-			></textarea>
-		</div>
-		<div class="form-control">
-			<label class="label">Latitude</label>
+		case "form-hidden":
 			<input
 				disabled
+				type="hidden"
+				data-value-address={ address }
+				x-model.fill="formData.address"
+			/>
+			<input
+				disabled
+				type="hidden"
 				data-value-lat={ fmt.Sprintf("%.6f", lat) }
 				x-model.fill="formData.lat"
-				class="input input-bordered max-w-full"
-				type="number"
-				step="any"
-				placeholder="Confirm Location Above"
 			/>
-		</div>
-		<div class="form-control">
-			<label class="label">Longitude</label>
 			<input
 				disabled
+				type="hidden"
 				data-value-lon={ fmt.Sprintf("%.6f", lon) }
 				x-model.fill="formData.lon"
-				class="input input-bordered max-w-full"
-				type="number"
-				step="any"
-				placeholder="Confirm Location Above"
 			/>
-		</div>
+		default:
+			<div role="alert" class="alert alert-error">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+				</svg>
+				<div>
+					<h3 class="text-xl">GeoLookup mode not specified</h3>
+				</div>
+			</div>
 	}
 }

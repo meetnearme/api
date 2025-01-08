@@ -19,6 +19,7 @@ export function StorageStack({ stack }: StackContext) {
     },
   });
 
+  // 🚨 WARNING 🚨 Deprecated, do not use
   // const purchasesTable = new Table(stack, 'Purchases', {
   //   fields: {
   //     id: 'string',
@@ -120,12 +121,12 @@ export function StorageStack({ stack }: StackContext) {
   });
 
   return {
-    registrationsTable,
+    // registrationsTable,  // deprecated
     registrationFieldsTable,
     seshuSessionsTable,
     // purchasesTable, // deprecated
     purchasesTableV2,
     purchasablesTable,
-    eventRsvpsTable,
+    // eventRsvpsTable, // deprecated
   };
 }

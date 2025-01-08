@@ -5,7 +5,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 )
 
-templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, interests []string, userSubdomain string) {
+templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, interests []string, userSubdomain string, userAbout string) {
 	<h1 class="text-3xl">Profile</h1>
 	<br/>
 	<br/>
@@ -161,7 +161,32 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 				/>
 				<button type="submit" class="btn btn-primary mt-4">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 			</form>
-			<div id="subdomain-result" class="margins-when-children my-8"></div>
+			<h3 class="text-2xl font-bold mb-4 mt-4">About / Bio</h3>
+			<form
+				class="group"
+				novalidate
+				hx-post="/api/auth/users/update-about"
+				hx-ext="json-enc"
+				hx-target="#about-result"
+				hx-disabled-elt="button[type='submit']"
+				@submit.prevent=""
+				@htmx:after-request="handleSubdomainPostRes(event)"
+			>
+				<div class="form-control">
+					<label class="label" for="description">Description</label>
+					<textarea
+						name="about"
+						class="textarea textarea-bordered w-full"
+						maxlength="500"
+						id="about"
+						placeholder="Personal bio or organization description on your profile"
+					>
+						{ userAbout }
+					</textarea>
+				</div>
+				<button type="submit" class="btn btn-primary mt-4">Update About<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+			</form>
+			<div id="about-result" class="margins-when-children my-8"></div>
 			<h2 class="text-2xl font-bold mt-4">Events Owned by Me</h2>
 			// TODO: this is fake data, delete
 			<table class="table table-pin-rows table-pin-cols table-zebra">
