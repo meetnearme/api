@@ -252,31 +252,29 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 		</div>
 		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Date &amp; Media</h2>
 		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
-			<div class="card">
-				<div class="form-control">
-					<label class="label">{ helpers.GetFieldDisplayName("StartTime") }</label>
-					<input
-						class="input input-bordered"
-						type="datetime-local"
-						x-model.fill={ "formData.event.startTime" }
-						if (event.StartTime > 0) {
-							value={ helpers.GetDatetimePickerFormatted(event.StartTime, event.Timezone) }
-						}
-						:disabled="saveReqInFlight"
-					/>
-				</div>
-				<div class="form-control">
-					<label class="label">{ helpers.GetFieldDisplayName("EndTime") }</label>
-					<input
-						class="input input-bordered"
-						type="datetime-local"
-						x-model.fill={ "formData.event.endTime" }
-						if (event.EndTime > 0) {
-							value={ helpers.GetDatetimePickerFormatted(event.EndTime, event.Timezone) }
-						}
-						:disabled="saveReqInFlight"
-					/>
-				</div>
+			<div class="form-control">
+				<label class="label">{ helpers.GetFieldDisplayName("StartTime") }</label>
+				<input
+					class="input input-bordered"
+					type="datetime-local"
+					x-model.fill={ "formData.event.startTime" }
+					if (event.StartTime > 0) {
+						value={ helpers.GetDatetimePickerFormatted(event.StartTime, event.Timezone) }
+					}
+					:disabled="saveReqInFlight"
+				/>
+			</div>
+			<div class="form-control">
+				<label class="label">{ helpers.GetFieldDisplayName("EndTime") }</label>
+				<input
+					class="input input-bordered"
+					type="datetime-local"
+					x-model.fill={ "formData.event.endTime" }
+					if (event.EndTime > 0) {
+						value={ helpers.GetDatetimePickerFormatted(event.EndTime, event.Timezone) }
+					}
+					:disabled="saveReqInFlight"
+				/>
 			</div>
 			<div class="form-control">
 				<label class="label">Timezone</label>
@@ -748,11 +746,18 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							})
 						},
 						transformEventToPayload(event) {
+              const eventFiltered = Object.fromEntries(
+                Object.entries(this.formData.event)
+                  .filter(([_, value]) => value !== '')
+              )
+              if (!this.formData.event.hasPurchasable) {
+                delete eventFiltered.startingPrice
+                delete eventFiltered.currency
+                delete eventFiltered.payeeId
+              }
+
 							return {
-								...Object.fromEntries(
-									Object.entries(this.formData.event)
-										.filter(([_, value]) => value !== '')
-								),
+								...eventFiltered,
 								startTime: this.formData.event.startTime ? this.formData.event.startTime + this.timeZuluSuffix : null,
 								endTime: this.formData.event.endTime ? this.formData.event.endTime + this.timeZuluSuffix : null,
 								lat: parseFloat(this.formData.event.lat),
@@ -760,7 +765,12 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								eventSourceType: this.isEventSeries ? this.eventTypeSeriesParentConstant : this.eventTypeSingleConstant,
 								eventOwners: this.owners.map(owner => owner.value),
 								eventOwnerName: this.owners.map(owner => owner.label).join(this.eventOwnerDelimiter),
-								startingPrice: this.formData.event.startingPrice * 100,
+                ...(this.formData.event.hasPurchasable ? {
+                    startingPrice: this.formData.event.startingPrice * 100,
+                    currency: this.formData.event.currency,
+                    payeeId: this.formData.event.payeeId,
+                  } : {}
+                ),
 							}
 						},
 						setEventChildrenLoaded() {
@@ -812,8 +822,10 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 										type: 'success',
 										message: 'Event updated successfully',
 									}
+									const newUrl = `/admin/event/${json.data.parentEvent._id}/edit`;
+									window.history.pushState({ path: newUrl }, '', newUrl);
 								} else {
-									throw new Error('Failed to update event')
+									throw new Error(`Failed to update event ${ json?.error?.message ? ": " + json.error.message : ''}`)
 								}
 							} catch (error) {
 								console.error('Failed to update event:', error);
@@ -821,7 +833,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								this.showToast = true;
 								this.toastContent = {
 									type: 'error',
-									message: 'Error: ' + error,
+									message: error,
 								}
 							}
 						}

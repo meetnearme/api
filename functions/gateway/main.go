@@ -69,28 +69,29 @@ func init() {
 		// API routes
 
 		// == START == need to expose these via permanent key for headless clients
-		{"/api/event", "POST", handlers.PostEventHandler, Require},
-		{"/api/events", "POST", handlers.PostBatchEventsHandler, Require},
-		{"/api/events", "GET", handlers.SearchEventsHandler, None},
-		{"/api/events", "PUT", handlers.BulkUpdateEventsHandler, Require},
+		{"/api/event{trailingslash:\\/?}", "POST", handlers.PostEventHandler, Require},
+		{"/api/events{trailingslash:\\/?}", "POST", handlers.PostBatchEventsHandler, Require},
+		{"/api/events{trailingslash:\\/?}", "GET", handlers.SearchEventsHandler, None},
+		{"/api/events{trailingslash:\\/?}", "PUT", handlers.BulkUpdateEventsHandler, Require},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, Require},
+		{"/api/event-reg-purch{trailingslash:\\/?}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/event-reg-purch/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
-		{"/api/locations", "GET", handlers.SearchLocationsHandler, None},
+		{"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
-		{"/api/auth/users/set-subdomain", "POST", handlers.SetUserSubdomain, Require},
-		{"/api/auth/users/update-interests", "POST", handlers.UpdateUserInterests, Require},
-		{"/api/auth/users/update-about", "POST", handlers.UpdateUserAbout, Require},
+		{"/api/auth/users/set-subdomain{trailingslash:\\/?}", "POST", handlers.SetUserSubdomain, Require},
+		{"/api/auth/users/update-interests{trailingslash:\\/?}", "POST", handlers.UpdateUserInterests, Require},
+		{"/api/auth/users/update-about{trailingslash:\\/?}", "POST", handlers.UpdateUserAbout, Require},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
-		{"/api/location/geo", "POST", handlers.GeoLookup, None},
-		{"/api/user-search", "GET", handlers.SearchUsersHandler, Require},
-		{"/api/users", "GET", handlers.GetUsersHandler, Require},
-		{"/api/html/events", "GET", handlers.GetEventsPartial, None},
+		{"/api/location/geo{trailingslash:\\/?}", "POST", handlers.GeoLookup, None},
+		{"/api/user-search{trailingslash:\\/?}", "GET", handlers.SearchUsersHandler, Require},
+		{"/api/users{trailingslash:\\/?}", "GET", handlers.GetUsersHandler, Require},
+		{"/api/html/events{trailingslash:\\/?}", "GET", handlers.GetEventsPartial, None},
 		{"/api/html/event-series-form/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventAdminChildrenPartial, None},
-		{"/api/html/seshu/session/submit", "POST", handlers.SubmitSeshuSession, Require},
-		{"/api/html/seshu/session/location", "PUT", handlers.GeoThenPatchSeshuSession, Require},
-		{"/api/html/seshu/session/events", "PUT", handlers.SubmitSeshuEvents, Require},
+		{"/api/html/seshu/session/submit{trailingslash:\\/?}", "POST", handlers.SubmitSeshuSession, Require},
+		{"/api/html/seshu/session/location{trailingslash:\\/?}", "PUT", handlers.GeoThenPatchSeshuSession, Require},
+		{"/api/html/seshu/session/events{trailingslash:\\/?}", "PUT", handlers.SubmitSeshuEvents, Require},
 
 		// // Purchasables routes
 		{"/api/purchasables/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, Require},   // Create a new purchasable

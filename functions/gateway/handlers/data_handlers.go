@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/go-playground/validator"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -480,6 +482,7 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 		// Search for matching users
 		matches, err := helpers.SearchUsersByIDs(ids)
+		log.Println("matches: ", matches)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to search users: "+err.Error()), http.StatusInternalServerError, err)
 			return
@@ -1154,19 +1157,31 @@ func UpdateEventRegPurch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	eventId := vars[helpers.EVENT_ID_KEY]
-	if eventId == "" {
-		transport.SendServerRes(w, []byte("Missing purchasable event_id"), http.StatusBadRequest, nil)
-		return
-	}
 
 	userInfo := helpers.UserInfo{}
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	validRoles := []string{"superAdmin", "eventEditor"}
 	userId := userInfo.Sub
 	if userId == "" {
 		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
 		return
+	}
+
+	if !helpers.HasRequiredRole(roleClaims, validRoles) {
+		err := errors.New("only event editors can add or edit events")
+		transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)
+		return
+	}
+
+	if eventId == "" {
+		eventId = uuid.NewString()
 	}
 
 	var updateEventRegPurchPayload UpdateEventRegPurchPayload
@@ -1184,7 +1199,6 @@ func UpdateEventRegPurch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// we should use goroutines to parallelize the three distinct database update operations here
-
 	db := transport.GetDB()
 
 	// Update purchasable
@@ -1194,7 +1208,7 @@ func UpdateEventRegPurch(w http.ResponseWriter, r *http.Request) {
 
 	purchService := dynamodb_service.NewPurchasableService()
 	purchHandler := dynamodb_handlers.NewPurchasableHandler(purchService)
-	_, err = purchHandler.PurchasableService.UpdatePurchasable(r.Context(), db, updatePurchasable)
+	purchRes, err := purchHandler.PurchasableService.UpdatePurchasable(r.Context(), db, updatePurchasable)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to update purchasable: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -1204,7 +1218,7 @@ func UpdateEventRegPurch(w http.ResponseWriter, r *http.Request) {
 	updateEventRegPurchPayload.RegistrationFieldsUpdate.EventId = eventId
 	regFieldsService := dynamodb_service.NewRegistrationFieldsService()
 	regFieldsHandler := dynamodb_handlers.NewRegistrationFieldsHandler(regFieldsService)
-	_, err = regFieldsHandler.RegistrationFieldsService.UpdateRegistrationFields(r.Context(), db, eventId, updateEventRegPurchPayload.RegistrationFieldsUpdate)
+	regFieldsRes, err := regFieldsHandler.RegistrationFieldsService.UpdateRegistrationFields(r.Context(), db, eventId, updateEventRegPurchPayload.RegistrationFieldsUpdate)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to update registration fields: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -1229,12 +1243,22 @@ func UpdateEventRegPurch(w http.ResponseWriter, r *http.Request) {
 		events[i] = event
 	}
 
-	services.BulkUpsertEventToMarqo(marqoClient, events)
+	eventsRes, err := services.BulkUpsertEventToMarqo(marqoClient, events)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to upsert events to marqo: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
 
 	// Create response object
 	response := map[string]interface{}{
 		"status":  "success",
 		"message": "Event(s), registration fields, and purchasable(s) updated successfully",
+		"data": map[string]interface{}{
+			"parentEvent": eventsRes.Items[0],
+			"events":      eventsRes,
+			"regFields":   regFieldsRes,
+			"purchasable": purchRes,
+		},
 	}
 
 	// Marshal the response
