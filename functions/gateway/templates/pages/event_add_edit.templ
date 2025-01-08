@@ -512,7 +512,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 		</div>
 		<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
 			<button class="btn btn-outline">Cancel</button>
-			<button type="submit" class="btn btn-primary mx-4" @click="handlePublishClick()">
+			<button :disabled="saveReqInFlight" @click="handlePublishClick()" class="btn btn-primary mx-4">
 				Publish
 				<template x-if="saveReqInFlight">
 					<span class="loading loading-spinner loading-sm"></span>
