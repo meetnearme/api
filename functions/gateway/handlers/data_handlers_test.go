@@ -156,7 +156,7 @@ func TestPostEvent(t *testing.T) {
 			expectMissingAuthHeader: true,
 			requestBody:             `{ "eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
 			mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
-				res, err := services.BulkUpsertEventToMarqo(client, events, false)
+				res, err := services.BulkUpsertEventToMarqo(client, events)
 				if err != nil {
 					log.Printf("mocked request to upsert event failed: %v", err)
 				}
@@ -402,7 +402,7 @@ func TestPostBatchEvents(t *testing.T) {
 			name:        "Valid events",
 			requestBody: `{"events":[ {"eventOwnerName": "Event Owner 1", "eventOwners":["123"],"eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}, { "eventOwnerName": "Event Owner 2", "eventOwners":["456"],"eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Another Test Event","description":"Another test event","startTime":"2099-05-02T12:00:00Z","address":"456 Test St","lat":51.5075,"long":-0.1279,"timezone":"America/New_York"}]}`,
 			mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
-				res, err := services.BulkUpsertEventToMarqo(client, events, false)
+				res, err := services.BulkUpsertEventToMarqo(client, events)
 				if err != nil {
 					log.Printf("mocked request to upsert events failed: %v", err)
 				}
@@ -441,7 +441,7 @@ func TestPostBatchEvents(t *testing.T) {
 			expectMissingAuthHeader: true,
 			requestBody:             `{"events":[ {"eventOwnerName": "Event Owner 1", "eventOwners":["123"],"eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"},{ "eventOwnerName": "Event Owner 2", "eventOwners":["456"],"eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Another Test Event","description":"Another test event","startTime":"2099-05-02T12:00:00Z","address":"456 Test St","lat":51.5075,"long":-0.1279,"timezone":"America/New_York"}]}`,
 			mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
-				res, err := services.BulkUpsertEventToMarqo(client, events, false)
+				res, err := services.BulkUpsertEventToMarqo(client, events)
 				if err != nil {
 					log.Printf("mocked request to upsert events failed: %v", err)
 				}

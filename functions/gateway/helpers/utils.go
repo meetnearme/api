@@ -307,8 +307,9 @@ type ZitadelUserSearchResponse struct {
 }
 
 type UserSearchResult struct {
-	UserID      string `json:"userId"`
-	DisplayName string `json:"displayName"`
+	UserID      string            `json:"userId"`
+	DisplayName string            `json:"displayName"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
 func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
@@ -405,8 +406,8 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 							}
 						},
 						{
-							"userNameQuery": {
-								"userName": "%s",
+							"displayNameQuery": {
+								"displayName": "%s",
 								"method": "TEXT_QUERY_METHOD_CONTAINS_IGNORE_CASE"
 							}
 						}
@@ -458,6 +459,119 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 	}
 
 	return results, nil
+}
+
+func GetOtherUserByID(userID string) (UserSearchResult, error) {
+	// https://zitadel.com/docs/apis/resources/user_service_v2/user-service-get-user-by-id
+	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID)
+	method := "GET"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return UserSearchResult{}, err
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return UserSearchResult{}, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return UserSearchResult{}, err
+	}
+
+	// Check for error status codes
+	if res.StatusCode != http.StatusOK {
+		var errResp struct {
+			Code    int32  `json:"code"`
+			Message string `json:"message"`
+			Details []struct {
+				Type string `json:"@type"`
+			} `json:"details"`
+		}
+		if err := json.Unmarshal(body, &errResp); err != nil {
+			return UserSearchResult{}, fmt.Errorf("failed to get user: status %d", res.StatusCode)
+		}
+		return UserSearchResult{}, fmt.Errorf("failed to get user: %s", errResp.Message)
+	}
+
+	var respData struct {
+		User struct {
+			ID       string `json:"id"`
+			Username string `json:"username"`
+			Human    struct {
+				Profile struct {
+					DisplayName string `json:"displayName"`
+				} `json:"profile"`
+			} `json:"human"`
+		} `json:"user"`
+	}
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return UserSearchResult{}, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	result := UserSearchResult{
+		UserID:      respData.User.ID,
+		DisplayName: respData.User.Human.Profile.DisplayName,
+	}
+
+	return result, nil
+}
+
+func GetOtherUserMetaByID(userID, key string) (string, error) {
+	// https://zitadel.com/docs/apis/resources/mgmt/management-service-get-user-metadata
+	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
+	method := "GET"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+	if res.StatusCode > 400 {
+		log.Printf("res.StatusCode: %v", res.StatusCode)
+		return "", fmt.Errorf("failed to get user metadata: %v", res.StatusCode)
+	}
+
+	var respData map[string]interface{}
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Get the metadata map
+	metadata, ok := respData["metadata"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("metadata not found or invalid format")
+	}
+
+	// Use the helper function with the metadata map
+	decodedValue := GetBase64ValueFromMap(metadata, "value")
+	if decodedValue == "" {
+		return "", fmt.Errorf("no value found or failed to decode")
+	}
+
+	return decodedValue, nil
 }
 
 func UpdateUserMetadataKey(userID, key, value string) error {
@@ -532,8 +646,8 @@ func GetTimeOrShowNone(datetime int64, timezone time.Location) string {
 	return formattedTime
 }
 
-func GetDatetimePickerFormatted(datetime int64) string {
-	return time.Unix(datetime, 0).Format("2006-01-02T15:04")
+func GetDatetimePickerFormatted(datetime int64, timezone time.Location) string {
+	return time.Unix(datetime, 0).In(&timezone).Format("2006-01-02T15:04")
 }
 
 func GetLocalDateAndTime(datetime int64, timezone time.Location) (string, string) {
@@ -604,25 +718,24 @@ func CanEditEvent(event *types.Event, userInfo *UserInfo, roleClaims []RoleClaim
 }
 
 func GetBase64ValueFromMap(claimsMeta map[string]interface{}, key string) string {
-	interestMetadataValue, ok := claimsMeta[key].(string)
+	metadataValue, ok := claimsMeta[key].(string)
 	if !ok {
 		return ""
 	}
 
 	// Add padding if needed
-	padding := len(interestMetadataValue) % 4
+	padding := len(metadataValue) % 4
 	if padding > 0 {
-		interestMetadataValue += strings.Repeat("=", 4-padding)
+		metadataValue += strings.Repeat("=", 4-padding)
 	}
 
 	// Decode base64 string
-	decodedValue, err := base64.StdEncoding.DecodeString(interestMetadataValue)
+	decodedValue, err := base64.StdEncoding.DecodeString(metadataValue)
 	if err != nil {
-		log.Printf("Failed to decode user interests metadata: %v", err)
+		log.Printf("Failed to decode base64 metadata: %v", err)
 		return ""
 	}
 	return string(decodedValue)
-
 }
 
 func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []string {

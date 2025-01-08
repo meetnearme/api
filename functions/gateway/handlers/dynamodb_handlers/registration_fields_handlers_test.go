@@ -20,7 +20,7 @@ func TestGetRegistrationFieldsByEventID(t *testing.T) {
 	handler := NewRegistrationFieldsHandler(mockService)
 
 	req := httptest.NewRequest(http.MethodGet, "/registration_fields/event_id", nil)
-	req = mux.SetURLVars(req, map[string]string{"event_id": "event_id"})
+	req = mux.SetURLVars(req, map[string]string{"eventId": "eventId"})
 
 	w := httptest.NewRecorder()
 	handler.GetRegistrationFieldsByEventID(w, req)
@@ -40,7 +40,7 @@ func TestDeleteRegistrationFields(t *testing.T) {
 	handler := NewRegistrationFieldsHandler(mockService)
 
 	req := httptest.NewRequest(http.MethodDelete, "/registration_fields/event_id", nil)
-	req = mux.SetURLVars(req, map[string]string{"event_id": "event_id"})
+	req = mux.SetURLVars(req, map[string]string{"eventId": "eventId"})
 
 	w := httptest.NewRecorder()
 	handler.DeleteRegistrationFields(w, req)
@@ -50,4 +50,3 @@ func TestDeleteRegistrationFields(t *testing.T) {
 		t.Errorf("Expected status code 200, got %d", res.StatusCode)
 	}
 }
-

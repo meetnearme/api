@@ -72,7 +72,6 @@ curl -X DELETE https://devnear.me/api/users/<:user_id>
 curl -X POST https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/purchasables/123e4567-e89b-12d3-a456-426614174000 \
 -H "Content-Type: application/json" \
 -d '{
-  "event_id": "123e4567-e89b-12d3-a456-426614174000",
   "registration_fields": ["field1", "field2"],
   "purchasable_items": [
     {
@@ -101,7 +100,6 @@ curl -X POST https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/purchasa
 curl -X PUT https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/purchasables/123e4567-e89b-12d3-a456-426614174000 \
 -H "Content-Type: application/json" \
 -d '{
-  "event_id": "123e4567-e89b-12d3-a456-426614174000",
   "registration_fields": ["field1", "field2"],
   "purchasable_items": [
     {

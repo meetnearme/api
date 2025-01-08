@@ -1,6 +1,11 @@
 package helpers
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+
+	"github.com/meetnearme/api/functions/gateway/types"
+)
 
 type AWSReqKey string
 
@@ -13,8 +18,10 @@ const SeshuSessionTablePrefix = "SeshuSessions"
 const RegistrationsTablePrefix = "Registrations"
 const RegistrationFieldsTablePrefix = "RegistrationFields"
 const EVENT_ID_KEY string = "eventId"
+const USER_ID_KEY string = "userId"
 const SUBDOMAIN_KEY = "subdomain"
 const INTERESTS_KEY = "interests"
+const META_ABOUT_KEY = "about"
 const ERR_KV_KEY_EXISTS = "key already exists in KV store"
 const GO_TEST_ENV = "test"
 
@@ -27,6 +34,13 @@ const AUTH_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
 const AUTH_METADATA_KEY = "urn:zitadel:iam:user:metadata"
 
 const DEFAULT_PAGINATION_LIMIT = 50
+const DEFAULT_MAX_RADIUS = 99999
+
+const EventOwnerNameDelimiter = " _|_ "
+
+const EV_MODE_CAROUSEL = "CAROUSEL"
+const EV_MODE_UPCOMING = "DETAILED"
+const EV_MODE_LIST = "LIST"
 
 const (
 	ES_SINGLE_EVENT  = "SLF"
@@ -60,6 +74,24 @@ func init() {
 		if key != page.Key {
 			panic(fmt.Sprintf("SitePage key mismatch: map key %q != struct key %q", key, page.Key))
 		}
+	}
+
+	// Initialize the EventFields struct with field names
+	eventType := reflect.TypeOf(types.Event{})
+	eventFieldsValue := reflect.ValueOf(&EventFields).Elem()
+
+	fieldDisplayNames = make(map[string]string)
+
+	for i := 0; i < eventType.NumField(); i++ {
+		field := eventType.Field(i)
+
+		// Set the field name in EventFields
+		if f := eventFieldsValue.FieldByName(field.Name); f.IsValid() {
+			f.SetString(field.Name)
+		}
+
+		// Initialize the display names map
+		fieldDisplayNames[field.Name] = humanizeFieldName(field.Name)
 	}
 }
 
@@ -146,10 +178,116 @@ var SitePages = map[string]SitePage{
 	"add-event-source": {Key: "add-event-source", Slug: "/admin/add-event-source{trailingslash:\\/?}", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
 	"settings":         {Key: "settings", Slug: "/admin/profile/settings{trailingslash:\\/?}", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
 	"map-embed":        {Key: "map-embed", Slug: "/map-embed{trailingslash:\\/?}", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
+	"user":             {Key: "user", Slug: "/user/{" + USER_ID_KEY + "}{trailingslash:\\/?}", Name: "User", SubnavItems: []string{SubnavItems[NvMain]}},
 	"event-detail":     {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}{trailingslash:\\/?}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
 	"add-event":        {Key: "add-event", Slug: "/admin/event/new{trailingslash:\\/?}", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
 	"edit-event":       {Key: "edit-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/edit{trailingslash:\\/?}", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
 	"attendees-event":  {Key: "attendees-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/attendees{trailingslash:\\/?}", Name: "Event Attendees", SubnavItems: []string{SubnavItems[NvMain]}},
+}
+
+// EventFields holds references to all fields in the Event struct
+var EventFields struct {
+	Id                    string
+	EventOwners           string
+	EventOwnerName        string
+	EventSourceType       string
+	Name                  string
+	Description           string
+	StartTime             string
+	EndTime               string
+	Address               string
+	Lat                   string
+	Long                  string
+	EventSourceId         string
+	StartingPrice         string
+	Currency              string
+	PayeeId               string
+	HasRegistrationFields string
+	HasPurchasable        string
+	ImageUrl              string
+	Timezone              string
+	Categories            string
+	Tags                  string
+	CreatedAt             string
+	UpdatedAt             string
+	UpdatedBy             string
+	RefUrl                string
+	HideCrossPromo        string
+	LocalizedStartDate    string
+	LocalizedStartTime    string
+}
+
+var fieldDisplayNames map[string]string
+
+// GetFieldDisplayName returns the human-readable name for a field
+func GetFieldDisplayName(field string) string {
+	if displayName, exists := fieldDisplayNames[field]; exists {
+		return displayName
+	}
+	panic(fmt.Sprintf("No display name mapping for field: %s", field))
+}
+
+func humanizeFieldName(field string) string {
+	switch field {
+	case "Id":
+		return "ID"
+	case "EventOwners":
+		return "Event Owners"
+	case "EventOwnerName":
+		return "Event Owner Name"
+	case "EventSourceType":
+		return "Event Source Type"
+	case "Name":
+		return "Name"
+	case "Description":
+		return "Description"
+	case "StartTime":
+		return "Start Date & Time"
+	case "EndTime":
+		return "End Date & Time"
+	case "Address":
+		return "Address"
+	case "Lat":
+		return "Latitude"
+	case "Long":
+		return "Longitude"
+	case "EventSourceId":
+		return "Event Source ID"
+	case "StartingPrice":
+		return "Starting Price"
+	case "Currency":
+		return "Currency"
+	case "PayeeId":
+		return "Payee ID"
+	case "HasRegistrationFields":
+		return "Has Registration Fields"
+	case "HasPurchasable":
+		return "Has Purchasable Items"
+	case "ImageUrl":
+		return "Image URL"
+	case "Timezone":
+		return "Timezone"
+	case "Categories":
+		return "Categories"
+	case "Tags":
+		return "Tags"
+	case "CreatedAt":
+		return "Created At"
+	case "UpdatedAt":
+		return "Updated At"
+	case "UpdatedBy":
+		return "Updated By"
+	case "RefUrl":
+		return "Reference URL"
+	case "HideCrossPromo":
+		return "Hide Cross Promotion"
+	case "LocalizedStartDate":
+		return "Localized Start Date"
+	case "LocalizedStartTime":
+		return "Localized Start Time"
+	default:
+		panic(fmt.Sprintf("No display name mapping for field: %s", field))
+	}
 }
 
 type Subcategory struct {

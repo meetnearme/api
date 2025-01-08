@@ -20,14 +20,13 @@ func (s *RealGeoService) GetGeo(location string, baseUrl string) (lat string, lo
 	if baseUrl == "" {
 		return "", "", "", fmt.Errorf("base URL is empty")
 	}
-	htmlString, err := GetHTMLFromURL(baseUrl+"/map-embed?address="+location, 0, false, "#mapDiv")
+	htmlString, err := GetHTMLFromURL(baseUrl+"/map-embed?address="+location, 0, false, "#mapDiv div div")
 	if err != nil {
 		return "", "", "", err
 	}
 	// this regex specifically captures the pattern of a lat/lon pair e.g. [40.7128, -74.0060]
 	re := regexp.MustCompile(`\[\-?\+?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*\-?\+?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)\]`)
 	latLon := re.FindString(htmlString)
-
 	if latLon == "" {
 		return "", "", "", fmt.Errorf("location is not valid")
 	}

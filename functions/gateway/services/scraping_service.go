@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -47,13 +46,13 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, timeout int, jsRender 
 	client := &http.Client{
 		Timeout: time.Duration(timeout) * time.Second * 5,
 	}
-	scrapingUrl := baseURL + "?api_key=" + os.Getenv("SCRAPINGBEE_API_KEY") + "&url=" + escapedURL + "&wait=" + fmt.Sprint(timeout) + "&render_js=" + fmt.Sprint(jsRender)
+	scrapingUrl := baseURL + "?api_key=" + os.Getenv("SCRAPINGBEE_API_KEY") + "&url=" + escapedURL + "&render_js=" + fmt.Sprint(jsRender)
+	if timeout > 0 {
+		scrapingUrl += "&wait=" + fmt.Sprint(timeout)
+	}
 	if waitFor != "" {
 		scrapingUrl += "&wait_for=" + waitFor
 	}
-	log.Println("unescapedURL: ", unescapedURL)
-	log.Println("escapedURL: ", escapedURL)
-	log.Println("scrapingUrl: ", scrapingUrl)
 	req, err := http.NewRequest("GET", scrapingUrl, nil)
 	if err != nil {
 		return "", fmt.Errorf("ERR: forming scraping request: %v", err)
