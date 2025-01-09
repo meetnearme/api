@@ -87,10 +87,10 @@ inputs:
     description: 'Stripe (prod) checkout webhook signing secret'
     required: true
   CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE:
-    description: 'The Namespace key for the project's Cloudflare KV Storage'
+    description: 'The Namespace key for the project Cloudflare KV Storage'
     required: true
   CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID:
-    description: 'The Namespace ID for the project's Cloudflare KV Storage'
+    description: 'The Namespace ID for the project Cloudflare KV Storage'
     required: true
 
 runs:
