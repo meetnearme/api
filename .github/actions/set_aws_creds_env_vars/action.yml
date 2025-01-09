@@ -86,6 +86,9 @@ inputs:
   PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET:
     description: 'Stripe (prod) checkout webhook signing secret'
     required: true
+  CLOUDFLARE_API_BASE_URL:
+    description: 'The base URL for the Cloudflare API'
+    required: true
   CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE:
     description: 'The Namespace key for the project Cloudflare KV Storage'
     required: true
@@ -113,10 +116,6 @@ runs:
         echo ZITADEL_ENCRYPTION_KEY=${{ inputs.ZITADEL_ENCRYPTION_KEY }} >> .env
         echo ZITADEL_INSTANCE_HOST=${{ inputs.ZITADEL_INSTANCE_HOST }} >> .env
         echo ZITADEL_BOT_ADMIN_TOKEN=${{ inputs.ZITADEL_BOT_ADMIN_TOKEN }} >> .env
-        echo CLOUDFLARE_ACCOUNT_ID=${{ inputs.CLOUDFLARE_ACCOUNT_ID }} >> .env
-        echo CLOUDFLARE_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_KV_NAMESPACE_ID }} >> .env
-        echo CLOUDFLARE_API_TOKEN=${{ inputs.CLOUDFLARE_API_TOKEN }} >> .env
-        echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
         echo MARQO_API_KEY=${{ inputs.MARQO_API_KEY }} >> .env
         echo PROD_MARQO_API_BASE_URL=${{ inputs.PROD_MARQO_API_BASE_URL }} >> .env
         echo DEV_MARQO_API_BASE_URL=${{ inputs.DEV_MARQO_API_BASE_URL }} >> .env
@@ -128,6 +127,10 @@ runs:
         echo DEV_STRIPE_PUBLISHABLE_KEY=${{ inputs.DEV_STRIPE_PUBLISHABLE_KEY }} >> .env
         echo DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET=${{ inputs.DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }} >> .env
         echo PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET=${{ inputs.PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET }} >> .env
+        echo CLOUDFLARE_ACCOUNT_ID=${{ inputs.CLOUDFLARE_ACCOUNT_ID }} >> .env
+        echo CLOUDFLARE_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_KV_NAMESPACE_ID }} >> .env
+        echo CLOUDFLARE_API_TOKEN=${{ inputs.CLOUDFLARE_API_TOKEN }} >> .env
+        echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
         echo CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE=${{ inputs.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE }} >> .env
         echo CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }} >> .env
     - name: Configure AWS credentials
