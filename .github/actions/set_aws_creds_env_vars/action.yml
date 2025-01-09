@@ -53,6 +53,12 @@ inputs:
   CLOUDFLARE_API_BASE_URL:
     description: 'The base URL for the Cloudflare API'
     required: true
+  CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE:
+    description: 'The Namespace key for the project Cloudflare KV Storage'
+    required: true
+  CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID:
+    description: 'The Namespace ID for the project Cloudflare KV Storage'
+    required: true
   MARQO_API_KEY:
     description: 'The API key for the Marqo API'
     required: true
@@ -85,15 +91,6 @@ inputs:
     required: true
   PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET:
     description: 'Stripe (prod) checkout webhook signing secret'
-    required: true
-  CLOUDFLARE_API_BASE_URL:
-    description: 'The base URL for the Cloudflare API'
-    required: true
-  CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE:
-    description: 'The Namespace key for the project Cloudflare KV Storage'
-    required: true
-  CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID:
-    description: 'The Namespace ID for the project Cloudflare KV Storage'
     required: true
 
 runs:
