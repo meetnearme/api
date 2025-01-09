@@ -73,6 +73,8 @@ jobs:
           DEV_STRIPE_PUBLISHABLE_KEY: ${{ secrets.DEV_STRIPE_PUBLISHABLE_KEY }}
           DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET: ${{ secrets.DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
           PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET: ${{ secrets.PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
+          CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE: ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE }}
+          CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }}
       - name: Generate Cloudflare locations Go file
         uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Deploy AWS resources via SST
