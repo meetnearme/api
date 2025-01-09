@@ -207,7 +207,10 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	aboutChan := make(chan aboutResult, 1)
 
 	var pageUser *helpers.UserSearchResult
-
+	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+	if subdomainValue != "" {
+		userId = subdomainValue
+	}
 	// Start concurrent operations if userId exists
 	if userId != "" {
 		// Single goroutine for all three requests when userId exists
@@ -227,7 +230,6 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 				return
 			}
 
-			subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
 			if subdomainValue != "" {
 				ownerIds = []string{subdomainValue}
 			} else {
