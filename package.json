@@ -18,7 +18,9 @@
     "remove": "sst remove",
     "console": "sst console",
     "tailwind:prod": "NODE_ENV=production tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --minify",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint:templ:dev": "eslint --ext .templ --fix .",
+    "lint:templ:prod": "eslint --ext .templ --max-warnings 0 ."
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.14",
@@ -27,6 +29,8 @@
     "concurrently": "^8.2.2",
     "constructs": "10.3.0",
     "daisyui": "^4.12.14",
+    "eslint": "^8.57.1",
+    "eslint-plugin-html": "^7.1.0",
     "node-watch": "^0.7.4",
     "sst": "2.39.5",
     "tailwindcss": "^3.4.9",
@@ -36,5 +40,8 @@
   "dependencies": {
     "dotenv": "^16.4.5",
     "kysely": "^0.27.4"
+  },
+  "eslintConfig": {
+    "sourceType": "commonjs"
   }
 }

@@ -1,5 +1,61 @@
 {
   "search.exclude": {
     "**/.sst": true
-  }
+  },
+  "[templ]": {
+    "editor.defaultFormatter": "a-h.templ",
+    "editor.formatOnSave": true
+  },
+  "tailwindCSS.includeLanguages": {
+    "templ": "html"
+  },
+  "[go]": {
+    "editor.tabSize": 2,
+    "editor.detectIndentation": true,
+    "editor.insertSpaces": false,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "golang.go"
+  },
+  "gopls": {
+    "ui.semanticTokens": true
+  },
+  "eslint.validate": [
+    "javascript",
+    {
+      "language": "html",
+      "autoFix": true
+    },
+    {
+      "language": "templ",
+      "autoFix": true
+    }
+  ],
+  "files.associations": {
+    "*.templ": "templ"
+  },
+  "files.trimTrailingWhitespace": true,
+  "editor.tabSize": 2,
+  "editor.showUnused": true,
+  "files.insertFinalNewline": true,
+  "prettier.jsxSingleQuote": true,
+  "prettier.singleQuote": true,
+  "eslint.lintTask.enable": true,
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit",
+    "source.fixAll.eslint": "explicit"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "eslint.options": {
+    "overrideConfigFile": ".eslintrc.cjs"
+  },
+  "eslint.debug": true,
+  "eslint.format.enable": true,
+  "javascript.validate.enable": true,
+  "eslint.probe": [
+    "javascript",
+    "javascriptreact",
+    "html",
+    "templ"
+  ]
 }
