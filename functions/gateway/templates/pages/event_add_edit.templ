@@ -11,7 +11,7 @@ import (
 
 templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64) {
 	<div
-		x-data="addEditEventState()"
+		x-data="getAddEditEventState()"
 		@child-updated.window="formData.eventChildren[$event.detail.index] = $event.detail.value"
 		@lat-updated.window="formData.event.lat = $event.detail.value"
 		@lon-updated.window="formData.event.long = $event.detail.value"
@@ -560,285 +560,287 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 	// 	</div>
 	// </div>
 	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) }>
-
-		function addEditEventState() {
-				return {
-						init() {
-							(async () => {
-									const ownerNames = this.formData.event.eventOwnerName.split(this.eventOwnerDelimiter);
-									const ownerIds = JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? []
-									this.owners = ownerIds.map((ownerId, idx) => {
-										return { label: ownerNames?.[idx], value: ownerId };
-									});
-									this.allOptions = this.owners
-									if (this.formData.event.hasPurchasable) {
-										try {
-											const purchasablesResponse = await fetch(`/api/purchasables/${this.formData.event.id}`);
-											const purchasables = await purchasablesResponse.json();
-											this.purchasables = purchasables?.purchasable_items ?? [];
-											this.purchasablesCreatedAt = purchasables?.created_at ?? '';
-											this.purchasablesLoaded = true;
-										} catch (error) {
-											console.error('Failed to fetch purchasables:', error);
-											this.showToast = true;
-											this.toastContent = {
-												type: 'error',
-												message: 'Failed to fetch purchasables',
-											}
-										}
-									}
-
-									if (this.formData.event.hasRegistrationFields) {
-										try {
-											const registrationFieldsResponse = await fetch(`/api/registration-fields/${this.formData.event.id}`);
-											const registrationFields = await registrationFieldsResponse.json();
-											this.registrationFields = registrationFields?.fields ?? [];
-											this.registrationFieldsCreatedAt = registrationFields?.created_at ?? '';
-											this.registrationFieldsLoaded = true;
-										} catch (error) {
-											console.error('Failed to fetch registration fields:', error);
-										}
-									}
-							})()
-						},
-						formData: {
-							eventChildren: [],
-							event: {
-								id: document.querySelector('#add-edit-event').getAttribute('data-event-id') ?? null,
-								eventSourceId: document.querySelector('#add-edit-event').getAttribute('data-event-source-id') ?? null,
-								eventOwners: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? [],
-								eventOwnerName: document.querySelector('#add-edit-event').getAttribute('data-event-owner-name') ?? '',
-								eventSourceType: document.querySelector('[name=isEventSeries]').checked ? document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent') : document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
-								tags: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-tags')) ?? [],
-								categories: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-categories')) ?? [],
-								hasPurchasable: document.querySelector('[name=hasPurchasable]').checked ?? false,
-								payeeId: document.querySelector('#add-edit-event').getAttribute('data-payee-id') ?? null,
-								hasRegistrationFields: document.querySelector('[name=hasRegistrationFields]').checked ?? false,
-								lat: document.querySelector('#add-edit-event').getAttribute('data-event-lat') ?? null,
-								long: document.querySelector('#add-edit-event').getAttribute('data-event-long') ?? null,
-								address: document.querySelector('#add-edit-event').getAttribute('data-event-address') ?? null,
-								hideCrossPromo: document.querySelector('[name=hideCrossPromo]').checked ?? false,
-							},
-						},
-						eventChildrenLoaded: false,
-						purchasablesLoaded: false,
-						purchasablesCreatedAt: '',
-						registrationFieldsLoaded: false,
-						registrationFieldsCreatedAt: '',
-						purchasables: [],
-						registrationFields: [],
-						owners: [],
-						isEventSeries: document.querySelector('[name=isEventSeries]').checked ?? false,
-						categoryInput: '',
-						tagInput: '',
-						ownerInput: '',
-						saveReqInFlight: false,
-						showToast: false,
-						toastContent: {
-							type: '',
-							message: ' updated successfully',
-						},
-						eventOwnerDelimiter: document.querySelector('#add-edit-event').getAttribute('data-event-owner-delimiter'),
-						eventTypeSingleConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
-						eventTypeSeriesParentConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent'),
-						eventTypeSeriesChildConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-child'),
-						// The API expects RFC3339 HH:MM:SS, but datetime-local is in HH:MM
-						timeZuluSuffix: ":00Z",
-						// BEGIN: Event Owners typeahead state
-
-						allOptions: [],
-						options: [],
-						isOpen: false,
-						openedWithKeyboard: false,
-						// END: Event Owners typeahead state
-						getFormChildrenData() {
-							return JSON.stringify(this.formData.eventChildren);
-						},
-						// BEGIN: Event Owners typeahead helper functions
-						async fetchUsers(query) {
-							if (query.length >= 3) {
-								await fetch(`/api/user-search?q=${query}`).then(res => {
-									return res.json()
-								}).then(json => {
-									// Filter out users that are already owners
-									const filteredUsers = json.filter(user =>
-										!this.owners.some(owner => owner.value === user.userId)
-									);
-									this.options = filteredUsers.map((user) => ({
-											label: user.displayName,
-											value: user.userId,
-									}))
-									this.$nextTick(() => {
-										this.isOpen = true
-									})
-								});
-							}
-						},
-						removeOwner(ownerToRemove) {
-								this.owners = this.owners.filter(owner => owner !== ownerToRemove);
-						},
-						setSelectedOwner(option) {
-								this.isOpen = false
-								this.owners.push(option);
-								this.options = this.options.filter(o => o.value !== option.value)
-								this.$nextTick(() => {
-									document.querySelector('[x-ref=ownerSearch]').focus();
-								})
-						},
-						getFilteredOptions(query) {
-								this.options = this.allOptions.filter((option) =>
-										option.label.toLowerCase().includes(query.toLowerCase()),
-								)
-								if (this.options.length === 0) {
-										this.$refs.noResultsMessage.classList.remove('hidden')
-								} else {
-										this.$refs.noResultsMessage.classList.add('hidden')
-								}
-						},
-						handleKeydownOnOptions(event) {
-								// if the user presses backspace or the alpha-numeric keys, focus on the search field
-								if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
-										this.$refs.ownerSearch.focus()
-								}
-						},
-
-						// END: Event Owners typeahead helper functions
-
-						addTag() {
-								if (this.tagInput.trim() !== '') {
-										this.formData.event.tags.push(this.tagInput.trim());
-										this.tagInput = '';
-								}
-						},
-
-						removeTag(tagToRemove) {
-								this.formData.event.tags = this.formData.event.tags.filter(tag => tag !== tagToRemove);
-						},
-
-						handleTagKeydown(e) {
-								if (e.key === 'Enter') {
-										e.preventDefault();
-										this.addTag();
-								}
-						},
-
-						addCategory() {
-								if (this.categoryInput.trim() !== '') {
-										this.formData.event.categories.push(this.categoryInput.trim());
-										this.categoryInput = '';
-								}
-						},
-
-						removeCategory(categoryToRemove) {
-								this.formData.event.categories = this.formData.event.categories.filter(category => category !== categoryToRemove);
-						},
-
-						handleCategoryKeydown(e) {
-								if (e.key === 'Enter') {
-										e.preventDefault();
-										this.addCategory();
-								}
-						},
-						addNewEventChild() {
-							this.formData.eventChildren.push({
-								startTime: '',
-								endTime: '',
-							})
-						},
-						transformEventToPayload(event) {
-              const eventFiltered = Object.fromEntries(
-                Object.entries(this.formData.event)
-                  .filter(([_, value]) => value !== '')
-              )
-              if (!this.formData.event.hasPurchasable) {
-                delete eventFiltered.startingPrice
-                delete eventFiltered.currency
-                delete eventFiltered.payeeId
-              }
-
-							return {
-								...eventFiltered,
-								startTime: this.formData.event.startTime ? this.formData.event.startTime + this.timeZuluSuffix : null,
-								endTime: this.formData.event.endTime ? this.formData.event.endTime + this.timeZuluSuffix : null,
-								lat: parseFloat(this.formData.event.lat),
-								long: parseFloat(this.formData.event.long),
-								eventSourceType: this.isEventSeries ? this.eventTypeSeriesParentConstant : this.eventTypeSingleConstant,
-								eventOwners: this.owners.map(owner => owner.value),
-								eventOwnerName: this.owners.map(owner => owner.label).join(this.eventOwnerDelimiter),
-                ...(this.formData.event.hasPurchasable ? {
-                    startingPrice: this.formData.event.startingPrice * 100,
-                    currency: this.formData.event.currency,
-                    payeeId: this.formData.event.payeeId,
-                  } : {}
-                ),
-							}
-						},
-						setEventChildrenLoaded() {
-							this.eventChildrenLoaded = true
-						},
-						async handlePublishClick() {
-							this.saveReqInFlight = true
-							const parentEvent = this.transformEventToPayload(this.formData.event)
-							let payload = {
-								events: [{
-									...parentEvent,
-								}],
-								purchasableUpdate: {
-									event_id: this.formData.event.id,
-									...(this.purchasablesCreatedAt !== '' ? {created_at: this.purchasablesCreatedAt} : {}),
-									purchasable_items: this.purchasables,
-								},
-								registrationFieldsUpdate: {
-									...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
-									fields: this.registrationFields,
-								},
-							}
-							if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
-								this.formData.eventChildren.forEach(child => {
-									payload.events.push({
-										...parentEvent,
-										...child,
-										eventSourceId: this.formData.event.id,
-										startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
-										endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,
-										eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
-									})
-								})
-							}
-
+		function getAddEditEventState() {
+			return {
+				init() {
+					(async () => {
+						const ownerNames = this.formData.event.eventOwnerName.split(this.eventOwnerDelimiter);
+						const ownerIds = JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? []
+						this.owners = ownerIds.map((ownerId, idx) => {
+							return { label: ownerNames?.[idx], value: ownerId };
+						});
+						this.allOptions = this.owners
+						if (this.formData.event.hasPurchasable) {
 							try {
-								const response = await fetch(`/api/event-reg-purch/${this.formData.event.id}`, {
-									method: 'PUT',
-									headers: {
-										'Content-Type': 'application/json',
-									},
-									body: JSON.stringify(payload),
-								});
-								const json = await response.json()
-								if (json.status === 'success') {
-									this.saveReqInFlight = false
-									this.showToast = true;
-									this.toastContent = {
-										type: 'success',
-										message: 'Event updated successfully',
-									}
-									const newUrl = `/admin/event/${json.data.parentEvent._id}/edit`;
-									window.history.pushState({ path: newUrl }, '', newUrl);
-								} else {
-									throw new Error(`Failed to update event ${ json?.error?.message ? ": " + json.error.message : ''}`)
-								}
+								const purchasablesResponse = await fetch(`/api/purchasables/${this.formData.event.id}`);
+								const purchasables = await purchasablesResponse.json();
+								this.purchasables = purchasables?.purchasable_items ?? [];
+								this.purchasablesCreatedAt = purchasables?.created_at ?? '';
+								this.purchasablesLoaded = true;
 							} catch (error) {
-								console.error('Failed to update event:', error);
-								this.saveReqInFlight = false
+								// eslint-disable-next-line no-console
+								console.error('Failed to fetch purchasables:', error);
 								this.showToast = true;
 								this.toastContent = {
 									type: 'error',
-									message: error,
+									message: 'Failed to fetch purchasables',
 								}
 							}
 						}
 
+						if (this.formData.event.hasRegistrationFields) {
+							try {
+								const registrationFieldsResponse = await fetch(`/api/registration-fields/${this.formData.event.id}`);
+								const registrationFields = await registrationFieldsResponse.json();
+								this.registrationFields = registrationFields?.fields ?? [];
+								this.registrationFieldsCreatedAt = registrationFields?.created_at ?? '';
+								this.registrationFieldsLoaded = true;
+							} catch (error) {
+								// eslint-disable-next-line no-console
+								console.error('Failed to fetch registration fields:', error);
+							}
+						}
+					})()
+				},
+				formData: {
+					eventChildren: [],
+					event: {
+						id: document.querySelector('#add-edit-event').getAttribute('data-event-id') ?? null,
+						eventSourceId: document.querySelector('#add-edit-event').getAttribute('data-event-source-id') ?? null,
+						eventOwners: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? [],
+						eventOwnerName: document.querySelector('#add-edit-event').getAttribute('data-event-owner-name') ?? '',
+						eventSourceType: document.querySelector('[name=isEventSeries]').checked ? document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent') : document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
+						tags: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-tags')) ?? [],
+						categories: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-categories')) ?? [],
+						hasPurchasable: document.querySelector('[name=hasPurchasable]').checked ?? false,
+						payeeId: document.querySelector('#add-edit-event').getAttribute('data-payee-id') ?? null,
+						hasRegistrationFields: document.querySelector('[name=hasRegistrationFields]').checked ?? false,
+						lat: document.querySelector('#add-edit-event').getAttribute('data-event-lat') ?? null,
+						long: document.querySelector('#add-edit-event').getAttribute('data-event-long') ?? null,
+						address: document.querySelector('#add-edit-event').getAttribute('data-event-address') ?? null,
+						hideCrossPromo: document.querySelector('[name=hideCrossPromo]').checked ?? false,
+					},
+				},
+				eventChildrenLoaded: false,
+				purchasablesLoaded: false,
+				purchasablesCreatedAt: '',
+				registrationFieldsLoaded: false,
+				registrationFieldsCreatedAt: '',
+				purchasables: [],
+				registrationFields: [],
+				owners: [],
+				isEventSeries: document.querySelector('[name=isEventSeries]').checked ?? false,
+				categoryInput: '',
+				tagInput: '',
+				ownerInput: '',
+				saveReqInFlight: false,
+				showToast: false,
+				toastContent: {
+					type: '',
+					message: ' updated successfully',
+				},
+				eventOwnerDelimiter: document.querySelector('#add-edit-event').getAttribute('data-event-owner-delimiter'),
+				eventTypeSingleConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
+				eventTypeSeriesParentConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent'),
+				eventTypeSeriesChildConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-child'),
+				// The API expects RFC3339 HH:MM:SS, but datetime-local is in HH:MM
+				timeZuluSuffix: ":00Z",
+				// BEGIN: Event Owners typeahead state
+
+				allOptions: [],
+				options: [],
+				isOpen: false,
+				openedWithKeyboard: false,
+				// END: Event Owners typeahead state
+				getFormChildrenData() {
+					return JSON.stringify(this.formData.eventChildren);
+				},
+				// BEGIN: Event Owners typeahead helper functions
+				async fetchUsers(query) {
+					if (query.length >= 3) {
+						await fetch(`/api/user-search?q=${query}`).then(res => {
+							return res.json()
+						}).then(json => {
+							// Filter out users that are already owners
+							const filteredUsers = json.filter(user =>
+								!this.owners.some(owner => owner.value === user.userId)
+							);
+							this.options = filteredUsers.map((user) => ({
+								label: user.displayName,
+								value: user.userId,
+							}))
+							this.$nextTick(() => {
+								this.isOpen = true
+							})
+						});
+					}
+				},
+				removeOwner(ownerToRemove) {
+					this.owners = this.owners.filter(owner => owner !== ownerToRemove);
+				},
+				setSelectedOwner(option) {
+					this.isOpen = false
+					this.owners.push(option);
+					this.options = this.options.filter(o => o.value !== option.value)
+					this.$nextTick(() => {
+						document.querySelector('[x-ref=ownerSearch]').focus();
+					})
+				},
+				getFilteredOptions(query) {
+					this.options = this.allOptions.filter((option) =>
+						option.label.toLowerCase().includes(query.toLowerCase()),
+					)
+					if (this.options.length === 0) {
+						this.$refs.noResultsMessage.classList.remove('hidden')
+					} else {
+						this.$refs.noResultsMessage.classList.add('hidden')
+					}
+				},
+				handleKeydownOnOptions(event) {
+					// if the user presses backspace or the alpha-numeric keys, focus on the search field
+					if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
+						this.$refs.ownerSearch.focus()
+					}
+				},
+
+				// END: Event Owners typeahead helper functions
+
+				addTag() {
+					if (this.tagInput.trim() !== '') {
+						this.formData.event.tags.push(this.tagInput.trim());
+						this.tagInput = '';
+					}
+				},
+
+				removeTag(tagToRemove) {
+					this.formData.event.tags = this.formData.event.tags.filter(tag => tag !== tagToRemove);
+				},
+
+				handleTagKeydown(e) {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						this.addTag();
+					}
+				},
+
+				addCategory() {
+					if (this.categoryInput.trim() !== '') {
+						this.formData.event.categories.push(this.categoryInput.trim());
+						this.categoryInput = '';
+					}
+				},
+
+				removeCategory(categoryToRemove) {
+					this.formData.event.categories = this.formData.event.categories.filter(category => category !== categoryToRemove);
+				},
+
+				handleCategoryKeydown(e) {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						this.addCategory();
+					}
+				},
+				addNewEventChild() {
+					this.formData.eventChildren.push({
+						startTime: '',
+						endTime: '',
+					})
+				},
+				transformEventToPayload(event) {
+					const eventFiltered = Object.fromEntries(
+						Object.entries(event)
+							// eslint-disable-next-line no-unused-vars
+							.filter(([_, value]) => value !== '')
+					)
+					if (!event.hasPurchasable) {
+						delete eventFiltered.startingPrice
+						delete eventFiltered.currency
+						delete eventFiltered.payeeId
+					}
+
+					return {
+						...eventFiltered,
+						startTime: event.startTime ? event.startTime + this.timeZuluSuffix : null,
+						endTime: event.endTime ? event.endTime + this.timeZuluSuffix : null,
+						lat: parseFloat(event.lat),
+						long: parseFloat(event.long),
+						eventSourceType: this.isEventSeries ? this.eventTypeSeriesParentConstant : this.eventTypeSingleConstant,
+						eventOwners: this.owners.map(owner => owner.value),
+						eventOwnerName: this.owners.map(owner => owner.label).join(this.eventOwnerDelimiter),
+						...(event.hasPurchasable ? {
+							startingPrice: event.startingPrice * 100,
+							currency: event.currency,
+							payeeId: event.payeeId,
+						} : {}
+						),
+					}
+				},
+				setEventChildrenLoaded() {
+					this.eventChildrenLoaded = true
+				},
+				async handlePublishClick() {
+					this.saveReqInFlight = true
+					const parentEvent = this.transformEventToPayload(this.formData.event)
+					let payload = {
+						events: [{
+							...parentEvent,
+						}],
+						purchasableUpdate: {
+							event_id: this.formData.event.id,
+							...(this.purchasablesCreatedAt !== '' ? {created_at: this.purchasablesCreatedAt} : {}),
+							purchasable_items: this.purchasables,
+						},
+						registrationFieldsUpdate: {
+							...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
+							fields: this.registrationFields,
+						},
+					}
+					if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
+						this.formData.eventChildren.forEach(child => {
+							payload.events.push({
+								...parentEvent,
+								...child,
+								eventSourceId: this.formData.event.id,
+								startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
+								endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,
+								eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
+							})
+						})
+					}
+
+					try {
+						const response = await fetch(`/api/event-reg-purch/${this.formData.event.id}`, {
+							method: 'PUT',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify(payload),
+						});
+						const json = await response.json()
+						if (json.status === 'success') {
+							this.saveReqInFlight = false
+							this.showToast = true;
+							this.toastContent = {
+								type: 'success',
+								message: 'Event updated successfully',
+							}
+							const newUrl = `/admin/event/${json.data.parentEvent._id}/edit`;
+							window.history.pushState({ path: newUrl }, '', newUrl);
+						} else {
+							throw new Error(`Failed to update event ${ json?.error?.message ? ": " + json.error.message : ''}`)
+						}
+					} catch (error) {
+						// eslint-disable-next-line no-console
+						console.error('Failed to update event:', error);
+						this.saveReqInFlight = false
+						this.showToast = true;
+						this.toastContent = {
+							type: 'error',
+							message: error,
+						}
+					}
 				}
+			}
 		}
 		</script>
 }

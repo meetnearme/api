@@ -9,7 +9,7 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 	<h1 class="text-3xl">Profile</h1>
 	<br/>
 	<br/>
-	<div class="md:grid md:grid-cols-7" x-data="getProfileData()">
+	<div class="md:grid md:grid-cols-7" x-data="getProfileState()">
 		@components.ProfileNav()
 		<div class="col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box">
 			<h2 id="registration-history" class="text-2xl font-bold mt-4">Event Purchases &amp; Registrations</h2>
@@ -271,58 +271,59 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 		</div>
 	</div>
 	<script id="profile-state" data-user-id={ userInfo.Sub } data-status-pending={ helpers.PurchaseStatus.Pending } data-status-settled={ helpers.PurchaseStatus.Settled }>
-			function getProfileData() {
-					return {
+		function getProfileState() {
+			return {
 				init() {
-						(async () => {
-              window.location.href.match('#')
-								let searchQuery = window.location.hash.split('?')[1] || '';
-                if (!window.location.href.match('#')) {
-                  searchQuery = window.location.search
-                }
-								this.newKeyId = new URLSearchParams(searchQuery).get('new_purch_key');
-								const maxAttempts = 10;
-								const delayMs = 250;
-								let attempts = 0;
+					(async () => {
+						window.location.href.match('#')
+						let searchQuery = window.location.hash.split('?')[1] || '';
+						if (!window.location.href.match('#')) {
+							searchQuery = window.location.search
+						}
+						this.newKeyId = new URLSearchParams(searchQuery).get('new_purch_key');
+						const maxAttempts = 10;
+						const delayMs = 250;
+						let attempts = 0;
 
-								const fetchPurchases = async () => {
-										const startKey = new URLSearchParams(window.location.search).get('purch_start_key') ?? '';
-										const reqUrl = `/api/purchases/user/${this.userId}${ startKey ? `?start_key=${encodeURIComponent(startKey)}` : '' }`;
-										const purchasesResponse = await fetch(reqUrl);
-										const purchasesResData = await purchasesResponse.json();
-										this.purchases = purchasesResData.purchases ?? [];
-										this.purchasesNextCursor = purchasesResData?.nextKey?.compositeKey?.Value;
-										this.hasPurchasesResults = true;
-								};
+						const fetchPurchases = async () => {
+							const startKey = new URLSearchParams(window.location.search).get('purch_start_key') ?? '';
+							const reqUrl = `/api/purchases/user/${this.userId}${ startKey ? `?start_key=${encodeURIComponent(startKey)}` : '' }`;
+							const purchasesResponse = await fetch(reqUrl);
+							const purchasesResData = await purchasesResponse.json();
+							this.purchases = purchasesResData.purchases ?? [];
+							this.purchasesNextCursor = purchasesResData?.nextKey?.compositeKey?.Value;
+							this.hasPurchasesResults = true;
+						};
 
-								const poll = async () => {
-										try {
-												await fetchPurchases();
+						const poll = async () => {
+							try {
+								await fetchPurchases();
 
-												// If we're not looking for a specific purchase, or if we found it, stop polling
-												if (!this.newKeyId || this.purchases.some(p => p.composite_key === this.newKeyId)) {
-														if (this.purchases.some(p => p.composite_key === this.newKeyId)) {
-																const purchaseRow = document.querySelector(`[data-purch-key="${this.newKeyId}"]`);
-																if (purchaseRow) {
-																		purchaseRow.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-																}
-														}
-														return;
-												}
-
-												// Continue polling if we haven't reached max attempts
-												if (attempts < maxAttempts) {
-														attempts++;
-														await new Promise(resolve => setTimeout(resolve, delayMs));
-														await poll();
-												}
-										} catch (error) {
-												console.error('Failed to fetch purchases:', error);
+								// If we're not looking for a specific purchase, or if we found it, stop polling
+								if (!this.newKeyId || this.purchases.some(p => p.composite_key === this.newKeyId)) {
+									if (this.purchases.some(p => p.composite_key === this.newKeyId)) {
+										const purchaseRow = document.querySelector(`[data-purch-key="${this.newKeyId}"]`);
+										if (purchaseRow) {
+											purchaseRow.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
 										}
-								};
+									}
+									return;
+								}
 
-								await poll();
-						})()
+								// Continue polling if we haven't reached max attempts
+								if (attempts < maxAttempts) {
+									attempts++;
+									await new Promise(resolve => setTimeout(resolve, delayMs));
+									await poll();
+								}
+							} catch (error) {
+								// eslint-disable-next-line no-console
+								console.error('Failed to fetch purchases:', error);
+							}
+						};
+
+						await poll();
+					})()
 				},
 				newKeyId: null,
 				purchases: [],
@@ -335,6 +336,7 @@ templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, int
 					return window.location.href + '?purch_start_key=' + this.purchasesNextCursor + '_' + this.userId;
 				},
 				handleSubdomainPostRes: function(event) {
+					// eslint-disable-next-line no-console
 					console.log(event)
 				},
 				getPurchaseStatus(purchase) {
