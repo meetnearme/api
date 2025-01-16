@@ -12,7 +12,7 @@ on:
       - '*'
 
 jobs:
-  build:
+  build-go:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +54,7 @@ jobs:
             echo "🟢 Coverage is $COVERAGE%. We're good!"
           fi
 
-  lint:
+  lint-templ-js:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,6 +62,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '21'
+          cache: 'npm'
       - name: Install dependencies and lint javascript in templ files
         run: |
           npm ci
