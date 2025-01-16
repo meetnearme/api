@@ -602,7 +602,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 						if (field?.required) {
 							if (field?.type === 'checkbox') {
 								if (this?.formData?.[fieldName] === undefined) {
-									this.errors[fieldName] = `Response to '${field?.description}' ${includeIdx > -1 ? '#'+ (includeIdx + 1) : ''} is required`
+									this.errors[fieldName] = `Response to '${field?.description}' ${includeIdx > -1 ? '#' + (includeIdx + 1) : ''} is required`
 								} else {
 									delete this.errors[fieldName]
 								}
