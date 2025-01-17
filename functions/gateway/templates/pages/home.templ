@@ -8,6 +8,32 @@ import (
 	"strconv"
 )
 
+templ geolocate() {
+	<script>
+	function locationData() {
+        return {
+            latitude: null,
+            longitude: null,
+            getLocation() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            this.latitude = position.coords.latitude;
+                            this.longitude = position.coords.longitude;
+                        },
+                        (error) => {
+                            console.error("Error getting location:", error);
+                        }
+                    );
+                } else {
+                    console.error("Geolocation is not supported by this browser.");
+                }
+            },
+        };
+    }
+	</script>
+}
+
 script navigateToSlideHandler(index int) {
 		const currentIndex = parseInt(document.getElementById('current-slide-index').value);
 		const newIndex = currentIndex + index;
@@ -145,6 +171,7 @@ func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr, lonStr, 
 	}
 	return "Location: Please Select"
 }
+
 
 func GetCitiesAsJsonStr() string {
 	cityData := make([]map[string]interface{}, 0, 200)
@@ -470,6 +497,36 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 			}
 		}
 
+function locationData() {
+	if ('geolocation' in navigator) {
+  console.log('Geolocation is Available');
+} else {
+  console.log('Geolocation is NOT Available');
+}
+        return {
+            latitude: null,
+            longitude: null,
+            getLocation() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            this.latitude = position.coords.latitude;
+                            this.longitude = position.coords.longitude;
+                        },
+                        (error) => {
+                            console.error("Error getting location:", error);
+                        }
+                    );
+                } else {
+                    console.error("Geolocation is not supported by this browser.");
+                }
+            },
+        };
+    }
+
+	window.addEventListener('load', function() {
+    locationData();
+});
 		function getLocationSearchData() {
 			return {
 				allOptions: JSON.parse(
