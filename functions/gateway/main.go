@@ -64,6 +64,10 @@ func init() {
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
 		{helpers.SitePages["event-detail"].Slug, "GET", handlers.GetEventDetailsPage, Check},
+		// Below for competition engagement modules
+		// {helpers.SitePages["competitions"].Slug, "GET", handlers.GetCompetitionsPage, Check},
+		{helpers.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, None},
+		{helpers.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, None},
 
 		// API routes
 
@@ -123,6 +127,29 @@ func init() {
 		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, Require},                                    // Get a specific event RSVP
 		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None},     // Update an existing event RSVP
 		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None},                      // Delete an event RSVP
+
+		// Competition Config
+		{"/api/competition-config/{primary_owner:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateCompetitionConfigHandler, None},
+		{"/api/competition-config/{primary_owner:[0-9a-fA-F-]+}/{id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetCompetitionConfigByPkHandler, None},
+		{"/api/competition-config/{primary_owner:[0-9a-fA-F-]+}/{id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateCompetitionConfigHandler, None},
+		{"/api/competition-config/{primary_owner:[0-9a-fA-F-]+}/{id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteCompetitionConfigHandler, None},
+
+		// Competition Round
+		{"/api/competition-round/{primary_owner:[0-9a-fA-F-]+}/{competition_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}", "POST", dynamodb_handlers.CreateCompetitionRoundHandler, None},
+		{"/api/competition-round/competition/{primary_owner:[0-9a-fA-F-]+}/{competition_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetCompetitionRoundsHandler, None},                      // Gets all rounds for a competition using begins_with
+		{"/api/competition-round/{primary_owner:[0-9a-fA-F-]+}/{competition_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}", "GET", dynamodb_handlers.GetCompetitionRoundByPrimaryKeyHandler, None}, // This gets a single round item
+		{"/api/competition-round/{primary_owner:[0-9a-fA-F-]+}/{competition_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}", "PUT", dynamodb_handlers.UpdateCompetitionRoundHandler, None},
+		{"/api/competition-round/{primary_owner:[0-9a-fA-F-]+}/{competition_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}", "DELETE", dynamodb_handlers.DeleteCompetitionConfigHandler, None},
+
+		// // Competition Vote
+		// {"/api/competition-vote", "POST", dynamodb_handlers.CreateCompetitionVoteHandler, Require},
+		// {"/api/competition-vote/{event_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}", "GET", dynamodb_handlers.GetCompetitionVoteByPkHandler, Require}, // this gets all votes for a particular round at a competition
+		// {"/api/competition-vote/{event_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}/{user_id:[0-9a-fA-f-]+}", "GET", dynamodb_handlers.GetVotesByRoundIDHandler, Require},
+		// {"/api/competition-vote/{event_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateCompetitionVoteHandler, Require},
+		// {"/api/competition-vote/{event_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteCompetitionVoteHandler, Require},
+		//
+
+		// Need to do full flow for competitionWaiting room
 
 		// Checkout Session
 		{"/api/checkout/{event_id:[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},

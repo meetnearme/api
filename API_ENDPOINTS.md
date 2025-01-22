@@ -331,5 +331,125 @@ curl -X DELETE https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/regist
      -H "Content-Type: application/json"
 ```
 
+## Competition Config
 
+1. Create Competition Config
+```bash
+curl -X POST https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-config/6ce1be30-f700-475c-b84a-49af0c73f337 \
+-H "Content-Type: application/json" \
+-d '{
+    "auxilaryOwners": ["ea49a5f8-e27c-47b0-8237-6f6f380a048c", "71b19c4a-4390-426c-bbe0-77f214a90cfc"],
+    "eventIds": ["62352e94-b34d-4ee7-a9d1-f1c8e404dec0", "99413f71-bb0e-43c9-bc3a-fafc64c5c799"],
+    "name": "Summer Karaoke Contest",
+    "moduleType": "KARAOKE",
+    "scoringMethod": "VOTES",
+    "competitors": ["user1", "user2", "user3"],
+    "status": "DRAFT"
+}'
+```
+
+2. Get Competition Config by Primary Key
+```bash
+curl -X GET https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-config/6ce1be30-f700-475c-b84a-49af0c73f337/c6669f6f-6ea3-4cf8-8581-373b2ffc4e39 \
+-H "Content-Type: application/json"
+```
+
+3. Get Competition Configs by Event ID
+```bash
+curl -X GET https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-config/event/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+-H "Content-Type: application/json"
+```
+
+4. Update Competition Config
+```bash
+curl -X PUT https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-config/6ce1be30-f700-475c-b84a-49af0c73f337/config789 \
+-H "Content-Type: application/json" \
+-d '{
+    "name": "Updated Karaoke Contest",
+    "status": "ACTIVE",
+    "auxilaryOwners": ["ea49a5f8-e27c-47b0-8237-6f6f380a048c", "71b19c4a-4390-426c-bbe0-77f214a90cfc"],
+    "competitors": ["user1", "user2", "user3", "user4"]
+}'
+```
+
+5. Delete Competition Config
+```bash
+curl -X DELETE https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-config/6ce1be30-f700-475c-b84a-49af0c73f337/config789 \
+-H "Content-Type: application/json"
+```
+
+Notes:
+- All IDs (primaryOwner, auxilaryOwners, eventIds) use UUID format
+- Authorization header removed as it's handled by API Gateway
+- Rounds field removed from create/update as it will be managed separately
+- All endpoints require Content-Type header
+```
+
+## Competition Rounds
+
+1. Create Competition Round
+```bash
+curl -X POST https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-round/999999999999999999/82d44403-9c27-4210-95d5-f5fde2f5671e/2 \
+-H "Content-Type: application/json" \
+-d '{
+    "eventId": "62352e94-b34d-4ee7-a9d1-f1c8e404dec0",
+    "roundName": "Quarter Finals Match 1",
+    "roundNumber": 1,
+    "competitorA": "000000000000000000",
+    "competitorAScore": 0,
+    "competitorB": "333333333333333333",
+    "competitorBScore": 0,
+    "status": "PENDING",
+    "competitors": [],
+    "isPending": "true",
+    "isVotingOpen": "false"
+}'
+```
+
+2. Get All Rounds for a Competition
+```bash
+curl -X GET https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-round/competition/999999999999999999/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+-H "Content-Type: application/json"
+```
+
+3. Get Single Round by Primary Key
+```bash
+curl -X GET https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-round/999999999999999999/62352e94-b34d-4ee7-a9d1-f1c8e404dec0/1 \
+-H "Content-Type: application/json"
+```
+
+4. Update Competition Round
+```bash
+curl -X PUT https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-round/123456789112345678/82d44403-9c27-4210-95d5-f5fde2f5671e/1 \
+-H "Content-Type: application/json" \
+-d '{
+    "roundName": "Quarter Finals Match 1 - Complete",
+    "status": "COMPLETE",
+    "competitorA": "111111111111111111",
+    "competitorAScore": 85,
+    "competitorB": "222222222222222222",
+    "competitorBScore": 92,
+    "isPending": "false",
+    "isVotingOpen": "false"
+}'
+```
+
+5. Delete Competition Round
+```bash
+curl -X DELETE https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-round/6ce1be30-f700-475c-b84a-49af0c73f337/82d44403-9c27-4210-95d5-f5fde2f5671e/1 \
+-H "Content-Type: application/json"
+```
+
+Notes:
+- URL Parameters:
+  - `primary_owner`: 18 digit userId of the competition owner
+  - `competition_id`: UUID of the competition
+  - `round_number`: Integer representing the round number
+- Status values: "ACTIVE", "COMPLETE", "CANCELLED", "PENDING"
+- competitors field should be a JSON string array
+- isPending and isVotingOpen are string values ("true"/"false")
+- competitorA and competitorB should be valid userId that is 18 digits but as string
+- matchup is automatically generated as "<competitorA_userId>_<competitorB_userId>"
+- All endpoints require Content-Type header
+- Authorization header required for all endpoints except as noted
 
