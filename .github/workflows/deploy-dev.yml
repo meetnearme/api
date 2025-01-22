@@ -77,14 +77,6 @@ jobs:
           CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }}
       - name: Generate Cloudflare locations Go file
         uses: './.github/actions/generate_cloudflare_locations_file'
-      - name: Deploy to Cloudflare Workers with Wrangler
-        uses: cloudflare/wrangler-action@v3.13.1
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Deploy AWS resources via SST
         run: |
           npm i && npx sst deploy --stage dev
@@ -95,3 +87,11 @@ jobs:
           duration: 30m
           authorized-users: brianfeister
 
+      - name: Deploy to Cloudflare Workers with Wrangler
+        uses: cloudflare/wrangler-action@v3.13.1
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
