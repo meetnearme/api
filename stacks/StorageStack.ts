@@ -119,6 +119,91 @@ export function StorageStack({ stack }: StackContext) {
     timeToLiveAttribute: 'expireAt',
   });
 
+  // needs concept of allowed competitors, these must be backed by a real userId
+  // and there must be a pool of them
+  // access pattern needs matchup style and optional matching algorithm
+  // url path needs
+  const competitionConfigTable = new Table(stack, 'CompetitionConfig', {
+    fields: {
+      id: 'string',
+      primaryOwner: 'string',
+      auxilaryOwners: 'string', // JSON array
+      eventIds: 'string', // jSON array
+      name: 'string',
+      moduleType: 'string', // KARAOKE, BOCCE
+      scoringMethod: 'string', // POINTS, VOTES, etc
+      rounds: 'string', // JSON string array of round configs
+      competitors: 'string', // JSON string array of competitor IDs
+      status: 'string', // DRAFT, ACTIVE, COMPLETE
+      createdAt: 'number',
+      updatedAt: 'number'
+    },
+    primaryIndex: { partitionKey: 'primaryOwner', sortKey: 'id' }
+  });
+
+  // This table needs the concept of sub rounds
+  // this should reference another round (act in our parlance)
+  // PartiQL
+  // Need to have possibly sub round in PK
+  const competitionRoundsTable = new Table(stack, 'CompetitionRounds', {
+    fields: {
+      // owner is the primary owner
+      PK: 'string', // OWNER_<ownerId>
+      SK: 'string', // COMPETITION_<competitionId>_ROUND_<roundNumber>
+      ownerId: 'string',
+      eventId: 'string',
+      roundName: 'string',
+      roundNumber: 'number',
+      competitorA: 'string', // user
+      competitorAScore: 'number',
+      competitorB: 'string',
+      competitorBScore: 'number',
+      matchup: 'string', // <competitorA>_<competitorB> - userId
+      status: 'string', // ACTIVE, COMPLETE, CANCELLED, PENDING
+      competitors: 'string', // JSON string array
+      parentRoundId: 'string', // for sub-rounds/acts
+      isPending: 'string', // bool (use to hold multiple rounds until reveal)
+      isVotingOpen: 'string', // bool
+      createdAt: 'number',
+      updatedAt: 'number',
+    },
+    primaryIndex: { partitionKey: 'PK', sortKey: 'SK' },
+    globalIndexes: {
+      belongsToEvent: { partitionKey: 'PK', sortKey: 'eventId' },
+    },
+  });
+
+
+  // ephemeral
+  // purchases are gate to the waiting room.
+  // TODO
+  const competitionWaitingRoomTable = new Table(stack, 'CompetitionWaitingRoom', {
+    fields: {
+      competitionId: 'string',
+      userId: 'string',
+      purchaseId: 'string',
+      TTL: 'number', // 3 days
+    },
+    primaryIndex: { partitionKey: 'competitionId', sortKey: 'userId' },
+    timeToLiveAttribute: 'TTL'
+  });
+
+  const votesTable = new Table(stack, 'Votes', {
+    fields: {
+      PK: 'string', // EVENT_<eventId>_ROUND_<roundNumber>
+      SK: 'string', // USEr_<userId>  who is voting
+      competitorId: 'string', // who you vote for
+      competitionId: 'string',
+      voteValue: 'number',
+      createdAt: 'number',
+      updatedAt: 'number',
+      TTL: 'number'
+    },
+    primaryIndex: { partitionKey: 'PK', sortKey: 'SK' },
+    timeToLiveAttribute: 'TTL'
+  });
+
+
   return {
     registrationsTable,
     registrationFieldsTable,
@@ -127,5 +212,9 @@ export function StorageStack({ stack }: StackContext) {
     purchasesTableV2,
     purchasablesTable,
     eventRsvpsTable,
+    competitionConfigTable,
+    competitionRoundsTable,
+    votesTable,
+    competitionWaitingRoomTable
   };
 }

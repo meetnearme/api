@@ -15,6 +15,8 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
     // purchasesTable, // deprecated
     purchasesTableV2,
     eventRsvpsTable,
+    competitionConfigTable,
+    competitionRoundsTable,
   } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
   const { seshuFn } = use(SeshuFunction);
@@ -32,6 +34,8 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
           // purchasesTable, // deprecated
           purchasesTableV2,
           eventRsvpsTable,
+          competitionConfigTable,
+          competitionRoundsTable
         ],
 
         environment: {
