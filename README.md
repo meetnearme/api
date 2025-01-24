@@ -24,8 +24,8 @@
    - Window: check the link for AWS CLI Guide
 
     Check version with `aws --version`
-6. **Configure AWS CLI,**
-   [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html):
+6. **Configure AWS CLI:**
+   [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
    ```bash
    aws configure
    ```
@@ -86,8 +86,8 @@
 
 - The following processes will run with `npm run dev`:
   1. **SST Go Lambda server:** Hot reload with Go rebuild.
-   - This proxies real AWS resources pointing back to your local Go server through Lambda, and simplifies / sidesteps the complexity of needing to use proxies to ensure harmonious server behaviors liike same-origin and other typical local dev hurdles.
-   - ⚠️ Unlike React / JS frontends, since our Go monolith requires a rebuild whenever a template or Go file changes, check your terminal to get a feel for typical "rebuild time". A common issue is to have the server die often when you make a request while it's rebuilding. To avoid this, you really only need to wait maybe about 2 seconds for the rebuild to happen. Once it's finished, you'll be fine, but if you refresh a page `0.25s` after a change initiates a rebuild you might see something like `Error: spawn /Users/bfeister/dev/meetnearme-api/.sst/artifacts/c8ae08557883d489e35129f0feb436ead1e1695501/bootstrap ENOENT` and then `[serve-static] http-server stopped.`
+      - This proxies real AWS resources pointing back to your local Go server through Lambda, and simplifies / sidesteps the complexity of needing to use proxies to ensure harmonious server behaviors liike same-origin and other typical local dev hurdles.
+      - ⚠️ Unlike React / JS frontends, since our Go monolith requires a rebuild whenever a template or Go file changes, check your terminal to get a feel for typical "rebuild time". A common issue is to have the server die often when you make a request while it's rebuilding. To avoid this, you really only need to wait maybe about 2 seconds for the rebuild to happen. Once it's finished, you'll be fine, but if you refresh a page `0.25s` after a change initiates a rebuild you might see something like `Error: spawn /Users/bfeister/dev/meetnearme-api/.sst/artifacts/c8ae08557883d489e35129f0feb436ead1e1695501/bootstrap ENOENT` and then `[serve-static] http-server stopped.`
   2. **Static asset server:** Serves local static files.
   3. **Local node.js based `templ`:**  our [golang templating engine pkg](https://templ.guide/) watch script to rebuild templates as they're modified
   4. **Local tailwind watcher:**  this includes some complexity, because we use a hashing algorithim that updates `layout.templ` with a new hash value whenever the tailwind styles in the template change for cache-busting when new deployments are pushed to prod. The dev experience here is a work-in-progress. I've noticed that sometimes updates to `layout.templ` can require a FULL stop / restart of the `npm run dev` processes to take effect.
