@@ -69,8 +69,9 @@
    ```bash
    npm run dev:sst
    ```
-    **NOTE:** that you will NOT use the same command after the initial deployment of your project
+   *NOTE: If you are encountering problem as a Window user, due to `'NODE_ENV' is not recognized as an internal or external command` do check Project Maintenance for troubleshooting*
 
+    **⚠️IMPORTANT:** that you will NOT use the same command after the initial deployment of your project
 4. **Assign SST stage name:** Choose any name for your SST `stage`.
 5. **Test the deployment:**
 - Once you see `✔  Deployed:` ... look for `ApexUrl: https://<abcxyz>.execute-api.us-east-1.amazonaws.com` where `abcxyz` is a hash unique to your project
