@@ -191,8 +191,8 @@ var SitePages = map[string]SitePage{
 	"add-event":        {Key: "add-event", Slug: "/admin/event/new{trailingslash:\\/?}", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
 	"edit-event":       {Key: "edit-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/edit{trailingslash:\\/?}", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
 	"attendees-event":  {Key: "attendees-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/attendees{trailingslash:\\/?}", Name: "Event Attendees", SubnavItems: []string{SubnavItems[NvMain]}},
-	"competition-new":  {Key: "competition-new", Slug: "/admin/competition/new", Name: "Add Competition", SubnavItems: []string{SubnavItems[NvMain]}},
-	"competition-edit": {Key: "competition-edit", Slug: "/admin/competition/{" + COMPETITIONS_ID_KEY + "}/edit", Name: "Edit Competition", SubnavItems: []string{SubnavItems[NvMain]}},
+	"competition-new":  {Key: "competition-new", Slug: "/admin/competition/new{trailingslash:\\/?}", Name: "Add Competition", SubnavItems: []string{SubnavItems[NvMain]}},
+	"competition-edit": {Key: "competition-edit", Slug: "/admin/competition/{" + COMPETITIONS_ID_KEY + "}/edit{trailingslash:\\/?}", Name: "Edit Competition", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 // EventFields holds references to all fields in the Event struct
