@@ -113,6 +113,20 @@ type CompetitionRoundUpdate struct {
 	UpdatedAt    int64  `json:"updatedAt" dynamodbav:"updatedAt"`
 }
 
+type CompetitionWaitingRoomParticipant struct {
+	CompetitionId string `json:"competitionId" dynamodbav:"competitionId" validate:"required"`
+	UserId        string `json:"userId" dynamodbav:"userId" validate:"required"`
+	PurchaseId    string `json:"purchaseId" dynamodbav:"purchaseId" validate:"required"`
+	TTL           int64  `json:"ttl" dynamodbav:"ttl" validate:"required"`
+}
+
+type CompetitionWaitingRoomParticipantUpdate struct {
+	CompetitionId string `json:"competitionId" dynamodbav:"competitionId"`
+	UserId        string `json:"userId" dynamodbav:"userId"`
+	PurchaseId    string `json:"purchaseId" dynamodbav:"purchaseId"`
+	TTL           int64  `json:"ttl,omitempty" dynamodbav:"ttl"`
+}
+
 // Competition Vote Types
 type CompetitionVoteInsert struct {
 	PK           string    `json:"PK" dynamodbav:"PK" validate:"required"`
