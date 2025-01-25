@@ -312,7 +312,14 @@ type UserSearchResult struct {
 	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
-func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
+type UserSearchResultDangerous struct {
+	UserID      string            `json:"userId"`
+	DisplayName string            `json:"displayName"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
+	Email       string            `json:"email,omitempty"`
+}
+
+func SearchUsersByIDs(userIDs []string, dangerous bool) ([]UserSearchResultDangerous, error) {
 	if len(userIDs) == 0 {
 		return nil, fmt.Errorf("userIDs must contain at least one element")
 	}
@@ -339,7 +346,7 @@ func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, strings.NewReader(payload))
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []UserSearchResultDangerous{}, err
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -348,13 +355,13 @@ func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []UserSearchResultDangerous{}, err
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []UserSearchResultDangerous{}, err
 	}
 
 	var respData ZitadelUserSearchResponse
@@ -364,16 +371,23 @@ func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
 
 	// Return empty array if no results
 	if len(respData.Result) == 0 {
-		return []UserSearchResult{}, nil
+		return []UserSearchResultDangerous{}, nil
 	}
 
 	// Map users to UserSearchResult
-	var results []UserSearchResult
+	var results []UserSearchResultDangerous
 	for _, user := range respData.Result {
-		results = append(results, UserSearchResult{
+		log.Printf("user: %v", user)
+		appendItem := UserSearchResultDangerous{
 			UserID:      user.UserID,
 			DisplayName: user.Human.Profile.DisplayName,
-		})
+		}
+		// WARNING: enabling this is a security risk if not
+		// done with extreme caution
+		if dangerous {
+			appendItem.Email = user.Human.Email["email"].(string)
+		}
+		results = append(results, appendItem)
 	}
 
 	return results, nil

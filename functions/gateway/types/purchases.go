@@ -56,6 +56,26 @@ type Purchase struct {
 	UpdatedAt           int64           `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
 }
 
+// This type exposes sensitive data to the client
+// it should not be used except when aggressively gated
+type PurchaseDangerous struct {
+	UserID              string          `json:"user_id" dynamodbav:"userId"`
+	UserEmail           string          `json:"user_email" dynamodbav:"email"`
+	UserDisplayName     string          `json:"user_display_name" dynamodbav:"displayName"`
+	EventID             string          `json:"event_id" dynamodbav:"eventId"`
+	CompositeKey        string          `json:"composite_key" dynamodbav:"compositeKey"`
+	EventName           string          `json:"event_name" dynamodbav:"eventName"`
+	Status              string          `json:"status" dynamodbav:"status"`
+	PurchasedItems      []PurchasedItem `json:"purchased_items" dynamodbav:"purchasedItems"`
+	Total               int32           `json:"total" dynamodbav:"total"`
+	Currency            string          `json:"currency" dynamodbav:"currency"`
+	StripeSessionId     string          `json:"stripe_session_id" dynamodbav:"stripeSessionId"`
+	StripeTransactionId string          `json:"stripe_transaction_id" dynamodbav:"stripeTransactionId"`
+	CreatedAt           int64           `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
+	CreatedAtString     string          `json:"created_at_string" dynamodbav:"createdAtString"`
+	UpdatedAt           int64           `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
+}
+
 // PurchasesUpdate represents the data required to update a purchase
 type PurchaseUpdate struct {
 	UserID              string `json:"user_id" dynamodbav:"userId"`
@@ -73,7 +93,7 @@ type PurchaseServiceInterface interface {
 	InsertPurchase(ctx context.Context, dynamodbClient DynamoDBAPI, Purchase PurchaseInsert) (*Purchase, error)
 	GetPurchaseByPk(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId, createdAt string) (*Purchase, error)
 	GetPurchasesByUserID(ctx context.Context, dynamodbClient DynamoDBAPI, userId string, limit int32, startKey string) ([]Purchase, map[string]dynamodb_types.AttributeValue, error)
-	GetPurchasesByEventID(ctx context.Context, dynamodbClient DynamoDBAPI, eventId string, limit int32, startKey string) ([]Purchase, map[string]dynamodb_types.AttributeValue, error)
+	GetPurchasesByEventID(ctx context.Context, dynamodbClient DynamoDBAPI, eventId string, limit int32, startKey string) ([]PurchaseDangerous, map[string]dynamodb_types.AttributeValue, error)
 	UpdatePurchase(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId, createdAtString string, Purchase PurchaseUpdate) (*Purchase, error)
 	DeletePurchase(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId string) error
 }
