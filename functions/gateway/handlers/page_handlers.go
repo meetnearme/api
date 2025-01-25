@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -595,78 +596,78 @@ func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerF
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
-// func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-// 	ctx := r.Context()
-// 	db := transport.GetDB()
+func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	db := transport.GetDB()
 
-// 	log.Print("Hello line 495")
+	log.Print("Hello line 495")
 
-// 	// Get user info from context
-// 	userInfo := helpers.UserInfo{}
-// 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-// 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
-// 	}
+	// Get user info from context
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
 
-// 	// Get role claims from context
-// 	roleClaims := []helpers.RoleClaim{}
-// 	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
-// 		roleClaims = claims
-// 	}
+	// Get role claims from context
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
 
-// 	log.Printf("User info: %+v", userInfo)
-// 	log.Printf("Role claims: %+v", roleClaims)
+	log.Printf("User info: %+v", userInfo)
+	log.Printf("Role claims: %+v", roleClaims)
 
-// 	// Check if user has required roles
-// 	validRoles := []string{"superAdmin", "competitionAdmin"}
-// 	if !helpers.HasRequiredRole(roleClaims, validRoles) {
-// 		err := errors.New("You are not authorized to edit competitions.")
-// 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
-// 	}
+	// Check if user has required roles
+	validRoles := []string{"superAdmin", "competitionAdmin"}
+	if !helpers.HasRequiredRole(roleClaims, validRoles) {
+		err := errors.New("You are not authorized to edit competitions.")
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
+	}
 
-// 	// Get competition ID and event ID from URL
-// 	vars := mux.Vars(r)
-// 	competitionId := vars[helpers.COMPETITIONS_ID_KEY]
+	// Get competition ID and event ID from URL
+	vars := mux.Vars(r)
+	competitionId := vars[helpers.COMPETITIONS_ID_KEY]
 
-// 	var pageObj helpers.SitePage
-// 	var competitionConfig internal_types.CompetitionConfig
+	var pageObj helpers.SitePage
+	var competitionConfig internal_types.CompetitionConfig
 
-// 	pageObj = helpers.SitePages["add-competition"]
-// 	log.Println("competition", competitionConfig)
-// 	// Check if we are editing or adding
-// 	if competitionId == "" {
-// 		pageObj = helpers.SitePages["competition-new"]
-// 		// Set default values for new competition
-// 		competitionConfig = internal_types.CompetitionConfig{
-// 			EventIds: []string{},
-// 			Status:   "DRAFT",
-// 		}
-// 	} else {
-// 		//
-// 		// add competition ID to schema change in Marqo
-// 		//
-// 		eventCompetitionRoundService := dynamodb_service.NewCompetitionConfigService()
-// 		pageObj = helpers.SitePages["edit-competition"]
-// 		competitionConfigPointer, err := eventCompetitionRoundService.GetCompetitionConfigById(ctx, db, competitionId)
-// 		if err != nil || competitionConfigPointer == nil {
-// 			return transport.SendHtmlRes(w, []byte("Failed to get competition: "+err.Error()),
-// 				http.StatusInternalServerError, "page", err)
-// 		}
-// 		competitionConfig = *competitionConfigPointer
+	pageObj = helpers.SitePages["add-competition"]
+	log.Println("competition", competitionConfig)
+	// Check if we are editing or adding
+	if competitionId == "" {
+		pageObj = helpers.SitePages["competition-new"]
+		// Set default values for new competition
+		competitionConfig = internal_types.CompetitionConfig{
+			EventIds: []string{},
+			Status:   "DRAFT",
+		}
+	} else {
+		//
+		// add competition ID to schema change in Marqo
+		//
+		eventCompetitionRoundService := dynamodb_service.NewCompetitionConfigService()
+		pageObj = helpers.SitePages["edit-competition"]
+		competitionConfigPointer, err := eventCompetitionRoundService.GetCompetitionConfigById(ctx, db, competitionId)
+		if err != nil || competitionConfigPointer == nil {
+			return transport.SendHtmlRes(w, []byte("Failed to get competition: "+err.Error()),
+				http.StatusInternalServerError, "page", err)
+		}
+		competitionConfig = *competitionConfigPointer
 
-// 		// if !helpers.CanEditCompetition(&competition, &userInfo, roleClaims) {
-// 		// 	err := errors.New("You are not authorized to edit this competition")
-// 		// 	return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
-// 		// }
-// 	}
-// 	log.Printf("pageObj: %+v", pageObj)
-// 	competitionPage := pages.AddOrEditCompetitionPage(pageObj, competitionConfig)
-// 	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, []string{})
+		// if !helpers.CanEditCompetition(&competition, &userInfo, roleClaims) {
+		// 	err := errors.New("You are not authorized to edit this competition")
+		// 	return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
+		// }
+	}
+	log.Printf("pageObj: %+v", pageObj)
+	competitionPage := pages.AddOrEditCompetitionPage(pageObj, competitionConfig)
+	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, []string{})
 
-// 	var buf bytes.Buffer
-// 	err := layoutTemplate.Render(ctx, &buf)
-// 	if err != nil {
-// 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "page", err)
-// 	}
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "page", err)
+	}
 
-// 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
-// }
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
+}

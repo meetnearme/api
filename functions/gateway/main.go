@@ -68,8 +68,8 @@ func init() {
 		// Below for competition engagement modules
 		// {helpers.SitePages["competitions"].Slug, "GET", handlers.GetCompetitionsPage, Check},
 		// TODO: uncomment this once the missing competitions page template is added
-		// {helpers.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
-		// {helpers.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
+		{helpers.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
+		{helpers.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 
 		// API routes
 
