@@ -1,0 +1,222 @@
+package pages
+
+import (
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
+)
+
+templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.CompetitionConfig) {
+	<div x-data="addEditCompetitionState()">
+		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
+			<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
+		</header>
+
+		// Basic Information Section
+		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Basic Information</h2>
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+			<div class="card">
+				// Competition Name
+				<label class="form-control w-full max-w-xs">
+					<div class="label">Competition Name</div>
+					<input
+						class="input input-bordered w-full"
+						id="name"
+						type="text"
+						placeholder="Enter competition name"
+						value={ competition.Name }
+					/>
+				</label>
+
+				// Module Type Selection
+				<div class="form-control">
+					<label class="label">Module Type</label>
+					<select class="select select-bordered" x-model="moduleType">
+						<option value="">Select module type</option>
+						<option value="KARAOKE">Karaoke</option>
+						<option value="BOCCE">Bocce</option>
+					</select>
+				</div>
+
+				// Scoring Method
+				<div class="form-control">
+					<label class="label">Scoring Method</label>
+					<select class="select select-bordered" x-model="scoringMethod">
+						<option value="">Select scoring method</option>
+						<option value="VOTES">Votes</option>
+						<option value="POINTS">Points</option>
+					</select>
+				</div>
+
+				// Competition Owners
+				<div class="form-control">
+					<label class="label">Additional Owners</label>
+					<div class="owners" id="ownersList">
+						<template x-for="owner in owners">
+							<span class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2">
+								<span x-text="owner.label"></span>
+								<button
+									aria-label="remove owner"
+									class="btn btn-circle btn-neutral btn-xs"
+									@click="removeOwner(owner)"
+								>×</button>
+							</span>
+						</template>
+					</div>
+					// Owner Search Input
+					<div class="relative" x-data="{ isOpen: false }">
+						<input
+							type="text"
+							class="input input-bordered w-full"
+							placeholder="Search for owners..."
+							@input.throttle="fetchUsers($event.target.value)"
+							@focus="isOpen = true"
+						/>
+						<div
+							x-show="isOpen"
+							class="absolute z-50 w-full mt-1 bg-base-100 rounded-md shadow-lg"
+						>
+							<template x-for="option in ownerOptions">
+								<div
+									class="p-2 hover:bg-base-200 cursor-pointer"
+									@click="selectOwner(option)"
+									x-text="option.label"
+								></div>
+							</template>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		// Rounds Configuration Section
+		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Rounds Configuration</h2>
+		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+			<div class="card">
+				<div class="form-control">
+					<label class="label">Rounds</label>
+					<div class="rounds-list">
+						<template x-for="(round, index) in rounds" :key="index">
+							<div class="round-item flex items-center gap-4 mb-4">
+								<input
+									type="text"
+									class="input input-bordered"
+									x-model="round.name"
+									placeholder="Round name"
+								/>
+								<button
+									class="btn btn-circle btn-sm"
+									@click="removeRound(index)"
+								>×</button>
+							</div>
+						</template>
+					</div>
+					<button
+						class="btn btn-outline mt-4"
+						@click="addRound"
+					>Add Round</button>
+				</div>
+			</div>
+		</div>
+
+		// Action Buttons
+		<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
+			<button class="btn btn-outline">Cancel</button>
+			<button class="btn btn-primary mx-4" @click="saveCompetition">Save Competition</button>
+		</div>
+	</div>
+
+	<script id="add-edit-competition"
+		data-competition-id={ competition.Id }
+		data-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) }
+	>
+		function addEditCompetitionState() {
+			return {
+				moduleType: '',
+				scoringMethod: '',
+				owners: [],
+				ownerOptions: [],
+				rounds: [],
+				isLoading: false,
+
+				init() {
+					// Initialize state from existing competition data
+					const competitionData = JSON.parse(
+						document.querySelector('#add-edit-competition')
+							.getAttribute('data-owners')
+					);
+					this.owners = competitionData?.owners || [];
+					this.rounds = competitionData?.rounds || [];
+
+          (async() => {
+						const response = await fetch(`/api/competition`);
+						const competitions = await response.json();
+          })()
+				},
+
+				async fetchUsers(query) {
+					if (query.length < 3) return;
+
+					try {
+						const response = await fetch(`/api/user-search?q=${query}`);
+						const users = await response.json();
+						this.ownerOptions = users.map(user => ({
+							label: user.displayName,
+							value: user.userId
+						}));
+					} catch (error) {
+						console.error('Error fetching users:', error);
+					}
+				},
+
+				selectOwner(owner) {
+					this.owners.push(owner);
+					this.ownerOptions = this.ownerOptions.filter(o => o.value !== owner.value);
+				},
+
+				removeOwner(owner) {
+					this.owners = this.owners.filter(o => o.value !== owner.value);
+				},
+
+				addRound() {
+					this.rounds.push({
+						name: `Round ${this.rounds.length + 1}`,
+						competitors: []
+					});
+				},
+
+				removeRound(index) {
+					this.rounds.splice(index, 1);
+				},
+
+				async saveCompetition() {
+					this.isLoading = true;
+					try {
+						// Implement save logic
+						const competitionData = {
+							name: document.querySelector('#name').value,
+							moduleType: this.moduleType,
+							scoringMethod: this.scoringMethod,
+							owners: this.owners,
+							rounds: this.rounds
+						};
+
+						await fetch('/api/competition', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json'
+							},
+							body: JSON.stringify(competitionData)
+						});
+
+						// Handle success (redirect or show message)
+					} catch (error) {
+						console.error('Error saving competition:', error);
+						// Handle error (show error message)
+					} finally {
+						this.isLoading = false;
+					}
+				}
+			}
+		}
+	</script>
+}
