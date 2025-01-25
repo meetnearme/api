@@ -60,8 +60,6 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 		}
 	}
 
-	log.Printf("Service: Prepared DynamoDB item: %+v", item)
-
 	if competitionConfigTableName == "" {
 		return nil, fmt.Errorf("ERR: competitionTableName is empty - table reference not retrieved.")
 	}

@@ -33,36 +33,23 @@ type CompetitionVoteServiceInterface interface {
 	DeleteCompetitionVote(ctx context.Context, dynamodbClient DynamoDBAPI, pk, sk string) error
 }
 
-// Insert type (all strings for DynamoDB)
-// type CompetitionConfigInsert struct {
-// 	Id             string             `json:"id,omitempty" dynamodbav:"id"`
-// 	PrimaryOwner   string             `json:"primaryOwner" dynamodbav:"primaryOwner"`
-// 	AuxilaryOwners []string           `json:"auxilaryOwners" dynamodbav:"auxilaryOwners,stringset"`
-// 	EventIds       []string           `json:"eventIds" dynamodbav:"eventIds,stringset"`
-// 	Name           string             `json:"name" dynamodbav:"name" validate:"required"`
-// 	ModuleType     string             `json:"moduleType" dynamodbav:"moduleType" validate:"required,oneof=KARAOKE BOCCE"`
-// 	ScoringMethod  string             `json:"scoringMethod" dynamodbav:"scoringMethod" validate:"required,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL"`
-// 	Rounds         []CompetitionRound `json:"rounds,omitempty" dynamodbav:"rounds,stringset"` // JSON array string
-// 	Competitors    []string           `json:"competitors" dynamodbav:"competitors,stringset"`
-
-// 	CreatedAt int64 `json:"createdAt" dynamodbav:"createdAt"`
-// 	UpdatedAt int64 `json:"updatedAt" dynamodbav:"updatedAt"`
-// }
-
 // Internal type with proper Go types
 type CompetitionConfig struct {
 	Id             string   `json:"id"`
 	PrimaryOwner   string   `json:"primaryOwner" dynamodbav:"primaryOwner" validate:"required"`
-	AuxilaryOwners []string `json:"auxilaryOwners" dynamodbav:"auxilaryOwners,stringset" validate:"required"`
-	EventIds       []string `json:"eventIds" dynamodbav:"eventIds,stringset" validate:"required"`
-	Name           string   `json:"name" dynamodbav:"name" validate:"required"`
-	ModuleType     string   `json:"moduleType" dynamodbav:"moduleType" validate:"required,oneof=KARAOKE BOCCE"`
-	ScoringMethod  string   `json:"scoringMethod" dynamodbav:"scoringMethod" validate:"required,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL"`
-	Rounds         []string `json:"rounds" dynamodbav:"rounds,stringset"`
-	Competitors    []string `json:"competitors" dynamodbav:"competitors,stringset"`
-	Status         string   `json:"status" dynamodbav:"status" validate:"required,oneof=DRAFT ACTIVE COMPLETE"`
-	CreatedAt      int64    `json:"createdAt" dynamodbav:"createdAt"`
-	UpdatedAt      int64    `json:"updatedAt" dynamodbav:"updatedAt"`
+	AuxilaryOwners []string `json:"auxilaryOwners" dynamodbav:"auxilaryOwners" validate:"required"`
+	// TODO: `dynamodbav:"eventIds,stringset"` shows to the user string set must only contain non-nil strings which
+	// is not sufficiently human readable. We need controller level validation to
+	// ensure the user understands the error
+	EventIds      []string           `json:"eventIds" dynamodbav:"eventIds" validate:"required"`
+	Name          string             `json:"name" dynamodbav:"name" validate:"required"`
+	ModuleType    string             `json:"moduleType" dynamodbav:"moduleType" validate:"required,oneof=KARAOKE BOCCE"`
+	ScoringMethod string             `json:"scoringMethod" dynamodbav:"scoringMethod" validate:"required,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL"`
+	Rounds        []CompetitionRound `json:"rounds" dynamodbav:"rounds" validate:"required"`
+	Competitors   []string           `json:"competitors" dynamodbav:"competitors"`
+	Status        string             `json:"status" dynamodbav:"status" validate:"required,oneof=DRAFT ACTIVE COMPLETE"`
+	CreatedAt     int64              `json:"createdAt" dynamodbav:"createdAt"`
+	UpdatedAt     int64              `json:"updatedAt" dynamodbav:"updatedAt"`
 }
 
 // Update type (all optional fields)
@@ -74,10 +61,10 @@ type CompetitionConfigUpdate struct {
 	ModuleType string `json:"moduleType,omitempty" dynamodbav:"moduleType" validate:"omitempty,oneof=KARAOKE BOCCE"`
 	// TODO: these should be enums for re-use on the client
 	ScoringMethod  string             `json:"scoringMethod,omitempty" dynamodbav:"scoringMethod" validate:"omitempty,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL"`
-	AuxilaryOwners []string           `json:"auxilaryOwners,omitempty" dynamodbav:"auxilaryOwners,stringset"` // JSON array string
-	EventIds       []string           `json:"eventIds,omitempty" dynamodbav:"eventIds,stringset"`             // JSON array string
-	Rounds         []CompetitionRound `json:"rounds,omitempty" dynamodbav:"rounds,stringset"`                 // JSON array string
-	Competitors    []string           `json:"competitors,omitempty" dynamodbav:"competitors,stringset"`       // JSON array string
+	AuxilaryOwners []string           `json:"auxilaryOwners,omitempty" dynamodbav:"auxilaryOwners"` // JSON array string
+	EventIds       []string           `json:"eventIds,omitempty" dynamodbav:"eventIds"`             // JSON array string
+	Rounds         []CompetitionRound `json:"rounds,omitempty" dynamodbav:"rounds"`                 // JSON array string
+	Competitors    []string           `json:"competitors,omitempty" dynamodbav:"competitors"`       // JSON array string
 	// TODO: these should be enums for re-use on the client
 	Status    string `json:"status,omitempty" dynamodbav:"status" validate:"omitempty,oneof=DRAFT ACTIVE COMPLETE"`
 	UpdatedAt int64  `json:"updatedAt" dynamodbav:"updatedAt"`

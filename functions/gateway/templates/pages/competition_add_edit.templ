@@ -48,8 +48,8 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				// Competition Owners
 				<div class="form-control">
 					<label class="label">Additional Owners</label>
-					<div class="owners" id="ownersList">
-						<template x-for="owner in owners">
+					<div class="auxilaryOwners" id="auxilaryOwnersList">
+						<template x-for="owner in auxilaryOwners">
 							<span class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2">
 								<span x-text="owner.label"></span>
 								<button
@@ -65,7 +65,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						<input
 							type="text"
 							class="input input-bordered w-full"
-							placeholder="Search for owners..."
+							placeholder="Search for auxilaryOwners..."
 							@input.throttle="fetchUsers($event.target.value)"
 							@focus="isOpen = true"
 						/>
@@ -120,12 +120,12 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 			<button class="btn btn-primary mx-4" @click="saveCompetition">Save Competition</button>
 		</div>
 	</div>
-	<script id="add-edit-competition" data-competition-id={ competition.Id } data-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) }>
+	<script id="add-edit-competition" data-competition-id={ competition.Id } data-auxilaryOwners={ string(helpers.ToJSON(competition.AuxilaryOwners)) }>
 		function addEditCompetitionState() {
 			return {
 				moduleType: '',
 				scoringMethod: '',
-				owners: [],
+				auxilaryOwners: [],
 				ownerOptions: [],
 				rounds: [],
 				isLoading: false,
@@ -134,9 +134,9 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					// Initialize state from existing competition data
 					const competitionData = JSON.parse(
 						document.querySelector('#add-edit-competition')
-							.getAttribute('data-owners')
+							.getAttribute('data-auxilaryOwners')
 					);
-					this.owners = competitionData?.owners || [];
+					this.auxilaryOwners = competitionData?.auxilaryOwners || [];
 					this.rounds = competitionData?.rounds || [];
 
           (async() => {
@@ -161,12 +161,12 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				},
 
 				selectOwner(owner) {
-					this.owners.push(owner);
+					this.auxilaryOwners.push(owner);
 					this.ownerOptions = this.ownerOptions.filter(o => o.value !== owner.value);
 				},
 
 				removeOwner(owner) {
-					this.owners = this.owners.filter(o => o.value !== owner.value);
+					this.auxilaryOwners = this.auxilaryOwners.filter(o => o.value !== owner.value);
 				},
 
 				addRound() {
@@ -188,7 +188,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							name: document.querySelector('#name').value,
 							moduleType: this.moduleType,
 							scoringMethod: this.scoringMethod,
-							owners: this.owners,
+							auxilaryOwners: this.auxilaryOwners.map(owner => owner.value),
 							rounds: this.rounds
 						};
 
