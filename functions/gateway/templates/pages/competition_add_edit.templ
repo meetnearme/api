@@ -6,7 +6,7 @@ import (
 )
 
 templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.CompetitionConfig) {
-	<div x-data="addEditCompetitionState()">
+	<div x-data="getEditCompetitionState()">
 		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
 			<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
 		</header>
@@ -22,13 +22,22 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						id="name"
 						type="text"
 						placeholder="Enter competition name"
-						value={ competition.Name }
+						x-model.fill="formData.name"
+						if competition.Name != "" {
+							value={ competition.Name }
+						}
 					/>
 				</label>
 				// Module Type Selection
 				<div class="form-control">
 					<label class="label">Module Type</label>
-					<select class="select select-bordered" x-model="moduleType">
+					<select
+						class="select select-bordered"
+						if competition.ModuleType != "" {
+							value={ competition.ModuleType }
+						}
+						x-model.fill="formData.moduleType"
+					>
 						<option value="">Select module type</option>
 						<option value="KARAOKE">Karaoke</option>
 						<option value="BOCCE">Bocce</option>
@@ -37,7 +46,13 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				// Scoring Method
 				<div class="form-control">
 					<label class="label">Scoring Method</label>
-					<select class="select select-bordered" x-model="scoringMethod">
+					<select
+						class="select select-bordered"
+						if competition.ScoringMethod != "" {
+							value={ competition.ScoringMethod }
+						}
+						x-model.fill="formData.scoringMethod"
+					>
 						<option value="">Select scoring method</option>
 						<option value="VOTE_MATCHUPS">Vote Matchups (Win, Loss, Draw)</option>
 						<option value="POINT_MATHCUPS">Point Matchups (Win, Loss, Draw)</option>
@@ -49,7 +64,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				<div class="form-control">
 					<label class="label">Additional Owners</label>
 					<div class="auxilaryOwners" id="auxilaryOwnersList">
-						<template x-for="owner in auxilaryOwners">
+						<template x-for="owner in formData.auxilaryOwners">
 							<span class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2">
 								<span x-text="owner.label"></span>
 								<button
@@ -120,30 +135,27 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 			<button class="btn btn-primary mx-4" @click="saveCompetition">Save Competition</button>
 		</div>
 	</div>
-	<script id="add-edit-competition" data-competition-id={ competition.Id } data-auxilaryOwners={ string(helpers.ToJSON(competition.AuxilaryOwners)) }>
-		function addEditCompetitionState() {
+	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) }>
+		function getEditCompetitionState() {
 			return {
-				moduleType: '',
-				scoringMethod: '',
-				auxilaryOwners: [],
-				ownerOptions: [],
-				rounds: [],
-				isLoading: false,
-
 				init() {
 					// Initialize state from existing competition data
 					const competitionData = JSON.parse(
 						document.querySelector('#add-edit-competition')
-							.getAttribute('data-auxilaryOwners')
+							.getAttribute('data-competition-auxilary-owners')
 					);
 					this.auxilaryOwners = competitionData?.auxilaryOwners || [];
 					this.rounds = competitionData?.rounds || [];
-
-          (async() => {
-						const response = await fetch(`/api/competition`);
-						const competitions = await response.json();
-          })()
 				},
+				formData: {
+					name: document.querySelector('#add-edit-competition').getAttribute('data-competition-name'),
+					moduleType: document.querySelector('#add-edit-competition').getAttribute('data-competition-module-type'),
+					scoringMethod: document.querySelector('#add-edit-competition').getAttribute('data-competition-scoring-method'),
+					auxilaryOwners: JSON.parse(document.querySelector('#add-edit-competition').getAttribute('data-competition-auxilary-owners')) ?? [],
+					rounds: [],
+				},
+				ownerOptions: [],
+				isLoading: false,
 
 				async fetchUsers(query) {
 					if (query.length < 3) return;
@@ -161,12 +173,12 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				},
 
 				selectOwner(owner) {
-					this.auxilaryOwners.push(owner);
+					this.formData.auxilaryOwners.push(owner);
 					this.ownerOptions = this.ownerOptions.filter(o => o.value !== owner.value);
 				},
 
 				removeOwner(owner) {
-					this.auxilaryOwners = this.auxilaryOwners.filter(o => o.value !== owner.value);
+					this.formData.auxilaryOwners = this.formData.auxilaryOwners.filter(o => o.value !== owner.value);
 				},
 
 				addRound() {
@@ -186,9 +198,9 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						// Implement save logic
 						const competitionData = {
 							name: document.querySelector('#name').value,
-							moduleType: this.moduleType,
-							scoringMethod: this.scoringMethod,
-							auxilaryOwners: this.auxilaryOwners.map(owner => owner.value),
+							moduleType: this.formData.moduleType,
+							scoringMethod: this.formData.scoringMethod,
+							auxilaryOwners: this.formData.auxilaryOwners.map(owner => owner.value),
 							rounds: this.rounds
 						};
 
