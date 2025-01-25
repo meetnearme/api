@@ -65,10 +65,6 @@ func (s *CompetitionRoundService) PutCompetitionRounds(ctx context.Context, dyna
 	}
 
 	log.Printf("Service: BatchWriteItemInput prepared for table: %s", competitionRoundsTableName)
-	log.Printf("Service: DynamoDB Query Input: \n%s", helpers.FormatDynamoDBQueryInput(&dynamodb.QueryInput{
-		TableName:                 aws.String(competitionRoundsTableName),
-		ExpressionAttributeValues: input.RequestItems[competitionRoundsTableName][0].PutRequest.Item,
-	}))
 
 	result, err := dynamodbClient.BatchWriteItem(ctx, input)
 	if err != nil {
