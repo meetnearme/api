@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,7 +25,7 @@ func NewCompetitionConfigHandler(eventCompetitionConfigService internal_types.Co
 }
 
 func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter, r *http.Request) {
-	var updateCompetitionConfig internal_types.CompetitionConfigUpdate
+	var updateCompetitionConfigPayload internal_types.CompetitionConfigUpdatePayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
@@ -39,28 +40,47 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 
 	log.Printf("User Info: %+v", userInfo)
 
-	err = json.Unmarshal(body, &updateCompetitionConfig)
+	err = json.Unmarshal(body, &updateCompetitionConfigPayload)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	if updateCompetitionConfig.Id == "" {
-		updateCompetitionConfig.Id = uuid.NewString()
+	if updateCompetitionConfigPayload.Id == "" {
+		updateCompetitionConfigPayload.Id = uuid.NewString()
 	}
 
 	now := time.Now().Unix()
-	updateCompetitionConfig.UpdatedAt = now
-	updateCompetitionConfig.PrimaryOwner = userInfo.Sub
+	updateCompetitionConfigPayload.UpdatedAt = now
+	updateCompetitionConfigPayload.PrimaryOwner = userInfo.Sub
 
-	err = validate.Struct(&updateCompetitionConfig)
+	err = validate.Struct(&updateCompetitionConfigPayload)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
 
-	db := transport.GetDB()
-	res, err := h.CompetitionConfigService.UpdateCompetitionConfig(r.Context(), db, updateCompetitionConfig.Id, updateCompetitionConfig)
+	// Store rounds data before removing it from the struct
+	roundsData := updateCompetitionConfigPayload.Rounds
+
+	log.Printf("roundsData: %+v", roundsData)
+
+	// Create target struct
+	var configUpdate internal_types.CompetitionConfigUpdate
+
+	// Use reflection to copy fields
+	sourceVal := reflect.ValueOf(updateCompetitionConfigPayload)
+	targetVal := reflect.ValueOf(&configUpdate).Elem()
+
+	// copy the valid properties from the source, but omit invalid ones in the new struct
+	for i := 0; i < targetVal.NumField(); i++ {
+		fieldName := targetVal.Type().Field(i).Name
+		if sourceField := sourceVal.FieldByName(fieldName); sourceField.IsValid() {
+			targetVal.Field(i).Set(sourceField)
+		}
+	}
+
+	res, err := h.CompetitionConfigService.UpdateCompetitionConfig(r.Context(), db, configUpdate.Id, configUpdate)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to create eventCompetitionConfig: "+err.Error()), http.StatusInternalServerError, err)
 		return

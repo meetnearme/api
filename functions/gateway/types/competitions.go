@@ -52,6 +52,11 @@ type CompetitionConfig struct {
 	UpdatedAt     int64              `json:"updatedAt" dynamodbav:"updatedAt"`
 }
 
+type CompetitionConfigUpdatePayload struct {
+	CompetitionConfigUpdate
+	Rounds []CompetitionRound `json:"rounds,omitempty" dynamodbav:"rounds"` // JSON array string
+}
+
 // Update type (all optional fields)
 type CompetitionConfigUpdate struct {
 	Id           string `json:"id,omitempty" dynamodbav:"id"`
@@ -60,11 +65,10 @@ type CompetitionConfigUpdate struct {
 	// TODO: these should be enums for re-use on the client
 	ModuleType string `json:"moduleType,omitempty" dynamodbav:"moduleType" validate:"omitempty,oneof=KARAOKE BOCCE"`
 	// TODO: these should be enums for re-use on the client
-	ScoringMethod  string             `json:"scoringMethod,omitempty" dynamodbav:"scoringMethod" validate:"omitempty,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL"`
-	AuxilaryOwners []string           `json:"auxilaryOwners,omitempty" dynamodbav:"auxilaryOwners"` // JSON array string
-	EventIds       []string           `json:"eventIds,omitempty" dynamodbav:"eventIds"`             // JSON array string
-	Rounds         []CompetitionRound `json:"rounds,omitempty" dynamodbav:"rounds"`                 // JSON array string
-	Competitors    []string           `json:"competitors,omitempty" dynamodbav:"competitors"`       // JSON array string
+	ScoringMethod  string   `json:"scoringMethod,omitempty" dynamodbav:"scoringMethod" validate:"omitempty,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL"`
+	AuxilaryOwners []string `json:"auxilaryOwners,omitempty" dynamodbav:"auxilaryOwners"` // JSON array string
+	EventIds       []string `json:"eventIds,omitempty" dynamodbav:"eventIds"`             // JSON array string
+	Competitors    []string `json:"competitors,omitempty" dynamodbav:"competitors"`       // JSON array string
 	// TODO: these should be enums for re-use on the client
 	Status    string `json:"status,omitempty" dynamodbav:"status" validate:"omitempty,oneof=DRAFT ACTIVE COMPLETE"`
 	UpdatedAt int64  `json:"updatedAt" dynamodbav:"updatedAt"`
