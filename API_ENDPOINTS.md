@@ -335,34 +335,43 @@ curl -X DELETE https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/regist
 
 1. Create Competition Config
 ```bash
-curl -X POST https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-config/6ce1be30-f700-475c-b84a-49af0c73f337 \
+curl -X POST https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config \
 -H "Content-Type: application/json" \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
 -d '{
-    "auxilaryOwners": ["ea49a5f8-e27c-47b0-8237-6f6f380a048c", "71b19c4a-4390-426c-bbe0-77f214a90cfc"],
+    "auxilaryOwners": ["000000000000000000", "111111111111111111"],
     "eventIds": ["62352e94-b34d-4ee7-a9d1-f1c8e404dec0", "99413f71-bb0e-43c9-bc3a-fafc64c5c799"],
-    "name": "Summer Karaoke Contest",
+    "name": "Summer Karaoke Contest Try Number 2",
     "moduleType": "KARAOKE",
     "scoringMethod": "VOTES",
-    "competitors": ["user1", "user2", "user3"],
+    "competitors": ["333333333333333333", "444444444444444444", "555555555555555555"],
     "status": "DRAFT"
 }'
 ```
+```
+Bearer cnwTeb4mR-qjbbrYuKcCuuxB8vIqhrzeFr9d35PHc_eA7ycDQ9mypVump9xst1Obff6sw4PNe9USOWjiuJF40Is3rYAnr2pY-nhTxOzG
 
-2. Get Competition Config by Primary Key
+```
+
+2. Get Competition Config by Config Id
 ```bash
-curl -X GET https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-config/6ce1be30-f700-475c-b84a-49af0c73f337/c6669f6f-6ea3-4cf8-8581-373b2ffc4e39 \
+curl -X GET https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/1a7e4d2f-2450-41d1-af03-8b3aa714fe69 \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
 -H "Content-Type: application/json"
 ```
 
-3. Get Competition Configs by Event ID
+3. Get Competition Config by User Id
 ```bash
-curl -X GET https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-config/event/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+curl -X GET https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/owner \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
 -H "Content-Type: application/json"
 ```
+
 
 4. Update Competition Config
 ```bash
-curl -X PUT https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-config/6ce1be30-f700-475c-b84a-49af0c73f337/config789 \
+curl -X PUT https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/134c1f79-a276-493b-87c2-c63f79c3dae1 \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
 -H "Content-Type: application/json" \
 -d '{
     "name": "Updated Karaoke Contest",
@@ -374,7 +383,8 @@ curl -X PUT https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competiti
 
 5. Delete Competition Config
 ```bash
-curl -X DELETE https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-config/6ce1be30-f700-475c-b84a-49af0c73f337/config789 \
+curl -X DELETE https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/134c1f79-a276-493b-87c2-c63f79c3dae1 \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
 -H "Content-Type: application/json"
 ```
 
@@ -389,54 +399,107 @@ Notes:
 
 1. Create Competition Round
 ```bash
-curl -X POST https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-round/999999999999999999/82d44403-9c27-4210-95d5-f5fde2f5671e/2 \
+curl -X PUT https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-round/82d44403-9c27-4210-95d5-f5fde2f5671e \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
 -H "Content-Type: application/json" \
--d '{
-    "eventId": "62352e94-b34d-4ee7-a9d1-f1c8e404dec0",
-    "roundName": "Quarter Finals Match 1",
-    "roundNumber": 1,
-    "competitorA": "000000000000000000",
-    "competitorAScore": 0,
-    "competitorB": "333333333333333333",
-    "competitorBScore": 0,
-    "status": "PENDING",
-    "competitors": [],
-    "isPending": "true",
-    "isVotingOpen": "false"
-}'
+-d '[
+    {
+        "competitionId": "1a7e4d2f-2450-41d1-af03-8b3aa714fe69",
+        "roundNumber": 1,
+        "eventId": "12352e94-b34d-4ee7-a9d1-f1c8e404dec0",
+        "roundName": "Comp1 Quarter Finals Match 1",
+        "competitorA": "000000000000000000",
+        "competitorAScore": 0,
+        "competitorB": "333333333333333333",
+        "competitorBScore": 0,
+        "match": "000000000000000000_333333333333333333",
+        "status": "PENDING",
+        "isPending": "true",
+        "isVotingOpen": "false"
+    },
+    {
+        "competitionId": "1a7e4d2f-2450-41d1-af03-8b3aa714fe69",
+        "roundNumber": 2,
+        "eventId": "22352e94-b34d-4ee7-a9d1-f1c8e404dec0",
+        "roundName": "Comp1 Quarter Finals Match 1",
+        "competitorA": "000000000000000000",
+        "competitorAScore": 0,
+        "competitorB": "444444444444444444",
+        "competitorBScore": 0,
+        "match": "000000000000000000_444444444444444444",
+        "status": "PENDING",
+        "isPending": "true",
+        "isVotingOpen": "false"
+    },
+    {
+        "competitionId": "2d66c032-f2a2-469b-b578-209437d862a9",
+        "roundNumber": 1,
+        "eventId": "32352e94-b34d-4ee7-a9d1-f1c8e404dec0",
+        "roundName": "Comp2  Quarter Finals Match 1",
+        "competitorA": "000000000000000000",
+        "competitorAScore": 0,
+        "competitorB": "444444444444444444",
+        "competitorBScore": 0,
+        "match": "000000000000000000_444444444444444444",
+        "status": "PENDING",
+        "isPending": "true",
+        "isVotingOpen": "false"
+    }
+]'
 ```
+Note: matchup is generated internally to be used by partiql 
+    removed the competitors array field for now because we only need compA and compB for now
+`<competitorA>_<competitorB> - userId`
+
 
 2. Get All Rounds for a Competition
 ```bash
-curl -X GET https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-round/competition/999999999999999999/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+curl -X GET https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-round/competition/1a7e4d2f-2450-41d1-af03-8b3aa714fe69 \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
 -H "Content-Type: application/json"
 ```
 
 3. Get Single Round by Primary Key
 ```bash
-curl -X GET https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-round/999999999999999999/62352e94-b34d-4ee7-a9d1-f1c8e404dec0/1 \
+curl -X GET https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-round/1a7e4d2f-2450-41d1-af03-8b3aa714fe69/1 \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
 -H "Content-Type: application/json"
 ```
 
-4. Update Competition Round
+4. Get competition by event ID
 ```bash
-curl -X PUT https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-round/123456789112345678/82d44403-9c27-4210-95d5-f5fde2f5671e/1 \
--H "Content-Type: application/json" \
--d '{
-    "roundName": "Quarter Finals Match 1 - Complete",
-    "status": "COMPLETE",
-    "competitorA": "111111111111111111",
-    "competitorAScore": 85,
-    "competitorB": "222222222222222222",
-    "competitorBScore": 92,
-    "isPending": "false",
-    "isVotingOpen": "false"
-}'
+curl -X GET https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-round/event/12352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
+-H "Content-Type: application/json"
 ```
 
-5. Delete Competition Round
+5. Update Competition Round
 ```bash
-curl -X DELETE https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/competition-round/6ce1be30-f700-475c-b84a-49af0c73f337/82d44403-9c27-4210-95d5-f5fde2f5671e/1 \
+curl -X PUT https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-round/1a7e4d2f-2450-41d1-af03-8b3aa714fe69 \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
+-H "Content-Type: application/json" \
+-d '[
+        {
+            "competitionId": "1a7e4d2f-2450-41d1-af03-8b3aa714fe69",
+            "roundName": "Quarter Finals Match 1 - Complete",
+            "status": "COMPLETE",
+            "eventId": "12352e94-b34d-4ee7-a9d1-f1c8e404dec0",
+            "roundNumber": 1,
+            "competitorA": "111111111111111111",
+            "competitorAScore": 85,
+            "competitorB": "222222222222222222",
+            "matchup": "111111111111111111_222222222222222222",
+            "competitorBScore": 92,
+            "isPending": "false",
+            "isVotingOpen": "false"
+        }
+]'
+```
+
+6. Delete Competition Round
+```bash
+curl -X DELETE https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-round/1a7e4d2f-2450-41d1-af03-8b3aa714fe69/1 \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
 -H "Content-Type: application/json"
 ```
 

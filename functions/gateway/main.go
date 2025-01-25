@@ -66,8 +66,8 @@ func init() {
 		{helpers.SitePages["event-detail"].Slug, "GET", handlers.GetEventDetailsPage, Check},
 		// Below for competition engagement modules
 		// {helpers.SitePages["competitions"].Slug, "GET", handlers.GetCompetitionsPage, Check},
-		{helpers.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, None},
-		{helpers.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, None},
+		{helpers.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
+		{helpers.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 
 		// API routes
 
@@ -125,21 +125,25 @@ func init() {
 		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "GET", dynamodb_handlers.GetPurchaseByPkHandler, Require}, // Get a specific event RSVP
 		{"/api/purchases/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByEventIDHandler, Require},                                 // Get all event RSVPs
 		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, Require},                                    // Get a specific event RSVP
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None},     // Update an existing event RSVP
-		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None},                      // Delete an event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, Require},  // Update an existing event RSVP
+		{"/api/purchases/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, Require},                   // Delete an event RSVP
 
 		// Competition Config
-		{"/api/competition-config/{primary_owner:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateCompetitionConfigHandler, None},
-		{"/api/competition-config/{primary_owner:[0-9a-fA-F-]+}/{id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetCompetitionConfigByPkHandler, None},
-		{"/api/competition-config/{primary_owner:[0-9a-fA-F-]+}/{id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateCompetitionConfigHandler, None},
-		{"/api/competition-config/{primary_owner:[0-9a-fA-F-]+}/{id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteCompetitionConfigHandler, None},
+		{"/api/competition-config", "POST", dynamodb_handlers.CreateCompetitionConfigHandler, Require},
+		{"/api/competition-config/owner", "GET", dynamodb_handlers.GetCompetitionConfigsByPrimaryOwnerHandler, Require},
+		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigByIdHandler, Require},
+		// verify below is correct with brian, was not accessing userId from context
+		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.UpdateCompetitionConfigHandler, Require},
+		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionConfigHandler, Require},
 
 		// Competition Round
-		{"/api/competition-round/{primary_owner:[0-9a-fA-F-]+}/{competition_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}", "POST", dynamodb_handlers.CreateCompetitionRoundHandler, None},
-		{"/api/competition-round/competition/{primary_owner:[0-9a-fA-F-]+}/{competition_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetCompetitionRoundsHandler, None},                      // Gets all rounds for a competition using begins_with
-		{"/api/competition-round/{primary_owner:[0-9a-fA-F-]+}/{competition_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}", "GET", dynamodb_handlers.GetCompetitionRoundByPrimaryKeyHandler, None}, // This gets a single round item
-		{"/api/competition-round/{primary_owner:[0-9a-fA-F-]+}/{competition_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}", "PUT", dynamodb_handlers.UpdateCompetitionRoundHandler, None},
-		{"/api/competition-round/{primary_owner:[0-9a-fA-F-]+}/{competition_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}", "DELETE", dynamodb_handlers.DeleteCompetitionConfigHandler, None},
+		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionRoundsHandler, Require},                // creation or update
+		{"/api/competition-round/competition/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetAllCompetitionRoundsHandler, Require}, // Gets all rounds for a competition using begins_with
+		// below event can find all rounds associated with an event, and using 000_000 we can find all unassociated rounds
+		{"/api/competition-round/event/{" + helpers.EVENT_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundsByEventIdHandler, Require},                                       // This gets a single round item by the event id it is associated with
+		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundByPrimaryKeyHandler, Require}, // This gets a single round item by its own id
+		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionRoundHandler, Require},
+		// summing, ending point for leader board needed here
 
 		// // Competition Vote
 		// {"/api/competition-vote", "POST", dynamodb_handlers.CreateCompetitionVoteHandler, Require},

@@ -138,7 +138,10 @@ export function StorageStack({ stack }: StackContext) {
       createdAt: 'number',
       updatedAt: 'number'
     },
-    primaryIndex: { partitionKey: 'primaryOwner', sortKey: 'id' }
+    primaryIndex: { partitionKey: 'id' },
+    globalIndexes: {
+      primaryOwner:{ partitionKey: 'primaryOwner', sortKey: 'id' },
+    },
   });
 
   // This table needs the concept of sub rounds
@@ -147,29 +150,31 @@ export function StorageStack({ stack }: StackContext) {
   // Need to have possibly sub round in PK
   const competitionRoundsTable = new Table(stack, 'CompetitionRounds', {
     fields: {
-      // owner is the primary owner
-      PK: 'string', // OWNER_<ownerId>
-      SK: 'string', // COMPETITION_<competitionId>_ROUND_<roundNumber>
-      ownerId: 'string',
+      competitionId: 'string',
+      roundNumber: 'number',
       eventId: 'string',
       roundName: 'string',
-      roundNumber: 'number',
       competitorA: 'string', // user
       competitorAScore: 'number',
       competitorB: 'string',
       competitorBScore: 'number',
       matchup: 'string', // <competitorA>_<competitorB> - userId
       status: 'string', // ACTIVE, COMPLETE, CANCELLED, PENDING
-      competitors: 'string', // JSON string array
+      // currently removing redundancy at least for karaoke and bocce. Trivia can be separate and isolated
+      //competitors: 'string', // JSON string array
       parentRoundId: 'string', // for sub-rounds/acts
       isPending: 'string', // bool (use to hold multiple rounds until reveal)
       isVotingOpen: 'string', // bool
       createdAt: 'number',
       updatedAt: 'number',
     },
-    primaryIndex: { partitionKey: 'PK', sortKey: 'SK' },
+    primaryIndex: { partitionKey: 'competitionId', sortKey: 'roundNumber' },
     globalIndexes: {
-      belongsToEvent: { partitionKey: 'PK', sortKey: 'eventId' },
+      // We will set a default of 000_000 for the eventId if not associated  <roundNumber> - this will be the default for the GSI
+      // will allow retrieval of all unassociated rounds for a particular config so they can be assigned by admin
+      // then we will have <eventId>_ROUND_<roundNumber> which will then allow retrieval of all of the rounds associated with
+      // a single event by using the begins with for dynamo
+      belongsToEvent: { partitionKey: 'eventId', sortKey: 'roundNumber' },
     },
   });
 
@@ -190,7 +195,7 @@ export function StorageStack({ stack }: StackContext) {
 
   const votesTable = new Table(stack, 'Votes', {
     fields: {
-      PK: 'string', // EVENT_<eventId>_ROUND_<roundNumber>
+      PK: 'string', // COMPETITION_<competitionId>_ROUND_<roundNumber>
       SK: 'string', // USEr_<userId>  who is voting
       competitorId: 'string', // who you vote for
       competitionId: 'string',
@@ -202,6 +207,8 @@ export function StorageStack({ stack }: StackContext) {
     primaryIndex: { partitionKey: 'PK', sortKey: 'SK' },
     timeToLiveAttribute: 'TTL'
   });
+
+  // need a separate table for trivia answer choices
 
 
   return {

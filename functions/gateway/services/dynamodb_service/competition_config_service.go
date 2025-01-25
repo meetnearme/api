@@ -43,6 +43,27 @@ func (s *CompetitionConfigService) InsertCompetitionConfig(ctx context.Context, 
 		return nil, err
 	}
 
+	// Ensure string arrays are properly formatted as StringSets
+	if len(competitionConfig.AuxilaryOwners) > 0 {
+		item["auxilaryOwners"] = &dynamodb_types.AttributeValueMemberSS{
+			Value: competitionConfig.AuxilaryOwners,
+		}
+	}
+
+	if len(competitionConfig.EventIds) > 0 {
+		item["eventIds"] = &dynamodb_types.AttributeValueMemberSS{
+			Value: competitionConfig.EventIds,
+		}
+	}
+
+	if len(competitionConfig.Competitors) > 0 {
+		item["competitors"] = &dynamodb_types.AttributeValueMemberSS{
+			Value: competitionConfig.Competitors,
+		}
+	}
+
+	log.Printf("Service: Prepared DynamoDB item: %+v", item)
+
 	if competitionConfigTableName == "" {
 		return nil, fmt.Errorf("ERR: competitionTableName is empty - table reference not retrieved.")
 	}
@@ -66,16 +87,18 @@ func (s *CompetitionConfigService) InsertCompetitionConfig(ctx context.Context, 
 	}
 
 	insertedCompetitionConfig.Id = competitionConfig.Id
+	insertedCompetitionConfig.AuxilaryOwners = competitionConfig.AuxilaryOwners
+	insertedCompetitionConfig.EventIds = competitionConfig.EventIds
+	insertedCompetitionConfig.Competitors = competitionConfig.Competitors
 
 	return &insertedCompetitionConfig, nil
 }
 
-func (s *CompetitionConfigService) GetCompetitionConfigByPk(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, primaryOwner, id string) (*internal_types.CompetitionConfig, error) {
+func (s *CompetitionConfigService) GetCompetitionConfigById(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string) (*internal_types.CompetitionConfig, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(competitionConfigTableName),
 		Key: map[string]dynamodb_types.AttributeValue{
-			"primaryOwner": &dynamodb_types.AttributeValueMemberS{Value: primaryOwner},
-			"id":           &dynamodb_types.AttributeValueMemberS{Value: id},
+			"id": &dynamodb_types.AttributeValueMemberS{Value: id},
 		},
 	}
 
@@ -93,7 +116,31 @@ func (s *CompetitionConfigService) GetCompetitionConfigByPk(ctx context.Context,
 	return &competition, nil
 }
 
-func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, primaryOwner, id string, competitionConfig internal_types.CompetitionConfigUpdate) (*internal_types.CompetitionConfig, error) {
+func (s *CompetitionConfigService) GetCompetitionConfigsByPrimaryOwner(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, primaryOwner string) (*[]internal_types.CompetitionConfig, error) {
+	input := &dynamodb.QueryInput{
+		TableName:              aws.String(competitionConfigTableName),
+		IndexName:              aws.String("primaryOwner"),
+		KeyConditionExpression: aws.String("primaryOwner = :primaryOwner"),
+		ExpressionAttributeValues: map[string]dynamodb_types.AttributeValue{
+			":primaryOwner": &dynamodb_types.AttributeValueMemberS{Value: primaryOwner},
+		},
+	}
+
+	result, err := dynamodbClient.Query(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	var competitions []internal_types.CompetitionConfig
+	err = attributevalue.UnmarshalListOfMaps(result.Items, &competitions)
+	if err != nil {
+		return nil, err
+	}
+
+	return &competitions, nil
+}
+
+func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string, competitionConfig internal_types.CompetitionConfigUpdate) (*internal_types.CompetitionConfig, error) {
 	if competitionConfigTableName == "" {
 		return nil, fmt.Errorf("ERR: competitionTableName is empty")
 	}
@@ -101,8 +148,7 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String(competitionConfigTableName),
 		Key: map[string]dynamodb_types.AttributeValue{
-			"primaryOwner": &dynamodb_types.AttributeValueMemberS{Value: primaryOwner},
-			"id":           &dynamodb_types.AttributeValueMemberS{Value: id},
+			"id": &dynamodb_types.AttributeValueMemberS{Value: id},
 		},
 		ExpressionAttributeNames:  make(map[string]string),
 		ExpressionAttributeValues: make(map[string]dynamodb_types.AttributeValue),
@@ -136,7 +182,7 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 	}
 
 	// TODO: need to check the update syntax needed for a []string below is an example of []UserDefinedType all four of these should be that
-	if competitionConfig.AuxilaryOwners != "" {
+	if competitionConfig.AuxilaryOwners != nil {
 		input.ExpressionAttributeNames["#auxilaryOwners"] = "auxilaryOwners"
 		auxilaryOwners, err := attributevalue.MarshalList(competitionConfig.AuxilaryOwners)
 		if err != nil {
@@ -146,7 +192,7 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 		*input.UpdateExpression += " #auxilaryOwners = :auxilaryOwners,"
 	}
 
-	if competitionConfig.EventIds != "" {
+	if competitionConfig.EventIds != nil {
 		input.ExpressionAttributeNames["#eventIds"] = "eventIds"
 		eventIds, err := attributevalue.MarshalList(competitionConfig.EventIds)
 		if err != nil {
@@ -158,7 +204,7 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 	// Rounds         string `json:"rounds,omitempty" dynamodbav:"rounds"`                 // JSON array string
 	// Competitors    string `json:"competitors,omitempty" dynamodbav:"competitors"`       // JSON array string
 	// Status         string `json:"status,omitempty" dynamodbav:"status" validate:"omitempty,oneof=DRAFT ACTIVE COMPLETE"`
-	if competitionConfig.Rounds != "" {
+	if competitionConfig.Rounds != nil {
 		input.ExpressionAttributeNames["#rounds"] = "rounds"
 		rounds, err := attributevalue.MarshalList(competitionConfig.Rounds)
 		if err != nil {
@@ -168,7 +214,7 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 		*input.UpdateExpression += " #rounds = :rounds,"
 	}
 
-	if competitionConfig.Competitors != "" {
+	if competitionConfig.Competitors != nil {
 		input.ExpressionAttributeNames["#competitors"] = "competitors"
 		competitors, err := attributevalue.MarshalList(competitionConfig.Competitors)
 		if err != nil {
@@ -204,12 +250,11 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 	return &updatedCompetitionConfig, nil
 }
 
-func (s *CompetitionConfigService) DeleteCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, primaryOwner, id string) error {
+func (s *CompetitionConfigService) DeleteCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string) error {
 	input := &dynamodb.DeleteItemInput{
 		TableName: aws.String(competitionConfigTableName),
 		Key: map[string]dynamodb_types.AttributeValue{
-			"primaryOwner": &dynamodb_types.AttributeValueMemberS{Value: primaryOwner},
-			"id":           &dynamodb_types.AttributeValueMemberS{Value: id},
+			"id": &dynamodb_types.AttributeValueMemberS{Value: id},
 		},
 	}
 
@@ -222,6 +267,7 @@ func (s *CompetitionConfigService) DeleteCompetitionConfig(ctx context.Context, 
 	return nil
 }
 
+// TODO: Deal with syncing with actual interface
 // Mock service for testing
 type MockCompetitionConfigService struct {
 	InsertCompetitionConfigFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, competition internal_types.CompetitionConfigInsert) (*internal_types.CompetitionConfig, error)

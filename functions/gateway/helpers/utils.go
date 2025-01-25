@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -628,4 +630,85 @@ func GetBase64ValueFromMap(claimsMeta map[string]interface{}, key string) string
 func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []string {
 	interests := GetBase64ValueFromMap(claimsMeta, key)
 	return strings.Split(interests, "|")
+}
+
+func FormatDynamoDBInput(input *dynamodb.GetItemInput) string {
+	if input == nil {
+		return "nil input"
+	}
+
+	// Extract values from AttributeValueMemberS
+	pk := ""
+	sk := ""
+	if pkAttr, ok := input.Key["PK"].(*dynamodb_types.AttributeValueMemberS); ok {
+		pk = pkAttr.Value
+	}
+	if skAttr, ok := input.Key["SK"].(*dynamodb_types.AttributeValueMemberS); ok {
+		sk = skAttr.Value
+	}
+
+	return fmt.Sprintf(
+		"GetItemInput{\n"+
+			"  TableName: %s\n"+
+			"  Key: {\n"+
+			"    PK: %s\n"+
+			"    SK: %s\n"+
+			"  }\n"+
+			"}",
+		*input.TableName,
+		pk,
+		sk,
+	)
+}
+func FormatDynamoDBQueryInput(input *dynamodb.QueryInput) string {
+	if input == nil {
+		return "nil QueryInput"
+	}
+
+	var details []string
+	details = append(details, fmt.Sprintf("TableName: %s", *input.TableName))
+
+	// Format KeyConditionExpression
+	if input.KeyConditionExpression != nil {
+		details = append(details, fmt.Sprintf("KeyConditionExpression: %s", *input.KeyConditionExpression))
+	}
+
+	// Format ExpressionAttributeValues
+	if len(input.ExpressionAttributeValues) > 0 {
+		details = append(details, "ExpressionAttributeValues: {")
+		for k, v := range input.ExpressionAttributeValues {
+			switch attr := v.(type) {
+			case *dynamodb_types.AttributeValueMemberS:
+				details = append(details, fmt.Sprintf("    %s: (String) %s", k, attr.Value))
+			case *dynamodb_types.AttributeValueMemberN:
+				details = append(details, fmt.Sprintf("    %s: (Number) %s", k, attr.Value))
+			default:
+				details = append(details, fmt.Sprintf("    %s: (Unknown Type) %v", k, v))
+			}
+		}
+		details = append(details, "}")
+	}
+
+	// Format ExpressionAttributeNames
+	if len(input.ExpressionAttributeNames) > 0 {
+		details = append(details, "ExpressionAttributeNames: {")
+		for k, v := range input.ExpressionAttributeNames {
+			if v != "" {
+				details = append(details, fmt.Sprintf("    %s: %s", k, &v))
+			}
+		}
+		details = append(details, "}")
+	}
+
+	// Format FilterExpression
+	if input.FilterExpression != nil {
+		details = append(details, fmt.Sprintf("FilterExpression: %s", *input.FilterExpression))
+	}
+
+	// Format IndexName
+	if input.IndexName != nil {
+		details = append(details, fmt.Sprintf("IndexName: %s", *input.IndexName))
+	}
+
+	return "QueryInput{\n  " + strings.Join(details, "\n  ") + "\n}"
 }

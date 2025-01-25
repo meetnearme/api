@@ -20,6 +20,7 @@ const VotesTablePrefix = "Votes"
 const EVENT_ID_KEY string = "eventId"
 const PRIMARY_OWNER_KEY string = "primaryOwner"
 const COMPETITIONS_ID_KEY string = "competitionId"
+const ROUND_NUMBER_KEY string = "roundNumber"
 const SUBDOMAIN_KEY = "subdomain"
 const INTERESTS_KEY = "interests"
 const ERR_KV_KEY_EXISTS = "key already exists in KV store"
@@ -152,7 +153,7 @@ var SitePages = map[string]SitePage{
 	"edit-event":       {Key: "edit-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/edit", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
 	"attendees-event":  {Key: "attendees-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/attendees", Name: "Event Attendees", SubnavItems: []string{SubnavItems[NvMain]}},
 	"competition-new":  {Key: "competition-new", Slug: "/admin/competition/new", Name: "Add Competition", SubnavItems: []string{SubnavItems[NvMain]}},
-	"competition-edit": {Key: "competition-edit", Slug: "/admin/competition/{" + PRIMARY_OWNER_KEY + "}/{" + COMPETITIONS_ID_KEY + "}/edit", Name: "Edit Competition", SubnavItems: []string{SubnavItems[NvMain]}},
+	"competition-edit": {Key: "competition-edit", Slug: "/admin/competition/{" + COMPETITIONS_ID_KEY + "}/edit", Name: "Edit Competition", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 type Subcategory struct {
