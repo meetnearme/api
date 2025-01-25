@@ -87,7 +87,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			if event.EventSourceType == helpers.ES_SERIES_PARENT {
 				<h3 class="text-xl mt-2">Event Series</h3>
 				<div
-					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&end_time=2099-10-18T10:00:00Z&radius=20000&event_source_ids=" + event.Id }
+					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id }
 					hx-trigger="load"
 					hx-swap="outerHTML"
 				>
@@ -114,11 +114,11 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 					// TODO: handle basecurrency
 					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", "", event)
 				}
-				if event.EventSourceType == helpers.ES_EVENT_SERIES {
+				if event.EventSourceType == helpers.ES_EVENT_SERIES && event.EventSourceId != "" {
 					<div class="divider my-3"></div>
 					<h3 class="text-xl mt-2 mb-2">All Events in this Series</h3>
 					<div
-						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&end_time=2099-10-18T10:00:00Z&radius=20000&event_source_ids=" + event.EventSourceId }
+						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId }
 						hx-trigger="load"
 						hx-swap="outerHTML"
 					>

@@ -855,6 +855,15 @@ func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Even
 	return event
 }
 
+func BulkDeleteEventsFromMarqo(client *marqo.Client, events []string) (*marqo.DeleteDocumentsResponse, error) {
+	indexName := GetMarqoIndexName()
+	deleteDocumentsReq := &marqo.DeleteDocumentsRequest{
+		IndexName:   indexName,
+		DocumentIDs: events,
+	}
+	return client.DeleteDocuments(deleteDocumentsReq)
+}
+
 // miToLat converts miles to latitude offset
 func miToLat(mi float64) float64 {
 	return (mi * milesPerKm) / earthRadiusKm * (180 / math.Pi)
