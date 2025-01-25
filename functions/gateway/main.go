@@ -75,6 +75,7 @@ func init() {
 		{"/api/events{trailingslash:\\/?}", "PUT", handlers.BulkUpdateEventsHandler, Require},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, Require},
+		{"/api/events", "DELETE", handlers.BulkDeleteEventsHandler, Require},
 		{"/api/event-reg-purch{trailingslash:\\/?}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/event-reg-purch/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},

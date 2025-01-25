@@ -365,13 +365,13 @@ func TestSearchUsersByIDs(t *testing.T) {
 	tests := []struct {
 		name          string
 		userIDs       []string
-		expectedUsers []UserSearchResult
+		expectedUsers []UserSearchResultDangerous
 		expectError   bool
 	}{
 		{
 			name:    "successful search with multiple users",
 			userIDs: []string{"123", "456"},
-			expectedUsers: []UserSearchResult{
+			expectedUsers: []UserSearchResultDangerous{
 				{UserID: "123", DisplayName: "Test User 123"},
 				{UserID: "456", DisplayName: "Test User 456"},
 			},
@@ -379,7 +379,7 @@ func TestSearchUsersByIDs(t *testing.T) {
 		{
 			name:          "empty result",
 			userIDs:       []string{"nonexistent"},
-			expectedUsers: []UserSearchResult{},
+			expectedUsers: []UserSearchResultDangerous{},
 		},
 		{
 			name:        "server error",
@@ -389,14 +389,14 @@ func TestSearchUsersByIDs(t *testing.T) {
 		{
 			name:          "empty user IDs",
 			userIDs:       []string{},
-			expectedUsers: []UserSearchResult{},
+			expectedUsers: []UserSearchResultDangerous{},
 			expectError:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			users, err := SearchUsersByIDs(tt.userIDs)
+			users, err := SearchUsersByIDs(tt.userIDs, false)
 
 			if tt.expectError {
 				if err == nil {

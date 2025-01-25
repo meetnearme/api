@@ -19,11 +19,19 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 	>
 		// NOTE: intentionally hidden fields that users can't affect directly
 		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
-			<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
+			<h1 class="text-3xl mb-4 truncate whitespace-nowrap overflow-hidden max-w-full">
+				{ pageObj.Name }
+				<template x-if="formData.event.id">
+					<span>:&nbsp;<a x-text="formData.event.name" target="_blank" class="link link-primary" :href="eventDetailUrl.replace('{}',formData.event.id)"></a></span>
+				</template>
+				<template x-if="!formData.event.id && formData.event.name">
+					<span x-text=" ': ' + formData.event.name"></span>
+				</template>
+			</h1>
 			<a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["attendees-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>View Attendees</a>
 		</header>
 		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Overview</h2>
-		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
 			<div class="card">
 				<label class="form-control w-full max-w-xs">
 					<div class="label">Event Name</div>
@@ -251,7 +259,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 			</div>
 		</div>
 		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Date &amp; Media</h2>
-		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
 			<div class="form-control">
 				<label class="label">{ helpers.GetFieldDisplayName("StartTime") }</label>
 				<input
@@ -313,7 +321,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 			</div>
 		</div>
 		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Series</h2>
-		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
 			<div class="card">
 				<label class="label cursor-pointer">
 					<span class="label-text">Enable Multi-Event Series</span>
@@ -333,7 +341,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					<div>
 						if event.EventSourceType == helpers.ES_SERIES_PARENT {
 							<div
-								hx-get={ "/api/html/event-series-form/" + event.Id + "?end_time=2099-10-18T10:00:00Z&radius=20000" }
+								hx-get={ "/api/html/event-series-form/" + event.Id + "?&event_source_ids=" + event.Id }
 								hx-trigger="load"
 								hx-swap="outerHTML"
 								@htmx:after-request="setEventChildrenLoaded()"
@@ -348,28 +356,50 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								</template>
 							</div>
 						}
-						<template x-for="(child, idx) in formData.eventChildren">
-							<div>
-								<template x-if="idx > 0">
+						<div>
+							<template x-for="(child, idx) in formData.eventChildren" :key="child.startTime || child.id">
+								<div
+									x-data="{ hidden: false, contentHeight: 0 }"
+									x-init="contentHeight = $el.scrollHeight"
+									class="transition-all duration-300 ease-in-out overflow-hidden"
+									:style="hidden ? 'max-height: 0px' : `max-height: ${contentHeight}px`"
+								>
 									<div class="divider my-3"></div>
-								</template>
-								<h3 x-text=" 'Event #' + (idx + 1) + ' in Series' "></h3>
-								<div class="form-control">
-									for _, diffField := range partials.AlwaysShowEventDiffFields {
-										<label class="label">{ helpers.GetFieldDisplayName(diffField) }</label>
-										<input
-											class="input input-bordered w-full"
-											type="datetime-local"
-											name={ string(` 'event_' + idx + '_' + ` + string(diffField)) }
-											x-model={ "formData.eventChildren[idx]." + strings.ToLower(string(diffField[0])) + diffField[1:] }
+									<div class="flex justify-between items-center">
+										<h3 x-text=" 'Event #' + (idx + 1) + ' in Series' "></h3>
+										// NOTE: this hack addresses a bug where Alpine IDs are not stable
+										// by default https://github.com/alpinejs/alpine/discussions/2325#discussioncomment-1599008
+										<button
+											@click="hidden = true; setTimeout(() => {
+												const childIndex = formData.eventChildren.findIndex(evChild => evChild.id === child.id);
+												if (childIndex !== -1) {
+														formData.eventChildren.splice(childIndex, 1);
+												}
+											}, 200)"
+											class="btn btn-ghost btn-circle btn-sm"
 											:disabled="saveReqInFlight"
-										/>
-									}
+											aria-label="remove this event from series"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+											</svg>
+										</button>
+									</div>
+									<div class="form-control">
+										for _, diffField := range partials.AlwaysShowEventDiffFields {
+											<label class="label">{ helpers.GetFieldDisplayName(diffField) }</label>
+											<input
+												class="input input-bordered w-full"
+												type="datetime-local"
+												name={ string(` 'event_' + idx + '_' + ` + string(diffField[0])) }
+												x-model={ "formData.eventChildren[idx]." + strings.ToLower(string(diffField[0])) + diffField[1:] }
+												:disabled="saveReqInFlight"
+											/>
+										}
+									</div>
 								</div>
-							</div>
-						</template>
-						// <h3>Event Children formData</h3>
-						// <div x-effect="$el.textContent = JSON.stringify(formData.eventChildren)"></div>
+							</template>
+						</div>
 						<button class="btn btn-primary mt-3 w-full" @click="addNewEventChild()" :disabled="saveReqInFlight">
 							<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
 							Add New Event
@@ -378,14 +408,14 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				</template>
 			</div>
 		</div>
-		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Venue Information</h2>
-		<div id="location" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Location</h2>
+		<div id="location" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
 			<div class="card">
 				@components.LocationLookupPartial("post", "/api/location/geo", "", "formData.url", "Confirm Address", "Address Confirmed", event.Lat, event.Long, event.Address, cfLocationLat, cfLocationLon)
 			</div>
 		</div>
 		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Tickets, Sales, & Registrations</h2>
-		<div id="pricing" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box mb-4">
+		<div id="pricing" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
 			<div class="card">
 				<h3 class="text-xl">Registration</h3>
 				<div class="form-control w-full">
@@ -403,15 +433,119 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						/>
 					</label>
 				</div>
-				<template x-if="formData.event.hasRegistrationFields && !formData.registrationFieldsLoaded && registrationFields.length < 1">
+				<template x-if="formData.event.hasRegistrationFields && !registrationFieldsLoaded && registrationFields.length < 1">
 					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
 				</template>
-				<template x-if="registrationFields.length > 0">
-					<ul class="list-disc list-inside">
-						<template x-for="field in registrationFields">
-							<li x-text="field.name"></li>
-						</template>
-					</ul>
+				<template x-if="formData.event.hasRegistrationFields">
+					<div class="registration-fields-manager">
+						<div class="flex justify-between items-center mb-4 mt-8">
+							<h4 class="text-xl">Registration Fields</h4>
+						</div>
+						<ul x-sort="($item, $position) => handleRegFieldReorder($item, $position, $el)" class="space-y-4">
+							<template x-for="(field, index) in registrationFields" :key="field.id + '-' + field.order">
+								<li x-sort:item="field.id" class="card bg-base-100 shadow-md p-4">
+									<div class="flex items-center gap-2 mb-4">
+										<span x-sort:handle class="cursor-move">
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+											</svg>
+										</span>
+										<button
+											@click="removeField(index)"
+											class="btn btn-ghost btn-circle btn-sm ml-auto"
+											:disabled="saveReqInFlight"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+											</svg>
+										</button>
+									</div>
+									<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+										<div class="form-control">
+											<label class="label">Field Name</label>
+											<input
+												type="text"
+												class="input input-bordered"
+												x-model="field.name"
+												:disabled="saveReqInFlight"
+											/>
+										</div>
+										<div class="form-control">
+											<label class="label">Field Type</label>
+											<select
+												class="select select-bordered"
+												x-model="field.type"
+												@change="handleTypeChange($event, index)"
+												:disabled="saveReqInFlight"
+											>
+												<option value="text">Text</option>
+												<option value="checkbox">Checkbox</option>
+												<option value="select">Select</option>
+											</select>
+										</div>
+										<div class="form-control md:col-span-2">
+											<div class="flex flex-col items-start">
+												<label class="label cursor-pointer">
+													<span class="label-text">Required Field</span>
+													<input
+														type="checkbox"
+														class="toggle toggle-primary ml-4"
+														x-model="field.required"
+														:disabled="saveReqInFlight"
+													/>
+												</label>
+											</div>
+										</div>
+										<template x-if="field.type === 'select'">
+											<div class="form-control md:col-span-2">
+												<label class="label">Options (one per line)</label>
+												<textarea
+													class="textarea textarea-bordered"
+													x-model="field.optionsText"
+													@input="updateOptions(index)"
+													:disabled="saveReqInFlight"
+												></textarea>
+											</div>
+										</template>
+										<div class="form-control">
+											<label class="label">Default Value</label>
+											<input
+												type="text"
+												class="input input-bordered"
+												x-model="field.default"
+												:disabled="saveReqInFlight"
+											/>
+										</div>
+										<div class="form-control">
+											<label class="label">Placeholder</label>
+											<input
+												type="text"
+												class="input input-bordered"
+												x-model="field.placeholder"
+												:disabled="saveReqInFlight"
+											/>
+										</div>
+										<div class="form-control md:col-span-2">
+											<label class="label">Description</label>
+											<textarea
+												class="textarea textarea-bordered"
+												x-model="field.description"
+												:disabled="saveReqInFlight"
+											></textarea>
+										</div>
+									</div>
+								</li>
+							</template>
+						</ul>
+						<button
+							@click="addRegistrationField()"
+							class="btn btn-primary mt-3 mb-8 w-full"
+							:disabled="saveReqInFlight"
+						>
+							<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
+							Add Registration Field
+						</button>
+					</div>
 				</template>
 				<h3 class="text-xl mt-4">Purchasable Items, Tickets, Merch, etc.</h3>
 				<div class="form-control w-full">
@@ -429,42 +563,155 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						/>
 					</label>
 				</div>
-				<template x-if="formData.event.hasPurchasable && !formData.purchasablesLoaded && purchasables.length < 1">
-					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
-				</template>
-				<template x-if="purchasables.length > 0">
-					<ul class="list-disc">
-						<template x-for="purchasable in purchasables">
-							<li class="mt-4">
-								<div x-text="'Name: ' + purchasable.name"></div>
-								<div x-text="'Item Type: ' + purchasable.item_type"></div>
-								<div x-text="'Cost: ' + purchasable.cost"></div>
-								<div x-text="'Inventory: ' + purchasable.inventory"></div>
-								<div x-text="'Starting Quantity: ' + purchasable.starting_quantity"></div>
-								<div x-text="'Currency: ' + purchasable.currency"></div>
-								<div x-text="'Charge Recurrence Interval: ' + purchasable.charge_recurrence_interval"></div>
-								<div x-text="'Charge Recurrence Interval Count: ' + purchasable.charge_recurrence_interval_count"></div>
-								<div x-text="'Charge Recurrence End Date: ' + purchasable.charge_recurrence_end_date"></div>
-								<div x-text="'Donation Ratio: ' + purchasable.donation_ratio"></div>
-								<div x-text="'Registration Fields: ' + purchasable.registration_fields"></div>
-								<div x-text="'Expires On: ' + purchasable.expires_on"></div>
-								<div x-text="'Created At: ' + purchasable.created_at"></div>
-								<div x-text="'Updated At: ' + purchasable.updated_at"></div>
-							</li>
+				<template x-if="formData.event.hasPurchasable">
+					<div>
+						<template x-if="formData.event.hasPurchasable && !purchasablesLoaded && purchasables.length < 1">
+							<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
 						</template>
-					</ul>
+						<template x-if="purchasables.length > 0">
+							<ul x-sort="($item, $position) => handlePurchasableOrder($item, $position)" class="list-none p-0">
+								<template x-for="(purchasable, index) in purchasables" :key="purchasable.id + '-' + purchasable.order">
+									<li x-sort:item="purchasable.id" class="card bg-base-100 shadow-md p-4 mt-4">
+										<div class="flex items-center gap-2 mb-4">
+											<span x-sort:handle class="cursor-move">
+												<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+												</svg>
+											</span>
+											<button
+												@click="removePurchasable(index)"
+												class="btn btn-ghost btn-circle btn-sm ml-auto"
+												:disabled="saveReqInFlight"
+											>
+												<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+												</svg>
+											</button>
+										</div>
+										<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+											<!-- Name -->
+											<div class="form-control">
+												<label class="label">Name</label>
+												<input
+													type="text"
+													class="input input-bordered"
+													x-model="purchasable.name"
+												/>
+											</div>
+											<!-- Item Type -->
+											<div class="form-control">
+												<label class="label">Item Type</label>
+												<select class="select select-bordered" x-model="purchasable.item_type">
+													<option value="ticket">Ticket</option>
+													<option value="merchandise">Merchandise</option>
+												</select>
+											</div>
+											<!-- Cost with currency formatting -->
+											<div class="form-control">
+												<label class="label">Cost</label>
+												<input
+													class="input input-bordered"
+													x-mask:dynamic="$money($input)"
+													x-model="purchasable.cost"
+												/>
+											</div>
+											<!-- Registration Fields Multi-select -->
+											<div class="form-control md:col-span-2 mt-8">
+												<label class="label">Registration Fields</label>
+												<div class="flex flex-wrap gap-2">
+													<ul
+														x-sort="($item, $position) => handlePurchasableRegFieldReorder($item, $position, purchasable)"
+														class="flex flex-wrap gap-2"
+													>
+														<template
+															x-for="(fieldName, index) in purchasable.registration_fields"
+															:key="fieldName + '-' + index"
+														>
+															<li
+																x-sort:item="fieldName"
+																class="label cursor-pointer inline-flex items-center gap-2 bg-base-200 px-3 py-1 rounded-full"
+															>
+																<span x-sort:handle class="cursor-move mr-1">
+																	<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+																		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+																	</svg>
+																</span>
+																<input
+																	type="checkbox"
+																	class="checkbox checkbox-sm"
+																	checked
+																	@change="purchasable.registration_fields = purchasable.registration_fields.filter(f => f !== fieldName)"
+																/>
+																<span x-text="fieldName"></span>
+															</li>
+														</template>
+													</ul>
+													<!-- Available fields that aren't selected yet -->
+													<template x-for="field in registrationFields.filter(f => !purchasable.registration_fields.includes(f.name))" :key="field.id">
+														<label class="label cursor-pointer inline-flex items-center gap-2 px-3 py-1 rounded-full">
+															<input
+																type="checkbox"
+																class="checkbox checkbox-sm"
+																@change="purchasable.registration_fields.push(field.name)"
+															/>
+															<span x-text="field.name"></span>
+														</label>
+													</template>
+												</div>
+											</div>
+											<!-- Expires On -->
+											<div class="form-control">
+												<label class="label">Expires On</label>
+												<input
+													type="datetime-local"
+													class="input input-bordered"
+													x-model="purchasable.expires_on"
+												/>
+											</div>
+											<!-- Other fields... -->
+											<div class="form-control">
+												<label class="label">Inventory</label>
+												<input
+													type="number"
+													class="input input-bordered"
+													x-model="purchasable.displayInventory"
+													@input="purchasable.inventory = parseInt($event.target.value || 0)"
+												/>
+											</div>
+											<div class="form-control">
+												<label class="label">Starting Quantity</label>
+												<input
+													type="number"
+													class="input input-bordered"
+													x-model="purchasable.starting_quantity"
+													@input="purchasable.starting_quantity = parseInt($event.target.value || 0)"
+												/>
+											</div>
+										</div>
+									</li>
+								</template>
+							</ul>
+						</template>
+						<button
+							@click="addPurchasable()"
+							class="btn btn-primary mt-3 mb-8 w-full"
+							:disabled="saveReqInFlight"
+						>
+							<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
+							Add Purchasable Item
+						</button>
+					</div>
 				</template>
 				<div :class="formData.event.hasPurchasable ? 'grid grid-2' : 'hidden'">
 					<div class="form-control">
 						<label class="label">Starting Price</label>
 						<input
 							class="input"
-							type="number"
-							step="0.01"
 							placeholder="Enter starting price"
 							x-model.fill={ "formData.event.startingPrice" }
+							x-mask:dynamic="$money($input)"
 							if event.StartingPrice > 0 {
-								value={ strconv.FormatInt(int64(event.StartingPrice/100), 10) }
+								value={ strconv.FormatFloat(float64(event.StartingPrice)/100.0, 'f', 2, 64) }
 							}
 						/>
 					</div>
@@ -479,6 +726,13 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 									selected
 								}
 							>USD</option>
+							<option
+								value="CAD"
+								disabled
+								if event.Currency == "CAD" {
+									selected
+								}
+							>CAD</option>
 							<option
 								value="EUR"
 								disabled
@@ -497,7 +751,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					</div>
 					<div class="form-control">
 						// TODO: make this a typeahead like other user lookup for event owners
-						<label class="label">Payee</label>
+						<label class="label">Payee (user id)</label>
 						<input
 							class="input"
 							type="text"
@@ -507,7 +761,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						/>
 					</div>
 				</div>
-				<div x-effect="$el.textContent = JSON.stringify(formData)"></div>
 			</div>
 		</div>
 		<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
@@ -559,288 +812,505 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 	// 		</div>
 	// 	</div>
 	// </div>
-	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) }>
-		function getAddEditEventState() {
-			return {
-				init() {
-					(async () => {
-						const ownerNames = this.formData.event.eventOwnerName.split(this.eventOwnerDelimiter);
-						const ownerIds = JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? []
-						this.owners = ownerIds.map((ownerId, idx) => {
-							return { label: ownerNames?.[idx], value: ownerId };
+	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) }>
+
+	function getAddEditEventState() {
+		return {
+					init() {
+						(async () => {
+								const ownerNames = this.formData.event.eventOwnerName.split(this.eventOwnerDelimiter);
+								const ownerIds = JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? []
+								this.owners = ownerIds.map((ownerId, idx) => {
+									return { label: ownerNames?.[idx], value: ownerId };
+								});
+								this.allOptions = this.owners
+								if (this.formData.event.hasPurchasable) {
+									try {
+										const purchasablesResponse = await fetch(`/api/purchasables/${this.formData.event.id}`);
+										const purchasables = await purchasablesResponse.json();
+										this.purchasables = purchasables?.purchasable_items ?? [];
+										this.purchasables = this.purchasables.map(p => ({
+											...p,
+											id: crypto.randomUUID(),
+											cost: (p.cost / 100).toFixed(2),
+											registration_fields: p.registration_fields || [],
+											currency: this.formData.event.currency,
+											expires_on: p.expires_on?.replace(this.timeZuluSuffix, '') ?? null
+										}));
+										this.purchasablesCreatedAt = purchasables?.created_at ?? '';
+										this.purchasablesLoaded = true;
+									} catch (error) {
+										// eslint-disable-next-line no-console
+										console.error('Failed to fetch purchasables:', error);
+										this.showToast = true;
+										this.toastContent = {
+											type: 'error',
+											message: 'Failed to fetch purchasables',
+										}
+									}
+								} else {
+									this.purchasables = [];
+									this.purchasablesLoaded = true;
+								}
+
+								if (this.formData.event.hasRegistrationFields) {
+									try {
+										const registrationFieldsResponse = await fetch(`/api/registration-fields/${this.formData.event.id}`);
+										const registrationFields = await registrationFieldsResponse.json();
+										this.registrationFields = registrationFields?.fields.map((field, index) => ({
+											...field,
+											optionsText: field.options ? field.options.join('\n') : '',
+											order: index,
+											id: field.id ?? crypto.randomUUID(),
+										})) ?? [];
+										this.registrationFieldsCreatedAt = registrationFields?.created_at ?? '';
+										this.registrationFieldsLoaded = true;
+									} catch (error) {
+										// eslint-disable-next-line no-console
+										console.error('Failed to fetch registration fields:', error);
+										this.showToast = true;
+										this.toastContent = {
+											type: 'error',
+											message: `Failed to fetch registration fields: ${error.message}`,
+										}
+									}
+								} else {
+									this.registrationFields = [];
+									this.registrationFieldsLoaded = true;
+								}
+						})()
+					},
+					formData: {
+						eventChildren: [],
+						event: {
+							id: document.querySelector('#add-edit-event').getAttribute('data-event-id') ?? null,
+							eventSourceId: document.querySelector('#add-edit-event').getAttribute('data-event-source-id') ?? null,
+							eventOwners: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? [],
+							eventOwnerName: document.querySelector('#add-edit-event').getAttribute('data-event-owner-name') ?? '',
+							eventSourceType: document.querySelector('[name=isEventSeries]').checked ? document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent') : document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
+							tags: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-tags')) ?? [],
+							categories: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-categories')) ?? [],
+							hasPurchasable: document.querySelector('[name=hasPurchasable]').checked ?? false,
+							payeeId: document.querySelector('#add-edit-event').getAttribute('data-payee-id') ?? null,
+							hasRegistrationFields: document.querySelector('[name=hasRegistrationFields]').checked ?? false,
+							lat: document.querySelector('#add-edit-event').getAttribute('data-event-lat') ?? null,
+							long: document.querySelector('#add-edit-event').getAttribute('data-event-long') ?? null,
+							address: document.querySelector('#add-edit-event').getAttribute('data-event-address') ?? null,
+							hideCrossPromo: document.querySelector('[name=hideCrossPromo]').checked ?? false,
+						},
+					},
+
+					eventDetailUrl: document.querySelector('#add-edit-event').getAttribute('data-event-detail-url') ?? null,
+					eventChildrenLoaded: false,
+					purchasablesLoaded: false,
+					purchasablesCreatedAt: '',
+					registrationFieldsLoaded: false,
+					registrationFieldsCreatedAt: '',
+					purchasables: [],
+					registrationFields: [],
+					owners: [],
+					isEventSeries: document.querySelector('[name=isEventSeries]').checked ?? false,
+					categoryInput: '',
+					tagInput: '',
+					ownerInput: '',
+					saveReqInFlight: false,
+					showToast: false,
+					toastContent: {
+						type: '',
+						message: ' updated successfully',
+					},
+					eventOwnerDelimiter: document.querySelector('#add-edit-event').getAttribute('data-event-owner-delimiter'),
+					eventTypeSingleConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
+					eventTypeSeriesParentConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent'),
+					eventTypeSeriesChildConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-child'),
+					// The API expects RFC3339 HH:MM:SS, but datetime-local is in HH:MM
+					timeZuluSuffix: ":00Z",
+					// BEGIN: Event Owners typeahead state
+
+					allOptions: [],
+					options: [],
+					isOpen: false,
+					openedWithKeyboard: false,
+					// END: Event Owners typeahead state
+					getFormChildrenData() {
+						return JSON.stringify(this.formData.eventChildren);
+					},
+					// BEGIN: Event Owners typeahead helper functions
+					async fetchUsers(query) {
+						if (query.length >= 3) {
+							await fetch(`/api/user-search?q=${query}`).then(res => {
+								return res.json()
+							}).then(json => {
+								// Filter out users that are already owners
+								const filteredUsers = json.filter(user =>
+									!this.owners.some(owner => owner.value === user.userId)
+								);
+								this.options = filteredUsers.map((user) => ({
+										label: user.displayName,
+										value: user.userId,
+								}))
+								this.$nextTick(() => {
+									this.isOpen = true
+								})
+							});
+						}
+					},
+					removeOwner(ownerToRemove) {
+							this.owners = this.owners.filter(owner => owner !== ownerToRemove);
+					},
+					setSelectedOwner(option) {
+							this.isOpen = false
+							this.owners.push(option);
+							this.options = this.options.filter(o => o.value !== option.value)
+							this.$nextTick(() => {
+								document.querySelector('[x-ref=ownerSearch]').focus();
+							})
+					},
+					getFilteredOptions(query) {
+							this.options = this.allOptions.filter((option) =>
+									option.label.toLowerCase().includes(query.toLowerCase()),
+							)
+							if (this.options.length === 0) {
+									this.$refs.noResultsMessage.classList.remove('hidden')
+							} else {
+									this.$refs.noResultsMessage.classList.add('hidden')
+							}
+					},
+					handleKeydownOnOptions(event) {
+							// if the user presses backspace or the alpha-numeric keys, focus on the search field
+							if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
+									this.$refs.ownerSearch.focus()
+							}
+					},
+
+					// END: Event Owners typeahead helper functions
+
+					addTag() {
+							if (this.tagInput.trim() !== '') {
+									this.formData.event.tags.push(this.tagInput.trim());
+									this.tagInput = '';
+							}
+					},
+
+					removeTag(tagToRemove) {
+							this.formData.event.tags = this.formData.event.tags.filter(tag => tag !== tagToRemove);
+					},
+
+					handleTagKeydown(e) {
+							if (e.key === 'Enter') {
+									e.preventDefault();
+									this.addTag();
+							}
+					},
+
+					addCategory() {
+							if (this.categoryInput.trim() !== '') {
+									this.formData.event.categories.push(this.categoryInput.trim());
+									this.categoryInput = '';
+							}
+					},
+
+					removeCategory(categoryToRemove) {
+							this.formData.event.categories = this.formData.event.categories.filter(category => category !== categoryToRemove);
+					},
+
+					handleCategoryKeydown(e) {
+							if (e.key === 'Enter') {
+									e.preventDefault();
+									this.addCategory();
+							}
+					},
+					addNewEventChild() {
+						this.formData.eventChildren.push({
+							startTime: '',
+							endTime: '',
+							id: crypto.randomUUID(),
+						})
+					},
+					transformEventToPayload(event) {
+						const eventFiltered = Object.fromEntries(
+							Object.entries(event)
+								// eslint-disable-next-line no-unused-vars
+								.filter(([_, value]) => value !== '')
+						)
+						if (!event.hasPurchasable) {
+							delete eventFiltered.startingPrice
+							delete eventFiltered.currency
+							delete eventFiltered.payeeId
+						}
+
+						return {
+							...eventFiltered,
+							startTime: this.formData.event.startTime ? this.formData.event.startTime + this.timeZuluSuffix : null,
+							endTime: this.formData.event.endTime ? this.formData.event.endTime + this.timeZuluSuffix : null,
+							lat: parseFloat(this.formData.event.lat),
+							long: parseFloat(this.formData.event.long),
+							eventSourceType: this.isEventSeries ? this.eventTypeSeriesParentConstant : this.eventTypeSingleConstant,
+							eventOwners: this.owners.map(owner => owner.value),
+							eventOwnerName: this.owners.map(owner => owner.label).join(this.eventOwnerDelimiter),
+							...(this.formData.event.hasPurchasable ? {
+									startingPrice: this.formData.event.startingPrice * 100,
+									currency: this.formData.event.currency,
+									payeeId: this.formData.event.payeeId,
+								} : {}
+							),
+						}
+					},
+					setEventChildrenLoaded() {
+						this.eventChildrenLoaded = true
+					},
+					addRegistrationField() {
+							this.registrationFields.push({
+									id: crypto.randomUUID(), // Add unique ID
+									order: this.registrationFields.length, // Add order tracking
+									name: '',
+									type: 'text',
+									options: null,
+									optionsText: '',
+									default: '',
+									placeholder: '',
+									description: '',
+									required: false
+							});
+					},
+					removeField(index) {
+						this.registrationFields.splice(index, 1);
+					},
+
+					handleTypeChange(event, index) {
+						const type = event.target.value;
+						if (type === 'select' && !this.registrationFields[index].options) {
+							this.registrationFields[index].options = [];
+							this.registrationFields[index].optionsText = '';
+						} else if (type !== 'select') {
+							this.registrationFields[index].options = null;
+							this.registrationFields[index].optionsText = '';
+						}
+					},
+
+					updateOptions(index) {
+						const field = this.registrationFields[index];
+						field.options = field.optionsText
+							.split('\n')
+							.map(option => option.trim())
+							.filter(option => option !== '');
+					},
+
+					handleRegFieldReorder($item, $position) {
+						// Create a POJO copy of the array
+						let fields = this.registrationFields.map(f => ({...f}));
+
+						// Find the moved item by ID
+						const itemIndex = fields.findIndex(f => f.id === $item);
+						if (itemIndex === -1) return;
+
+						// Remove and reinsert at new position
+						const [movedItem] = fields.splice(itemIndex, 1);
+						fields.splice($position, 0, movedItem);
+
+						// Update order values
+						fields = fields.map((field, index) => ({
+								...field,
+								order: index
+						}));
+
+						// Update the array with the new order
+						this.registrationFields = fields;
+
+						// Force Alpine to recognize the change
+						this.$nextTick(() => {
+								const templateEl = this.$el.querySelector('template[x-for]');
+								if (templateEl && templateEl.__x) {
+										templateEl.__x._x_prevKeys = fields.map(f => `${f.id}-${f.order}`);
+								}
 						});
-						this.allOptions = this.owners
-						if (this.formData.event.hasPurchasable) {
-							try {
-								const purchasablesResponse = await fetch(`/api/purchasables/${this.formData.event.id}`);
-								const purchasables = await purchasablesResponse.json();
-								this.purchasables = purchasables?.purchasable_items ?? [];
-								this.purchasablesCreatedAt = purchasables?.created_at ?? '';
-								this.purchasablesLoaded = true;
-							} catch (error) {
-								// eslint-disable-next-line no-console
-								console.error('Failed to fetch purchasables:', error);
+					},
+
+					handleRegistrationFieldOrder($item, $position, purchasable) {
+						// Create a new array to trigger reactivity
+						let fields = [...purchasable.registration_fields];
+
+						// Find the moved item
+						const itemIndex = fields.indexOf($item);
+						if (itemIndex === -1) return;
+
+						// Remove and reinsert at new position
+						const [movedItem] = fields.splice(itemIndex, 1);
+						fields.splice($position, 0, movedItem);
+
+						// Update the array
+						purchasable.registration_fields = fields;
+					},
+
+					handlePurchasableOrder($item, $position) {
+						// Create a POJO copy of the array
+						let items = this.purchasables.map(p => ({...p}));
+
+						// Find the moved item by ID
+						const itemIndex = items.findIndex(p => p.id === $item);
+						if (itemIndex === -1) return;
+
+						// Remove and reinsert at new position
+						const [movedItem] = items.splice(itemIndex, 1);
+						items.splice($position, 0, movedItem);
+
+						// Update order values
+						items = items.map((item, index) => ({
+							...item,
+							order: index
+						}));
+
+						// Update the array with the new order
+						this.purchasables = items;
+
+						// Force Alpine to recognize the change
+						this.$nextTick(() => {
+							const templateEl = this.$el.querySelector('template[x-for]');
+							if (templateEl && templateEl.__x) {
+								templateEl.__x._x_prevKeys = items.map(p => `${p.id}-${p.order}`);
+							}
+						});
+					},
+
+					removePurchasable(index) {
+						this.purchasables.splice(index, 1);
+					},
+
+					addPurchasable() {
+						this.purchasables.push({
+							id: crypto.randomUUID(),
+							order: this.purchasables.length,
+							name: '',
+							item_type: 'ticket',
+							cost: 0,
+							inventory: 0,
+							starting_quantity: 0,
+							registration_fields: [],
+							expires_on: null,
+							currency: this.formData.event.currency
+						});
+					},
+
+					handlePurchasableRegFieldReorder($item, $position, purchasable) {
+						// Create POJO array of current fields with order
+						let fields = purchasable.registration_fields.map((name, index) => ({
+						name,
+						order: index
+					}));
+
+					// Find the moved item
+					const itemIndex = fields.findIndex(f => f.name === $item);
+					if (itemIndex === -1) return;
+
+					// Remove and reinsert at new position
+					const [movedItem] = fields.splice(itemIndex, 1);
+					fields.splice($position, 0, movedItem);
+
+					// Update order values
+					fields = fields.map((field, index) => ({
+						...field,
+						order: index
+					}));
+
+					// Update the array with just the names in the new order
+					purchasable.registration_fields = fields.map(f => f.name);
+
+					// Force Alpine to recognize the change
+					this.$nextTick(() => {
+						const templateEl = this.$el.querySelector('template[x-for]');
+							if (templateEl && templateEl.__x) {
+								templateEl.__x._x_prevKeys = fields.map(f => `${f.name}-${f.order}`);
+							}
+						});
+					},
+
+					async handlePublishClick() {
+						this.saveReqInFlight = true
+
+						const parentEvent = this.transformEventToPayload(this.formData.event)
+						this.purchasables = this.purchasables.map(p => ({
+							...p,
+							currency: this.formData.event.currency,
+						}))
+						// NOTE: never set the eventSourceId on the parent event, it IS the parent
+						delete parentEvent.eventSourceId
+						let payload = {
+							events: [{
+								...parentEvent,
+							}],
+							purchasableUpdate: {
+								event_id: this.formData.event.id,
+								...(this.purchasablesCreatedAt !== '' ? {created_at: this.purchasablesCreatedAt} : {}),
+								purchasable_items: this.purchasables.map(p => ({
+									...p,
+									expires_on: p.expires_on ? p.expires_on + this.timeZuluSuffix : null,
+									cost: (p.cost * 100),
+									inventory: p.inventory,
+								})),
+							},
+							registrationFieldsUpdate: {
+								...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
+								fields: this.registrationFields,
+							},
+						}
+						if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
+							this.formData.eventChildren.forEach(child => {
+								// NOTE: this is importantly set to null to
+								// prevent the payload from violaiting request
+								// body size limit constraints. The API will
+								// always take the parent event's description
+								// and seed it to each child event
+								delete parentEvent.description
+								delete child.description
+								// NOTE: never override the child event's id with the parent id
+								delete parentEvent.id
+								payload.events.push({
+									...parentEvent,
+									...child,
+									eventSourceId: this.formData.event.id,
+									startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
+									endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,
+									eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
+								})
+							})
+						}
+
+						try {
+							const response = await fetch(`/api/event-reg-purch/${this.formData.event.id}`, {
+								method: 'PUT',
+								headers: {
+									'Content-Type': 'application/json',
+								},
+								body: JSON.stringify(payload),
+							});
+							const json = await response.json()
+							if (json.status === 'success') {
+								this.saveReqInFlight = false
 								this.showToast = true;
 								this.toastContent = {
-									type: 'error',
-									message: 'Failed to fetch purchasables',
+									type: 'success',
+									message: 'Event updated successfully',
 								}
+								// NOTE: this API path should come from a data-* attribute
+								// that uses the `SitePages` constant for this API path
+								const newUrl = `/admin/event/${json.data.parentEvent._id}/edit`;
+								window.history.pushState({ path: newUrl }, '', newUrl);
+								this.formData.event.id = json.data.parentEvent._id
+							} else {
+								throw new Error(`Failed to update event ${ json?.error?.message ? ": " + json.error.message : ''}`)
 							}
-						}
-
-						if (this.formData.event.hasRegistrationFields) {
-							try {
-								const registrationFieldsResponse = await fetch(`/api/registration-fields/${this.formData.event.id}`);
-								const registrationFields = await registrationFieldsResponse.json();
-								this.registrationFields = registrationFields?.fields ?? [];
-								this.registrationFieldsCreatedAt = registrationFields?.created_at ?? '';
-								this.registrationFieldsLoaded = true;
-							} catch (error) {
-								// eslint-disable-next-line no-console
-								console.error('Failed to fetch registration fields:', error);
-							}
-						}
-					})()
-				},
-				formData: {
-					eventChildren: [],
-					event: {
-						id: document.querySelector('#add-edit-event').getAttribute('data-event-id') ?? null,
-						eventSourceId: document.querySelector('#add-edit-event').getAttribute('data-event-source-id') ?? null,
-						eventOwners: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? [],
-						eventOwnerName: document.querySelector('#add-edit-event').getAttribute('data-event-owner-name') ?? '',
-						eventSourceType: document.querySelector('[name=isEventSeries]').checked ? document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent') : document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
-						tags: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-tags')) ?? [],
-						categories: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-categories')) ?? [],
-						hasPurchasable: document.querySelector('[name=hasPurchasable]').checked ?? false,
-						payeeId: document.querySelector('#add-edit-event').getAttribute('data-payee-id') ?? null,
-						hasRegistrationFields: document.querySelector('[name=hasRegistrationFields]').checked ?? false,
-						lat: document.querySelector('#add-edit-event').getAttribute('data-event-lat') ?? null,
-						long: document.querySelector('#add-edit-event').getAttribute('data-event-long') ?? null,
-						address: document.querySelector('#add-edit-event').getAttribute('data-event-address') ?? null,
-						hideCrossPromo: document.querySelector('[name=hideCrossPromo]').checked ?? false,
-					},
-				},
-				eventChildrenLoaded: false,
-				purchasablesLoaded: false,
-				purchasablesCreatedAt: '',
-				registrationFieldsLoaded: false,
-				registrationFieldsCreatedAt: '',
-				purchasables: [],
-				registrationFields: [],
-				owners: [],
-				isEventSeries: document.querySelector('[name=isEventSeries]').checked ?? false,
-				categoryInput: '',
-				tagInput: '',
-				ownerInput: '',
-				saveReqInFlight: false,
-				showToast: false,
-				toastContent: {
-					type: '',
-					message: ' updated successfully',
-				},
-				eventOwnerDelimiter: document.querySelector('#add-edit-event').getAttribute('data-event-owner-delimiter'),
-				eventTypeSingleConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
-				eventTypeSeriesParentConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent'),
-				eventTypeSeriesChildConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-child'),
-				// The API expects RFC3339 HH:MM:SS, but datetime-local is in HH:MM
-				timeZuluSuffix: ":00Z",
-				// BEGIN: Event Owners typeahead state
-
-				allOptions: [],
-				options: [],
-				isOpen: false,
-				openedWithKeyboard: false,
-				// END: Event Owners typeahead state
-				getFormChildrenData() {
-					return JSON.stringify(this.formData.eventChildren);
-				},
-				// BEGIN: Event Owners typeahead helper functions
-				async fetchUsers(query) {
-					if (query.length >= 3) {
-						await fetch(`/api/user-search?q=${query}`).then(res => {
-							return res.json()
-						}).then(json => {
-							// Filter out users that are already owners
-							const filteredUsers = json.filter(user =>
-								!this.owners.some(owner => owner.value === user.userId)
-							);
-							this.options = filteredUsers.map((user) => ({
-								label: user.displayName,
-								value: user.userId,
-							}))
-							this.$nextTick(() => {
-								this.isOpen = true
-							})
-						});
-					}
-				},
-				removeOwner(ownerToRemove) {
-					this.owners = this.owners.filter(owner => owner !== ownerToRemove);
-				},
-				setSelectedOwner(option) {
-					this.isOpen = false
-					this.owners.push(option);
-					this.options = this.options.filter(o => o.value !== option.value)
-					this.$nextTick(() => {
-						document.querySelector('[x-ref=ownerSearch]').focus();
-					})
-				},
-				getFilteredOptions(query) {
-					this.options = this.allOptions.filter((option) =>
-						option.label.toLowerCase().includes(query.toLowerCase()),
-					)
-					if (this.options.length === 0) {
-						this.$refs.noResultsMessage.classList.remove('hidden')
-					} else {
-						this.$refs.noResultsMessage.classList.add('hidden')
-					}
-				},
-				handleKeydownOnOptions(event) {
-					// if the user presses backspace or the alpha-numeric keys, focus on the search field
-					if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
-						this.$refs.ownerSearch.focus()
-					}
-				},
-
-				// END: Event Owners typeahead helper functions
-
-				addTag() {
-					if (this.tagInput.trim() !== '') {
-						this.formData.event.tags.push(this.tagInput.trim());
-						this.tagInput = '';
-					}
-				},
-
-				removeTag(tagToRemove) {
-					this.formData.event.tags = this.formData.event.tags.filter(tag => tag !== tagToRemove);
-				},
-
-				handleTagKeydown(e) {
-					if (e.key === 'Enter') {
-						e.preventDefault();
-						this.addTag();
-					}
-				},
-
-				addCategory() {
-					if (this.categoryInput.trim() !== '') {
-						this.formData.event.categories.push(this.categoryInput.trim());
-						this.categoryInput = '';
-					}
-				},
-
-				removeCategory(categoryToRemove) {
-					this.formData.event.categories = this.formData.event.categories.filter(category => category !== categoryToRemove);
-				},
-
-				handleCategoryKeydown(e) {
-					if (e.key === 'Enter') {
-						e.preventDefault();
-						this.addCategory();
-					}
-				},
-				addNewEventChild() {
-					this.formData.eventChildren.push({
-						startTime: '',
-						endTime: '',
-					})
-				},
-				transformEventToPayload(event) {
-					const eventFiltered = Object.fromEntries(
-						Object.entries(event)
-							// eslint-disable-next-line no-unused-vars
-							.filter(([_, value]) => value !== '')
-					)
-					if (!event.hasPurchasable) {
-						delete eventFiltered.startingPrice
-						delete eventFiltered.currency
-						delete eventFiltered.payeeId
-					}
-
-					return {
-						...eventFiltered,
-						startTime: event.startTime ? event.startTime + this.timeZuluSuffix : null,
-						endTime: event.endTime ? event.endTime + this.timeZuluSuffix : null,
-						lat: parseFloat(event.lat),
-						long: parseFloat(event.long),
-						eventSourceType: this.isEventSeries ? this.eventTypeSeriesParentConstant : this.eventTypeSingleConstant,
-						eventOwners: this.owners.map(owner => owner.value),
-						eventOwnerName: this.owners.map(owner => owner.label).join(this.eventOwnerDelimiter),
-						...(event.hasPurchasable ? {
-							startingPrice: event.startingPrice * 100,
-							currency: event.currency,
-							payeeId: event.payeeId,
-						} : {}
-						),
-					}
-				},
-				setEventChildrenLoaded() {
-					this.eventChildrenLoaded = true
-				},
-				async handlePublishClick() {
-					this.saveReqInFlight = true
-					const parentEvent = this.transformEventToPayload(this.formData.event)
-					let payload = {
-						events: [{
-							...parentEvent,
-						}],
-						purchasableUpdate: {
-							event_id: this.formData.event.id,
-							...(this.purchasablesCreatedAt !== '' ? {created_at: this.purchasablesCreatedAt} : {}),
-							purchasable_items: this.purchasables,
-						},
-						registrationFieldsUpdate: {
-							...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
-							fields: this.registrationFields,
-						},
-					}
-					if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
-						this.formData.eventChildren.forEach(child => {
-							payload.events.push({
-								...parentEvent,
-								...child,
-								eventSourceId: this.formData.event.id,
-								startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
-								endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,
-								eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
-							})
-						})
-					}
-
-					try {
-						const response = await fetch(`/api/event-reg-purch/${this.formData.event.id}`, {
-							method: 'PUT',
-							headers: {
-								'Content-Type': 'application/json',
-							},
-							body: JSON.stringify(payload),
-						});
-						const json = await response.json()
-						if (json.status === 'success') {
+						} catch (error) {
+							// eslint-disable-next-line no-console
+							console.error('Failed to update event:', error);
 							this.saveReqInFlight = false
 							this.showToast = true;
 							this.toastContent = {
-								type: 'success',
-								message: 'Event updated successfully',
+								type: 'error',
+								message: error,
 							}
-							const newUrl = `/admin/event/${json.data.parentEvent._id}/edit`;
-							window.history.pushState({ path: newUrl }, '', newUrl);
-						} else {
-							throw new Error(`Failed to update event ${ json?.error?.message ? ": " + json.error.message : ''}`)
-						}
-					} catch (error) {
-						// eslint-disable-next-line no-console
-						console.error('Failed to update event:', error);
-						this.saveReqInFlight = false
-						this.showToast = true;
-						this.toastContent = {
-							type: 'error',
-							message: error,
 						}
 					}
 				}
 			}
-		}
-		</script>
+	</script>
 }

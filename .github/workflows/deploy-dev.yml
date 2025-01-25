@@ -86,12 +86,14 @@ jobs:
         with:
           duration: 30m
           authorized-users: brianfeister
-      - name: Deploy to Cloudflare Workers with Wrangler
-        # https://github.com/cloudflare/wrangler-action/issues/347
-        uses: cloudflare/wrangler-action@v3.13.0
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+   # TODO: this mysteriously started failing between Jan 17 ~ Jan 22, 20205
+      # https://github.com/meetnearme/api/actions/runs/12915247314
+
+      # - name: Deploy to Cloudflare Workers with Wrangler
+      #   uses: cloudflare/wrangler-action@v3.7.0
+      #   env:
+      #     CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      #     CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
+      #   with:
+      #     apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      #     accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

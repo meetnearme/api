@@ -13,7 +13,6 @@ type PurchasableItemInsert struct {
 	Cost                          float64    `json:"cost" validate:"required" dynamodbav:"cost"`
 	Inventory                     int32      `json:"inventory" validate:"required" dynamodbav:"inventory"`
 	StartingQuantity              int32      `json:"starting_quantity" validate:"required" dynamodbav:"startingQuantity"`
-	Currency                      string     `json:"currency" validate:"required" dynamodbav:"currency"`
 	ChargeRecurrenceInterval      string     `json:"charge_recurrence_interval" validate:"required" dynamodbav:"chargeRecurrenceInterval"`
 	ChargeRecurrenceIntervalCount int32      `json:"charge_recurrence_interval_count" validate:"required" dynamodbav:"chargeRecurrenceIntervalCount"`
 	ChargeRecurrenceEndDate       time.Time  `json:"charge_recurrence_end_date" validate:"required" dynamodbav:"chargeRecurrenceEndDate"`
@@ -38,7 +37,6 @@ type PurchasableItem struct {
 	Cost                          float64    `json:"cost" dynamodbav:"cost"`
 	Inventory                     int32      `json:"inventory" dynamodbav:"inventory"`
 	StartingQuantity              int32      `json:"starting_quantity" dynamodbav:"startingQuantity"`
-	Currency                      string     `json:"currency" dynamodbav:"currency"`
 	ChargeRecurrenceInterval      string     `json:"charge_recurrence_interval" dynamodbav:"chargeRecurrenceInterval"`
 	ChargeRecurrenceIntervalCount int32      `json:"charge_recurrence_interval_count" dynamodbav:"chargeRecurrenceIntervalCount"`
 	ChargeRecurrenceEndDate       time.Time  `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
@@ -56,7 +54,6 @@ type PurchasableItemUpdate struct {
 	Cost                          float64    `json:"cost" dynamodbav:"cost"`
 	Inventory                     int32      `json:"inventory" dynamodbav:"inventory"`
 	StartingQuantity              int32      `json:"starting_quantity" dynamodbav:"startingQuantity"`
-	Currency                      string     `json:"currency" dynamodbav:"currency"`
 	ChargeRecurrenceInterval      string     `json:"charge_recurrence_interval" dynamodbav:"chargeRecurrenceInterval"`
 	ChargeRecurrenceIntervalCount int32      `json:"charge_recurrence_interval_count" dynamodbav:"chargeRecurrenceIntervalCount"`
 	ChargeRecurrenceEndDate       time.Time  `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
