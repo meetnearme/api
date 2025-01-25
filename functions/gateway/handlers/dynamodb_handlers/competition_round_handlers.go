@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -22,76 +21,62 @@ type CompetitionRoundHandler struct {
 func NewCompetitionRoundHandler(eventCompetitionRoundService internal_types.CompetitionRoundServiceInterface) *CompetitionRoundHandler {
 	return &CompetitionRoundHandler{CompetitionRoundService: eventCompetitionRoundService}
 }
-func (h *CompetitionRoundHandler) CreateCompetitionRound(w http.ResponseWriter, r *http.Request) {
+
+func (h *CompetitionRoundHandler) PutCompetitionRounds(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	log.Printf("DEBUG: Received vars from request: %+v", vars)
+	competitionId := vars["competitionId"]
+	log.Printf("Handler: Starting PutCompetitionRound for competitionId: %s", competitionId)
 
-	competitionId := vars["competition_id"]
-	roundNumber := vars["round_number"]
-	primaryOwner := vars["primary_owner"]
-
-	roundNumberInt, err := strconv.ParseInt(roundNumber, 10, 64)
-	if err != nil {
-		log.Printf("ERROR: Invalid round number format: %v", err)
-		transport.SendServerRes(w, []byte("Invalid round number format"), http.StatusBadRequest, err)
-		return
-	}
-
-	log.Printf("DEBUG: Extracted path params - competitionId: %s, roundNumber: %s, primaryOwner: %s",
-		competitionId, roundNumber, primaryOwner)
-
-	var createCompetitionRound internal_types.CompetitionRoundInsert
+	var createCompetitionRounds []internal_types.CompetitionRoundUpdate
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("ERROR: Failed to read request body: %v", err)
+		log.Printf("Handler ERROR: Failed to read request body: %v", err)
 		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
 
-	log.Printf("DEBUG: Received request body: %s", string(body))
-	createCompetitionRound.RoundNumber = roundNumberInt
+	log.Printf("Handler: Request body received: %s", string(body))
 
-	err = json.Unmarshal(body, &createCompetitionRound)
+	err = json.Unmarshal(body, &createCompetitionRounds)
 	if err != nil {
-		log.Printf("ERROR: Failed to unmarshal request body: %v", err)
+		log.Printf("Handler ERROR: Failed to unmarshal JSON: %v", err)
 		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
 		return
 	}
+	log.Printf("ATTEN: %+v", createCompetitionRounds)
 
-	log.Printf("DEBUG: Unmarshaled request body: %+v", createCompetitionRound)
-
-	createCompetitionRound.OwnerId = primaryOwner
+	log.Printf("Handler: Unmarshaled %d competition rounds", len(createCompetitionRounds))
 
 	now := time.Now().Unix()
-	createCompetitionRound.CreatedAt = now
-	createCompetitionRound.UpdatedAt = now
-	createCompetitionRound.PK = fmt.Sprintf("OWNER_%s", primaryOwner)
-	createCompetitionRound.SK = fmt.Sprintf("COMPETITION_%s_ROUND_%s", competitionId, roundNumber)
-
-	log.Printf("DEBUG: Final competition round object before validation: %+v", createCompetitionRound)
-
-	err = validate.Struct(&createCompetitionRound)
-	if err != nil {
-		log.Printf("ERROR: Validation failed: %v", err)
-		transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
-		return
+	for i := range createCompetitionRounds {
+		createCompetitionRounds[i].CreatedAt = now
+		createCompetitionRounds[i].UpdatedAt = now
+		createCompetitionRounds[i].Matchup = formatMatchup(
+			createCompetitionRounds[i].CompetitorA,
+			createCompetitionRounds[i].CompetitorB,
+		)
+		err := validate.Struct(createCompetitionRounds[i])
+		if err != nil {
+			log.Printf("Handler ERROR: Validation failed for round %d: %v", i+1, err)
+			transport.SendServerRes(w, []byte(fmt.Sprintf("Invalid round at index %d: %v", i, err)), http.StatusBadRequest, err)
+			return
+		}
 	}
 
 	db := transport.GetDB()
-	log.Printf("DEBUG: Calling InsertCompetitionRound with PK: %s, SK: %s", createCompetitionRound.PK, createCompetitionRound.SK)
+	log.Printf("Handler: Calling service layer PutCompetitionRounds with %d rounds", len(createCompetitionRounds))
 
-	res, err := h.CompetitionRoundService.InsertCompetitionRound(r.Context(), db, createCompetitionRound)
+	res, err := h.CompetitionRoundService.PutCompetitionRounds(r.Context(), db, &createCompetitionRounds)
 	if err != nil {
-		log.Printf("ERROR: Failed to insert competition round: %v", err)
+		log.Printf("Handler ERROR: Service layer failed: %v", err)
 		transport.SendServerRes(w, []byte("Failed to create eventCompetitionRound: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	log.Printf("DEBUG: Successfully inserted competition round. Result: %+v", res)
-
+	log.Printf("Handler: Successfully created competition rounds")
 	response, err := json.Marshal(res)
 	if err != nil {
-		log.Printf("ERROR: Failed to marshal response: %v", err)
+		log.Printf("Handler ERROR: Failed to marshal response: %v", err)
 		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
 		return
 	}
@@ -99,23 +84,61 @@ func (h *CompetitionRoundHandler) CreateCompetitionRound(w http.ResponseWriter, 
 	transport.SendServerRes(w, response, http.StatusCreated, nil)
 }
 
-func (h *CompetitionRoundHandler) GetCompetitionRounds(w http.ResponseWriter, r *http.Request) {
+func (h *CompetitionRoundHandler) GetAllCompetitionRounds(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Handler: Starting GetAllCompetitionRounds")
+
 	vars := mux.Vars(r)
-	competitionId := vars["competition_id"]
+	competitionId := vars["competitionId"]
+
+	log.Printf("Handler: Route variables:")
+	log.Printf("  - Raw vars: %+v", vars)
+	log.Printf("  - Extracted competitionId: '%s'", competitionId)
+
 	if competitionId == "" {
+		log.Printf("Handler ERROR: Missing competitionId in request")
 		transport.SendServerRes(w, []byte("Missing competition ID"), http.StatusBadRequest, nil)
 		return
 	}
-	primaryOwner := vars["primary_owner"]
-	if primaryOwner == "" {
-		transport.SendServerRes(w, []byte("Missing primary owner user ID"), http.StatusBadRequest, nil)
+
+	db := transport.GetDB()
+	log.Printf("Handler: Calling service layer with competitionId: '%s'", competitionId)
+
+	eventCompetitionRound, err := h.CompetitionRoundService.GetCompetitionRounds(r.Context(), db, competitionId)
+	if err != nil {
+		log.Printf("Handler ERROR: Service layer returned error: %v", err)
+		transport.SendServerRes(w, []byte("Failed to get competition rounds: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	partitionKey := fmt.Sprintf("OWNER_%s", primaryOwner)
+	if eventCompetitionRound == nil {
+		log.Printf("Handler: No rounds found for competitionId: '%s'", competitionId)
+		transport.SendServerRes(w, []byte("CompetitionRound not found"), http.StatusNotFound, nil)
+		return
+	}
+
+	log.Printf("Handler: Found %d rounds", len(*eventCompetitionRound))
+
+	response, err := json.Marshal(eventCompetitionRound)
+	if err != nil {
+		log.Printf("Handler ERROR: Failed to marshal response: %v", err)
+		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+		return
+	}
+
+	log.Printf("Handler: Successfully returning %d bytes of data", len(response))
+	transport.SendServerRes(w, response, http.StatusOK, nil)
+}
+
+func (h *CompetitionRoundHandler) GetCompetitionRoundsByEventId(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	eventId := vars["eventId"]
+	if eventId == "eventId" {
+		transport.SendServerRes(w, []byte("Missing eventId"), http.StatusBadRequest, nil)
+		return
+	}
 
 	db := transport.GetDB()
-	eventCompetitionRound, err := h.CompetitionRoundService.GetCompetitionRounds(r.Context(), db, partitionKey, competitionId)
+	eventCompetitionRound, err := h.CompetitionRoundService.GetCompetitionRoundsByEventId(r.Context(), db, eventId)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get competition rounds: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -135,28 +158,24 @@ func (h *CompetitionRoundHandler) GetCompetitionRounds(w http.ResponseWriter, r 
 	transport.SendServerRes(w, response, http.StatusOK, nil)
 }
 
-func (h *CompetitionRoundHandler) GetCompetitionRoundByPrimary(w http.ResponseWriter, r *http.Request) {
+func (h *CompetitionRoundHandler) GetCompetitionRoundByPrimaryKey(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	competitionId := vars["competition_id"]
+	competitionId := vars["competitionId"]
 	if competitionId == "" {
 		transport.SendServerRes(w, []byte("Missing competition ID"), http.StatusBadRequest, nil)
 		return
 	}
-	roundNumber := vars["round_number"]
+	roundNumber := vars["roundNumber"]
 	if roundNumber == "" {
-		transport.SendServerRes(w, []byte("Missing round_number"), http.StatusBadRequest, nil)
+		transport.SendServerRes(w, []byte("Missing roundNumber"), http.StatusBadRequest, nil)
 		return
 	}
-	primaryOwner := vars["primary_owner"]
-	if primaryOwner == "" {
-		transport.SendServerRes(w, []byte("Missing primary owner user ID"), http.StatusBadRequest, nil)
-		return
-	}
+	////
 
-	partitionKey := fmt.Sprintf("OWNER_%s", primaryOwner)
-
+	log.Printf("Competition Id: %v", competitionId)
+	log.Printf("Round Number: %v", roundNumber)
 	db := transport.GetDB()
-	eventCompetitionRound, err := h.CompetitionRoundService.GetCompetitionRoundByPk(r.Context(), db, partitionKey, competitionId, roundNumber)
+	eventCompetitionRound, err := h.CompetitionRoundService.GetCompetitionRoundByPrimaryKey(r.Context(), db, competitionId, roundNumber)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get competition round: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -176,83 +195,21 @@ func (h *CompetitionRoundHandler) GetCompetitionRoundByPrimary(w http.ResponseWr
 	transport.SendServerRes(w, response, http.StatusOK, nil)
 }
 
-func (h *CompetitionRoundHandler) UpdateCompetitionRound(w http.ResponseWriter, r *http.Request) {
+func (h *CompetitionRoundHandler) DeleteCompetitionRound(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	competitionId := vars["competition_id"]
+	competitionId := vars["competitionId"]
 	if competitionId == "" {
 		transport.SendServerRes(w, []byte("Missing competition ID"), http.StatusBadRequest, nil)
 		return
 	}
-	roundNumber := vars["round_number"]
+	roundNumber := vars["roundNumber"]
 	if roundNumber == "" {
 		transport.SendServerRes(w, []byte("Missing round_number"), http.StatusBadRequest, nil)
 		return
 	}
 
-	userId := vars["user_id"]
-	if userId == "" {
-		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusBadRequest, nil)
-		return
-	}
-
-	var updateCompetitionRound internal_types.CompetitionRoundUpdate
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
-		return
-	}
-
-	err = json.Unmarshal(body, &updateCompetitionRound)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	err = validate.Struct(&updateCompetitionRound)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
-		return
-	}
-
-	partitionKey := fmt.Sprintf("OWNER_%s", userId)
-	sortKey := fmt.Sprintf("COMPETITION_%s_ROUND_%s", competitionId)
-
 	db := transport.GetDB()
-	user, err := h.CompetitionRoundService.UpdateCompetitionRound(r.Context(), db, partitionKey, sortKey, updateCompetitionRound)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to update eventCompetitionRound: "+err.Error()), http.StatusInternalServerError, err)
-		return
-	}
-
-	if user == nil {
-		transport.SendServerRes(w, []byte("CompetitionRound not found"), http.StatusNotFound, nil)
-		return
-	}
-
-	response, err := json.Marshal(user)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
-		return
-	}
-
-	transport.SendServerRes(w, response, http.StatusOK, nil)
-}
-
-func (h *CompetitionRoundHandler) DeleteCompetitionRound(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	eventId := vars["event_id"]
-	if eventId == "" {
-		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
-		return
-	}
-	userId := vars["user_id"]
-	if userId == "" {
-		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusBadRequest, nil)
-		return
-	}
-
-	db := transport.GetDB()
-	err := h.CompetitionRoundService.DeleteCompetitionRound(r.Context(), db, eventId, userId)
+	err := h.CompetitionRoundService.DeleteCompetitionRound(r.Context(), db, competitionId, roundNumber)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to delete eventCompetitionRound: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -261,11 +218,12 @@ func (h *CompetitionRoundHandler) DeleteCompetitionRound(w http.ResponseWriter, 
 	transport.SendServerRes(w, []byte("CompetitionRound successfully deleted"), http.StatusOK, nil)
 }
 
-func CreateCompetitionRoundHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+func PutCompetitionRoundsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	log.Print("Hit round handler wrapper")
 	eventCompetitionRoundService := dynamodb_service.NewCompetitionRoundService()
 	handler := NewCompetitionRoundHandler(eventCompetitionRoundService)
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler.CreateCompetitionRound(w, r)
+		handler.PutCompetitionRounds(w, r)
 	}
 }
 
@@ -274,24 +232,23 @@ func GetCompetitionRoundByPrimaryKeyHandler(w http.ResponseWriter, r *http.Reque
 	eventCompetitionRoundService := dynamodb_service.NewCompetitionRoundService()
 	handler := NewCompetitionRoundHandler(eventCompetitionRoundService)
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler.GetCompetitionRoundByPrimary(w, r)
+		handler.GetCompetitionRoundByPrimaryKey(w, r)
 	}
 }
 
-func GetCompetitionRoundsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+func GetCompetitionRoundsByEventIdHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	eventCompetitionRoundService := dynamodb_service.NewCompetitionRoundService()
 	handler := NewCompetitionRoundHandler(eventCompetitionRoundService)
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler.GetCompetitionRounds(w, r)
+		handler.GetCompetitionRoundsByEventId(w, r)
 	}
 }
 
-// UpdateCompetitionRoundHandler is a wrapper that creates the UserHandler and returns the handler function for updating a eventCompetitionRound
-func UpdateCompetitionRoundHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+func GetAllCompetitionRoundsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	eventCompetitionRoundService := dynamodb_service.NewCompetitionRoundService()
 	handler := NewCompetitionRoundHandler(eventCompetitionRoundService)
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler.UpdateCompetitionRound(w, r)
+		handler.GetAllCompetitionRounds(w, r)
 	}
 }
 
@@ -302,4 +259,8 @@ func DeleteCompetitionRoundHandler(w http.ResponseWriter, r *http.Request) http.
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.DeleteCompetitionRound(w, r)
 	}
+}
+
+func formatMatchup(competitorA, competitorB string) string {
+	return fmt.Sprintf("%s_%s", competitorA, competitorB)
 }
