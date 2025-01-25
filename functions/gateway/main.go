@@ -105,14 +105,6 @@ func init() {
 		{"/api/purchasables/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchasableHandler, Require},    // Update an existing purchasable
 		{"/api/purchasables/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchasableHandler, Require}, // Delete a purchasable
 
-		// Registrations
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:(?:anonymous|[0-9a-fA-F-]+)}", "POST", dynamodb_handlers.CreateRegistrationHandler, None}, // Create a new Registration
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationByPkHandler, Require},            // Get a registration by primary key
-		{"/api/registrations/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByUserIDHandler, Require},                           // Get a specific event RSVP
-		{"/api/registrations/event/{event_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationsByEventIDHandler, Require},                        // Get all event RSVPs
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationHandler, Require},             // Update an existing Registration
-		{"/api/registrations/{event_id:[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationHandler, Require},          // Delete an event RSVP
-
 		// RegistrationFields
 		{"/api/registration-fields/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, Require},
 		{"/api/registration-fields/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationFieldsByEventIDHandler, None},
