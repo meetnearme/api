@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event) {
+templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event, scripts []string) {
 	<!DOCTYPE html>
 	<html data-theme="cyberpunk">
 		<head>
@@ -20,14 +20,16 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<link rel="icon" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 			<link rel="preconnect" href="https://fonts.googleapis.com"/>
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&display=swap" rel="stylesheet"/>
+			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap" rel="stylesheet"/>
 			// 🚨 WARNING 🚨 This filename is automatically updated by PostCSS
 			// ✅ DO commit it to version control whenever you see it change
-			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.199b906a.css") }/>
+			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.765a1a85.css") }/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
-			<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
+			for _, script := range scripts {
+				<script defer src={ script }></script>
+			}
 			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 			if os.Getenv("SST_STAGE") == "prod" {
 				<script defer src="https://cloud.umami.is/script.js" data-website-id="63a857ef-7639-4db5-b627-99621b1a38ec"></script>
@@ -81,6 +83,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 
 			document.addEventListener('click', (event) => {
 				const target = event.target.closest('a');
+				// prevent same-page anchor links from triggering the loading indicator
 				if (!target?.getAttribute?.('href')?.startsWith('#')) {
 					return;
 				}

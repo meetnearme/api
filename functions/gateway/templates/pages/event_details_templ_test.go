@@ -25,11 +25,10 @@ func TestEventDetailsPage(t *testing.T) {
 	}
 
 	tests := []struct {
-		name             string
-		event            types.Event
-		checkoutParamVal string
-		expected         []string
-		canEdit          bool
+		name     string
+		event    types.Event
+		expected []string
+		canEdit  bool
 	}{
 		{
 			name: "Valid DST event",
@@ -46,7 +45,6 @@ func TestEventDetailsPage(t *testing.T) {
 				Long:            -77.023289,
 				Timezone:        *loc,
 			},
-			checkoutParamVal: "",
 			expected: []string{
 				"Test Event",
 				"This is a test event",
@@ -73,7 +71,6 @@ func TestEventDetailsPage(t *testing.T) {
 				Long:            -77.023289,
 				Timezone:        *loc,
 			},
-			checkoutParamVal: "",
 			expected: []string{
 				"Test Event",
 				"This is a test event",
@@ -100,7 +97,6 @@ func TestEventDetailsPage(t *testing.T) {
 				Long:            -77.023289,
 				Timezone:        *loc,
 			},
-			checkoutParamVal: "",
 			expected: []string{
 				"Karaoke Nationals",
 				"This is a test event",
@@ -128,7 +124,6 @@ func TestEventDetailsPage(t *testing.T) {
 				Long:            -77.023289,
 				Timezone:        *loc,
 			},
-			checkoutParamVal: "",
 			expected: []string{
 				"Weekly Karaoke at Buddys",
 				"This is a test event",
@@ -156,7 +151,6 @@ func TestEventDetailsPage(t *testing.T) {
 				Long:            -77.023289,
 				Timezone:        *loc,
 			},
-			checkoutParamVal: "",
 			expected: []string{
 				"Test Event",
 				"This is a test event",
@@ -181,10 +175,10 @@ func TestEventDetailsPage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := EventDetailsPage(tt.event, tt.checkoutParamVal, tt.canEdit)
+			component := EventDetailsPage(tt.event, helpers.UserInfo{}, tt.canEdit)
 
 			// Wrap the component with Layout
-			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event)
+			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event, []string{})
 
 			// Render the component to a string
 			var buf bytes.Buffer

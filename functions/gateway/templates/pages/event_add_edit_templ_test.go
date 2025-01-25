@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -18,6 +19,8 @@ func TestAddOrEditEventPage(t *testing.T) {
 		event    types.Event
 		isEditor bool
 		sitePage helpers.SitePage
+		cfLat    float64
+		cfLon    float64
 		expected []string
 	}{
 		{
@@ -25,13 +28,35 @@ func TestAddOrEditEventPage(t *testing.T) {
 			event:    types.Event{},
 			isEditor: false,
 			sitePage: helpers.SitePages["add-event"],
+			cfLat:    services.InitialEmptyLatLong,
+			cfLon:    services.InitialEmptyLatLong,
 			expected: []string{
 				"Event Name",
 				"Description",
-				"Location Details",
-				"Start Date & Time",
-				"End Date & Time",
+				"Date &amp; Media",
+				"Start Date &amp; Time",
+				"End Date &amp; Time",
 				"Publish",
+				"Address",
+			},
+		},
+		{
+			name:     "New event form, with admin user geolocation",
+			event:    types.Event{},
+			isEditor: false,
+			sitePage: helpers.SitePages["add-event"],
+			cfLat:    38.893725,
+			cfLon:    -77.096975,
+			expected: []string{
+				"Event Name",
+				"Description",
+				"Date &amp; Media",
+				"Start Date &amp; Time",
+				"End Date &amp; Time",
+				"Publish",
+				"Address",
+				"data-cf-lat=\"38.893725\"",
+				"data-cf-lon=\"-77.096975\"",
 			},
 		},
 		{
@@ -47,23 +72,28 @@ func TestAddOrEditEventPage(t *testing.T) {
 			},
 			isEditor: true,
 			sitePage: helpers.SitePages["edit-event"],
+			cfLat:    39.764252,
+			cfLon:    -104.937511,
 			expected: []string{
 				"Event Name",
 				"Description",
-				"Location Details",
-				"Start Date & Time",
-				"End Date & Time",
+				"Date &amp; Media",
+				"Start Date &amp; Time",
+				"End Date &amp; Time",
+				"Address",
 				"Publish",
 				"This is a test event",
 				"123 Test St",
 				"abc-uuid",
+				"data-cf-lat=\"39.764252\"",
+				"data-cf-lon=\"-104.937511\"",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := AddOrEditEventPage(helpers.SitePages["event-detail"], tt.event, tt.isEditor)
+			component := AddOrEditEventPage(helpers.SitePages["event-detail"], tt.event, tt.isEditor, tt.cfLat, tt.cfLon)
 
 			// Render the component to a string
 			var buf bytes.Buffer

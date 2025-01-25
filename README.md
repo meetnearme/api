@@ -7,7 +7,8 @@
 1. [Create an IAM User](https://sst.dev/chapters/create-an-iam-user.html)
 1. Export `aws_access_key_id` and `aws_secret_access_key` env variables.
 1. Run `brew install awscli` in the terminal to install AWS CLI
-1. Run `brew install go` 
+1. Run `brew install go`
+   1. **For Linux - Ubuntu** - Run `sudo apt install awscli`, enter your password, enter `y` to confirm. Check version with `aws --version`
 1. Run `aws configure` to
    [Authorize SST via AWS CLI](https://sst.dev/chapters/configure-the-aws-cli.html)
    through Lambda to your local environment
@@ -19,10 +20,17 @@
     const cfLocations = `<replace me>`
     ```
     in the `cloudflare_locations.go` file and replace the `<replace me>` (keep the wrapping backtick characters) with the JSON from [speed.cloudflare.com/locations](https://speed.cloudflare.com/locations)... this file is used to intercept incoming request headers and look at the `Request['Headers']['Cf-Ray']` string, which terminates with a 3 letter code like `EWR` which correlates with an `iata` airport code. This is the Cloudflare datacenter serving the request
-1. Add your `APEX_URL` from your local deployment to the allow lists for both **Redirect** and **Post Logout URls** in Zitadel under **Redirect Settings** in [the admin UI](https://meet-near-me-production-8baqim.zitadel.cloud/ui/console/projects/273257176187855242/apps/273257486885118346) following the existing URL path schema for both
-1. Run `npm run dev` to run the Go Lambda Gateway V2 server locally,
-   proxied through Lambda to your local, and using SST deployed AWS resources
-   for DB, etc.
+1. Run `npm run dev:sst` to run the initial AWS project deployment. **NOTE** that you will NOT use the same command after the initial deployment of your project
+1. Give the project a an SST `stage` name, it can be anything 
+1. Once you see `✔  Deployed:` ... look for `ApexUrl: https://<abcxyz>.execute-api.us-east-1.amazonaws.com` where `abcxyz` is a hash unique to your project
+1. Copy this URL and open it in a browser to test that the project runs
+1. Use CTRL+C to stop the project 
+1. **Restart the project with `npm run dev`** – you will use this command for all **subsequent** attempts to start the project) in order to have the project run the following:
+   1. **SST Go Lambda server with hot reload / Go rebuild** – this proxies real AWS resources pointing back to your local Go server through Lambda, and simplifies / sidesteps the complexity of needing to use proxies to ensure harmonious server behaviors liike same-origin and other typical local dev hurdles. ⚠️ Unlike React / JS frontends, since our Go monolith requires a rebuild whenever a template or Go file changes, check your terminal to get a feel for typical "rebuild time". A common issue is to have the server die often when you make a request while it's rebuilding. To avoid this, you really only need to wait maybe about 2 seconds for the rebuild to happen. Once it's finished, you'll be fine, but if you refresh a page `0.25s` after a change initiates a rebuild you might see something like `Error: spawn /Users/bfeister/dev/meetnearme-api/.sst/artifacts/c8ae08557883d489e35129f0feb436ead1e1695501/bootstrap ENOENT` and then `[serve-static] http-server stopped.`
+   1. **Local static asset server**
+   1. **Local node.js based `templ`** – our [golang templating engine pkg](https://templ.guide/)) watch script to rebuild templates as they're modified
+   1. **Local tailwind watcher**  – this includes some complexity, because we use a hashing algorithim that updates `layout.templ` with a new hash value whenever the tailwind styles in the template change for cache-busting when new deployments are pushed to prod. The dev experience here is a work-in-progress. I've noticed that sometimes updates to `layout.templ` can require a FULL stop / restart of the `npm run dev` processes to take effect.
+1. Add your `APEX_URL` from your local deployment to the allow lists for both **Redirect** and **Post Logout URls** in Zitadel under **Redirect Settings** in [the admin UI](https://meet-near-me-production-8baqim.zitadel.cloud/ui/console/projects/273257176187855242/apps/273257486885118346) following the existing URL path schema for both. If you don't have admin access in Zitadel, ask someone on the team   
 
 ### Generate Go templates from \*.templ files
 

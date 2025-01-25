@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"os"
 	"strings"
 )
 
@@ -25,10 +26,10 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 		<br/>
 		<br/>
 	} else {
-		<div x-data="attendeeEventState()">
+		<div x-data="getAttendeeEventState()">
 			<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
 				<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
-				<a class="btn btn-sm" href={ templ.URL(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1)) }>Edit Event</a>
+				<a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>Edit Event</a>
 			</header>
 			<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Purchases</h2>
 			<div id="tickets-sales" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box overflow-scroll">
@@ -59,7 +60,13 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								<tbody>
 									<template x-for="purchase in purchases" :key="purchase.composite_key">
 										<tr class="border-t-2 border-base-300">
-											<td x-text="purchase.user_id"></td>
+											<td>
+												<p x-text="purchase.user_display_name"></p>
+												<p x-text="purchase.user_email"></p>
+												<p>
+													<a class="link link-primary" :href="`/user/${purchase.user_id}`" x-text="purchase.user_id"></a>
+												</p>
+											</td>
 											<td x-text="purchase.status"></td>
 											<td colspan="5">
 												<template x-for="(item, idx) in purchase.purchased_items" :key="item.name">
@@ -100,8 +107,16 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 												<template x-if="purchase.stripe_transaction_id">
 													<a class="btn btn-sm btn-primary mt-2" target="_blank" :href=" 'https://dashboard.stripe.com/payments/' + purchase.stripe_transaction_id ">View on Stripe</a>
 												</template>
-												<template x-if="!purchase.stripe_transaction_id && purchase.stripe_session_id">
-													<a class="btn btn-sm btn-primary mt-2" target="_blank" :href=" 'https://dashboard.stripe.com/workbench/logs?object=' + purchase.stripe_session_id + '&filtered=true' ">View Incomplete on Stripe</a>
+												<template x-if="purchase.stripe_session_id && purchase.total > 0">
+													<a
+														class="btn btn-sm btn-primary mt-2"
+														target="_blank"
+														if os.Getenv("SST_STAGE") != "prod" {
+															:href=" 'https://dashboard.stripe.com/test/workbench/logs?object=' + purchase.stripe_session_id + '&filtered=true' "
+														} else {
+															:href=" 'https://dashboard.stripe.com/workbench/logs?object=' + purchase.stripe_session_id + '&filtered=true' "
+														}
+													>View Incomplete on Stripe</a>
 												</template>
 											</td>
 										</tr>
@@ -122,112 +137,44 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					</template>
 				</div>
 			</div>
-			<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2 mt-4">Registrations</h2>
-			<div id="tickets-registrations" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box overflow-scroll">
-				<div>
-					<template x-if="!hasRegistrationResults && hasRegistrationFields">
-						<div class="flex w-full flex-col gap-4">
-							<div class="skeleton h-4 w-full"></div>
-							<div class="skeleton h-4 w-1/2"></div>
-							<div class="skeleton h-4 w-full"></div>
-						</div>
-					</template>
-					<template x-if="hasRegistrationResults && registrations.length > 0">
-						<div>
-							<template x-if="registrationsNextCursor">
-								<a class="btn btn-sm float-end" :href="getRegistrationNextLink()">Show Next &rarr;</a>
-							</template>
-							<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
-								<thead>
-									<tr>
-										<th>Buyer</th>
-										<th colspan="5">Field</th>
-										<th>Time</th>
-									</tr>
-								</thead>
-								<tbody>
-									<template x-for="registration in registrations" :key="registration.created_at">
-										<tr>
-											<td x-text="registration.user_id"></td>
-											<td colspan="5">
-												<h2 class="text-md mt-2">Registration Responses</h2>
-												<div class="card bg-base-100 px-4 py-2 my-2">
-													<template x-for="(response, idx) in registration.responses" :key="idx">
-														<div>
-															<template x-if="idx >= 1">
-																<div class="divider my-1"></div>
-															</template>
-															<template x-for="(entry, idx) in Object.entries(response)" :key="entry[0]">
-																<div>
-																	<span class="font-medium font-bold" x-text="entry[0] + ': '"></span>
-																	<span x-text="entry[1]"></span>
-																</div>
-															</template>
-														</div>
-													</template>
-												</div>
-											</td>
-											<td x-text="new Date(registration.created_at).toLocaleString()"></td>
-										</tr>
-									</template>
-								</tbody>
-							</table>
-						</div>
-					</template>
-				</div>
-			</div>
 		</div>
 		<script id="attendee-event" data-event-id={ event.Id } data-event-has-purchasable={ fmt.Sprintf("%t", event.HasPurchasable) } data-event-has-registration-fields={ fmt.Sprintf("%t", event.HasRegistrationFields) } data-event={ string(helpers.ToJSON(event)) }>
-
-    function attendeeEventState() {
-        return {
-            init() {
-              (async () => {
-                  if (this.hasPurchasable) {
-                    try {
-                      const startKey = new URLSearchParams(window.location.search).get('purch_start_key') ?? '';
-                      const reqUrl = `/api/purchases/event/${this.eventId}${ startKey ? `?start_key=${encodeURIComponent(startKey)}` : '' }`;
-                      const purchasesResponse = await fetch(reqUrl);
-                      const purchasesResData = await purchasesResponse.json();
-                      this.purchases = purchasesResData.purchases ?? [];
-                      this.purchasesNextCursor = purchasesResData?.nextKey?.compositeKey?.Value;
-                      this.hasPurchasesResults = true;
-                    } catch (error) {
-                      console.error('Failed to fetch purchasables:', error);
-                    }
-                  }
-
-                  if (this.hasRegistrationFields) {
-                    try {
-                      const startKey = new URLSearchParams(window.location.search).get('reg_start_key') ?? '';
-                      const reqUrl = `/api/registrations/event/${this.eventId}${ startKey ? `?start_key=${encodeURIComponent(startKey)}` : '' }`;
-                      const registrationResponse = await fetch(reqUrl);
-                      const regResponseData = await registrationResponse.json();
-                      this.registrations = regResponseData?.registrations ?? [];
-                      this.registrationsNextCursor = regResponseData?.nextKey?.userId?.Value;
-                      this.hasRegistrationResults = true;
-                    } catch (error) {
-                      console.error('Failed to fetch registration fields:', error);
-                    }
-                  }
-              })()
-            },
-            eventId: document.querySelector('#attendee-event').getAttribute('data-event-id'),
-            hasPurchasable: document.querySelector('#attendee-event').getAttribute('data-event-has-purchasable') ?? false,
-            hasPurchasesResults: false,
-            hasRegistrationFields: document.querySelector('#attendee-event').getAttribute('data-event-has-registration-fields') ?? false,
-            hasRegistrationResults: false,
-            registrations: [],
-            purchases: [],
-            registrationsNextCursor: null,
-            purchasesNextCursor: null,
-            getRegistrationNextLink() {
-              // TODO: handle this better, should query other query params and overwrite only `reg_start_key`
-              return window.location.href + '?reg_start_key=' + this.registrationsNextCursor + '_' + this.eventId;
-            }
-          }
+			function getAttendeeEventState() {
+				return {
+					init() {
+						(async () => {
+							if (this.hasPurchasable) {
+								try {
+									const startKey = new URLSearchParams(window.location.search).get('purch_start_key') ?? '';
+									const reqUrl = `/api/purchases/event/${this.eventId}${ startKey ? `?start_key=${encodeURIComponent(startKey)}` : '' }`;
+									const purchasesResponse = await fetch(reqUrl);
+									const purchasesResData = await purchasesResponse.json();
+									this.purchases = purchasesResData.purchases ?? [];
+									this.purchasesNextCursor = purchasesResData?.nextKey?.compositeKey?.Value;
+									this.hasPurchasesResults = true;
+								} catch (error) {
+									// eslint-disable-next-line no-console
+									console.error('Failed to fetch purchasables:', error);
+								}
+							}
+						})()
+					},
+					eventId: document.querySelector('#attendee-event').getAttribute('data-event-id'),
+					hasPurchasable: document.querySelector('#attendee-event').getAttribute('data-event-has-purchasable') ?? false,
+					hasPurchasesResults: false,
+					hasRegistrationFields: document.querySelector('#attendee-event').getAttribute('data-event-has-registration-fields') ?? false,
+					hasRegistrationResults: false,
+					registrations: [],
+					purchases: [],
+					registrationsNextCursor: null,
+					purchasesNextCursor: null,
+					getRegistrationNextLink() {
+						const url = new URL(window.location.href);
+						url.searchParams.set('reg_start_key', `${this.registrationsNextCursor}_${this.eventId}`);
+						return url.toString();
+					}
+				}
 			}
-
 		</script>
 	}
 }

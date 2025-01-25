@@ -7,11 +7,15 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
+
+var validate *validator.Validate = validator.New()
 
 type PurchasableHandler struct {
 	PurchasableService internal_types.PurchasableServiceInterface
@@ -67,7 +71,7 @@ func (h *PurchasableHandler) CreatePurchasable(w http.ResponseWriter, r *http.Re
 
 func (h *PurchasableHandler) GetPurchasable(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing purchasable eventId"), http.StatusBadRequest, nil)
 		return
@@ -91,13 +95,14 @@ func (h *PurchasableHandler) GetPurchasable(w http.ResponseWriter, r *http.Reque
 
 func (h *PurchasableHandler) UpdatePurchasable(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing purchasable event_id"), http.StatusBadRequest, nil)
 		return
 	}
 
 	var updatePurchasable internal_types.PurchasableUpdate
+	updatePurchasable.EventId = eventId
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
@@ -134,7 +139,7 @@ func (h *PurchasableHandler) UpdatePurchasable(w http.ResponseWriter, r *http.Re
 
 func (h *PurchasableHandler) DeletePurchasable(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing purchasable event_id"), http.StatusBadRequest, nil)
 		return

@@ -156,7 +156,7 @@ func TestPostEvent(t *testing.T) {
 			expectMissingAuthHeader: true,
 			requestBody:             `{ "eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
 			mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
-				res, err := services.BulkUpsertEventToMarqo(client, events, false)
+				res, err := services.BulkUpsertEventToMarqo(client, events)
 				if err != nil {
 					log.Printf("mocked request to upsert event failed: %v", err)
 				}
@@ -402,7 +402,7 @@ func TestPostBatchEvents(t *testing.T) {
 			name:        "Valid events",
 			requestBody: `{"events":[ {"eventOwnerName": "Event Owner 1", "eventOwners":["123"],"eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}, { "eventOwnerName": "Event Owner 2", "eventOwners":["456"],"eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Another Test Event","description":"Another test event","startTime":"2099-05-02T12:00:00Z","address":"456 Test St","lat":51.5075,"long":-0.1279,"timezone":"America/New_York"}]}`,
 			mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
-				res, err := services.BulkUpsertEventToMarqo(client, events, false)
+				res, err := services.BulkUpsertEventToMarqo(client, events)
 				if err != nil {
 					log.Printf("mocked request to upsert events failed: %v", err)
 				}
@@ -441,7 +441,7 @@ func TestPostBatchEvents(t *testing.T) {
 			expectMissingAuthHeader: true,
 			requestBody:             `{"events":[ {"eventOwnerName": "Event Owner 1", "eventOwners":["123"],"eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"},{ "eventOwnerName": "Event Owner 2", "eventOwners":["456"],"eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Another Test Event","description":"Another test event","startTime":"2099-05-02T12:00:00Z","address":"456 Test St","lat":51.5075,"long":-0.1279,"timezone":"America/New_York"}]}`,
 			mockUpsertFunc: func(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
-				res, err := services.BulkUpsertEventToMarqo(client, events, false)
+				res, err := services.BulkUpsertEventToMarqo(client, events)
 				if err != nil {
 					log.Printf("mocked request to upsert events failed: %v", err)
 				}
@@ -1171,7 +1171,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 					EventID:         eventId,
 					UserID:          userId,
 					CreatedAtString: createdAt,
-					Status:          helpers.StripeCheckoutStatus.Pending,
+					Status:          helpers.PurchaseStatus.Pending,
 					PurchasedItems: []internal_types.PurchasedItem{
 						{
 							Name:     "Test Item",
@@ -1182,8 +1182,8 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 				}, nil
 			},
 			UpdatePurchaseFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string, update internal_types.PurchaseUpdate) (*internal_types.Purchase, error) {
-				if update.Status != helpers.StripeCheckoutStatus.Settled {
-					t.Errorf("expected status %v, got %v", helpers.StripeCheckoutStatus.Settled, update.Status)
+				if update.Status != helpers.PurchaseStatus.Settled {
+					t.Errorf("expected status %v, got %v", helpers.PurchaseStatus.Settled, update.Status)
 				}
 				return nil, nil
 			},
@@ -1357,7 +1357,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 							EventID:         eventId,
 							UserID:          userId,
 							CreatedAtString: createdAt,
-							Status:          helpers.StripeCheckoutStatus.Pending,
+							Status:          helpers.PurchaseStatus.Pending,
 							PurchasedItems: []internal_types.PurchasedItem{
 								{
 									Name:     "Test Item",
@@ -1368,8 +1368,8 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 						}, nil
 					},
 					UpdatePurchaseFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string, update internal_types.PurchaseUpdate) (*internal_types.Purchase, error) {
-						if update.Status != helpers.StripeCheckoutStatus.Canceled {
-							t.Errorf("expected status %v, got %v", helpers.StripeCheckoutStatus.Canceled, update.Status)
+						if update.Status != helpers.PurchaseStatus.Canceled {
+							t.Errorf("expected status %v, got %v", helpers.PurchaseStatus.Canceled, update.Status)
 						}
 						return nil, nil
 					},

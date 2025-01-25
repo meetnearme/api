@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/go-playground/validator"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -77,6 +79,16 @@ type rawEvent struct {
 	UpdatedAt             *int64      `json:"updatedAt,omitempty"`
 	UpdatedBy             *string     `json:"updatedBy,omitempty"`
 	HideCrossPromo        *bool       `json:"hideCrossPromo,omitempty"`
+}
+
+// Create a new struct that includes the createPurchase fields and the Stripe checkout URL
+type PurchaseResponse struct {
+	internal_types.PurchaseInsert
+	StripeCheckoutURL string `json:"stripe_checkout_url"`
+}
+
+type BulkDeleteEventsPayload struct {
+	Events []string `json:"events" validate:"required,min=1"`
 }
 
 func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
@@ -151,6 +163,7 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 		if err != nil || endTime == 0 {
 			return types.Event{}, fmt.Errorf("invalid EndTime: %w", err)
 		}
+		event.EndTime = endTime
 	}
 	if raw.PayeeId != nil || raw.StartingPrice != nil || raw.Currency != nil {
 
@@ -207,7 +220,7 @@ func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
 
 	createEvents := []types.Event{createEvent}
 
-	res, err := services.BulkUpsertEventToMarqo(marqoClient, createEvents, false)
+	res, err := services.BulkUpsertEventToMarqo(marqoClient, createEvents)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -318,7 +331,7 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := services.BulkUpsertEventToMarqo(marqoClient, events, false)
+	res, err := services.BulkUpsertEventToMarqo(marqoClient, events)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert events: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -472,7 +485,7 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 
 		// Search for matching users
-		matches, err := helpers.SearchUsersByIDs(ids)
+		matches, err := helpers.SearchUsersByIDs(ids, false)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to search users: "+err.Error()), http.StatusInternalServerError, err)
 			return
@@ -608,7 +621,12 @@ func SearchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFun
 func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
-	eventId := vars["event_id"]
+	eventId := vars[helpers.EVENT_ID_KEY]
+	eventSourceId := r.URL.Query().Get("event_source_id")
+	eventSourceType := r.URL.Query().Get("event_source_type")
+	if eventSourceId != "" && eventSourceType == helpers.ES_EVENT_SERIES {
+		eventId = eventSourceId
+	}
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
@@ -634,7 +652,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	}
 
 	// all purchases are pending and a client passing this status should be overridden
-	createPurchase.Status = "PENDING"
+	if createPurchase.Status == "" {
+		createPurchase.Status = "PENDING"
+	}
 
 	err = json.Unmarshal(body, &createPurchase)
 	if err != nil {
@@ -655,12 +675,50 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	createdAtString := fmt.Sprintf("%020d", _createdAt) // Pad with zeros to a fixed width of 20 digits
 
 	createPurchase.CreatedAtString = createdAtString
+	referenceId := "event-" + eventId + "-user-" + userId + "-time-" + createPurchase.CreatedAtString
+
+	// Create the composite key
+	compositeKey := fmt.Sprintf("%s_%s_%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
+
+	// Add the composite key and createdAt to the purchase object
+	createPurchase.CompositeKey = compositeKey
+
+	// Create the purchase record immediately instead of deferring it
+	purchaseService := dynamodb_service.NewPurchaseService()
+	purchaseHandler := dynamodb_handlers.NewPurchaseHandler(purchaseService)
+
+	// when there are no purchased items, we treat this as an "RSVP" or "INTERESTED" status that shows
+	// in the users purchase / registration history. The empty PurchasedItems array signals that this
+	// is an event that does not have `RegistrationFields` or `PurchasableItems`
+	if len(createPurchase.PurchasedItems) == 0 {
+		db := transport.GetDB()
+		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to insert free purchase into database: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+
+		// Create the response object
+		response := PurchaseResponse{
+			PurchaseInsert:    createPurchase,
+			StripeCheckoutURL: "", // Empty URL for free items
+		}
+
+		// Marshal and send the response
+		purchaseJSON, err := json.Marshal(response)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to marshal purchase response: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+		transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
+		return nil
+	}
 
 	purchasableService := dynamodb_service.NewPurchasableService()
-	h := dynamodb_handlers.NewPurchasableHandler(purchasableService)
+	purchasableHandler := dynamodb_handlers.NewPurchasableHandler(purchasableService)
 
 	db := transport.GetDB()
-	purchasable, err := h.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventId)
+	purchasable, err := purchasableHandler.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventId)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get purchasables for event id: "+eventId+" "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -683,13 +741,11 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
-	// this boolean gets toggled in the scenario where stripe
-	// checkout instantiation or other unrelated checkout steps
-	// AFTER the inventory is officially "held" + optimistically
-	// decremented
+	// this boolean gets toggled in the scenario where stripe checkout fails to complete or other
+	// unrelated checkout failures AFTER the inventory is officially "held" + optimistically decremented
 	var needsRevert bool
 
-	err = h.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventId, inventoryUpdates, purchasableMap)
+	err = purchasableHandler.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventId, inventoryUpdates, purchasableMap)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to update inventory: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -706,13 +762,44 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 					PurchasableIndex: update.PurchasableIndex,
 				}
 			}
-			revertErr := h.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventId, revertUpdates, purchasableMap)
+			revertErr := purchasableHandler.PurchasableService.UpdatePurchasableInventory(r.Context(), db, eventId, revertUpdates, purchasableMap)
 			if revertErr != nil {
 				log.Printf("ERR: Failed to revert inventory changes: %v", revertErr)
 			}
 		}
 	}()
 
+	// Handle for free item purchases. These still need to track inventory and update the database, though we don't
+	// need to create a Stripe checkout session
+	if createPurchase.Total == 0 {
+		// Skip Stripe checkout for free items
+		createPurchase.Status = helpers.PurchaseStatus.Registered // Mark as registered immediately since it's free
+
+		db := transport.GetDB()
+		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
+		if err != nil {
+			needsRevert = true
+			transport.SendServerRes(w, []byte("Failed to insert free purchase into database: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+
+		// Create the response object
+		response := PurchaseResponse{
+			PurchaseInsert:    createPurchase,
+			StripeCheckoutURL: "", // Empty URL for free items
+		}
+
+		// Marshal and send the response
+		purchaseJSON, err := json.Marshal(response)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to marshal purchase response: "+err.Error()), http.StatusInternalServerError, err)
+			return err
+		}
+		transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
+		return nil
+	}
+
+	// Continue with existing Stripe checkout logic for paid items
 	_, stripePrivKey := services.GetStripeKeyPair()
 	stripe.Key = stripePrivKey
 
@@ -736,10 +823,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
-	referenceId := "event-" + eventId + "-user-" + userId + "-time-" + createPurchase.CreatedAtString
 	params := &stripe.CheckoutSessionParams{
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
-		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=success"),
+		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin/profile?new_purch_key=" + createPurchase.CompositeKey),
 		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=cancel"),
 		LineItems:         lineItems,
 		// NOTE: `mode` needs to be "subscription" if there's a subscription / recurring item,
@@ -766,7 +852,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	defer func() {
 		purchaseService := dynamodb_service.NewPurchaseService()
 		h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
-		createPurchase.Status = helpers.StripeCheckoutStatus.Pending
+		createPurchase.Status = helpers.PurchaseStatus.Pending
 
 		// Create the composite key
 		compositeKey := fmt.Sprintf("%s_%s_%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
@@ -774,21 +860,12 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		// Add the composite key and createdAt to the purchase object
 		createPurchase.CompositeKey = compositeKey
 
-		log.Printf("db payload `createPurchase`: %+v", createPurchase)
 		db := transport.GetDB()
 		_, err := h.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
 			log.Printf("ERR: failed to insert purchase into purchases database for stripe session ID: %+v, err: %+v", stripeCheckoutResult.ID, err)
 		}
 	}()
-
-	log.Printf("\nstripe result: %+v", stripeCheckoutResult)
-
-	// Create a new struct that includes the createPurchase fields and the Stripe checkout URL
-	type PurchaseResponse struct {
-		internal_types.PurchaseInsert
-		StripeCheckoutURL string `json:"stripe_checkout_url"`
-	}
 
 	// Create the response object
 	response := PurchaseResponse{
@@ -895,12 +972,12 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			return err
 		}
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
-		purchaseUpdate.Status = helpers.StripeCheckoutStatus.Settled
+		purchaseUpdate.Status = helpers.PurchaseStatus.Settled
 		if checkoutSession.PaymentIntent != nil {
 			purchaseUpdate.StripeTransactionId = checkoutSession.PaymentIntent.ID
 		}
 
-		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, createdAt, purchaseUpdate)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to update purchase status to SETTLED: "), http.StatusInternalServerError, err)
 			return err
@@ -980,9 +1057,9 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			return err
 		}
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
-		purchaseUpdate.Status = helpers.StripeCheckoutStatus.Canceled
+		purchaseUpdate.Status = helpers.PurchaseStatus.Canceled
 
-		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, createdAt, purchaseUpdate)
 		if err != nil {
 			msg := fmt.Sprintf("ERR: Failed to update purchase status to CANCELED: %v", err)
 			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
@@ -1067,4 +1144,252 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 		}
 	}
 	return purchasableMap, nil
+}
+
+type UpdateEventRegPurchPayload struct {
+	Events                   []rawEvent                              `json:"events" validate:"required"`
+	RegistrationFieldsUpdate internal_types.RegistrationFieldsUpdate `json:"registrationFieldsUpdate"`
+	PurchasableUpdate        internal_types.PurchasableUpdate        `json:"purchasableUpdate"`
+}
+
+func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		UpdateEventRegPurch(w, r)
+	}
+}
+
+func UpdateEventRegPurch(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	eventId := vars[helpers.EVENT_ID_KEY]
+
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	validRoles := []string{"superAdmin", "eventEditor"}
+	userId := userInfo.Sub
+	if userId == "" {
+		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
+		return
+	}
+
+	if !helpers.HasRequiredRole(roleClaims, validRoles) {
+		err := errors.New("only event editors can add or edit events")
+		transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)
+		return
+	}
+
+	var updateEventRegPurchPayload UpdateEventRegPurchPayload
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
+		return
+	}
+
+	err = json.Unmarshal(body, &updateEventRegPurchPayload)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	// we should use goroutines to parallelize the three distinct database update operations here
+	db := transport.GetDB()
+
+	var createdAt int64
+	updatedAt := time.Now().Unix()
+	if updateEventRegPurchPayload.Events[0].CreatedAt != nil {
+		createdAt = *updateEventRegPurchPayload.Events[0].CreatedAt
+	} else {
+		createdAt = time.Now().Unix()
+	}
+
+	if eventId == "" {
+		eventId = uuid.NewString()
+		updateEventRegPurchPayload.Events[0].Id = eventId
+		updateEventRegPurchPayload.RegistrationFieldsUpdate.EventId = eventId
+		updateEventRegPurchPayload.PurchasableUpdate.EventId = eventId
+		if helpers.ES_SERIES_PARENT == updateEventRegPurchPayload.Events[0].EventSourceType {
+			updateEventRegPurchPayload.Events[0].EventSourceId = nil
+			for i, event := range updateEventRegPurchPayload.Events {
+				if i == 0 {
+					event.EventSourceId = nil
+					updateEventRegPurchPayload.Events[i] = event
+				} else {
+					event.EventSourceId = &eventId
+					event.EventSourceType = helpers.ES_SINGLE_EVENT
+				}
+			}
+		}
+	}
+
+	// Update purchasable
+	if updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.IsZero() {
+		updateEventRegPurchPayload.PurchasableUpdate.CreatedAt = time.Unix(createdAt, 0)
+	}
+	updateEventRegPurchPayload.PurchasableUpdate.UpdatedAt = time.Unix(updatedAt, 0)
+
+	purchService := dynamodb_service.NewPurchasableService()
+	purchHandler := dynamodb_handlers.NewPurchasableHandler(purchService)
+	purchRes, err := purchHandler.PurchasableService.UpdatePurchasable(r.Context(), db, updateEventRegPurchPayload.PurchasableUpdate)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to update purchasable: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	// Update registration fields
+	updateEventRegPurchPayload.RegistrationFieldsUpdate.UpdatedBy = userId
+	if updateEventRegPurchPayload.RegistrationFieldsUpdate.CreatedAt.IsZero() {
+		updateEventRegPurchPayload.RegistrationFieldsUpdate.CreatedAt = time.Unix(createdAt, 0)
+	}
+	updateEventRegPurchPayload.RegistrationFieldsUpdate.UpdatedAt = time.Unix(updatedAt, 0)
+	regFieldsService := dynamodb_service.NewRegistrationFieldsService()
+	regFieldsHandler := dynamodb_handlers.NewRegistrationFieldsHandler(regFieldsService)
+	regFieldsRes, err := regFieldsHandler.RegistrationFieldsService.UpdateRegistrationFields(r.Context(), db, eventId, updateEventRegPurchPayload.RegistrationFieldsUpdate)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to update registration fields: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	// Update events
+	marqoClient, err := services.GetMarqoClient()
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	events := make([]types.Event, len(updateEventRegPurchPayload.Events))
+	if updateEventRegPurchPayload.Events[0].Id == "" {
+		events[0].Id = eventId
+	}
+	for i, rawEvent := range updateEventRegPurchPayload.Events {
+		if rawEvent.CreatedAt == nil {
+			rawEvent.CreatedAt = &createdAt
+		}
+		rawEvent.UpdatedAt = &updatedAt
+		rawEvent.Description = updateEventRegPurchPayload.Events[0].Description
+		if updateEventRegPurchPayload.Events[0].EventSourceType == helpers.ES_SERIES_PARENT {
+			rawEvent.EventSourceId = &eventId
+		}
+
+		event, statusCode, err := HandleSingleEventValidation(rawEvent, false)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to validate events: "+err.Error()), statusCode, err)
+			return
+		}
+		events[i] = event
+	}
+
+	// Before pushing the new events, check for outdated child events, we need to search them prior to
+	// the new event upsert because the new events will have unkown IDs and would get deleted by the
+	// delete "sweeper" we do in the `defer` function below
+
+	farFutureTime, _ := time.Parse(time.RFC3339, "2099-05-01T12:00:00Z")
+	childEventsToDelete, err := services.SearchMarqoEvents(marqoClient, "", []float64{0, 0}, 1000000, 0, farFutureTime.Unix(), []string{}, "", "", "", []string{helpers.ES_EVENT_SERIES}, []string{eventId})
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to search for existing child events: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	// If events being upserted have an ID, they are known and we deny-list them here so they
+	// are NOT deleted by the delete "sweeper" we do in the `defer` function below
+	deleteDenyList := make(map[string]bool)
+	for _, event := range events {
+		deleteDenyList[event.Id] = true
+	}
+
+	// Filter out events we want to keep
+	var eventsToDelete []types.Event
+	for _, event := range childEventsToDelete.Events {
+		if !deleteDenyList[event.Id] {
+			eventsToDelete = append(eventsToDelete, event)
+		}
+	}
+
+	// After pushing the new events, check for outdated child events, we need to search them
+	defer func() {
+		if len(eventsToDelete) > 0 {
+			deleteEventsArr := make([]string, len(eventsToDelete))
+			for i, event := range eventsToDelete {
+				deleteEventsArr[i] = event.Id
+			}
+
+			_, err = services.BulkDeleteEventsFromMarqo(marqoClient, deleteEventsArr)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to delete old child events: "+err.Error()), http.StatusInternalServerError, err)
+				return
+			}
+		}
+	}()
+
+	eventsRes, err := services.BulkUpsertEventToMarqo(marqoClient, events)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to upsert events to marqo: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	// Create response object
+	response := map[string]interface{}{
+		"status":  "success",
+		"message": "Event(s), registration fields, and purchasable(s) updated successfully",
+		"data": map[string]interface{}{
+			"parentEvent": eventsRes.Items[0],
+			"events":      eventsRes,
+			"regFields":   regFieldsRes,
+			"purchasable": purchRes,
+		},
+	}
+
+	// Marshal the response
+	jsonResponse, err := json.Marshal(response)
+	if err != nil {
+		transport.SendServerRes(w, []byte(`{"error": "Failed to create response"}`), http.StatusInternalServerError, err)
+		return
+	}
+
+	transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
+}
+
+func BulkDeleteEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		BulkDeleteEvents(w, r)
+	}
+}
+
+func BulkDeleteEvents(w http.ResponseWriter, r *http.Request) {
+	var bulkDeleteEventsPayload BulkDeleteEventsPayload
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
+		return
+	}
+
+	err = json.Unmarshal(body, &bulkDeleteEventsPayload)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	marqoClient, err := services.GetMarqoClient()
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	// TODO: check that the event user has permission to delete via `eventOwners` array
+
+	_, err = services.BulkDeleteEventsFromMarqo(marqoClient, bulkDeleteEventsPayload.Events)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to delete events from marqo: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	transport.SendServerRes(w, []byte("Events deleted successfully"), http.StatusOK, nil)
 }

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -17,9 +16,6 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
-
-// Validator instance for struct validation
-var validate *validator.Validate = validator.New()
 
 func init() {
 	db = transport.CreateDbClient()

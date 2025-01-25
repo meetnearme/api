@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers" // Adjust import path
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
@@ -43,7 +44,6 @@ func TestGetPurchasable(t *testing.T) {
 						Cost:                          100.0,
 						Inventory:                     50,
 						StartingQuantity:              100,
-						Currency:                      "USD",
 						ChargeRecurrenceInterval:      "monthly",
 						ChargeRecurrenceIntervalCount: 3,
 						ChargeRecurrenceEndDate:       eventTime, // Format if necessary
@@ -61,8 +61,8 @@ func TestGetPurchasable(t *testing.T) {
 
 	handler := dynamodb_handlers.NewPurchasableHandler(mockService)
 
-	req := httptest.NewRequest(http.MethodGet, "/purchasables/event_id/123", nil)
-	req = mux.SetURLVars(req, map[string]string{"event_id": "123"})
+	req := httptest.NewRequest(http.MethodGet, "/purchasables/"+helpers.EVENT_ID_KEY+"/123", nil)
+	req = mux.SetURLVars(req, map[string]string{helpers.EVENT_ID_KEY: "123"})
 
 	w := httptest.NewRecorder()
 	handler.GetPurchasable(w, req)
@@ -91,7 +91,13 @@ func TestUpdatePurchasable(t *testing.T) {
 	// Constructing a JSON body
 	updatePurchasable := map[string]interface{}{
 		"event_id": "123e4567-e89b-12d3-a456-426614174000",
-		// Add other fields as needed for the update
+		"purchasable_items": []internal_types.PurchasableItemInsert{
+			{
+				Name:     "Sample Item",
+				ItemType: "Type A",
+				Cost:     100.0,
+			},
+		},
 	}
 
 	data, err := json.Marshal(updatePurchasable)
@@ -99,9 +105,9 @@ func TestUpdatePurchasable(t *testing.T) {
 		t.Fatal(err) // Handle JSON marshaling error
 	}
 
-	req := httptest.NewRequest(http.MethodPut, "/purchasables/event_id/123", bytes.NewBuffer(data))
+	req := httptest.NewRequest(http.MethodPut, "/purchasables/"+helpers.EVENT_ID_KEY+"/123", bytes.NewBuffer(data))
 	req.Header.Set("Content-Type", "application/json")
-	req = mux.SetURLVars(req, map[string]string{"event_id": "123"})
+	req = mux.SetURLVars(req, map[string]string{helpers.EVENT_ID_KEY: "123"})
 
 	w := httptest.NewRecorder()
 	handler.UpdatePurchasable(w, req)
@@ -127,8 +133,8 @@ func TestDeletePurchasable(t *testing.T) {
 
 	handler := dynamodb_handlers.NewPurchasableHandler(mockService)
 
-	req := httptest.NewRequest(http.MethodDelete, "/purchasables/event_id/123", nil)
-	req = mux.SetURLVars(req, map[string]string{"event_id": "123"})
+	req := httptest.NewRequest(http.MethodDelete, "/purchasables/"+helpers.EVENT_ID_KEY+"/123", nil)
+	req = mux.SetURLVars(req, map[string]string{helpers.EVENT_ID_KEY: "123"})
 
 	w := httptest.NewRecorder()
 	handler.DeletePurchasable(w, req)

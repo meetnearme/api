@@ -26,7 +26,7 @@ curl -X POST https://devnear.me/api/users \
      "role": "standard_user"
  }'
 
- 
+
 ```
 
 2. Get User by ID
@@ -62,7 +62,7 @@ curl -X PUT https://devnear.me/api/users/<:user_id> \
 
 4. Delete User
 ```bash
-curl -X DELETE https://devnear.me/api/users/<:user_id> 
+curl -X DELETE https://devnear.me/api/users/<:user_id>
 ```
 
 ## Purchasables
@@ -72,7 +72,6 @@ curl -X DELETE https://devnear.me/api/users/<:user_id>
 curl -X POST https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/purchasables/123e4567-e89b-12d3-a456-426614174000 \
 -H "Content-Type: application/json" \
 -d '{
-  "event_id": "123e4567-e89b-12d3-a456-426614174000",
   "registration_fields": ["field1", "field2"],
   "purchasable_items": [
     {
@@ -101,7 +100,6 @@ curl -X POST https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/purchasa
 curl -X PUT https://byddmq7zrb.execute-api.us-east-1.amazonaws.com/api/purchasables/123e4567-e89b-12d3-a456-426614174000 \
 -H "Content-Type: application/json" \
 -d '{
-  "event_id": "123e4567-e89b-12d3-a456-426614174000",
   "registration_fields": ["field1", "field2"],
   "purchasable_items": [
     {
@@ -161,7 +159,7 @@ curl -X POST https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/event-rs
 }'
 ```
 
-2. GET EventRsvp By PK 
+2. GET EventRsvp By PK
 ```bash
 curl -X GET https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/event-rsvps/6ce1be30-f700-475c-b84a-49af0c73f337/ea49a5f8-e27c-47b0-8237-6f6f380a048c \
   -H "Content-Type: application/json"
@@ -279,96 +277,8 @@ curl -X DELETE https://devnear.me/api/registration-fields/<:event_id> \
 ```
 
 
-## Registrations
 
-#### Note eventId comes before userId in url params
-
-1. Create Registration
-```bash
-curl -X POST https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/62352e94-b34d-4ee7-a9d1-f1c8e404dec0/99413f71-bb0e-43c9-bc3a-fafc64c5c799 \
-     -H "Content-Type: application/json" \
-     -d '{
-           "responses": [
-             {"attendeeEmail": "me@meetnear.ne"},
-             {"tShirtSize": "XL"}
-           ]
-         }'
-```
-2. Get Registration by Primary Key
-```bash
-/api/registrations/{:event_id}/{:user_id}
-curl -X GET https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/62352e94-b34d-4ee7-a9d1-f1c8e404dec0/c9413f71-bb0e-43c9-bc3a-fafc64c5c799 \
-     -H "Content-Type: application/json"
-```
-
-3. Get Registration by EventId
-```bash
-curl -X GET https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/event/62352e94-b34d-4ee7-a9d1-f1c8e404dec0 \
-     -H "Content-Type: application/json"
-```
-
-4. Get Registration by UserId
-```bash
-curl -X GET https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/user/c9413f71-bb0e-43c9-bc3a-fafc64c5c799 \
-     -H "Content-Type: application/json"
-```
-
-5. Update registration (uses PK)
-```bash
-curl -X PUT https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/62352e94-b34d-4ee7-a9d1-f1c8e404dec0/c9413f71-bb0e-43c9-bc3a-fafc64c5c799 \
-     -H "Content-Type: application/json" \
-     -d '{
-           "responses": [
-             {"attendeeEmail": "newemail@meetnear.ne"},
-             {"tShirtSize": "L"}
-           ]
-         }'
-```
-
-6. Delete Registration (uses PK)
-```bash
-curl -X DELETE https://v63ojpt121.execute-api.us-east-1.amazonaws.com/api/registrations/62352e94-b34d-4ee7-a9d1-f1c8e404dec0/c9413f71-bb0e-43c9-bc3a-fafc64c5c799 \
-     -H "Content-Type: application/json"
-```
-
-## Competition Config
-
-1. Create Competition Config
-```bash
-curl -X POST https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config \
--H "Content-Type: application/json" \
--H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
--d '{
-    "auxilaryOwners": ["000000000000000000", "111111111111111111"],
-    "eventIds": ["62352e94-b34d-4ee7-a9d1-f1c8e404dec0", "99413f71-bb0e-43c9-bc3a-fafc64c5c799"],
-    "name": "Summer Karaoke Contest Try Number 2",
-    "moduleType": "KARAOKE",
-    "scoringMethod": "VOTES",
-    "competitors": ["333333333333333333", "444444444444444444", "555555555555555555"],
-    "status": "DRAFT"
-}'
-```
-```
-Bearer cnwTeb4mR-qjbbrYuKcCuuxB8vIqhrzeFr9d35PHc_eA7ycDQ9mypVump9xst1Obff6sw4PNe9USOWjiuJF40Is3rYAnr2pY-nhTxOzG
-
-```
-
-2. Get Competition Config by Config Id
-```bash
-curl -X GET https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/1a7e4d2f-2450-41d1-af03-8b3aa714fe69 \
--H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
--H "Content-Type: application/json"
-```
-
-3. Get Competition Config by User Id
-```bash
-curl -X GET https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/owner \
--H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
--H "Content-Type: application/json"
-```
-
-
-4. Update Competition Config
+5. Update Competition Config
 ```bash
 curl -X PUT https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/134c1f79-a276-493b-87c2-c63f79c3dae1 \
 -H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
@@ -381,7 +291,7 @@ curl -X PUT https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competiti
 }'
 ```
 
-5. Delete Competition Config
+6. Delete Competition Config
 ```bash
 curl -X DELETE https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/134c1f79-a276-493b-87c2-c63f79c3dae1 \
 -H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
@@ -447,7 +357,7 @@ curl -X PUT https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competiti
     }
 ]'
 ```
-Note: matchup is generated internally to be used by partiql 
+Note: matchup is generated internally to be used by partiql
     removed the competitors array field for now because we only need compA and compB for now
 `<competitorA>_<competitorB> - userId`
 

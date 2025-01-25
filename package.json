@@ -8,22 +8,19 @@
   },
   "scripts": {
     "dev": "concurrently \"npm:dev:*\"",
-    "dev-tab": "concurrently \"npm:tab:*\"",
     "build": "sst build",
     "dev:sst": "sst dev",
     "dev:serve-static": "npx http-server -o /static -a localhost -p 3001 --cors",
     "dev:tailwind": "tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --watch",
     "dev:templ": "node scripts/watchTempl.js ./functions/gateway/templates ./functions/lambda/go/seshu/templates",
-    "tab:sst": "ttab -t 'sst dev' npm run dev:sst",
-    "tab:serve-static": "ttab -t 'local static asset server' npm run dev:serve-static",
-    "tab:tailwind": "ttab -t 'tailwind dev' npm run dev:tailwind",
-    "tab:templ": "ttab -t 'go templ dev' npm run dev:templ",
     "deploy": "sst deploy",
     "deploy:prod": "sst deploy --stage prod",
     "remove": "sst remove",
     "console": "sst console",
-    "tailwind:prod": "tailwindcss -i ./static/assets/global.css -o ./static/assets/styles.css --minify",
-    "typecheck": "tsc --noEmit"
+    "tailwind:prod": "NODE_ENV=production tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --minify",
+    "typecheck": "tsc --noEmit",
+    "lint:templ:dev": "eslint --ext .templ --fix .",
+    "lint:templ:prod": "eslint --ext .templ --max-warnings 0 ."
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.14",
@@ -32,15 +29,19 @@
     "concurrently": "^8.2.2",
     "constructs": "10.3.0",
     "daisyui": "^4.12.14",
+    "eslint": "^8.57.1",
+    "eslint-plugin-html": "^7.1.0",
     "node-watch": "^0.7.4",
     "sst": "2.39.5",
     "tailwindcss": "^3.4.9",
-    "ttab": "^0.8.0",
     "typescript": "^5.3.3"
   },
   "workspaces": [],
   "dependencies": {
     "dotenv": "^16.4.5",
     "kysely": "^0.27.4"
+  },
+  "eslintConfig": {
+    "sourceType": "commonjs"
   }
 }

@@ -9,14 +9,12 @@ import { SeshuFunction } from './SeshuFunction';
 export function ApiStack({ stack, app }: StackContext & { app: any }) {
   const {
     seshuSessionsTable,
-    registrationsTable,
+    // registrationsTable, // deprecated
     registrationFieldsTable,
     purchasablesTable,
     // purchasesTable, // deprecated
     purchasesTableV2,
-    eventRsvpsTable,
-    competitionConfigTable,
-    competitionRoundsTable,
+    // eventRsvpsTable,  // deprecated
   } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
   const { seshuFn } = use(SeshuFunction);
@@ -24,18 +22,14 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
   const api = new Api(stack, 'api', {
     defaults: {
       function: {
-        // Bind the eventsTable name to our API
-
         bind: [
           seshuSessionsTable,
-          registrationsTable,
+          // registrationsTable,  // deprecated
           registrationFieldsTable,
           purchasablesTable,
           // purchasesTable, // deprecated
           purchasesTableV2,
-          eventRsvpsTable,
-          competitionConfigTable,
-          competitionRoundsTable
+          // eventRsvpsTable,  // deprecated
         ],
 
         environment: {

@@ -54,15 +54,14 @@ func (s *PurchaseService) InsertPurchase(ctx context.Context, dynamodbClient int
 		ConditionExpression: aws.String("attribute_not_exists(compositeKey)"),
 	}
 
-	res, err := dynamodbClient.PutItem(ctx, input)
+	_, err = dynamodbClient.PutItem(ctx, input)
 	if err != nil {
-		log.Print("hitting error in put item dynamo")
+		log.Print("error inserting item in database")
 		return nil, err
 	}
 
 	var insertedPurchase internal_types.Purchase
-
-	err = attributevalue.UnmarshalMap(res.Attributes, &insertedPurchase)
+	err = attributevalue.UnmarshalMap(item, &insertedPurchase)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +91,7 @@ func (s *PurchaseService) GetPurchaseByPk(ctx context.Context, dynamodbClient in
 	return &purchase, nil
 }
 
-func (s *PurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error) {
+func (s *PurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.PurchaseDangerous, map[string]dynamodb_types.AttributeValue, error) {
 	queryInput := &dynamodb.QueryInput{
 		TableName: aws.String(purchasesTableName),
 		IndexName: aws.String("eventIdIndex"), // Use the eventIdIndex GSI
@@ -129,10 +128,37 @@ func (s *PurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbCli
 		return nil, nil, err
 	}
 
-	var purchases []internal_types.Purchase
+	var purchases []internal_types.PurchaseDangerous
 	err = attributevalue.UnmarshalListOfMaps(result.Items, &purchases)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	userIds := []string{}
+	for _, purchase := range purchases {
+		if helpers.ArrFindFirst(userIds, []string{purchase.UserID}) == "" {
+			userIds = append(userIds, purchase.UserID)
+		}
+	}
+
+	users, err := helpers.SearchUsersByIDs(userIds, true)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	userMap := map[string]helpers.UserSearchResultDangerous{}
+	for _, user := range users {
+		userMap[user.UserID] = helpers.UserSearchResultDangerous{
+			UserID:      user.UserID,
+			DisplayName: user.DisplayName,
+			Email:       user.Email,
+		}
+	}
+
+	for i, purchase := range purchases {
+		purchases[i].UserID = userMap[purchase.UserID].UserID
+		purchases[i].UserEmail = userMap[purchase.UserID].Email
+		purchases[i].UserDisplayName = userMap[purchase.UserID].DisplayName
 	}
 
 	return purchases, result.LastEvaluatedKey, nil
@@ -251,7 +277,7 @@ type MockPurchaseService struct {
 	InsertPurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchase internal_types.PurchaseInsert) (*internal_types.Purchase, error)
 	GetPurchaseByPkFunc       func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string) (*internal_types.Purchase, error)
 	GetPurchasesByUserIDFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userID string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error)
-	GetPurchasesByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error)
+	GetPurchasesByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string, limit int32, startKey string) ([]internal_types.PurchaseDangerous, map[string]dynamodb_types.AttributeValue, error)
 	UpdatePurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAtString string, purchase internal_types.PurchaseUpdate) (*internal_types.Purchase, error)
 	DeletePurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error
 }
@@ -276,6 +302,6 @@ func (m *MockPurchaseService) GetPurchasesByUserID(ctx context.Context, dynamodb
 	return m.GetPurchasesByUserIDFunc(ctx, dynamodbClient, userID, limit, startKey)
 }
 
-func (m *MockPurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error) {
+func (m *MockPurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string, limit int32, startKey string) ([]internal_types.PurchaseDangerous, map[string]dynamodb_types.AttributeValue, error) {
 	return m.GetPurchasesByEventIDFunc(ctx, dynamodbClient, eventID, limit, startKey)
 }

@@ -17,6 +17,18 @@
 }
 
 @layer base {
+  h1.alt-title,
+  h2.alt-title,
+  h3.alt-title,
+  h4.alt-title,
+  h5.alt-title,
+  h6.alt-title {
+    font-family: 'Unbounded', 'Helvetica', 'Arial', 'sans-serif';
+    font-weight: 900;
+  }
+}
+
+@layer base {
   h1.title,
   h2.title,
   h3.title,
@@ -146,8 +158,9 @@ body:has(.bottom-drawer) {
   display: none;
 }
 
-.margins-when-children.my-8:has(*) {
-  margin: 2rem 0;
+.margins-when-children:not(:has(:first-child)) {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
 }
 
 /* BEGIN seshu ingestion "add event source" section */
@@ -283,4 +296,8 @@ input[type='number'] {
 
 .table.top-align :where(th, td) {
   vertical-align: top;
+}
+
+.object-position-25-25 {
+  object-position: 25% 25%;
 }
