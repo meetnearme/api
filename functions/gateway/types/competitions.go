@@ -9,7 +9,6 @@ import (
 
 // CompetitionConfigInterface defines the methods for competition-related operations
 type CompetitionConfigServiceInterface interface {
-	InsertCompetitionConfig(ctx context.Context, dynamodbClient DynamoDBAPI, competitionConfig CompetitionConfigInsert) (*CompetitionConfig, error)
 	GetCompetitionConfigById(ctx context.Context, dynamodbClient DynamoDBAPI, id string) (*CompetitionConfig, error)
 	GetCompetitionConfigsByPrimaryOwner(ctx context.Context, dynamodbClient DynamoDBAPI, primaryOwner string) (*[]CompetitionConfig, error)
 	UpdateCompetitionConfig(ctx context.Context, dynamodbClient DynamoDBAPI, id string, competitionConfig CompetitionConfigUpdate) (*CompetitionConfig, error)
@@ -35,14 +34,30 @@ type CompetitionVoteServiceInterface interface {
 }
 
 // Insert type (all strings for DynamoDB)
-type CompetitionConfigInsert struct {
-	Id             string   `json:"id,omitempty" dynamodbav:"id"`
-	PrimaryOwner   string   `json:"primaryOwner" dynamodbav:"primaryOwner"`
-	AuxilaryOwners []string `json:"auxilaryOwners" dynamodbav:"auxilaryOwners,stringset"`
-	EventIds       []string `json:"eventIds" dynamodbav:"eventIds,stringset"`
+// type CompetitionConfigInsert struct {
+// 	Id             string             `json:"id,omitempty" dynamodbav:"id"`
+// 	PrimaryOwner   string             `json:"primaryOwner" dynamodbav:"primaryOwner"`
+// 	AuxilaryOwners []string           `json:"auxilaryOwners" dynamodbav:"auxilaryOwners,stringset"`
+// 	EventIds       []string           `json:"eventIds" dynamodbav:"eventIds,stringset"`
+// 	Name           string             `json:"name" dynamodbav:"name" validate:"required"`
+// 	ModuleType     string             `json:"moduleType" dynamodbav:"moduleType" validate:"required,oneof=KARAOKE BOCCE"`
+// 	ScoringMethod  string             `json:"scoringMethod" dynamodbav:"scoringMethod" validate:"required,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL"`
+// 	Rounds         []CompetitionRound `json:"rounds,omitempty" dynamodbav:"rounds,stringset"` // JSON array string
+// 	Competitors    []string           `json:"competitors" dynamodbav:"competitors,stringset"`
+
+// 	CreatedAt int64 `json:"createdAt" dynamodbav:"createdAt"`
+// 	UpdatedAt int64 `json:"updatedAt" dynamodbav:"updatedAt"`
+// }
+
+// Internal type with proper Go types
+type CompetitionConfig struct {
+	Id             string   `json:"id"`
+	PrimaryOwner   string   `json:"primaryOwner" dynamodbav:"primaryOwner" validate:"required"`
+	AuxilaryOwners []string `json:"auxilaryOwners" dynamodbav:"auxilaryOwners,stringset" validate:"required"`
+	EventIds       []string `json:"eventIds" dynamodbav:"eventIds,stringset" validate:"required"`
 	Name           string   `json:"name" dynamodbav:"name" validate:"required"`
 	ModuleType     string   `json:"moduleType" dynamodbav:"moduleType" validate:"required,oneof=KARAOKE BOCCE"`
-	ScoringMethod  string   `json:"scoringMethod" dynamodbav:"scoringMethod" validate:"required,oneof=POINTS VOTES"`
+	ScoringMethod  string   `json:"scoringMethod" dynamodbav:"scoringMethod" validate:"required,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL"`
 	Rounds         []string `json:"rounds" dynamodbav:"rounds,stringset"`
 	Competitors    []string `json:"competitors" dynamodbav:"competitors,stringset"`
 	Status         string   `json:"status" dynamodbav:"status" validate:"required,oneof=DRAFT ACTIVE COMPLETE"`
@@ -50,33 +65,22 @@ type CompetitionConfigInsert struct {
 	UpdatedAt      int64    `json:"updatedAt" dynamodbav:"updatedAt"`
 }
 
-// Internal type with proper Go types
-type CompetitionConfig struct {
-	Id             string   `json:"id"`
-	PrimaryOwner   string   `json:"primaryOwner" dynamodbav:"primaryOwner"`
-	AuxilaryOwners []string `json:"auxilaryOwners" dynamodbav:"auxilaryOwners,stringset"`
-	EventIds       []string `json:"eventIds" dynamodbav:"eventIds,stringset"`
-	Name           string   `json:"name" dynamodbav:"name"`
-	ModuleType     string   `json:"moduleType" dynamodbav:"moduleType"`
-	ScoringMethod  string   `json:"scoringMethod" dynamodbav:"scoringMethod"`
-	Rounds         []string `json:"rounds" dynamodbav:"rounds,stringset"`
-	Competitors    []string `json:"competitors" dynamodbav:"competitors,stringset"`
-	Status         string   `json:"status" dynamodbav:"status"`
-	CreatedAt      int64    `json:"createdAt" dynamodbav:"createdAt"`
-	UpdatedAt      int64    `json:"updatedAt" dynamodbav:"updatedAt"`
-}
-
 // Update type (all optional fields)
 type CompetitionConfigUpdate struct {
-	Name           string   `json:"name,omitempty" dynamodbav:"name"`
-	ModuleType     string   `json:"moduleType,omitempty" dynamodbav:"moduleType" validate:"omitempty,oneof=KARAOKE BOCCE"`
-	ScoringMethod  string   `json:"scoringMethod,omitempty" dynamodbav:"scoringMethod" validate:"omitempty,oneof=POINTS VOTES"`
-	AuxilaryOwners []string `json:"auxilaryOwners,omitempty" dynamodbav:"auxilaryOwners,stringset"` // JSON array string
-	EventIds       []string `json:"eventIds,omitempty" dynamodbav:"eventIds,stringset"`             // JSON array string
-	Rounds         []string `json:"rounds,omitempty" dynamodbav:"rounds,stringset"`                 // JSON array string
-	Competitors    []string `json:"competitors,omitempty" dynamodbav:"competitors,stringset"`       // JSON array string
-	Status         string   `json:"status,omitempty" dynamodbav:"status" validate:"omitempty,oneof=DRAFT ACTIVE COMPLETE"`
-	UpdatedAt      int64    `json:"updatedAt" dynamodbav:"updatedAt"`
+	Id           string `json:"id,omitempty" dynamodbav:"id"`
+	PrimaryOwner string `json:"primaryOwner" dynamodbav:"primaryOwner"`
+	Name         string `json:"name,omitempty" dynamodbav:"name"`
+	// TODO: these should be enums for re-use on the client
+	ModuleType string `json:"moduleType,omitempty" dynamodbav:"moduleType" validate:"omitempty,oneof=KARAOKE BOCCE"`
+	// TODO: these should be enums for re-use on the client
+	ScoringMethod  string             `json:"scoringMethod,omitempty" dynamodbav:"scoringMethod" validate:"omitempty,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL"`
+	AuxilaryOwners []string           `json:"auxilaryOwners,omitempty" dynamodbav:"auxilaryOwners,stringset"` // JSON array string
+	EventIds       []string           `json:"eventIds,omitempty" dynamodbav:"eventIds,stringset"`             // JSON array string
+	Rounds         []CompetitionRound `json:"rounds,omitempty" dynamodbav:"rounds,stringset"`                 // JSON array string
+	Competitors    []string           `json:"competitors,omitempty" dynamodbav:"competitors,stringset"`       // JSON array string
+	// TODO: these should be enums for re-use on the client
+	Status    string `json:"status,omitempty" dynamodbav:"status" validate:"omitempty,oneof=DRAFT ACTIVE COMPLETE"`
+	UpdatedAt int64  `json:"updatedAt" dynamodbav:"updatedAt"`
 }
 
 // CompetitionRound types following the same pattern

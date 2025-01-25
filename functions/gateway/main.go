@@ -67,7 +67,6 @@ func init() {
 		{helpers.SitePages["event-detail"].Slug, "GET", handlers.GetEventDetailsPage, Check},
 		// Below for competition engagement modules
 		// {helpers.SitePages["competitions"].Slug, "GET", handlers.GetCompetitionsPage, Check},
-		// TODO: uncomment this once the missing competitions page template is added
 		{helpers.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 		{helpers.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 
@@ -120,7 +119,7 @@ func init() {
 		{"/api/purchases/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None},
 
 		// Competition Config
-		{"/api/competition-config", "POST", dynamodb_handlers.CreateCompetitionConfigHandler, Require},
+		{"/api/competition-config", "PUT", dynamodb_handlers.UpdateCompetitionConfigHandler, Require},
 		{"/api/competition-config/owner", "GET", dynamodb_handlers.GetCompetitionConfigsByPrimaryOwnerHandler, Require},
 		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigByIdHandler, Require},
 		// verify below is correct with brian, was not accessing userId from context

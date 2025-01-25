@@ -23,8 +23,8 @@ func NewCompetitionConfigHandler(eventCompetitionConfigService internal_types.Co
 	return &CompetitionConfigHandler{CompetitionConfigService: eventCompetitionConfigService}
 }
 
-func (h *CompetitionConfigHandler) CreateCompetitionConfig(w http.ResponseWriter, r *http.Request) {
-	var createCompetitionConfig internal_types.CompetitionConfigInsert
+func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter, r *http.Request) {
+	var updateCompetitionConfig internal_types.CompetitionConfigUpdate
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
@@ -39,28 +39,28 @@ func (h *CompetitionConfigHandler) CreateCompetitionConfig(w http.ResponseWriter
 
 	log.Printf("User Info: %+v", userInfo)
 
-	err = json.Unmarshal(body, &createCompetitionConfig)
+	err = json.Unmarshal(body, &updateCompetitionConfig)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	id := uuid.NewString()
+	if updateCompetitionConfig.Id == "" {
+		updateCompetitionConfig.Id = uuid.NewString()
+	}
 
 	now := time.Now().Unix()
-	createCompetitionConfig.CreatedAt = now
-	createCompetitionConfig.UpdatedAt = now
-	createCompetitionConfig.Id = id
-	createCompetitionConfig.PrimaryOwner = userInfo.Sub
+	updateCompetitionConfig.UpdatedAt = now
+	updateCompetitionConfig.PrimaryOwner = userInfo.Sub
 
-	err = validate.Struct(&createCompetitionConfig)
+	err = validate.Struct(&updateCompetitionConfig)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
 
 	db := transport.GetDB()
-	res, err := h.CompetitionConfigService.InsertCompetitionConfig(r.Context(), db, createCompetitionConfig)
+	res, err := h.CompetitionConfigService.UpdateCompetitionConfig(r.Context(), db, updateCompetitionConfig.Id, updateCompetitionConfig)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to create eventCompetitionConfig: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -142,59 +142,6 @@ func (h *CompetitionConfigHandler) GetCompetitionConfigsByPrimaryOwner(w http.Re
 	transport.SendServerRes(w, response, http.StatusOK, nil)
 }
 
-func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	primaryOwner := vars["primary_owner"]
-	if primaryOwner == "" {
-		transport.SendServerRes(w, []byte("Missing primaryOwner ID"), http.StatusBadRequest, nil)
-		return
-	}
-	id := vars["id"]
-	if id == "" {
-		transport.SendServerRes(w, []byte("Missing id"), http.StatusBadRequest, nil)
-		return
-	}
-
-	var updateCompetitionConfig internal_types.CompetitionConfigUpdate
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
-		return
-	}
-
-	err = json.Unmarshal(body, &updateCompetitionConfig)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	err = validate.Struct(&updateCompetitionConfig)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
-		return
-	}
-
-	db := transport.GetDB()
-	competition, err := h.CompetitionConfigService.UpdateCompetitionConfig(r.Context(), db, id, updateCompetitionConfig)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to update eventCompetitionConfig: "+err.Error()), http.StatusInternalServerError, err)
-		return
-	}
-
-	if competition == nil {
-		transport.SendServerRes(w, []byte("CompetitionConfig not found"), http.StatusNotFound, nil)
-		return
-	}
-
-	response, err := json.Marshal(competition)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
-		return
-	}
-
-	transport.SendServerRes(w, response, http.StatusOK, nil)
-}
-
 func (h *CompetitionConfigHandler) DeleteCompetitionConfig(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	competitionId := vars["competitionId"]
@@ -213,11 +160,11 @@ func (h *CompetitionConfigHandler) DeleteCompetitionConfig(w http.ResponseWriter
 	transport.SendServerRes(w, []byte("CompetitionConfig successfully deleted"), http.StatusOK, nil)
 }
 
-func CreateCompetitionConfigHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+func UpdateCompetitionConfigHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	eventCompetitionConfigService := dynamodb_service.NewCompetitionConfigService()
 	handler := NewCompetitionConfigHandler(eventCompetitionConfigService)
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler.CreateCompetitionConfig(w, r)
+		handler.UpdateCompetitionConfig(w, r)
 	}
 }
 
@@ -235,15 +182,6 @@ func GetCompetitionConfigsByPrimaryOwnerHandler(w http.ResponseWriter, r *http.R
 	handler := NewCompetitionConfigHandler(eventCompetitionConfigService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.GetCompetitionConfigsByPrimaryOwner(w, r)
-	}
-}
-
-// UpdateCompetitionConfigHandler is a wrapper that creates the UserHandler and returns the handler function for updating a eventCompetitionConfig
-func UpdateCompetitionConfigHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	eventCompetitionConfigService := dynamodb_service.NewCompetitionConfigService()
-	handler := NewCompetitionConfigHandler(eventCompetitionConfigService)
-	return func(w http.ResponseWriter, r *http.Request) {
-		handler.UpdateCompetitionConfig(w, r)
 	}
 }
 

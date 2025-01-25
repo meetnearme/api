@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strconv"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -28,7 +26,7 @@ func NewCompetitionConfigService() internal_types.CompetitionConfigServiceInterf
 	return &CompetitionConfigService{}
 }
 
-func (s *CompetitionConfigService) InsertCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, competitionConfig internal_types.CompetitionConfigInsert) (*internal_types.CompetitionConfig, error) {
+func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string, competitionConfig internal_types.CompetitionConfigUpdate) (*internal_types.CompetitionConfig, error) {
 	// Validate the competition object
 	if err := validate.Struct(competitionConfig); err != nil {
 		return nil, fmt.Errorf("validation failed: %w", err)
@@ -140,116 +138,6 @@ func (s *CompetitionConfigService) GetCompetitionConfigsByPrimaryOwner(ctx conte
 	return &competitions, nil
 }
 
-func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string, competitionConfig internal_types.CompetitionConfigUpdate) (*internal_types.CompetitionConfig, error) {
-	if competitionConfigTableName == "" {
-		return nil, fmt.Errorf("ERR: competitionTableName is empty")
-	}
-
-	input := &dynamodb.UpdateItemInput{
-		TableName: aws.String(competitionConfigTableName),
-		Key: map[string]dynamodb_types.AttributeValue{
-			"id": &dynamodb_types.AttributeValueMemberS{Value: id},
-		},
-		ExpressionAttributeNames:  make(map[string]string),
-		ExpressionAttributeValues: make(map[string]dynamodb_types.AttributeValue),
-		UpdateExpression:          aws.String("SET"),
-		ReturnValues:              dynamodb_types.ReturnValueAllNew,
-	}
-
-	// Add dynamic field updates
-	if competitionConfig.Name != "" {
-		input.ExpressionAttributeNames["#name"] = "name"
-		input.ExpressionAttributeValues[":name"] = &dynamodb_types.AttributeValueMemberS{Value: competitionConfig.Name}
-		*input.UpdateExpression += " #name = :name,"
-	}
-
-	if competitionConfig.ModuleType != "" {
-		input.ExpressionAttributeNames["#moduleType"] = "moduleType"
-		input.ExpressionAttributeValues[":moduleType"] = &dynamodb_types.AttributeValueMemberS{Value: competitionConfig.ModuleType}
-		*input.UpdateExpression += " #moduleType = :moduleType,"
-	}
-
-	if competitionConfig.ScoringMethod != "" {
-		input.ExpressionAttributeNames["#scoringMethod"] = "scoringMethod"
-		input.ExpressionAttributeValues[":scoringMethod"] = &dynamodb_types.AttributeValueMemberS{Value: competitionConfig.ScoringMethod}
-		*input.UpdateExpression += " #scoringMethod = :scoringMethod,"
-	}
-
-	if competitionConfig.ModuleType != "" {
-		input.ExpressionAttributeNames["#moduleType"] = "moduleType"
-		input.ExpressionAttributeValues[":moduleType"] = &dynamodb_types.AttributeValueMemberS{Value: competitionConfig.ModuleType}
-		*input.UpdateExpression += " #moduleType = :moduleType,"
-	}
-
-	// TODO: need to check the update syntax needed for a []string below is an example of []UserDefinedType all four of these should be that
-	if competitionConfig.AuxilaryOwners != nil {
-		input.ExpressionAttributeNames["#auxilaryOwners"] = "auxilaryOwners"
-		auxilaryOwners, err := attributevalue.MarshalList(competitionConfig.AuxilaryOwners)
-		if err != nil {
-			return nil, err
-		}
-		input.ExpressionAttributeValues[":auxilaryOwners"] = &dynamodb_types.AttributeValueMemberL{Value: auxilaryOwners}
-		*input.UpdateExpression += " #auxilaryOwners = :auxilaryOwners,"
-	}
-
-	if competitionConfig.EventIds != nil {
-		input.ExpressionAttributeNames["#eventIds"] = "eventIds"
-		eventIds, err := attributevalue.MarshalList(competitionConfig.EventIds)
-		if err != nil {
-			return nil, err
-		}
-		input.ExpressionAttributeValues[":eventIds"] = &dynamodb_types.AttributeValueMemberL{Value: eventIds}
-		*input.UpdateExpression += " #eventIds = :eventIds,"
-	}
-	// Rounds         string `json:"rounds,omitempty" dynamodbav:"rounds"`                 // JSON array string
-	// Competitors    string `json:"competitors,omitempty" dynamodbav:"competitors"`       // JSON array string
-	// Status         string `json:"status,omitempty" dynamodbav:"status" validate:"omitempty,oneof=DRAFT ACTIVE COMPLETE"`
-	if competitionConfig.Rounds != nil {
-		input.ExpressionAttributeNames["#rounds"] = "rounds"
-		rounds, err := attributevalue.MarshalList(competitionConfig.Rounds)
-		if err != nil {
-			return nil, err
-		}
-		input.ExpressionAttributeValues[":rounds"] = &dynamodb_types.AttributeValueMemberL{Value: rounds}
-		*input.UpdateExpression += " #rounds = :rounds,"
-	}
-
-	if competitionConfig.Competitors != nil {
-		input.ExpressionAttributeNames["#competitors"] = "competitors"
-		competitors, err := attributevalue.MarshalList(competitionConfig.Competitors)
-		if err != nil {
-			return nil, err
-		}
-		input.ExpressionAttributeValues[":competitors"] = &dynamodb_types.AttributeValueMemberL{Value: competitors}
-		*input.UpdateExpression += " #competitors = :competitors,"
-	}
-
-	if competitionConfig.Status != "" {
-		input.ExpressionAttributeNames["#status"] = "status"
-		input.ExpressionAttributeValues[":status"] = &dynamodb_types.AttributeValueMemberS{Value: competitionConfig.Status}
-		*input.UpdateExpression += " #status = :status,"
-	}
-
-	// Set the updatedAt field
-	currentTime := time.Now().Unix()
-	input.ExpressionAttributeNames["#updatedAt"] = "updatedAt"
-	input.ExpressionAttributeValues[":updatedAt"] = &dynamodb_types.AttributeValueMemberN{Value: strconv.FormatInt(currentTime, 10)}
-	*input.UpdateExpression += " #updatedAt = :updatedAt"
-
-	res, err := dynamodbClient.UpdateItem(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-
-	var updatedCompetitionConfig internal_types.CompetitionConfig
-	err = attributevalue.UnmarshalMap(res.Attributes, &updatedCompetitionConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return &updatedCompetitionConfig, nil
-}
-
 func (s *CompetitionConfigService) DeleteCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string) error {
 	input := &dynamodb.DeleteItemInput{
 		TableName: aws.String(competitionConfigTableName),
@@ -270,7 +158,6 @@ func (s *CompetitionConfigService) DeleteCompetitionConfig(ctx context.Context, 
 // TODO: Deal with syncing with actual interface
 // Mock service for testing
 type MockCompetitionConfigService struct {
-	InsertCompetitionConfigFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, competition internal_types.CompetitionConfigInsert) (*internal_types.CompetitionConfig, error)
 	GetCompetitionConfigsByPkFunc      func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string) (*internal_types.CompetitionConfig, error)
 	GetCompetitionConfigsByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.CompetitionConfig, error)
 	UpdateCompetitionConfigFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string, competition internal_types.CompetitionConfigUpdate) (*internal_types.CompetitionConfig, error)
@@ -278,10 +165,6 @@ type MockCompetitionConfigService struct {
 }
 
 // Mock service implementation
-func (m *MockCompetitionConfigService) InsertCompetitionConfigConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, competition internal_types.CompetitionConfigInsert) (*internal_types.CompetitionConfig, error) {
-	return m.InsertCompetitionConfigFunc(ctx, dynamodbClient, competition)
-}
-
 func (m *MockCompetitionConfigService) GetCompetitionConfigConfigByPk(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string) (*internal_types.CompetitionConfig, error) {
 	return m.GetCompetitionConfigsByPkFunc(ctx, dynamodbClient, id)
 }

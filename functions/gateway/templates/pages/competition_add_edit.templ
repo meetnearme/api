@@ -10,7 +10,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
 			<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
 		</header>
-
 		// Basic Information Section
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Basic Information</h2>
 		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
@@ -26,7 +25,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						value={ competition.Name }
 					/>
 				</label>
-
 				// Module Type Selection
 				<div class="form-control">
 					<label class="label">Module Type</label>
@@ -36,17 +34,17 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						<option value="BOCCE">Bocce</option>
 					</select>
 				</div>
-
 				// Scoring Method
 				<div class="form-control">
 					<label class="label">Scoring Method</label>
 					<select class="select select-bordered" x-model="scoringMethod">
 						<option value="">Select scoring method</option>
-						<option value="VOTES">Votes</option>
-						<option value="POINTS">Points</option>
+						<option value="VOTE_MATCHUPS">Vote Matchups (Win, Loss, Draw)</option>
+						<option value="POINT_MATHCUPS">Point Matchups (Win, Loss, Draw)</option>
+						<option value="VOTE_TOTAL" disabled>Votes (Total)</option>
+						<option value="POINT_TOTAL" disabled>Points (Total)</option>
 					</select>
 				</div>
-
 				// Competition Owners
 				<div class="form-control">
 					<label class="label">Additional Owners</label>
@@ -87,7 +85,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				</div>
 			</div>
 		</div>
-
 		// Rounds Configuration Section
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Rounds Configuration</h2>
 		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
@@ -117,18 +114,13 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				</div>
 			</div>
 		</div>
-
 		// Action Buttons
 		<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
 			<button class="btn btn-outline">Cancel</button>
 			<button class="btn btn-primary mx-4" @click="saveCompetition">Save Competition</button>
 		</div>
 	</div>
-
-	<script id="add-edit-competition"
-		data-competition-id={ competition.Id }
-		data-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) }
-	>
+	<script id="add-edit-competition" data-competition-id={ competition.Id } data-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) }>
 		function addEditCompetitionState() {
 			return {
 				moduleType: '',
@@ -200,8 +192,8 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							rounds: this.rounds
 						};
 
-						await fetch('/api/competition', {
-							method: 'POST',
+						await fetch('/api/competition-config', {
+							method: 'PUT',
 							headers: {
 								'Content-Type': 'application/json'
 							},
