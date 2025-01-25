@@ -49,7 +49,7 @@ templ IconLeftSection(labelText, labelValue, icon string, urlString string, sect
 }
 
 templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit bool) {
-	<div class="max-w-prose mx-auto" x-data="getEventDetailsData()">
+	<div class="max-w-prose mx-auto" x-data="getEventDetailsState()">
 		if event.Id == "" {
 			<br/>
 			<br/>
@@ -87,7 +87,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			if event.EventSourceType == helpers.ES_SERIES_PARENT {
 				<h3 class="text-xl mt-2">Event Series</h3>
 				<div
-					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&end_time=2099-10-18T10:00:00Z&radius=20000&event_source_ids=" + event.Id }
+					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id }
 					hx-trigger="load"
 					hx-swap="outerHTML"
 				>
@@ -114,11 +114,11 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 					// TODO: handle basecurrency
 					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", "", event)
 				}
-				if event.EventSourceType == helpers.ES_EVENT_SERIES {
+				if event.EventSourceType == helpers.ES_EVENT_SERIES && event.EventSourceId != "" {
 					<div class="divider my-3"></div>
 					<h3 class="text-xl mt-2 mb-2">All Events in this Series</h3>
 					<div
-						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&end_time=2099-10-18T10:00:00Z&radius=20000&event_source_ids=" + event.EventSourceId }
+						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId }
 						hx-trigger="load"
 						hx-swap="outerHTML"
 					>
@@ -184,11 +184,11 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 	</div>
 	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
 	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered }>
-		function getEventDetailsData() {
+		function getEventDetailsState() {
 			return {
 				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),
 				eventId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-event-id'),
-        eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
+				eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
 				interestedStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-interested-status'),
 				registeredStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-registered-status'),
 				init() {},
@@ -196,11 +196,11 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				handleCtaClick(tab) {
 					if (tab === 'rsvp' || tab === 'icmi' && this.userId) {
 						const body = {
-              status: tab === 'rsvp' ? this.registeredStatus : this.interestedStatus,
-              event_name: this.eventName,
-              purchased_items: [],
-              total: 0,
-            }
+							status: tab === 'rsvp' ? this.registeredStatus : this.interestedStatus,
+							event_name: this.eventName,
+							purchased_items: [],
+							total: 0,
+						}
 						const headers = {
 							type: 'application/json',
 						};

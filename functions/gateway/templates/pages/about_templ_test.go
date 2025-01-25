@@ -29,7 +29,7 @@ func TestAboutPage(t *testing.T) {
 	aboutPage := AboutPage()
 
 	// Create a layout template
-	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, aboutPage, types.Event{})
+	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, aboutPage, types.Event{}, []string{})
 
 	// Render the template
 	var buf bytes.Buffer

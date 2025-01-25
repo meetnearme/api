@@ -44,7 +44,6 @@ func TestGetPurchasable(t *testing.T) {
 						Cost:                          100.0,
 						Inventory:                     50,
 						StartingQuantity:              100,
-						Currency:                      "USD",
 						ChargeRecurrenceInterval:      "monthly",
 						ChargeRecurrenceIntervalCount: 3,
 						ChargeRecurrenceEndDate:       eventTime, // Format if necessary

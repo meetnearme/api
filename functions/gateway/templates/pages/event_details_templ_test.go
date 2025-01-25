@@ -178,7 +178,7 @@ func TestEventDetailsPage(t *testing.T) {
 			component := EventDetailsPage(tt.event, helpers.UserInfo{}, tt.canEdit)
 
 			// Wrap the component with Layout
-			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event)
+			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event, []string{})
 
 			// Render the component to a string
 			var buf bytes.Buffer

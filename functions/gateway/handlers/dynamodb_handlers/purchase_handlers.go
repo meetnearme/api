@@ -245,7 +245,7 @@ func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.R
 	responseData := struct {
 		Count     int                                      `json:"count"`
 		NextKey   map[string]dynamodb_types.AttributeValue `json:"nextKey"`
-		Purchases []internal_types.Purchase                `json:"purchases"`
+		Purchases []internal_types.PurchaseDangerous       `json:"purchases"`
 	}{
 		Count:     len(purchases),
 		NextKey:   lastEvaluatedKey,

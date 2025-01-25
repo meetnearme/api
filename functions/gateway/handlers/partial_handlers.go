@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"net/http"
 
@@ -145,6 +146,10 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 	ctx := r.Context()
 
 	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+
+	radius = 500000
+	farFutureTime, _ := time.Parse(time.RFC3339, "2099-01-01T00:00:00Z")
+	endTimeUnix = farFutureTime.Unix()
 
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {

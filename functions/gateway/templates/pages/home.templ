@@ -225,7 +225,7 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 			</header>
 		}
 		// Source: https://www.penguinui.com/components/combobox
-		<div x-data="getLocationSearchData()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
+		<div x-data="getLocationSearchState()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
 			<div class="relative px-4">
 				<!-- trigger button  -->
 				<button
@@ -454,7 +454,8 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 		</main>
 	</div>
 	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-page-user-id={ GetPageUserID(pageUser) }>
-
+		// NOTE: this is used by htmx to get the data-attributes
+		// eslint-disable-next-line no-unused-vars
 		function sendParmsFromQs() {
 			const urlParams = new URLSearchParams(window.location.search);
 			return {
@@ -470,15 +471,15 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 			}
 		}
 
-		function getLocationSearchData() {
+		function getLocationSearchState() {
 			return {
 				allOptions: JSON.parse(
-						document.querySelector('#alpine-state').getAttribute('data-cities-default-list')
+					document.querySelector('#alpine-state').getAttribute('data-cities-default-list')
 				).map((city) => ({
-						label: city.label,
-						value: city.id,
-						latitude: city.latitude,
-						longitude: city.longitude,
+					label: city.label,
+					value: city.id,
+					latitude: city.latitude,
+					longitude: city.longitude,
 				})),
 				options: [],
 				isOpen: false,
@@ -487,165 +488,161 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 					label: document.querySelector('#alpine-state').getAttribute('data-city-label-initial')
 				},
 				async fetchLocations(query) {
-						if (query.length >= 3) {
-							this.options = await fetch(`/api/locations?q=${query}`).then(res => {
-								return res.json()
-							}).then(json => {
-								return json.map((city) => ({
-										label: city.label,
-										value: city.id,
-										latitude: city.latitude,
-										longitude: city.longitude,
-								}))
-							});
-						}
+					if (query.length >= 3) {
+						this.options = await fetch(`/api/locations?q=${query}`).then(res => {
+							return res.json()
+						}).then(json => {
+							return json.map((city) => ({
+								label: city.label,
+								value: city.id,
+								latitude: city.latitude,
+								longitude: city.longitude,
+							}))
+						});
+					}
 				},
 				setSelectedOption(option) {
-						this.selectedOption = option
-						this.isOpen = false
-						this.openedWithKeyboard = false
-						this.$refs.hiddenTextField.value = option.value
-						// Update lat and lon in the parent component
-						this.$dispatch('location-selected', { lat: option.latitude, lon: option.longitude })
+					this.selectedOption = option
+					this.isOpen = false
+					this.openedWithKeyboard = false
+					this.$refs.hiddenTextField.value = option.value
+					// Update lat and lon in the parent component
+					this.$dispatch('location-selected', { lat: option.latitude, lon: option.longitude })
 				},
 				getFilteredOptions(query) {
-						this.options = this.allOptions.filter((option) =>
-								option.label.toLowerCase().includes(query.toLowerCase()),
-						)
-						if (this.options.length === 0) {
-								this.$refs.noResultsMessage.classList.remove('hidden')
-						} else {
-								this.$refs.noResultsMessage.classList.add('hidden')
-						}
+					this.options = this.allOptions.filter((option) =>
+						option.label.toLowerCase().includes(query.toLowerCase()),
+					)
+					if (this.options.length === 0) {
+						this.$refs.noResultsMessage.classList.remove('hidden')
+					} else {
+						this.$refs.noResultsMessage.classList.add('hidden')
+					}
 				},
 				handleKeydownOnOptions(event) {
-						// if the user presses backspace or the alpha-numeric keys, focus on the search field
-						 if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
-								this.$refs.loc_search.focus()
-						}
+					// if the user presses backspace or the alpha-numeric keys, focus on the search field
+					if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
+						this.$refs.loc_search.focus()
+					}
 				},
 			}
 		}
 
 		function getHomeState() {
-				return {
-						init() {
-								this.updateParamsFromUrl(false);
+			return {
+				init() {
+					this.updateParamsFromUrl(false);
 
-								// enhance history.pushState with a listener and call it on every
-								// change of query params so that our URL can be the real source
-								// of truth while JS state simply follows that
-								((history) => {
-										var pushState = history.pushState;
-										history.pushState = function(state) {
-												if (typeof history.onpushstate == "function") {
-														history.onpushstate({state: state});
-												}
-												// whatever else you want to do
-												// maybe call onhashchange e.handler
-												return pushState.apply(history, arguments);
-										}
-								})(window.history);
-
-								window.onpopstate = history.onpushstate = (e) => {
-									this.updateParamsFromUrl();
-								};
-
-								// Also listen for popstate events for back/forward navigation
-								window.addEventListener('popstate', () => {
-										this.updateParamsFromUrl();
-								});
-						},
-						start_time: null,
-						end_time: null,
-						q: null,
-						radius: null,
-						lat: null,
-						lon: null,
-						categories: null,
-						allParams: [
-							'start_time',
-							'end_time',
-							'q',
-							'radius',
-							'lat',
-							'lon',
-							'categories'
-						],
-						updateParamsFromUrl (triggerSearch = true) {
-								const urlParams = new URLSearchParams(window.location.search);
-
-								this.start_time = urlParams.get('start_time') || '';
-								this.end_time = urlParams.get('end_time') || '';
-								this.q = urlParams.get('q') || '';
-								this.radius = urlParams.get('radius') || '';
-								this.lat = urlParams.get('lat') || '';
-								this.lon = urlParams.get('lon') || '';
-								// these come from the sidebar
-								this.categories = urlParams.get('categories') || '';
-
-								// avoid re-triggering search for scenarios like initial page load
-								if (!triggerSearch) {
-									return;
-								}
-								// Submit the form
-								const form = document.getElementById('event-search-form')
-
-								// this is unforunately just to allow alpine to propage the form with
-								// updated values prior to submitting
-								setTimeout(()=> {
-									form?.requestSubmit()
-								}, 250)
-						},
-						// TODO: on initial page load, the categories need to be searched by text
-						// label and selected for each in query string
-						sendCategoriesToQueryParams() {
-							const form = document.getElementById('category-search-form')
-							// Collect form values
-							const formData = new FormData(form);
-							const formValues = Object.fromEntries(formData.entries());
-							let formVals = []
-							Object.keys(formValues).forEach(itm => {
-								formVals.push(formValues?.[itm])
-							})
-							formVals = formVals.join(' | ')
-
-							// Get current URL and parse its query parameters
-							const url = new URL(window.location.href);
-							const params = new URLSearchParams(url.search);
-
-							this.pushToQueryParams('categories', formVals)
-						},
-						handleLocationSelected(event) {
-								this.lat = event.detail.lat
-								this.lon = event.detail.lon
-
-								this.pushToQueryParams('lat', event.detail.lat)
-								this.pushToQueryParams('lon', event.detail.lon)
-						},
-						pushToQueryParams(param, selected) {
-								// Get current URL and parse its query parameters
-								const url = new URL(window.location.href);
-								const params = new URLSearchParams(url.search);
-
-								this.allParams.forEach(key => {
-									if ( key !== param && ( this[key] !== (null || '') ) ) {
-										params.set(key, this[key])
-									}
-								})
-
-								this[param] = selected;
-								params.set(param, selected);
-
-								window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
-						},
-						updateHasEvents(event) {
-							if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
-								this.hasEvents = true;
-							} else {
-								this.hasEvents = false;
+					// enhance history.pushState with a listener and call it on every
+					// change of query params so that our URL can be the real source
+					// of truth while JS state simply follows that
+					((history) => {
+						var pushState = history.pushState;
+						history.pushState = function(state) {
+							if (typeof history.onpushstate == "function") {
+								history.onpushstate({state: state});
 							}
-						},
+							// whatever else you want to do
+							// maybe call onhashchange e.handler
+							return pushState.apply(history, arguments);
+						}
+					})(window.history);
+
+					window.onpopstate = history.onpushstate = () => {
+						this.updateParamsFromUrl();
+					};
+
+					// Also listen for popstate events for back/forward navigation
+					window.addEventListener('popstate', () => {
+						this.updateParamsFromUrl();
+					});
+				},
+				start_time: null,
+				end_time: null,
+				q: null,
+				radius: null,
+				lat: null,
+				lon: null,
+				categories: null,
+				allParams: [
+					'start_time',
+					'end_time',
+					'q',
+					'radius',
+					'lat',
+					'lon',
+					'categories'
+				],
+				updateParamsFromUrl (triggerSearch = true) {
+					const urlParams = new URLSearchParams(window.location.search);
+
+					this.start_time = urlParams.get('start_time') || '';
+					this.end_time = urlParams.get('end_time') || '';
+					this.q = urlParams.get('q') || '';
+					this.radius = urlParams.get('radius') || '';
+					this.lat = urlParams.get('lat') || '';
+					this.lon = urlParams.get('lon') || '';
+					// these come from the sidebar
+					this.categories = urlParams.get('categories') || '';
+
+					// avoid re-triggering search for scenarios like initial page load
+					if (!triggerSearch) {
+						return;
+					}
+					// Submit the form
+					const form = document.getElementById('event-search-form')
+
+					// this is unforunately just to allow alpine to propage the form with
+					// updated values prior to submitting
+					setTimeout(()=> {
+						form?.requestSubmit()
+					}, 250)
+				},
+				// TODO: on initial page load, the categories need to be searched by text
+				// label and selected for each in query string
+				sendCategoriesToQueryParams() {
+					const form = document.getElementById('category-search-form')
+					// Collect form values
+					const formData = new FormData(form);
+					const formValues = Object.fromEntries(formData.entries());
+					let formVals = []
+					Object.keys(formValues).forEach(itm => {
+						formVals.push(formValues?.[itm])
+					})
+					formVals = formVals.join(' | ')
+
+					this.pushToQueryParams('categories', formVals)
+				},
+				handleLocationSelected(event) {
+					this.lat = event.detail.lat
+					this.lon = event.detail.lon
+
+					this.pushToQueryParams('lat', event.detail.lat)
+					this.pushToQueryParams('lon', event.detail.lon)
+				},
+				pushToQueryParams(param, selected) {
+					// Get current URL and parse its query parameters
+					const url = new URL(window.location.href);
+					const params = new URLSearchParams(url.search);
+
+					this.allParams.forEach(key => {
+						if ( key !== param && ( this[key] !== (null || '') ) ) {
+							params.set(key, this[key])
+						}
+					})
+
+					this[param] = selected;
+					params.set(param, selected);
+
+					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
+				},
+				updateHasEvents(event) {
+					if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
+						this.hasEvents = true;
+					} else {
+						this.hasEvents = false;
+					}
+				},
 			}
 		}
 	</script>
