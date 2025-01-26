@@ -20,6 +20,7 @@ const RegistrationFieldsTablePrefix = "RegistrationFields"
 const CompetitionResultsTablePrefix = "CompetitionResults"
 const CompetitionConfigTablePrefix = "CompetitionConfig"
 const CompetitionRoundsTablePrefix = "CompetitionRounds"
+const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomParticipant"
 const VotesTablePrefix = "Votes"
 
 const EVENT_ID_KEY string = "eventId"

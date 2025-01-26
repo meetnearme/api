@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -757,4 +755,8 @@ func GetBase64ValueFromMap(claimsMeta map[string]interface{}, key string) string
 func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []string {
 	interests := GetBase64ValueFromMap(claimsMeta, key)
 	return strings.Split(interests, "|")
+}
+
+func CalculateTTL(days int) int64 {
+	return time.Now().Add(time.Duration(days) * 24 * time.Hour).Unix()
 }

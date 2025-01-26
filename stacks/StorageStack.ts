@@ -183,30 +183,30 @@ export function StorageStack({ stack }: StackContext) {
   // ephemeral
   // purchases are gate to the waiting room.
   // TODO
-  const competitionWaitingRoomTable = new Table(stack, 'CompetitionWaitingRoom', {
+  const competitionWaitingRoomParticipantTable = new Table(stack, 'CompetitionWaitingRoomParticipant', {
     fields: {
       competitionId: 'string',
       userId: 'string',
       purchaseId: 'string',
-      TTL: 'number', // 3 days
+      expiresOn: 'number', // 3 days this becomes a generated timestamp in dynamodb
     },
     primaryIndex: { partitionKey: 'competitionId', sortKey: 'userId' },
-    timeToLiveAttribute: 'TTL'
+    timeToLiveAttribute: 'expiresOn'
   });
 
   const votesTable = new Table(stack, 'Votes', {
     fields: {
       PK: 'string', // COMPETITION_<competitionId>_ROUND_<roundNumber>
-      SK: 'string', // USEr_<userId>  who is voting
+      userId: 'string', // USEr_<userId>  who is voting
       competitorId: 'string', // who you vote for
       competitionId: 'string',
       voteValue: 'number',
       createdAt: 'number',
       updatedAt: 'number',
-      TTL: 'number'
+      expiresOn: 'number'
     },
-    primaryIndex: { partitionKey: 'PK', sortKey: 'SK' },
-    timeToLiveAttribute: 'TTL'
+    primaryIndex: { partitionKey: 'PK', sortKey: 'userId' },
+    timeToLiveAttribute: 'expiresOn'
   });
 
   // need a separate table for trivia answer choices
@@ -222,7 +222,7 @@ export function StorageStack({ stack }: StackContext) {
     competitionConfigTable,
     competitionRoundsTable,
     votesTable,
-    competitionWaitingRoomTable
+    competitionWaitingRoomParticipantTable
     // eventRsvpsTable, // deprecated
   };
 }

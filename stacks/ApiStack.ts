@@ -16,6 +16,8 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
     purchasesTableV2,
     competitionConfigTable,
     competitionRoundsTable,
+    competitionWaitingRoomParticipantTable,
+    votesTable,
     // eventRsvpsTable,  // deprecated
   } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
@@ -32,7 +34,9 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
           // purchasesTable, // deprecated
           purchasesTableV2,
           competitionConfigTable,
-          competitionRoundsTable
+          competitionRoundsTable,
+          competitionWaitingRoomParticipantTable,
+          votesTable
           // eventRsvpsTable,  // deprecated
         ],
 

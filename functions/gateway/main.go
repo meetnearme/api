@@ -135,11 +135,15 @@ func init() {
 		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionRoundHandler, Require},
 		// summing, ending point for leader board needed here
 
+		// Competition Waiting Room
+		{"/api/waiting-room/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionWaitingRoomParticipantHandler, Require},
+		{"/api/waiting-room/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionWaitingRoomParticipantsHandler, Require},
+		{"/api/waiting-room/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.USER_ID_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionWaitingRoomParticipantHandler, Require},
+
 		// // Competition Vote
-		// {"/api/competition-vote", "POST", dynamodb_handlers.CreateCompetitionVoteHandler, Require},
+		// {"/api/competition-vote/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.UpdateCompetitionVoteHandler, Require},
+
 		// {"/api/competition-vote/{event_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}", "GET", dynamodb_handlers.GetCompetitionVoteByPkHandler, Require}, // this gets all votes for a particular round at a competition
-		// {"/api/competition-vote/{event_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}/{user_id:[0-9a-fA-f-]+}", "GET", dynamodb_handlers.GetVotesByRoundIDHandler, Require},
-		// {"/api/competition-vote/{event_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}/{user_id:[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateCompetitionVoteHandler, Require},
 		// {"/api/competition-vote/{event_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteCompetitionVoteHandler, Require},
 		//
 

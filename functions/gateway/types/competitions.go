@@ -24,12 +24,16 @@ type CompetitionRoundServiceInterface interface {
 	DeleteCompetitionRound(ctx context.Context, dynamodbClient DynamoDBAPI, pk, sk string) error
 }
 
+type CompetitionWaitingRoomParticipantServiceInterface interface {
+	PutCompetitionWaitingRoomParticipant(ctx context.Context, dynamodbClient DynamoDBAPI, waitingRoomParticipant CompetitionWaitingRoomParticipantUpdate) (dynamodb.PutItemOutput, error)
+	GetCompetitionWaitingRoomParticipants(ctx context.Context, dynamodbClient DynamoDBAPI, competitionId string) ([]CompetitionWaitingRoomParticipant, error)
+	DeleteCompetitionWaitingRoomParticipant(ctx context.Context, dynamodbClient DynamoDBAPI, competitionId, userId string) error
+}
+
 // CompetitionVoteServiceInterface defines the methods for competition vote operations
 type CompetitionVoteServiceInterface interface {
-	InsertCompetitionVote(ctx context.Context, dynamodbClient DynamoDBAPI, vote CompetitionVoteInsert) (*CompetitionVote, error)
-	GetCompetitionVoteByPk(ctx context.Context, dynamodbClient DynamoDBAPI, pk, sk string) (*CompetitionVote, error)
-	GetVotesByRoundID(ctx context.Context, dynamodbClient DynamoDBAPI, roundId string) ([]CompetitionVote, error)
-	UpdateCompetitionVote(ctx context.Context, dynamodbClient DynamoDBAPI, pk, sk string, vote CompetitionVoteUpdate) (*CompetitionVote, error)
+	PutCompetitionVote(ctx context.Context, dynamodbClient DynamoDBAPI, voteUpdate CompetitionVoteUpdate) (dynamodb.PutItemOutput, error)
+	GetCompetitionVotesByPk(ctx context.Context, dynamodbClient DynamoDBAPI, pk string) (*CompetitionVote, error)
 	DeleteCompetitionVote(ctx context.Context, dynamodbClient DynamoDBAPI, pk, sk string) error
 }
 
@@ -114,21 +118,21 @@ type CompetitionRoundUpdate struct {
 }
 
 type CompetitionWaitingRoomParticipant struct {
-	CompetitionId string `json:"competitionId" dynamodbav:"competitionId" validate:"required"`
-	UserId        string `json:"userId" dynamodbav:"userId" validate:"required"`
-	PurchaseId    string `json:"purchaseId" dynamodbav:"purchaseId" validate:"required"`
-	TTL           int64  `json:"ttl" dynamodbav:"ttl" validate:"required"`
-}
-
-type CompetitionWaitingRoomParticipantUpdate struct {
 	CompetitionId string `json:"competitionId" dynamodbav:"competitionId"`
 	UserId        string `json:"userId" dynamodbav:"userId"`
 	PurchaseId    string `json:"purchaseId" dynamodbav:"purchaseId"`
-	TTL           int64  `json:"ttl,omitempty" dynamodbav:"ttl"`
+	ExpiresOn     int64  `json:"expiresOn" dynamodbav:"expiresOn"`
+}
+
+type CompetitionWaitingRoomParticipantUpdate struct {
+	CompetitionId string `json:"competitionId" dynamodbav:"competitionId" validate:"required"`
+	UserId        string `json:"userId" dynamodbav:"userId" validate:"required"`
+	PurchaseId    string `json:"purchaseId" dynamodbav:"purchaseId" validate:"required"`
+	ExpiresOn     int64  `json:"expiresOn" dynamodbav:"expiresOn" validate:"required"`
 }
 
 // Competition Vote Types
-type CompetitionVoteInsert struct {
+type CompetitionVoteUpdate struct {
 	PK           string    `json:"PK" dynamodbav:"PK" validate:"required"`
 	SK           string    `json:"SK" dynamodbav:"SK" validate:"required"`
 	CompetitorId string    `json:"competitorId" dynamodbav:"competitorId" validate:"required"`
@@ -136,7 +140,7 @@ type CompetitionVoteInsert struct {
 	ModuleType   string    `json:"moduleType" dynamodbav:"moduleType" validate:"required,oneof=KARAOKE BOCCE"`
 	CreatedAt    time.Time `json:"createdAt" dynamodbav:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt" dynamodbav:"updatedAt"`
-	TTL          int64     `json:"ttl" dynamodbav:"ttl"`
+	ExpiresOn    int64     `json:"expiresOn" dynamodbav:"expiresOn" validate:"required"`
 }
 
 type CompetitionVote struct {
@@ -147,11 +151,5 @@ type CompetitionVote struct {
 	ModuleType   string    `json:"moduleType" dynamodbav:"moduleType"`
 	CreatedAt    time.Time `json:"createdAt" dynamodbav:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt" dynamodbav:"updatedAt"`
-	TTL          int64     `json:"TTL" dynamodbav:"TTL"`
-}
-
-type CompetitionVoteUpdate struct {
-	VoteValue int       `json:"voteValue,omitempty" dynamodbav:"voteValue"`
-	UpdatedAt time.Time `json:"updatedAt" dynamodbav:"updatedAt"`
-	TTL       int64     `json:"TTL,omitempty" dynamodbav:"TTL"`
+	ExpiresOn    int64     `json:"expiresOn" dynamodbav:"expiresOn" validate:"required"`
 }

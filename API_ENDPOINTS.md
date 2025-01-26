@@ -276,6 +276,59 @@ curl -X DELETE https://devnear.me/api/registration-fields/<:event_id> \
 -H "Content-Type: application/json"
 ```
 
+## Competition Config
+
+1. Create Competition Config
+```bash
+curl -X POST https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer <access_token>" \
+-d '{
+    "auxilaryOwners": ["000000000000000000", "111111111111111111"],
+    "eventIds": ["62352e94-b34d-4ee7-a9d1-f1c8e404dec0", "99413f71-bb0e-43c9-bc3a-fafc64c5c799"],
+    "name": "Summer Karaoke Contest Try Number 2",
+    "moduleType": "KARAOKE",
+    "scoringMethod": "VOTES",
+    "competitors": ["333333333333333333", "444444444444444444", "555555555555555555"],
+    "status": "DRAFT"
+}'
+```
+```
+Bearer cnwTeb4mR-qjbbrYuKcCuuxB8vIqhrzeFr9d35PHc_eA7ycDQ9mypVump9xst1Obff6sw4PNe9USOWjiuJF40Is3rYAnr2pY-nhTxOzG
+```
+2. Get Competition Config by Config Id
+```bash
+curl -X GET https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/1a7e4d2f-2450-41d1-af03-8b3aa714fe69 \
+-H "Authorization: Bearer <access_token>" \
+-H "Content-Type: application/json"
+```
+
+3. Get Competition Config by User Id
+```bash
+curl -X GET https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/owner \
+-H "Authorization: Bearer <access_token>" \
+-H "Content-Type: application/json"
+```
+
+4. Update Competition Config
+```bash
+curl -X PUT https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/134c1f79-a276-493b-87c2-c63f79c3dae1 \
+-H "Authorization: Bearer <access_token>" \
+-H "Content-Type: application/json" \
+-d '{
+    "name": "Updated Karaoke Contest",
+    "status": "ACTIVE",
+    "auxilaryOwners": ["ea49a5f8-e27c-47b0-8237-6f6f380a048c", "71b19c4a-4390-426c-bbe0-77f214a90cfc"],
+    "competitors": ["user1", "user2", "user3", "user4"]
+}'
+
+5. Delete Competition Config
+```bash
+curl -X DELETE https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-config/134c1f79-a276-493b-87c2-c63f79c3dae1 \
+-H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
+-H "Content-Type: application/json"
+```
+
 
 
 5. Update Competition Config
@@ -303,7 +356,6 @@ Notes:
 - Authorization header removed as it's handled by API Gateway
 - Rounds field removed from create/update as it will be managed separately
 - All endpoints require Content-Type header
-```
 
 ## Competition Rounds
 
@@ -409,7 +461,7 @@ curl -X PUT https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competiti
 6. Delete Competition Round
 ```bash
 curl -X DELETE https://2ykfh7afah.execute-api.us-east-1.amazonaws.com/api/competition-round/1a7e4d2f-2450-41d1-af03-8b3aa714fe69/1 \
--H "Authorization: Bearer nMa54loFfoTGJ6_CSsz4RJcKLtEf1grKAcrkZvijLQB43QgmGtEa6bu-uAOXGPqVx6o3nWiK0gJtBR21yTEEhNIQ1xyBB_4gwO3DBndq" \
+-H "Authorization: Bearer <access_token>" \
 -H "Content-Type: application/json"
 ```
 
@@ -426,3 +478,50 @@ Notes:
 - All endpoints require Content-Type header
 - Authorization header required for all endpoints except as noted
 
+
+## Competition Waiting Room Participant
+
+1. Create/ Update Competition 
+- url param: competitionId
+- userId from context object
+- need to pass purchaseId in payload
+
+```bash
+curl -X PUT https://65d7jarsfb.execute-api.us-east-1.amazonaws.com/api/waiting-room/2d66c032-f2a2-469b-b578-209437d862a9 \
+-H "Authorization: Bearer <access_token>" \
+-H "Content-Type: application/json" \
+-d '{
+    "purchaseId": "8ca64cb2-db78-11ef-89af-6bf04358c198"
+}'
+```
+
+2. Get Waiting Room Participants by Competition ID
+
+```bash
+curl -X GET https://65d7jarsfb.execute-api.us-east-1.amazonaws.com/api/waiting-room/2d66c032-f2a2-469b-b578-209437d862a9 \
+-H "Authorization: Bearer <access_token>" \
+-H "Content-Type: application/json" 
+```
+
+3. DELETE Waiting Room Participants by Competition ID/ userId
+
+```bash
+curl -X DELETE https://65d7jarsfb.execute-api.us-east-1.amazonaws.com/api/waiting-room/2d66c032-f2a2-469b-b578-209437d862a9/111111111111111111 \
+-H "Authorization: Bearer <access_token>" \
+-H "Content-Type: application/json" 
+```
+
+
+## Votes 
+
+1. Create a Vote
+
+```bash
+curl -X PUT https://65d7jarsfb.execute-api.us-east-1.amazonaws.com/api/votes/2d66c032-f2a2-469b-b578-209437d862a9 \
+-H "Authorization: Bearer gCF3wsavnK-U8ifuPITWJplWLXgiNckuEaH_UYluMN-sfFbhdQ54IGGWq_s20twnP9s6NfMwh-vhzMGdttubjjWlby_I7YpmgD3M1Fbc" \
+-H "Content-Type: application/json" \
+-d '{
+    "roundNumber": 1,
+
+}'
+```
