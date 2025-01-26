@@ -141,13 +141,9 @@ func init() {
 		{"/api/waiting-room/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.USER_ID_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionWaitingRoomParticipantHandler, Require},
 
 		// // Competition Vote
-		// {"/api/competition-vote/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.UpdateCompetitionVoteHandler, Require},
-
-		// {"/api/competition-vote/{event_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}", "GET", dynamodb_handlers.GetCompetitionVoteByPkHandler, Require}, // this gets all votes for a particular round at a competition
-		// {"/api/competition-vote/{event_id:[0-9a-fA-F-]+}/{round_number:[0-9]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteCompetitionVoteHandler, Require},
-		//
-
-		// Need to do full flow for competitionWaiting room
+		{"/api/votes/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionVoteHandler, Require},
+		{"/api/votes/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionVotesByRoundHandler, Require},
+		{"/api/votes", "DELETE", dynamodb_handlers.DeleteCompetitionVoteHandler, Require},
 
 		// Checkout Session
 		{"/api/checkout/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},

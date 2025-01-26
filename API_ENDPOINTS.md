@@ -487,7 +487,7 @@ Notes:
 - need to pass purchaseId in payload
 
 ```bash
-curl -X PUT https://65d7jarsfb.execute-api.us-east-1.amazonaws.com/api/waiting-room/2d66c032-f2a2-469b-b578-209437d862a9 \
+curl -X PUT https://755qncna81.execute-api.us-east-1.amazonaws.com/api/waiting-room/2d66c032-f2a2-469b-b578-209437d862a9 \
 -H "Authorization: Bearer <access_token>" \
 -H "Content-Type: application/json" \
 -d '{
@@ -498,7 +498,7 @@ curl -X PUT https://65d7jarsfb.execute-api.us-east-1.amazonaws.com/api/waiting-r
 2. Get Waiting Room Participants by Competition ID
 
 ```bash
-curl -X GET https://65d7jarsfb.execute-api.us-east-1.amazonaws.com/api/waiting-room/2d66c032-f2a2-469b-b578-209437d862a9 \
+curl -X GET https://755qncna81.execute-api.us-east-1.amazonaws.com/api/waiting-room/2d66c032-f2a2-469b-b578-209437d862a9 \
 -H "Authorization: Bearer <access_token>" \
 -H "Content-Type: application/json" 
 ```
@@ -506,7 +506,7 @@ curl -X GET https://65d7jarsfb.execute-api.us-east-1.amazonaws.com/api/waiting-r
 3. DELETE Waiting Room Participants by Competition ID/ userId
 
 ```bash
-curl -X DELETE https://65d7jarsfb.execute-api.us-east-1.amazonaws.com/api/waiting-room/2d66c032-f2a2-469b-b578-209437d862a9/111111111111111111 \
+curl -X DELETE https://755qncna81.execute-api.us-east-1.amazonaws.com/api/waiting-room/2d66c032-f2a2-469b-b578-209437d862a9/111111111111111111 \
 -H "Authorization: Bearer <access_token>" \
 -H "Content-Type: application/json" 
 ```
@@ -515,13 +515,41 @@ curl -X DELETE https://65d7jarsfb.execute-api.us-east-1.amazonaws.com/api/waitin
 ## Votes 
 
 1. Create a Vote
+- will get userId from context
+- passing in competitionId and roundNumber as params 
 
 ```bash
-curl -X PUT https://65d7jarsfb.execute-api.us-east-1.amazonaws.com/api/votes/2d66c032-f2a2-469b-b578-209437d862a9 \
--H "Authorization: Bearer gCF3wsavnK-U8ifuPITWJplWLXgiNckuEaH_UYluMN-sfFbhdQ54IGGWq_s20twnP9s6NfMwh-vhzMGdttubjjWlby_I7YpmgD3M1Fbc" \
+curl -X PUT https://755qncna81.execute-api.us-east-1.amazonaws.com/api/votes/2d66c032-f2a2-469b-b578-209437d862a9/2 \
+-H "Authorization: Bearer <access_token>" \
 -H "Content-Type: application/json" \
 -d '{
-    "roundNumber": 1,
+    "voteValue": 1,
+    "voteRecipientId": "111111111111111111"
+}'
+```
 
+2. Get All Votes for a Competition/Round
+- passing in competitionId and roundNumber as params 
+
+```bash
+curl -X GET https://755qncna81.execute-api.us-east-1.amazonaws.com/api/votes/2d66c032-f2a2-469b-b578-209437d862a9/2 \
+-H "Authorization: Bearer <access_token>" \
+-H "Content-Type: application/json" 
+```
+
+
+
+3. Delete a Vote by Primary Key
+- will get userId from context
+- passing in competitionId and roundNumber as params 
+
+```bash
+curl -X DELETE https://755qncna81.execute-api.us-east-1.amazonaws.com/api/votes \
+-H "Authorization: Bearer <access_token>" \
+-H "Content-Type: application/json" \
+-d '{
+    "competitionId": "2d66c032-f2a2-469b-b578-209437d862a9",
+    "roundNumber": 2,
+    "userId": "222222222222222222"
 }'
 ```
