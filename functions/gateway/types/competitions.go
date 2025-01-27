@@ -2,7 +2,6 @@ package types
 
 import (
 	"context"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
@@ -33,8 +32,8 @@ type CompetitionWaitingRoomParticipantServiceInterface interface {
 // CompetitionVoteServiceInterface defines the methods for competition vote operations
 type CompetitionVoteServiceInterface interface {
 	PutCompetitionVote(ctx context.Context, dynamodbClient DynamoDBAPI, voteUpdate CompetitionVoteUpdate) (dynamodb.PutItemOutput, error)
-	GetCompetitionVotesByPk(ctx context.Context, dynamodbClient DynamoDBAPI, pk string) (*CompetitionVote, error)
-	DeleteCompetitionVote(ctx context.Context, dynamodbClient DynamoDBAPI, pk, sk string) error
+	GetCompetitionVotesByCompetitionRound(ctx context.Context, dynamodbClient DynamoDBAPI, compositePartitionKey string) ([]CompetitionVote, error)
+	DeleteCompetitionVote(ctx context.Context, dynamodbClient DynamoDBAPI, compositePartitionKey, userId string) error
 }
 
 // Internal type with proper Go types
@@ -138,23 +137,17 @@ type CompetitionWaitingRoomParticipantUpdate struct {
 
 // Competition Vote Types
 type CompetitionVoteUpdate struct {
-	PK           string    `json:"PK" dynamodbav:"PK" validate:"required"`
-	SK           string    `json:"SK" dynamodbav:"SK" validate:"required"`
-	CompetitorId string    `json:"competitorId" dynamodbav:"competitorId" validate:"required"`
-	VoteValue    int       `json:"voteValue" dynamodbav:"voteValue" validate:"required"`
-	ModuleType   string    `json:"moduleType" dynamodbav:"moduleType" validate:"required,oneof=KARAOKE BOCCE"`
-	CreatedAt    time.Time `json:"createdAt" dynamodbav:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt" dynamodbav:"updatedAt"`
-	ExpiresOn    int64     `json:"expiresOn" dynamodbav:"expiresOn" validate:"required"`
+	CompositePartitionKey string `json:"compositePartitionKey" dynamodbav:"compositePartitionKey" validate:"required"`
+	UserId                string `json:"userId" dynamodbav:"userId" validate:"required"`
+	VoteRecipientId       string `json:"voteRecipientId" dynamodbav:"voteRecipientId" validate:"required"`
+	VoteValue             int64  `json:"voteValue" dynamodbav:"voteValue" validate:"required"`
+	ExpiresOn             int64  `json:"expiresOn" dynamodbav:"expiresOn" validate:"required"`
 }
 
 type CompetitionVote struct {
-	PK           string    `json:"PK" dynamodbav:"PK"`
-	SK           string    `json:"SK" dynamodbav:"SK"`
-	CompetitorId string    `json:"competitorId" dynamodbav:"competitorId"`
-	VoteValue    int       `json:"voteValue" dynamodbav:"voteValue"`
-	ModuleType   string    `json:"moduleType" dynamodbav:"moduleType"`
-	CreatedAt    time.Time `json:"createdAt" dynamodbav:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt" dynamodbav:"updatedAt"`
-	ExpiresOn    int64     `json:"expiresOn" dynamodbav:"expiresOn" validate:"required"`
+	CompositePartitionKey string `json:"compositePartitionKey" dynamodbav:"compositePartitionKey" `
+	UserId                string `json:"userId" dynamodbav:"userId" `
+	VoteRecipientId       string `json:"voteRecipientId" dynamodbav:"voteRecipientId" `
+	VoteValue             int64  `json:"voteValue" dynamodbav:"voteValue" `
+	ExpiresOn             int64  `json:"expiresOn" dynamodbav:"expiresOn" `
 }

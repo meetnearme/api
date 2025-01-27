@@ -196,16 +196,13 @@ export function StorageStack({ stack }: StackContext) {
 
   const votesTable = new Table(stack, 'Votes', {
     fields: {
-      PK: 'string', // COMPETITION_<competitionId>_ROUND_<roundNumber>
-      userId: 'string', // USEr_<userId>  who is voting
-      competitorId: 'string', // who you vote for
-      competitionId: 'string',
+      compositePartitionKey: 'string', // <competitionId>_<roundNumber>
+      userId: 'string', // who is voting
+      voteRecipientId: 'string',
       voteValue: 'number',
-      createdAt: 'number',
-      updatedAt: 'number',
       expiresOn: 'number'
     },
-    primaryIndex: { partitionKey: 'PK', sortKey: 'userId' },
+    primaryIndex: { partitionKey: 'compositePartitionKey', sortKey: 'userId' },
     timeToLiveAttribute: 'expiresOn'
   });
 

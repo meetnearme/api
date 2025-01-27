@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -21,21 +22,21 @@ func NewCompetitionWaitingRoomParticipantHandler(competitionWaitingRoomService i
 }
 
 func (h *CompetitionWaitingRoomParticipantHandler) PutCompetitionWaitingRoomParticipant(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	competitionId := vars["competitionId"]
+
+	ctx := r.Context()
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+
 	var competitionWaitingRoomParticipantUpdate internal_types.CompetitionWaitingRoomParticipantUpdate
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
-
-	vars := mux.Vars(r)
-	competitionId := vars["competitionId"]
-
-	// ctx := r.Context()
-	// userInfo := helpers.UserInfo{}
-	// if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-	// 	userInfo = ctx.Value("userInfo").(helpers.UserInfo)
-	// }
 
 	err = json.Unmarshal(body, &competitionWaitingRoomParticipantUpdate)
 	if err != nil {
@@ -45,7 +46,7 @@ func (h *CompetitionWaitingRoomParticipantHandler) PutCompetitionWaitingRoomPart
 
 	competitionWaitingRoomParticipantUpdate.ExpiresOn = time.Now().Add(24 * time.Hour).Unix()
 	// competitionWaitingRoomParticipantUpdate.UserId = userInfo.Sub
-	competitionWaitingRoomParticipantUpdate.UserId = "111111111111111111"
+	competitionWaitingRoomParticipantUpdate.UserId = userInfo.Sub
 	competitionWaitingRoomParticipantUpdate.CompetitionId = competitionId
 
 	err = validate.Struct(&competitionWaitingRoomParticipantUpdate)
