@@ -15,6 +15,8 @@ func main() {
 	schemaPath := flag.String("schema", "", "Path to schema JSON file")
 	batchSize := flag.Int("batch-size", 100, "Batch size for migration")
 	transformersList := flag.String("transformers", "", "Comma-separated list of transformers")
+	sourceIndex := flag.String("source-index", "", "Source index name to migrate from")
+	sourceEndpoint := flag.String("source-endpoint", "", "Source index endpoint URL")
 	flag.Parse()
 
 	if *env == "" || *schemaPath == "" {
@@ -70,31 +72,36 @@ func main() {
 		os.Exit(1)
 	}
 
-	sourceIndex, sourceEndpoint, err := migrator.sourceClient.GetCurrentIndex(*env)
-	if err != nil {
-		fmt.Printf("Failed to get current index: %v\n", err)
-		os.Exit(1)
+	var actualSourceIndex string
+	if *sourceIndex != "" && *sourceEndpoint != "" {
+		actualSourceIndex = *sourceIndex
+		// Update the source client with the provided endpoint
+		migrator.sourceClient = NewMarqoClient(*sourceEndpoint, apiKey)
+		fmt.Printf("Using provided source index: %s with endpoint: %s\n", actualSourceIndex, *sourceEndpoint)
+	} else {
+		var err error
+		actualSourceIndex, sourceEndpointURL, err := migrator.sourceClient.GetCurrentIndex(*env)
+		if err != nil {
+			fmt.Printf("Failed to get current index: %v\n", err)
+			os.Exit(1)
+		}
+		migrator.sourceClient = NewMarqoClient(sourceEndpointURL, apiKey)
 	}
-
-	// Update the source client with the correct endpoint
-	migrator.sourceClient = NewMarqoClient(sourceEndpoint, apiKey)
 
 	timestamp := time.Now().UTC().Format("2006-01-02-1504")
 	targetIndex := fmt.Sprintf("%s-events-%s", *env, timestamp)
 
-	fmt.Printf("Starting migration from %s (endpoint: %s) to %s\n",
-		sourceIndex, sourceEndpoint, targetIndex)
+	fmt.Printf("Starting migration from %s to %s\n", actualSourceIndex, targetIndex)
 	fmt.Printf("Using transformers: %v\n", transformerNames)
 	fmt.Printf("Batch size: %d\n", *batchSize)
 
 	// Run migration
-	if err := migrator.MigrateEvents(sourceIndex, targetIndex, schema); err != nil {
+	if err := migrator.MigrateEvents(actualSourceIndex, targetIndex, schema); err != nil {
 		fmt.Printf("Migration failed: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Println("Migration completed successfully")
-
 }
 
 func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, string, error) {
