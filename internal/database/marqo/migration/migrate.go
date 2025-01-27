@@ -129,248 +129,48 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 	m.targetClient = NewMarqoClient(endpoint, m.targetClient.apiKey)
 	fmt.Printf("Using target endpoint: %s\n", endpoint)
 
-	// Track all processed documents by ID
-	processedIds := make(map[string]bool)
-	failedDocs := make(map[string]string)
-
-	// First, get all document IDs from source
-	allSourceIds := make(map[string]bool)
 	offset := 0
+	totalMigrated := 0
+
 	for {
+		fmt.Printf("\n=== Processing batch at offset %d ===\n", offset)
+
 		docs, err := m.sourceClient.Search(sourceIndex, "*", offset, m.batchSize)
 		if err != nil {
 			return fmt.Errorf("failed to fetch documents at offset %d: %w", offset, err)
 		}
+
 		if len(docs) == 0 {
 			break
 		}
 
-		// Collect all IDs
-		for _, doc := range docs {
-			if id, ok := doc["_id"].(string); ok {
-				allSourceIds[id] = true
-			}
-		}
-		// maybe add a minus one so offset is 99 and the item begins at 100 since we are probably zero indexing
-		offset += m.batchSize - 1
-	}
-
-	fmt.Printf("Found %d unique document IDs in source\n", len(allSourceIds))
-
-	// Add debug tracking
-	batchStats := make([]struct {
-		offset    int
-		batchSize int
-		docsFound int
-		firstId   string
-		lastId    string
-		uniqueIds map[string]bool
-	}, 0)
-
-	// Track cumulative stats
-	cumulativeIds := make(map[string]bool)
-	lastProcessedId := ""
-
-	// Reset offset for actual migration
-	offset = 0
-	totalMigrated := 0
-
-	// Process documents
-	for {
-		batchStart := offset
-		fmt.Printf("\n=== Batch Analysis (Offset: %d) ===\n", offset)
-
-		docs, err := m.sourceClient.Search(sourceIndex, "*", offset, m.batchSize)
-		if err != nil {
-			return fmt.Errorf("failed to fetch documents at offset %d: %w", offset, err)
-		}
-
-		// Collect batch statistics
-		batchUnique := make(map[string]bool)
-		firstId, lastId := "", ""
-
-		for i, doc := range docs {
-			if id, ok := doc["_id"].(string); ok {
-				if i == 0 {
-					firstId = id
-				}
-				lastId = id
-				batchUnique[id] = true
-
-				if lastProcessedId != "" {
-					fmt.Printf("Gap check - Last ID: %s, Current ID: %s\n",
-						lastProcessedId, id)
-				}
-
-				if cumulativeIds[id] {
-					fmt.Printf("WARNING: Duplicate document found - ID: %s (offset: %d)\n",
-						id, offset)
-				}
-				cumulativeIds[id] = true
-			}
-		}
-
-		stats := struct {
-			offset    int
-			batchSize int
-			docsFound int
-			firstId   string
-			lastId    string
-			uniqueIds map[string]bool
-		}{
-			offset:    batchStart,
-			batchSize: m.batchSize,
-			docsFound: len(docs),
-			firstId:   firstId,
-			lastId:    lastId,
-			uniqueIds: batchUnique,
-		}
-		batchStats = append(batchStats, stats)
-
-		fmt.Printf("Batch Details:\n")
-		fmt.Printf("- Offset: %d\n", batchStart)
-		fmt.Printf("- Documents found: %d\n", len(docs))
-		fmt.Printf("- Unique documents in batch: %d\n", len(batchUnique))
-		fmt.Printf("- First document ID: %s\n", firstId)
-		fmt.Printf("- Last document ID: %s\n", lastId)
-
-		if len(docs) > 0 && len(docs) < m.batchSize {
-			fmt.Printf("WARNING: Partial batch found (expected %d, got %d)\n",
-				m.batchSize, len(docs))
-		}
-
-		// Track new vs already processed documents in this batch
-		newDocs := 0
-		skipDocs := 0
-		for _, doc := range docs {
-			if id, ok := doc["_id"].(string); ok {
-				if !processedIds[id] {
-					newDocs++
-				} else {
-					skipDocs++
-					fmt.Printf("Warning: Document %s has already been processed\n", id)
-				}
-			}
-		}
-		fmt.Printf("Batch contains %d documents (%d new, %d already processed)\n",
-			len(docs), newDocs, skipDocs)
-
-		// Process documents we haven't seen before
+		// Simply process all documents without any duplicate checking
 		transformedDocs := make([]map[string]interface{}, 0, len(docs))
 		for _, doc := range docs {
-			id, _ := doc["_id"].(string)
-			if processedIds[id] {
-				continue // Skip already processed documents
-			}
-
 			transformed, err := m.applyTransformers(doc)
 			if err != nil {
-				failedDocs[id] = fmt.Sprintf("transform error: %v", err)
-				fmt.Printf("ERROR: Transform failed for document %v: %v\n", id, err)
+				fmt.Printf("Warning: Failed to transform document %v: %v\n", doc["_id"], err)
 				continue
 			}
 			transformedDocs = append(transformedDocs, transformed)
-			processedIds[id] = true
 		}
 
-		if len(transformedDocs) > 0 {
-			if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
-				fmt.Printf("ERROR: Upsert failed: %v\n", err)
-				continue
-			}
-			totalMigrated += len(transformedDocs)
+		if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
+			fmt.Printf("ERROR: Upsert failed: %v\n", err)
+			continue
+		}
+		totalMigrated += len(transformedDocs)
+
+		if len(docs) < m.batchSize {
+			break
 		}
 
-		lastProcessedId = lastId
-		previousOffset := offset
 		offset += m.batchSize
-		fmt.Printf("Offset progression: %d -> %d\n", previousOffset, offset)
-	}
-
-	// Final Analysis
-	fmt.Printf("\n=== Pagination Analysis ===\n")
-	fmt.Printf("Total batches processed: %d\n", len(batchStats))
-	fmt.Printf("Total unique documents found: %d\n", len(cumulativeIds))
-
-	// Check for gaps between batches
-	for i := 1; i < len(batchStats); i++ {
-		prevBatch := batchStats[i-1]
-		currBatch := batchStats[i]
-		expectedOffset := prevBatch.offset + prevBatch.docsFound
-
-		if currBatch.offset != expectedOffset {
-			fmt.Printf("WARNING: Potential gap between batches:\n")
-			fmt.Printf("- Previous batch ended at offset: %d\n", prevBatch.offset+prevBatch.docsFound)
-			fmt.Printf("- Next batch started at offset: %d\n", currBatch.offset)
-			fmt.Printf("- Gap size: %d\n", currBatch.offset-expectedOffset)
-		}
-	}
-
-	// Verify migration
-	missingIds := []string{}
-	for id := range allSourceIds {
-		if !processedIds[id] {
-			missingIds = append(missingIds, id)
-		}
+		fmt.Printf("Offset progression: %d -> %d\n", offset, offset+m.batchSize)
 	}
 
 	fmt.Printf("\n=== Migration Summary ===\n")
-	fmt.Printf("Total source documents: %d\n", len(allSourceIds))
-	fmt.Printf("Successfully processed: %d\n", len(processedIds))
-	fmt.Printf("Successfully migrated: %d\n", totalMigrated)
-
-	if len(missingIds) > 0 {
-		fmt.Printf("\nMissing Documents (%d):\n", len(missingIds))
-		for _, id := range missingIds {
-			fmt.Printf("- %s\n", id)
-		}
-	}
-
-	if len(failedDocs) > 0 {
-		fmt.Printf("\nFailed Documents (%d):\n", len(failedDocs))
-		for id, reason := range failedDocs {
-			fmt.Printf("- ID: %s\n  Reason: %s\n", id, reason)
-		}
-	}
+	fmt.Printf("Total documents migrated: %d\n", totalMigrated)
 
 	return nil
-}
-
-// Add this method to MarqoClient
-func (c *MarqoClient) GetTotalDocuments(indexName string) (int, error) {
-	// Use search with size=0 to get total count
-	url := fmt.Sprintf("%s/indexes/%s/search", c.baseURL, indexName)
-
-	requestBody := map[string]interface{}{
-		"q":     "*",
-		"limit": 0,
-	}
-
-	jsonBody, err := json.Marshal(requestBody)
-	if err != nil {
-		return 0, err
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return 0, err
-	}
-
-	c.addHeaders(req)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-
-	var result struct {
-		Total int `json:"total"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return 0, err
-	}
-
-	return result.Total, nil
 }
