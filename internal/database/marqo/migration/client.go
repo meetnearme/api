@@ -169,7 +169,7 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
 
 	fmt.Printf("Index creation initiated, waiting for index to be ready...\n")
 
-	endpoint, err := c.waitForIndexReady(indexName, 15*time.Minute)
+	endpoint, err := c.waitForIndexReady(indexName, 16*time.Minute)
 	if err != nil {
 		return "", fmt.Errorf("failed waiting for index: %w", err)
 	}
@@ -376,17 +376,19 @@ func (c *MarqoClient) addHeaders(req *http.Request) {
 
 func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration) (string, error) {
 	start := time.Now()
-	checkInterval := 10 * time.Second
+	checkInterval := 15 * time.Second // Increased from 10s to 15s
 	maxAttempts := int(timeout / checkInterval)
 	attempt := 1
 
 	fmt.Printf("Waiting for index %s to be ready (max %v)...\n", indexName, timeout)
 	for {
 		if time.Since(start) > timeout {
-			return "", fmt.Errorf("timeout waiting for index %s to be ready", indexName)
+			// Add more detailed error information
+			return "", fmt.Errorf("timeout waiting for index %s to be ready after %v (made %d attempts)",
+				indexName, timeout, attempt)
 		}
 
-		url := "https://api.marqo.ai/api/v2/indexes"
+		url := fmt.Sprintf("%s/indexes", c.baseURL)
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return "", err
@@ -413,9 +415,20 @@ func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration)
 
 		for _, idx := range result.Results {
 			if idx.IndexName == indexName {
-				fmt.Printf("Attempt %d/%d: Index status: %s\n", attempt, maxAttempts, idx.IndexStatus)
-				if idx.IndexStatus == "READY" {
+				fmt.Printf("Attempt %d/%d: Index status: %s, Endpoint: %s\n",
+					attempt, maxAttempts, idx.IndexStatus, idx.MarqoEndpoint)
+
+				// Add more detailed status handling
+				switch idx.IndexStatus {
+				case "READY":
 					return idx.MarqoEndpoint, nil
+				case "FAILED":
+					return "", fmt.Errorf("index creation failed for %s", indexName)
+				case "CREATING":
+					// Continue waiting
+					break
+				default:
+					fmt.Printf("Unknown index status: %s\n", idx.IndexStatus)
 				}
 				break
 			}
