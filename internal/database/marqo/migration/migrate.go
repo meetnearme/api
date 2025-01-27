@@ -151,7 +151,8 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 				allSourceIds[id] = true
 			}
 		}
-		offset += m.batchSize
+		// maybe add a minus one so offset is 99 and the item begins at 100 since we are probably zero indexing
+		offset += m.batchSize - 1
 	}
 
 	fmt.Printf("Found %d unique document IDs in source\n", len(allSourceIds))
