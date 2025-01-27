@@ -175,14 +175,14 @@ templ FilterButton() {
 	</button>
 }
 
-func GetPageUserID(pageUser *helpers.UserSearchResult) string {
+func GetPageUserID(pageUser *types.UserSearchResult) string {
 	if pageUser == nil {
 		return ""
 	}
 	return pageUser.UserID
 }
 
-templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong string) {
+templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong string) {
 	if pageUser == nil {
 		<div class="header-hero bg-[#00ffzz]">
 			<h1 class="text-xl md:text-4xl text-center mb-5">

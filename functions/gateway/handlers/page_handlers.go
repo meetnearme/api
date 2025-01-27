@@ -185,14 +185,14 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, address, parseDates, eventSourceTypes, eventSourceIds
 }
 
-func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocation, []float64, *helpers.UserSearchResult, int, error) {
+func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocation, []float64, *types.UserSearchResult, int, error) {
 	// Extract parameter values from the request query parameters
 	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 	userId := mux.Vars(r)[helpers.USER_ID_KEY]
 
 	// Setup channels for concurrent operations
 	type userResult struct {
-		user helpers.UserSearchResult
+		user types.UserSearchResult
 		err  error
 	}
 	type searchResult struct {
@@ -208,7 +208,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	searchChan := make(chan searchResult, 1)
 	aboutChan := make(chan aboutResult, 1)
 
-	var pageUser *helpers.UserSearchResult
+	var pageUser *types.UserSearchResult
 	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
 	if subdomainValue != "" {
 		userId = subdomainValue

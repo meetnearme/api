@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -146,9 +147,9 @@ func (s *PurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbCli
 		return nil, nil, err
 	}
 
-	userMap := map[string]helpers.UserSearchResultDangerous{}
+	userMap := map[string]types.UserSearchResultDangerous{}
 	for _, user := range users {
-		userMap[user.UserID] = helpers.UserSearchResultDangerous{
+		userMap[user.UserID] = types.UserSearchResultDangerous{
 			UserID:      user.UserID,
 			DisplayName: user.DisplayName,
 			Email:       user.Email,

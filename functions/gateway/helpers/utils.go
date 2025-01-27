@@ -306,20 +306,7 @@ type ZitadelUserSearchResponse struct {
 	} `json:"result"`
 }
 
-type UserSearchResult struct {
-	UserID      string            `json:"userId"`
-	DisplayName string            `json:"displayName"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
-}
-
-type UserSearchResultDangerous struct {
-	UserID      string            `json:"userId"`
-	DisplayName string            `json:"displayName"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
-	Email       string            `json:"email,omitempty"`
-}
-
-func SearchUsersByIDs(userIDs []string, dangerous bool) ([]UserSearchResultDangerous, error) {
+func SearchUsersByIDs(userIDs []string, dangerous bool) ([]types.UserSearchResultDangerous, error) {
 	if len(userIDs) == 0 {
 		return nil, fmt.Errorf("userIDs must contain at least one element")
 	}
@@ -346,7 +333,7 @@ func SearchUsersByIDs(userIDs []string, dangerous bool) ([]UserSearchResultDange
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, strings.NewReader(payload))
 	if err != nil {
-		return []UserSearchResultDangerous{}, err
+		return []types.UserSearchResultDangerous{}, err
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -355,13 +342,13 @@ func SearchUsersByIDs(userIDs []string, dangerous bool) ([]UserSearchResultDange
 
 	res, err := client.Do(req)
 	if err != nil {
-		return []UserSearchResultDangerous{}, err
+		return []types.UserSearchResultDangerous{}, err
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return []UserSearchResultDangerous{}, err
+		return []types.UserSearchResultDangerous{}, err
 	}
 
 	var respData ZitadelUserSearchResponse
@@ -371,14 +358,14 @@ func SearchUsersByIDs(userIDs []string, dangerous bool) ([]UserSearchResultDange
 
 	// Return empty array if no results
 	if len(respData.Result) == 0 {
-		return []UserSearchResultDangerous{}, nil
+		return []types.UserSearchResultDangerous{}, nil
 	}
 
 	// Map users to UserSearchResult
-	var results []UserSearchResultDangerous
+	var results []types.UserSearchResultDangerous
 	for _, user := range respData.Result {
 		log.Printf("user: %v", user)
-		appendItem := UserSearchResultDangerous{
+		appendItem := types.UserSearchResultDangerous{
 			UserID:      user.UserID,
 			DisplayName: user.Human.Profile.DisplayName,
 		}
@@ -393,7 +380,7 @@ func SearchUsersByIDs(userIDs []string, dangerous bool) ([]UserSearchResultDange
 	return results, nil
 }
 
-func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
+func SearchUserByEmailOrName(query string) ([]types.UserSearchResult, error) {
 	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users", os.Getenv("ZITADEL_INSTANCE_HOST"))
 	method := "POST"
 
@@ -435,7 +422,7 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, readerPayload)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResult{}, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
@@ -443,12 +430,12 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResult{}, err
 	}
 	defer res.Body.Close()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResult{}, err
 	}
 	var respData ZitadelUserSearchResponse
 	if err := json.Unmarshal(body, &respData); err != nil {
@@ -457,13 +444,13 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 
 	// Return empty array if no results
 	if len(respData.Result) == 0 {
-		return []UserSearchResult{}, nil
+		return []types.UserSearchResult{}, nil
 	}
 
 	// Filter and map active users to UserSearchResult
-	var results []UserSearchResult
+	var results []types.UserSearchResult
 	for _, user := range respData.Result {
-		results = append(results, UserSearchResult{
+		results = append(results, types.UserSearchResult{
 			// we specifically omit `preferredLoginName` because it's an email address and we want
 			// to prevent a scenario where we expose a user's email address to a unauthorized party
 			UserID:      user.UserID,
@@ -475,7 +462,7 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 	return results, nil
 }
 
-func GetOtherUserByID(userID string) (UserSearchResult, error) {
+func GetOtherUserByID(userID string) (types.UserSearchResult, error) {
 	// https://zitadel.com/docs/apis/resources/user_service_v2/user-service-get-user-by-id
 	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID)
 	method := "GET"
@@ -483,7 +470,7 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
-		return UserSearchResult{}, err
+		return types.UserSearchResult{}, err
 	}
 
 	req.Header.Add("Accept", "application/json")
@@ -491,13 +478,13 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return UserSearchResult{}, err
+		return types.UserSearchResult{}, err
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return UserSearchResult{}, err
+		return types.UserSearchResult{}, err
 	}
 
 	// Check for error status codes
@@ -510,9 +497,9 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 			} `json:"details"`
 		}
 		if err := json.Unmarshal(body, &errResp); err != nil {
-			return UserSearchResult{}, fmt.Errorf("failed to get user: status %d", res.StatusCode)
+			return types.UserSearchResult{}, fmt.Errorf("failed to get user: status %d", res.StatusCode)
 		}
-		return UserSearchResult{}, fmt.Errorf("failed to get user: %s", errResp.Message)
+		return types.UserSearchResult{}, fmt.Errorf("failed to get user: %s", errResp.Message)
 	}
 
 	var respData struct {
@@ -528,10 +515,10 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 	}
 
 	if err := json.Unmarshal(body, &respData); err != nil {
-		return UserSearchResult{}, fmt.Errorf("failed to unmarshal response: %w", err)
+		return types.UserSearchResult{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	result := UserSearchResult{
+	result := types.UserSearchResult{
 		UserID:      respData.User.ID,
 		DisplayName: respData.User.Human.Profile.DisplayName,
 	}
@@ -705,9 +692,20 @@ func ToJSON(v interface{}) []byte {
 	return b
 }
 
-func IsAuthorizedEditor(event *types.Event, userInfo *UserInfo) bool {
+func IsAuthorizedEventEditor(event *types.Event, userInfo *UserInfo) bool {
 	for _, ownerId := range event.EventOwners {
 		if ownerId == userInfo.Sub {
+			return true
+		}
+	}
+	return false
+}
+
+func IsAuthorizedCompetitionEditor(competition types.CompetitionConfig, userInfo *UserInfo) bool {
+	allOwners := []string{competition.PrimaryOwner}
+	allOwners = append(allOwners, competition.AuxilaryOwners...)
+	for _, owner := range allOwners {
+		if owner == userInfo.Sub {
 			return true
 		}
 	}
@@ -726,8 +724,14 @@ func HasRequiredRole(roleClaims []RoleClaim, requiredRoles []string) bool {
 }
 
 func CanEditEvent(event *types.Event, userInfo *UserInfo, roleClaims []RoleClaim) bool {
-	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin", "eventAdmin"})
-	isEditor := IsAuthorizedEditor(event, userInfo)
+	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin"})
+	isEditor := IsAuthorizedEventEditor(event, userInfo)
+	return hasSuperAdminRole || isEditor
+}
+
+func CanEditCompetition(competition types.CompetitionConfig, userInfo *UserInfo, roleClaims []RoleClaim) bool {
+	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin"})
+	isEditor := IsAuthorizedCompetitionEditor(competition, userInfo)
 	return hasSuperAdminRole || isEditor
 }
 
