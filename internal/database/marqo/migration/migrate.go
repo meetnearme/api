@@ -156,18 +156,86 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 
 	fmt.Printf("Found %d unique document IDs in source\n", len(allSourceIds))
 
+	// Add debug tracking
+	batchStats := make([]struct {
+		offset    int
+		batchSize int
+		docsFound int
+		firstId   string
+		lastId    string
+		uniqueIds map[string]bool
+	}, 0)
+
+	// Track cumulative stats
+	cumulativeIds := make(map[string]bool)
+	lastProcessedId := ""
+
 	// Reset offset for actual migration
 	offset = 0
 	totalMigrated := 0
 
 	// Process documents
 	for {
+		batchStart := offset
+		fmt.Printf("\n=== Batch Analysis (Offset: %d) ===\n", offset)
+
 		docs, err := m.sourceClient.Search(sourceIndex, "*", offset, m.batchSize)
 		if err != nil {
 			return fmt.Errorf("failed to fetch documents at offset %d: %w", offset, err)
 		}
-		if len(docs) == 0 {
-			break
+
+		// Collect batch statistics
+		batchUnique := make(map[string]bool)
+		firstId, lastId := "", ""
+
+		for i, doc := range docs {
+			if id, ok := doc["_id"].(string); ok {
+				if i == 0 {
+					firstId = id
+				}
+				lastId = id
+				batchUnique[id] = true
+
+				if lastProcessedId != "" {
+					fmt.Printf("Gap check - Last ID: %s, Current ID: %s\n",
+						lastProcessedId, id)
+				}
+
+				if cumulativeIds[id] {
+					fmt.Printf("WARNING: Duplicate document found - ID: %s (offset: %d)\n",
+						id, offset)
+				}
+				cumulativeIds[id] = true
+			}
+		}
+
+		stats := struct {
+			offset    int
+			batchSize int
+			docsFound int
+			firstId   string
+			lastId    string
+			uniqueIds map[string]bool
+		}{
+			offset:    batchStart,
+			batchSize: m.batchSize,
+			docsFound: len(docs),
+			firstId:   firstId,
+			lastId:    lastId,
+			uniqueIds: batchUnique,
+		}
+		batchStats = append(batchStats, stats)
+
+		fmt.Printf("Batch Details:\n")
+		fmt.Printf("- Offset: %d\n", batchStart)
+		fmt.Printf("- Documents found: %d\n", len(docs))
+		fmt.Printf("- Unique documents in batch: %d\n", len(batchUnique))
+		fmt.Printf("- First document ID: %s\n", firstId)
+		fmt.Printf("- Last document ID: %s\n", lastId)
+
+		if len(docs) > 0 && len(docs) < m.batchSize {
+			fmt.Printf("WARNING: Partial batch found (expected %d, got %d)\n",
+				m.batchSize, len(docs))
 		}
 
 		// Track new vs already processed documents in this batch
@@ -212,10 +280,29 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 			totalMigrated += len(transformedDocs)
 		}
 
+		lastProcessedId = lastId
+		previousOffset := offset
 		offset += m.batchSize
-		fmt.Printf("Progress: %d/%d documents processed (%.2f%%)\n",
-			len(processedIds), len(allSourceIds),
-			float64(len(processedIds))/float64(len(allSourceIds))*100)
+		fmt.Printf("Offset progression: %d -> %d\n", previousOffset, offset)
+	}
+
+	// Final Analysis
+	fmt.Printf("\n=== Pagination Analysis ===\n")
+	fmt.Printf("Total batches processed: %d\n", len(batchStats))
+	fmt.Printf("Total unique documents found: %d\n", len(cumulativeIds))
+
+	// Check for gaps between batches
+	for i := 1; i < len(batchStats); i++ {
+		prevBatch := batchStats[i-1]
+		currBatch := batchStats[i]
+		expectedOffset := prevBatch.offset + prevBatch.docsFound
+
+		if currBatch.offset != expectedOffset {
+			fmt.Printf("WARNING: Potential gap between batches:\n")
+			fmt.Printf("- Previous batch ended at offset: %d\n", prevBatch.offset+prevBatch.docsFound)
+			fmt.Printf("- Next batch started at offset: %d\n", currBatch.offset)
+			fmt.Printf("- Gap size: %d\n", currBatch.offset-expectedOffset)
+		}
 	}
 
 	// Verify migration
