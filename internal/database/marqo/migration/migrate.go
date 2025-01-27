@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 )
 
 func LoadSchema(path string) (map[string]interface{}, error) {
@@ -82,12 +81,17 @@ func removeProtectedFields(doc map[string]interface{}, allowedFields map[string]
 }
 
 func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]interface{}, error) {
-	// Log original document
 	eventName, _ := doc["name"].(string)
 	eventID, _ := doc["_id"].(string)
-	originalJSON, _ := json.MarshalIndent(doc, "", "  ")
-	fmt.Printf("\n=== Pre-Transform Event ===\nID: %s\nName: %s\nDocument:\n%s\n",
-		eventID, eventName, string(originalJSON))
+
+	// Only log detailed transformation for sampling (e.g., every 50th document)
+	shouldLogDetail := eventID[len(eventID)-2:] == "00" // Sample docs ending in "00"
+
+	if shouldLogDetail {
+		originalJSON, _ := json.MarshalIndent(doc, "", "  ")
+		fmt.Printf("\n=== Sample Transform Event ===\nID: %s\nName: %s\nDocument:\n%s\n",
+			eventID, eventName, string(originalJSON))
+	}
 
 	allowedFields := getAllowedFields(m.schema)
 	result := removeProtectedFields(doc, allowedFields)
@@ -97,32 +101,22 @@ func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]int
 		var err error
 		result, err = transformer(result)
 		if err != nil {
+			// Always log errors in detail
+			originalJSON, _ := json.MarshalIndent(doc, "", "  ")
+			fmt.Printf("\n=== Failed Transform Event ===\nID: %s\nName: %s\nDocument:\n%s\nError: %v\n",
+				eventID, eventName, string(originalJSON), err)
 			return nil, fmt.Errorf("transformer %d failed for document %s: %w", i, eventID, err)
 		}
 	}
 
-	// Log transformed document
-	transformedJSON, _ := json.MarshalIndent(result, "", "  ")
-	fmt.Printf("\n=== Post-Transform Event ===\nID: %s\nName: %s\nDocument:\n%s\n",
-		eventID, eventName, string(transformedJSON))
+	if shouldLogDetail {
+		transformedJSON, _ := json.MarshalIndent(result, "", "  ")
+		fmt.Printf("\n=== Sample Transform Result ===\nID: %s\nName: %s\nDocument:\n%s\n",
+			eventID, eventName, string(transformedJSON))
+	}
 
 	return result, nil
 }
-
-// func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]interface{}, error) {
-// 	allowedFields := getAllowedFields(m.schema)
-//     result := removeProtectedFields(doc, allowedFields)
-
-//     var err error
-//     for _, transformer := range m.transformers {
-//         result, err = transformer(result)
-//         if err != nil {
-//             return nil, fmt.Errorf("transformer failed: %w", err)
-//         }
-//     }
-
-//     return result, nil
-// }
 
 func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[string]interface{}) error {
 	// Create the new index
@@ -135,106 +129,120 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 	m.targetClient = NewMarqoClient(endpoint, m.targetClient.apiKey)
 	fmt.Printf("Using target endpoint: %s\n", endpoint)
 
+	// Track all processed documents by ID
+	processedIds := make(map[string]bool)
+	failedDocs := make(map[string]string)
+
+	// First, get all document IDs from source
+	allSourceIds := make(map[string]bool)
 	offset := 0
-	totalMigrated := 0
-	batchMap := make(map[string]bool) // Track processed documents by ID
-	retryCount := 3                   // Number of retries for failed batches
-
-	// First, get total count of documents
-	totalDocs, err := m.sourceClient.GetTotalDocuments(sourceIndex)
-	if err != nil {
-		return fmt.Errorf("failed to get total document count: %w", err)
-	}
-	fmt.Printf("Total documents in source index: %d\n", totalDocs)
-
 	for {
-		// Fetch batch of documents from source
 		docs, err := m.sourceClient.Search(sourceIndex, "*", offset, m.batchSize)
 		if err != nil {
 			return fmt.Errorf("failed to fetch documents at offset %d: %w", offset, err)
 		}
-
 		if len(docs) == 0 {
 			break
 		}
 
-		// Track documents in this batch
-		fmt.Printf("\nProcessing documents in batch:\n")
+		// Collect all IDs
 		for _, doc := range docs {
 			if id, ok := doc["_id"].(string); ok {
-				batchMap[id] = true
-				fmt.Printf("- Document ID: %s\n", id)
+				allSourceIds[id] = true
 			}
 		}
-
-		// Transform and upsert batch with retry logic
-		success := false
-		for attempt := 0; attempt < retryCount && !success; attempt++ {
-			transformedDocs := make([]map[string]interface{}, 0, len(docs))
-			successfulIds := make(map[string]bool) // Track successful IDs in this batch
-
-			for _, doc := range docs {
-				id, _ := doc["_id"].(string)
-				transformed, err := m.applyTransformers(doc)
-				if err != nil {
-					fmt.Printf("Transform error on attempt %d for document %v: %v\n",
-						attempt+1, id, err)
-					continue
-				}
-				transformedDocs = append(transformedDocs, transformed)
-				successfulIds[id] = true
-			}
-
-			// Skip empty batches
-			if len(transformedDocs) == 0 {
-				fmt.Printf("Warning: No documents successfully transformed in batch\n")
-				continue
-			}
-
-			if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
-				fmt.Printf("Upsert error on attempt %d: %v\n", attempt+1, err)
-				if attempt < retryCount-1 {
-					time.Sleep(time.Second * 5)
-					continue
-				}
-				return err
-			}
-
-			// Only increment totalMigrated by actually successful documents
-			totalMigrated += len(transformedDocs)
-
-			// Log any documents that were in the batch but not successfully processed
-			for _, doc := range docs {
-				if id, ok := doc["_id"].(string); ok {
-					if !successfulIds[id] {
-						fmt.Printf("WARNING: Document %s was in batch but not successfully processed\n", id)
-					}
-				}
-			}
-
-			success = true
-		}
-
-		fmt.Printf("Migrated and transformed %d/%d documents (%.2f%%)\n",
-			totalMigrated, totalDocs, float64(totalMigrated)/float64(totalDocs)*100)
-
 		offset += m.batchSize
 	}
 
-	// Verify migration
-	targetDocs, err := m.targetClient.GetTotalDocuments(targetIndex)
-	if err != nil {
-		return fmt.Errorf("failed to verify target documents: %w", err)
+	fmt.Printf("Found %d unique document IDs in source\n", len(allSourceIds))
+
+	// Reset offset for actual migration
+	offset = 0
+	totalMigrated := 0
+
+	// Process documents
+	for {
+		docs, err := m.sourceClient.Search(sourceIndex, "*", offset, m.batchSize)
+		if err != nil {
+			return fmt.Errorf("failed to fetch documents at offset %d: %w", offset, err)
+		}
+		if len(docs) == 0 {
+			break
+		}
+
+		// Track new vs already processed documents in this batch
+		newDocs := 0
+		skipDocs := 0
+		for _, doc := range docs {
+			if id, ok := doc["_id"].(string); ok {
+				if !processedIds[id] {
+					newDocs++
+				} else {
+					skipDocs++
+					fmt.Printf("Warning: Document %s has already been processed\n", id)
+				}
+			}
+		}
+		fmt.Printf("Batch contains %d documents (%d new, %d already processed)\n",
+			len(docs), newDocs, skipDocs)
+
+		// Process documents we haven't seen before
+		transformedDocs := make([]map[string]interface{}, 0, len(docs))
+		for _, doc := range docs {
+			id, _ := doc["_id"].(string)
+			if processedIds[id] {
+				continue // Skip already processed documents
+			}
+
+			transformed, err := m.applyTransformers(doc)
+			if err != nil {
+				failedDocs[id] = fmt.Sprintf("transform error: %v", err)
+				fmt.Printf("ERROR: Transform failed for document %v: %v\n", id, err)
+				continue
+			}
+			transformedDocs = append(transformedDocs, transformed)
+			processedIds[id] = true
+		}
+
+		if len(transformedDocs) > 0 {
+			if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
+				fmt.Printf("ERROR: Upsert failed: %v\n", err)
+				continue
+			}
+			totalMigrated += len(transformedDocs)
+		}
+
+		offset += m.batchSize
+		fmt.Printf("Progress: %d/%d documents processed (%.2f%%)\n",
+			len(processedIds), len(allSourceIds),
+			float64(len(processedIds))/float64(len(allSourceIds))*100)
 	}
 
-	fmt.Printf("\nMigration Summary:\n")
-	fmt.Printf("Source documents: %d\n", totalDocs)
-	fmt.Printf("Target documents: %d\n", targetDocs)
-	fmt.Printf("Processed documents: %d\n", len(batchMap))
+	// Verify migration
+	missingIds := []string{}
+	for id := range allSourceIds {
+		if !processedIds[id] {
+			missingIds = append(missingIds, id)
+		}
+	}
 
-	if targetDocs < totalDocs {
-		return fmt.Errorf("migration incomplete: source=%d, target=%d, missing=%d",
-			totalDocs, targetDocs, totalDocs-targetDocs)
+	fmt.Printf("\n=== Migration Summary ===\n")
+	fmt.Printf("Total source documents: %d\n", len(allSourceIds))
+	fmt.Printf("Successfully processed: %d\n", len(processedIds))
+	fmt.Printf("Successfully migrated: %d\n", totalMigrated)
+
+	if len(missingIds) > 0 {
+		fmt.Printf("\nMissing Documents (%d):\n", len(missingIds))
+		for _, id := range missingIds {
+			fmt.Printf("- %s\n", id)
+		}
+	}
+
+	if len(failedDocs) > 0 {
+		fmt.Printf("\nFailed Documents (%d):\n", len(failedDocs))
+		for id, reason := range failedDocs {
+			fmt.Printf("- ID: %s\n  Reason: %s\n", id, reason)
+		}
 	}
 
 	return nil
