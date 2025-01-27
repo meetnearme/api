@@ -24,7 +24,12 @@ type IndexInfo struct {
 }
 
 type ListIndexesResponse struct {
-	Results []IndexInfo `json:"results"`
+	Results []struct {
+		IndexName     string `json:"indexName"`
+		IndexStatus   string `json:"indexStatus"`
+		MarqoEndpoint string `json:"marqoEndpoint"`
+		Created       string `json:"Created"`
+	} `json:"results"`
 }
 
 type Schema struct {

@@ -70,16 +70,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	sourceIndex, err := migrator.sourceClient.GetCurrentIndex(*env)
+	sourceIndex, sourceEndpoint, err := migrator.sourceClient.GetCurrentIndex(*env)
 	if err != nil {
 		fmt.Printf("Failed to get current index: %v\n", err)
 		os.Exit(1)
 	}
 
+	// Update the source client with the correct endpoint
+	migrator.sourceClient = NewMarqoClient(sourceEndpoint, apiKey)
+
 	timestamp := time.Now().UTC().Format("2006-01-02-1504")
 	targetIndex := fmt.Sprintf("%s-events-%s", *env, timestamp)
 
-	fmt.Printf("Starting migration from %s to %s\n", sourceIndex, targetIndex)
+	fmt.Printf("Starting migration from %s (endpoint: %s) to %s\n",
+		sourceIndex, sourceEndpoint, targetIndex)
 	fmt.Printf("Using transformers: %v\n", transformerNames)
 	fmt.Printf("Batch size: %d\n", *batchSize)
 
@@ -93,12 +97,12 @@ func main() {
 
 }
 
-func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, error) {
-	url := fmt.Sprintf("%s/indexes", c.baseURL)
+func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, string, error) {
+	url := "https://api.marqo.ai/api/v2/indexes"
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -106,44 +110,51 @@ func (c *MarqoClient) GetCurrentIndex(envPrefix string) (string, error) {
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to get indexes: %w", err)
+		return "", "", fmt.Errorf("failed to get indexes: %w", err)
 	}
 	defer resp.Body.Close()
 
 	var result ListIndexesResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
+		return "", "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	// find most recent index with our prefix
 	var mostRecent string
 	var mostRecentTime time.Time
+	var mostRecentEndpoint string
 
 	prefix := fmt.Sprintf("%s-events-", envPrefix)
+	fmt.Printf("Looking for indexes with prefix: %s\n", prefix)
+
 	for _, idx := range result.Results {
+		fmt.Printf("Checking index: %s (Created: %s)\n", idx.IndexName, idx.Created)
 		if strings.HasPrefix(idx.IndexName, prefix) {
 			parts := strings.Split(idx.IndexName, "-")
 			if len(parts) < 4 {
 				continue
 			}
 
-			timestamp := parts[len(parts)-2]
+			timestamp := parts[len(parts)-2] + "-" + parts[len(parts)-1]
 			indexTime, err := time.ParseInLocation("2006-01-02-1504", timestamp, time.UTC)
 			if err != nil {
+				fmt.Printf("Warning: Could not parse time for index %s: %v\n", idx.IndexName, err)
 				continue
 			}
 
 			if mostRecent == "" || indexTime.After(mostRecentTime) {
 				mostRecent = idx.IndexName
 				mostRecentTime = indexTime
+				mostRecentEndpoint = idx.MarqoEndpoint
+				fmt.Printf("New most recent index found: %s (Time: %s)\n", mostRecent, indexTime)
 			}
 		}
 	}
 
-	// this is the fal back to the original naming and will not be in use later.
 	if mostRecent == "" {
-		return fmt.Sprintf("%s-events-search-index", envPrefix), nil
+		return fmt.Sprintf("%s-events-search-index", envPrefix), c.baseURL, nil
 	}
 
-	return mostRecent, nil
+	fmt.Printf("Selected most recent index: %s with endpoint: %s\n", mostRecent, mostRecentEndpoint)
+	return mostRecent, mostRecentEndpoint, nil
 }
