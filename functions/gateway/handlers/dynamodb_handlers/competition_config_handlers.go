@@ -38,7 +38,10 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 
-	log.Printf("User Info: %+v", userInfo)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get competitionConfig: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
 
 	err = json.Unmarshal(body, &updateCompetitionConfigPayload)
 	if err != nil {
@@ -46,8 +49,19 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		return
 	}
 
+	var getCompetitionConfigResponse internal_types.CompetitionConfigResponse
 	if updateCompetitionConfigPayload.Id == "" {
 		updateCompetitionConfigPayload.Id = uuid.NewString()
+	} else {
+		db := transport.GetDB()
+
+		service := dynamodb_service.NewCompetitionConfigService()
+		getCompetitionConfigResponse, err = service.GetCompetitionConfigById(ctx, db, updateCompetitionConfigPayload.Id)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get competitionConfig: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
 	}
 
 	now := time.Now().Unix()
@@ -64,7 +78,6 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 	roundsData := updateCompetitionConfigPayload.Rounds
 
 	log.Printf("roundsData: %+v", roundsData)
-
 	// Create target struct
 	var configUpdate internal_types.CompetitionConfigUpdate
 
@@ -111,12 +124,16 @@ func (h *CompetitionConfigHandler) GetCompetitionConfigsById(w http.ResponseWrit
 		return
 	}
 
-	if eventCompetitionConfig == nil {
+	if eventCompetitionConfig.Id == "" {
 		transport.SendServerRes(w, []byte("CompetitionConfig not found"), http.StatusNotFound, nil)
 		return
 	}
 
-	response, err := json.Marshal(eventCompetitionConfig)
+	var CompetitionConfigResponse internal_types.CompetitionConfigResponse
+	CompetitionConfigResponse.CompetitionConfig = eventCompetitionConfig.CompetitionConfig
+	CompetitionConfigResponse.Owners = eventCompetitionConfig.Owners
+
+	response, err := json.Marshal(CompetitionConfigResponse)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
 		return

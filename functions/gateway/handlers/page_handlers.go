@@ -630,9 +630,8 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 
 	var pageObj helpers.SitePage
 	var competitionConfig internal_types.CompetitionConfig
-
+	var users []types.UserSearchResultDangerous
 	pageObj = helpers.SitePages["add-competition"]
-	log.Println("competition", competitionConfig)
 	// Check if we are editing or adding
 	if competitionId == "" {
 		pageObj = helpers.SitePages["competition-new"]
@@ -643,25 +642,21 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 		}
 	} else {
 		//
-		// add competition ID to schema change in Marqo
+		// TODO: add competition ID to schema change in Marqo
 		//
 		eventCompetitionRoundService := dynamodb_service.NewCompetitionConfigService()
 		pageObj = helpers.SitePages["edit-competition"]
-		competitionConfigPointer, err := eventCompetitionRoundService.GetCompetitionConfigById(ctx, db, competitionId)
-		if err != nil || competitionConfigPointer == nil {
+		competitionConfigResponse, err := eventCompetitionRoundService.GetCompetitionConfigById(ctx, db, competitionId)
+		if err != nil || competitionConfigResponse.CompetitionConfig.Id == "" {
 			return transport.SendHtmlRes(w, []byte("Failed to get competition: "+err.Error()),
 				http.StatusInternalServerError, "page", err)
 		}
-		competitionConfig = *competitionConfigPointer
-
-		// if !helpers.CanEditCompetition(&competition, &userInfo, roleClaims) {
-		// 	err := errors.New("You are not authorized to edit this competition")
-		// 	return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
-		// }
+		competitionConfig = competitionConfigResponse.CompetitionConfig
+		users = competitionConfigResponse.Owners
 	}
-	log.Printf("pageObj: %+v", pageObj)
-	competitionPage := pages.AddOrEditCompetitionPage(pageObj, competitionConfig)
-	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, []string{})
+
+	competitionPage := pages.AddOrEditCompetitionPage(pageObj, competitionConfig, users)
+	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)

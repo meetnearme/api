@@ -9,7 +9,7 @@ import (
 
 // CompetitionConfigInterface defines the methods for competition-related operations
 type CompetitionConfigServiceInterface interface {
-	GetCompetitionConfigById(ctx context.Context, dynamodbClient DynamoDBAPI, id string) (*CompetitionConfig, error)
+	GetCompetitionConfigById(ctx context.Context, dynamodbClient DynamoDBAPI, id string) (CompetitionConfigResponse, error)
 	GetCompetitionConfigsByPrimaryOwner(ctx context.Context, dynamodbClient DynamoDBAPI, primaryOwner string) (*[]CompetitionConfig, error)
 	UpdateCompetitionConfig(ctx context.Context, dynamodbClient DynamoDBAPI, id string, competitionConfig CompetitionConfigUpdate) (*CompetitionConfig, error)
 	DeleteCompetitionConfig(ctx context.Context, dynamodbClient DynamoDBAPI, id string) error
@@ -54,6 +54,11 @@ type CompetitionConfig struct {
 	Status        string             `json:"status" dynamodbav:"status" validate:"required,oneof=DRAFT ACTIVE COMPLETE"`
 	CreatedAt     int64              `json:"createdAt" dynamodbav:"createdAt"`
 	UpdatedAt     int64              `json:"updatedAt" dynamodbav:"updatedAt"`
+}
+
+type CompetitionConfigResponse struct {
+	CompetitionConfig
+	Owners []UserSearchResultDangerous `json:"owners"`
 }
 
 type CompetitionConfigUpdatePayload struct {

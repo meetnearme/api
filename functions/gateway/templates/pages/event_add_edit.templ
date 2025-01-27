@@ -926,7 +926,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					// The API expects RFC3339 HH:MM:SS, but datetime-local is in HH:MM
 					timeZuluSuffix: ":00Z",
 					// BEGIN: Event Owners typeahead state
-
 					allOptions: [],
 					options: [],
 					isOpen: false,
@@ -965,16 +964,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							this.$nextTick(() => {
 								document.querySelector('[x-ref=ownerSearch]').focus();
 							})
-					},
-					getFilteredOptions(query) {
-							this.options = this.allOptions.filter((option) =>
-									option.label.toLowerCase().includes(query.toLowerCase()),
-							)
-							if (this.options.length === 0) {
-									this.$refs.noResultsMessage.classList.remove('hidden')
-							} else {
-									this.$refs.noResultsMessage.classList.add('hidden')
-							}
 					},
 					handleKeydownOnOptions(event) {
 							// if the user presses backspace or the alpha-numeric keys, focus on the search field

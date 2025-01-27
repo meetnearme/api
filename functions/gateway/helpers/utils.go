@@ -364,7 +364,6 @@ func SearchUsersByIDs(userIDs []string, dangerous bool) ([]types.UserSearchResul
 	// Map users to UserSearchResult
 	var results []types.UserSearchResultDangerous
 	for _, user := range respData.Result {
-		log.Printf("user: %v", user)
 		appendItem := types.UserSearchResultDangerous{
 			UserID:      user.UserID,
 			DisplayName: user.Human.Profile.DisplayName,

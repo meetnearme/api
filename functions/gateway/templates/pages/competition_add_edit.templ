@@ -5,7 +5,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
-templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.CompetitionConfig) {
+templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.CompetitionConfig, users []types.UserSearchResultDangerous) {
 	<div x-data="getEditCompetitionState()">
 		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
 			<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
@@ -62,39 +62,111 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				</div>
 				// Competition Owners
 				<div class="form-control">
-					<label class="label">Additional Owners</label>
-					<div class="auxilaryOwners" id="auxilaryOwnersList">
-						<template x-for="owner in formData.auxilaryOwners">
-							<span class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2">
-								<span x-text="owner.label"></span>
-								<button
-									aria-label="remove owner"
-									class="btn btn-circle btn-neutral btn-xs"
-									@click="removeOwner(owner)"
-								>×</button>
-							</span>
-						</template>
-					</div>
-					// Owner Search Input
-					<div class="relative" x-data="{ isOpen: false }">
-						<input
-							type="text"
-							class="input input-bordered w-full"
-							placeholder="Search for auxilaryOwners..."
-							@input.throttle="fetchUsers($event.target.value)"
-							@focus="isOpen = true"
-						/>
-						<div
-							x-show="isOpen"
-							class="absolute z-50 w-full mt-1 bg-base-100 rounded-md shadow-lg"
-						>
-							<template x-for="option in ownerOptions">
-								<div
-									class="p-2 hover:bg-base-200 cursor-pointer"
-									@click="selectOwner(option)"
-									x-text="option.label"
-								></div>
+					<label class="label">Additional Admins</label>
+					<div class="form-control">
+						<label class="label">{ helpers.GetFieldDisplayName("EventOwners") }</label>
+						<div class="tags" id="ownersList">
+							<template x-for="owner in owners">
+								<span
+									class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
+								>
+									<template x-if="owner.label">
+										<span x-text="owner.label"></span>
+									</template>
+									<template x-if="!owner.label">
+										<span class="loading loading-spinner loading-sm"></span>
+									</template>
+									<button aria-label="remove owner" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeOwner(owner)" :disabled="saveReqInFlight">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-6 w-6"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M6 18L18 6M6 6l12 12"
+											></path>
+										</svg>
+									</button>
+								</span>
 							</template>
+						</div>
+					</div>
+				</div>
+				<div class="form-control">
+					<div class="flex w-full flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
+						<div class="relative">
+							<input
+								type="text"
+								class="input input-bordered w-full disabled:cursor-not-allowed disabled:opacity-75 "
+								name="ownerSearch"
+								aria-label="Add event owners (search by name, organization, or email)"
+								@input.throttle="fetchUsers($event.target.value)"
+								x-ref="ownerSearch"
+								placeholder="Add event owners (search by name, organization, or email)"
+								class="input input-bordered"
+								role="combobox"
+								aria-controls="ownersList"
+								aria-haspopup="listbox"
+								x-on:click="isOpen = ! isOpen"
+								x-on:keydown.down.prevent="
+								isOpen = true;
+								openedWithKeyboard = true;
+								$nextTick(() => {
+									$el.closest('.relative').querySelector('li[role=option]')?.focus()
+								})"
+								x-bind:aria-expanded="isOpen || openedWithKeyboard"
+								autocomplete="new-password"
+								:disabled="saveReqInFlight"
+							/>
+							<div
+								x-show="isOpen || openedWithKeyboard"
+								:class="{'opacity-100': isOpen || openedWithKeyboard}"
+								class="w-full opacity-0 transition-all absolute left-0 top-12 z-50 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
+								id="ownersList"
+								role="listbox"
+								aria-label="event owners list"
+								x-on:click.outside="isOpen = false, openedWithKeyboard = false"
+								x-on:keydown.down.prevent="$focus.wrap().next()"
+								x-on:keydown.up.prevent="
+								if ($el.querySelector('li:focus') === $refs.optionsList.querySelector('li[role=option]')) {
+									isOpen = false;
+									openedWithKeyboard = false;
+									$nextTick(() => {
+											document.querySelector('[x-ref=ownerSearch]').focus();
+									});
+								} else {
+										$focus.wrap().previous()
+								}
+							"
+								x-transition
+								x-trap="openedWithKeyboard"
+							>
+								<!-- Options  -->
+								<ul x-ref="optionsList" class="flex max-h-44 flex-col overflow-y-auto">
+									<template x-if="options?.length < 1">
+										<li class="px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
+											<span>No matches found</span>
+										</li>
+									</template>
+									<template x-for="(item, index) in options" :key="index">
+										<li
+											class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white"
+											role="option"
+											@click="setSelectedOwner(item)"
+											@keydown.enter="setSelectedOwner(item)"
+											:id="'option-' + index"
+											tabindex="0"
+										>
+											<span x-text="item.label"></span>
+										</li>
+									</template>
+								</ul>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -115,15 +187,27 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									x-model="round.name"
 									placeholder="Round name"
 								/>
-								<button
-									class="btn btn-circle btn-sm"
-									@click="removeRound(index)"
-								>×</button>
+								<button aria-label="remove round" class="btn btn-circle btn-neutral  btn-xs" @click="removeRound(index)" :disabled="saveReqInFlight">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-6 w-6"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M6 18L18 6M6 6l12 12"
+										></path>
+									</svg>
+								</button>
 							</div>
 						</template>
 					</div>
 					<button
-						class="btn btn-outline mt-4"
+						class="btn btn-primary w-full mt-4"
 						@click="addRound"
 					>Add Round</button>
 				</div>
@@ -135,73 +219,104 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 			<button class="btn btn-primary mx-4" @click="saveCompetition">Save Competition</button>
 		</div>
 	</div>
-	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) }>
+	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) }>
 		function getEditCompetitionState() {
 			return {
 				init() {
-					// Initialize state from existing competition data
-					const competitionData = JSON.parse(
-						document.querySelector('#add-edit-competition')
-							.getAttribute('data-competition-auxilary-owners')
-					);
-					this.auxilaryOwners = competitionData?.auxilaryOwners || [];
-					this.rounds = competitionData?.rounds || [];
+					// Initialize owners from the data attribute
+					let ownersData = JSON.parse(
+						document.querySelector('#add-edit-competition').getAttribute('data-competition-owners')
+					) ?? [];
+
+					// Transform owners into the required format
+					ownersData = ownersData.filter(owner => owner.userId !== this.formData.primaryOwner)
+					console.log('ownersData', ownersData)
+					this.owners = ownersData.map(owner => ({
+						label: owner.displayName,
+						value: owner.userId
+					}));
+
+					// Set initial options to current owners
+					this.allOptions = this.owners;
+
+					console.log('formData.auxilaryOwners', this.formData.auxilaryOwners);
+					console.log('formData.primaryOwner', this.formData.primaryOwner);
+					console.log('owners', this.owners);
 				},
 				formData: {
 					name: document.querySelector('#add-edit-competition').getAttribute('data-competition-name'),
 					moduleType: document.querySelector('#add-edit-competition').getAttribute('data-competition-module-type'),
 					scoringMethod: document.querySelector('#add-edit-competition').getAttribute('data-competition-scoring-method'),
+					primaryOwner: document.querySelector('#add-edit-competition').getAttribute('data-competition-primary-owner'),
 					auxilaryOwners: JSON.parse(document.querySelector('#add-edit-competition').getAttribute('data-competition-auxilary-owners')) ?? [],
 					rounds: [],
 				},
-				ownerOptions: [],
-				isLoading: false,
+				saveReqInFlight: false,
+				// BEGIN: Competition Additional Owners typeahead state
+				allOptions: [],
+				owners: [],
+				isOpen: false,
+				openedWithKeyboard: false,
+				// END: Competition Additional Owners typeahead state
 
+				// Add the typeahead helper functions
 				async fetchUsers(query) {
-					if (query.length < 3) return;
-
-					try {
-						const response = await fetch(`/api/user-search?q=${query}`);
-						const users = await response.json();
-						this.ownerOptions = users.map(user => ({
-							label: user.displayName,
-							value: user.userId
-						}));
-					} catch (error) {
-						console.error('Error fetching users:', error);
+					if (query.length >= 3) {
+						await fetch(`/api/user-search?q=${query}`).then(res => {
+							return res.json()
+						}).then(json => {
+							// Filter out users that are already owners
+							const filteredUsers = json.filter(user =>
+								!this.owners.some(owner => owner.value === user.userId)
+							);
+							this.options = filteredUsers.map((user) => ({
+									label: user.displayName,
+									value: user.userId,
+							}))
+							this.$nextTick(() => {
+								this.isOpen = true
+							})
+						});
 					}
 				},
-
-				selectOwner(owner) {
-					this.formData.auxilaryOwners.push(owner);
-					this.ownerOptions = this.ownerOptions.filter(o => o.value !== owner.value);
+				removeOwner(ownerToRemove) {
+						this.owners = this.owners.filter(owner => owner !== ownerToRemove);
 				},
-
-				removeOwner(owner) {
-					this.formData.auxilaryOwners = this.formData.auxilaryOwners.filter(o => o.value !== owner.value);
+				setSelectedOwner(option) {
+						this.isOpen = false
+						this.owners.push(option);
+						this.options = this.options.filter(o => o.value !== option.value)
+						this.$nextTick(() => {
+							document.querySelector('[x-ref=ownerSearch]').focus();
+						})
 				},
-
+				handleKeydownOnOptions(event) {
+						// if the user presses backspace or the alpha-numeric keys, focus on the search field
+						if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
+								this.$refs.ownerSearch.focus()
+						}
+				},
+				// END: Competition Additional Owners typeahead helper functions
 				addRound() {
-					this.rounds.push({
-						name: `Round ${this.rounds.length + 1}`,
+					this.formData.rounds.push({
+						name: `Round ${this.formData.rounds.length + 1}`,
 						competitors: []
 					});
 				},
-
 				removeRound(index) {
 					this.rounds.splice(index, 1);
 				},
-
 				async saveCompetition() {
-					this.isLoading = true;
+					this.isSaveReqInFlight = true;
 					try {
 						// Implement save logic
 						const competitionData = {
 							name: document.querySelector('#name').value,
 							moduleType: this.formData.moduleType,
 							scoringMethod: this.formData.scoringMethod,
-							auxilaryOwners: this.formData.auxilaryOwners.map(owner => owner.value),
-							rounds: this.rounds
+							auxilaryOwners: this.owners.map(owner => owner.value),
+							rounds: this.rounds,
+							owners: this.owners.map(owner => owner.value),
 						};
 
 						await fetch('/api/competition-config', {
@@ -217,7 +332,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						console.error('Error saving competition:', error);
 						// Handle error (show error message)
 					} finally {
-						this.isLoading = false;
+						this.isSaveReqInFlight = false;
 					}
 				}
 			}

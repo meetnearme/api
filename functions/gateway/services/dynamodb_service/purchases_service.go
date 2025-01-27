@@ -274,6 +274,34 @@ func (s *PurchaseService) DeletePurchase(ctx context.Context, dynamodbClient int
 	return nil
 }
 
+func (s *PurchaseService) HasPurchaseForEvent(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, childEventId, parentEventId, userId string) (bool, error) {
+	selectInput := &dynamodb.ExecuteStatementInput{
+		Statement: aws.String(fmt.Sprintf(
+			`SELECT * FROM "%s"
+             WHERE begins_with(compositeKey, '%s_%s')
+             OR begins_with(compositeKey, '%s_%s')`,
+			purchasesTableName, // Note: changed from purchasablesTableName
+			childEventId, userId,
+			parentEventId, userId,
+		)),
+	}
+
+	result, err := dynamodbClient.ExecuteStatement(ctx, selectInput)
+	if err != nil {
+		return false, fmt.Errorf("query failed: %w", err)
+	}
+
+	log.Printf("result: %+v", result)
+
+	var purchases []internal_types.Purchase
+	err = attributevalue.UnmarshalListOfMaps(result.Items, &purchases)
+	if err != nil {
+		return false, fmt.Errorf("failed to unmarshal items: %w", err)
+	}
+
+	return len(purchases) > 0, nil
+}
+
 type MockPurchaseService struct {
 	InsertPurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchase internal_types.PurchaseInsert) (*internal_types.Purchase, error)
 	GetPurchaseByPkFunc       func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string) (*internal_types.Purchase, error)

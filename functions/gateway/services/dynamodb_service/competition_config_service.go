@@ -11,6 +11,7 @@ import (
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -27,9 +28,10 @@ func NewCompetitionConfigService() internal_types.CompetitionConfigServiceInterf
 }
 
 func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string, competitionConfig internal_types.CompetitionConfigUpdate) (*internal_types.CompetitionConfig, error) {
+	var competitionConfigResponse internal_types.CompetitionConfig
 	// Validate the competition object
 	if err := validate.Struct(competitionConfig); err != nil {
-		return nil, fmt.Errorf("validation failed: %w", err)
+		return &competitionConfigResponse, fmt.Errorf("validation failed: %w", err)
 	}
 
 	if competitionConfig.Id == "" {
@@ -38,7 +40,7 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 
 	item, err := attributevalue.MarshalMap(&competitionConfig)
 	if err != nil {
-		return nil, err
+		return &competitionConfigResponse, err
 	}
 
 	// Ensure string arrays are properly formatted as StringSets
@@ -61,7 +63,7 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 	}
 
 	if competitionConfigTableName == "" {
-		return nil, fmt.Errorf("ERR: competitionTableName is empty - table reference not retrieved.")
+		return &competitionConfigResponse, fmt.Errorf("ERR: competitionTableName is empty - table reference not retrieved.")
 	}
 
 	input := &dynamodb.PutItemInput{
@@ -73,24 +75,32 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 	res, err := dynamodbClient.PutItem(ctx, input)
 	if err != nil {
 		log.Print("error in put item dynamo")
-		return nil, err
+		return &competitionConfigResponse, err
 	}
 
-	var insertedCompetitionConfig internal_types.CompetitionConfig
+	var insertedCompetitionConfig internal_types.CompetitionConfigResponse
 	err = attributevalue.UnmarshalMap(res.Attributes, &insertedCompetitionConfig)
 	if err != nil {
-		return nil, err
+		return &competitionConfigResponse, err
 	}
 
-	insertedCompetitionConfig.Id = competitionConfig.Id
-	insertedCompetitionConfig.AuxilaryOwners = competitionConfig.AuxilaryOwners
-	insertedCompetitionConfig.EventIds = competitionConfig.EventIds
-	insertedCompetitionConfig.Competitors = competitionConfig.Competitors
+	competitionConfigResponse = insertedCompetitionConfig.CompetitionConfig
 
-	return &insertedCompetitionConfig, nil
+	return &competitionConfigResponse, nil
 }
 
-func (s *CompetitionConfigService) GetCompetitionConfigById(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string) (*internal_types.CompetitionConfig, error) {
+func (s *CompetitionConfigService) GetCompetitionConfigById(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string) (internal_types.CompetitionConfigResponse, error) {
+	var users []types.UserSearchResultDangerous
+	var competitionConfigResponse internal_types.CompetitionConfigResponse
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	roleClaims := []helpers.RoleClaim{}
+	if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
+	}
+
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(competitionConfigTableName),
 		Key: map[string]dynamodb_types.AttributeValue{
@@ -100,16 +110,35 @@ func (s *CompetitionConfigService) GetCompetitionConfigById(ctx context.Context,
 
 	result, err := dynamodbClient.GetItem(ctx, input)
 	if err != nil {
-		return nil, err
+		return competitionConfigResponse, err
 	}
 
 	var competition internal_types.CompetitionConfig
 	err = attributevalue.UnmarshalMap(result.Item, &competition)
 	if err != nil {
-		return nil, err
+		return competitionConfigResponse, err
 	}
 
-	return &competition, nil
+	allOwners := []string{competition.PrimaryOwner}
+	allOwners = append(allOwners, competition.AuxilaryOwners...)
+
+	canEdit := helpers.CanEditCompetition(competition, &userInfo, roleClaims)
+
+	if !canEdit {
+		return competitionConfigResponse, fmt.Errorf("You are not an authorized editor of this competition")
+	}
+	if len(allOwners) > 0 {
+		_users, err := helpers.SearchUsersByIDs(allOwners, false)
+		if err != nil {
+			return competitionConfigResponse, err
+		}
+		users = _users
+	}
+
+	competitionConfigResponse.CompetitionConfig = competition
+	competitionConfigResponse.Owners = users
+
+	return competitionConfigResponse, nil
 }
 
 func (s *CompetitionConfigService) GetCompetitionConfigsByPrimaryOwner(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, primaryOwner string) (*[]internal_types.CompetitionConfig, error) {
