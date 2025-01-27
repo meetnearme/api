@@ -376,56 +376,90 @@ func (c *MarqoClient) addHeaders(req *http.Request) {
 
 func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration) (string, error) {
 	start := time.Now()
-	checkInterval := 15 * time.Second // Increased from 10s to 15s
+	checkInterval := 15 * time.Second
 	maxAttempts := int(timeout / checkInterval)
 	attempt := 1
 
-	fmt.Printf("Waiting for index %s to be ready (max %v)...\n", indexName, timeout)
+	fmt.Printf("\n=== Starting Index Ready Check ===\n")
+	fmt.Printf("Index Name: %s\n", indexName)
+	fmt.Printf("Timeout: %v\n", timeout)
+	fmt.Printf("Check Interval: %v\n", checkInterval)
+	fmt.Printf("Max Attempts: %d\n\n", maxAttempts)
+
 	for {
 		if time.Since(start) > timeout {
-			// Add more detailed error information
 			return "", fmt.Errorf("timeout waiting for index %s to be ready after %v (made %d attempts)",
 				indexName, timeout, attempt)
 		}
 
 		url := fmt.Sprintf("%s/indexes", c.baseURL)
+		fmt.Printf("Attempt %d/%d: Checking URL: %s\n", attempt, maxAttempts, url)
+
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
+			fmt.Printf("Error creating request: %v\n", err)
 			return "", err
 		}
 
 		c.addHeaders(req)
+		// Debug headers
+		fmt.Printf("Request Headers:\n")
+		for key, values := range req.Header {
+			fmt.Printf("  %s: %v\n", key, values)
+		}
+
 		resp, err := c.client.Do(req)
 		if err != nil {
-			fmt.Printf("Attempt %d/%d: Error checking index status: %v\n", attempt, maxAttempts, err)
+			fmt.Printf("Attempt %d/%d: Error making request: %v\n", attempt, maxAttempts, err)
 			time.Sleep(checkInterval)
 			attempt++
 			continue
 		}
 
+		// Debug response status
+		fmt.Printf("Response Status: %s\n", resp.Status)
+
 		var result ListIndexesResponse
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Printf("Error reading response body: %v\n", err)
 			resp.Body.Close()
-			fmt.Printf("Attempt %d/%d: Error decoding response: %v\n", attempt, maxAttempts, err)
+			time.Sleep(checkInterval)
+			attempt++
+			continue
+		}
+
+		// Debug raw response
+		fmt.Printf("Raw Response Body:\n%s\n", string(body))
+
+		if err := json.Unmarshal(body, &result); err != nil {
+			fmt.Printf("Error unmarshaling response: %v\n", err)
+			resp.Body.Close()
 			time.Sleep(checkInterval)
 			attempt++
 			continue
 		}
 		resp.Body.Close()
 
-		for _, idx := range result.Results {
-			if idx.IndexName == indexName {
-				fmt.Printf("Attempt %d/%d: Index status: %s, Endpoint: %s\n",
-					attempt, maxAttempts, idx.IndexStatus, idx.MarqoEndpoint)
+		fmt.Printf("Found %d indexes in response\n", len(result.Results))
 
-				// Add more detailed status handling
+		indexFound := false
+		for _, idx := range result.Results {
+			fmt.Printf("Checking index: %s (Status: %s)\n", idx.IndexName, idx.IndexStatus)
+			if idx.IndexName == indexName {
+				indexFound = true
+				fmt.Printf("Found target index!\n")
+				fmt.Printf("Status: %s\n", idx.IndexStatus)
+				fmt.Printf("Endpoint: %s\n", idx.MarqoEndpoint)
+
 				switch idx.IndexStatus {
 				case "READY":
+					fmt.Printf("Index is READY! Returning endpoint: %s\n", idx.MarqoEndpoint)
 					return idx.MarqoEndpoint, nil
 				case "FAILED":
 					return "", fmt.Errorf("index creation failed for %s", indexName)
 				case "CREATING":
-					// Continue waiting
+					fmt.Printf("Index still creating, will check again in %v\n", checkInterval)
 					break
 				default:
 					fmt.Printf("Unknown index status: %s\n", idx.IndexStatus)
@@ -434,7 +468,12 @@ func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration)
 			}
 		}
 
-		fmt.Printf("Attempt %d/%d: Index not ready yet, waiting %v...\n", attempt, maxAttempts, checkInterval)
+		if !indexFound {
+			fmt.Printf("WARNING: Index %s not found in response!\n", indexName)
+		}
+
+		fmt.Printf("Attempt %d/%d: Index not ready yet, waiting %v...\n\n",
+			attempt, maxAttempts, checkInterval)
 		time.Sleep(checkInterval)
 		attempt++
 	}
