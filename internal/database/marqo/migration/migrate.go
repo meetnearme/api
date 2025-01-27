@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 func LoadSchema(path string) (map[string]interface{}, error) {
@@ -131,43 +134,17 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 	m.targetClient = NewMarqoClient(endpoint, m.targetClient.apiKey)
 	fmt.Printf("Using target endpoint: %s\n", endpoint)
 
-	type batchResult struct {
-		count int
-		err   error
-	}
-
-	workers := 4
-	batchChan := make(chan []map[string]interface{}, workers)
-	resultChan := make(chan batchResult, workers)
-
-	// Start worker goroutines
-	for i := 0; i < workers; i++ {
-		go func() {
-			for batch := range batchChan {
-				// Transform and upsert batch
-				transformedDocs := make([]map[string]interface{}, len(batch))
-				for i, doc := range batch {
-					transformed, err := m.applyTransformers(doc)
-					if err != nil {
-						resultChan <- batchResult{err: err}
-						return
-					}
-					transformedDocs[i] = transformed
-				}
-
-				if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
-					resultChan <- batchResult{err: err}
-					return
-				}
-
-				resultChan <- batchResult{count: len(batch)}
-			}
-		}()
-	}
-
 	offset := 0
 	totalMigrated := 0
-	activeBatches := 0
+	batchMap := make(map[string]bool) // Track processed documents by ID
+	retryCount := 3                   // Number of retries for failed batches
+
+	// First, get total count of documents
+	totalDocs, err := m.sourceClient.GetTotalDocuments(sourceIndex)
+	if err != nil {
+		return fmt.Errorf("failed to get total document count: %w", err)
+	}
+	fmt.Printf("Total documents in source index: %d\n", totalDocs)
 
 	for {
 		// Fetch batch of documents from source
@@ -180,36 +157,98 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 			break
 		}
 
-		// Send batch to worker
-		batchChan <- docs
-		activeBatches++
-		offset += m.batchSize
-
-		if activeBatches == workers {
-			result := <-resultChan
-			if result.err != nil {
-				close(batchChan)
-				return result.err
+		// Track documents in this batch
+		for _, doc := range docs {
+			if id, ok := doc["_id"].(string); ok {
+				batchMap[id] = true
 			}
-			totalMigrated += result.count
-			activeBatches--
-			fmt.Printf("Migrated and transformed %d documents\n", totalMigrated)
-		}
-	}
-
-	// close batch channel and wait for remaining results
-	close(batchChan)
-	for activeBatches > 0 {
-		result := <-resultChan
-		if result.err != nil {
-			return result.err
 		}
 
-		totalMigrated += result.count
-		activeBatches--
-		fmt.Printf("Migrated and transformed %d documents\n", totalMigrated)
+		// Transform and upsert batch with retry logic
+		success := false
+		for attempt := 0; attempt < retryCount && !success; attempt++ {
+			transformedDocs := make([]map[string]interface{}, len(docs))
+			for i, doc := range docs {
+				transformed, err := m.applyTransformers(doc)
+				if err != nil {
+					fmt.Printf("Transform error on attempt %d: %v\n", attempt+1, err)
+					continue
+				}
+				transformedDocs[i] = transformed
+			}
+
+			if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
+				fmt.Printf("Upsert error on attempt %d: %v\n", attempt+1, err)
+				if attempt < retryCount-1 {
+					time.Sleep(time.Second * 5) // Wait before retry
+					continue
+				}
+				return err
+			}
+			success = true
+		}
+
+		totalMigrated += len(docs)
+		fmt.Printf("Migrated and transformed %d/%d documents (%.2f%%)\n",
+			totalMigrated, totalDocs, float64(totalMigrated)/float64(totalDocs)*100)
+
+		offset += m.batchSize
 	}
 
-	fmt.Printf("Migration completed. Total documents migrated and transformed: %d\n", totalMigrated)
+	// Verify migration
+	targetDocs, err := m.targetClient.GetTotalDocuments(targetIndex)
+	if err != nil {
+		return fmt.Errorf("failed to verify target documents: %w", err)
+	}
+
+	fmt.Printf("\nMigration Summary:\n")
+	fmt.Printf("Source documents: %d\n", totalDocs)
+	fmt.Printf("Target documents: %d\n", targetDocs)
+	fmt.Printf("Processed documents: %d\n", len(batchMap))
+
+	if targetDocs < totalDocs {
+		return fmt.Errorf("migration incomplete: source=%d, target=%d, missing=%d",
+			totalDocs, targetDocs, totalDocs-targetDocs)
+	}
+
 	return nil
+}
+
+// Add this method to MarqoClient
+func (c *MarqoClient) GetTotalDocuments(indexName string) (int, error) {
+	// Use search with size=0 to get total count
+	url := fmt.Sprintf("%s/indexes/%s/search", c.baseURL, indexName)
+
+	requestBody := map[string]interface{}{
+		"q":     "*",
+		"limit": 0,
+	}
+
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return 0, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return 0, err
+	}
+
+	c.addHeaders(req)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Total int `json:"total"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, err
+	}
+
+	return result.Total, nil
 }
