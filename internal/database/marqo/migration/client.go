@@ -380,11 +380,12 @@ func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration)
 	maxAttempts := int(timeout / checkInterval)
 	attempt := 1
 
+	// Use api.marqo.ai for checking index status
+	statusBaseURL := "https://api.marqo.ai/api/v2"
+
 	fmt.Printf("\n=== Starting Index Ready Check ===\n")
 	fmt.Printf("Index Name: %s\n", indexName)
-	fmt.Printf("Timeout: %v\n", timeout)
-	fmt.Printf("Check Interval: %v\n", checkInterval)
-	fmt.Printf("Max Attempts: %d\n\n", maxAttempts)
+	fmt.Printf("Using status URL: %s\n", statusBaseURL)
 
 	for {
 		if time.Since(start) > timeout {
@@ -392,7 +393,8 @@ func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration)
 				indexName, timeout, attempt)
 		}
 
-		url := fmt.Sprintf("%s/indexes", c.baseURL)
+		// Use the main API endpoint for status checks
+		url := fmt.Sprintf("%s/indexes", statusBaseURL)
 		fmt.Printf("Attempt %d/%d: Checking URL: %s\n", attempt, maxAttempts, url)
 
 		req, err := http.NewRequest("GET", url, nil)
@@ -401,12 +403,9 @@ func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration)
 			return "", err
 		}
 
-		c.addHeaders(req)
-		// Debug headers
-		fmt.Printf("Request Headers:\n")
-		for key, values := range req.Header {
-			fmt.Printf("  %s: %v\n", key, values)
-		}
+		// Add headers
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Api-Key", c.apiKey)
 
 		resp, err := c.client.Do(req)
 		if err != nil {
@@ -416,7 +415,6 @@ func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration)
 			continue
 		}
 
-		// Debug response status
 		fmt.Printf("Response Status: %s\n", resp.Status)
 
 		var result ListIndexesResponse
@@ -429,7 +427,6 @@ func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration)
 			continue
 		}
 
-		// Debug raw response
 		fmt.Printf("Raw Response Body:\n%s\n", string(body))
 
 		if err := json.Unmarshal(body, &result); err != nil {
