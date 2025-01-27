@@ -357,7 +357,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							</div>
 						}
 						<div>
-							<template x-for="(child, idx) in formData.eventChildren" :key="child.startTime || child.id">
+							<template x-for="(child, idx) in formData.eventChildren" :key="child.id">
 								<div
 									x-data="{ hidden: false, contentHeight: 0 }"
 									x-init="contentHeight = $el.scrollHeight"

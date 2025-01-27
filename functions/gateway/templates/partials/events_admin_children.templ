@@ -86,7 +86,7 @@ func HasValidOverride(fieldName string, parentValue interface{}, childValue inte
 }
 
 templ EventAdminChildren(eventParent types.Event, eventChildren []types.Event) {
-	if eventParent.EventSourceType != "SLF_EVS" {
+	if eventParent.EventSourceType != helpers.ES_SERIES_PARENT {
 		<div>This event is not a series</div>
 		return
 	}
