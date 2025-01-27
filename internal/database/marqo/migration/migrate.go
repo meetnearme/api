@@ -159,24 +159,30 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 		}
 
 		// Track documents in this batch
+		fmt.Printf("\nProcessing documents in batch:\n")
 		for _, doc := range docs {
 			if id, ok := doc["_id"].(string); ok {
 				batchMap[id] = true
+				fmt.Printf("- Document ID: %s\n", id)
 			}
 		}
 
 		// Transform and upsert batch with retry logic
 		success := false
 		for attempt := 0; attempt < retryCount && !success; attempt++ {
-			transformedDocs := make([]map[string]interface{}, 0, len(docs)) // Change to slice with zero length
+			transformedDocs := make([]map[string]interface{}, 0, len(docs))
+			successfulIds := make(map[string]bool) // Track successful IDs in this batch
+
 			for _, doc := range docs {
+				id, _ := doc["_id"].(string)
 				transformed, err := m.applyTransformers(doc)
 				if err != nil {
 					fmt.Printf("Transform error on attempt %d for document %v: %v\n",
-						attempt+1, doc["_id"], err)
+						attempt+1, id, err)
 					continue
 				}
-				transformedDocs = append(transformedDocs, transformed) // Only append successful transformations
+				transformedDocs = append(transformedDocs, transformed)
+				successfulIds[id] = true
 			}
 
 			// Skip empty batches
@@ -188,15 +194,27 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 			if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
 				fmt.Printf("Upsert error on attempt %d: %v\n", attempt+1, err)
 				if attempt < retryCount-1 {
-					time.Sleep(time.Second * 5) // Wait before retry
+					time.Sleep(time.Second * 5)
 					continue
 				}
 				return err
 			}
+
+			// Only increment totalMigrated by actually successful documents
+			totalMigrated += len(transformedDocs)
+
+			// Log any documents that were in the batch but not successfully processed
+			for _, doc := range docs {
+				if id, ok := doc["_id"].(string); ok {
+					if !successfulIds[id] {
+						fmt.Printf("WARNING: Document %s was in batch but not successfully processed\n", id)
+					}
+				}
+			}
+
 			success = true
 		}
 
-		totalMigrated += len(docs)
 		fmt.Printf("Migrated and transformed %d/%d documents (%.2f%%)\n",
 			totalMigrated, totalDocs, float64(totalMigrated)/float64(totalDocs)*100)
 
