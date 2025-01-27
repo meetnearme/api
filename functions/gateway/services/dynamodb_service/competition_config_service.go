@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -11,6 +12,7 @@ import (
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
@@ -36,6 +38,34 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 
 	if competitionConfig.Id == "" {
 		competitionConfig.Id = uuid.NewString()
+	} else {
+		var getCompetitionConfigResponse internal_types.CompetitionConfigResponse
+		db := transport.GetDB()
+
+		service := NewCompetitionConfigService()
+		getCompetitionConfigResponse, err := service.GetCompetitionConfigById(ctx, db, competitionConfig.Id)
+		if err != nil {
+			return &competitionConfigResponse, err
+			// transport.SendServerRes(w, []byte("Failed to get competitionConfig: "+err.Error()), http.StatusInternalServerError, err)
+		}
+
+		allOwners := []string{getCompetitionConfigResponse.PrimaryOwner}
+		allOwners = append(allOwners, getCompetitionConfigResponse.AuxilaryOwners...)
+
+		userInfo := helpers.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+		}
+
+		roleClaims := []helpers.RoleClaim{}
+		if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+			roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
+		}
+
+		canEdit := helpers.CanEditCompetition(getCompetitionConfigResponse.CompetitionConfig, &userInfo, roleClaims)
+		if !canEdit {
+			return &competitionConfigResponse, fmt.Errorf("You are not an authorized editor of this competition")
+		}
 	}
 
 	item, err := attributevalue.MarshalMap(&competitionConfig)
@@ -78,13 +108,24 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 		return &competitionConfigResponse, err
 	}
 
-	var insertedCompetitionConfig internal_types.CompetitionConfigResponse
-	err = attributevalue.UnmarshalMap(res.Attributes, &insertedCompetitionConfig)
+	err = attributevalue.UnmarshalMap(res.Attributes, &competitionConfig)
 	if err != nil {
 		return &competitionConfigResponse, err
 	}
 
-	competitionConfigResponse = insertedCompetitionConfig.CompetitionConfig
+	// Use reflection to copy fields
+	sourceVal := reflect.ValueOf(competitionConfig)
+	targetVal := reflect.ValueOf(&competitionConfigResponse).Elem()
+
+	// copy the valid properties from the source, but omit invalid ones in the new struct
+	for i := 0; i < targetVal.NumField(); i++ {
+		fieldName := targetVal.Type().Field(i).Name
+		if sourceField := sourceVal.FieldByName(fieldName); sourceField.IsValid() {
+			targetVal.Field(i).Set(sourceField)
+		}
+	}
+
+	log.Printf("competitionConfigResponse: %+v", competitionConfigResponse)
 
 	return &competitionConfigResponse, nil
 }
