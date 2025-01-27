@@ -72,7 +72,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	var actualSourceIndex string
+	var actualSourceIndex, sourceEndpointURL string
 	if *sourceIndex != "" && *sourceEndpoint != "" {
 		actualSourceIndex = *sourceIndex
 		// Update the source client with the provided endpoint
@@ -80,7 +80,7 @@ func main() {
 		fmt.Printf("Using provided source index: %s with endpoint: %s\n", actualSourceIndex, *sourceEndpoint)
 	} else {
 		var err error
-		actualSourceIndex, sourceEndpointURL, err := migrator.sourceClient.GetCurrentIndex(*env)
+		actualSourceIndex, sourceEndpointURL, err = migrator.sourceClient.GetCurrentIndex(*env)
 		if err != nil {
 			fmt.Printf("Failed to get current index: %v\n", err)
 			os.Exit(1)
