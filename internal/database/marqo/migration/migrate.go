@@ -84,7 +84,7 @@ func removeProtectedFields(doc map[string]interface{}, allowedFields map[string]
 func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]interface{}, error) {
 	// Log original document
 	eventName, _ := doc["name"].(string)
-	eventID, _ := doc["id"].(string)
+	eventID, _ := doc["_id"].(string)
 	originalJSON, _ := json.MarshalIndent(doc, "", "  ")
 	fmt.Printf("\n=== Pre-Transform Event ===\nID: %s\nName: %s\nDocument:\n%s\n",
 		eventID, eventName, string(originalJSON))
@@ -92,11 +92,12 @@ func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]int
 	allowedFields := getAllowedFields(m.schema)
 	result := removeProtectedFields(doc, allowedFields)
 
-	var err error
-	for _, transformer := range m.transformers {
+	// Track each transformation
+	for i, transformer := range m.transformers {
+		var err error
 		result, err = transformer(result)
 		if err != nil {
-			return nil, fmt.Errorf("transformer failed: %w", err)
+			return nil, fmt.Errorf("transformer %d failed for document %s: %w", i, eventID, err)
 		}
 	}
 
@@ -167,14 +168,21 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 		// Transform and upsert batch with retry logic
 		success := false
 		for attempt := 0; attempt < retryCount && !success; attempt++ {
-			transformedDocs := make([]map[string]interface{}, len(docs))
-			for i, doc := range docs {
+			transformedDocs := make([]map[string]interface{}, 0, len(docs)) // Change to slice with zero length
+			for _, doc := range docs {
 				transformed, err := m.applyTransformers(doc)
 				if err != nil {
-					fmt.Printf("Transform error on attempt %d: %v\n", attempt+1, err)
+					fmt.Printf("Transform error on attempt %d for document %v: %v\n",
+						attempt+1, doc["_id"], err)
 					continue
 				}
-				transformedDocs[i] = transformed
+				transformedDocs = append(transformedDocs, transformed) // Only append successful transformations
+			}
+
+			// Skip empty batches
+			if len(transformedDocs) == 0 {
+				fmt.Printf("Warning: No documents successfully transformed in batch\n")
+				continue
 			}
 
 			if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
