@@ -2,11 +2,13 @@ package dynamodb_handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +16,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
+	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -142,29 +145,57 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 
 		log.Printf("usersToCreate: %+v", usersToCreate)
 
-		// if len(usersToCreate) > 0 {
-		// 	helpers.CreateTeamUserWithMembers(usersToCreate)
-		// }
+		if len(usersToCreate) > 0 {
+			var wg sync.WaitGroup
+			errChan := make(chan error, len(usersToCreate))
+			var users []types.UserSearchResultDangerous
+			for _, user := range usersToCreate {
+				wg.Add(1)
+				go func(userData map[string]string) {
+					defer wg.Done()
+					members := strings.Split(userData["members"], ",")
+					user, err := helpers.CreateTeamUserWithMembers(
+						userData["displayName"],
+						userData["id"],
+						members,
+					)
+					if err != nil {
+						errChan <- fmt.Errorf("failed to create team user %s: %w", userData["id"], err)
+					}
+					users = append(users, user)
+				}(user)
+			}
+
+			// Wait for all goroutines to complete
+			wg.Wait()
+			close(errChan)
+
+			// Check for any errors
+			for err := range errChan {
+				if err != nil {
+					transport.SendServerRes(w, []byte("Failed to create team users: "+err.Error()), http.StatusInternalServerError, err)
+					return
+				}
+			}
+		}
 
 		// TODO: this is only commented out to avoid creating MANY competition rounds
-		if len(usersToCreate) > 20 {
-			competitionRoundsUpdate, err = helpers.NormalizeCompetitionRounds(competitionRoundsUpdate)
-			if err != nil {
-				// return &competitionConfigResponse, err
-				transport.SendServerRes(w, []byte("Failed to normalize competition rounds: "+err.Error()), http.StatusInternalServerError, err)
-				return
-			}
-
-			log.Printf("competitionRoundsUpdate: %+v", competitionRoundsUpdate)
-			service := dynamodb_service.NewCompetitionRoundService()
-			competitionRounds, err := service.PutCompetitionRounds(ctx, db, &competitionRoundsUpdate)
-			if err != nil {
-				transport.SendServerRes(w, []byte("Failed to save competition rounds: "+err.Error()), http.StatusInternalServerError, err)
-				return
-			}
-
-			log.Printf("competitionRounds: %+v", competitionRounds)
+		competitionRoundsUpdate, err = helpers.NormalizeCompetitionRounds(competitionRoundsUpdate)
+		if err != nil {
+			// return &competitionConfigResponse, err
+			transport.SendServerRes(w, []byte("Failed to normalize competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+			return
 		}
+
+		log.Printf("competitionRoundsUpdate: %+v", competitionRoundsUpdate)
+		service := dynamodb_service.NewCompetitionRoundService()
+		competitionRounds, err := service.PutCompetitionRounds(ctx, db, &competitionRoundsUpdate)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to save competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		log.Printf("competitionRounds: %+v", competitionRounds)
 	} else {
 		// TODO: delete this log
 		log.Printf("no rounds data")

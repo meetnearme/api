@@ -378,7 +378,19 @@ func HasPurchaseForEventHandler(w http.ResponseWriter, r *http.Request) http.Han
 			return
 		}
 
-		transport.SendServerRes(w, []byte(fmt.Sprintf("{hasPurchase: %t}", hasPurchase)), http.StatusOK, nil)
+		response := struct {
+			HasPurchase bool `json:"hasPurchase"`
+		}{
+			HasPurchase: hasPurchase,
+		}
+
+		jsonResponse, err := json.Marshal(response)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+			return
+		}
+
+		transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
 	}
 }
 

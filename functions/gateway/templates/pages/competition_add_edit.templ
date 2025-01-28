@@ -359,6 +359,25 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					console.log('formData.auxilaryOwners', this.formData.auxilaryOwners);
 					console.log('formData.primaryOwner', this.formData.primaryOwner);
 					console.log('owners', this.owners);
+					(async () => {
+						try {
+              const response = await fetch(`/api/competition-round/competition/${this.formData.id}`, {
+                method: 'GET',
+                // body: JSON.stringify({
+                //   competitionConfigId: this.formData.id,
+                // }),
+                // body: JSON.stringify({
+                //   competitionConfigId: this.formData.id,
+                //   userId: this.formData.primaryOwner,
+                // }),
+              });
+              const data = await response.json();
+              console.log('data', data)
+              this.formData.rounds = data
+            } catch (e) {
+              console.error(e)
+            }
+					})();
 				},
 				competitionDetailUrl: document.querySelector('#add-edit-competition').getAttribute('data-competition-detail-url') ?? null,
 				emptyTeamName: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-team-name') ?? null,
@@ -401,13 +420,15 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					// this.waitingRoom = this.waitingRoom.filter(competitor => !competitors.includes(competitor.userId));
 				},
 				addRound() {
-					console.log('addRound ev id:', this.emptyRoundEventId)
+					// console.log('addRound ev id:', this.emptyRoundEventId)
 					this.formData.rounds?.push?.({
 						roundName: `Round ${this.formData.rounds.length + 1}`,
 						roundNumber: this.formData.rounds.length + 1,
 						competitorA: this.teams[0].id,
 						competitorB: this.teams[1].id,
-						eventId: this.emptyRoundEventId
+            // TODO: this is an important empty field, fix this
+						// eventId: this.emptyRoundEventId
+            eventId: '6ca425f5-88d3-463a-b4b2-41dd2f5defc0'
 					});
 				},
 				removeRound(index) {

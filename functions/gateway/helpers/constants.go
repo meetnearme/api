@@ -301,6 +301,8 @@ func humanizeFieldName(field string) string {
 		return "Localized Start Date"
 	case "LocalizedStartTime":
 		return "Localized Start Time"
+	case "CompetitionConfigId":
+		return "Competition Config ID"
 	default:
 		panic(fmt.Sprintf("No display name mapping for field: %s", field))
 	}

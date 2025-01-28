@@ -378,6 +378,9 @@ func ConvertEventsToDocuments(events []types.Event) (documents []interface{}) {
 		if event.HideCrossPromo {
 			document["hideCrossPromo"] = bool(event.HideCrossPromo)
 		}
+		if event.CompetitionConfigId != "" {
+			document["competitionConfigId"] = string(event.CompetitionConfigId)
+		}
 
 		documents = append(documents, document)
 	}
@@ -388,6 +391,7 @@ func ConvertEventsToDocuments(events []types.Event) (documents []interface{}) {
 func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
 	// Bulk upsert multiple events
 	documents := ConvertEventsToDocuments(events)
+	log.Printf(">>> 394 documents: %+v", documents)
 	indexName := GetMarqoIndexName()
 	req := marqo.UpsertDocumentsRequest{
 		Documents: documents,
@@ -677,7 +681,7 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string, parseDates str
 		log.Printf("Failed to get documents: %v", err)
 		return nil, err
 	}
-
+	log.Printf(">>> 684 res.Results: %+v", res.Results)
 	// Check if no documents were found
 	if len(res.Results) == 1 && res.Results[0]["_found"] == false {
 		log.Printf("No documents found for the given IDs, %v", docIds)
@@ -735,20 +739,21 @@ func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Even
 	}
 
 	event = &types.Event{
-		Id:              getValue[string](doc, "_id"),
-		EventOwners:     getStringSlice(doc, "eventOwners"),
-		EventOwnerName:  getValue[string](doc, "eventOwnerName"),
-		EventSourceId:   getValue[string](doc, "eventSourceId"),
-		EventSourceType: getValue[string](doc, "eventSourceType"),
-		Name:            getValue[string](doc, "name"),
-		Description:     getValue[string](doc, "description"),
-		StartTime:       startTimeInt,
-		Address:         getValue[string](doc, "address"),
-		Lat:             getValue[float64](doc, "lat"),
-		Long:            getValue[float64](doc, "long"),
-		Timezone:        *loc,
-		Categories:      getStringSlice(doc, "categories"),
-		Tags:            getStringSlice(doc, "tags"),
+		Id:                  getValue[string](doc, "_id"),
+		EventOwners:         getStringSlice(doc, "eventOwners"),
+		EventOwnerName:      getValue[string](doc, "eventOwnerName"),
+		EventSourceId:       getValue[string](doc, "eventSourceId"),
+		EventSourceType:     getValue[string](doc, "eventSourceType"),
+		Name:                getValue[string](doc, "name"),
+		Description:         getValue[string](doc, "description"),
+		StartTime:           startTimeInt,
+		Address:             getValue[string](doc, "address"),
+		Lat:                 getValue[float64](doc, "lat"),
+		Long:                getValue[float64](doc, "long"),
+		Timezone:            *loc,
+		Categories:          getStringSlice(doc, "categories"),
+		Tags:                getStringSlice(doc, "tags"),
+		CompetitionConfigId: getValue[string](doc, "competitionConfigId"),
 	}
 
 	// Handle optional fields

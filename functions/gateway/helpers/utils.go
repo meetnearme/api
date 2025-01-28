@@ -624,10 +624,10 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	return nil
 }
 
-func CreateTeamUserWithMembers(displayName, candidateUUID string, members []string) error {
+func CreateTeamUserWithMembers(displayName, candidateUUID string, members []string) (types.UserSearchResultDangerous, error) {
 	err := ValidateTeamUUID(candidateUUID)
 	if err != nil {
-		return err
+		return types.UserSearchResultDangerous{}, err
 	}
 
 	emailSchema := os.Getenv("USER_TEAM_EMAIL_SCHEMA")
@@ -641,7 +641,6 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
 	method := "POST"
 	payload := strings.NewReader(`{
 		"userId": "` + candidateUUID + `",
-		"email": "` + email + `",
 		"email": {
 			"email": "` + email + `",
 			"isVerified": true
@@ -654,7 +653,7 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
 			"givenName": "` + firstPartName + `",
 			"familyName": "` + secondPartName + `",
 			"nickName": "` + firstPartName + ` ` + secondPartName + `",
-			"displayName": "` + firstPartName + ` ` + secondPartName + `",
+			"displayName": "` + firstPartName + ` ` + secondPartName + `"
 		},
 		"metadata": [
     	{
@@ -667,11 +666,13 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
 		}
 		]
 	}`)
-
+	log.Printf("members base64: %s", base64.StdEncoding.EncodeToString([]byte(strings.Join(members, ","))))
+	log.Printf("userType base64: %s", base64.StdEncoding.EncodeToString([]byte("team")))
+	log.Printf(">>> 669 payload: %s", payload)
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, payload)
 	if err != nil {
-		return err
+		return types.UserSearchResultDangerous{}, err
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -680,16 +681,23 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
 
 	res, err := client.Do(req)
 	if err != nil {
-		return err
+		return types.UserSearchResultDangerous{}, err
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return err
+		return types.UserSearchResultDangerous{}, err
 	}
-	fmt.Println(string(body))
-	return nil
+	log.Printf(">>> 691 body: %s", string(body))
+
+	var respData types.UserSearchResultDangerous
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	log.Printf(">>> 691 respData: %+v", respData)
+	return respData, nil
 }
 
 func ValidateTeamUUID(candidateUUID string) error {
