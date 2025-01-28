@@ -141,40 +141,43 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 		return fmt.Errorf("failed to get documents: %w", err)
 	}
 
-	// Save documents to temp file
+	// Save raw documents to temp file
 	tempFile := fmt.Sprintf("temp_migration_%s_%d.json", sourceIndex, time.Now().Unix())
 	if err := SaveDocumentsToFile(documents, tempFile); err != nil {
 		return fmt.Errorf("failed to save documents to file: %w", err)
 	}
 	fmt.Printf("Saved %d documents to %s\n", len(documents), tempFile)
 
-	// Comment out the old pagination logic
-	/*
-	   offset := 0
-	   totalMigrated := 0
+	// Load documents from temp file
+	documents, err = LoadDocumentsFromFile(tempFile)
+	if err != nil {
+		return fmt.Errorf("failed to load documents from file: %w", err)
+	}
 
-	   for {
-	       fmt.Printf("\n=== Processing batch at offset %d ===\n", offset)
-
-	       docs, err := m.sourceClient.Search(sourceIndex, "*", offset, m.batchSize)
-	       if err != nil {
-	           return fmt.Errorf("failed to fetch documents at offset %d: %w", offset, err)
-	       }
-
-	       if len(docs) == 0 {
-	           break
-	       }
-	*/
-	// Process all documents with transformers
+	// Apply transformers to each document
 	transformedDocs := make([]map[string]interface{}, 0, len(documents))
 	for _, doc := range documents {
 		transformed, err := m.applyTransformers(doc)
 		if err != nil {
-			fmt.Printf("Warning: Failed to transform document %v: %v\n", doc["_id"], err)
+			fmt.Printf("Warning: Failed to transform document: %v\n", err)
 			continue
 		}
 		transformedDocs = append(transformedDocs, transformed)
 	}
+
+	// Save transformed documents to file
+	transformedFile := fmt.Sprintf("transformed_migration_%s_%d.json", sourceIndex, time.Now().Unix())
+	if err := SaveDocumentsToFile(transformedDocs, transformedFile); err != nil {
+		return fmt.Errorf("failed to save transformed documents to file: %w", err)
+	}
+	fmt.Printf("Saved %d transformed documents to %s\n", len(transformedDocs), transformedFile)
+
+	// Load transformed documents for upserting
+	transformedDocs, err = LoadDocumentsFromFile(transformedFile)
+	if err != nil {
+		return fmt.Errorf("failed to load transformed documents from file: %w", err)
+	}
+
 	// Process in batches for upserting
 	batchSize := 50
 	for i := 0; i < len(transformedDocs); i += batchSize {
@@ -200,7 +203,7 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 
 	fmt.Printf("\n=== Migration Summary ===\n")
 	fmt.Printf("Source documents: %d\n", stats.NumberOfDocuments)
-	fmt.Printf("Successfully transformed: %d\n", len(transformedDocs))
+	fmt.Printf("Transformed documents: %d\n", len(transformedDocs))
 	fmt.Printf("Target documents: %d\n", targetStats.NumberOfDocuments)
 
 	return nil
