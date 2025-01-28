@@ -162,7 +162,18 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 			fmt.Printf("Warning: Failed to transform document: %v\n", err)
 			continue
 		}
+
+		// Debug logging for transformation
+		fmt.Printf("Document ID: %s\n", transformed["_id"])
+		fmt.Printf("Name: %s\n", transformed["name"])
+		if configID, ok := transformed["competitionConfigId"]; ok {
+			fmt.Printf("Competition Config ID: %v\n", configID)
+		} else {
+			fmt.Printf("Competition Config ID field missing\n")
+		}
+
 		transformedDocs = append(transformedDocs, transformed)
+		fmt.Printf("Added competitionConfigId for event: %s\n", transformed["name"])
 	}
 
 	// Save transformed documents to file
