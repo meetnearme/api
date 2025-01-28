@@ -59,7 +59,6 @@ func (h *CompetitionVoteHandler) PutCompetitionVote(w http.ResponseWriter, r *ht
 	createCompetitionVote.ExpiresOn = time.Now().Add(24 * time.Hour).Unix()
 	createCompetitionVote.CompositePartitionKey = fmt.Sprintf("%s_%s", competitionId, roundNumber)
 	createCompetitionVote.UserId = userId
-	createCompetitionVote.UserId = "333333333333333333"
 
 	err = validate.Struct(&createCompetitionVote)
 	if err != nil {
@@ -157,6 +156,56 @@ func (h *CompetitionVoteHandler) DeleteCompetitionVote(w http.ResponseWriter, r 
 	}
 
 	transport.SendServerRes(w, []byte("CompetitionVote successfully deleted"), http.StatusOK, nil)
+}
+
+func GetCompetitionVotesTallyForRoundHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		competitionId := vars["competitionId"]
+		if competitionId == "" {
+			transport.SendServerRes(w, []byte("Missing competition ID"), http.StatusBadRequest, nil)
+			return
+		}
+		roundNumber := vars["roundNumber"]
+		if roundNumber == "" {
+			transport.SendServerRes(w, []byte("Missing round number "), http.StatusBadRequest, nil)
+			return
+		}
+
+		compositePartitionKey := fmt.Sprintf("%s_%s", competitionId, roundNumber)
+
+		db := transport.GetDB()
+		service := dynamodb_service.NewCompetitionVoteService()
+		eventCompetitionVotes, err := service.GetCompetitionVotesByCompetitionRound(r.Context(), db, compositePartitionKey)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get user: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		if eventCompetitionVotes == nil {
+			transport.SendServerRes(w, []byte("CompetitionVotes not found for competitionId and roundNumber"), http.StatusNotFound, nil)
+			return
+		}
+
+		var voteTally = map[string]int64{}
+		for _, vote := range eventCompetitionVotes {
+			voteRecipientId := vote.VoteRecipientId
+			// check if below throws error with hard coded value that does not exist
+			if _, ok := voteTally[voteRecipientId]; ok {
+				voteTally[voteRecipientId] += 1
+			} else {
+				voteTally[voteRecipientId] = 1
+			}
+		}
+
+		response, err := json.Marshal(voteTally)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+			return
+		}
+
+		transport.SendServerRes(w, response, http.StatusOK, nil)
+	}
 }
 
 // PutCompetitionVoteHandler is a wrapper that creates the UserHandler and returns the handler function for updating a eventCompetitionVote
