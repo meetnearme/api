@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -105,6 +106,12 @@ type AnnParameters struct {
 type Parameters struct {
 	EfConstruction int `json:"efConstruction"`
 	M              int `json:"m"`
+}
+
+// IndexStats represents the statistics of an index
+type IndexStats struct {
+	NumberOfDocuments int `json:"numberOfDocuments"`
+	// Add other stats fields as needed
 }
 
 func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
@@ -479,4 +486,63 @@ func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration)
 		time.Sleep(checkInterval)
 		attempt++
 	}
+}
+
+func (c *MarqoClient) GetIndexStats(indexName string) (*IndexStats, error) {
+	url := fmt.Sprintf("%s/indexes/%s/stats", c.baseURL, indexName)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.addHeaders(req)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get stats: status=%d body=%s",
+			resp.StatusCode, string(bodyBytes))
+	}
+
+	var stats IndexStats
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, fmt.Errorf("failed to decode stats: %w", err)
+	}
+
+	return &stats, nil
+}
+
+// SaveDocumentsToFile saves the documents to a temporary file
+func SaveDocumentsToFile(documents []map[string]interface{}, filename string) error {
+	file, err := json.MarshalIndent(documents, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal documents: %w", err)
+	}
+
+	if err := os.WriteFile(filename, file, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+
+// LoadDocumentsFromFile loads the documents from a file
+func LoadDocumentsFromFile(filename string) ([]map[string]interface{}, error) {
+	file, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var documents []map[string]interface{}
+	if err := json.Unmarshal(file, &documents); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal documents: %w", err)
+	}
+
+	return documents, nil
 }

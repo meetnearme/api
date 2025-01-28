@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 func LoadSchema(path string) (map[string]interface{}, error) {
@@ -127,48 +128,80 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 	m.targetClient = NewMarqoClient(endpoint, m.targetClient.apiKey)
 	fmt.Printf("Using target endpoint: %s\n", endpoint)
 
-	offset := 0
-	totalMigrated := 0
+	// Get source index stats
+	stats, err := m.sourceClient.GetIndexStats(sourceIndex)
+	if err != nil {
+		return fmt.Errorf("failed to get source index stats: %w", err)
+	}
+	fmt.Printf("Source index has %d documents\n", stats.NumberOfDocuments)
 
-	for {
-		fmt.Printf("\n=== Processing batch at offset %d ===\n", offset)
+	// Get all documents from source
+	documents, err := m.sourceClient.Search(sourceIndex, "*", 0, stats.NumberOfDocuments)
+	if err != nil {
+		return fmt.Errorf("failed to get documents: %w", err)
+	}
 
-		docs, err := m.sourceClient.Search(sourceIndex, "*", offset, m.batchSize)
+	// Save documents to temp file
+	tempFile := fmt.Sprintf("temp_migration_%s_%d.json", sourceIndex, time.Now().Unix())
+	if err := SaveDocumentsToFile(documents, tempFile); err != nil {
+		return fmt.Errorf("failed to save documents to file: %w", err)
+	}
+	fmt.Printf("Saved %d documents to %s\n", len(documents), tempFile)
+
+	// Comment out the old pagination logic
+	/*
+	   offset := 0
+	   totalMigrated := 0
+
+	   for {
+	       fmt.Printf("\n=== Processing batch at offset %d ===\n", offset)
+
+	       docs, err := m.sourceClient.Search(sourceIndex, "*", offset, m.batchSize)
+	       if err != nil {
+	           return fmt.Errorf("failed to fetch documents at offset %d: %w", offset, err)
+	       }
+
+	       if len(docs) == 0 {
+	           break
+	       }
+	*/
+	// Process all documents with transformers
+	transformedDocs := make([]map[string]interface{}, 0, len(documents))
+	for _, doc := range documents {
+		transformed, err := m.applyTransformers(doc)
 		if err != nil {
-			return fmt.Errorf("failed to fetch documents at offset %d: %w", offset, err)
+			fmt.Printf("Warning: Failed to transform document %v: %v\n", doc["_id"], err)
+			continue
+		}
+		transformedDocs = append(transformedDocs, transformed)
+	}
+	// Process in batches for upserting
+	batchSize := 50
+	for i := 0; i < len(transformedDocs); i += batchSize {
+		end := i + batchSize
+		if end > len(transformedDocs) {
+			end = len(transformedDocs)
 		}
 
-		if len(docs) == 0 {
-			break
-		}
+		batch := transformedDocs[i:end]
+		fmt.Printf("Upserting batch %d to %d\n", i, end-1)
 
-		// Simply process all documents without any duplicate checking
-		transformedDocs := make([]map[string]interface{}, 0, len(docs))
-		for _, doc := range docs {
-			transformed, err := m.applyTransformers(doc)
-			if err != nil {
-				fmt.Printf("Warning: Failed to transform document %v: %v\n", doc["_id"], err)
-				continue
-			}
-			transformedDocs = append(transformedDocs, transformed)
-		}
-
-		if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
+		if err := m.targetClient.UpsertDocuments(targetIndex, batch); err != nil {
 			fmt.Printf("ERROR: Upsert failed: %v\n", err)
 			continue
 		}
-		totalMigrated += len(transformedDocs)
+	}
 
-		if len(docs) < m.batchSize {
-			break
-		}
-
-		offset += m.batchSize
-		fmt.Printf("Offset progression: %d -> %d\n", offset, offset+m.batchSize)
+	// Verify final count
+	targetStats, err := m.targetClient.GetIndexStats(targetIndex)
+	if err != nil {
+		return fmt.Errorf("failed to get target index stats: %w", err)
 	}
 
 	fmt.Printf("\n=== Migration Summary ===\n")
-	fmt.Printf("Total documents migrated: %d\n", totalMigrated)
+	fmt.Printf("Source documents: %d\n", stats.NumberOfDocuments)
+	fmt.Printf("Successfully transformed: %d\n", len(transformedDocs))
+	fmt.Printf("Target documents: %d\n", targetStats.NumberOfDocuments)
 
 	return nil
 }
