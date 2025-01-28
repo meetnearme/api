@@ -14,8 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-playground/validator"
+	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/types"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
+
+var validate *validator.Validate = validator.New()
 
 var DefaultProtocol string
 
@@ -619,6 +624,87 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	return nil
 }
 
+func CreateTeamUserWithMembers(displayName, candidateUUID string, members []string) error {
+	err := ValidateTeamUUID(candidateUUID)
+	if err != nil {
+		return err
+	}
+
+	emailSchema := os.Getenv("USER_TEAM_EMAIL_SCHEMA")
+	password := os.Getenv("USER_TEAM_PASSWORD")
+	email := strings.Replace(emailSchema, "<replace>", candidateUUID, 1)
+
+	firstPartName := strings.Split(displayName, " ")[0]
+	secondPartName := strings.Split(displayName, " ")[1]
+
+	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/human", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+	payload := strings.NewReader(`{
+		"userId": "` + candidateUUID + `",
+		"email": "` + email + `",
+		"email": {
+			"email": "` + email + `",
+			"isVerified": true
+		},
+		"password": {
+			"password": "` + password + `",
+			"changeRequired": false
+		},
+		"profile": {
+			"givenName": "` + firstPartName + `",
+			"familyName": "` + secondPartName + `",
+			"nickName": "` + firstPartName + ` ` + secondPartName + `",
+			"displayName": "` + firstPartName + ` ` + secondPartName + `",
+		},
+		"metadata": [
+    	{
+			"key": "members",
+			"value": "` + base64.StdEncoding.EncodeToString([]byte(strings.Join(members, ","))) + `"
+		},
+		{
+			"key": "userType",
+			"value": "` + base64.StdEncoding.EncodeToString([]byte("team")) + `"
+		}
+		]
+	}`)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(body))
+	return nil
+}
+
+func ValidateTeamUUID(candidateUUID string) error {
+	parts := strings.SplitN(candidateUUID, "tm_", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid UUID format after 'tm_': %s", parts[1])
+	}
+	_uuid := parts[1]
+	_, err := uuid.Parse(_uuid)
+	if err != nil {
+		return fmt.Errorf("invalid UUID format after 'tm_': %s", _uuid)
+	}
+	return nil
+}
+
 func ArrFindFirst(needles []string, haystack []string) string {
 	for _, s := range needles {
 		for _, item := range haystack {
@@ -762,4 +848,28 @@ func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []str
 
 func CalculateTTL(days int) int64 {
 	return time.Now().Add(time.Duration(days) * 24 * time.Hour).Unix()
+}
+
+func NormalizeCompetitionRounds(competitionRounds []internal_types.CompetitionRoundUpdate) ([]internal_types.CompetitionRoundUpdate, error) {
+	now := time.Now().Unix()
+	for i := range competitionRounds {
+		if competitionRounds[i].CreatedAt == 0 {
+			competitionRounds[i].CreatedAt = now
+		}
+		competitionRounds[i].UpdatedAt = now
+		competitionRounds[i].Matchup = FormatMatchup(
+			competitionRounds[i].CompetitorA,
+			competitionRounds[i].CompetitorB,
+		)
+		err := validate.Struct(competitionRounds[i])
+		if err != nil {
+			log.Printf("Handler ERROR: Validation failed for round %d: %v", i+1, err)
+			return competitionRounds, err
+		}
+	}
+	return competitionRounds, nil
+}
+
+func FormatMatchup(competitorA, competitorB string) string {
+	return fmt.Sprintf("%s_%s", competitorA, competitorB)
 }

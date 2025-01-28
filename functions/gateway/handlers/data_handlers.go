@@ -465,6 +465,17 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 		// Validate each ID
 		for _, id := range ids {
+			if strings.HasPrefix(id, "tm_") {
+				err := helpers.ValidateTeamUUID(id)
+				if err != nil {
+					transport.SendServerRes(w,
+						[]byte(fmt.Sprintf(err.Error())),
+						http.StatusBadRequest,
+						nil)
+					return
+				}
+				continue // Skip the numeric validation below for tm_ prefixed IDs
+			}
 			// Check if ID is exactly 18 characters
 			if len(id) != 18 {
 				transport.SendServerRes(w,

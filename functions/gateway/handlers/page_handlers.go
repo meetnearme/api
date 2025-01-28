@@ -645,7 +645,7 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 		// TODO: add competition ID to schema change in Marqo
 		//
 		eventCompetitionRoundService := dynamodb_service.NewCompetitionConfigService()
-		pageObj = helpers.SitePages["edit-competition"]
+		pageObj = helpers.SitePages["competition-edit"]
 		competitionConfigResponse, err := eventCompetitionRoundService.GetCompetitionConfigById(ctx, db, competitionId)
 		if err != nil || competitionConfigResponse.CompetitionConfig.Id == "" {
 			return transport.SendHtmlRes(w, []byte("Failed to get competition: "+err.Error()),
@@ -656,7 +656,7 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 	}
 
 	competitionPage := pages.AddOrEditCompetitionPage(pageObj, competitionConfig, users)
-	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
+	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js"})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,8 +66,9 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 
 	// Store rounds data before removing it from the struct
 	roundsData := updateCompetitionConfigPayload.Rounds
-
-	log.Printf("roundsData: %+v", roundsData)
+	teamsData := updateCompetitionConfigPayload.Teams
+	log.Printf("70 >>> roundsData: %+v", roundsData)
+	log.Printf("71 >>> teamsData: %+v", teamsData)
 	// Create target struct
 	var configUpdate internal_types.CompetitionConfigUpdate
 
@@ -82,13 +84,92 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 	}
 
-	res, err := h.CompetitionConfigService.UpdateCompetitionConfig(r.Context(), db, configUpdate.Id, configUpdate)
+	competitionConfigRes, err := h.CompetitionConfigService.UpdateCompetitionConfig(r.Context(), db, configUpdate.Id, configUpdate)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to create eventCompetitionConfig: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	response, err := json.Marshal(res)
+	if len(roundsData) > 0 {
+		var competitionRoundsUpdate []internal_types.CompetitionRoundUpdate
+		var usersToCreate []map[string]string
+
+		// Helper function to find team display name
+		findTeamDisplayName := func(teamId string) string {
+			for _, team := range teamsData {
+				if team.Id == teamId {
+					return team.DisplayName
+				}
+			}
+			return "" // Return empty string if team not found
+		}
+
+		findTeamMembers := func(teamId string) []string {
+			for _, team := range teamsData {
+				if team.Id == teamId {
+					competitors := make([]string, len(team.Competitors))
+					for i, comp := range team.Competitors {
+						competitors[i] = comp.UserId
+					}
+					return competitors
+				}
+			}
+			return []string{}
+		}
+
+		for _, round := range roundsData {
+			round.CompetitionId = competitionConfigRes.Id
+			log.Printf("round: %+v", round)
+			competitionRoundsUpdate = append(competitionRoundsUpdate, internal_types.CompetitionRoundUpdate(round))
+
+			if strings.Contains(round.CompetitorA, helpers.COMP_TEAM_ID_PREFIX) {
+				displayName := findTeamDisplayName(round.CompetitorA)
+				usersToCreate = append(usersToCreate, map[string]string{
+					"id":          round.CompetitorA,
+					"displayName": displayName,
+					"members":     strings.Join(findTeamMembers(round.CompetitorA), ","),
+				})
+			}
+			if strings.Contains(round.CompetitorB, helpers.COMP_TEAM_ID_PREFIX) {
+				displayName := findTeamDisplayName(round.CompetitorB)
+				usersToCreate = append(usersToCreate, map[string]string{
+					"id":          round.CompetitorB,
+					"displayName": displayName,
+					"members":     strings.Join(findTeamMembers(round.CompetitorB), ","),
+				})
+			}
+		}
+
+		log.Printf("usersToCreate: %+v", usersToCreate)
+
+		// if len(usersToCreate) > 0 {
+		// 	helpers.CreateTeamUserWithMembers(usersToCreate)
+		// }
+
+		// TODO: this is only commented out to avoid creating MANY competition rounds
+		if len(usersToCreate) > 20 {
+			competitionRoundsUpdate, err = helpers.NormalizeCompetitionRounds(competitionRoundsUpdate)
+			if err != nil {
+				// return &competitionConfigResponse, err
+				transport.SendServerRes(w, []byte("Failed to normalize competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+				return
+			}
+
+			log.Printf("competitionRoundsUpdate: %+v", competitionRoundsUpdate)
+			service := dynamodb_service.NewCompetitionRoundService()
+			competitionRounds, err := service.PutCompetitionRounds(ctx, db, &competitionRoundsUpdate)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to save competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+				return
+			}
+
+			log.Printf("competitionRounds: %+v", competitionRounds)
+		}
+	} else {
+		// TODO: delete this log
+		log.Printf("no rounds data")
+	}
+	response, err := json.Marshal(competitionConfigRes)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
 		return

@@ -92,7 +92,12 @@ inputs:
   PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET:
     description: 'Stripe (prod) checkout webhook signing secret'
     required: true
-
+  USER_TEAM_EMAIL_SCHEMA:
+    description: 'The email schema for user teams'
+    required: true
+  USER_TEAM_PASSWORD:
+    description: 'The password for user teams'
+    required: true
 runs:
   using: composite
   steps:
@@ -130,6 +135,8 @@ runs:
         echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
         echo CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE=${{ inputs.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE }} >> .env
         echo CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }} >> .env
+        echo USER_TEAM_EMAIL_SCHEMA=${{ inputs.USER_TEAM_EMAIL_SCHEMA }} >> .env
+        echo USER_TEAM_PASSWORD=${{ inputs.USER_TEAM_PASSWORD }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

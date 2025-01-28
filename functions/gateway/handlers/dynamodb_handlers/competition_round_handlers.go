@@ -2,13 +2,12 @@ package dynamodb_handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -47,20 +46,10 @@ func (h *CompetitionRoundHandler) PutCompetitionRounds(w http.ResponseWriter, r 
 
 	log.Printf("Handler: Unmarshaled %d competition rounds", len(createCompetitionRounds))
 
-	now := time.Now().Unix()
-	for i := range createCompetitionRounds {
-		createCompetitionRounds[i].CreatedAt = now
-		createCompetitionRounds[i].UpdatedAt = now
-		createCompetitionRounds[i].Matchup = formatMatchup(
-			createCompetitionRounds[i].CompetitorA,
-			createCompetitionRounds[i].CompetitorB,
-		)
-		err := validate.Struct(createCompetitionRounds[i])
-		if err != nil {
-			log.Printf("Handler ERROR: Validation failed for round %d: %v", i+1, err)
-			transport.SendServerRes(w, []byte(fmt.Sprintf("Invalid round at index %d: %v", i, err)), http.StatusBadRequest, err)
-			return
-		}
+	createCompetitionRounds, err = helpers.NormalizeCompetitionRounds(createCompetitionRounds)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to normalize competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+		return
 	}
 
 	db := transport.GetDB()
@@ -259,8 +248,4 @@ func DeleteCompetitionRoundHandler(w http.ResponseWriter, r *http.Request) http.
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.DeleteCompetitionRound(w, r)
 	}
-}
-
-func formatMatchup(competitorA, competitorB string) string {
-	return fmt.Sprintf("%s_%s", competitorA, competitorB)
 }

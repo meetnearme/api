@@ -1587,6 +1587,18 @@ func TestGetUsersHandler(t *testing.T) {
 			expectedBody:   "ERR: Missing required 'ids' parameter",
 		},
 		{
+			name:           "Valid tm_uuid format",
+			queryParams:    "?ids=tm_123e4567-e89b-12d3-a456-426614174000",
+			expectedStatus: http.StatusOK,
+			expectedBody:   `[{"userId":"tm_123e4567-e89b-12d3-a456-426614174000","displayName":"Test User"}]`,
+		},
+		{
+			name:           "Invalid tm_uuid format",
+			queryParams:    "?ids=tm_invalid-uuid-format",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Invalid UUID format after 'tm_': invalid-uuid-format",
+		},
+		{
 			name:           "Invalid ID length",
 			queryParams:    "?ids=12345", // Less than 18 characters
 			expectedStatus: http.StatusBadRequest,

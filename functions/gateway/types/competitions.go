@@ -62,7 +62,19 @@ type CompetitionConfigResponse struct {
 
 type CompetitionConfigUpdatePayload struct {
 	CompetitionConfigUpdate
-	Rounds []CompetitionRound `json:"rounds,omitempty" dynamodbav:"rounds"` // JSON array string
+	Rounds []CompetitionRoundUpdate `json:"rounds,omitempty"` // JSON array string
+	Teams  []CompetitionTeamUpdate  `json:"teams,omitempty"`  // JSON array string
+}
+
+type CompetitionTeamUpdate struct {
+	Id          string                  `json:"id,omitempty" dynamodbav:"id"`
+	DisplayName string                  `json:"displayName" dynamodbav:"displayName"`
+	Competitors []CompetitionCompetitor `json:"competitors,omitempty" dynamodbav:"competitors"`
+}
+
+type CompetitionCompetitor struct {
+	UserId      string `json:"userId" dynamodbav:"userId"`
+	DisplayName string `json:"displayName" dynamodbav:"displayName"`
 }
 
 // Update type (all optional fields)
@@ -95,14 +107,14 @@ type CompetitionRound struct {
 	CompetitorBScore float64 `json:"competitorBScore" dynamodbav:"competitorBScore"`
 	Matchup          string  `json:"matchup" dynamdbav:"matchup"`
 	Status           string  `json:"status" dynamodbav:"status"`
-	// Competitors      []string `json:"competitors" dynamodbav:"competitors"`
-	IsPending    string `json:"isPending" dynamodbav:"isPending"`
-	IsVotingOpen string `json:"isVotingOpen" dynamodbav:"isVotingOpen"`
-	CreatedAt    int64  `json:"createdAt" dynamodbav:"createdAt"`
-	UpdatedAt    int64  `json:"updatedAt" dynamodbav:"updatedAt"`
+	IsPending        string  `json:"isPending" dynamodbav:"isPending"`
+	IsVotingOpen     string  `json:"isVotingOpen" dynamodbav:"isVotingOpen"`
+	CreatedAt        int64   `json:"createdAt" dynamodbav:"createdAt"`
+	UpdatedAt        int64   `json:"updatedAt" dynamodbav:"updatedAt"`
 }
 
 type CompetitionRoundUpdate struct {
+	// TODO: clean these up for iterative saving in incomplete state
 	CompetitionId    string  `json:"competitionId" dynamodbav:"competitionId"`
 	RoundNumber      int64   `json:"roundNumber" dynamodbav:"roundNumber" validate:"required"`
 	EventId          string  `json:"eventId,omitempty" dynamodbav:"eventId"`

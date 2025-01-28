@@ -68,6 +68,8 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 		}
 	}
 
+	log.Printf("competitionConfigResponse: %+v", competitionConfigResponse)
+
 	item, err := attributevalue.MarshalMap(&competitionConfig)
 	if err != nil {
 		return &competitionConfigResponse, err
@@ -97,14 +99,15 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 	}
 
 	input := &dynamodb.PutItemInput{
-		Item:                item,
-		TableName:           aws.String(competitionConfigTableName),
-		ConditionExpression: aws.String("attribute_not_exists(id)"),
+		Item:      item,
+		TableName: aws.String(competitionConfigTableName),
+		// NOTE: we dropped POST so this is conditionally for POST -- and -- PUT
+		// ConditionExpression: aws.String("attribute_not_exists(id)"),
 	}
 
 	res, err := dynamodbClient.PutItem(ctx, input)
 	if err != nil {
-		log.Print("error in put item dynamo")
+		log.Printf("error in put item dynamo: %v", err)
 		return &competitionConfigResponse, err
 	}
 
@@ -124,8 +127,6 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 			targetVal.Field(i).Set(sourceField)
 		}
 	}
-
-	log.Printf("competitionConfigResponse: %+v", competitionConfigResponse)
 
 	return &competitionConfigResponse, nil
 }

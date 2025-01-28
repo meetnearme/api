@@ -2,13 +2,32 @@ package pages
 
 import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"strings"
 )
 
 templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.CompetitionConfig, users []types.UserSearchResultDangerous) {
-	<div x-data="getEditCompetitionState()">
+	// NOTE: the `owners` portion of `@users-updated-owners` is a namespace and must be unique
+	// also must be connected manually with the value passed to @components.UsersSelect
+	<div
+		x-data="getEditCompetitionState()"
+		@users-updated-owners.window="handleOwnersUpdate($event.detail)"
+		@users-updated-competitors.window="handleCompetitorsUpdate($event.detail)"
+	>
+		// <header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
+		// 	<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
+		// </header>
 		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
-			<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
+			<h1 class="text-3xl mb-4 truncate whitespace-nowrap overflow-hidden max-w-full">
+				{ pageObj.Name }
+				<template x-if="formData.id">
+					<span>:&nbsp;<a x-text="formData.name" target="_blank" class="link link-primary" :href="competitionDetailUrl.replace('{}',formData.id)"></a></span>
+				</template>
+				<template x-if="!formData.id && formData.name">
+					<span x-text=" ': ' + formData.name"></span>
+				</template>
+			</h1>
 		</header>
 		// Basic Information Section
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Basic Information</h2>
@@ -60,115 +79,140 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						<option value="POINT_TOTAL" disabled>Points (Total)</option>
 					</select>
 				</div>
-				// Competition Owners
+				<div class="divider"></div>
+				// Replace the owners section with the new component
+				@components.UsersSelect(users, competition.PrimaryOwner, "owners", "Additional Admins", "admins", true)
+				<div class="divider"></div>
+			</div>
+		</div>
+		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Competitors</h2>
+		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+			<div class="card">
+				<h3 class="text-xl font-bold mb-4">Waiting Room</h3>
 				<div class="form-control">
-					<label class="label">Additional Admins</label>
-					<div class="form-control">
-						<label class="label">{ helpers.GetFieldDisplayName("EventOwners") }</label>
-						<div class="tags" id="ownersList">
-							<template x-for="owner in owners">
-								<span
-									class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
-								>
-									<template x-if="owner.label">
-										<span x-text="owner.label"></span>
-									</template>
-									<template x-if="!owner.label">
-										<span class="loading loading-spinner loading-sm"></span>
-									</template>
-									<button aria-label="remove owner" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeOwner(owner)" :disabled="saveReqInFlight">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-6 w-6"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M6 18L18 6M6 6l12 12"
-											></path>
-										</svg>
-									</button>
-								</span>
-							</template>
+					<template x-if="waitingRoom.length == 0">
+						<div class="flex items-center gap-4 mb-4">
+							<span>Waiting room is empty</span>
 						</div>
-					</div>
+					</template>
+					<template x-for="competitor in waitingRoom">
+						<div class="flex items-center gap-4 mb-4">
+							<span x-text="competitor.displayName"></span>
+							<select class="select" x-model.fill="competitor.team">
+								<option selected value="">Select team</option>
+								<template x-for="team in teams">
+									<option
+										:value="team.id"
+									>
+										<span x-text="team.label"></span>
+									</option>
+								</template>
+								<option
+									value="OWN_TEAM"
+								>Own team</option>
+							</select>
+							<button aria-label="add to team" class="btn btn-primary" @click="addCompetitorToTeam(competitor.userId, competitor.team, competitor)">
+								Add to Team
+								// <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								// 	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+								// </svg>
+							</button>
+							<button aria-label="remove competitor" class="btn btn-circle btn-neutral  btn-xs" @click="removeCompetitor(competitor.userId)">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+								</svg>
+							</button>
+						</div>
+					</template>
+				</div>
+				@components.UsersSelect([]types.UserSearchResultDangerous{}, "", "competitors", "Competitors", "competitors", false)
+				<div class="divider"></div>
+				<h3 class="text-xl font-bold mb-4">Teams</h3>
+				<div class="form-control">
+					<template x-if="teams.length == 0">
+						<div class="flex items-center gap-4 mb-4">
+							<span>No teams yet</span>
+						</div>
+					</template>
+					<template x-if="teams.length > 0">
+						<ul x-sort="($item, $position) => handleTeamOrder($item, $position)" class="list-none p-0 grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+							<template x-for="(team, index) in teams" :key="team.value + '-' + index">
+								<li x-sort:item="team.value" class="card bg-base-100 shadow-md p-4">
+									<div class="flex items-center gap-2 mb-4">
+										<span x-sort:handle class="cursor-move">
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+											</svg>
+										</span>
+										<button
+											@click="removeTeam(team.value)"
+											class="btn btn-ghost btn-circle btn-sm ml-auto"
+											:disabled="saveReqInFlight"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+											</svg>
+										</button>
+									</div>
+									<!-- Name -->
+									<h5 class="text-lg font-bold">Name</h5>
+									<div class="form-control">
+										<input
+											type="text"
+											class="input input-bordered"
+											x-model="team.label"
+										/>
+									</div>
+									<h5 class="text-lg font-bold mt-4 border-b border-base-300 pt-4">Members</h5>
+									<div class="form-control">
+										<ul class="p-0">
+											<template x-if="team.competitors.length === 0">
+												<li class="w-full">
+													<div class="flex justify-between py-3">
+														<span>(No members)</span>
+													</div>
+												</li>
+											</template>
+											<template x-for="(competitor, index) in team.competitors">
+												<li class="w-full">
+													<div class="flex justify-between py-3">
+														<span x-text="index + 1 + '. ' + competitor.displayName"></span>
+														<button aria-label="remove competitor" class="btn btn-circle btn-neutral btn-xs" @click="removeCompetitorFromTeam(team.label, competitor)" :disabled="saveReqInFlight">
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																class="h-6 w-6"
+																fill="none"
+																viewBox="0 0 24 24"
+																stroke="currentColor"
+															>
+																<path
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	stroke-width="2"
+																	d="M6 18L18 6M6 6l12 12"
+																></path>
+															</svg>
+														</button>
+													</div>
+												</li>
+											</template>
+										</ul>
+									</div>
+								</li>
+							</template>
+						</ul>
+					</template>
 				</div>
 				<div class="form-control">
-					<div class="flex w-full flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
-						<div class="relative">
-							<input
-								type="text"
-								class="input input-bordered w-full disabled:cursor-not-allowed disabled:opacity-75 "
-								name="ownerSearch"
-								aria-label="Add event owners (search by name, organization, or email)"
-								@input.throttle="fetchUsers($event.target.value)"
-								x-ref="ownerSearch"
-								placeholder="Add event owners (search by name, organization, or email)"
-								class="input input-bordered"
-								role="combobox"
-								aria-controls="ownersList"
-								aria-haspopup="listbox"
-								x-on:click="isOpen = ! isOpen"
-								x-on:keydown.down.prevent="
-								isOpen = true;
-								openedWithKeyboard = true;
-								$nextTick(() => {
-									$el.closest('.relative').querySelector('li[role=option]')?.focus()
-								})"
-								x-bind:aria-expanded="isOpen || openedWithKeyboard"
-								autocomplete="new-password"
-								:disabled="saveReqInFlight"
-							/>
-							<div
-								x-show="isOpen || openedWithKeyboard"
-								:class="{'opacity-100': isOpen || openedWithKeyboard}"
-								class="w-full opacity-0 transition-all absolute left-0 top-12 z-50 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
-								id="ownersList"
-								role="listbox"
-								aria-label="event owners list"
-								x-on:click.outside="isOpen = false, openedWithKeyboard = false"
-								x-on:keydown.down.prevent="$focus.wrap().next()"
-								x-on:keydown.up.prevent="
-								if ($el.querySelector('li:focus') === $refs.optionsList.querySelector('li[role=option]')) {
-									isOpen = false;
-									openedWithKeyboard = false;
-									$nextTick(() => {
-											document.querySelector('[x-ref=ownerSearch]').focus();
-									});
-								} else {
-										$focus.wrap().previous()
-								}
-							"
-								x-transition
-								x-trap="openedWithKeyboard"
-							>
-								<!-- Options  -->
-								<ul x-ref="optionsList" class="flex max-h-44 flex-col overflow-y-auto">
-									<template x-if="options?.length < 1">
-										<li class="px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
-											<span>No matches found</span>
-										</li>
-									</template>
-									<template x-for="(item, index) in options" :key="index">
-										<li
-											class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white"
-											role="option"
-											@click="setSelectedOwner(item)"
-											@keydown.enter="setSelectedOwner(item)"
-											:id="'option-' + index"
-											tabindex="0"
-										>
-											<span x-text="item.label"></span>
-										</li>
-									</template>
-								</ul>
-							</div>
-						</div>
-					</div>
+					<form novalidate @submit.prevent="addTeam(newTeamName)">
+						<input
+							type="text"
+							class="input input-bordered mt-8"
+							placeholder="New Team Name"
+							x-model.fill="newTeamName"
+						/>
+						<button type="submit" class="btn btn-primary mt-4">Create Team</button>
+					</form>
 				</div>
 			</div>
 		</div>
@@ -176,37 +220,100 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Rounds Configuration</h2>
 		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
 			<div class="card">
+				<h5 class="text-lg font-bold mb-4">Rounds</h5>
 				<div class="form-control">
-					<label class="label">Rounds</label>
 					<div class="rounds-list">
-						<template x-for="(round, index) in rounds" :key="index">
-							<div class="round-item flex items-center gap-4 mb-4">
-								<input
-									type="text"
-									class="input input-bordered"
-									x-model="round.name"
-									placeholder="Round name"
-								/>
-								<button aria-label="remove round" class="btn btn-circle btn-neutral  btn-xs" @click="removeRound(index)" :disabled="saveReqInFlight">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-6 w-6"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M6 18L18 6M6 6l12 12"
-										></path>
-									</svg>
-								</button>
-							</div>
+						<template x-if="teams.length < 2">
+							<div class="mt-4">Rounds are matchups between teams. To add one, first add at least 2 teams.</div>
+						</template>
+						<template x-if="teams.length > 1">
+							<template x-for="(round, index) in formData.rounds" :key="index">
+								<li x-sort:item="round.roundNumber" class="card bg-base-100 shadow-md p-4 mb-4">
+									<div class="flex items-center gap-2 mb-4">
+										<span x-sort:handle class="cursor-move">
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+											</svg>
+										</span>
+										<button
+											@click="removeRound(index)"
+											class="btn btn-ghost btn-circle btn-sm ml-auto"
+											:disabled="saveReqInFlight"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+											</svg>
+										</button>
+									</div>
+									<div class="round-item flex items-center gap-4 mb-4">
+										<input
+											type="text"
+											class="input input-bordered"
+											x-model="round.roundName"
+											placeholder="Round name"
+										/>
+										<span class="text-xl">: </span>
+										<select
+											class="select input-bordered"
+											x-model.fill="round.competitorA"
+										>
+											<template x-for="team in teams">
+												<option
+													:value="team.id"
+													:selected="round.competitorA === team.id"
+												>
+													<span x-text="team.label"></span>
+												</option>
+											</template>
+										</select>
+										<span class="text-xl">&larr; VS &rarr;</span>
+										<select
+											class="select input-bordered"
+											x-model.fill="round.competitorB"
+										>
+											<template x-for="team in teams">
+												<option
+													:value="team.id"
+													:selected="round.competitorB === team.id"
+												>
+													<span x-text="team.label"></span>
+												</option>
+											</template>
+										</select>
+									</div>
+									<div class="divider"></div>
+									<template x-if="formData.scoringMethod === 'VOTE_MATCHUPS' ">
+										<div class="flex items-center gap-4 mb-4">
+											<button class="btn btn-primary" @click="tallyVotes(round)">Tally Votes</button>
+											<div class="flex items-center gap-4 mb-4">
+												Vote Count: <span x-text="round.votes"></span>
+											</div>
+										</div>
+									</template>
+									<div class="flex items-center gap-4 mb-4">
+										<div class="form-control">
+											<label class="label">
+												<span class="label-text">Competitor A Score</span>
+											</label>
+											<input type="text" class="input input-bordered" x-model="round.competitorAScore"/>
+										</div>
+										<div class="form-control">
+											<label class="label">
+												<span class="label-text">Competitor B Score</span>
+											</label>
+											<input type="text" class="input input-bordered" x-model="round.competitorBScore"/>
+										</div>
+									</div>
+									<div class="flex items-center gap-4 mb-4">
+										<button class="btn btn-primary" @click="saveScore(round)">Save Score</button>
+									</div>
+								</li>
+							</template>
 						</template>
 					</div>
 					<button
+						:disabled="teams.length < 2"
+						aria-live="polite"
 						class="btn btn-primary w-full mt-4"
 						@click="addRound"
 					>Add Round</button>
@@ -218,8 +325,18 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 			<button class="btn btn-outline">Cancel</button>
 			<button class="btn btn-primary mx-4" @click="saveCompetition">Save Competition</button>
 		</div>
+		<template x-if="showToast === true">
+			<div class="toast m-4 z-50 ">
+				<div :class="toastContent.type == 'error' ? 'alert-error' : 'alert-success'" class="alert  border-2 border-base-300">
+					<span x-text="toastContent.message"></span>
+					<div class="block justify-end">
+						<button class="btn btn-sm btn-circle btn-ghost text-2xl float-end" @click="showToast = false"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
+					</div>
+				</div>
+			</div>
+		</template>
 	</div>
-	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) }>
+	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["competition-detail"].Slug, helpers.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ helpers.COMP_EMPTY_TEAM_NAME } data-competition-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ helpers.COMP_TEAM_ID_PREFIX }>
 		function getEditCompetitionState() {
 			return {
 				init() {
@@ -243,94 +360,221 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					console.log('formData.primaryOwner', this.formData.primaryOwner);
 					console.log('owners', this.owners);
 				},
+				competitionDetailUrl: document.querySelector('#add-edit-competition').getAttribute('data-competition-detail-url') ?? null,
+				emptyTeamName: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-team-name') ?? null,
+				emptyRoundEventId: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-event-id') ?? null,
+				teamIdPrefix: document.querySelector('#add-edit-competition').getAttribute('data-team-id-prefix') ?? null,
 				formData: {
+					id: document.querySelector('#add-edit-competition').getAttribute('data-competition-id'),
 					name: document.querySelector('#add-edit-competition').getAttribute('data-competition-name'),
 					moduleType: document.querySelector('#add-edit-competition').getAttribute('data-competition-module-type'),
 					scoringMethod: document.querySelector('#add-edit-competition').getAttribute('data-competition-scoring-method'),
 					primaryOwner: document.querySelector('#add-edit-competition').getAttribute('data-competition-primary-owner'),
-					auxilaryOwners: JSON.parse(document.querySelector('#add-edit-competition').getAttribute('data-competition-auxilary-owners')) ?? [],
 					rounds: [],
 				},
 				saveReqInFlight: false,
-				// BEGIN: Competition Additional Owners typeahead state
-				allOptions: [],
-				owners: [],
-				isOpen: false,
-				openedWithKeyboard: false,
-				// END: Competition Additional Owners typeahead state
+				waitingRoom: [],
+				newTeamName: '',
+				teams: [],
+				showToast: false,
+				toastContent: {
+					type: '',
+					message: '',
+				},
+				handleOwnersUpdate(owners) {
+					console.log('handleOwnersUpdate', owners)
+					this.owners = owners;
+				},
 
-				// Add the typeahead helper functions
-				async fetchUsers(query) {
-					if (query.length >= 3) {
-						await fetch(`/api/user-search?q=${query}`).then(res => {
-							return res.json()
-						}).then(json => {
-							// Filter out users that are already owners
-							const filteredUsers = json.filter(user =>
-								!this.owners.some(owner => owner.value === user.userId)
-							);
-							this.options = filteredUsers.map((user) => ({
-									label: user.displayName,
-									value: user.userId,
-							}))
-							this.$nextTick(() => {
-								this.isOpen = true
-							})
-						});
-					}
+				handleCompetitorsUpdate(competitors) {
+					console.log('handleCompetitorsUpdate', competitors)
+					// this.competitors = competitors;
+					this.waitingRoom = Object.entries(competitors).map(([key, val]) => ({
+						displayName: val.label,
+						userId: val.value
+					}));
+
+					// competitors.map(competitor => ({
+					//   displayName: competitor.displayName,
+					//   userId: competitor.userId
+					// }));
+					// this.waitingRoom = this.waitingRoom.filter(competitor => !competitors.includes(competitor.userId));
 				},
-				removeOwner(ownerToRemove) {
-						this.owners = this.owners.filter(owner => owner !== ownerToRemove);
-				},
-				setSelectedOwner(option) {
-						this.isOpen = false
-						this.owners.push(option);
-						this.options = this.options.filter(o => o.value !== option.value)
-						this.$nextTick(() => {
-							document.querySelector('[x-ref=ownerSearch]').focus();
-						})
-				},
-				handleKeydownOnOptions(event) {
-						// if the user presses backspace or the alpha-numeric keys, focus on the search field
-						if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
-								this.$refs.ownerSearch.focus()
-						}
-				},
-				// END: Competition Additional Owners typeahead helper functions
 				addRound() {
-					this.formData.rounds.push({
-						name: `Round ${this.formData.rounds.length + 1}`,
-						competitors: []
+					console.log('addRound ev id:', this.emptyRoundEventId)
+					this.formData.rounds?.push?.({
+						roundName: `Round ${this.formData.rounds.length + 1}`,
+						roundNumber: this.formData.rounds.length + 1,
+						competitorA: this.teams[0].id,
+						competitorB: this.teams[1].id,
+						eventId: this.emptyRoundEventId
 					});
 				},
 				removeRound(index) {
-					this.rounds.splice(index, 1);
+					this.formData.rounds.splice(index, 1);
 				},
+				removeCompetitor(userId) {
+					this.waitingRoom = this.waitingRoom.filter(competitor => competitor.userId !== userId);
+				},
+				removeTeam(team) {
+					this.teams = this.teams.filter(_team => _team.name !== team.name);
+				},
+				addTeam(teamName) {
+					this.teams.push({
+						label: teamName,
+						// id: this.emptyTeamIdPrefix + (this.teams.length + 1).toString(),
+						id: this.teamIdPrefix + crypto.randomUUID(),
+						competitors: []
+					});
+					this.$nextTick(() => {
+						this.newTeamName = '';
+					});
+				},
+
+				addCompetitorToTeam(userId, teamId, competitor) {
+					console.log('addCompetitorToTeam', userId, teamId)
+					console.log('competitor', competitor)
+					this.teams = this.teams.map(team => {
+						if (team.id === teamId) {
+							if (!team.competitors.includes(userId)) {
+                const userToAdd = this.waitingRoom.find(competitor => competitor.userId === userId)
+								team.competitors.push({
+									displayName: userToAdd.displayName,
+									userId: userToAdd.userId
+								})
+								this.waitingRoom = this.waitingRoom.filter(competitor => competitor.userId !== userId);
+							}
+							return ({
+								...team,
+							})
+						}
+						return team;
+					});
+				},
+
+				removeCompetitorFromTeam(teamName, competitor) {
+					this.teams = this.teams.map(team => {
+						if (team.label === teamName) {
+							team.competitors = team.competitors.filter(_competitor => _competitor.displayName !== competitor.displayName);
+						}
+						return team;
+					});
+
+					this.waitingRoom.push({
+						displayName: competitor.displayName,
+						userId: competitor.userId
+					});
+				},
+
+				handleTeamOrder($item, $position) {
+						// Create a POJO copy of the array
+						let items = this.teams.map(p => ({...p}));
+
+						// Find the moved item by ID
+						const itemIndex = items.findIndex(p => p.id === $item);
+						if (itemIndex === -1) return;
+
+						// Remove and reinsert at new position
+						const [movedItem] = items.splice(itemIndex, 1);
+						items.splice($position, 0, movedItem);
+
+						// Update order values
+						items = items.map((item, index) => ({
+							...item,
+							order: index
+						}));
+
+						// Update the array with the new order
+						this.purchasables = items;
+
+						// Force Alpine to recognize the change
+						this.$nextTick(() => {
+							const templateEl = this.$el.querySelector('template[x-for]');
+							if (templateEl && templateEl.__x) {
+								templateEl.__x._x_prevKeys = items.map(p => `${p.id}-${p.order}`);
+							}
+						});
+					},
+					tallyVotes(round) {
+						console.log('tallyVotes', round)
+						this.formData.rounds = this.formData.rounds.map(r => {
+							if (r.roundNumber === round.roundNumber) {
+								// TODO: set this in fetch call
+								r.votes = 20 + r.roundNumber
+							}
+							return r
+						})
+					},
+					saveScore(round) {
+						console.log('saveScore', round)
+					},
 				async saveCompetition() {
 					this.isSaveReqInFlight = true;
 					try {
 						// Implement save logic
+						console.log('this.owners', this.owners)
 						const competitionData = {
-							name: document.querySelector('#name').value,
-							moduleType: this.formData.moduleType,
-							scoringMethod: this.formData.scoringMethod,
-							auxilaryOwners: this.owners.map(owner => owner.value),
-							rounds: this.rounds,
-							owners: this.owners.map(owner => owner.value),
+							...this.formData,
+							auxilaryOwners: Object.entries(this.owners).map(([key, val]) => val.value),
+							teams: this.teams?.map?.((team, index) => {
+								const displayName = team.label
+								delete team.label
+								return ({
+									...team,
+									displayName,
+									competitors: team.competitors?.map?.((competitor, index) => ({
+										...competitor,
+									}))
+								})
+							}),
+							rounds: this.formData.rounds?.map?.((round, index) => ({
+								...round,
+								...(this.formData.id ? { competitionId: this.formData.id } : {}),
+								// isPending
+								// isVotingOpen
+								// status
+								// eventId
+								// competitorA
+								// competitorB
+								// competitorAScore
+								// competitorBScore
+							}))
 						};
-
-						await fetch('/api/competition-config', {
+console.log('competitionData', competitionData)
+						const response = await fetch('/api/competition-config', {
 							method: 'PUT',
 							headers: {
 								'Content-Type': 'application/json'
 							},
 							body: JSON.stringify(competitionData)
 						});
-
+console.log('response', response)
+						const json = await response.json()
+console.log('json', json)
+						if (!json.error) {
+							this.showToast = true;
+							this.toastContent = {
+								type: 'success',
+								message: 'Competition updated successfully',
+							}
+							// NOTE: this API path should come from a data-* attribute
+							// that uses the `SitePages` constant for this API path
+							const newUrl = `/admin/competition/${json.id}/edit`;
+							window.history.pushState({ path: newUrl }, '', newUrl);
+							this.formData = {
+								...json
+							}
+						} else {
+							throw new Error(`Failed to update competition ${ json?.error?.message ? ": " + json.error.message : ''}`)
+						}
 						// Handle success (redirect or show message)
 					} catch (error) {
 						console.error('Error saving competition:', error);
-						// Handle error (show error message)
+						this.showToast = true;
+						this.toastContent = {
+							type: 'error',
+							message: `Failed to update competition: ${error.message}`,
+						}
 					} finally {
 						this.isSaveReqInFlight = false;
 					}
