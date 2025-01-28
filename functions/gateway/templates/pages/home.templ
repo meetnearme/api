@@ -8,32 +8,6 @@ import (
 	"strconv"
 )
 
-templ geolocate() {
-	<script>
-	function locationData() {
-        return {
-            latitude: null,
-            longitude: null,
-            getLocation() {
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            this.latitude = position.coords.latitude;
-                            this.longitude = position.coords.longitude;
-                        },
-                        (error) => {
-                            console.error("Error getting location:", error);
-                        }
-                    );
-                } else {
-                    console.error("Geolocation is not supported by this browser.");
-                }
-            },
-        };
-    }
-	</script>
-}
-
 script navigateToSlideHandler(index int) {
 		const currentIndex = parseInt(document.getElementById('current-slide-index').value);
 		const newIndex = currentIndex + index;
@@ -498,27 +472,35 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 		}
 
 function locationData() {
-	if ('geolocation' in navigator) {
-  console.log('Geolocation is Available');
-} else {
-  console.log('Geolocation is NOT Available');
-}
         return {
             latitude: null,
             longitude: null,
+            error: null,
+            isLoading: false;
             getLocation() {
                 if (navigator.geolocation) {
+                  this.isLoading = true;
++                 this.error = null;
                     navigator.geolocation.getCurrentPosition(
                         (position) => {
                             this.latitude = position.coords.latitude;
                             this.longitude = position.coords.longitude;
+                            this.isLoading = false;
                         },
                         (error) => {
-                            console.error("Error getting location:", error);
+                            const messages = {
++                            PERMISSION_DENIED: 'Please enable location access to use this feature.',
++                            POSITION_UNAVAILABLE: 'Unable to determine your location.',
++                            TIMEOUT: 'Location request timed out.'
++                            };
++                            this.error = messages[error.code] || 'Failed to get location';
++                            this.isLoading = false;
++                            console.error(this.error, error);
                         }
                     );
                 } else {
-                    console.error("Geolocation is not supported by this browser.");
+                    console.log('Geolocation is NOT Available');
+                    this.error = 'Geolocation is not supported by your browser';
                 }
             },
         };
@@ -588,10 +570,17 @@ function locationData() {
 				return {
 						init() {
 								this.updateParamsFromUrl(false);
-
 								// enhance history.pushState with a listener and call it on every
+                const location = locationData();
+                location.getLocation();
 								// change of query params so that our URL can be the real source
 								// of truth while JS state simply follows that
+                this.$watch('latitude', (value) => {
++                if (value) this.pushToQueryParams('lat', value);
++                });
++               this.$watch('longitude', (value) => {
++                if (value) this.pushToQueryParams('lon', value);
++                });
 								((history) => {
 										var pushState = history.pushState;
 										history.pushState = function(state) {
