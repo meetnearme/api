@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 func LoadSchema(path string) (map[string]interface{}, error) {
@@ -79,46 +80,42 @@ func removeProtectedFields(doc map[string]interface{}, allowedFields map[string]
 }
 
 func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]interface{}, error) {
-	// Log original document
 	eventName, _ := doc["name"].(string)
-	eventID, _ := doc["id"].(string)
-	originalJSON, _ := json.MarshalIndent(doc, "", "  ")
-	fmt.Printf("\n=== Pre-Transform Event ===\nID: %s\nName: %s\nDocument:\n%s\n",
-		eventID, eventName, string(originalJSON))
+	eventID, _ := doc["_id"].(string)
+
+	// Only log detailed transformation for sampling (e.g., every 50th document)
+	shouldLogDetail := eventID[len(eventID)-2:] == "00" // Sample docs ending in "00"
+
+	if shouldLogDetail {
+		originalJSON, _ := json.MarshalIndent(doc, "", "  ")
+		fmt.Printf("\n=== Sample Transform Event ===\nID: %s\nName: %s\nDocument:\n%s\n",
+			eventID, eventName, string(originalJSON))
+	}
 
 	allowedFields := getAllowedFields(m.schema)
 	result := removeProtectedFields(doc, allowedFields)
 
-	var err error
-	for _, transformer := range m.transformers {
+	// Track each transformation
+	for i, transformer := range m.transformers {
+		var err error
 		result, err = transformer(result)
 		if err != nil {
-			return nil, fmt.Errorf("transformer failed: %w", err)
+			// Always log errors in detail
+			originalJSON, _ := json.MarshalIndent(doc, "", "  ")
+			fmt.Printf("\n=== Failed Transform Event ===\nID: %s\nName: %s\nDocument:\n%s\nError: %v\n",
+				eventID, eventName, string(originalJSON), err)
+			return nil, fmt.Errorf("transformer %d failed for document %s: %w", i, eventID, err)
 		}
 	}
 
-	// Log transformed document
-	transformedJSON, _ := json.MarshalIndent(result, "", "  ")
-	fmt.Printf("\n=== Post-Transform Event ===\nID: %s\nName: %s\nDocument:\n%s\n",
-		eventID, eventName, string(transformedJSON))
+	if shouldLogDetail {
+		transformedJSON, _ := json.MarshalIndent(result, "", "  ")
+		fmt.Printf("\n=== Sample Transform Result ===\nID: %s\nName: %s\nDocument:\n%s\n",
+			eventID, eventName, string(transformedJSON))
+	}
 
 	return result, nil
 }
-
-// func (m *Migrator) applyTransformers(doc map[string]interface{}) (map[string]interface{}, error) {
-// 	allowedFields := getAllowedFields(m.schema)
-//     result := removeProtectedFields(doc, allowedFields)
-
-//     var err error
-//     for _, transformer := range m.transformers {
-//         result, err = transformer(result)
-//         if err != nil {
-//             return nil, fmt.Errorf("transformer failed: %w", err)
-//         }
-//     }
-
-//     return result, nil
-// }
 
 func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[string]interface{}) error {
 	// Create the new index
@@ -131,85 +128,94 @@ func (m *Migrator) MigrateEvents(sourceIndex, targetIndex string, schema map[str
 	m.targetClient = NewMarqoClient(endpoint, m.targetClient.apiKey)
 	fmt.Printf("Using target endpoint: %s\n", endpoint)
 
-	type batchResult struct {
-		count int
-		err   error
+	// Get source index stats
+	stats, err := m.sourceClient.GetIndexStats(sourceIndex)
+	if err != nil {
+		return fmt.Errorf("failed to get source index stats: %w", err)
+	}
+	fmt.Printf("Source index has %d documents\n", stats.NumberOfDocuments)
+
+	// Get all documents from source
+	documents, err := m.sourceClient.Search(sourceIndex, "*", 0, stats.NumberOfDocuments)
+	if err != nil {
+		return fmt.Errorf("failed to get documents: %w", err)
 	}
 
-	workers := 4
-	batchChan := make(chan []map[string]interface{}, workers)
-	resultChan := make(chan batchResult, workers)
+	// Save raw documents to temp file
+	tempFile := fmt.Sprintf("temp_migration_%s_%d.json", sourceIndex, time.Now().Unix())
+	if err := SaveDocumentsToFile(documents, tempFile); err != nil {
+		return fmt.Errorf("failed to save documents to file: %w", err)
+	}
+	fmt.Printf("Saved %d documents to %s\n", len(documents), tempFile)
 
-	// Start worker goroutines
-	for i := 0; i < workers; i++ {
-		go func() {
-			for batch := range batchChan {
-				// Transform and upsert batch
-				transformedDocs := make([]map[string]interface{}, len(batch))
-				for i, doc := range batch {
-					transformed, err := m.applyTransformers(doc)
-					if err != nil {
-						resultChan <- batchResult{err: err}
-						return
-					}
-					transformedDocs[i] = transformed
-				}
-
-				if err := m.targetClient.UpsertDocuments(targetIndex, transformedDocs); err != nil {
-					resultChan <- batchResult{err: err}
-					return
-				}
-
-				resultChan <- batchResult{count: len(batch)}
-			}
-		}()
+	// Load documents from temp file
+	documents, err = LoadDocumentsFromFile(tempFile)
+	if err != nil {
+		return fmt.Errorf("failed to load documents from file: %w", err)
 	}
 
-	offset := 0
-	totalMigrated := 0
-	activeBatches := 0
-
-	for {
-		// Fetch batch of documents from source
-		docs, err := m.sourceClient.Search(sourceIndex, "*", offset, m.batchSize)
+	// Apply transformers to each document
+	transformedDocs := make([]map[string]interface{}, 0, len(documents))
+	for _, doc := range documents {
+		transformed, err := m.applyTransformers(doc)
 		if err != nil {
-			return fmt.Errorf("failed to fetch documents at offset %d: %w", offset, err)
+			fmt.Printf("Warning: Failed to transform document: %v\n", err)
+			continue
 		}
 
-		if len(docs) == 0 {
-			break
+		// Debug logging for transformation
+		fmt.Printf("Document ID: %s\n", transformed["_id"])
+		fmt.Printf("Name: %s\n", transformed["name"])
+		if configID, ok := transformed["competitionConfigId"]; ok {
+			fmt.Printf("Competition Config ID: %v\n", configID)
+		} else {
+			fmt.Printf("Competition Config ID field missing\n")
 		}
 
-		// Send batch to worker
-		batchChan <- docs
-		activeBatches++
-		offset += m.batchSize
+		transformedDocs = append(transformedDocs, transformed)
+		fmt.Printf("Added competitionConfigId for event: %s\n", transformed["name"])
+	}
 
-		if activeBatches == workers {
-			result := <-resultChan
-			if result.err != nil {
-				close(batchChan)
-				return result.err
-			}
-			totalMigrated += result.count
-			activeBatches--
-			fmt.Printf("Migrated and transformed %d documents\n", totalMigrated)
+	// Save transformed documents to file
+	transformedFile := fmt.Sprintf("transformed_migration_%s_%d.json", sourceIndex, time.Now().Unix())
+	if err := SaveDocumentsToFile(transformedDocs, transformedFile); err != nil {
+		return fmt.Errorf("failed to save transformed documents to file: %w", err)
+	}
+	fmt.Printf("Saved %d transformed documents to %s\n", len(transformedDocs), transformedFile)
+
+	// Load transformed documents for upserting
+	transformedDocs, err = LoadDocumentsFromFile(transformedFile)
+	if err != nil {
+		return fmt.Errorf("failed to load transformed documents from file: %w", err)
+	}
+
+	// Process in batches for upserting
+	batchSize := 50
+	for i := 0; i < len(transformedDocs); i += batchSize {
+		end := i + batchSize
+		if end > len(transformedDocs) {
+			end = len(transformedDocs)
+		}
+
+		batch := transformedDocs[i:end]
+		fmt.Printf("Upserting batch %d to %d\n", i, end-1)
+
+		if err := m.targetClient.UpsertDocuments(targetIndex, batch); err != nil {
+			fmt.Printf("ERROR: Upsert failed: %v\n", err)
+			continue
 		}
 	}
 
-	// close batch channel and wait for remaining results
-	close(batchChan)
-	for activeBatches > 0 {
-		result := <-resultChan
-		if result.err != nil {
-			return result.err
-		}
-
-		totalMigrated += result.count
-		activeBatches--
-		fmt.Printf("Migrated and transformed %d documents\n", totalMigrated)
+	// Verify final count
+	targetStats, err := m.targetClient.GetIndexStats(targetIndex)
+	if err != nil {
+		return fmt.Errorf("failed to get target index stats: %w", err)
 	}
 
-	fmt.Printf("Migration completed. Total documents migrated and transformed: %d\n", totalMigrated)
+	fmt.Printf("\n=== Migration Summary ===\n")
+	fmt.Printf("Source documents: %d\n", stats.NumberOfDocuments)
+	fmt.Printf("Transformed documents: %d\n", len(transformedDocs))
+	fmt.Printf("Target documents: %d\n", targetStats.NumberOfDocuments)
+
 	return nil
 }

@@ -10,6 +10,16 @@ on:
         options:
           - dev
           - prod
+      source_index:
+        description: 'Source index name (e.g., dev-events-2024-12-02-0227)'
+        required: false
+        type: string
+        default: ''
+      source_endpoint:
+        description: 'Source index endpoint URL'
+        required: false
+        type: string
+        default: ''
       transformers:
         description: 'Comma-separated list of transformers to apply'
         required: false
@@ -66,13 +76,16 @@ jobs:
           -env ${{ inputs.environment }} \
           -schema "schema.json" \
           -transformers ${{ inputs.transformers }} \
-          -batch-size ${{ inputs.batch_size }}
+          -batch-size ${{ inputs.batch_size }} \
+          -source-index "${{ inputs.source_index }}" \
+          -source-endpoint "${{ inputs.source_endpoint }}"
 
     - name: Migration Summary
       if: always()
       run: |
         echo "Migration Status: ${{ job.status }}"
         echo "Environment: ${{ inputs.environment }}"
+        echo "Source Index: ${{ inputs.source_index }}"
         echo "Transformers: ${{ inputs.transformers }}"
         echo "Batch Size: ${{ inputs.batch_size }}"
 
