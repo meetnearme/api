@@ -129,13 +129,29 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				<h3 class="text-xl">EVENT DESCRIPTION</h3>
 				<br/>
 				<div class="whitespace-pre-wrap">{ event.Description }</div>
-				<pre x-text="JSON.stringify(formData.rounds)"></pre>
-				<template x-for="round in formData.rounds">
-					<div>
-						<p x-text="round.Name"></p>
-						<p x-text="round.Description"></p>
-						<button @click="submitVote(round.competitorA)">Vote for <span x-text="round.competitorA"></span></button>
-						<button @click="submitVote(round.competitorB)">Vote for <span x-text="round.competitorB"></span></button>
+				<template x-if="competitionConfigId">
+					<div class="mt-4">
+						<h3 class="text-xl">VOTING</h3>
+						<template x-if="!Boolean(formData?.rounds?.[0]?.competitorADisplayName)">
+							<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+						</template>
+						<template x-if="Boolean(formData?.rounds?.[0]?.competitorADisplayName)">
+							<template x-for="round in formData.rounds">
+								<div>
+									<p x-text="round.Name"></p>
+									<p x-text="round.Description"></p>
+									<div class="flex items-center justify-between gap-4 w-full mt-2">
+										<button class="btn btn-primary flex-1" @click="submitVote(round.competitorA)">
+											<span x-text="'Vote ' + round?.competitorADisplayName"></span>
+										</button>
+										<div class="text-3xl font-bold">&larr; VS &rarr;</div>
+										<button class="btn btn-secondary flex-1" @click="submitVote(round.competitorB)">
+											<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
+										</button>
+									</div>
+								</div>
+							</template>
+						</template>
 					</div>
 				</template>
 			</p>
@@ -209,19 +225,19 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
               console.log('competitionConfigId', competitionConfigId)
 							console.log('199 init')
 							if (this.userId !== '' && competitionConfigId !== '') {
-								console.log('201 init')
-								const response = await fetch(`/api/purchases/has-for-event`, {
-									method: 'POST',
-									body: JSON.stringify({
-										childEventId: this.eventId,
-										parentEventId: this.eventSourceId,
-										userId: this.userId,
-									}),
-								});
-								console.log('208 response', response)
-								const data = await response.json();
-								console.log('208 data', data)
-								if (data.hasPurchase) {
+								// console.log('201 init')
+								// const response = await fetch(`/api/purchases/has-for-event`, {
+								// 	method: 'POST',
+								// 	body: JSON.stringify({
+								// 		childEventId: this.eventId,
+								// 		parentEventId: this.eventSourceId,
+								// 		userId: this.userId,
+								// 	}),
+								// });
+								// console.log('208 response', response)
+								// const data = await response.json();
+								// console.log('208 data', data)
+								// if (data.hasPurchase) {
 									const roundsResponse = await fetch(`/api/competition-round/competition/${competitionConfigId}`, {
 										method: 'GET',
 									});
@@ -239,13 +255,13 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
                     this.formData.rounds = this.formData.rounds.map(round => {
                       // round.user = usersData.find(user => user.id === round.userId)
                       return {
-                        competitorADisplayName: usersData.find(user => user.id === round.userId).displayName,
-                        competitorBDisplayName: usersData.find(user => user.id === round.userId).displayName,
+                        competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
+                        competitorBDisplayName: usersData.find(user => user.userId === round.competitorB).displayName,
                         ...round
                       }
                     })
                   }
-								}
+								// }
 							}
 						} catch (e ) {
 							console.error(e);

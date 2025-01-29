@@ -840,6 +840,11 @@ func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Even
 				event.HideCrossPromo = v
 			}
 		}},
+		{"competitionConfigId", func() {
+			if v := getValue[string](doc, "competitionConfigId"); v != "" {
+				event.CompetitionConfigId = v
+			}
+		}},
 	}
 
 	for _, field := range optionalFields {

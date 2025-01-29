@@ -224,6 +224,7 @@ var EventFields struct {
 	Timezone              string
 	Categories            string
 	Tags                  string
+	CompetitionConfigId   string
 	CreatedAt             string
 	UpdatedAt             string
 	UpdatedBy             string

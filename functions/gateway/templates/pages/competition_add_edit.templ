@@ -223,10 +223,10 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				<h5 class="text-lg font-bold mb-4">Rounds</h5>
 				<div class="form-control">
 					<div class="rounds-list">
-						<template x-if="teams.length < 2">
+						<template x-if="teams.length < 2 && formData.rounds.length === 0">
 							<div class="mt-4">Rounds are matchups between teams. To add one, first add at least 2 teams.</div>
 						</template>
-						<template x-if="teams.length > 1">
+						<template x-if="teams.length > 1 || formData.rounds.length > 0">
 							<template x-for="(round, index) in formData.rounds" :key="index">
 								<li x-sort:item="round.roundNumber" class="card bg-base-100 shadow-md p-4 mb-4">
 									<div class="flex items-center gap-2 mb-4">
@@ -335,6 +335,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				</div>
 			</div>
 		</template>
+		<div>{ string(helpers.ToJSON(competition)) }</div>
 	</div>
 	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["competition-detail"].Slug, helpers.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ helpers.COMP_EMPTY_TEAM_NAME } data-competition-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ helpers.COMP_TEAM_ID_PREFIX }>
 		function getEditCompetitionState() {
@@ -361,22 +362,46 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					console.log('owners', this.owners);
 					(async () => {
 						try {
-              const response = await fetch(`/api/competition-round/competition/${this.formData.id}`, {
-                method: 'GET',
-                // body: JSON.stringify({
-                //   competitionConfigId: this.formData.id,
-                // }),
-                // body: JSON.stringify({
-                //   competitionConfigId: this.formData.id,
-                //   userId: this.formData.primaryOwner,
-                // }),
-              });
-              const data = await response.json();
-              console.log('data', data)
-              this.formData.rounds = data
-            } catch (e) {
-              console.error(e)
-            }
+							const response = await fetch(`/api/competition-round/competition/${this.formData.id}`, {
+								method: 'GET',
+								// body: JSON.stringify({
+								//   competitionConfigId: this.formData.id,
+								// }),
+								// body: JSON.stringify({
+								//   competitionConfigId: this.formData.id,
+								//   userId: this.formData.primaryOwner,
+								// }),
+							});
+							const data = await response.json();
+							console.log('data', data)
+							this.formData.rounds = data
+						} catch (e) {
+							console.error(e)
+						}
+
+console.log('this.rounds', this.rounds)
+						if (this.rounds.length > 0) {
+							try {
+								const ids = this.teams.flatMap(round => [round.competitorA, round.competitorB]).join(',')
+
+								const usersRes = await fetch(`/api/users?ids=${ids}`, {
+									method: 'GET',
+								});
+								const usersData = await usersRes.json();
+								console.log('214 usersData', usersData)
+								this.formData.rounds = this.formData.rounds.map(round => {
+									// round.user = usersData.find(user => user.id === round.userId)
+									return {
+										competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
+										competitorBDisplayName: usersData.find(user => user.userId === round.competitorB).displayName,
+										...round
+									}
+								})
+
+							} catch (e) {
+							console.error(e)
+							}
+						}
 					})();
 				},
 				competitionDetailUrl: document.querySelector('#add-edit-competition').getAttribute('data-competition-detail-url') ?? null,
@@ -426,9 +451,9 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						roundNumber: this.formData.rounds.length + 1,
 						competitorA: this.teams[0].id,
 						competitorB: this.teams[1].id,
-            // TODO: this is an important empty field, fix this
+						// TODO: this is an important empty field, fix this
 						// eventId: this.emptyRoundEventId
-            eventId: '6ca425f5-88d3-463a-b4b2-41dd2f5defc0'
+						eventId: '6ca425f5-88d3-463a-b4b2-41dd2f5defc0'
 					});
 				},
 				removeRound(index) {
@@ -458,7 +483,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					this.teams = this.teams.map(team => {
 						if (team.id === teamId) {
 							if (!team.competitors.includes(userId)) {
-                const userToAdd = this.waitingRoom.find(competitor => competitor.userId === userId)
+								const userToAdd = this.waitingRoom.find(competitor => competitor.userId === userId)
 								team.competitors.push({
 									displayName: userToAdd.displayName,
 									userId: userToAdd.userId
@@ -534,9 +559,20 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					try {
 						// Implement save logic
 						console.log('this.owners', this.owners)
+            // TODO: not working for more than 1 member on a team
+            const competitors = this.teams?.flatMap?.((team, index) => {
+              // return team.competitors?.map?.((competitor, index) => ({
+              //   ...competitor,
+              // }))
+              return team.competitors?.map?.((competitor, index) => ([team.id, competitor.userId]))
+            })
+            // this.teams.forEach((team, index) => {
+            //   competitors.push(team.id)
+            // })
 						const competitionData = {
 							...this.formData,
 							auxilaryOwners: Object.entries(this.owners).map(([key, val]) => val.value),
+              competitors,
 							teams: this.teams?.map?.((team, index) => {
 								const displayName = team.label
 								delete team.label
@@ -562,6 +598,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							}))
 						};
 console.log('competitionData', competitionData)
+return
 						const response = await fetch('/api/competition-config', {
 							method: 'PUT',
 							headers: {

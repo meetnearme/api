@@ -668,13 +668,12 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 													x-model="purchasable.expires_on"
 												/>
 											</div>
-											<!-- Other fields... -->
 											<div class="form-control">
 												<label class="label">Inventory</label>
 												<input
 													type="number"
 													class="input input-bordered"
-													x-model="purchasable.displayInventory"
+													x-model="purchasable.inventory"
 													@input="purchasable.inventory = parseInt($event.target.value || 0)"
 												/>
 											</div>
@@ -812,12 +811,13 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 	// 		</div>
 	// 	</div>
 	// </div>
-	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) }>
+	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-config-id={ event.CompetitionConfigId }>
 
 	function getAddEditEventState() {
 		return {
 					init() {
 						(async () => {
+							console.log('competitionConfigId', document.querySelector('#add-edit-event').getAttribute('data-competition-config-id'))
 								const ownerNames = this.formData.event.eventOwnerName.split(this.eventOwnerDelimiter);
 								const ownerIds = JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? []
 								this.owners = ownerIds.map((ownerId, idx) => {
@@ -883,6 +883,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					formData: {
 						eventChildren: [],
 						event: {
+							competitionConfigId: document.querySelector('#add-edit-event').getAttribute('data-competition-config-id') ?? null,
 							id: document.querySelector('#add-edit-event').getAttribute('data-event-id') ?? null,
 							eventSourceId: document.querySelector('#add-edit-event').getAttribute('data-event-source-id') ?? null,
 							eventOwners: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? [],
@@ -1215,7 +1216,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 
 					async handlePublishClick() {
 						this.saveReqInFlight = true
-
+						console.log('this.formData.event.competitionConfigId', this.formData.event.competitionConfigId)
 						const parentEvent = this.transformEventToPayload(this.formData.event)
 						this.purchasables = this.purchasables.map(p => ({
 							...p,
@@ -1223,6 +1224,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						}))
 						// NOTE: never set the eventSourceId on the parent event, it IS the parent
 						delete parentEvent.eventSourceId
+						console.log('parentEvent.competitionConfigId', parentEvent.competitionConfigId)
 						let payload = {
 							events: [{
 								...parentEvent,

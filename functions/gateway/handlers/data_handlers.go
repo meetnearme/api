@@ -70,6 +70,7 @@ type rawEvent struct {
 	StartingPrice         *int32      `json:"startingPrice,omitempty"`
 	Currency              *string     `json:"currency,omitempty"`
 	PayeeId               *string     `json:"payeeId,omitempty"`
+	CompetitionConfigId   *string     `json:"competitionConfigId,omitempty"`
 	HasRegistrationFields *bool       `json:"hasRegistrationFields,omitempty"`
 	HasPurchasable        *bool       `json:"hasPurchasable,omitempty"`
 	ImageUrl              *string     `json:"imageUrl,omitempty"`
@@ -148,6 +149,9 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	}
 	if raw.EventSourceId != nil {
 		event.EventSourceId = *raw.EventSourceId
+	}
+	if raw.CompetitionConfigId != nil {
+		event.CompetitionConfigId = *raw.CompetitionConfigId
 	}
 	if raw.StartTime == nil {
 		return types.Event{}, fmt.Errorf("startTime is required")
