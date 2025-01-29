@@ -132,7 +132,7 @@ runs:
         echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
         echo CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE=${{ inputs.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE }} >> .env
         echo "CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID=\"${{ inputs.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }}\"" >> .env
-        echo USER_TEAM_EMAIL_SCHEMA=${{ inputs.USER_TEAM_EMAIL_SCHEMA }} >> .env
+        echo "USER_TEAM_EMAIL_SCHEMA=\"${{ inputs.USER_TEAM_EMAIL_SCHEMA }}\"" >> .env
         echo USER_TEAM_PASSWORD=${{ inputs.USER_TEAM_PASSWORD }} >> .env
         echo "DEBUG: Line processed"
         set +x  # Disable debug mode
