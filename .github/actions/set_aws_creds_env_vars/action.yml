@@ -101,6 +101,7 @@ runs:
     - name: Make envfile
       shell: bash
       run: |
+        set -x  # Enable debug mode to print commands
         touch .env
         echo GIT_BRANCH_NAME=${{ inputs.GIT_BRANCH_NAME }} >> .env
         echo APEX_URL=${{ inputs.APEX_URL }} >> .env
@@ -133,6 +134,8 @@ runs:
         echo "CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID=\"${{ inputs.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }}\"" >> .env
         echo USER_TEAM_EMAIL_SCHEMA=${{ inputs.USER_TEAM_EMAIL_SCHEMA }} >> .env
         echo USER_TEAM_PASSWORD=${{ inputs.USER_TEAM_PASSWORD }} >> .env
+        echo "DEBUG: Line processed"
+        set +x  # Disable debug mode
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
