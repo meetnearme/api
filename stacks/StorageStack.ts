@@ -161,6 +161,7 @@ export function StorageStack({ stack }: StackContext) {
       competitorBScore: 'number',
       matchup: 'string', // <competitorA>_<competitorB> - userId
       status: 'string', // ACTIVE, COMPLETE, CANCELLED, PENDING
+      description: 'string',
       // currently removing redundancy at least for karaoke and bocce. Trivia can be separate and isolated
       //competitors: 'string', // JSON string array
       parentRoundId: 'string', // for sub-rounds/acts

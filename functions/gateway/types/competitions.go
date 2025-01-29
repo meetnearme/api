@@ -109,6 +109,7 @@ type CompetitionRound struct {
 	Status           string  `json:"status" dynamodbav:"status"`
 	IsPending        string  `json:"isPending" dynamodbav:"isPending"`
 	IsVotingOpen     string  `json:"isVotingOpen" dynamodbav:"isVotingOpen"`
+	Description      string  `json:"description" dynamodbav:"description"`
 	CreatedAt        int64   `json:"createdAt" dynamodbav:"createdAt"`
 	UpdatedAt        int64   `json:"updatedAt" dynamodbav:"updatedAt"`
 }
@@ -125,12 +126,11 @@ type CompetitionRoundUpdate struct {
 	CompetitorBScore float64 `json:"competitorBScore" dynamodbav:"competitorBScore"` // these are required but validation fails with 0 score
 	Matchup          string  `json:"matchup" dynamdbav:"matchup" validate:"required"`
 	Status           string  `json:"status" dynamodbav:"status"`
-	// is this needed? ?
-	// Competitors      []string `json:"competitors" dynamodbav:"competitors" validate:"required"` // JSON array string - these are userIds that are not uuids
-	IsPending    string `json:"isPending" dynamodbav:"isPending"`
-	IsVotingOpen string `json:"isVotingOpen" dynamodbav:"isVotingOpen"`
-	CreatedAt    int64  `json:"createdAt" dynamodbav:"createdAt"`
-	UpdatedAt    int64  `json:"updatedAt" dynamodbav:"updatedAt"`
+	IsPending        string  `json:"isPending" dynamodbav:"isPending"`
+	IsVotingOpen     string  `json:"isVotingOpen" dynamodbav:"isVotingOpen"`
+	Description      string  `json:"description" dynamodbav:"description"`
+	CreatedAt        int64   `json:"createdAt" dynamodbav:"createdAt"`
+	UpdatedAt        int64   `json:"updatedAt" dynamodbav:"updatedAt"`
 }
 
 type CompetitionWaitingRoomParticipant struct {
