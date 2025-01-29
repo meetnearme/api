@@ -674,7 +674,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 												<input
 													type="number"
 													class="input input-bordered"
-													x-model="purchasable.displayInventory"
+													x-model="purchasable.inventory"
 													@input="purchasable.inventory = parseInt($event.target.value || 0)"
 												/>
 											</div>
