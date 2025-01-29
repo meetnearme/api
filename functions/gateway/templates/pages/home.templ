@@ -486,6 +486,8 @@ function locationData() {
                             this.latitude = position.coords.latitude;
                             this.longitude = position.coords.longitude;
                             this.isLoading = false;
+							pushToQueryParams('lat', this.latitude);
+                            pushToQueryParams('lon', this.longitude);
                         },
                         (error) => {
                             const messages = {
@@ -581,17 +583,7 @@ function locationData() {
 +               this.$watch('longitude', (value) => {
 +                if (value) this.pushToQueryParams('lon', value);
 +                });
-								((history) => {
-										var pushState = history.pushState;
-										history.pushState = function(state) {
-												if (typeof history.onpushstate == "function") {
-														history.onpushstate({state: state});
-												}
-												// whatever else you want to do
-												// maybe call onhashchange e.handler
-												return pushState.apply(history, arguments);
-										}
-								})(window.history);
+								 window.history.pushState({}, '', window.location.href);
 
 								window.onpopstate = history.onpushstate = (e) => {
 									this.updateParamsFromUrl();
