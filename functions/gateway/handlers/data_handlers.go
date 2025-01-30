@@ -92,6 +92,17 @@ type BulkDeleteEventsPayload struct {
 	Events []string `json:"events" validate:"required,min=1"`
 }
 
+type userMetaResult struct {
+	id      string
+	members []string
+	err     error
+}
+
+type searchResult struct {
+	foundUsers []internal_types.UserSearchResultDangerous
+	err        error
+}
+
 func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	loc, err := time.LoadLocation(raw.Timezone)
 	if err != nil {
@@ -499,18 +510,71 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			}
 		}
 
-		// Search for matching users
-		matches, err := helpers.SearchUsersByIDs(ids, false)
-		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to search users: "+err.Error()), http.StatusInternalServerError, err)
-			return
+		metaChan := make(chan userMetaResult)
+		searchChan := make(chan searchResult)
+
+		// Launch goroutine for SearchUsersByIDs
+		go func() {
+			matches, err := helpers.SearchUsersByIDs(ids, false)
+			searchChan <- searchResult{foundUsers: matches, err: err}
+		}()
+
+		// Launch goroutines for each team ID
+		activeRequests := 0
+		for _, id := range ids {
+			if strings.HasPrefix(id, "tm_") {
+				activeRequests++
+				go func(id string) {
+					membersString, err := helpers.GetOtherUserMetaByID(id, "members")
+					if err != nil {
+						metaChan <- userMetaResult{id: id, members: []string{}, err: err}
+						return
+					}
+					members := strings.Split(membersString, ",")
+					metaChan <- userMetaResult{id: id, members: members, err: nil}
+				}(id)
+			}
+		}
+
+		// Collect results
+		allUserMeta := make(map[string][]string)
+		var foundUsers []internal_types.UserSearchResultDangerous
+		// Handle all responses
+		for i := 0; i <= activeRequests; i++ {
+			select {
+			case metaRes := <-metaChan:
+				if metaRes.err != nil {
+					log.Printf("Failed to get user meta: %v", metaRes)
+					transport.SendServerRes(w, []byte("Failed to get user meta: "+metaRes.err.Error()), http.StatusInternalServerError, metaRes.err)
+					return
+				}
+				allUserMeta[metaRes.id] = metaRes.members
+			case res := <-searchChan:
+				if res.err != nil {
+					transport.SendServerRes(w, []byte("Failed to search users: "+res.err.Error()), http.StatusInternalServerError, res.err)
+					return
+				}
+				foundUsers = res.foundUsers
+			}
+		}
+
+		// Merge the metadata with foundUsers
+		for i, user := range foundUsers {
+			if members, exists := allUserMeta[user.UserID]; exists {
+				// Initialize the Metadata map if it's nil
+				if foundUsers[i].Metadata == nil {
+					foundUsers[i].Metadata = make(map[string]interface{})
+				}
+				// Add the members to the metadata as a comma-separated string
+				foundUsers[i].Metadata["members"] = members
+			}
 		}
 
 		var jsonResponse []byte
-		if len(matches) < 1 {
+		if len(foundUsers) < 1 {
 			jsonResponse = []byte("[]")
 		} else {
-			jsonResponse, err = json.Marshal(matches)
+			jsonResponse, err = json.Marshal(foundUsers)
 			if err != nil {
 				transport.SendServerRes(w, []byte("Failed to create JSON response"), http.StatusInternalServerError, err)
 				return

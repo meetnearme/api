@@ -173,18 +173,12 @@ func (s *CompetitionRoundService) GetCompetitionRoundsByEventId(ctx context.Cont
 }
 
 func (s *CompetitionRoundService) GetCompetitionRounds(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, competitionId string) (*[]internal_types.CompetitionRound, error) {
-	log.Printf("Service: Starting GetCompetitionRounds")
-	log.Printf("Service: Input competitionId: '%s'", competitionId)
-	log.Printf("Service: Table name: '%s'", competitionRoundsTableName)
 
 	// Validate input
 	if competitionId == "" {
 		log.Printf("Service ERROR: Empty competitionId provided")
 		return nil, fmt.Errorf("competitionId cannot be empty")
 	}
-
-	// Log table structure expectation
-	log.Printf("Service: Table structure - PK: competitionId (string), SK: roundNumber (number)")
 
 	keyEx := expression.Key("competitionId").Equal(expression.Value(competitionId))
 
@@ -193,26 +187,12 @@ func (s *CompetitionRoundService) GetCompetitionRounds(ctx context.Context, dyna
 		log.Printf("Service ERROR: Failed to build expression: %v", err)
 		return nil, fmt.Errorf("failed to build expression: %w", err)
 	}
-
-	// Detailed expression logging
-	log.Printf("Service: Built DynamoDB expression:")
-	log.Printf("  - Raw KeyCondition: '%s'", *expr.KeyCondition())
-	log.Printf("  - Attribute Names: %+v", expr.Names())
-	log.Printf("  - Attribute Values: %+v", expr.Values())
-
 	queryInput := &dynamodb.QueryInput{
 		TableName:                 aws.String(competitionRoundsTableName),
 		KeyConditionExpression:    expr.KeyCondition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 	}
-
-	// Log the complete query input
-	log.Printf("Service: Final Query Input:")
-	log.Printf("  - TableName: '%s'", *queryInput.TableName)
-	log.Printf("  - KeyConditionExpression: '%s'", *queryInput.KeyConditionExpression)
-	log.Printf("  - ExpressionAttributeNames: %+v", queryInput.ExpressionAttributeNames)
-	log.Printf("  - ExpressionAttributeValues: %+v", queryInput.ExpressionAttributeValues)
 
 	// Try a test GetItem first to verify table access
 	testInput := &dynamodb.GetItemInput{
@@ -237,17 +217,10 @@ func (s *CompetitionRoundService) GetCompetitionRounds(ctx context.Context, dyna
 		return nil, fmt.Errorf("failed to query rounds: %w", err)
 	}
 
-	log.Printf("Query returned %d items", len(result.Items))
-
 	// If no items found, return empty slice
 	if len(result.Items) == 0 {
 		log.Printf("No items found for competitionId: %s", competitionId)
 		return &[]internal_types.CompetitionRound{}, nil
-	}
-
-	// Log first item for debugging
-	if len(result.Items) > 0 {
-		log.Printf("First item raw data: %+v", result.Items[0])
 	}
 
 	var rounds []internal_types.CompetitionRound
@@ -257,7 +230,6 @@ func (s *CompetitionRoundService) GetCompetitionRounds(ctx context.Context, dyna
 		return nil, fmt.Errorf("failed to unmarshal items: %v", err)
 	}
 
-	log.Printf("Successfully unmarshaled %d rounds", len(rounds))
 	return &rounds, nil
 }
 

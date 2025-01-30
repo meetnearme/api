@@ -74,14 +74,9 @@ func (h *CompetitionRoundHandler) PutCompetitionRounds(w http.ResponseWriter, r 
 }
 
 func (h *CompetitionRoundHandler) GetAllCompetitionRounds(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Handler: Starting GetAllCompetitionRounds")
 
 	vars := mux.Vars(r)
 	competitionId := vars["competitionId"]
-
-	log.Printf("Handler: Route variables:")
-	log.Printf("  - Raw vars: %+v", vars)
-	log.Printf("  - Extracted competitionId: '%s'", competitionId)
 
 	if competitionId == "" {
 		log.Printf("Handler ERROR: Missing competitionId in request")
@@ -90,7 +85,6 @@ func (h *CompetitionRoundHandler) GetAllCompetitionRounds(w http.ResponseWriter,
 	}
 
 	db := transport.GetDB()
-	log.Printf("Handler: Calling service layer with competitionId: '%s'", competitionId)
 
 	eventCompetitionRound, err := h.CompetitionRoundService.GetCompetitionRounds(r.Context(), db, competitionId)
 	if err != nil {
@@ -105,8 +99,6 @@ func (h *CompetitionRoundHandler) GetAllCompetitionRounds(w http.ResponseWriter,
 		return
 	}
 
-	log.Printf("Handler: Found %d rounds", len(*eventCompetitionRound))
-
 	response, err := json.Marshal(eventCompetitionRound)
 	if err != nil {
 		log.Printf("Handler ERROR: Failed to marshal response: %v", err)
@@ -114,7 +106,6 @@ func (h *CompetitionRoundHandler) GetAllCompetitionRounds(w http.ResponseWriter,
 		return
 	}
 
-	log.Printf("Handler: Successfully returning %d bytes of data", len(response))
 	transport.SendServerRes(w, response, http.StatusOK, nil)
 }
 
@@ -159,10 +150,7 @@ func (h *CompetitionRoundHandler) GetCompetitionRoundByPrimaryKey(w http.Respons
 		transport.SendServerRes(w, []byte("Missing roundNumber"), http.StatusBadRequest, nil)
 		return
 	}
-	////
 
-	log.Printf("Competition Id: %v", competitionId)
-	log.Printf("Round Number: %v", roundNumber)
 	db := transport.GetDB()
 	eventCompetitionRound, err := h.CompetitionRoundService.GetCompetitionRoundByPrimaryKey(r.Context(), db, competitionId, roundNumber)
 	if err != nil {

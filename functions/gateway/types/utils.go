@@ -7,8 +7,8 @@ type UserSearchResult struct {
 }
 
 type UserSearchResultDangerous struct {
-	UserID      string            `json:"userId"`
-	DisplayName string            `json:"displayName"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
-	Email       string            `json:"email,omitempty"`
+	UserID      string                 `json:"userId"`
+	DisplayName string                 `json:"displayName"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Email       string                 `json:"email,omitempty"`
 }

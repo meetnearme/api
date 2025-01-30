@@ -600,8 +600,6 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 	ctx := r.Context()
 	db := transport.GetDB()
 
-	log.Print("Hello line 495")
-
 	// Get user info from context
 	userInfo := helpers.UserInfo{}
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
@@ -613,9 +611,6 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
 		roleClaims = claims
 	}
-
-	log.Printf("User info: %+v", userInfo)
-	log.Printf("Role claims: %+v", roleClaims)
 
 	// Check if user has required roles
 	validRoles := []string{"superAdmin", "competitionAdmin"}
@@ -641,9 +636,6 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 			Status:   "DRAFT",
 		}
 	} else {
-		//
-		// TODO: add competition ID to schema change in Marqo
-		//
 		eventCompetitionRoundService := dynamodb_service.NewCompetitionConfigService()
 		pageObj = helpers.SitePages["competition-edit"]
 		competitionConfigResponse, err := eventCompetitionRoundService.GetCompetitionConfigById(ctx, db, competitionId)
@@ -654,7 +646,7 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 		competitionConfig = competitionConfigResponse.CompetitionConfig
 		users = competitionConfigResponse.Owners
 	}
-
+	log.Printf("649 >>> competitionConfig: %+v", competitionConfig)
 	competitionPage := pages.AddOrEditCompetitionPage(pageObj, competitionConfig, users)
 	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js"})
 

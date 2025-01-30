@@ -45,6 +45,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						if competition.Name != "" {
 							value={ competition.Name }
 						}
+						:disabled="saveReqInFlight"
 					/>
 				</label>
 				// Module Type Selection
@@ -52,10 +53,11 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					<label class="label">Module Type</label>
 					<select
 						class="select select-bordered"
+						x-model.fill="formData.moduleType"
 						if competition.ModuleType != "" {
 							value={ competition.ModuleType }
 						}
-						x-model.fill="formData.moduleType"
+						:disabled="saveReqInFlight"
 					>
 						<option value="">Select module type</option>
 						<option value="KARAOKE">Karaoke</option>
@@ -126,15 +128,35 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					</template>
 				</div>
 				@components.UsersSelect([]types.UserSearchResultDangerous{}, "", "competitors", "Competitors", "competitors", false)
+				<template x-if="formData.competitors.length > 0 && usersDataLoaded">
+					<template x-for="(competitor, idx) in competitors">
+						<div class="flex items-center gap-4 my-4 pl-4">
+							<span x-text="idx + 1 + '. ' + competitor.displayName"></span>
+						</div>
+					</template>
+				</template>
+				<template x-if="!usersDataLoaded">
+					<div class="flex items-center gap-4 my-4 pl-4">
+						<span>Loading competitors... <span class="loading loading-spinner loading-md text-primary"></span></span>
+					</div>
+				</template>
+				<template x-if="formData.competitors.length === 0 && usersDataLoaded">
+					<div class="flex items-center gap-4 my-4 pl-4">No competitors yet</div>
+				</template>
 				<div class="divider"></div>
 				<h3 class="text-xl font-bold mb-4">Teams</h3>
 				<div class="form-control">
-					<template x-if="teams.length == 0">
+					<template x-if="!usersDataLoaded">
+						<div class="flex items-center gap-4 mb-4">
+							<span>Loading teams... <span class="loading loading-spinner loading-md text-primary"></span></span>
+						</div>
+					</template>
+					<template x-if="teams.length === 0 && usersDataLoaded">
 						<div class="flex items-center gap-4 mb-4">
 							<span>No teams yet</span>
 						</div>
 					</template>
-					<template x-if="teams.length > 0">
+					<template x-if="teams.length > 0 && usersDataLoaded">
 						<ul x-sort="($item, $position) => handleTeamOrder($item, $position)" class="list-none p-0 grid grid-cols-1 md:grid-cols-2 gap-4 relative">
 							<template x-for="(team, index) in teams" :key="team.value + '-' + index">
 								<li x-sort:item="team.value" class="card bg-base-100 shadow-md p-4">
@@ -323,7 +345,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 		// Action Buttons
 		<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
 			<button class="btn btn-outline">Cancel</button>
-			<button class="btn btn-primary mx-4" @click="saveCompetition">Save Competition</button>
+			<button class="btn btn-primary mx-4" @click="saveCompetition" :disabled="saveReqInFlight || !roundsDataLoaded || !usersDataLoaded">Save Competition<span class="loading loading-spinner loading-md" x-show="saveReqInFlight"></span></button>
 		</div>
 		<template x-if="showToast === true">
 			<div class="toast m-4 z-50 ">
@@ -335,12 +357,13 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				</div>
 			</div>
 		</template>
-		<div>{ string(helpers.ToJSON(competition)) }</div>
 	</div>
-	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["competition-detail"].Slug, helpers.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ helpers.COMP_EMPTY_TEAM_NAME } data-competition-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ helpers.COMP_TEAM_ID_PREFIX }>
+	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["competition-detail"].Slug, helpers.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ helpers.COMP_EMPTY_TEAM_NAME } data-competition-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ helpers.COMP_TEAM_ID_PREFIX } competition-competitors={ string(helpers.ToJSON(competition.Competitors)) }>
 		function getEditCompetitionState() {
 			return {
 				init() {
+					(async () => {
+
 					// Initialize owners from the data attribute
 					let ownersData = JSON.parse(
 						document.querySelector('#add-edit-competition').getAttribute('data-competition-owners')
@@ -348,7 +371,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 
 					// Transform owners into the required format
 					ownersData = ownersData.filter(owner => owner.userId !== this.formData.primaryOwner)
-					console.log('ownersData', ownersData)
 					this.owners = ownersData.map(owner => ({
 						label: owner.displayName,
 						value: owner.userId
@@ -357,53 +379,68 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					// Set initial options to current owners
 					this.allOptions = this.owners;
 
-					console.log('formData.auxilaryOwners', this.formData.auxilaryOwners);
-					console.log('formData.primaryOwner', this.formData.primaryOwner);
-					console.log('owners', this.owners);
-					(async () => {
 						try {
-							const response = await fetch(`/api/competition-round/competition/${this.formData.id}`, {
-								method: 'GET',
-								// body: JSON.stringify({
-								//   competitionConfigId: this.formData.id,
-								// }),
-								// body: JSON.stringify({
-								//   competitionConfigId: this.formData.id,
-								//   userId: this.formData.primaryOwner,
-								// }),
-							});
-							const data = await response.json();
-							console.log('data', data)
-							this.formData.rounds = data
-						} catch (e) {
-							console.error(e)
-						}
-
-console.log('this.rounds', this.rounds)
-						if (this.rounds.length > 0) {
-							try {
-								const ids = this.teams.flatMap(round => [round.competitorA, round.competitorB]).join(',')
-
-								const usersRes = await fetch(`/api/users?ids=${ids}`, {
+							// Run both fetch requests in parallel
+							const [roundsResponse, usersResponse] = await Promise.all([
+								fetch(`/api/competition-round/competition/${this.formData.id}`, {
 									method: 'GET',
-								});
-								const usersData = await usersRes.json();
-								console.log('214 usersData', usersData)
-								this.formData.rounds = this.formData.rounds.map(round => {
-									// round.user = usersData.find(user => user.id === round.userId)
-									return {
-										competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
-										competitorBDisplayName: usersData.find(user => user.userId === round.competitorB).displayName,
-										...round
-									}
+								}),
+								fetch(`/api/users?ids=${this.formData.competitors.join(',')}`, {
+									method: 'GET',
 								})
+							]);
 
-							} catch (e) {
-							console.error(e)
-							}
+							const roundsData = await roundsResponse.json()
+							const usersData = await usersResponse.json()
+
+
+							this.formData.rounds = roundsData
+							// Update the rounds data with user display names
+							this.formData.rounds = this.formData.rounds.map(round => {
+								// round.user = usersData.find(user => user.id === round.userId)
+								return {
+									competitorADisplayName: usersData?.find?.(user => user.userId === round.competitorA).displayName,
+									competitorBDisplayName: usersData?.find?.(user => user.userId === round.competitorB).displayName,
+									...round
+								}
+							})
+
+							this.teams = usersData
+								.filter(user => user.userId.startsWith('tm_'))
+								.map(team => ({
+									label: team.displayName,
+									id: team.userId,
+									competitors: team.metadata?.members?.map(memberId => {
+										const member = usersData?.find(user => user.userId === memberId);
+										return {
+											displayName: member?.displayName,
+											userId: member?.userId
+										};
+									}) || []
+								}));
+
+							// Add non-team users to competitors
+							this.competitors = usersData
+								.filter(user => !user.userId.startsWith('tm_'))
+								.map(user => ({
+									displayName: user.displayName,
+									userId: user.userId
+								}));
+
+							this.competitors = this.teams.flatMap(team => team.competitors)
+						} catch (e) {
+							console.error('Error fetching competition data:', e);
+						} finally {
+							this.usersDataLoaded = true
+              this.roundsDataLoaded = true
 						}
+
 					})();
+
 				},
+				usersDataLoaded: false,
+        roundsDataLoaded: false,
+				competitionCompetitors: JSON.parse(document.querySelector('#add-edit-competition').getAttribute('competition-competitors')) ?? [],
 				competitionDetailUrl: document.querySelector('#add-edit-competition').getAttribute('data-competition-detail-url') ?? null,
 				emptyTeamName: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-team-name') ?? null,
 				emptyRoundEventId: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-event-id') ?? null,
@@ -414,6 +451,7 @@ console.log('this.rounds', this.rounds)
 					moduleType: document.querySelector('#add-edit-competition').getAttribute('data-competition-module-type'),
 					scoringMethod: document.querySelector('#add-edit-competition').getAttribute('data-competition-scoring-method'),
 					primaryOwner: document.querySelector('#add-edit-competition').getAttribute('data-competition-primary-owner'),
+					competitors: JSON.parse(document.querySelector('#add-edit-competition').getAttribute('competition-competitors')),
 					rounds: [],
 				},
 				saveReqInFlight: false,
@@ -496,6 +534,7 @@ console.log('this.rounds', this.rounds)
 						}
 						return team;
 					});
+					this.competitors = this.teams.flatMap(team => team.competitors)
 				},
 
 				removeCompetitorFromTeam(teamName, competitor) {
@@ -505,6 +544,8 @@ console.log('this.rounds', this.rounds)
 						}
 						return team;
 					});
+
+					console.log('this.competitor', this.competitor)
 
 					this.waitingRoom.push({
 						displayName: competitor.displayName,
@@ -555,24 +596,22 @@ console.log('this.rounds', this.rounds)
 						console.log('saveScore', round)
 					},
 				async saveCompetition() {
-					this.isSaveReqInFlight = true;
+					this.saveReqInFlight = true;
 					try {
 						// Implement save logic
 						console.log('this.owners', this.owners)
-            // TODO: not working for more than 1 member on a team
-            const competitors = this.teams?.flatMap?.((team, index) => {
-              // return team.competitors?.map?.((competitor, index) => ({
-              //   ...competitor,
-              // }))
-              return team.competitors?.map?.((competitor, index) => ([team.id, competitor.userId]))
-            })
-            // this.teams.forEach((team, index) => {
-            //   competitors.push(team.id)
-            // })
+						const competitors = this.teams?.flatMap?.( team => {
+							const ids = [team.id]
+							team.competitors.forEach(competitor => {
+								ids.push(competitor.userId)
+							})
+							return ids
+						})
+						console.log('competitors', competitors)
 						const competitionData = {
 							...this.formData,
 							auxilaryOwners: Object.entries(this.owners).map(([key, val]) => val.value),
-              competitors,
+							competitors,
 							teams: this.teams?.map?.((team, index) => {
 								const displayName = team.label
 								delete team.label
@@ -597,8 +636,7 @@ console.log('this.rounds', this.rounds)
 								// competitorBScore
 							}))
 						};
-console.log('competitionData', competitionData)
-return
+						console.log('competitionData', competitionData)
 						const response = await fetch('/api/competition-config', {
 							method: 'PUT',
 							headers: {
@@ -606,9 +644,9 @@ return
 							},
 							body: JSON.stringify(competitionData)
 						});
-console.log('response', response)
+						console.log('response', response)
 						const json = await response.json()
-console.log('json', json)
+						console.log('json', json)
 						if (!json.error) {
 							this.showToast = true;
 							this.toastContent = {
@@ -634,7 +672,7 @@ console.log('json', json)
 							message: `Failed to update competition: ${error.message}`,
 						}
 					} finally {
-						this.isSaveReqInFlight = false;
+						this.saveReqInFlight = false;
 					}
 				}
 			}

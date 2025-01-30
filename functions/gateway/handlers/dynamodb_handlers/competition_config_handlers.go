@@ -70,8 +70,7 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 	// Store rounds data before removing it from the struct
 	roundsData := updateCompetitionConfigPayload.Rounds
 	teamsData := updateCompetitionConfigPayload.Teams
-	log.Printf("70 >>> roundsData: %+v", roundsData)
-	log.Printf("71 >>> teamsData: %+v", teamsData)
+
 	// Create target struct
 	var configUpdate internal_types.CompetitionConfigUpdate
 
@@ -122,7 +121,6 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 
 		for _, round := range roundsData {
 			round.CompetitionId = competitionConfigRes.Id
-			log.Printf("round: %+v", round)
 			competitionRoundsUpdate = append(competitionRoundsUpdate, internal_types.CompetitionRoundUpdate(round))
 
 			if strings.Contains(round.CompetitorA, helpers.COMP_TEAM_ID_PREFIX) {
@@ -143,9 +141,31 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 			}
 		}
 
-		log.Printf("usersToCreate: %+v", usersToCreate)
-
 		if len(usersToCreate) > 0 {
+
+			candidateUsers := []string{}
+			for _, user := range usersToCreate {
+				candidateUsers = append(candidateUsers, user["id"])
+			}
+			existingUsers, err := helpers.SearchUsersByIDs(candidateUsers, false)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to search existing users: "+err.Error()), http.StatusInternalServerError, err)
+				return
+			}
+
+			existingUserIds := make(map[string]bool)
+			for _, user := range existingUsers {
+				existingUserIds[user.UserID] = true
+			}
+
+			filteredUsersToCreate := make([]map[string]string, 0)
+			for _, user := range usersToCreate {
+				if !existingUserIds[user["id"]] {
+					filteredUsersToCreate = append(filteredUsersToCreate, user)
+				}
+			}
+			usersToCreate = filteredUsersToCreate
+
 			var wg sync.WaitGroup
 			errChan := make(chan error, len(usersToCreate))
 			var users []types.UserSearchResultDangerous
@@ -179,7 +199,6 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 			}
 		}
 
-		// TODO: this is only commented out to avoid creating MANY competition rounds
 		competitionRoundsUpdate, err = helpers.NormalizeCompetitionRounds(competitionRoundsUpdate)
 		if err != nil {
 			// return &competitionConfigResponse, err
@@ -187,18 +206,20 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 			return
 		}
 
-		log.Printf("competitionRoundsUpdate: %+v", competitionRoundsUpdate)
 		service := dynamodb_service.NewCompetitionRoundService()
-		competitionRounds, err := service.PutCompetitionRounds(ctx, db, &competitionRoundsUpdate)
+		_, err = service.PutCompetitionRounds(ctx, db, &competitionRoundsUpdate)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to save competition rounds: "+err.Error()), http.StatusInternalServerError, err)
 			return
 		}
 
-		log.Printf("competitionRounds: %+v", competitionRounds)
-	} else {
-		// TODO: delete this log
-		log.Printf("no rounds data")
+		rounds := make([]types.CompetitionRound, len(competitionRoundsUpdate))
+		for i, r := range competitionRoundsUpdate {
+			rounds[i] = types.CompetitionRound(r)
+		}
+		competitionConfigRes.Rounds = rounds
+
+		log.Printf("competitionRounds: %+v", competitionRoundsUpdate)
 	}
 	response, err := json.Marshal(competitionConfigRes)
 	if err != nil {

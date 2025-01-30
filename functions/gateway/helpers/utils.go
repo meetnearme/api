@@ -666,9 +666,7 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
 		}
 		]
 	}`)
-	log.Printf("members base64: %s", base64.StdEncoding.EncodeToString([]byte(strings.Join(members, ","))))
-	log.Printf("userType base64: %s", base64.StdEncoding.EncodeToString([]byte("team")))
-	log.Printf(">>> 669 payload: %s", payload)
+
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, payload)
 	if err != nil {
@@ -689,14 +687,12 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
 	if err != nil {
 		return types.UserSearchResultDangerous{}, err
 	}
-	log.Printf(">>> 691 body: %s", string(body))
 
 	var respData types.UserSearchResultDangerous
 	if err := json.Unmarshal(body, &respData); err != nil {
 		return types.UserSearchResultDangerous{}, err
 	}
 
-	log.Printf(">>> 691 respData: %+v", respData)
 	return respData, nil
 }
 
