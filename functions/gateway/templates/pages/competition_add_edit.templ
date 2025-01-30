@@ -303,16 +303,16 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 											</template>
 										</select>
 									</div>
-									<label class="form-control w-full max-w-xs">
-										<div class="label">Round Description</div>
-										<input
-											class="input input-bordered w-full"
-											id="round"
-											type="text"
-											placeholder="Enter description"
-											x-model.fill="round.description"
-										/>
-									</label>
+                  <label class="form-control w-full max-w-xs">
+                    <div class="label">Round Description</div>
+                    <input
+                      class="input input-bordered w-full"
+                      id="round"
+                      type="text"
+                      placeholder="Enter Round description"
+                      x-model.fill="formData.description"
+                    />
+                  </label>
 									<div class="divider"></div>
 									<div class="form-control mb-4">
 										<label class="cursor-pointer">
@@ -671,7 +671,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 								// competitorB
 								// competitorAScore
 								// competitorBScore
-								// description
+                // description
 							}))
 						};
 						const response = await fetch('/api/competition-config', {
