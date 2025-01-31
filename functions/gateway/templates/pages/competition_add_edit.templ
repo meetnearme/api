@@ -358,13 +358,13 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 											<label class="label">
 												<span class="label-text">Competitor A Score</span>
 											</label>
-											<input type="text" class="input input-bordered" x-model="round.competitorAScore"/>
+											<input type="number" class="input input-bordered" x-model="round.competitorAScore" value="0"/>
 										</div>
 										<div class="form-control">
 											<label class="label">
 												<span class="label-text">Competitor B Score</span>
 											</label>
-											<input type="text" class="input input-bordered" x-model="round.competitorBScore"/>
+											<input type="number" class="input input-bordered" x-model="round.competitorBScore" value="0"/>
 										</div>
 									</div>
 								</li>
@@ -664,6 +664,8 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 								...(this.formData.id ? { competitionId: this.formData.id } : {}),
 								// NOTE: we aren't using this yet
 								isPending: false,
+								competitorAScore: parseFloat(round.competitorAScore) ?? 0,
+								competitorBScore: parseFloat(round.competitorBScore) ?? 0,
 								// isPending
 								// isVotingOpen
 								// status
