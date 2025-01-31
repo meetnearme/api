@@ -303,6 +303,16 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 											</template>
 										</select>
 									</div>
+                  <label class="form-control w-full max-w-xs">
+                    <div class="label">Round Description</div>
+                    <input
+                      class="input input-bordered w-full"
+                      id="round"
+                      type="text"
+                      placeholder="Enter description"
+                      x-model.fill="formData.description"
+                    />
+                  </label>
 									<div class="divider"></div>
 									<template x-if="formData.scoringMethod === 'VOTE_MATCHUPS' ">
 										<div class="flex items-center gap-4 mb-4">
@@ -494,6 +504,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						roundNumber: this.formData.rounds.length + 1,
 						competitorA: this.teams[0].id,
 						competitorB: this.teams[1].id,
+            description: this.formData.rounds.description,
 						// TODO: this is an important empty field, fix this
 						// eventId: this.emptyRoundEventId
 						eventId: '6ca425f5-88d3-463a-b4b2-41dd2f5defc0'
@@ -655,6 +666,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 								// competitorB
 								// competitorAScore
 								// competitorBScore
+                // description
 							}))
 						};
 						console.log('competitionData', competitionData)
