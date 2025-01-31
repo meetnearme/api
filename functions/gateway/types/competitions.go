@@ -124,7 +124,7 @@ type CompetitionRoundUpdate struct {
 	CompetitorAScore float64 `json:"competitorAScore" dynamodbav:"competitorAScore"` // these are required but validation fails with 0 score
 	CompetitorB      string  `json:"competitorB" dynamodbav:"competitorB" validate:"required"`
 	CompetitorBScore float64 `json:"competitorBScore" dynamodbav:"competitorBScore"` // these are required but validation fails with 0 score
-	Matchup          string  `json:"matchup" dynamdbav:"matchup" validate:"required"`
+	Matchup          string  `json:"matchup" dynamdbav:"matchup"`
 	Status           string  `json:"status" dynamodbav:"status"`
 	IsPending        string  `json:"isPending" dynamodbav:"isPending"`
 	IsVotingOpen     string  `json:"isVotingOpen" dynamodbav:"isVotingOpen"`
@@ -136,14 +136,12 @@ type CompetitionRoundUpdate struct {
 type CompetitionWaitingRoomParticipant struct {
 	CompetitionId string `json:"competitionId" dynamodbav:"competitionId"`
 	UserId        string `json:"userId" dynamodbav:"userId"`
-	PurchaseId    string `json:"purchaseId" dynamodbav:"purchaseId"`
 	ExpiresOn     int64  `json:"expiresOn" dynamodbav:"expiresOn"`
 }
 
 type CompetitionWaitingRoomParticipantUpdate struct {
 	CompetitionId string `json:"competitionId" dynamodbav:"competitionId" validate:"required"`
 	UserId        string `json:"userId" dynamodbav:"userId" validate:"required"`
-	PurchaseId    string `json:"purchaseId" dynamodbav:"purchaseId" validate:"required"`
 	ExpiresOn     int64  `json:"expiresOn" dynamodbav:"expiresOn" validate:"required"`
 }
 

@@ -454,7 +454,10 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		cfLocationLat = cfLocation.Lat
 		cfLocationLon = cfLocation.Lon
 	}
-	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, event, isEditor, cfLocationLat, cfLocationLon)
+
+	isCompetitionAdmin := helpers.HasRequiredRole(roleClaims, []string{"superAdmin", "competitionAdmin"})
+
+	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, event, isEditor, cfLocationLat, cfLocationLon, isCompetitionAdmin)
 
 	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/mask@3.x.x/dist/cdn.min.js"})
 

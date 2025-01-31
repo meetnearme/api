@@ -216,7 +216,6 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
 	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId }>
 		function getEventDetailsState() {
-			console.log('getEventDetailsState')
 			return {
 				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),
 				eventId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-event-id'),
@@ -227,49 +226,32 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				init() {
 					(async () => {
 						try {
-              const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
-              console.log('competitionConfigId', competitionConfigId)
-							console.log('199 init')
+							const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
 							if (this.userId !== '' && competitionConfigId !== '') {
-								// console.log('201 init')
-								// const response = await fetch(`/api/purchases/has-for-event`, {
-								// 	method: 'POST',
-								// 	body: JSON.stringify({
-								// 		childEventId: this.eventId,
-								// 		parentEventId: this.eventSourceId,
-								// 		userId: this.userId,
-								// 	}),
-								// });
-								// console.log('208 response', response)
-								// const data = await response.json();
-								// console.log('208 data', data)
-								// if (data.hasPurchase) {
-									const roundsResponse = await fetch(`/api/competition-round/competition/${competitionConfigId}`, {
+								const roundsResponse = await fetch(`/api/competition-round/competition/${competitionConfigId}`, {
+									method: 'GET',
+								});
+								const roundsData = await roundsResponse.json();
+								this.formData.rounds = roundsData
+								if (this.formData.rounds.length > 0) {
+									const ids = this.formData.rounds.flatMap(round => [round.competitorA, round.competitorB]).join(',')
+
+									const usersRes = await fetch(`/api/users?ids=${ids}`, {
 										method: 'GET',
 									});
-									const roundsData = await roundsResponse.json();
-									console.log('214 roundsData', roundsData)
-									this.formData.rounds = roundsData
-                  if (this.formData.rounds.length > 0) {
-                    const ids = this.formData.rounds.flatMap(round => [round.competitorA, round.competitorB]).join(',')
-
-                    const usersRes = await fetch(`/api/users?ids=${ids}`, {
-                      method: 'GET',
-                    });
-                    const usersData = await usersRes.json();
-                    console.log('214 usersData', usersData)
-                    this.formData.rounds = this.formData.rounds.map(round => {
-                      // round.user = usersData.find(user => user.id === round.userId)
-                      return {
-                        competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
-                        competitorBDisplayName: usersData.find(user => user.userId === round.competitorB).displayName,
-                        ...round
-                      }
-                    })
-                  }
-								// }
+									const usersData = await usersRes.json();
+									this.formData.rounds = this.formData.rounds.map(round => {
+										// round.user = usersData.find(user => user.id === round.userId)
+										return {
+											competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
+											competitorBDisplayName: usersData.find(user => user.userId === round.competitorB).displayName,
+											...round
+										}
+									})
+								}
 							}
 						} catch (e ) {
+							// eslint-disable-next-line no-console
 							console.error(e);
 						}
 					})();
@@ -278,26 +260,27 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				eventTypeSeriesParentConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-parent'),
 				eventTypeSeriesChildConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-child'),
 				formData: {
-          rounds: [],
-        },
-        voteSubmitting: null,
-        async submitVote(competitorId, roundNumber) {
-          this.voteSubmitting = competitorId
-          try {
-            const response = await fetch(`/api/votes/${this.competitionConfigId}/${roundNumber}`, {
-              method: 'PUT',
-              body: JSON.stringify({
-                voteRecipientId: competitorId,
-                voteValue: 1,
-              }),
-            });
-            const data = await response.json();
-          } catch (e) {
-            console.error(e);
-          } finally {
-            this.voteSubmitting = null
-          }
-        },
+					rounds: [],
+				},
+				voteSubmitting: null,
+				async submitVote(competitorId, roundNumber) {
+					this.voteSubmitting = competitorId
+					try {
+						const response = await fetch(`/api/votes/${this.competitionConfigId}/${roundNumber}`, {
+							method: 'PUT',
+							body: JSON.stringify({
+								voteRecipientId: competitorId,
+								voteValue: 1,
+							}),
+						});
+						const data = await response.json();
+					} catch (e) {
+						// eslint-disable-next-line no-console
+						console.error(e);
+					} finally {
+						this.voteSubmitting = null
+					}
+				},
 				handleCtaClick(tab) {
 					if (tab === 'rsvp' || tab === 'icmi' && this.userId) {
 						const body = {

@@ -303,16 +303,16 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 											</template>
 										</select>
 									</div>
-                  <label class="form-control w-full max-w-xs">
-                    <div class="label">Round Description</div>
-                    <input
-                      class="input input-bordered w-full"
-                      id="round"
-                      type="text"
-                      placeholder="Enter description"
-                      x-model.fill="formData.description"
-                    />
-                  </label>
+									<label class="form-control w-full max-w-xs">
+										<div class="label">Round Description</div>
+										<input
+											class="input input-bordered w-full"
+											id="round"
+											type="text"
+											placeholder="Enter description"
+											x-model.fill="formData.description"
+										/>
+									</label>
 									<div class="divider"></div>
 									<template x-if="formData.scoringMethod === 'VOTE_MATCHUPS' ">
 										<div class="flex items-center gap-4 mb-4">
@@ -320,13 +320,27 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 										</div>
 									</template>
 									<br/>
-									<template x-if="round.competitorAVotes">
-										<span x-text="round.competitorADisplayName + ' votes: ' + round.competitorAVotes"></span>
-									</template>
+									<div class="flex items-center gap-4 mb-4 rounded-box bg-base-100 p-4">
+										<div>
+											<span x-text="round.competitorADisplayName + ' votes: ' "></span>
+											<template x-if="!$data['tallyVotesReqInFlight' + round.roundNumber]">
+												<span x-text="(round.competitorAVotes || '?')"></span>
+											</template>
+											<template x-if="$data['tallyVotesReqInFlight' + round.roundNumber]">
+												<span class="loading loading-spinner loading-xs text-primary"></span>
+											</template>
+										</div>
+										<div>
+											<span x-text="round.competitorBDisplayName + ' votes: ' "></span>
+											<template x-if="!$data['tallyVotesReqInFlight' + round.roundNumber]">
+												<span x-text="(round.competitorBVotes || '?')"></span>
+											</template>
+											<template x-if="$data['tallyVotesReqInFlight' + round.roundNumber]">
+												<span class="loading loading-spinner loading-xs text-primary"></span>
+											</template>
+										</div>
+									</div>
 									<br/>
-									<template x-if="round.competitorBVotes">
-										<span x-text="round.competitorBDisplayName + ' votes: ' + round.competitorBVotes"></span>
-									</template>
 									<div class="flex items-center gap-4 mb-4">
 										<div class="form-control">
 											<label class="label">
@@ -340,9 +354,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 											</label>
 											<input type="text" class="input input-bordered" x-model="round.competitorBScore"/>
 										</div>
-									</div>
-									<div class="flex items-center gap-4 mb-4">
-										<button class="btn btn-primary" @click="saveScore(round)">Save Score</button>
 									</div>
 								</li>
 							</template>
@@ -373,7 +384,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 			</div>
 		</template>
 	</div>
-	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["competition-detail"].Slug, helpers.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ helpers.COMP_EMPTY_TEAM_NAME } data-competition-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ helpers.COMP_TEAM_ID_PREFIX } competition-competitors={ string(helpers.ToJSON(competition.Competitors)) }>
+	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["competition-detail"].Slug, helpers.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ helpers.COMP_EMPTY_TEAM_NAME } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ helpers.COMP_TEAM_ID_PREFIX } competition-competitors={ string(helpers.ToJSON(competition.Competitors)) }>
 		function getEditCompetitionState() {
 			return {
 				init() {
@@ -458,7 +469,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				competitionCompetitors: JSON.parse(document.querySelector('#add-edit-competition').getAttribute('competition-competitors')) ?? [],
 				competitionDetailUrl: document.querySelector('#add-edit-competition').getAttribute('data-competition-detail-url') ?? null,
 				emptyTeamName: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-team-name') ?? null,
-				emptyRoundEventId: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-event-id') ?? null,
+				emptyRoundEventId: document.querySelector('#add-edit-competition').getAttribute('data-round-empty-event-id') ?? null,
 				teamIdPrefix: document.querySelector('#add-edit-competition').getAttribute('data-team-id-prefix') ?? null,
 				formData: {
 					id: document.querySelector('#add-edit-competition').getAttribute('data-competition-id'),
@@ -470,6 +481,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					rounds: [],
 				},
 				saveReqInFlight: false,
+				// tallyVotesReqInFlight: false,
 				waitingRoom: [],
 				newTeamName: '',
 				teams: [],
@@ -479,35 +491,24 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					message: '',
 				},
 				handleOwnersUpdate(owners) {
-					console.log('handleOwnersUpdate', owners)
 					this.owners = owners;
 				},
 
 				handleCompetitorsUpdate(competitors) {
-					console.log('handleCompetitorsUpdate', competitors)
-					// this.competitors = competitors;
+					// eslint-disable-next-line no-unused-vars
 					this.waitingRoom = Object.entries(competitors).map(([key, val]) => ({
 						displayName: val.label,
 						userId: val.value
 					}));
-
-					// competitors.map(competitor => ({
-					//   displayName: competitor.displayName,
-					//   userId: competitor.userId
-					// }));
-					// this.waitingRoom = this.waitingRoom.filter(competitor => !competitors.includes(competitor.userId));
 				},
 				addRound() {
-					// console.log('addRound ev id:', this.emptyRoundEventId)
 					this.formData.rounds?.push?.({
 						roundName: `Round ${this.formData.rounds.length + 1}`,
 						roundNumber: this.formData.rounds.length + 1,
 						competitorA: this.teams[0].id,
 						competitorB: this.teams[1].id,
-            description: this.formData.rounds.description,
-						// TODO: this is an important empty field, fix this
-						// eventId: this.emptyRoundEventId
-						eventId: '6ca425f5-88d3-463a-b4b2-41dd2f5defc0'
+						description: this.formData.rounds.description,
+						eventId: this.emptyRoundEventId
 					});
 				},
 				removeRound(index) {
@@ -570,68 +571,59 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				},
 
 				handleTeamOrder($item, $position) {
-						// Create a POJO copy of the array
-						let items = this.teams.map(p => ({...p}));
+					// Create a POJO copy of the array
+					let items = this.teams.map(p => ({...p}));
 
-						// Find the moved item by ID
-						const itemIndex = items.findIndex(p => p.id === $item);
-						if (itemIndex === -1) return;
+					// Find the moved item by ID
+					const itemIndex = items.findIndex(p => p.id === $item);
+					if (itemIndex === -1) return;
 
-						// Remove and reinsert at new position
-						const [movedItem] = items.splice(itemIndex, 1);
-						items.splice($position, 0, movedItem);
+					// Remove and reinsert at new position
+					const [movedItem] = items.splice(itemIndex, 1);
+					items.splice($position, 0, movedItem);
 
-						// Update order values
-						items = items.map((item, index) => ({
-							...item,
-							order: index
-						}));
+					// Update order values
+					items = items.map((item, index) => ({
+						...item,
+						order: index
+					}));
 
-						// Update the array with the new order
-						this.purchasables = items;
+					// Update the array with the new order
+					this.purchasables = items;
 
-						// Force Alpine to recognize the change
-						this.$nextTick(() => {
-							const templateEl = this.$el.querySelector('template[x-for]');
-							if (templateEl && templateEl.__x) {
-								templateEl.__x._x_prevKeys = items.map(p => `${p.id}-${p.order}`);
-							}
-						});
-					},
-					async tallyVotes(round) {
-						console.log('tallyVotes', round)
-						// this.formData.rounds = this.formData.rounds.map(r => {
-						// 	if (r.roundNumber === round.roundNumber) {
-						// 		// TODO: set this in fetch call
-						// 		r.votes = 20 + r.roundNumber
-						// 	}
-						// 	return r
-						// })
-						try {
-							const response = await fetch(`/api/votes/tally-votes/${this.formData.id}/${round.roundNumber}`, {
-								method: 'GET',
-							});
-							const data = await response.json();
-							console.log('data', data)
-							this.formData.rounds = this.formData.rounds.map(r => {
-								if (r.roundNumber === round.roundNumber) {
-									r.competitorAVotes = data[r.competitorA]
-									r.competitorBVotes = data[r.competitorB]
-								}
-								return r
-							})
-						} catch (e) {
-							console.error(e);
+					// Force Alpine to recognize the change
+					this.$nextTick(() => {
+						const templateEl = this.$el.querySelector('template[x-for]');
+						if (templateEl && templateEl.__x) {
+							templateEl.__x._x_prevKeys = items.map(p => `${p.id}-${p.order}`);
 						}
-					},
-					saveScore(round) {
-						console.log('saveScore', round)
-					},
+					});
+				},
+				async tallyVotes(round) {
+					try {
+						this[`tallyVotesReqInFlight${round.roundNumber}`] = true
+						const response = await fetch(`/api/votes/tally-votes/${this.formData.id}/${round.roundNumber}`, {
+							method: 'GET',
+						});
+						const data = await response.json();
+						this.formData.rounds = this.formData.rounds.map(r => {
+							if (r.roundNumber === round.roundNumber) {
+								r.competitorAVotes = data[r.competitorA]
+								r.competitorBVotes = data[r.competitorB]
+							}
+							return r
+						})
+					} catch (e) {
+						// eslint-disable-next-line no-console
+						console.error(e);
+					} finally {
+						this[`tallyVotesReqInFlight${round.roundNumber}`] = false
+					}
+				},
 				async saveCompetition() {
 					this.saveReqInFlight = true;
 					try {
 						// Implement save logic
-						console.log('this.owners', this.owners)
 						const competitors = this.teams?.flatMap?.( team => {
 							const ids = [team.id]
 							team.competitors.forEach(competitor => {
@@ -639,23 +631,23 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							})
 							return ids
 						})
-						console.log('competitors', competitors)
 						const competitionData = {
 							...this.formData,
+							// eslint-disable-next-line no-unused-vars
 							auxilaryOwners: Object.entries(this.owners).map(([key, val]) => val.value),
 							competitors,
-							teams: this.teams?.map?.((team, index) => {
+							teams: this.teams?.map?.(team => {
 								const displayName = team.label
 								delete team.label
 								return ({
 									...team,
 									displayName,
-									competitors: team.competitors?.map?.((competitor, index) => ({
+									competitors: team.competitors?.map?.(competitor => ({
 										...competitor,
 									}))
 								})
 							}),
-							rounds: this.formData.rounds?.map?.((round, index) => ({
+							rounds: this.formData.rounds?.map?.(round => ({
 								...round,
 								...(this.formData.id ? { competitionId: this.formData.id } : {}),
 								// isPending
@@ -666,10 +658,9 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 								// competitorB
 								// competitorAScore
 								// competitorBScore
-                // description
+								// description
 							}))
 						};
-						console.log('competitionData', competitionData)
 						const response = await fetch('/api/competition-config', {
 							method: 'PUT',
 							headers: {
@@ -677,9 +668,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							},
 							body: JSON.stringify(competitionData)
 						});
-						console.log('response', response)
 						const json = await response.json()
-						console.log('json', json)
 						if (!json.error) {
 							this.showToast = true;
 							this.toastContent = {
@@ -688,16 +677,18 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							}
 							// NOTE: this API path should come from a data-* attribute
 							// that uses the `SitePages` constant for this API path
-							const newUrl = `/admin/competition/${json.id}/edit`;
-							window.history.pushState({ path: newUrl }, '', newUrl);
+							if (json?.id !== undefined) {
+								const newUrl = `/admin/competition/${json.id}/edit`;
+								window.history.pushState({ path: newUrl }, '', newUrl);
+							}
 							this.formData = {
 								...json
 							}
 						} else {
 							throw new Error(`Failed to update competition ${ json?.error?.message ? ": " + json.error.message : ''}`)
 						}
-						// Handle success (redirect or show message)
 					} catch (error) {
+						// eslint-disable-next-line no-console
 						console.error('Error saving competition:', error);
 						this.showToast = true;
 						this.toastContent = {

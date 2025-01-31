@@ -182,14 +182,11 @@ export function StorageStack({ stack }: StackContext) {
 
 
   // ephemeral
-  // purchases are gate to the waiting room.
-  // TODO
   const competitionWaitingRoomParticipantTable = new Table(stack, 'CompetitionWaitingRoomParticipant', {
     fields: {
       competitionId: 'string',
       userId: 'string',
-      purchaseId: 'string',
-      expiresOn: 'number', // 3 days this becomes a generated timestamp in dynamodb
+      expiresOn: 'number',
     },
     primaryIndex: { partitionKey: 'competitionId', sortKey: 'userId' },
     timeToLiveAttribute: 'expiresOn'

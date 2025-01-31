@@ -158,7 +158,7 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 											return res.json()
 										}).then(json => {
 											// Filter out users that are already users
-											const filteredUsers = json.filter(user =>
+											const filteredUsers = json.filter(() =>
 												!this.users.some(user => user.value === user.userId)
 											);
 											this.options = filteredUsers.map((user) => ({
