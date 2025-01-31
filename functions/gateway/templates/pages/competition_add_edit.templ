@@ -31,7 +31,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 		</header>
 		// Basic Information Section
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Basic Information</h2>
-		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 mb-10 rounded-box">
 			<div class="card">
 				// Competition Name
 				<label class="form-control w-full max-w-xs">
@@ -88,7 +88,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 			</div>
 		</div>
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Competitors</h2>
-		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-10 mb-10 rounded-box">
 			<div class="card">
 				<h3 class="text-xl font-bold mb-4">Waiting Room</h3>
 				<div class="form-control">
@@ -240,7 +240,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 		</div>
 		// Rounds Configuration Section
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Rounds Configuration</h2>
-		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-10 mb-10 rounded-box">
 			<div class="card">
 				<h5 class="text-lg font-bold mb-4">Rounds</h5>
 				<div class="form-control">
@@ -307,10 +307,15 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									<template x-if="formData.scoringMethod === 'VOTE_MATCHUPS' ">
 										<div class="flex items-center gap-4 mb-4">
 											<button class="btn btn-primary" @click="tallyVotes(round)">Tally Votes</button>
-											<div class="flex items-center gap-4 mb-4">
-												Vote Count: <span x-text="round.votes"></span>
-											</div>
 										</div>
+									</template>
+									<br/>
+									<template x-if="round.competitorAVotes">
+										<span x-text="round.competitorADisplayName + ' votes: ' + round.competitorAVotes"></span>
+									</template>
+									<br/>
+									<template x-if="round.competitorBVotes">
+										<span x-text="round.competitorBDisplayName + ' votes: ' + round.competitorBVotes"></span>
 									</template>
 									<div class="flex items-center gap-4 mb-4">
 										<div class="form-control">
@@ -432,14 +437,14 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							console.error('Error fetching competition data:', e);
 						} finally {
 							this.usersDataLoaded = true
-              this.roundsDataLoaded = true
+							this.roundsDataLoaded = true
 						}
 
 					})();
 
 				},
 				usersDataLoaded: false,
-        roundsDataLoaded: false,
+				roundsDataLoaded: false,
 				competitionCompetitors: JSON.parse(document.querySelector('#add-edit-competition').getAttribute('competition-competitors')) ?? [],
 				competitionDetailUrl: document.querySelector('#add-edit-competition').getAttribute('data-competition-detail-url') ?? null,
 				emptyTeamName: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-team-name') ?? null,
@@ -582,15 +587,31 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							}
 						});
 					},
-					tallyVotes(round) {
+					async tallyVotes(round) {
 						console.log('tallyVotes', round)
-						this.formData.rounds = this.formData.rounds.map(r => {
-							if (r.roundNumber === round.roundNumber) {
-								// TODO: set this in fetch call
-								r.votes = 20 + r.roundNumber
-							}
-							return r
-						})
+						// this.formData.rounds = this.formData.rounds.map(r => {
+						// 	if (r.roundNumber === round.roundNumber) {
+						// 		// TODO: set this in fetch call
+						// 		r.votes = 20 + r.roundNumber
+						// 	}
+						// 	return r
+						// })
+						try {
+							const response = await fetch(`/api/votes/tally-votes/${this.formData.id}/${round.roundNumber}`, {
+								method: 'GET',
+							});
+							const data = await response.json();
+							console.log('data', data)
+							this.formData.rounds = this.formData.rounds.map(r => {
+								if (r.roundNumber === round.roundNumber) {
+									r.competitorAVotes = data[r.competitorA]
+									r.competitorBVotes = data[r.competitorB]
+								}
+								return r
+							})
+						} catch (e) {
+							console.error(e);
+						}
 					},
 					saveScore(round) {
 						console.log('saveScore', round)

@@ -141,12 +141,18 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 									<p x-text="round.Name"></p>
 									<p x-text="round.Description"></p>
 									<div class="flex items-center justify-between gap-4 w-full mt-2">
-										<button class="btn btn-primary flex-1" @click="submitVote(round.competitorA)">
+										<button :disabled="voteSubmitting === round.competitorA" class="btn btn-block btn-primary btn-bold-outline btn-bg-inverted flex-1" @click="submitVote(round.competitorA, round.roundNumber)">
 											<span x-text="'Vote ' + round?.competitorADisplayName"></span>
+											<template x-if="voteSubmitting === round.competitorA">
+												<span class="loading loading-spinner loading-md text-primary"></span>
+											</template>
 										</button>
 										<div class="text-3xl font-bold">&larr; VS &rarr;</div>
-										<button class="btn btn-secondary flex-1" @click="submitVote(round.competitorB)">
+										<button :disabled="voteSubmitting === round.competitorB" class="btn btn-block btn-primary btn-bold-outline btn-bg-inverted flex-1" @click="submitVote(round.competitorB, round.roundNumber)">
 											<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
+											<template x-if="voteSubmitting === round.competitorB">
+												<span class="loading loading-spinner loading-md text-primary"></span>
+											</template>
 										</button>
 									</div>
 								</div>
@@ -273,6 +279,24 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				eventTypeSeriesChildConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-child'),
 				formData: {
           rounds: [],
+        },
+        voteSubmitting: null,
+        async submitVote(competitorId, roundNumber) {
+          this.voteSubmitting = competitorId
+          try {
+            const response = await fetch(`/api/votes/${this.competitionConfigId}/${roundNumber}`, {
+              method: 'PUT',
+              body: JSON.stringify({
+                voteRecipientId: competitorId,
+                voteValue: 1,
+              }),
+            });
+            const data = await response.json();
+          } catch (e) {
+            console.error(e);
+          } finally {
+            this.voteSubmitting = null
+          }
         },
 				handleCtaClick(tab) {
 					if (tab === 'rsvp' || tab === 'icmi' && this.userId) {

@@ -252,6 +252,16 @@ body:has(.bottom-drawer) {
   border: 5px solid oklch(var(--p));
 }
 
+.btn.btn-primary.btn-bg-inverted {
+  background-color: oklch(var(--btn-bg-inverted));
+  color: oklch(var(--btn-bg-inverted-content));
+}
+
+.btn.btn-primary.btn-bg-inverted:hover {
+  background-color: oklch(var(--p));
+  color: oklch(var(--btn-bg-inverted));
+}
+
 .btn-outline.btn-primary.text-neutral-content {
   color: var(--fallback-nc, oklch(var(--nc) / var(--tw-text-opacity)));
 }

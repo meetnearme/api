@@ -149,11 +149,11 @@ type CompetitionWaitingRoomParticipantUpdate struct {
 
 // Competition Vote Types
 type CompetitionVoteUpdate struct {
-	CompositePartitionKey string `json:"compositePartitionKey" dynamodbav:"compositePartitionKey" validate:"required"`
-	UserId                string `json:"userId" dynamodbav:"userId" validate:"required"`
+	CompositePartitionKey string `json:"compositePartitionKey" dynamodbav:"compositePartitionKey"`
+	UserId                string `json:"userId" dynamodbav:"userId"`
 	VoteRecipientId       string `json:"voteRecipientId" dynamodbav:"voteRecipientId" validate:"required"`
 	VoteValue             int64  `json:"voteValue" dynamodbav:"voteValue" validate:"required"`
-	ExpiresOn             int64  `json:"expiresOn" dynamodbav:"expiresOn" validate:"required"`
+	ExpiresOn             int64  `json:"expiresOn" dynamodbav:"expiresOn"`
 }
 
 type CompetitionVote struct {
