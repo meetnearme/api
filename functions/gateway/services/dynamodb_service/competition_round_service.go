@@ -118,8 +118,8 @@ func (s *CompetitionRoundService) GetCompetitionRoundByPrimaryKey(ctx context.Co
 			Matchup            string   `dynamodbav:"matchup"`
 			Status             string   `dynamodbav:"status"`
 			Competitors        []string `dynamodbav:"competitors"` // This is the key difference
-			IsPending          string   `dynamodbav:"isPending"`
-			IsVotingOpen       string   `dynamodbav:"isVotingOpen"`
+			IsPending          bool     `dynamodbav:"isPending"`
+			IsVotingOpen       bool     `dynamodbav:"isVotingOpen"`
 			CreatedAt          int64    `dynamodbav:"createdAt"`
 			UpdatedAt          int64    `dynamodbav:"updatedAt"`
 		}

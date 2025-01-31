@@ -107,8 +107,8 @@ type CompetitionRound struct {
 	CompetitorBScore float64 `json:"competitorBScore" dynamodbav:"competitorBScore"`
 	Matchup          string  `json:"matchup" dynamdbav:"matchup"`
 	Status           string  `json:"status" dynamodbav:"status"`
-	IsPending        string  `json:"isPending" dynamodbav:"isPending"`
-	IsVotingOpen     string  `json:"isVotingOpen" dynamodbav:"isVotingOpen"`
+	IsPending        bool    `json:"isPending" dynamodbav:"isPending"`
+	IsVotingOpen     bool    `json:"isVotingOpen" dynamodbav:"isVotingOpen"`
 	Description      string  `json:"description" dynamodbav:"description"`
 	CreatedAt        int64   `json:"createdAt" dynamodbav:"createdAt"`
 	UpdatedAt        int64   `json:"updatedAt" dynamodbav:"updatedAt"`
@@ -126,8 +126,8 @@ type CompetitionRoundUpdate struct {
 	CompetitorBScore float64 `json:"competitorBScore" dynamodbav:"competitorBScore"` // these are required but validation fails with 0 score
 	Matchup          string  `json:"matchup" dynamdbav:"matchup"`
 	Status           string  `json:"status" dynamodbav:"status"`
-	IsPending        string  `json:"isPending" dynamodbav:"isPending"`
-	IsVotingOpen     string  `json:"isVotingOpen" dynamodbav:"isVotingOpen"`
+	IsPending        bool    `json:"isPending" dynamodbav:"isPending"`
+	IsVotingOpen     bool    `json:"isVotingOpen" dynamodbav:"isVotingOpen"`
 	Description      string  `json:"description" dynamodbav:"description"`
 	CreatedAt        int64   `json:"createdAt" dynamodbav:"createdAt"`
 	UpdatedAt        int64   `json:"updatedAt" dynamodbav:"updatedAt"`

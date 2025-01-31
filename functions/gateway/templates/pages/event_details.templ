@@ -135,27 +135,33 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 						<template x-if="!Boolean(formData?.rounds?.[0]?.competitorADisplayName)">
 							<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
 						</template>
+						<template x-if="!roundsDataFetching && formData?.rounds?.filter(round => round.isVotingOpen).length === 0">
+							<p class="text-lg">(No rounds are open for voting)</p>
+						</template>
 						<template x-if="Boolean(formData?.rounds?.[0]?.competitorADisplayName)">
 							<template x-for="round in formData.rounds">
-								<div>
-									<p x-text="round.Name"></p>
-									<p x-text="round.Description"></p>
-									<div class="flex items-center justify-between gap-4 w-full mt-2">
-										<button :disabled="voteSubmitting === round.competitorA" class="btn btn-block btn-primary btn-bold-outline btn-bg-inverted flex-1" @click="submitVote(round.competitorA, round.roundNumber)">
-											<span x-text="'Vote ' + round?.competitorADisplayName"></span>
-											<template x-if="voteSubmitting === round.competitorA">
-												<span class="loading loading-spinner loading-md text-primary"></span>
-											</template>
-										</button>
-										<div class="text-3xl font-bold">&larr; VS &rarr;</div>
-										<button :disabled="voteSubmitting === round.competitorB" class="btn btn-block btn-primary btn-bold-outline btn-bg-inverted flex-1" @click="submitVote(round.competitorB, round.roundNumber)">
-											<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
-											<template x-if="voteSubmitting === round.competitorB">
-												<span class="loading loading-spinner loading-md text-primary"></span>
-											</template>
-										</button>
+								<template x-if="round.isVotingOpen">
+									<div>
+										<h3 class="text-lg text-bold" x-text="round.roundName"></h3>
+										<p class="text-lg" x-text="round.description"></p>
+										<div class="divider"></div>
+										<div class="flex items-center justify-between gap-4 w-full mt-2">
+											<button :disabled="voteSubmitting === round.competitorA" class="btn btn-block btn-primary btn-bold-outline btn-bg-inverted flex-1" @click="submitVote(round.competitorA, round.roundNumber)">
+												<span x-text="'Vote ' + round?.competitorADisplayName"></span>
+												<template x-if="voteSubmitting === round.competitorA">
+													<span class="loading loading-spinner loading-md text-primary"></span>
+												</template>
+											</button>
+											<div class="text-3xl font-bold">&larr; VS &rarr;</div>
+											<button :disabled="voteSubmitting === round.competitorB" class="btn btn-block btn-primary btn-bold-outline btn-bg-inverted flex-1" @click="submitVote(round.competitorB, round.roundNumber)">
+												<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
+												<template x-if="voteSubmitting === round.competitorB">
+													<span class="loading loading-spinner loading-md text-primary"></span>
+												</template>
+											</button>
+										</div>
 									</div>
-								</div>
+								</template>
 							</template>
 						</template>
 					</div>
@@ -228,6 +234,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 						try {
 							const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
 							if (this.userId !== '' && competitionConfigId !== '') {
+								this.roundsDataFetching = true
 								const roundsResponse = await fetch(`/api/competition-round/competition/${competitionConfigId}`, {
 									method: 'GET',
 								});
@@ -253,6 +260,8 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 						} catch (e ) {
 							// eslint-disable-next-line no-console
 							console.error(e);
+						} finally {
+							this.roundsDataFetching = false
 						}
 					})();
 				},
