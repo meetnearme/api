@@ -437,8 +437,8 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							this.formData.rounds = this.formData.rounds.map(round => {
 								// round.user = usersData.find(user => user.id === round.userId)
 								return {
-									competitorADisplayName: usersData?.find?.(user => user.userId === round.competitorA).displayName,
-									competitorBDisplayName: usersData?.find?.(user => user.userId === round.competitorB).displayName,
+									competitorADisplayName: usersData?.find?.(user => user.userId === round.competitorA)?.displayName,
+									competitorBDisplayName: usersData?.find?.(user => user.userId === round.competitorB)?.displayName,
 									...round
 								}
 							})
