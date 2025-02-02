@@ -57,6 +57,10 @@ body:has(.bottom-drawer) {
   padding-bottom: 10rem;
 }
 
+#main-nav {
+  min-height: 4.8rem;
+}
+
 .sticky-under-top-nav {
   top: 4.8rem;
 }

@@ -257,46 +257,121 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				registeredStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-registered-status'),
 				competitionConfigId: document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id'),
 				init() {
-					(async () => {
-						try {
-							const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
-							if (this.userId !== '' && competitionConfigId !== '') {
-								this.roundsDataFetching = true
-								const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
-									method: 'GET',
-								});
-								const roundsData = await roundsResponse.json();
-								this.rounds = roundsData
-								if (this.rounds.length > 0) {
-									const ids = this.rounds.flatMap(round => [round.competitorA, round.competitorB]).join(',')
-
-									const usersRes = await fetch(`/api/users?ids=${ids}`, {
-										method: 'GET',
-									});
-									const usersData = await usersRes.json();
-									this.rounds = this.rounds.map(round => {
-										// round.user = usersData.find(user => user.id === round.userId)
-										return {
-											competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
-											competitorBDisplayName: usersData.find(user => user.userId === round.competitorB).displayName,
-											...round
-										}
-									})
+						(async () => {
+								const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
+								if (this.userId !== '' && competitionConfigId !== '') {
+										await this.fetchInitialData();
+										// Start polling after initial fetch
+										this.pollInterval = setInterval(() => this.pollRoundsData(), 10000);
 								}
-							}
-						} catch (e ) {
-							// eslint-disable-next-line no-console
-							console.error(e);
-						} finally {
-							this.roundsDataFetching = false
-						}
-					})();
+						})();
+
+						// Cleanup on component destroy
+						this.$cleanup = () => {
+								if (this.pollInterval) clearInterval(this.pollInterval);
+						};
 				},
+				async fetchInitialData() {
+						try {
+								this.roundsDataFetching = true;
+								await this.fetchAndUpdateRounds();
+						} catch (e) {
+								console.error(e);
+						} finally {
+								this.roundsDataFetching = false;
+						}
+				},
+
+				async fetchAndUpdateRounds() {
+					if (this.userId !== '' && this.competitionConfigId !== '') {
+							const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
+									method: 'GET',
+							});
+							const roundsData = await roundsResponse.json();
+
+							if (roundsData.length > 0) {
+									const competitorIds = roundsData.flatMap(round => [round.competitorA, round.competitorB]);
+									const missingIds = competitorIds.filter(id => !this.competitors[id]);
+
+									if (missingIds.length > 0) {
+											const usersRes = await fetch(`/api/users?ids=${missingIds.join(',')}`, {
+													method: 'GET',
+											});
+											const usersData = await usersRes.json();
+
+											usersData.forEach(user => {
+													this.competitors[user.userId] = user;
+											});
+									}
+
+									this.rounds = roundsData.map(round => ({
+											...round,
+											competitorADisplayName: this.competitors[round.competitorA]?.displayName,
+											competitorBDisplayName: this.competitors[round.competitorB]?.displayName,
+									}));
+							} else {
+									this.rounds = [];
+							}
+					}
+				},
+
+				async pollRoundsData() {
+						if (!this.roundsDataFetching) {
+								try {
+										await this.fetchAndUpdateRounds();
+								} catch (e) {
+										console.error('Error polling rounds data:', e);
+								}
+						}
+				},
+
+				// this is pre-LLM rewrite code, saving for reference, can delete once we
+				// are sure the replacement code is 100% working
+				// init() {
+				// 	(async () => {
+				// 		try {
+				// 			const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
+				// 			if (this.userId !== '' && competitionConfigId !== '') {
+				// 				this.roundsDataFetching = true
+				// 				const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
+				// 					method: 'GET',
+				// 				});
+				// 				const roundsData = await roundsResponse.json();
+				// 				this.rounds = roundsData
+				// 				if (this.rounds.length > 0) {
+				// 					const ids = this.rounds.flatMap(round => [round.competitorA, round.competitorB]).join(',')
+
+				// 					const usersRes = await fetch(`/api/users?ids=${ids}`, {
+				// 						method: 'GET',
+				// 					});
+				// 					const usersData = await usersRes.json();
+				// 					this.rounds = this.rounds.map(round => {
+				// 						// round.user = usersData.find(user => user.id === round.userId)
+				// 						return {
+				// 							competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
+				// 							competitorBDisplayName: usersData.find(user => user.userId === round.competitorB).displayName,
+				// 							...round
+				// 						}
+				// 					})
+				// 				}
+				// 			}
+				// 		} catch (e ) {
+				// 			// eslint-disable-next-line no-console
+				// 			console.error(e);
+				// 		} finally {
+				// 			this.roundsDataFetching = false
+				// 		}
+				// 	})();
+				// },
 				eventTypeSingleConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-single'),
 				eventTypeSeriesParentConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-parent'),
 				eventTypeSeriesChildConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-child'),
 				rounds: [],
 				voteSubmitting: null,
+				competitors: {},
+				pollInterval: null,
+				roundsDataFetching: false,
+
 				async submitVote(competitorId, roundNumber) {
 					this.voteSubmitting = `${competitorId}-${roundNumber}`
 					try {
@@ -345,7 +420,6 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 					return this.competitionConfigId && !this.userId
 				},
 				scrollToVotingSection() {
-					console.log('scrollToVotingSection')
 					const el = document.getElementById('voting-section');
 					if (el) {
 						// Calculate offset from fixed elements
