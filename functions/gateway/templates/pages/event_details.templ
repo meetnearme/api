@@ -67,6 +67,33 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			<br/>
 			<br/>
 		} else {
+			if event.CompetitionConfigId != "" {
+				<template x-if="shouldShowCompetitionCta()">
+					<div id="vote-header" class="fixed sticky-under-top-nav alert alert-info rounded-none left-0 w-full z-50 flex items-center">
+						<div class="container mx-auto flex items-center justify-center">
+							<div role="alert">
+								<p>This event is part of a competition, log in to participate <a class="btn btn-xs" href="/auth/login">Login</a></p>
+							</div>
+						</div>
+					</div>
+				</template>
+				<template x-if="userId && shouldShowVoteHeader()">
+					<div id="vote-header" class="fixed sticky-under-top-nav alert alert-info rounded-none left-0 w-full z-50 flex items-center">
+						<div class="container mx-auto flex items-center justify-center">
+							<div role="alert">
+								<p>Voting for this event is open <a class="btn btn-xs" @click="scrollToVotingSection">Cast your vote now!</a></p>
+							</div>
+						</div>
+					</div>
+				</template>
+				// These are just added body top padding to avoid page content being cut off by the navbar
+				<template x-if="shouldShowVoteHeader() || shouldShowCompetitionCta()">
+					<div>
+						<br/>
+						<br/>
+					</div>
+				</template>
+			}
 			if (canEdit) {
 				<div class="alert alert-success">
 					You are an editor for this event.
@@ -129,17 +156,17 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				<h3 class="text-xl">EVENT DESCRIPTION</h3>
 				<br/>
 				<div class="whitespace-pre-wrap">{ event.Description }</div>
-				<template x-if="competitionConfigId">
-					<div class="mt-4">
+				<template x-if="competitionConfigId && userId">
+					<div class="mt-4" id="voting-section">
 						<h3 class="text-xl">VOTING</h3>
-						<template x-if="!Boolean(formData?.rounds?.[0]?.competitorADisplayName)">
+						<template x-if="!Boolean(rounds?.[0]?.competitorADisplayName)">
 							<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
 						</template>
-						<template x-if="!roundsDataFetching && formData?.rounds?.filter(round => round.isVotingOpen).length === 0">
+						<template x-if="!roundsDataFetching && rounds?.filter(round => round.isVotingOpen).length === 0">
 							<p class="text-lg">(No rounds are open for voting)</p>
 						</template>
-						<template x-if="Boolean(formData?.rounds?.[0]?.competitorADisplayName)">
-							<template x-for="round in formData.rounds">
+						<template x-if="Boolean(rounds?.[0]?.competitorADisplayName)">
+							<template x-for="round in rounds">
 								<template x-if="round.isVotingOpen">
 									<div>
 										<h3 class="text-lg text-bold" x-text="round.roundName"></h3>
@@ -235,19 +262,19 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 							const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
 							if (this.userId !== '' && competitionConfigId !== '') {
 								this.roundsDataFetching = true
-								const roundsResponse = await fetch(`/api/competition-round/competition/${competitionConfigId}`, {
+								const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
 									method: 'GET',
 								});
 								const roundsData = await roundsResponse.json();
-								this.formData.rounds = roundsData
-								if (this.formData.rounds.length > 0) {
-									const ids = this.formData.rounds.flatMap(round => [round.competitorA, round.competitorB]).join(',')
+								this.rounds = roundsData
+								if (this.rounds.length > 0) {
+									const ids = this.rounds.flatMap(round => [round.competitorA, round.competitorB]).join(',')
 
 									const usersRes = await fetch(`/api/users?ids=${ids}`, {
 										method: 'GET',
 									});
 									const usersData = await usersRes.json();
-									this.formData.rounds = this.formData.rounds.map(round => {
+									this.rounds = this.rounds.map(round => {
 										// round.user = usersData.find(user => user.id === round.userId)
 										return {
 											competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
@@ -268,9 +295,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				eventTypeSingleConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-single'),
 				eventTypeSeriesParentConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-parent'),
 				eventTypeSeriesChildConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-child'),
-				formData: {
-					rounds: [],
-				},
+				rounds: [],
 				voteSubmitting: null,
 				async submitVote(competitorId, roundNumber) {
 					this.voteSubmitting = `${competitorId}-${roundNumber}`
@@ -312,6 +337,29 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 						document.getElementById(`main-drawer`).click();
 					}
 
+				},
+				shouldShowVoteHeader() {
+					return this.rounds.filter(round => round.isVotingOpen).length > 0
+				},
+				shouldShowCompetitionCta() {
+					return this.competitionConfigId && !this.userId
+				},
+				scrollToVotingSection() {
+					console.log('scrollToVotingSection')
+					const el = document.getElementById('voting-section');
+					if (el) {
+						// Calculate offset from fixed elements
+						const voteHeader = document.getElementById('vote-header');
+						const mainNav = document.getElementById('main-nav');
+						const offset = (voteHeader?.offsetHeight || 0) + (mainNav?.offsetHeight || 0);
+
+						// Scroll with offset
+						const elementPosition = el.getBoundingClientRect().top + window.pageYOffset;
+						window.scrollTo({
+							top: elementPosition - offset,
+							behavior: 'smooth'
+						});
+					}
 				}
 			}
 		}

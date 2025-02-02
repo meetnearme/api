@@ -822,7 +822,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				<select x-model="competitionModalCompetitionSelection" class="select select-bordered" @change="handleCompetitionSelection(competitionModalCompetitionSelection)">
 					<option value="">Select a competition</option>
 					<template x-for="competition in competitionConfigs">
-						<option :value="competition.id">Competition <span x-text="competition.name"></span></option>
+						<option :value="competition.id"><span x-text="competition.name"></span></option>
 					</template>
 				</select>
 				<template x-if="competitionModalCompetitionSelection">
