@@ -573,13 +573,13 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 	tests := []struct {
 		name          string
 		query         string
-		expectedUsers []UserSearchResult
+		expectedUsers []types.UserSearchResultDangerous
 		expectError   bool
 	}{
 		{
 			name:  "successful search with results",
 			query: "doe",
-			expectedUsers: []UserSearchResult{
+			expectedUsers: []types.UserSearchResultDangerous{
 				{UserID: "123", DisplayName: "John Doe"},
 				{UserID: "456", DisplayName: "Jane Doe"},
 			},
@@ -587,7 +587,7 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 		{
 			name:          "no results found",
 			query:         "nonexistent",
-			expectedUsers: []UserSearchResult{},
+			expectedUsers: []types.UserSearchResultDangerous{},
 		},
 		{
 			name:        "server error",
@@ -598,7 +598,7 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 		{
 			name:  "empty query",
 			query: "",
-			expectedUsers: []UserSearchResult{
+			expectedUsers: []types.UserSearchResultDangerous{
 				{UserID: "123", DisplayName: "John Doe"},
 				{UserID: "456", DisplayName: "Jane Doe"},
 			},

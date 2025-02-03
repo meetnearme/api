@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -1187,6 +1188,9 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 				}
 				return nil, nil
 			},
+			HasPurchaseForEventFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, childEventId, parentEventId, userId string) (bool, error) {
+				return false, nil
+			},
 		}
 		// Create handler with mock service
 		handler := NewPurchasableWebhookHandler(dynamodb_service.NewPurchasableService(), mockPurchasesService)
@@ -1424,6 +1428,18 @@ func TestGetUsersHandler(t *testing.T) {
 
 	// Create a mock HTTP server for Zitadel
 	mockZitadelServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/meta") {
+			// Handle meta requests
+			w.Header().Set("Content-Type", "application/json")
+			response := map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"value": base64.StdEncoding.EncodeToString([]byte("user1,user2")),
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
 		if r.Method == "POST" && strings.Contains(r.URL.Path, "/v2/users") {
 			w.Header().Set("Content-Type", "application/json")
 
@@ -1452,6 +1468,37 @@ func TestGetUsersHandler(t *testing.T) {
 			response.Details.Timestamp = "2099-01-01T00:00:00Z"
 
 			switch {
+			case len(userIds) == 1 && strings.HasPrefix(userIds[0], "tm_"):
+				response.Result = []struct {
+					UserID             string `json:"userId"`
+					Username           string `json:"username"`
+					PreferredLoginName string `json:"preferredLoginName"`
+					State              string `json:"state"`
+					Human              struct {
+						Profile struct {
+							DisplayName string `json:"displayName"`
+						} `json:"profile"`
+						Email map[string]interface{} `json:"email"`
+					} `json:"human"`
+				}{
+					{
+						UserID:   userIds[0],
+						Username: "testuser",
+						Human: struct {
+							Profile struct {
+								DisplayName string `json:"displayName"`
+							} `json:"profile"`
+							Email map[string]interface{} `json:"email"`
+						}{
+							Profile: struct {
+								DisplayName string `json:"displayName"`
+							}{
+								DisplayName: "Test User",
+							},
+							Email: map[string]interface{}{},
+						},
+					},
+				}
 			case len(userIds) == 1 && userIds[0] == "123456789012345678":
 				response.Result = []struct {
 					UserID             string `json:"userId"`
@@ -1590,13 +1637,13 @@ func TestGetUsersHandler(t *testing.T) {
 			name:           "Valid tm_uuid format",
 			queryParams:    "?ids=tm_123e4567-e89b-12d3-a456-426614174000",
 			expectedStatus: http.StatusOK,
-			expectedBody:   `[{"userId":"tm_123e4567-e89b-12d3-a456-426614174000","displayName":"Test User"}]`,
+			expectedBody:   `[{"userId":"tm_123e4567-e89b-12d3-a456-426614174000","displayName":"Test User","metadata":{"members":["user1","user2"]}}]`,
 		},
 		{
 			name:           "Invalid tm_uuid format",
 			queryParams:    "?ids=tm_invalid-uuid-format",
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "Invalid UUID format after 'tm_': invalid-uuid-format",
+			expectedBody:   `{"error":{"message":"ERR: invalid UUID format after 'tm_': invalid-uuid-format"}}`,
 		},
 		{
 			name:           "Invalid ID length",

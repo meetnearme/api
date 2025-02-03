@@ -309,6 +309,7 @@ type MockPurchaseService struct {
 	GetPurchasesByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string, limit int32, startKey string) ([]internal_types.PurchaseDangerous, map[string]dynamodb_types.AttributeValue, error)
 	UpdatePurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAtString string, purchase internal_types.PurchaseUpdate) (*internal_types.Purchase, error)
 	DeletePurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error
+	HasPurchaseForEventFunc   func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, childEventId, parentEventId, userId string) (bool, error)
 }
 
 func (m *MockPurchaseService) InsertPurchase(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchase internal_types.PurchaseInsert) (*internal_types.Purchase, error) {
@@ -333,4 +334,11 @@ func (m *MockPurchaseService) GetPurchasesByUserID(ctx context.Context, dynamodb
 
 func (m *MockPurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string, limit int32, startKey string) ([]internal_types.PurchaseDangerous, map[string]dynamodb_types.AttributeValue, error) {
 	return m.GetPurchasesByEventIDFunc(ctx, dynamodbClient, eventID, limit, startKey)
+}
+
+func (m *MockPurchaseService) HasPurchaseForEvent(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, childEventId, parentEventId, userId string) (bool, error) {
+	if m.HasPurchaseForEventFunc != nil {
+		return m.HasPurchaseForEventFunc(ctx, dynamodbClient, childEventId, parentEventId, userId)
+	}
+	return false, nil
 }
