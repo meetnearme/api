@@ -649,15 +649,15 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							auxilaryOwners: Object.entries(this.owners).map(([key, val]) => val.value),
 							competitors,
 							teams: this.teams?.map?.(team => {
-								const displayName = team.label
-								delete team.label
-								return ({
-									...team,
-									displayName,
+								// Create a new object without mutating the original
+								const { label, ...restTeam } = team;
+								return {
+									...restTeam,
+									displayName: label,
 									competitors: team.competitors?.map?.(competitor => ({
 										...competitor,
 									}))
-								})
+								};
 							}),
 							rounds: this.formData.rounds?.map?.(round => ({
 								...round,
