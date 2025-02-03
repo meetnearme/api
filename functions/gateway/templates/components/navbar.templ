@@ -197,7 +197,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content flex flex-col">
 			<!-- Navbar -->
-			<div class="navbar fixed z-50 top-0 w-full bg-base-100 bg-opacity-75 shadow-md mb-5">
+			<div id="main-nav" class="navbar fixed z-50 top-0 w-full bg-base-100 bg-opacity-75 shadow-md mb-5">
 				<div class="container mx-auto flex items-center">
 					<div class="flex flex-1">
 						<a href="/" class="brand btn btn-ghost pl-2 text-xl flex flex-col">
@@ -445,164 +445,164 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					eventSourceType: document.querySelector('#registration-purchasables').getAttribute('data-event-source-type'),
 					userId: document.querySelector('#registration-purchasables').getAttribute('data-user-id'),
 					async init() {
-							const promises = [];
-							if (this.hasRegistration) {
-									promises.push(this.fetchRegistrationFields());
-							}
-							if (this.hasPurchasable) {
-									promises.push(this.fetchPurchasables());
-							}
-							await Promise.all(promises);
-							this.checkAndMoveRegistrationFields();
+						const promises = [];
+						if (this.hasRegistration) {
+							promises.push(this.fetchRegistrationFields());
+						}
+						if (this.hasPurchasable) {
+							promises.push(this.fetchPurchasables());
+						}
+						await Promise.all(promises);
+						this.checkAndMoveRegistrationFields();
 					},
 					checkAndMoveRegistrationFields() {
-							if (this.hasRegistration && this.hasPurchasable &&
+						if (this.hasRegistration && this.hasPurchasable &&
 									this.registrationFieldsLoaded && this.purchasablesLoaded) {
-									this.moveRegistrationFieldsToPurchasable();
-							}
+							this.moveRegistrationFieldsToPurchasable();
+						}
 					},
 					async fetchRegistrationFields() {
-							try {
-									const response = await fetch(`/api/registration-fields/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
-									const json = await response.json();
-									this.registrationFields = json?.fields;
-									this.registrationFieldsLoaded = true;
-							} catch (error) {
-									console.error("Error fetching registration fields:", error);
-									this.registrationFieldsLoaded = false;
-							}
+						try {
+							const response = await fetch(`/api/registration-fields/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
+							const json = await response.json();
+							this.registrationFields = json?.fields;
+							this.registrationFieldsLoaded = true;
+						} catch (error) {
+							// eslint-disable-next-line no-console
+							console.error("Error fetching registration fields:", error);
+							this.registrationFieldsLoaded = false;
+						}
 					},
 					async submitPurchase() {
-							this.reqInFlight = true;
-							try {
-								const purchasedItems = this.purchasables
-									.map(purchasable => {
-										const countKey = Object.keys(this.formData).find(key =>
-											key.startsWith(`${purchasable.name}_count_`)
-										);
-										const quantity = parseInt(this.formData[countKey] || '0');
+						this.reqInFlight = true;
+						try {
+							const purchasedItems = this.purchasables
+								.map(purchasable => {
+									const countKey = Object.keys(this.formData).find(key =>
+										key.startsWith(`${purchasable.name}_count_`)
+									);
+									const quantity = parseInt(this.formData[countKey] || '0');
 
-										if (quantity > 0) {
-											// Construct reg_responses for this purchasable
-											const reg_responses = [];
-											for (let i = 1; i <= quantity; i++) {
-												const responseObj = {};
-												purchasable.registration_fields_copy?.forEach(field => {
-													const fieldKey = `purch_${this.eventId}_${purchasable.name}_field_${field.name}_count_${i}`;
-													if (this.formData.hasOwnProperty(fieldKey)) {
-														responseObj[field.name] = this.formData[fieldKey];
-													}
-												});
-												if (Object.keys(responseObj).length > 0) {
-													reg_responses.push(responseObj);
+									if (quantity > 0) {
+										// Construct reg_responses for this purchasable
+										const reg_responses = [];
+										for (let i = 1; i <= quantity; i++) {
+											const responseObj = {};
+											purchasable.registration_fields_copy?.forEach(field => {
+												const fieldKey = `purch_${this.eventId}_${purchasable.name}_field_${field.name}_count_${i}`;
+												if (Object.prototype.hasOwnProperty.call(this.formData, fieldKey)) {
+													responseObj[field.name] = this.formData[fieldKey];
 												}
+											});
+											if (Object.keys(responseObj).length > 0) {
+												reg_responses.push(responseObj);
 											}
-
-											return {
-												name: purchasable.name,
-												item_type: purchasable.item_type,
-												cost: purchasable.cost,
-												quantity: quantity,
-												currency: purchasable.currency,
-												donation_ratio: purchasable.donation_ratio,
-												reg_responses: reg_responses
-											};
 										}
-										return null;
-									})
-									.filter(item => item !== null);
 
-								const total = purchasedItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
-								console.log(`purchasedItems:`, purchasedItems)
-								// TODO: do we need the total?
-								console.log(`total`, total)
-								if (purchasedItems?.length < 1) {
-									this.errors['checkout'] = "You have no selected items.";
-									this.reqInFlight = false;
-									return
-								}
-								const response = await fetch(`/api/checkout/${this.eventId}${this.eventSourceId ? `?event_source_id=${this.eventSourceId}&event_source_type=${this.eventSourceType}` : ''}`, {
-									method: 'POST',
-									headers: {
-											'Content-Type': 'application/json'
-									},
-									body: JSON.stringify({
-										event_name: this.eventName,
-										purchased_items: purchasedItems,
-										total: total,
-										currency: "USD"
-									})
-								});
-								if (response.status === 401) {
-									this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/event/${this.eventId}">Register or Login now</a>`;
-									this.reqInFlight = false;
-									return
-								}
-								const json = await response.json();
+										return {
+											name: purchasable.name,
+											item_type: purchasable.item_type,
+											cost: purchasable.cost,
+											quantity: quantity,
+											currency: purchasable.currency,
+											donation_ratio: purchasable.donation_ratio,
+											reg_responses: reg_responses
+										};
+									}
+									return null;
+								})
+								.filter(item => item !== null);
+
+							const total = purchasedItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
+							if (purchasedItems?.length < 1) {
+								this.errors['checkout'] = "You have no selected items.";
 								this.reqInFlight = false;
-								this.purchaseComplete = true;
-								if (json?.stripe_checkout_url) {
-									// Validate the URL to ensure it's a trusted Stripe URL
-									const trustedDomain = 'https://checkout.stripe.com/';
-									if (json.stripe_checkout_url.startsWith(trustedDomain)) {
-										window.location.href = json.stripe_checkout_url;
-									} else {
-										this.errors['checkout'] = "Invalid checkout URL received.";
-									}
-								} else if (total <= 0) {
-									// `?new_purch_key` is received by the profile page to both highlight, scroll to, and poll in
-									// wait for the new event because of dynamo's eventual consistency.
-									window.location.href = window.location.origin + `/admin/profile#registration-history${this.userId ? `?new_purch_key=${json?.composite_key}` : ''}`;
-								} else {
-									if (json?.error?.message) {
-										this.errors['checkout'] = json.error.message;
-									} else {
-										this.errors['checkout'] = "Unable to proceed. Please try again.";
-									}
-								}
-							} catch (error) {
-									console.error("Error submitting:", error);
-									this.reqInFlight = false;
-									this.purchaseComplete = false;
-									this.errors['checkout'] = "Unable to proceed. Please try again.";
+								return
 							}
+							const response = await fetch(`/api/checkout/${this.eventId}${this.eventSourceId ? `?event_source_id=${this.eventSourceId}&event_source_type=${this.eventSourceType}` : ''}`, {
+								method: 'POST',
+								headers: {
+									'Content-Type': 'application/json'
+								},
+								body: JSON.stringify({
+									event_name: this.eventName,
+									purchased_items: purchasedItems,
+									total: total,
+									currency: "USD"
+								})
+							});
+							if (response.status === 401) {
+								this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/event/${this.eventId}">Register or Login now</a>`;
+								this.reqInFlight = false;
+								return
+							}
+							const json = await response.json();
+							this.reqInFlight = false;
+							this.purchaseComplete = true;
+							if (json?.stripe_checkout_url) {
+								// Validate the URL to ensure it's a trusted Stripe URL
+								const trustedDomain = 'https://checkout.stripe.com/';
+								if (json.stripe_checkout_url.startsWith(trustedDomain)) {
+									window.location.href = json.stripe_checkout_url;
+								} else {
+									this.errors['checkout'] = "Invalid checkout URL received.";
+								}
+							} else if (total <= 0) {
+								// `?new_purch_key` is received by the profile page to both highlight, scroll to, and poll in
+								// wait for the new event because of dynamo's eventual consistency.
+								window.location.href = window.location.origin + `/admin/profile#registration-history${this.userId ? `?new_purch_key=${json?.composite_key}` : ''}`;
+							} else {
+								if (json?.error?.message) {
+									this.errors['checkout'] = json.error.message;
+								} else {
+									this.errors['checkout'] = "Unable to proceed. Please try again.";
+								}
+							}
+						} catch (error) {
+							// eslint-disable-next-line no-console
+							console.error("Error submitting:", error);
+							this.reqInFlight = false;
+							this.purchaseComplete = false;
+							this.errors['checkout'] = "Unable to proceed. Please try again.";
+						}
 					},
 					async fetchPurchasables() {
-							try {
-									const response = await fetch(`/api/purchasables/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
-									const json = await response.json();
-									this.purchasables = json?.purchasable_items;
-									this.purchasablesLoaded = true;
-							} catch (error) {
-									console.error("Error fetching registration fields:", error);
-									this.purchasablesLoaded = false;
-							}
+						try {
+							const response = await fetch(`/api/purchasables/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
+							const json = await response.json();
+							this.purchasables = json?.purchasable_items;
+							this.purchasablesLoaded = true;
+						} catch (error) {
+							// eslint-disable-next-line no-console
+							console.error("Error fetching registration fields:", error);
+							this.purchasablesLoaded = false;
+						}
 					},
 					moveRegistrationFieldsToPurchasable() {
-							if (this.hasPurchasable && this.hasRegistration) {
-									let fieldsToRemove = new Set();
+						if (this.hasPurchasable && this.hasRegistration) {
+							let fieldsToRemove = new Set();
 
-									this.purchasables?.forEach?.(item => {
-											if (item.registration_fields && Array.isArray(item.registration_fields)) {
-													// Create a copy of the filtered fields
-													item.registration_fields_copy = this.registrationFields
-															.filter(field => item.registration_fields.includes(field.name))
-															.map(field => Object.assign({}, field));
+							this.purchasables?.forEach?.(item => {
+								if (item.registration_fields && Array.isArray(item.registration_fields)) {
+									// Create a copy of the filtered fields
+									item.registration_fields_copy = this.registrationFields
+										.filter(field => item.registration_fields.includes(field.name))
+										.map(field => Object.assign({}, field));
 
-													// Add the copied fields to the set of fields to remove
-													item.registration_fields_copy.forEach(field => fieldsToRemove.add(field.name));
-											}
-									});
+									// Add the copied fields to the set of fields to remove
+									item.registration_fields_copy.forEach(field => fieldsToRemove.add(field.name));
+								}
+							});
 
-									// Remove the copied fields from the main registration fields
-									this.registrationFields = this.registrationFields.filter(field => !fieldsToRemove.has(field.name));
-							}
+							// Remove the copied fields from the main registration fields
+							this.registrationFields = this.registrationFields.filter(field => !fieldsToRemove.has(field.name));
+						}
 					},
 					validateOneField(field, fieldName, includeIdx) {
 						if (field?.required) {
 							if (field?.type === 'checkbox') {
 								if (this?.formData?.[fieldName] === undefined) {
-									this.errors[fieldName] = `Response to '${field?.description}' ${includeIdx > -1 ? '#'+ (includeIdx + 1) : ''} is required`
+									this.errors[fieldName] = `Response to '${field?.description}' ${includeIdx > -1 ? '#' + (includeIdx + 1) : ''} is required`
 								} else {
 									delete this.errors[fieldName]
 								}
@@ -625,10 +625,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 
 						if (this.hasPurchasable) {
 							this?.purchasables?.forEach((purch, purchIdx) => {
-								purch?.registration_fields_copy?.forEach((field, fieldIdx) => {
+								(purch.registration_fields_copy || []).forEach((field) => {
 									if (field?.required) {
 										const searchMatchKey = `purch_${this.eventId}_${purch?.name}_field_${field?.name}`
-										Object.keys(this?.formData)?.forEach(formKey => {
+
+										Object.keys(this.formData || {}).forEach(() => {
 											const fieldCounterKey = `${purch?.name}_count_${purchIdx}`
 											const fieldCount = parseInt(this?.formData?.[fieldCounterKey])
 											for (let i = 0; i < fieldCount; i++) {
@@ -647,14 +648,14 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					handleCounterClick(self, direction, purchName, idx) {
 						const inputElement = self.closest('.counter-click-container').querySelector('input[type="number"]');
 						if (inputElement) {
-								const modelName = `${purchName}_count_${idx}`
-								if (modelName) {
-										if (direction === 'up') {
-												this.formData[modelName] = (parseInt(this.formData[modelName] || 0) + 1).toString();
-										} else if (this.formData[modelName] > 0) {
-												this.formData[modelName] = (parseInt(this.formData[modelName] || 0) - 1).toString();
-										}
+							const modelName = `${purchName}_count_${idx}`
+							if (modelName) {
+								if (direction === 'up') {
+									this.formData[modelName] = (parseInt(this.formData[modelName] || 0) + 1).toString();
+								} else if (this.formData[modelName] > 0) {
+									this.formData[modelName] = (parseInt(this.formData[modelName] || 0) - 1).toString();
 								}
+							}
 						}
 					},
 				}

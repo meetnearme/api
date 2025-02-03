@@ -365,13 +365,13 @@ func TestSearchUsersByIDs(t *testing.T) {
 	tests := []struct {
 		name          string
 		userIDs       []string
-		expectedUsers []UserSearchResult
+		expectedUsers []types.UserSearchResultDangerous
 		expectError   bool
 	}{
 		{
 			name:    "successful search with multiple users",
 			userIDs: []string{"123", "456"},
-			expectedUsers: []UserSearchResult{
+			expectedUsers: []types.UserSearchResultDangerous{
 				{UserID: "123", DisplayName: "Test User 123"},
 				{UserID: "456", DisplayName: "Test User 456"},
 			},
@@ -379,7 +379,7 @@ func TestSearchUsersByIDs(t *testing.T) {
 		{
 			name:          "empty result",
 			userIDs:       []string{"nonexistent"},
-			expectedUsers: []UserSearchResult{},
+			expectedUsers: []types.UserSearchResultDangerous{},
 		},
 		{
 			name:        "server error",
@@ -389,14 +389,14 @@ func TestSearchUsersByIDs(t *testing.T) {
 		{
 			name:          "empty user IDs",
 			userIDs:       []string{},
-			expectedUsers: []UserSearchResult{},
+			expectedUsers: []types.UserSearchResultDangerous{},
 			expectError:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			users, err := SearchUsersByIDs(tt.userIDs)
+			users, err := SearchUsersByIDs(tt.userIDs, false)
 
 			if tt.expectError {
 				if err == nil {
@@ -573,13 +573,13 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 	tests := []struct {
 		name          string
 		query         string
-		expectedUsers []UserSearchResult
+		expectedUsers []types.UserSearchResultDangerous
 		expectError   bool
 	}{
 		{
 			name:  "successful search with results",
 			query: "doe",
-			expectedUsers: []UserSearchResult{
+			expectedUsers: []types.UserSearchResultDangerous{
 				{UserID: "123", DisplayName: "John Doe"},
 				{UserID: "456", DisplayName: "Jane Doe"},
 			},
@@ -587,7 +587,7 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 		{
 			name:          "no results found",
 			query:         "nonexistent",
-			expectedUsers: []UserSearchResult{},
+			expectedUsers: []types.UserSearchResultDangerous{},
 		},
 		{
 			name:        "server error",
@@ -598,7 +598,7 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 		{
 			name:  "empty query",
 			query: "",
-			expectedUsers: []UserSearchResult{
+			expectedUsers: []types.UserSearchResultDangerous{
 				{UserID: "123", DisplayName: "John Doe"},
 				{UserID: "456", DisplayName: "Jane Doe"},
 			},

@@ -245,7 +245,7 @@ func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.R
 	responseData := struct {
 		Count     int                                      `json:"count"`
 		NextKey   map[string]dynamodb_types.AttributeValue `json:"nextKey"`
-		Purchases []internal_types.Purchase                `json:"purchases"`
+		Purchases []internal_types.PurchaseDangerous       `json:"purchases"`
 	}{
 		Count:     len(purchases),
 		NextKey:   lastEvaluatedKey,
@@ -341,6 +341,57 @@ func (h *PurchaseHandler) DeletePurchase(w http.ResponseWriter, r *http.Request)
 	}
 
 	transport.SendServerRes(w, []byte("Purchase successfully deleted"), http.StatusOK, nil)
+}
+
+func HasPurchaseForEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		userInfo := helpers.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+		}
+		userId := userInfo.Sub
+
+		var hasPurchasePayload internal_types.HasPurchaseForEventPayload
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
+			return
+		}
+
+		err = json.Unmarshal(body, &hasPurchasePayload)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
+			return
+		}
+
+		if hasPurchasePayload.ChildEventId == "" && hasPurchasePayload.ParentEventId == "" {
+			transport.SendServerRes(w, []byte("Missing childEventId or parentEventId"), http.StatusBadRequest, nil)
+			return
+		}
+
+		db := transport.GetDB()
+		service := dynamodb_service.NewPurchaseService()
+		hasPurchase, err := service.HasPurchaseForEvent(r.Context(), db, hasPurchasePayload.ChildEventId, hasPurchasePayload.ParentEventId, userId)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to check for purchase: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		response := struct {
+			HasPurchase bool `json:"hasPurchase"`
+		}{
+			HasPurchase: hasPurchase,
+		}
+
+		jsonResponse, err := json.Marshal(response)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+			return
+		}
+
+		transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
+	}
 }
 
 func CreatePurchaseHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {

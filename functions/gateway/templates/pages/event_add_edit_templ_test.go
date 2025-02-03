@@ -37,7 +37,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 				"Start Date &amp; Time",
 				"End Date &amp; Time",
 				"Publish",
-				"Venue Address",
+				"Address",
 			},
 		},
 		{
@@ -54,7 +54,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 				"Start Date &amp; Time",
 				"End Date &amp; Time",
 				"Publish",
-				"Venue Address",
+				"Address",
 				"data-cf-lat=\"38.893725\"",
 				"data-cf-lon=\"-77.096975\"",
 			},
@@ -80,7 +80,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 				"Date &amp; Media",
 				"Start Date &amp; Time",
 				"End Date &amp; Time",
-				"Venue Address",
+				"Address",
 				"Publish",
 				"This is a test event",
 				"123 Test St",
@@ -93,7 +93,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := AddOrEditEventPage(helpers.SitePages["event-detail"], tt.event, tt.isEditor, tt.cfLat, tt.cfLon)
+			component := AddOrEditEventPage(helpers.SitePages["event-detail"], tt.event, tt.isEditor, tt.cfLat, tt.cfLon, false)
 
 			// Render the component to a string
 			var buf bytes.Buffer

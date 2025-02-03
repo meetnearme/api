@@ -50,7 +50,7 @@ func TestProfilePage(t *testing.T) {
 	profilePage := ProfilePage(mockUserInfo, mockRoleClaims, interests, subdomain, "Test about me text")
 
 	// Create a layout template
-	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, profilePage, types.Event{})
+	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, profilePage, types.Event{}, []string{})
 
 	// Render the template
 	var buf bytes.Buffer
