@@ -17,7 +17,16 @@ const PurchasablesTablePrefix = "Purchasables"
 const SeshuSessionTablePrefix = "SeshuSessions"
 const RegistrationsTablePrefix = "Registrations"
 const RegistrationFieldsTablePrefix = "RegistrationFields"
+const CompetitionResultsTablePrefix = "CompetitionResults"
+const CompetitionConfigTablePrefix = "CompetitionConfig"
+const CompetitionRoundsTablePrefix = "CompetitionRounds"
+const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomParticipant"
+const VotesTablePrefix = "Votes"
+
 const EVENT_ID_KEY string = "eventId"
+const PRIMARY_OWNER_KEY string = "primaryOwner"
+const COMPETITIONS_ID_KEY string = "competitionId"
+const ROUND_NUMBER_KEY string = "roundNumber"
 const USER_ID_KEY string = "userId"
 const SUBDOMAIN_KEY = "subdomain"
 const INTERESTS_KEY = "interests"
@@ -34,7 +43,7 @@ const AUTH_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
 const AUTH_METADATA_KEY = "urn:zitadel:iam:user:metadata"
 
 const DEFAULT_PAGINATION_LIMIT = 50
-const DEFAULT_MAX_RADIUS = 99999
+const DEFAULT_MAX_RADIUS = 999999
 
 const EventOwnerNameDelimiter = " _|_ "
 
@@ -47,6 +56,10 @@ const (
 	ES_EVENT_SERIES  = "EVS"
 	ES_SERIES_PARENT = "SLF_EVS"
 )
+
+const COMP_EMPTY_TEAM_NAME = "___|~~EMPTY TEAM NAME~~|___"
+const COMP_UNASSIGNED_ROUND_EVENT_ID = "fake-event-id-123"
+const COMP_TEAM_ID_PREFIX = "tm_"
 
 // NOTE: these are the default searchable event source types that show up in the home event list view
 var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SINGLE_EVENT, ES_EVENT_SERIES}
@@ -172,17 +185,20 @@ type SitePage struct {
 var SitePages = map[string]SitePage{
 	// NOTE: the {trailingslash:\\/?} is required for a route to match with or without a trailing slash, the
 	// solution is from this github comment (see discussion as well) https://github.com/gorilla/mux/issues/30#issuecomment-1666428538
-	"home":             {Key: "home", Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
-	"about":            {Key: "about", Slug: "/about{trailingslash:\\/?}", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
-	"profile":          {Key: "profile", Slug: "/admin/profile{trailingslash:\\/?}", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
-	"add-event-source": {Key: "add-event-source", Slug: "/admin/add-event-source{trailingslash:\\/?}", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
-	"settings":         {Key: "settings", Slug: "/admin/profile/settings{trailingslash:\\/?}", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
-	"map-embed":        {Key: "map-embed", Slug: "/map-embed{trailingslash:\\/?}", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
-	"user":             {Key: "user", Slug: "/user/{" + USER_ID_KEY + "}{trailingslash:\\/?}", Name: "User", SubnavItems: []string{SubnavItems[NvMain]}},
-	"event-detail":     {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}{trailingslash:\\/?}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
-	"add-event":        {Key: "add-event", Slug: "/admin/event/new{trailingslash:\\/?}", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
-	"edit-event":       {Key: "edit-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/edit{trailingslash:\\/?}", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
-	"attendees-event":  {Key: "attendees-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/attendees{trailingslash:\\/?}", Name: "Event Attendees", SubnavItems: []string{SubnavItems[NvMain]}},
+	"home":               {Key: "home", Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
+	"about":              {Key: "about", Slug: "/about{trailingslash:\\/?}", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
+	"profile":            {Key: "profile", Slug: "/admin/profile{trailingslash:\\/?}", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
+	"add-event-source":   {Key: "add-event-source", Slug: "/admin/add-event-source{trailingslash:\\/?}", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
+	"settings":           {Key: "settings", Slug: "/admin/profile/settings{trailingslash:\\/?}", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
+	"map-embed":          {Key: "map-embed", Slug: "/map-embed{trailingslash:\\/?}", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
+	"user":               {Key: "user", Slug: "/user/{" + USER_ID_KEY + "}{trailingslash:\\/?}", Name: "User", SubnavItems: []string{SubnavItems[NvMain]}},
+	"event-detail":       {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}{trailingslash:\\/?}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
+	"add-event":          {Key: "add-event", Slug: "/admin/event/new{trailingslash:\\/?}", Name: "Add Event", SubnavItems: []string{SubnavItems[NvMain]}},
+	"edit-event":         {Key: "edit-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/edit{trailingslash:\\/?}", Name: "Edit Event", SubnavItems: []string{SubnavItems[NvMain]}},
+	"attendees-event":    {Key: "attendees-event", Slug: "/admin/event/{" + EVENT_ID_KEY + "}/attendees{trailingslash:\\/?}", Name: "Event Attendees", SubnavItems: []string{SubnavItems[NvMain]}},
+	"competition-new":    {Key: "competition-new", Slug: "/admin/competition/new{trailingslash:\\/?}", Name: "Add Competition", SubnavItems: []string{SubnavItems[NvMain]}},
+	"competition-edit":   {Key: "competition-edit", Slug: "/admin/competition/{" + COMPETITIONS_ID_KEY + "}/edit{trailingslash:\\/?}", Name: "Edit Competition", SubnavItems: []string{SubnavItems[NvMain]}},
+	"competition-detail": {Key: "competition-detail", Slug: "/competition/{" + COMPETITIONS_ID_KEY + "}{trailingslash:\\/?}", Name: "Competition Detail", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 // EventFields holds references to all fields in the Event struct
@@ -208,6 +224,7 @@ var EventFields struct {
 	Timezone              string
 	Categories            string
 	Tags                  string
+	CompetitionConfigId   string
 	CreatedAt             string
 	UpdatedAt             string
 	UpdatedBy             string
@@ -285,6 +302,8 @@ func humanizeFieldName(field string) string {
 		return "Localized Start Date"
 	case "LocalizedStartTime":
 		return "Localized Start Time"
+	case "CompetitionConfigId":
+		return "Competition Config ID"
 	default:
 		panic(fmt.Sprintf("No display name mapping for field: %s", field))
 	}

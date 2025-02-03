@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -91,7 +92,7 @@ func (s *PurchaseService) GetPurchaseByPk(ctx context.Context, dynamodbClient in
 	return &purchase, nil
 }
 
-func (s *PurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error) {
+func (s *PurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.PurchaseDangerous, map[string]dynamodb_types.AttributeValue, error) {
 	queryInput := &dynamodb.QueryInput{
 		TableName: aws.String(purchasesTableName),
 		IndexName: aws.String("eventIdIndex"), // Use the eventIdIndex GSI
@@ -128,10 +129,37 @@ func (s *PurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbCli
 		return nil, nil, err
 	}
 
-	var purchases []internal_types.Purchase
+	var purchases []internal_types.PurchaseDangerous
 	err = attributevalue.UnmarshalListOfMaps(result.Items, &purchases)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	userIds := []string{}
+	for _, purchase := range purchases {
+		if helpers.ArrFindFirst(userIds, []string{purchase.UserID}) == "" {
+			userIds = append(userIds, purchase.UserID)
+		}
+	}
+
+	users, err := helpers.SearchUsersByIDs(userIds, true)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	userMap := map[string]types.UserSearchResultDangerous{}
+	for _, user := range users {
+		userMap[user.UserID] = types.UserSearchResultDangerous{
+			UserID:      user.UserID,
+			DisplayName: user.DisplayName,
+			Email:       user.Email,
+		}
+	}
+
+	for i, purchase := range purchases {
+		purchases[i].UserID = userMap[purchase.UserID].UserID
+		purchases[i].UserEmail = userMap[purchase.UserID].Email
+		purchases[i].UserDisplayName = userMap[purchase.UserID].DisplayName
 	}
 
 	return purchases, result.LastEvaluatedKey, nil
@@ -246,13 +274,42 @@ func (s *PurchaseService) DeletePurchase(ctx context.Context, dynamodbClient int
 	return nil
 }
 
+func (s *PurchaseService) HasPurchaseForEvent(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, childEventId, parentEventId, userId string) (bool, error) {
+	selectInput := &dynamodb.ExecuteStatementInput{
+		Statement: aws.String(fmt.Sprintf(
+			`SELECT * FROM "%s"
+             WHERE begins_with(compositeKey, '%s_%s')
+             OR begins_with(compositeKey, '%s_%s')`,
+			purchasesTableName, // Note: changed from purchasablesTableName
+			childEventId, userId,
+			parentEventId, userId,
+		)),
+	}
+
+	result, err := dynamodbClient.ExecuteStatement(ctx, selectInput)
+	if err != nil {
+		return false, fmt.Errorf("query failed: %w", err)
+	}
+
+	log.Printf("result: %+v", result)
+
+	var purchases []internal_types.Purchase
+	err = attributevalue.UnmarshalListOfMaps(result.Items, &purchases)
+	if err != nil {
+		return false, fmt.Errorf("failed to unmarshal items: %w", err)
+	}
+
+	return len(purchases) > 0, nil
+}
+
 type MockPurchaseService struct {
 	InsertPurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchase internal_types.PurchaseInsert) (*internal_types.Purchase, error)
 	GetPurchaseByPkFunc       func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string) (*internal_types.Purchase, error)
 	GetPurchasesByUserIDFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, userID string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error)
-	GetPurchasesByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error)
+	GetPurchasesByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string, limit int32, startKey string) ([]internal_types.PurchaseDangerous, map[string]dynamodb_types.AttributeValue, error)
 	UpdatePurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAtString string, purchase internal_types.PurchaseUpdate) (*internal_types.Purchase, error)
 	DeletePurchaseFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId string) error
+	HasPurchaseForEventFunc   func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, childEventId, parentEventId, userId string) (bool, error)
 }
 
 func (m *MockPurchaseService) InsertPurchase(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, purchase internal_types.PurchaseInsert) (*internal_types.Purchase, error) {
@@ -275,6 +332,13 @@ func (m *MockPurchaseService) GetPurchasesByUserID(ctx context.Context, dynamodb
 	return m.GetPurchasesByUserIDFunc(ctx, dynamodbClient, userID, limit, startKey)
 }
 
-func (m *MockPurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error) {
+func (m *MockPurchaseService) GetPurchasesByEventID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventID string, limit int32, startKey string) ([]internal_types.PurchaseDangerous, map[string]dynamodb_types.AttributeValue, error) {
 	return m.GetPurchasesByEventIDFunc(ctx, dynamodbClient, eventID, limit, startKey)
+}
+
+func (m *MockPurchaseService) HasPurchaseForEvent(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, childEventId, parentEventId, userId string) (bool, error) {
+	if m.HasPurchaseForEventFunc != nil {
+		return m.HasPurchaseForEventFunc(ctx, dynamodbClient, childEventId, parentEventId, userId)
+	}
+	return false, nil
 }

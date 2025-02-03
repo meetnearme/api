@@ -1,0 +1,200 @@
+package components
+
+import (
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
+	"strconv"
+)
+
+templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespace, label, noun string, showChips bool) {
+	<div
+		x-data="getUsersSelectState($el)"
+		data-namespace={ namespace }
+	>
+		<input type="hidden" value={ namespace }/>
+		<div class="form-control">
+			<label class="label">{ label }</label>
+			<div class="form-control">
+				<template x-if={ strconv.FormatBool(showChips) }>
+					<div class="tags" id="usersList">
+						<template x-for="user in users">
+							<span
+								class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
+							>
+								<template x-if="user.label">
+									<span x-text="user.label"></span>
+								</template>
+								<template x-if="!user.label">
+									<span class="loading loading-spinner loading-sm"></span>
+								</template>
+								<button aria-label="remove user" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeUser(user)" :disabled="saveReqInFlight">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-6 w-6"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M6 18L18 6M6 6l12 12"
+										></path>
+									</svg>
+								</button>
+							</span>
+						</template>
+					</div>
+				</template>
+			</div>
+		</div>
+		<div class="form-control">
+			<div class="flex w-full flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
+				<div class="relative">
+					<input
+						type="text"
+						class="input input-bordered w-full disabled:cursor-not-allowed disabled:opacity-75 "
+						name="userSearch"
+						aria-label={ "Add " + noun + " (search by name, organization, or email)" }
+						@input.throttle="fetchUsers($event.target.value)"
+						x-ref="userSearch"
+						placeholder={ "Add " + noun + " (search by name, organization, or email)" }
+						class="input input-bordered"
+						role="combobox"
+						aria-controls="usersList"
+						aria-haspopup="listbox"
+						x-on:click="isOpen = ! isOpen"
+						x-on:keydown.down.prevent="
+								isOpen = true;
+								openedWithKeyboard = true;
+								$nextTick(() => {
+									$el.closest('.relative').querySelector('li[role=option]')?.focus()
+								})"
+						x-bind:aria-expanded="isOpen || openedWithKeyboard"
+						autocomplete="new-password"
+						:disabled="saveReqInFlight"
+					/>
+					<div
+						x-show="isOpen || openedWithKeyboard"
+						:class="{'opacity-100': isOpen || openedWithKeyboard}"
+						class="w-full opacity-0 transition-all absolute left-0 top-12 z-50 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
+						id="usersList"
+						role="listbox"
+						aria-label={ noun + " list" }
+						x-on:click.outside="isOpen = false, openedWithKeyboard = false"
+						x-on:keydown.down.prevent="$focus.wrap().next()"
+						x-on:keydown.up.prevent="
+								if ($el.querySelector('li:focus') === $refs.optionsList.querySelector('li[role=option]')) {
+									isOpen = false;
+									openedWithKeyboard = false;
+									$nextTick(() => {
+											document.querySelector('[x-ref=userSearch]').focus();
+									});
+								} else {
+										$focus.wrap().previous()
+								}
+							"
+						x-transition
+						x-trap="openedWithKeyboard"
+					>
+						<!-- Options  -->
+						<ul x-ref="optionsList" class="flex max-h-44 flex-col overflow-y-auto">
+							<template x-if="options?.length < 1">
+								<li class="px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
+									<span>No matches found</span>
+								</li>
+							</template>
+							<template x-for="(item, index) in options" :key="index">
+								<li
+									class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white"
+									role="option"
+									@click="setSelectedUser(item)"
+									@keydown.enter="setSelectedUser(item)"
+									:id="'option-' + index"
+									tabindex="0"
+								>
+									<span x-text="item.label"></span>
+								</li>
+							</template>
+						</ul>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<script id={ namespace + "-users-select" } data-primary-user={ primaryUser } data-users={ string(helpers.ToJSON(users)) } data-namespace={ namespace }>
+				function getUsersSelectState(el) {
+						return {
+								allOptions: [],
+								users: [],
+								isOpen: false,
+								openedWithKeyboard: false,
+								options: [],
+								namespace: el.querySelector('input').value,
+								init() {
+									const primaryUser = this.$el.closest('div').nextElementSibling.getAttribute('data-primary-user');
+									const usersData = JSON.parse(this.$el.closest('div').nextElementSibling.getAttribute('data-users')) ?? [];
+									const filteredUsers = usersData
+											.filter(user => user.userId !== primaryUser)
+											.map(user => ({
+													label: user.displayName,
+													value: user.userId
+											}));
+
+									this.users = filteredUsers;
+									this.allOptions = filteredUsers;
+										this.emitUpdate();
+								},
+								emitUpdate() {
+									this.$dispatch(`users-updated-${this.namespace}`, {
+										...this.users
+									});
+								},
+
+								async fetchUsers(query) {
+									if (query.length >= 3) {
+										await fetch(`/api/user-search?q=${query}`).then(res => {
+											return res.json()
+										}).then(json => {
+											// Filter out users that are already users
+											const filteredUsers = json.filter(() =>
+												!this.users.some(user => user.value === user.userId)
+											);
+											this.options = filteredUsers.map((user) => ({
+													label: user.displayName,
+													value: user.userId,
+											}))
+											this.$nextTick(() => {
+												this.isOpen = true
+											})
+										});
+									}
+										this.emitUpdate();
+								},
+
+								removeUser(userToRemove) {
+										this.users = this.users.filter(user => user !== userToRemove);
+										this.emitUpdate();
+								},
+
+								setSelectedUser(option) {
+										this.isOpen = false
+										this.users.push(option);
+										this.options = this.options.filter(o => o.value !== option.value)
+										this.$nextTick(() => {
+											document.querySelector('[x-ref=userSearch]').focus();
+										})
+										this.emitUpdate();
+								},
+
+								handleKeydownOnOptions(event) {
+									// if the user presses backspace or the alpha-numeric keys, focus on the search field
+									if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
+											this.$refs.userSearch.focus()
+									}
+								}
+						}
+				}
+		</script>
+}

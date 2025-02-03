@@ -93,7 +93,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := AddOrEditEventPage(helpers.SitePages["event-detail"], tt.event, tt.isEditor, tt.cfLat, tt.cfLon)
+			component := AddOrEditEventPage(helpers.SitePages["event-detail"], tt.event, tt.isEditor, tt.cfLat, tt.cfLon, false)
 
 			// Render the component to a string
 			var buf bytes.Buffer

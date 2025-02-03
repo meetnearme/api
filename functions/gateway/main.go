@@ -65,6 +65,10 @@ func init() {
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
 		{helpers.SitePages["event-detail"].Slug, "GET", handlers.GetEventDetailsPage, Check},
+		// Below for competition engagement modules
+		// {helpers.SitePages["competitions"].Slug, "GET", handlers.GetCompetitionsPage, Check},
+		{helpers.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
+		{helpers.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 
 		// API routes
 
@@ -75,6 +79,7 @@ func init() {
 		{"/api/events{trailingslash:\\/?}", "PUT", handlers.BulkUpdateEventsHandler, Require},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, Require},
+		{"/api/events", "DELETE", handlers.BulkDeleteEventsHandler, Require},
 		{"/api/event-reg-purch{trailingslash:\\/?}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/event-reg-purch/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},
@@ -109,9 +114,38 @@ func init() {
 		{"/api/purchases/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchaseHandler, Require},                     // Create a new event Purchase
 		{"/api/purchases/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "GET", dynamodb_handlers.GetPurchaseByPkHandler, Require}, // Get a specific event Purchase
 		{"/api/purchases/event/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByEventIDHandler, Require},                                 // Get all event Purchases
-		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, Require},                                                        // Get a specific event Purchase
-		{"/api/purchases/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None},     // Update an existing event Purchase
-		{"/api/purchases/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None},                      // Delete an event Purchase
+		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, Require},
+		{"/api/purchases/has-for-event", "POST", dynamodb_handlers.HasPurchaseForEventHandler, Require},                                                                   // User has a purchase for one of two events
+		{"/api/purchases/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None}, // Update an existing event Purchase
+		{"/api/purchases/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None},
+
+		// Competition Config
+		{"/api/competition-config", "PUT", dynamodb_handlers.UpdateCompetitionConfigHandler, Require},
+		{"/api/competition-config/owner", "GET", dynamodb_handlers.GetCompetitionConfigsByPrimaryOwnerHandler, Require},
+		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigByIdHandler, Require},
+		// verify below is correct with brian, was not accessing userId from context
+		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.UpdateCompetitionConfigHandler, Require},
+		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionConfigHandler, Require},
+
+		// Competition Round
+		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionRoundsHandler, Require},                // creation or update
+		{"/api/competition-round/competition/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetAllCompetitionRoundsHandler, Require}, // Gets all rounds for a competition using begins_with
+		// below event can find all rounds associated with an event, and using 000_000 we can find all unassociated rounds
+		{"/api/competition-round/event/{" + helpers.EVENT_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundsByEventIdHandler, Require},                                       // This gets a single round item by the event id it is associated with
+		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundByPrimaryKeyHandler, Require}, // This gets a single round item by its own id
+		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionRoundHandler, Require},
+		// summing, ending point for leader board needed here
+
+		// Competition Waiting Room
+		{"/api/waiting-room/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionWaitingRoomParticipantHandler, Require},
+		{"/api/waiting-room/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionWaitingRoomParticipantsHandler, Require},
+		{"/api/waiting-room/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.USER_ID_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionWaitingRoomParticipantHandler, Require},
+
+		// // Competition Vote
+		{"/api/votes/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionVoteHandler, Require},
+		{"/api/votes/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionVotesByRoundHandler, Require},
+		{"/api/votes/tally-votes/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionVotesTallyForRoundHandler, Require},
+		{"/api/votes", "DELETE", dynamodb_handlers.DeleteCompetitionVoteHandler, Require},
 
 		// Checkout Session
 		{"/api/checkout/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},

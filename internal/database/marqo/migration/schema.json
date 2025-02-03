@@ -75,6 +75,13 @@
       ]
     },
     {
+      "name": "competitionConfigId",
+      "type": "text",
+      "features": [
+        "filter"
+      ]
+    },
+    {
       "name": "name",
       "type": "text",
       "features": [

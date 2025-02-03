@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"net/http"
 
@@ -124,7 +125,6 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	events := res.Events
 	listMode := r.URL.Query().Get("list_mode")
-
 	// Sort events by StartTime
 	sort.Slice(events, func(i, j int) bool {
 		return events[i].StartTime < events[j].StartTime
@@ -145,6 +145,10 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 	ctx := r.Context()
 
 	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+
+	radius = helpers.DEFAULT_MAX_RADIUS
+	farFutureTime, _ := time.Parse(time.RFC3339, "2099-01-01T00:00:00Z")
+	endTimeUnix = farFutureTime.Unix()
 
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
@@ -210,6 +214,7 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 }
 
 func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	log.Println("START GeoLookup")
 	ctx := r.Context()
 	var inputPayload GeoLookupInputPayload
 	body, err := io.ReadAll(r.Body)
@@ -238,13 +243,11 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, "partial", err)
 	}
-	log.Println("241")
 	// Convert lat and lon to float64
 	latFloat, err := strconv.ParseFloat(lat, 64)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusInternalServerError, "partial", err)
 	}
-	log.Println("243")
 	lonFloat, err := strconv.ParseFloat(lon, 64)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusInternalServerError, "partial", err)
