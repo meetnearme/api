@@ -88,6 +88,11 @@ type PurchaseUpdate struct {
 	StripeTransactionId string `json:"stripe_transaction_id" dynamodbav:"stripeTransactionId"`
 }
 
+type HasPurchaseForEventPayload struct {
+	ChildEventId  string `json:"childEventId" validate:"required" dynamodbav:"childEventId"`
+	ParentEventId string `json:"parentEventId" validate:"required" dynamodbav:"parentEventId"`
+}
+
 // PurchasesServiceInterface defines the methods for purchase-related operations using the RDSDataAPI
 type PurchaseServiceInterface interface {
 	InsertPurchase(ctx context.Context, dynamodbClient DynamoDBAPI, Purchase PurchaseInsert) (*Purchase, error)
@@ -96,4 +101,5 @@ type PurchaseServiceInterface interface {
 	GetPurchasesByEventID(ctx context.Context, dynamodbClient DynamoDBAPI, eventId string, limit int32, startKey string) ([]PurchaseDangerous, map[string]dynamodb_types.AttributeValue, error)
 	UpdatePurchase(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId, createdAtString string, Purchase PurchaseUpdate) (*Purchase, error)
 	DeletePurchase(ctx context.Context, dynamodbClient DynamoDBAPI, eventId, userId string) error
+	HasPurchaseForEvent(ctx context.Context, dynamodbClient DynamoDBAPI, childEventId, parentEventId, userId string) (bool, error)
 }

@@ -57,8 +57,12 @@ body:has(.bottom-drawer) {
   padding-bottom: 10rem;
 }
 
+#main-nav {
+  min-height: 4.8rem;
+}
+
 .sticky-under-top-nav {
-  top: 4rem;
+  top: 4.8rem;
 }
 
 .sticky-under-top-nav.subheader {
@@ -66,12 +70,12 @@ body:has(.bottom-drawer) {
 }
 
 .sticky-under-top-nav + *:first-child {
-  margin-top: 4rem;
+  margin-top: 4.8rem;
 }
 
 .brand-logo {
   width: 3rem;
-  height: 4rem;
+  height: 4.8rem;
 }
 
 .brand-type {
@@ -250,6 +254,16 @@ body:has(.bottom-drawer) {
 
 .btn.btn-bold-outline {
   border: 5px solid oklch(var(--p));
+}
+
+.btn.btn-primary.btn-bg-inverted {
+  background-color: oklch(var(--btn-bg-inverted));
+  color: oklch(var(--btn-bg-inverted-content));
+}
+
+.btn.btn-primary.btn-bg-inverted:hover {
+  background-color: oklch(var(--p));
+  color: oklch(var(--btn-bg-inverted));
 }
 
 .btn-outline.btn-primary.text-neutral-content {

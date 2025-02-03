@@ -16,9 +16,11 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
 const US_GEO_CENTER_LAT = float64(39.8283)
@@ -183,14 +185,14 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, address, parseDates, eventSourceTypes, eventSourceIds
 }
 
-func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocation, []float64, *helpers.UserSearchResult, int, error) {
+func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocation, []float64, *types.UserSearchResult, int, error) {
 	// Extract parameter values from the request query parameters
 	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 	userId := mux.Vars(r)[helpers.USER_ID_KEY]
 
 	// Setup channels for concurrent operations
 	type userResult struct {
-		user helpers.UserSearchResult
+		user types.UserSearchResult
 		err  error
 	}
 	type searchResult struct {
@@ -206,7 +208,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	searchChan := make(chan searchResult, 1)
 	aboutChan := make(chan aboutResult, 1)
 
-	var pageUser *helpers.UserSearchResult
+	var pageUser *types.UserSearchResult
 	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
 	if subdomainValue != "" {
 		userId = subdomainValue
@@ -413,7 +415,7 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
 	var pageObj helpers.SitePage
-	var event types.Event
+	var event internal_types.Event
 	var isEditor bool = false
 	if eventId == "" {
 		pageObj = helpers.SitePages["add-event"]
@@ -452,7 +454,10 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		cfLocationLat = cfLocation.Lat
 		cfLocationLon = cfLocation.Lon
 	}
-	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, event, isEditor, cfLocationLat, cfLocationLon)
+
+	isCompetitionAdmin := helpers.HasRequiredRole(roleClaims, []string{"superAdmin", "competitionAdmin"})
+
+	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, event, isEditor, cfLocationLat, cfLocationLon, isCompetitionAdmin)
 
 	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/mask@3.x.x/dist/cdn.min.js"})
 
@@ -555,7 +560,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	}
 	event, err := services.GetMarqoEventByID(marqoClient, eventId, parseDates)
 	if err != nil || event.Id == "" {
-		event = &types.Event{}
+		event = &internal_types.Event{}
 	}
 	userInfo := helpers.UserInfo{}
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
@@ -591,5 +596,68 @@ func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerF
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
+}
+
+func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	db := transport.GetDB()
+
+	// Get user info from context
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+
+	// Get role claims from context
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	// Check if user has required roles
+	validRoles := []string{"superAdmin", "competitionAdmin"}
+	if !helpers.HasRequiredRole(roleClaims, validRoles) {
+		err := errors.New("You are not authorized to edit competitions.")
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
+	}
+
+	// Get competition ID and event ID from URL
+	vars := mux.Vars(r)
+	competitionId := vars[helpers.COMPETITIONS_ID_KEY]
+
+	var pageObj helpers.SitePage
+	var competitionConfig internal_types.CompetitionConfig
+	var users []types.UserSearchResultDangerous
+	pageObj = helpers.SitePages["add-competition"]
+	// Check if we are editing or adding
+	if competitionId == "" {
+		pageObj = helpers.SitePages["competition-new"]
+		// Set default values for new competition
+		competitionConfig = internal_types.CompetitionConfig{
+			EventIds: []string{},
+			Status:   "DRAFT",
+		}
+	} else {
+		eventCompetitionRoundService := dynamodb_service.NewCompetitionConfigService()
+		pageObj = helpers.SitePages["competition-edit"]
+		competitionConfigResponse, err := eventCompetitionRoundService.GetCompetitionConfigById(ctx, db, competitionId)
+		if err != nil || competitionConfigResponse.CompetitionConfig.Id == "" {
+			return transport.SendHtmlRes(w, []byte("Failed to get competition: "+err.Error()),
+				http.StatusInternalServerError, "page", err)
+		}
+		competitionConfig = competitionConfigResponse.CompetitionConfig
+		users = competitionConfigResponse.Owners
+	}
+	log.Printf("649 >>> competitionConfig: %+v", competitionConfig)
+	competitionPage := pages.AddOrEditCompetitionPage(pageObj, competitionConfig, users)
+	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js"})
+
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "page", err)
+	}
+
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }

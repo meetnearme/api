@@ -67,6 +67,33 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			<br/>
 			<br/>
 		} else {
+			if event.CompetitionConfigId != "" {
+				<template x-if="shouldShowCompetitionCta()">
+					<div id="vote-header" class="fixed sticky-under-top-nav alert alert-info rounded-none left-0 w-full z-50 flex items-center">
+						<div class="container mx-auto flex items-center justify-center">
+							<div role="alert">
+								<p>This event is part of a competition, log in to participate <a class="btn btn-xs" href="/auth/login">Login</a></p>
+							</div>
+						</div>
+					</div>
+				</template>
+				<template x-if="userId && shouldShowVoteHeader()">
+					<div id="vote-header" class="fixed sticky-under-top-nav alert alert-info rounded-none left-0 w-full z-50 flex items-center">
+						<div class="container mx-auto flex items-center justify-center">
+							<div role="alert">
+								<p>Voting for this event is open <a class="btn btn-xs" @click="scrollToVotingSection">Cast your vote now!</a></p>
+							</div>
+						</div>
+					</div>
+				</template>
+				// These are just added body top padding to avoid page content being cut off by the navbar
+				<template x-if="shouldShowVoteHeader() || shouldShowCompetitionCta()">
+					<div>
+						<br/>
+						<br/>
+					</div>
+				</template>
+			}
 			if (canEdit) {
 				<div class="alert alert-success">
 					You are an editor for this event.
@@ -129,6 +156,43 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				<h3 class="text-xl">EVENT DESCRIPTION</h3>
 				<br/>
 				<div class="whitespace-pre-wrap">{ event.Description }</div>
+				<template x-if="competitionConfigId && userId">
+					<div class="mt-4" id="voting-section">
+						<h3 class="text-xl">VOTING</h3>
+						<template x-if="!Boolean(rounds?.[0]?.competitorADisplayName)">
+							<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+						</template>
+						<template x-if="!roundsDataFetching && rounds?.filter(round => round.isVotingOpen).length === 0">
+							<p class="text-lg">(No rounds are open for voting)</p>
+						</template>
+						<template x-if="Boolean(rounds?.[0]?.competitorADisplayName)">
+							<template x-for="round in rounds">
+								<template x-if="round.isVotingOpen">
+									<div>
+										<h3 class="text-lg text-bold" x-text="round.roundName"></h3>
+										<p class="text-lg" x-text="round.description"></p>
+										<div class="flex items-center justify-between gap-4 w-full mt-2">
+											<button :disabled="voteSubmitting === `${round.competitorA}-${round.roundNumber}`" class="btn btn-block btn-primary btn-bold-outline btn-bg-inverted flex-1" @click="submitVote(round.competitorA, round.roundNumber)">
+												<span x-text="'Vote ' + round?.competitorADisplayName"></span>
+												<template x-if="voteSubmitting === `${round.competitorA}-${round.roundNumber}`">
+													<span class="loading loading-spinner loading-md text-primary"></span>
+												</template>
+											</button>
+											<div class="text-3xl font-bold">&larr; VS &rarr;</div>
+											<button :disabled="voteSubmitting === `${round.competitorB}-${round.roundNumber}`" class="btn btn-block btn-primary btn-bold-outline btn-bg-inverted flex-1" @click="submitVote(round.competitorB, round.roundNumber)">
+												<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
+												<template x-if="voteSubmitting === `${round.competitorB}-${round.roundNumber}`">
+													<span class="loading loading-spinner loading-md text-primary"></span>
+												</template>
+											</button>
+										</div>
+										<div class="divider"></div>
+									</div>
+								</template>
+							</template>
+						</template>
+					</div>
+				</template>
 			</p>
 			<div class="bottom-drawer">
 				<div class="container mx-auto">
@@ -183,7 +247,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 		}
 	</div>
 	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
-	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered }>
+	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId }>
 		function getEventDetailsState() {
 			return {
 				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),
@@ -191,8 +255,147 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
 				interestedStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-interested-status'),
 				registeredStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-registered-status'),
-				init() {},
-				formData: {},
+				competitionConfigId: document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id'),
+				init() {
+						(async () => {
+								const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
+								if (this.userId !== '' && competitionConfigId !== '') {
+										await this.fetchInitialData();
+										// Start polling after initial fetch
+										this.pollInterval = setInterval(() => this.pollRoundsData(), 10000);
+								}
+						})();
+
+						// Cleanup on component destroy
+						this.$cleanup = () => {
+								if (this.pollInterval) clearInterval(this.pollInterval);
+						};
+				},
+				async fetchInitialData() {
+						try {
+								this.roundsDataFetching = true;
+								await this.fetchAndUpdateRounds();
+						} catch (e) {
+								// eslint-disable-next-line no-console
+								console.error(e);
+						} finally {
+								this.roundsDataFetching = false;
+						}
+				},
+
+				async fetchAndUpdateRounds() {
+					if (this.userId !== '' && this.competitionConfigId !== '') {
+							const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
+									method: 'GET',
+							});
+							const roundsData = await roundsResponse.json();
+
+							if (roundsData.length > 0) {
+									const competitorIds = roundsData.flatMap(round => [round.competitorA, round.competitorB]);
+									const missingIds = competitorIds.filter(id => !this.competitors[id]);
+
+									if (missingIds.length > 0) {
+											const usersRes = await fetch(`/api/users?ids=${missingIds.join(',')}`, {
+													method: 'GET',
+											});
+											const usersData = await usersRes.json();
+
+											usersData.forEach(user => {
+													this.competitors[user.userId] = user;
+											});
+									}
+
+									this.rounds = roundsData.map(round => ({
+											...round,
+											competitorADisplayName: this.competitors[round.competitorA]?.displayName,
+											competitorBDisplayName: this.competitors[round.competitorB]?.displayName,
+									}));
+							} else {
+									this.rounds = [];
+							}
+					}
+				},
+
+				async pollRoundsData() {
+						if (!this.roundsDataFetching) {
+								try {
+										await this.fetchAndUpdateRounds();
+								} catch (e) {
+										// eslint-disable-next-line no-console
+										console.error('Error polling rounds data:', e);
+								}
+						}
+				},
+
+				// this is pre-LLM rewrite code, saving for reference, can delete once we
+				// are sure the replacement code is 100% working
+				// init() {
+				// 	(async () => {
+				// 		try {
+				// 			const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
+				// 			if (this.userId !== '' && competitionConfigId !== '') {
+				// 				this.roundsDataFetching = true
+				// 				const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
+				// 					method: 'GET',
+				// 				});
+				// 				const roundsData = await roundsResponse.json();
+				// 				this.rounds = roundsData
+				// 				if (this.rounds.length > 0) {
+				// 					const ids = this.rounds.flatMap(round => [round.competitorA, round.competitorB]).join(',')
+
+				// 					const usersRes = await fetch(`/api/users?ids=${ids}`, {
+				// 						method: 'GET',
+				// 					});
+				// 					const usersData = await usersRes.json();
+				// 					this.rounds = this.rounds.map(round => {
+				// 						// round.user = usersData.find(user => user.id === round.userId)
+				// 						return {
+				// 							competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
+				// 							competitorBDisplayName: usersData.find(user => user.userId === round.competitorB).displayName,
+				// 							...round
+				// 						}
+				// 					})
+				// 				}
+				// 			}
+				// 		} catch (e ) {
+				// 			// eslint-disable-next-line no-console
+				// 			console.error(e);
+				// 		} finally {
+				// 			this.roundsDataFetching = false
+				// 		}
+				// 	})();
+				// },
+				eventTypeSingleConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-single'),
+				eventTypeSeriesParentConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-parent'),
+				eventTypeSeriesChildConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-child'),
+				rounds: [],
+				voteSubmitting: null,
+				competitors: {},
+				pollInterval: null,
+				roundsDataFetching: false,
+
+				async submitVote(competitorId, roundNumber) {
+					this.voteSubmitting = `${competitorId}-${roundNumber}`
+					try {
+						const response = await fetch(`/api/votes/${this.competitionConfigId}/${roundNumber}`, {
+							method: 'PUT',
+							body: JSON.stringify({
+								voteRecipientId: competitorId,
+								voteValue: 1,
+							}),
+						});
+
+						const data = await response.json();
+						if (response.status !== 200) {
+							throw new Error(data.message || 'Vote submission failed')
+						}
+					} catch (e) {
+						// eslint-disable-next-line no-console
+						console.error(e);
+					} finally {
+						this.voteSubmitting = null
+					}
+				},
 				handleCtaClick(tab) {
 					if (tab === 'rsvp' || tab === 'icmi' && this.userId) {
 						const body = {
@@ -215,6 +418,28 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 						document.getElementById(`main-drawer`).click();
 					}
 
+				},
+				shouldShowVoteHeader() {
+					return this.rounds.filter(round => round.isVotingOpen).length > 0
+				},
+				shouldShowCompetitionCta() {
+					return this.competitionConfigId && !this.userId
+				},
+				scrollToVotingSection() {
+					const el = document.getElementById('voting-section');
+					if (el) {
+						// Calculate offset from fixed elements
+						const voteHeader = document.getElementById('vote-header');
+						const mainNav = document.getElementById('main-nav');
+						const offset = (voteHeader?.offsetHeight || 0) + (mainNav?.offsetHeight || 0);
+
+						// Scroll with offset
+						const elementPosition = el.getBoundingClientRect().top + window.pageYOffset;
+						window.scrollTo({
+							top: elementPosition - offset,
+							behavior: 'smooth'
+						});
+					}
 				}
 			}
 		}

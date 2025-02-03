@@ -120,6 +120,93 @@ export function StorageStack({ stack }: StackContext) {
     timeToLiveAttribute: 'expireAt',
   });
 
+  // needs concept of allowed competitors, these must be backed by a real userId
+  // and there must be a pool of them
+  // access pattern needs matchup style and optional matching algorithm
+  // url path needs
+  const competitionConfigTable = new Table(stack, 'CompetitionConfig', {
+    fields: {
+      id: 'string',
+      primaryOwner: 'string',
+      auxilaryOwners: 'string', // JSON array
+      eventIds: 'string', // jSON array
+      name: 'string',
+      moduleType: 'string', // KARAOKE, BOCCE
+      scoringMethod: 'string', // POINTS, VOTES, etc
+      rounds: 'string', // JSON string array of round configs
+      competitors: 'string', // JSON string array of competitor IDs
+      status: 'string', // DRAFT, ACTIVE, COMPLETE
+      createdAt: 'number',
+      updatedAt: 'number'
+    },
+    primaryIndex: { partitionKey: 'id' },
+    globalIndexes: {
+      primaryOwner:{ partitionKey: 'primaryOwner', sortKey: 'id' },
+    },
+  });
+
+  // This table needs the concept of sub rounds
+  // this should reference another round (act in our parlance)
+  // PartiQL
+  // Need to have possibly sub round in PK
+  const competitionRoundsTable = new Table(stack, 'CompetitionRounds', {
+    fields: {
+      competitionId: 'string',
+      roundNumber: 'number',
+      eventId: 'string',
+      roundName: 'string',
+      competitorA: 'string', // user
+      competitorAScore: 'number',
+      competitorB: 'string',
+      competitorBScore: 'number',
+      matchup: 'string', // <competitorA>_<competitorB> - userId
+      status: 'string', // ACTIVE, COMPLETE, CANCELLED, PENDING
+      description: 'string',
+      // currently removing redundancy at least for karaoke and bocce. Trivia can be separate and isolated
+      //competitors: 'string', // JSON string array
+      parentRoundId: 'string', // for sub-rounds/acts
+      isPending: 'string', // bool (use to hold multiple rounds until reveal)
+      isVotingOpen: 'string', // bool
+      createdAt: 'number',
+      updatedAt: 'number',
+    },
+    primaryIndex: { partitionKey: 'competitionId', sortKey: 'roundNumber' },
+    globalIndexes: {
+      // We will set a default of 000_000 for the eventId if not associated  <roundNumber> - this will be the default for the GSI
+      // will allow retrieval of all unassociated rounds for a particular config so they can be assigned by admin
+      // then we will have <eventId>_ROUND_<roundNumber> which will then allow retrieval of all of the rounds associated with
+      // a single event by using the begins with for dynamo
+      belongsToEvent: { partitionKey: 'eventId', sortKey: 'roundNumber' },
+    },
+  });
+
+
+  // ephemeral
+  const competitionWaitingRoomParticipantTable = new Table(stack, 'CompetitionWaitingRoomParticipant', {
+    fields: {
+      competitionId: 'string',
+      userId: 'string',
+      expiresOn: 'number',
+    },
+    primaryIndex: { partitionKey: 'competitionId', sortKey: 'userId' },
+    timeToLiveAttribute: 'expiresOn'
+  });
+
+  const votesTable = new Table(stack, 'Votes', {
+    fields: {
+      compositePartitionKey: 'string', // <competitionId>_<roundNumber>
+      userId: 'string', // who is voting
+      voteRecipientId: 'string',
+      voteValue: 'number',
+      expiresOn: 'number'
+    },
+    primaryIndex: { partitionKey: 'compositePartitionKey', sortKey: 'userId' },
+    timeToLiveAttribute: 'expiresOn'
+  });
+
+  // need a separate table for trivia answer choices
+
+
   return {
     // registrationsTable,  // deprecated
     registrationFieldsTable,
@@ -127,6 +214,10 @@ export function StorageStack({ stack }: StackContext) {
     // purchasesTable, // deprecated
     purchasesTableV2,
     purchasablesTable,
+    competitionConfigTable,
+    competitionRoundsTable,
+    votesTable,
+    competitionWaitingRoomParticipantTable
     // eventRsvpsTable, // deprecated
   };
 }
