@@ -113,7 +113,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									value="OWN_TEAM"
 								>Own team</option>
 							</select>
-							<button aria-label="add to team" class="btn btn-primary" @click="addCompetitorToTeam(competitor.userId, competitor.team, competitor)">
+							<button aria-label="add to team" class="btn btn-primary" @click="addCompetitorToTeam(competitor.userId, competitor.team)">
 								Add to Team
 								// <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								// 	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -467,6 +467,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 
 							this.competitors = this.teams.flatMap(team => team.competitors)
 						} catch (e) {
+							// eslint-disable-next-line no-console
 							console.error('Error fetching competition data:', e);
 						} finally {
 							this.usersDataLoaded = true
@@ -544,9 +545,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					});
 				},
 
-				addCompetitorToTeam(userId, teamId, competitor) {
-					console.log('addCompetitorToTeam', userId, teamId)
-					console.log('competitor', competitor)
+				addCompetitorToTeam(userId, teamId) {
 					this.teams = this.teams.map(team => {
 						if (team.id === teamId) {
 							if (!team.competitors.includes(userId)) {
@@ -573,8 +572,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						}
 						return team;
 					});
-
-					console.log('this.competitor', this.competitor)
 
 					this.waitingRoom.push({
 						displayName: competitor.displayName,

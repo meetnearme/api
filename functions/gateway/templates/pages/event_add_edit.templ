@@ -1022,7 +1022,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 											window.dispatchEvent(new CustomEvent('child-content-changed'));
 										});
 								} catch (error) {
-                  // eslint-disable-next-line no-console
+									// eslint-disable-next-line no-console
 									console.error('Error fetching event children:', error);
 								}
 						})()

@@ -276,6 +276,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 								this.roundsDataFetching = true;
 								await this.fetchAndUpdateRounds();
 						} catch (e) {
+								// eslint-disable-next-line no-console
 								console.error(e);
 						} finally {
 								this.roundsDataFetching = false;
@@ -320,6 +321,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 								try {
 										await this.fetchAndUpdateRounds();
 								} catch (e) {
+										// eslint-disable-next-line no-console
 										console.error('Error polling rounds data:', e);
 								}
 						}
@@ -382,7 +384,11 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 								voteValue: 1,
 							}),
 						});
+
 						const data = await response.json();
+						if (response.status !== 200) {
+							throw new Error(data.message || 'Vote submission failed')
+						}
 					} catch (e) {
 						// eslint-disable-next-line no-console
 						console.error(e);
