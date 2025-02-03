@@ -62,11 +62,10 @@ func (h *CompetitionRoundHandler) PutCompetitionRounds(w http.ResponseWriter, r 
 		return
 	}
 
-	log.Printf("Handler: Successfully created competition rounds")
 	response, err := json.Marshal(res)
 	if err != nil {
 		log.Printf("Handler ERROR: Failed to marshal response: %v", err)
-		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Error marshaling JSON >> 70"), http.StatusInternalServerError, err)
 		return
 	}
 
@@ -208,7 +207,7 @@ func GetCompetitionRoundsScoreSums(w http.ResponseWriter, r *http.Request) http.
 		service := dynamodb_service.NewCompetitionRoundService()
 		competitionRounds, err := service.GetCompetitionRounds(r.Context(), db, competitionId)
 		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to check for purchase: "+err.Error()), http.StatusInternalServerError, err)
+			transport.SendServerRes(w, []byte("Failed to retrieve competition rounds for score sum: "+err.Error()), http.StatusInternalServerError, err)
 			return
 		}
 

@@ -128,14 +128,13 @@ func init() {
 		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionConfigHandler, Require},
 
 		// Competition Round
-		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionRoundsHandler, Require},                // creation or update
-		{"/api/competition-round/competition/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetAllCompetitionRoundsHandler, Require}, // Gets all rounds for a competition using begins_with
-		// below event can find all rounds associated with an event, and using 000_000 we can find all unassociated rounds
+		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionRoundsHandler, Require}, // creation or update
+		{"/api/competition-round/competition-sum/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundsScoreSums, Require},
+		{"/api/competition-round/competition/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetAllCompetitionRoundsHandler, Require},                                // Gets all rounds for a competition using begins_with
 		{"/api/competition-round/event/{" + helpers.EVENT_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundsByEventIdHandler, Require},                                       // This gets a single round item by the event id it is associated with
 		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundByPrimaryKeyHandler, Require}, // This gets a single round item by its own id
 		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionRoundHandler, Require},
 		// summing, ending point for leader board needed here
-		{"/api/competition-round/competition-sum/" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundsScoreSums, Require},
 
 		// Competition Waiting Room
 		{"/api/waiting-room/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionWaitingRoomParticipantHandler, Require},
