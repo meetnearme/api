@@ -6,6 +6,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -23,12 +24,16 @@ templ IconLeftSection(labelText, labelValue, icon string, urlString string, sect
 					<strong>{ labelText }:</strong>
 					// TODO: rewrite this after migrating to `event.EventOwners` array (required marqo db migration)
 					{{ eventOwnersArr := strings.Split(event.EventOwnerName, helpers.EventOwnerNameDelimiter) }}
-					for idx, owner := range event.EventOwners {
-						if idx > 0 {
-							,&nbsp;
+					// Fallback: if no delimiter was found, use the entire EventOwnerName
+					if len(eventOwnersArr) == 1 && len(event.EventOwners) > 0 {
+						<a class="link link-primary" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + event.EventOwners[0]) }>{ event.EventOwnerName }</a>
+					} else {
+						for idx, owner := range event.EventOwners {
+							if idx > 0 {
+								,&nbsp;
+							}
+							<a class="link link-primary" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + owner) }>{ eventOwnersArr[idx] }</a>
 						}
-						<a class="link link-primary" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + owner) }>{ eventOwnersArr[idx] }</a>
-						// <a class="link link-primary" href={ templ.URL("https://" + owner + "." + os.Getenv("APEX_URL")) }>{ eventOwnersArr[idx] }</a>
 					}
 				} else if urlString != "" {
 					<strong>{ labelText }:</strong> <a class="link link-primary" href={ templ.URL(urlString) }>{ labelValue }</a>
@@ -114,7 +119,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			if event.EventSourceType == helpers.ES_SERIES_PARENT {
 				<h3 class="text-xl mt-2">Event Series</h3>
 				<div
-					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id }
+					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=" + strconv.Itoa(helpers.DEFAULT_MAX_RADIUS) + "&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES }
 					hx-trigger="load"
 					hx-swap="outerHTML"
 				>
@@ -123,7 +128,9 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			}
 			<br/>
 			<p>
-				@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				if event.EventOwnerName != "" {
+					@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				}
 				<br/>
 				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, "VENUE", event)
 				<br/>
@@ -145,7 +152,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 					<div class="divider my-3"></div>
 					<h3 class="text-xl mt-2 mb-2">All Events in this Series</h3>
 					<div
-						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId }
+						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId + "&event_source_types=" + helpers.ES_EVENT_SERIES }
 						hx-trigger="load"
 						hx-swap="outerHTML"
 					>
@@ -386,7 +393,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 						});
 
 						const data = await response.json();
-						if (response.status !== 200) {
+						if (response.status > 400) {
 							throw new Error(data.message || 'Vote submission failed')
 						}
 					} catch (e) {

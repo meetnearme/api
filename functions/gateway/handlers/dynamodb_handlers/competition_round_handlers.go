@@ -62,11 +62,10 @@ func (h *CompetitionRoundHandler) PutCompetitionRounds(w http.ResponseWriter, r 
 		return
 	}
 
-	log.Printf("Handler: Successfully created competition rounds")
 	response, err := json.Marshal(res)
 	if err != nil {
 		log.Printf("Handler ERROR: Failed to marshal response: %v", err)
-		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Error marshaling JSON >> 70"), http.StatusInternalServerError, err)
 		return
 	}
 
@@ -193,6 +192,50 @@ func (h *CompetitionRoundHandler) DeleteCompetitionRound(w http.ResponseWriter, 
 	}
 
 	transport.SendServerRes(w, []byte("CompetitionRound successfully deleted"), http.StatusOK, nil)
+}
+
+func GetCompetitionRoundsScoreSums(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		competitionId := vars["competitionId"]
+		if competitionId == "" {
+			transport.SendServerRes(w, []byte("Missing competition ID"), http.StatusBadRequest, nil)
+			return
+		}
+
+		db := transport.GetDB()
+		service := dynamodb_service.NewCompetitionRoundService()
+		competitionRounds, err := service.GetCompetitionRounds(r.Context(), db, competitionId)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to retrieve competition rounds for score sum: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		var scoreSums = map[string]float64{}
+		for _, round := range *competitionRounds {
+			competitorA := round.CompetitorA
+			competitorB := round.CompetitorB
+			if _, ok := scoreSums[competitorA]; ok {
+				scoreSums[competitorA] += round.CompetitorAScore
+			} else {
+				scoreSums[competitorA] = round.CompetitorAScore
+			}
+
+			if _, ok := scoreSums[competitorB]; ok {
+				scoreSums[competitorB] += round.CompetitorBScore
+			} else {
+				scoreSums[competitorB] = round.CompetitorBScore
+			}
+		}
+
+		jsonResponse, err := json.Marshal(scoreSums)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+			return
+		}
+
+		transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
+	}
 }
 
 func PutCompetitionRoundsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {

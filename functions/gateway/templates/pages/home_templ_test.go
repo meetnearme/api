@@ -78,7 +78,7 @@ func TestHomePage(t *testing.T) {
 				"Test Event 2",
 				"New York, US",
 				"data-page-user-id=\"1234567890\"",
-				"Welcome to Brian&#39;s Pub",
+				"Welcome to Brian's Pub",
 				"Brian&#39;s Pub</h1>",
 			},
 		},

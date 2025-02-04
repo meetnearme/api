@@ -62,9 +62,9 @@ const COMP_UNASSIGNED_ROUND_EVENT_ID = "fake-event-id-123"
 const COMP_TEAM_ID_PREFIX = "tm_"
 
 // NOTE: these are the default searchable event source types that show up in the home event list view
-var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SINGLE_EVENT, ES_EVENT_SERIES}
+var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT, ES_SINGLE_EVENT}
 
-var DEFAULT_NON_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT}
+var DEFAULT_NON_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_EVENT_SERIES}
 
 var ALL_EVENT_SOURCE_TYPES []string
 

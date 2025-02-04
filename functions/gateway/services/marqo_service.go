@@ -681,7 +681,6 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string, parseDates str
 		log.Printf("Failed to get documents: %v", err)
 		return nil, err
 	}
-	log.Printf(">>> 684 res.Results: %+v", res.Results)
 	// Check if no documents were found
 	if len(res.Results) == 1 && res.Results[0]["_found"] == false {
 		log.Printf("No documents found for the given IDs, %v", docIds)

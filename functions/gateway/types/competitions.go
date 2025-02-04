@@ -116,7 +116,7 @@ type CompetitionRound struct {
 
 type CompetitionRoundUpdate struct {
 	// TODO: clean these up for iterative saving in incomplete state
-	CompetitionId    string  `json:"competitionId" dynamodbav:"competitionId"`
+	CompetitionId    string  `json:"competitionId" dynamodbav:"competitionId" validate:"required"`
 	RoundNumber      int64   `json:"roundNumber" dynamodbav:"roundNumber" validate:"required"`
 	EventId          string  `json:"eventId,omitempty" dynamodbav:"eventId"`
 	RoundName        string  `json:"roundName" dynamodbav:"roundName" validate:"required"`
