@@ -183,6 +183,7 @@ func GetPageUserID(pageUser *types.UserSearchResult) string {
 }
 
 templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong string) {
+	// we assume this is "home" and not a community / user profile page
 	if pageUser == nil {
 		<div class="header-hero bg-[#00ffzz]">
 			<h1 class="text-xl md:text-4xl text-center mb-5">
@@ -197,7 +198,9 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			<h1 class="text-5xl alt-title font-bold text-center uppercase">{ pageUser.DisplayName }</h1>
 			if pageUser.Metadata != nil && pageUser.Metadata[helpers.META_ABOUT_KEY] != "" {
 				<h2 class="text-3xl font-bold uppercase my-10">About</h2>
-				<p class="whitespace-pre-wrap">{ pageUser.Metadata[helpers.META_ABOUT_KEY] }</p>
+				<div class="prose prose-invert max-w-none">
+					@templ.Raw(pageUser.Metadata[helpers.META_ABOUT_KEY])
+				</div>
 			}
 		</div>
 	}

@@ -101,6 +101,18 @@ export default {
           borderBottomRightRadius: 'inherit',
           borderBottomLeftRadius: 'inherit',
         },
+        '.carousel-control-left': {
+          display: 'none',
+          '@screen md': {
+            display: 'block',
+          },
+        },
+        '.carousel-control-right': {
+          display: 'none',
+          '@screen md': {
+            display: 'block',
+          },
+        },
       });
     },
   ],
