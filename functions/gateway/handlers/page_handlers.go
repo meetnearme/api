@@ -649,9 +649,9 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 		competitionConfig = competitionConfigResponse.CompetitionConfig
 		users = competitionConfigResponse.Owners
 	}
-	log.Printf("649 >>> competitionConfig: %+v", competitionConfig)
+
 	competitionPage := pages.AddOrEditCompetitionPage(pageObj, competitionConfig, users)
-	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js"})
+	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)

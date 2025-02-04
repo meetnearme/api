@@ -1431,6 +1431,15 @@ func TestGetUsersHandler(t *testing.T) {
 		if strings.Contains(r.URL.Path, "/meta") {
 			// Handle meta requests
 			w.Header().Set("Content-Type", "application/json")
+
+			// Extract the ID from the URL path
+			pathParts := strings.Split(r.URL.Path, "/")
+			id := pathParts[len(pathParts)-3] // Assuming ID is second-to-last part
+			if id == "tm_b8de1f5b-d377-458e-a47e-96123afcc6f3" {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
 			response := map[string]interface{}{
 				"metadata": map[string]interface{}{
 					"value": base64.StdEncoding.EncodeToString([]byte("user1,user2")),
@@ -1674,6 +1683,12 @@ func TestGetUsersHandler(t *testing.T) {
 			queryParams:    "?ids=nonexistent",
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   `Invalid ID length: nonexistent. Must be exactly 18 characters`,
+		},
+		{
+			name:           "GetOtherUserMetaByID fails on missing user meta with throw=1",
+			queryParams:    "?ids=tm_b8de1f5b-d377-458e-a47e-96123afcc6f3&throw=1",
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Failed to get user meta",
 		},
 	}
 

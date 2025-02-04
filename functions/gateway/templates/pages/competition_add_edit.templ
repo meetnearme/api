@@ -128,7 +128,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					</template>
 				</div>
 				@components.UsersSelect([]types.UserSearchResultDangerous{}, "", "competitors", "Competitors", "competitors", false)
-				<template x-if="formData.competitors.length > 0 && usersDataLoaded">
+				<template x-if="formData?.competitors?.length > 0 && usersDataLoaded">
 					<template x-for="(competitor, idx) in competitors">
 						<div class="flex items-center gap-4 my-4 pl-4">
 							<span x-text="idx + 1 + '. ' + competitor.displayName"></span>
@@ -140,7 +140,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						<span>Loading competitors... <span class="loading loading-spinner loading-md text-primary"></span></span>
 					</div>
 				</template>
-				<template x-if="formData.competitors.length === 0 && usersDataLoaded">
+				<template x-if="formData?.competitors?.length === 0 && usersDataLoaded">
 					<div class="flex items-center gap-4 my-4 pl-4">No competitors yet</div>
 				</template>
 				<div class="divider"></div>
@@ -157,17 +157,17 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						</div>
 					</template>
 					<template x-if="teams.length > 0 && usersDataLoaded">
-						<ul x-sort="($item, $position) => handleTeamOrder($item, $position)" class="list-none p-0 grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+						<ul class="list-none p-0 grid grid-cols-1 md:grid-cols-2 gap-4 relative">
 							<template x-for="(team, index) in teams" :key="team.value + '-' + index">
-								<li x-sort:item="team.value" class="card bg-base-100 shadow-md p-4">
+								<li class="card bg-base-100 shadow-md p-4">
 									<div class="flex items-center gap-2 mb-4">
-										<span x-sort:handle class="cursor-move">
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
-											</svg>
-										</span>
+										// <span class="cursor-move">
+										// 	<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										// 		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+										// 	</svg>
+										// </span>
 										<button
-											@click="removeTeam(team.value)"
+											@click="removeTeam(team)"
 											class="btn btn-ghost btn-circle btn-sm ml-auto"
 											:disabled="saveReqInFlight"
 										>
@@ -250,13 +250,13 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						</template>
 						<template x-if="teams.length > 1 || formData.rounds.length > 0">
 							<template x-for="(round, index) in formData.rounds" :key="index">
-								<li x-sort:item="round.roundNumber" class="card bg-base-100 shadow-md p-4 mb-4">
+								<li class="card bg-base-100 shadow-md p-4 mb-4">
 									<div class="flex items-center gap-2 mb-4">
-										<span x-sort:handle class="cursor-move">
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
-											</svg>
-										</span>
+										// <span class="cursor-move">
+										// 	<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										// 		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+										// 	</svg>
+										// </span>
 										<button
 											@click="removeRound(index)"
 											class="btn btn-ghost btn-circle btn-sm ml-auto"
@@ -303,16 +303,16 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 											</template>
 										</select>
 									</div>
-                  <label class="form-control w-full max-w-xs">
-                    <div class="label">Round Description</div>
-                    <input
-                      class="input input-bordered w-full"
-                      id="round"
-                      type="text"
-                      placeholder="Enter Round description"
-                      x-model.fill="formData.description"
-                    />
-                  </label>
+									<label class="form-control w-full max-w-xs">
+										<div class="label">Round Description</div>
+										<input
+											class="input input-bordered w-full"
+											id="round"
+											type="text"
+											placeholder="Enter Round description"
+											x-model.fill="formData.description"
+										/>
+									</label>
 									<div class="divider"></div>
 									<div class="form-control mb-4">
 										<label class="cursor-pointer">
@@ -417,6 +417,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					// Set initial options to current owners
 					this.allOptions = this.owners;
 
+					if (this.formData?.competitors?.length > 0) {
 						try {
 							// Run both fetch requests in parallel
 							const [roundsResponse, usersResponse] = await Promise.all([
@@ -473,7 +474,10 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							this.usersDataLoaded = true
 							this.roundsDataLoaded = true
 						}
-
+					} else {
+						this.usersDataLoaded = true
+						this.roundsDataLoaded = true
+					}
 					})();
 
 				},
@@ -531,7 +535,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					this.waitingRoom = this.waitingRoom.filter(competitor => competitor.userId !== userId);
 				},
 				removeTeam(team) {
-					this.teams = this.teams.filter(_team => _team.name !== team.name);
+					this.teams = this.teams.filter(_team => _team.id !== team.id);
 				},
 				addTeam(teamName) {
 					this.teams.push({
@@ -656,23 +660,30 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									}))
 								};
 							}),
-							rounds: this.formData.rounds?.map?.(round => ({
-								...round,
-								...(this.formData.id ? { competitionId: this.formData.id } : {}),
-								// NOTE: we aren't using this yet
-								isPending: false,
-								competitorAScore: parseFloat(round.competitorAScore) ?? 0,
-								competitorBScore: parseFloat(round.competitorBScore) ?? 0,
-								// isPending
-								// isVotingOpen
-								// status
-								// eventId
-								// competitorA
-								// competitorB
-								// competitorAScore
-								// competitorBScore
-                // description
-							}))
+							rounds: this.formData?.rounds?.map?.(round => {
+								const _round  = JSON.parse(JSON.stringify(round))
+								delete _round.competitorADisplayName
+								delete _round.competitorBDisplayName
+								return {
+									..._round,
+									...(this.formData.id ? { competitionId: this.formData.id } : {}),
+									// NOTE: we aren't using this yet
+									isPending: false,
+									competitorAScore: parseFloat(_round?.competitorAScore) ?? 0,
+									competitorBScore: parseFloat(_round?.competitorBScore) ?? 0,
+									// competitorAScore: 0,
+									// competitorBScore: 0,
+									// isPending
+									// isVotingOpen
+									// status
+									// eventId
+									// competitorA
+									// competitorB
+									// competitorAScore
+									// competitorBScore
+									// description
+									}
+							})
 						};
 						const response = await fetch('/api/competition-config', {
 							method: 'PUT',

@@ -402,8 +402,17 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 									<template x-if="child.competitionConfigId">
 										<div class="form-control">
 											<label class="label">Competition Config</label>
+											<a class="link link-primary" :href="'/admin/competition/' + child.competitionConfigId + '/edit' ">
+												View Competition Config
+											</a>
 											<input disabled type="hidden" name="competitionConfigId" x-model.fill="child.competitionConfigId"/>
-											<template x-if="child?.competitionRounds?.length > 0">
+											<template x-if="child?.competitionConfigId && !competitionRoundsLoaded">
+												<div class="flex justify-between items-center">
+													<div>Loading competition rounds...</div>
+													<span class="loading loading-spinner loading-sm"></span>
+												</div>
+											</template>
+											<template x-if="child?.competitionConfigId && competitionRoundsLoaded">
 												<template x-for="(competitionRound, index) in child.competitionRounds">
 													<div class="flex justify-between items-center">
 														<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
@@ -986,7 +995,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 										competitionIdsToFetch.forEach(competitionId => {
 											promises.push(fetch(`/api/competition-round/competition/${competitionId}`))
 										})
-
+										this.competitionRoundsLoaded = false
 										const roundResponses = await Promise.all(promises)
 										const roundData = await Promise.all(roundResponses.map(r => r.json()))
 										// Flatten the array of round data arrays
@@ -1017,6 +1026,8 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 												}
 										});
 
+
+										this.competitionRoundsLoaded = true
 										this.$nextTick(() => {
 											// Dispatch event to trigger event child height recalculation
 											window.dispatchEvent(new CustomEvent('child-content-changed'));
@@ -1055,6 +1066,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					competitionModalCompetitionSelection: null,
 					competitionModalRounds: [],
 					competitionModalRoundsLoading: false,
+					competitionRoundsLoaded: false,
 					competitionModalRoundSelections: [],
 					eventDetailUrl: document.querySelector('#add-edit-event').getAttribute('data-event-detail-url') ?? null,
 					eventChildrenLoaded: false,
@@ -1173,19 +1185,20 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						})
 					},
 					transformEventToPayload(event) {
-						const eventFiltered = Object.fromEntries(
-							Object.entries(event)
+						const _event = JSON.parse(JSON.stringify(event))
+						const _eventFiltered = Object.fromEntries(
+							Object.entries(_event)
 								// eslint-disable-next-line no-unused-vars
 								.filter(([_, value]) => value !== '')
 						)
-						if (!event.hasPurchasable) {
-							delete eventFiltered.startingPrice
-							delete eventFiltered.currency
-							delete eventFiltered.payeeId
+						if (!_event.hasPurchasable) {
+							delete _eventFiltered.startingPrice
+							delete _eventFiltered.currency
+							delete _eventFiltered.payeeId
 						}
 
 						return {
-							...eventFiltered,
+							..._eventFiltered,
 							startTime: this.formData.event.startTime ? this.formData.event.startTime + this.timeZuluSuffix : null,
 							endTime: this.formData.event.endTime ? this.formData.event.endTime + this.timeZuluSuffix : null,
 							lat: parseFloat(this.formData.event.lat),
@@ -1480,17 +1493,18 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						competitionRound.isRemoving = true;
 
 						try {
-								let roundUpdate = {
-									...competitionRound,
+								const _competitionRound = JSON.parse(JSON.stringify(competitionRound))
+								let _roundUpdate = {
+									..._competitionRound,
 									eventId: this.roundEmptyEventId
 								}
-								delete roundUpdate.isRemoving
+								delete _roundUpdate.isRemoving
 								const response = await fetch(`/api/competition-round/${competitionRound.competitionId}`, {
 										method: 'PUT',
 										headers: {
 												'Content-Type': 'application/json',
 										},
-										body: JSON.stringify([roundUpdate]),
+										body: JSON.stringify([_roundUpdate]),
 								});
 
 								if (!response.ok) {
@@ -1526,18 +1540,18 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 
 					async handlePublishClick() {
 						this.saveReqInFlight = true
-						const parentEvent = this.transformEventToPayload(this.formData.event)
+						const _parentEvent = JSON.parse(JSON.stringify(this.transformEventToPayload(this.formData.event)))
 						this.purchasables = this.purchasables.map(p => ({
 							...p,
 							currency: this.formData.event.currency,
 						}))
 						// NOTE: never set the eventSourceId on the parent event, it IS the parent
-						delete parentEvent.eventSourceId
-						delete parentEvent.competitionRounds
+						delete _parentEvent.eventSourceId
+						delete _parentEvent.competitionRounds
 
 						let payload = {
 							events: [{
-								...parentEvent,
+								..._parentEvent,
 							}],
 							purchasableUpdate: {
 								event_id: this.formData.event.id,
@@ -1561,15 +1575,17 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								// body size limit constraints. The API will
 								// always take the parent event's description
 								// and seed it to each child event
-								delete parentEvent.description
-								delete child.description
+								const _childEvent = JSON.parse(JSON.stringify(child))
 
-								delete child.competitionRounds
+								delete _parentEvent.description
+								delete _childEvent.description
+
+								delete _childEvent.competitionRounds
 								// NOTE: never override the child event's id with the parent id
-								delete parentEvent.id
+								delete _parentEvent.id
 								payload.events.push({
-									...parentEvent,
-									...child,
+									..._parentEvent,
+									..._childEvent,
 									eventSourceId: this.formData.event.id,
 									startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
 									endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,

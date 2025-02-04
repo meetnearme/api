@@ -386,7 +386,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 						});
 
 						const data = await response.json();
-						if (response.status !== 200) {
+						if (response.status > 400) {
 							throw new Error(data.message || 'Vote submission failed')
 						}
 					} catch (e) {

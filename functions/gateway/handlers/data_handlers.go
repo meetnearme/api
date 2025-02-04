@@ -475,6 +475,8 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			return
 		}
 
+		throwOnMissing := r.URL.Query().Get("throw") == "1"
+
 		// Parse the comma-separated ids
 		ids := strings.Split(idsParam, ",")
 
@@ -544,9 +546,11 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			select {
 			case metaRes := <-metaChan:
 				if metaRes.err != nil {
-					log.Printf("Failed to get user meta: %v", metaRes)
-					transport.SendServerRes(w, []byte("Failed to get user meta: "+metaRes.err.Error()), http.StatusInternalServerError, metaRes.err)
-					return
+					if throwOnMissing {
+						transport.SendServerRes(w, []byte("Failed to get user meta: "+metaRes.err.Error()), http.StatusInternalServerError, metaRes.err)
+						return
+					}
+					allUserMeta[metaRes.id] = []string{}
 				}
 				allUserMeta[metaRes.id] = metaRes.members
 			case res := <-searchChan:

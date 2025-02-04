@@ -67,9 +67,9 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		return
 	}
 
-	// Store rounds data before removing it from the struct
-	roundsData := updateCompetitionConfigPayload.Rounds
+	// Store teams data before removing it from the struct
 	teamsData := updateCompetitionConfigPayload.Teams
+	roundsData := updateCompetitionConfigPayload.Rounds
 
 	// Create target struct
 	var configUpdate internal_types.CompetitionConfigUpdate
@@ -92,19 +92,14 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		return
 	}
 
-	if len(roundsData) > 0 {
-		var competitionRoundsUpdate []internal_types.CompetitionRoundUpdate
-		var usersToCreate []map[string]string
+	updatedRounds := make([]internal_types.CompetitionRoundUpdate, len(roundsData))
+	for i := range roundsData {
+		updatedRounds[i] = roundsData[i]
+		updatedRounds[i].CompetitionId = competitionConfigRes.Id
+	}
+	roundsData = updatedRounds
 
-		// Helper function to find team display name
-		findTeamDisplayName := func(teamId string) string {
-			for _, team := range teamsData {
-				if team.Id == teamId {
-					return team.DisplayName
-				}
-			}
-			return "" // Return empty string if team not found
-		}
+	if len(teamsData) > 0 {
 
 		findTeamMembers := func(teamId string) []string {
 			for _, team := range teamsData {
@@ -119,108 +114,85 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 			return []string{}
 		}
 
-		for _, round := range roundsData {
-			round.CompetitionId = competitionConfigRes.Id
-			competitionRoundsUpdate = append(competitionRoundsUpdate, internal_types.CompetitionRoundUpdate(round))
+		candidateUsers := []string{}
+		for _, team := range teamsData {
+			candidateUsers = append(candidateUsers, team.Id)
+		}
+		existingUsers, err := helpers.SearchUsersByIDs(candidateUsers, false)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to search existing users: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
 
-			if strings.Contains(round.CompetitorA, helpers.COMP_TEAM_ID_PREFIX) {
-				displayName := findTeamDisplayName(round.CompetitorA)
-				usersToCreate = append(usersToCreate, map[string]string{
-					"id":          round.CompetitorA,
-					"displayName": displayName,
-					"members":     strings.Join(findTeamMembers(round.CompetitorA), ","),
-				})
-			}
-			if strings.Contains(round.CompetitorB, helpers.COMP_TEAM_ID_PREFIX) {
-				displayName := findTeamDisplayName(round.CompetitorB)
-				usersToCreate = append(usersToCreate, map[string]string{
-					"id":          round.CompetitorB,
-					"displayName": displayName,
-					"members":     strings.Join(findTeamMembers(round.CompetitorB), ","),
+		existingUserIds := make(map[string]bool)
+		for _, user := range existingUsers {
+			existingUserIds[user.UserID] = true
+		}
+
+		filteredUsersToCreate := make([]map[string]interface{}, 0)
+		for _, team := range teamsData {
+			if !existingUserIds[team.Id] {
+				filteredUsersToCreate = append(filteredUsersToCreate, map[string]interface{}{
+					"id":          team.Id,
+					"displayName": team.DisplayName,
+					"members":     strings.Join(findTeamMembers(team.Id), ","),
 				})
 			}
 		}
 
-		if len(usersToCreate) > 0 {
+		var wg sync.WaitGroup
+		errChan := make(chan error, len(filteredUsersToCreate))
+		var users []types.UserSearchResultDangerous
+		for _, user := range filteredUsersToCreate {
+			wg.Add(1)
+			go func(userData map[string]interface{}) {
+				defer wg.Done()
+				members := strings.Split(userData["members"].(string), ",")
+				user, err := helpers.CreateTeamUserWithMembers(
+					userData["displayName"].(string),
+					userData["id"].(string),
+					members,
+				)
+				if err != nil {
+					errChan <- fmt.Errorf("failed to create team user %s: %w", userData["id"].(string), err)
+				}
+				users = append(users, user)
+			}(user)
+		}
 
-			candidateUsers := []string{}
-			for _, user := range usersToCreate {
-				candidateUsers = append(candidateUsers, user["id"])
-			}
-			existingUsers, err := helpers.SearchUsersByIDs(candidateUsers, false)
+		// Wait for all goroutines to complete
+		wg.Wait()
+		close(errChan)
+
+		// Check for any errors
+		for err := range errChan {
 			if err != nil {
-				transport.SendServerRes(w, []byte("Failed to search existing users: "+err.Error()), http.StatusInternalServerError, err)
+				transport.SendServerRes(w, []byte("Failed to create team users: "+err.Error()), http.StatusInternalServerError, err)
 				return
 			}
-
-			existingUserIds := make(map[string]bool)
-			for _, user := range existingUsers {
-				existingUserIds[user.UserID] = true
-			}
-
-			filteredUsersToCreate := make([]map[string]string, 0)
-			for _, user := range usersToCreate {
-				if !existingUserIds[user["id"]] {
-					filteredUsersToCreate = append(filteredUsersToCreate, user)
-				}
-			}
-			usersToCreate = filteredUsersToCreate
-
-			var wg sync.WaitGroup
-			errChan := make(chan error, len(usersToCreate))
-			var users []types.UserSearchResultDangerous
-			for _, user := range usersToCreate {
-				wg.Add(1)
-				go func(userData map[string]string) {
-					defer wg.Done()
-					members := strings.Split(userData["members"], ",")
-					user, err := helpers.CreateTeamUserWithMembers(
-						userData["displayName"],
-						userData["id"],
-						members,
-					)
-					if err != nil {
-						errChan <- fmt.Errorf("failed to create team user %s: %w", userData["id"], err)
-					}
-					users = append(users, user)
-				}(user)
-			}
-
-			// Wait for all goroutines to complete
-			wg.Wait()
-			close(errChan)
-
-			// Check for any errors
-			for err := range errChan {
-				if err != nil {
-					transport.SendServerRes(w, []byte("Failed to create team users: "+err.Error()), http.StatusInternalServerError, err)
-					return
-				}
-			}
 		}
 
-		competitionRoundsUpdate, err = helpers.NormalizeCompetitionRounds(competitionRoundsUpdate)
-		if err != nil {
-			// return &competitionConfigResponse, err
-			transport.SendServerRes(w, []byte("Failed to normalize competition rounds: "+err.Error()), http.StatusInternalServerError, err)
-			return
-		}
-
-		service := dynamodb_service.NewCompetitionRoundService()
-		_, err = service.PutCompetitionRounds(ctx, db, &competitionRoundsUpdate)
-		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to save competition rounds: "+err.Error()), http.StatusInternalServerError, err)
-			return
-		}
-
-		rounds := make([]types.CompetitionRound, len(competitionRoundsUpdate))
-		for i, r := range competitionRoundsUpdate {
-			rounds[i] = types.CompetitionRound(r)
-		}
-		competitionConfigRes.Rounds = rounds
-
-		log.Printf("competitionRounds: %+v", competitionRoundsUpdate)
 	}
+
+	roundsData, err = helpers.NormalizeCompetitionRounds(roundsData)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to normalize competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	service := dynamodb_service.NewCompetitionRoundService()
+	_, err = service.PutCompetitionRounds(ctx, db, &roundsData)
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to save competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	rounds := make([]types.CompetitionRound, len(roundsData))
+	for i, r := range roundsData {
+		rounds[i] = types.CompetitionRound(r)
+	}
+	competitionConfigRes.Rounds = rounds
+
 	response, err := json.Marshal(competitionConfigRes)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
@@ -272,7 +244,6 @@ func (h *CompetitionConfigHandler) GetCompetitionConfigsByPrimaryOwner(w http.Re
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 
-	log.Printf("Handler: Getting configs for user: %s", userInfo.Sub)
 	if userInfo.Sub == "" {
 		transport.SendServerRes(w, []byte("User not authenticated"), http.StatusUnauthorized, nil)
 		return
@@ -297,7 +268,6 @@ func (h *CompetitionConfigHandler) GetCompetitionConfigsByPrimaryOwner(w http.Re
 		return
 	}
 
-	log.Printf("Handler: Successfully retrieved %d configs", len(*configs))
 	transport.SendServerRes(w, response, http.StatusOK, nil)
 }
 
