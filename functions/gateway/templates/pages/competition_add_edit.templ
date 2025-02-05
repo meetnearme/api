@@ -86,7 +86,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				@components.UsersSelect(users, competition.PrimaryOwner, "owners", "Additional Admins", "admins", true)
 				<div class="divider"></div>
 				<div class="form-control">
-					<label class="label">Start Time</label>
+					<label class="label">Start Time (of First Event)</label>
 					<input
 						type="datetime-local"
 						x-model.fill="formData.startTime"
@@ -94,7 +94,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						:disabled="saveReqInFlight"
 					/>
 					<div class="form-control">
-						<label class="label">End Time</label>
+						<label class="label">End Time (of Last Event)</label>
 						<input
 							type="datetime-local"
 							x-model.fill="formData.endTime"
@@ -434,7 +434,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 
 					// Set initial options to current owners
 					this.allOptions = this.owners;
-console.log('this.formData.competitors', this.formData.competitors)
 					if (this.formData?.competitors?.length > 0) {
 						try {
 							// Run both fetch requests in parallel
@@ -461,9 +460,6 @@ console.log('this.formData.competitors', this.formData.competitors)
 									...round
 								}
 							})
-
-              console.log('usersData', usersData)
-
 
 							this.teams = usersData
 								.filter(user => user.userId.startsWith('tm_'))
@@ -500,9 +496,6 @@ console.log('this.formData.competitors', this.formData.competitors)
 						this.roundsDataLoaded = true
 					}
 					})();
-
-          console.log("temp", document.querySelector('#add-edit-competition').getAttribute('data-competition-start-time'))
-
 				},
 				usersDataLoaded: false,
 				roundsDataLoaded: false,
@@ -519,14 +512,14 @@ console.log('this.formData.competitors', this.formData.competitors)
 					primaryOwner: document.querySelector('#add-edit-competition').getAttribute('data-competition-primary-owner'),
 					competitors: JSON.parse(document.querySelector('#add-edit-competition').getAttribute('competition-competitors')),
 					rounds: [],
-          startTime: document.querySelector('#add-edit-competition').getAttribute('data-competition-start-time') === '1970-01-01T00:00' ? (() => {
+					startTime: document.querySelector('#add-edit-competition').getAttribute('data-competition-start-time') === '1970-01-01T00:00' ? (() => {
 						const now = new Date();
 						// Convert to local ISO string and trim off seconds/milliseconds
 						return new Date(now.getTime() - (now.getTimezoneOffset() * 60000))
 							.toISOString()
 							.slice(0, 16);
 					})() : document.querySelector('#add-edit-competition').getAttribute('data-competition-start-time'),
-          endTime: document.querySelector('#add-edit-competition').getAttribute('data-competition-end-time') === '1970-01-01T00:00' ? (() => {
+					endTime: document.querySelector('#add-edit-competition').getAttribute('data-competition-end-time') === '1970-01-01T00:00' ? (() => {
 						const now = new Date();
 						// Convert to local ISO string and trim off seconds/milliseconds
 						return new Date(now.getTime() - (now.getTimezoneOffset() * 60000))
@@ -681,14 +674,29 @@ console.log('this.formData.competitors', this.formData.competitors)
 							})
 							return ids
 						})
-            console.log('this.formData.startTime', this.formData.startTime)
+						const formatDateTime = (dateTimeStr) => {
+							if (!dateTimeStr) return 0;
+							// Add seconds if they're missing
+							const formattedStr = dateTimeStr.includes(':') ?
+								(dateTimeStr.match(/:/g).length === 1 ? `${dateTimeStr}:00` : dateTimeStr) :
+								`${dateTimeStr}:00:00`;
+							return Math.floor(new Date(formattedStr).getTime() / 1000);
+						};
+
+						// Add this new function to convert Unix timestamp back to datetime-local format
+						const formatUnixToDateTimeLocal = (unixTimestamp) => {
+							if (!unixTimestamp) return '';
+							const date = new Date(unixTimestamp * 1000); // Multiply by 1000 to convert seconds to milliseconds
+							return date.toISOString().slice(0, 16); // Get yyyy-MM-ddThh:mm format
+						};
+
 						const competitionData = {
 							...this.formData,
 							// eslint-disable-next-line no-unused-vars
 							auxilaryOwners: Object.entries(this.owners).map(([key, val]) => val.value),
 							competitors,
-              startTime: this.formData.startTime ? Math.floor(new Date(this.formData.startTime).getTime() / 1000) : 0,
-              endTime: this.formData.endTime ? Math.floor(new Date(this.formData.endTime).getTime() / 1000) : 0,
+							startTime: formatDateTime(this.formData.startTime),
+							endTime: formatDateTime(this.formData.endTime),
 							teams: this.teams?.map?.(team => {
 								// Create a new object without mutating the original
 								const { label, ...restTeam } = team;
@@ -746,7 +754,9 @@ console.log('this.formData.competitors', this.formData.competitors)
 								window.history.pushState({ path: newUrl }, '', newUrl);
 							}
 							this.formData = {
-								...json
+								...json,
+								startTime: formatUnixToDateTimeLocal(json.startTime),
+								endTime: formatUnixToDateTimeLocal(json.endTime)
 							}
 						} else {
 							throw new Error(`Failed to update competition ${ json?.error?.message ? ": " + json.error.message : ''}`)
