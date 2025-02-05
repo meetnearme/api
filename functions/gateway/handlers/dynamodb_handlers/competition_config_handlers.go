@@ -53,8 +53,10 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		return
 	}
 
+	isNew := false
 	if updateCompetitionConfigPayload.Id == "" {
 		updateCompetitionConfigPayload.Id = uuid.NewString()
+		isNew = true
 	}
 
 	now := time.Now().Unix()
@@ -86,7 +88,7 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 	}
 
-	competitionConfigRes, err := h.CompetitionConfigService.UpdateCompetitionConfig(r.Context(), db, configUpdate.Id, configUpdate)
+	competitionConfigRes, err := h.CompetitionConfigService.UpdateCompetitionConfig(r.Context(), db, configUpdate.Id, configUpdate, isNew)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to create eventCompetitionConfig: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -147,7 +149,10 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 			wg.Add(1)
 			go func(userData map[string]interface{}) {
 				defer wg.Done()
-				members := strings.Split(userData["members"].(string), ",")
+				var members []string
+				if membersStr, ok := userData["members"].(string); ok && membersStr != "" {
+					members = strings.Split(membersStr, ",")
+				}
 				user, err := helpers.CreateTeamUserWithMembers(
 					userData["displayName"].(string),
 					userData["id"].(string),
@@ -240,17 +245,27 @@ func (h *CompetitionConfigHandler) GetCompetitionConfigsById(w http.ResponseWrit
 func (h *CompetitionConfigHandler) GetCompetitionConfigsByPrimaryOwner(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userInfo := helpers.UserInfo{}
+	// implicitly we fetch from the `primaryOwner` index if `ownerId` is not provided, if
+	// provided, such as for community pages showing a DIFFERENT owner's configs,
+	// we fetch from the `endTime` index
+	ownerId := mux.Vars(r)[helpers.USER_ID_KEY]
+	isSelf := true
+
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+		if ownerId == "" {
+			ownerId = userInfo.Sub
+			isSelf = false
+		}
 	}
 
-	if userInfo.Sub == "" {
-		transport.SendServerRes(w, []byte("User not authenticated"), http.StatusUnauthorized, nil)
+	if ownerId == "" && userInfo.Sub == "" {
+		transport.SendServerRes(w, []byte("Must either be authenticated or provide an ownerId"), http.StatusUnauthorized, nil)
 		return
 	}
 
 	db := transport.GetDB()
-	configs, err := h.CompetitionConfigService.GetCompetitionConfigsByPrimaryOwner(ctx, db, userInfo.Sub)
+	configs, err := h.CompetitionConfigService.GetCompetitionConfigsByPrimaryOwner(ctx, db, ownerId, isSelf)
 	if err != nil {
 		log.Printf("Handler ERROR: Failed to get configs: %v", err)
 		transport.SendServerRes(w, []byte("Failed to get competitionConfig: "+err.Error()), http.StatusInternalServerError, err)

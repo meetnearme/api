@@ -9,8 +9,8 @@ import (
 // CompetitionConfigInterface defines the methods for competition-related operations
 type CompetitionConfigServiceInterface interface {
 	GetCompetitionConfigById(ctx context.Context, dynamodbClient DynamoDBAPI, id string) (CompetitionConfigResponse, error)
-	GetCompetitionConfigsByPrimaryOwner(ctx context.Context, dynamodbClient DynamoDBAPI, primaryOwner string) (*[]CompetitionConfig, error)
-	UpdateCompetitionConfig(ctx context.Context, dynamodbClient DynamoDBAPI, id string, competitionConfig CompetitionConfigUpdate) (*CompetitionConfig, error)
+	GetCompetitionConfigsByPrimaryOwner(ctx context.Context, dynamodbClient DynamoDBAPI, primaryOwner string, isSelf bool) (*[]CompetitionConfig, error)
+	UpdateCompetitionConfig(ctx context.Context, dynamodbClient DynamoDBAPI, id string, competitionConfig CompetitionConfigUpdate, isNew bool) (*CompetitionConfig, error)
 	DeleteCompetitionConfig(ctx context.Context, dynamodbClient DynamoDBAPI, id string) error
 }
 
@@ -53,6 +53,8 @@ type CompetitionConfig struct {
 	Status        string             `json:"status" dynamodbav:"status" validate:"required,oneof=DRAFT ACTIVE COMPLETE"`
 	CreatedAt     int64              `json:"createdAt" dynamodbav:"createdAt"`
 	UpdatedAt     int64              `json:"updatedAt" dynamodbav:"updatedAt"`
+	StartTime     int64              `json:"startTime" dynamodbav:"startTime"`
+	EndTime       int64              `json:"endTime" dynamodbav:"endTime"`
 }
 
 type CompetitionConfigResponse struct {
@@ -92,6 +94,8 @@ type CompetitionConfigUpdate struct {
 	// TODO: these should be enums for re-use on the client
 	Status    string `json:"status,omitempty" dynamodbav:"status" validate:"omitempty,oneof=DRAFT ACTIVE COMPLETE"`
 	UpdatedAt int64  `json:"updatedAt" dynamodbav:"updatedAt"`
+	StartTime int64  `json:"startTime" dynamodbav:"startTime"`
+	EndTime   int64  `json:"endTime" dynamodbav:"endTime"`
 }
 
 // CompetitionRound types following the same pattern

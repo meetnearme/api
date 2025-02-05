@@ -1436,7 +1436,14 @@ func TestGetUsersHandler(t *testing.T) {
 			pathParts := strings.Split(r.URL.Path, "/")
 			id := pathParts[len(pathParts)-3] // Assuming ID is second-to-last part
 			if id == "tm_b8de1f5b-d377-458e-a47e-96123afcc6f3" {
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				// Return an empty or invalid metadata structure to trigger the error
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"value": "", // This will cause GetBase64ValueFromMap to return empty string
+					},
+				})
 				return
 			}
 
@@ -1478,6 +1485,24 @@ func TestGetUsersHandler(t *testing.T) {
 
 			switch {
 			case len(userIds) == 1 && strings.HasPrefix(userIds[0], "tm_"):
+				// Check if this is the error test case
+				if userIds[0] == "tm_b8de1f5b-d377-458e-a47e-96123afcc6f3" {
+					// Return a successful user search response
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"result": []map[string]interface{}{
+							{
+								"userId": userIds[0],
+								"human": map[string]interface{}{
+									"profile": map[string]interface{}{
+										"displayName": "Test User",
+									},
+								},
+							},
+						},
+					})
+					return
+				}
+
 				response.Result = []struct {
 					UserID             string `json:"userId"`
 					Username           string `json:"username"`

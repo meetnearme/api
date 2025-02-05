@@ -122,6 +122,7 @@ func init() {
 		// Competition Config
 		{"/api/competition-config", "PUT", dynamodb_handlers.UpdateCompetitionConfigHandler, Require},
 		{"/api/competition-config/owner", "GET", dynamodb_handlers.GetCompetitionConfigsByPrimaryOwnerHandler, Require},
+		{"/api/competition-config/owner/{" + helpers.USER_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigsByPrimaryOwnerHandler, Require},
 		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigByIdHandler, Require},
 		// verify below is correct with brian, was not accessing userId from context
 		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.UpdateCompetitionConfigHandler, Require},

@@ -217,13 +217,30 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	if userId != "" {
 		// Single goroutine for all three requests when userId exists
 		go func() {
-			// Get user data
+			// Get user data - hard fail if this errors
 			user, err := helpers.GetOtherUserByID(userId)
-			userChan <- userResult{user, err}
+			if err != nil {
+				userChan <- userResult{user, err}
+				// Early return since user data is required
+				searchChan <- searchResult{types.EventSearchResponse{}, err}
+				aboutChan <- aboutResult{"", nil} // Close about channel
+				return
+			}
+			// user resolved successfully, push to channel
+			userChan <- userResult{user, nil}
 
-			// Get about data
+			// Get about data - soft fail if this errors
 			aboutData, err := helpers.GetOtherUserMetaByID(userId, helpers.META_ABOUT_KEY)
-			aboutChan <- aboutResult{aboutData, err}
+			if err != nil {
+				// Check if it's a 4xx error (we can soft fail)
+				if strings.HasPrefix(err.Error(), "4") {
+					aboutChan <- aboutResult{"", nil} // Ignore 4xx errors
+				} else {
+					aboutChan <- aboutResult{"", err} // Propagate other errors
+				}
+			} else {
+				aboutChan <- aboutResult{aboutData, nil}
+			}
 
 			// Get search results
 			marqoClient, err := services.GetMarqoClient()
@@ -264,7 +281,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	// fetch the `about` metadata for the user
 	var aboutData string
 	if userId != "" {
-		// here we ignore the error because we allow the page/user to not have an about section
+		// NOTE: here we ignore the error because we allow the page/user to not have an about section
 		aboutData, _ = helpers.GetOtherUserMetaByID(userId, helpers.META_ABOUT_KEY)
 		// Get user result from channel
 		userResult := <-userChan
@@ -272,6 +289,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, userResult.err
 		}
 		pageUser = &userResult.user
+		pageUser.UserID = userId
 	}
 
 	// Get search results from channel

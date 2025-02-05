@@ -85,6 +85,24 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				// Replace the owners section with the new component
 				@components.UsersSelect(users, competition.PrimaryOwner, "owners", "Additional Admins", "admins", true)
 				<div class="divider"></div>
+				<div class="form-control">
+					<label class="label">Start Time (of First Event)</label>
+					<input
+						type="datetime-local"
+						x-model.fill="formData.startTime"
+						class="input input-bordered"
+						:disabled="saveReqInFlight"
+					/>
+					<div class="form-control">
+						<label class="label">End Time (of Last Event)</label>
+						<input
+							type="datetime-local"
+							x-model.fill="formData.endTime"
+							class="input input-bordered"
+							:disabled="saveReqInFlight"
+						/>
+					</div>
+				</div>
 			</div>
 		</div>
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Competitors</h2>
@@ -396,7 +414,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 			</div>
 		</template>
 	</div>
-	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["competition-detail"].Slug, helpers.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ helpers.COMP_EMPTY_TEAM_NAME } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ helpers.COMP_TEAM_ID_PREFIX } competition-competitors={ string(helpers.ToJSON(competition.Competitors)) }>
+	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["competition-detail"].Slug, helpers.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ helpers.COMP_EMPTY_TEAM_NAME } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ helpers.COMP_TEAM_ID_PREFIX } competition-competitors={ string(helpers.ToJSON(competition.Competitors)) } data-competition-start-time={ helpers.GetDatetimePickerFormatted(competition.StartTime, nil) } data-competition-end-time={ helpers.GetDatetimePickerFormatted(competition.EndTime, nil) }>
 		function getEditCompetitionState() {
 			return {
 				init() {
@@ -416,7 +434,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 
 					// Set initial options to current owners
 					this.allOptions = this.owners;
-
 					if (this.formData?.competitors?.length > 0) {
 						try {
 							// Run both fetch requests in parallel
@@ -479,7 +496,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						this.roundsDataLoaded = true
 					}
 					})();
-
 				},
 				usersDataLoaded: false,
 				roundsDataLoaded: false,
@@ -496,6 +512,20 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					primaryOwner: document.querySelector('#add-edit-competition').getAttribute('data-competition-primary-owner'),
 					competitors: JSON.parse(document.querySelector('#add-edit-competition').getAttribute('competition-competitors')),
 					rounds: [],
+					startTime: document.querySelector('#add-edit-competition').getAttribute('data-competition-start-time') === '1970-01-01T00:00' ? (() => {
+						const now = new Date();
+						// Convert to local ISO string and trim off seconds/milliseconds
+						return new Date(now.getTime() - (now.getTimezoneOffset() * 60000))
+							.toISOString()
+							.slice(0, 16);
+					})() : document.querySelector('#add-edit-competition').getAttribute('data-competition-start-time'),
+					endTime: document.querySelector('#add-edit-competition').getAttribute('data-competition-end-time') === '1970-01-01T00:00' ? (() => {
+						const now = new Date();
+						// Convert to local ISO string and trim off seconds/milliseconds
+						return new Date(now.getTime() - (now.getTimezoneOffset() * 60000))
+							.toISOString()
+							.slice(0, 16);
+					})() : document.querySelector('#add-edit-competition').getAttribute('data-competition-end-time'),
 				},
 				saveReqInFlight: false,
 				// tallyVotesReqInFlight: false,
@@ -644,11 +674,29 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							})
 							return ids
 						})
+						const formatDateTime = (dateTimeStr) => {
+							if (!dateTimeStr) return 0;
+							// Add seconds if they're missing
+							const formattedStr = dateTimeStr.includes(':') ?
+								(dateTimeStr.match(/:/g).length === 1 ? `${dateTimeStr}:00` : dateTimeStr) :
+								`${dateTimeStr}:00:00`;
+							return Math.floor(new Date(formattedStr).getTime() / 1000);
+						};
+
+						// Add this new function to convert Unix timestamp back to datetime-local format
+						const formatUnixToDateTimeLocal = (unixTimestamp) => {
+							if (!unixTimestamp) return '';
+							const date = new Date(unixTimestamp * 1000); // Multiply by 1000 to convert seconds to milliseconds
+							return date.toISOString().slice(0, 16); // Get yyyy-MM-ddThh:mm format
+						};
+
 						const competitionData = {
 							...this.formData,
 							// eslint-disable-next-line no-unused-vars
 							auxilaryOwners: Object.entries(this.owners).map(([key, val]) => val.value),
 							competitors,
+							startTime: formatDateTime(this.formData.startTime),
+							endTime: formatDateTime(this.formData.endTime),
 							teams: this.teams?.map?.(team => {
 								// Create a new object without mutating the original
 								const { label, ...restTeam } = team;
@@ -706,7 +754,9 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 								window.history.pushState({ path: newUrl }, '', newUrl);
 							}
 							this.formData = {
-								...json
+								...json,
+								startTime: formatUnixToDateTimeLocal(json.startTime),
+								endTime: formatUnixToDateTimeLocal(json.endTime)
 							}
 						} else {
 							throw new Error(`Failed to update competition ${ json?.error?.message ? ": " + json.error.message : ''}`)

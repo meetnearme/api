@@ -291,8 +291,6 @@ func (s *PurchaseService) HasPurchaseForEvent(ctx context.Context, dynamodbClien
 		return false, fmt.Errorf("query failed: %w", err)
 	}
 
-	log.Printf("result: %+v", result)
-
 	var purchases []internal_types.Purchase
 	err = attributevalue.UnmarshalListOfMaps(result.Items, &purchases)
 	if err != nil {

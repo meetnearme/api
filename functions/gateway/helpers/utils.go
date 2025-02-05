@@ -637,35 +637,47 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
 	firstPartName := strings.Split(displayName, " ")[0]
 	secondPartName := strings.Split(displayName, " ")[1]
 
+	var metadataItems []string
+
+	// Only add members metadata if there are members
+	if len(members) > 0 && members != nil {
+		// NOTE: IMPORTANT: `strings.Join()` will return an empty string if the array is empty
+		metadataItems = append(metadataItems, `{
+			"key": "members",
+			"value": "`+base64.StdEncoding.EncodeToString([]byte(strings.Join(members, ",")))+`"
+		}`)
+	}
+
+	// Add userType metadata (always included)
+	metadataItems = append(metadataItems, `{
+		"key": "userType",
+		"value": "`+base64.StdEncoding.EncodeToString([]byte("team"))+`"
+	}`)
+
+	// Join metadata items with commas
+	metadataJSON := strings.Join(metadataItems, ",")
+
+	payload := strings.NewReader(`{
+        "userId": "` + candidateUUID + `",
+        "email": {
+            "email": "` + email + `",
+            "isVerified": true
+        },
+        "password": {
+            "password": "` + password + `",
+            "changeRequired": false
+        },
+        "profile": {
+            "givenName": "` + firstPartName + `",
+            "familyName": "` + secondPartName + `",
+            "nickName": "` + firstPartName + ` ` + secondPartName + `",
+            "displayName": "` + firstPartName + ` ` + secondPartName + `"
+        },
+        "metadata": [` + metadataJSON + `]
+    }`)
+
 	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/human", os.Getenv("ZITADEL_INSTANCE_HOST"))
 	method := "POST"
-	payload := strings.NewReader(`{
-		"userId": "` + candidateUUID + `",
-		"email": {
-			"email": "` + email + `",
-			"isVerified": true
-		},
-		"password": {
-			"password": "` + password + `",
-			"changeRequired": false
-		},
-		"profile": {
-			"givenName": "` + firstPartName + `",
-			"familyName": "` + secondPartName + `",
-			"nickName": "` + firstPartName + ` ` + secondPartName + `",
-			"displayName": "` + firstPartName + ` ` + secondPartName + `"
-		},
-		"metadata": [
-    	{
-			"key": "members",
-			"value": "` + base64.StdEncoding.EncodeToString([]byte(strings.Join(members, ","))) + `"
-		},
-		{
-			"key": "userType",
-			"value": "` + base64.StdEncoding.EncodeToString([]byte("team")) + `"
-		}
-		]
-	}`)
 
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, payload)
@@ -736,8 +748,11 @@ func GetTimeOrShowNone(datetime int64, timezone time.Location) string {
 	return formattedTime
 }
 
-func GetDatetimePickerFormatted(datetime int64, timezone time.Location) string {
-	return time.Unix(datetime, 0).In(&timezone).Format("2006-01-02T15:04")
+func GetDatetimePickerFormatted(datetime int64, timezone *time.Location) string {
+	if timezone == nil {
+		timezone = time.UTC
+	}
+	return time.Unix(datetime, 0).In(timezone).Format("2006-01-02T15:04")
 }
 
 func GetLocalDateAndTime(datetime int64, timezone time.Location) (string, string) {
@@ -792,7 +807,9 @@ func IsAuthorizedEventEditor(event *types.Event, userInfo *UserInfo) bool {
 
 func IsAuthorizedCompetitionEditor(competition types.CompetitionConfig, userInfo *UserInfo) bool {
 	allOwners := []string{competition.PrimaryOwner}
-	allOwners = append(allOwners, competition.AuxilaryOwners...)
+	for _, owner := range competition.AuxilaryOwners {
+		allOwners = append(allOwners, owner)
+	}
 	for _, owner := range allOwners {
 		if owner == userInfo.Sub {
 			return true
@@ -819,7 +836,7 @@ func CanEditEvent(event *types.Event, userInfo *UserInfo, roleClaims []RoleClaim
 }
 
 func CanEditCompetition(competition types.CompetitionConfig, userInfo *UserInfo, roleClaims []RoleClaim) bool {
-	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin"})
+	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin", "competitionAdmin"})
 	isEditor := IsAuthorizedCompetitionEditor(competition, userInfo)
 	return hasSuperAdminRole || isEditor
 }
