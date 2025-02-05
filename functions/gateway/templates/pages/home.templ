@@ -194,7 +194,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			</h1>
 		</div>
 	} else {
-		<div class="space-y-10">
+		<div class="space-y-10" x-data="getCompetitionsState()">
 			<h1 class="text-5xl alt-title font-bold text-center uppercase">{ pageUser.DisplayName }</h1>
 			if pageUser.Metadata != nil && pageUser.Metadata[helpers.META_ABOUT_KEY] != "" {
 				<h2 class="text-3xl font-bold uppercase my-10">About</h2>
@@ -202,12 +202,40 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					@templ.Raw(pageUser.Metadata[helpers.META_ABOUT_KEY])
 				</div>
 			}
-		</div>
-		<template x-if="competitions?.length">
-			<template x-for="competition in competitions">
-				<div x-text="JSON.stringify(competition)"></div>
+			<template x-if="competitions?.length">
+				<div>
+					<h2 class="text-3xl font-bold uppercase my-10">Competitions</h2>
+					<template x-for="competition in competitions">
+						<div>
+							<div x-text="competition.name"></div>
+							<h3 x-text="competition.name" class="text-2xl font-bold my-10"></h3>
+							<h4 class="text-xl font-bold my-2 uppercase">Rounds</h4>
+							<template x-if="rounds && rounds[competition.id]">
+								<template x-for="round in rounds[competition.id]">
+									<template x-if="round.eventId !== fakeEventId">
+										<a class="link link-primary" :href="`/event/${round.eventId}`"><div x-text="round.roundName"></div></a>
+									</template>
+									<template x-if="round.eventId === fakeEventId">
+										<div x-text="round.roundName"></div>
+									</template>
+								</template>
+							</template>
+							<template x-if="leaderboards && leaderboards[competition.id]">
+								<div>
+									<h3 class="text-xl font-bold my-2 uppercase">Leaderboard</h3>
+									<template x-for="[teamId, score] in Object.entries(leaderboards[competition.id])">
+										<div class="flex justify-between border-b border-gray-700">
+											<div x-text="users.find(user => user.userId === teamId)?.displayName"></div>
+											<div x-text="'Score: ' + score"></div>
+										</div>
+									</template>
+								</div>
+							</template>
+						</div>
+					</template>
+				</div>
 			</template>
-		</template>
+		</div>
 	}
 	<div class="min-h-screen">
 		if pageUser == nil {
@@ -461,7 +489,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			}
 		</main>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-page-user-id={ GetPageUserID(pageUser) }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID }>
 		// NOTE: this is used by htmx to get the data-attributes
 		// eslint-disable-next-line no-unused-vars
 		function sendParmsFromQs() {
@@ -564,18 +592,8 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					window.addEventListener('popstate', () => {
 						this.updateParamsFromUrl();
 					});
-
-          console.log('this.pageUserId', this.pageUserId)
-          await fetch(`/api/competition-config/owner/${this.pageUserId}`).then(res => {
-            return res.json()
-          }).then(json => {
-            console.log(json)
-            this.competitions = json
-          });
-
 				},
-        competitions: [],
-        pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
+				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
 				start_time: null,
 				end_time: null,
 				q: null,
@@ -662,6 +680,88 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						this.hasEvents = false;
 					}
 				},
+			}
+		}
+
+		function getCompetitionsState() {
+			return {
+				async init() {
+					await fetch(`/api/competition-config/owner/${this.pageUserId}`).then(res => {
+						return res.json()
+					}).then(json => {
+						const _competitions = json.filter(competition => {
+							return competition.endTime > new Date().getTime() / 1000
+						})
+						this.competitions = _competitions
+					});
+
+					// Create an array of promises for fetching competition rounds and leaderboards
+					const fetchPromises = this.competitions.flatMap(competition => [
+						// Fetch rounds
+						fetch(`/api/competition-round/competition/${competition.id}`)
+							.then(response => response.json())
+							.catch(error => {
+								// eslint-disable-next-line no-console
+								console.error(`Error fetching rounds for competition ${competition.id}:`, error);
+								return null;
+							}),
+						// Fetch leaderboard
+						fetch(`/api/competition-round/competition-sum/${competition.id}`)
+							.then(response => response.json())
+							.catch(error => {
+								// eslint-disable-next-line no-console
+								console.error(`Error fetching leaderboard for competition ${competition.id}:`, error);
+								return null;
+							})
+					]);
+
+					// Wait for all requests to complete
+					try {
+						const results = await Promise.all(fetchPromises);
+						// Process results in pairs (rounds and leaderboard for each competition)
+						this.rounds = {};
+						this.leaderboards = {};
+						for (let i = 0; i < results.length; i += 2) {
+							const roundsArray = results[i];
+							const leaderboardData = results[i + 1];
+							if (roundsArray && roundsArray.length > 0) {
+								this.rounds[roundsArray[0].competitionId] = roundsArray;
+							}
+							if (leaderboardData) {
+								// Sort the entries by score in descending order
+								const sortedEntries = Object.entries(leaderboardData)
+									.sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
+
+								// Convert back to object while maintaining sorted order
+								this.leaderboards[this.competitions[i / 2].id] = Object.fromEntries(sortedEntries);
+							}
+						}
+					} catch (error) {
+						// eslint-disable-next-line no-console
+						console.error('Error fetching competition data:', error);
+					}
+
+					try {
+						const userIds = Object.values(this.leaderboards)
+							.flatMap(leaderboard => Object.keys(leaderboard))
+							.join(',');
+
+						const users = await fetch(`/api/users?ids=${userIds}`).then(res => {
+							return res.json()
+						})
+
+						this.users = users
+					} catch (error) {
+						// eslint-disable-next-line no-console
+						console.error('Error fetching users:', error);
+					}
+				},
+				competitions: [],
+				rounds: {},
+				leaderboards: {},
+				users: [],
+				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
+				fakeEventId: document.querySelector('#alpine-state').getAttribute('data-fake-event-id'),
 			}
 		}
 	</script>
