@@ -132,7 +132,7 @@ templ EventAdminChildren(eventParent types.Event, eventChildren []types.Event) {
 								name={ string("event_" + strconv.Itoa(idx) + "_" + string(child.FieldName)) }
 								x-model.fill={ "formData.eventChildren[" + strconv.Itoa(idx) + "]." + camelCaseFieldName }
 								if (child.ChildValue != "" && child.ChildValue.(int64) != 0) {
-									value={ helpers.GetDatetimePickerFormatted(child.ChildValue.(int64), eventParent.Timezone) }
+									value={ helpers.GetDatetimePickerFormatted(child.ChildValue.(int64), &eventParent.Timezone) }
 								}
 							/>
 						}

@@ -203,6 +203,11 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				</div>
 			}
 		</div>
+		<template x-if="competitions?.length">
+			<template x-for="competition in competitions">
+				<div x-text="JSON.stringify(competition)"></div>
+			</template>
+		</template>
 	}
 	<div class="min-h-screen">
 		if pageUser == nil {
@@ -533,7 +538,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 
 		function getHomeState() {
 			return {
-				init() {
+				async init() {
 					this.updateParamsFromUrl(false);
 
 					// enhance history.pushState with a listener and call it on every
@@ -559,7 +564,18 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					window.addEventListener('popstate', () => {
 						this.updateParamsFromUrl();
 					});
+
+          console.log('this.pageUserId', this.pageUserId)
+          await fetch(`/api/competition-config/owner/${this.pageUserId}`).then(res => {
+            return res.json()
+          }).then(json => {
+            console.log(json)
+            this.competitions = json
+          });
+
 				},
+        competitions: [],
+        pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
 				start_time: null,
 				end_time: null,
 				q: null,

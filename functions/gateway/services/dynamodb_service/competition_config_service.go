@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -29,46 +28,49 @@ func NewCompetitionConfigService() internal_types.CompetitionConfigServiceInterf
 	return &CompetitionConfigService{}
 }
 
-func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string, competitionConfig internal_types.CompetitionConfigUpdate) (*internal_types.CompetitionConfig, error) {
+func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string, competitionConfig internal_types.CompetitionConfigUpdate, isNew bool) (*internal_types.CompetitionConfig, error) {
 	var competitionConfigResponse internal_types.CompetitionConfig
 	// Validate the competition object
 	if err := validate.Struct(competitionConfig); err != nil {
 		return &competitionConfigResponse, fmt.Errorf("validation failed: %w", err)
 	}
-
-	if competitionConfig.Id == "" {
-		competitionConfig.Id = uuid.NewString()
-	} else {
-		var getCompetitionConfigResponse internal_types.CompetitionConfigResponse
+	if id == "" {
+		return &competitionConfigResponse, fmt.Errorf("id is required to update competition config")
+	}
+	var getCompetitionConfigResponse internal_types.CompetitionConfigResponse
+	// NOTE: make a db call to get the existing config to validate user access later
+	if !isNew {
 		db := transport.GetDB()
 
 		service := NewCompetitionConfigService()
 		getCompetitionConfigResponse, err := service.GetCompetitionConfigById(ctx, db, competitionConfig.Id)
 		if err != nil {
-			return &competitionConfigResponse, err
-			// transport.SendServerRes(w, []byte("Failed to get competitionConfig: "+err.Error()), http.StatusInternalServerError, err)
-		}
-
-		allOwners := []string{getCompetitionConfigResponse.PrimaryOwner}
-		allOwners = append(allOwners, getCompetitionConfigResponse.AuxilaryOwners...)
-
-		userInfo := helpers.UserInfo{}
-		if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-			userInfo = ctx.Value("userInfo").(helpers.UserInfo)
-		}
-
-		roleClaims := []helpers.RoleClaim{}
-		if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
-			roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
-		}
-
-		canEdit := helpers.CanEditCompetition(getCompetitionConfigResponse.CompetitionConfig, &userInfo, roleClaims)
-		if !canEdit {
-			return &competitionConfigResponse, fmt.Errorf("You are not an authorized editor of this competition")
+			log.Printf("Failed to getCompetitionConfigResponse: %+v", getCompetitionConfigResponse)
+			return &competitionConfigResponse, fmt.Errorf("You are not an authorized editor of this competition: %+v", err)
 		}
 	}
 
-	log.Printf("competitionConfigResponse: %+v", competitionConfigResponse)
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+
+	roleClaims := []helpers.RoleClaim{}
+	if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
+	}
+
+	validRoles := []string{"superAdmin", "competitionAdmin"}
+	hasRequiredRole := helpers.HasRequiredRole(roleClaims, validRoles)
+	if isNew && !hasRequiredRole {
+		return &competitionConfigResponse, fmt.Errorf("You are not authorized to create a competition")
+	}
+
+	canEditThisComp := helpers.CanEditCompetition(getCompetitionConfigResponse.CompetitionConfig, &userInfo, roleClaims)
+
+	if !canEditThisComp {
+		return &competitionConfigResponse, fmt.Errorf("You are not an authorized editor of this competition")
+	}
 
 	item, err := attributevalue.MarshalMap(&competitionConfig)
 	if err != nil {
@@ -132,6 +134,10 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 }
 
 func (s *CompetitionConfigService) GetCompetitionConfigById(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string) (internal_types.CompetitionConfigResponse, error) {
+	if id == "" {
+		return internal_types.CompetitionConfigResponse{}, fmt.Errorf("id is required to get competition config")
+	}
+
 	var users []types.UserSearchResultDangerous
 	var competitionConfigResponse internal_types.CompetitionConfigResponse
 	userInfo := helpers.UserInfo{}
@@ -183,10 +189,15 @@ func (s *CompetitionConfigService) GetCompetitionConfigById(ctx context.Context,
 	return competitionConfigResponse, nil
 }
 
-func (s *CompetitionConfigService) GetCompetitionConfigsByPrimaryOwner(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, primaryOwner string) (*[]internal_types.CompetitionConfig, error) {
+func (s *CompetitionConfigService) GetCompetitionConfigsByPrimaryOwner(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, primaryOwner string, isSelf bool) (*[]internal_types.CompetitionConfig, error) {
+
+	targetIndex := "primaryOwner"
+	if isSelf {
+		targetIndex = "endTime"
+	}
 	input := &dynamodb.QueryInput{
 		TableName:              aws.String(competitionConfigTableName),
-		IndexName:              aws.String("primaryOwner"),
+		IndexName:              aws.String(targetIndex),
 		KeyConditionExpression: aws.String("primaryOwner = :primaryOwner"),
 		ExpressionAttributeValues: map[string]dynamodb_types.AttributeValue{
 			":primaryOwner": &dynamodb_types.AttributeValueMemberS{Value: primaryOwner},
@@ -220,7 +231,6 @@ func (s *CompetitionConfigService) DeleteCompetitionConfig(ctx context.Context, 
 		return err
 	}
 
-	log.Printf("competition config successfully deleted")
 	return nil
 }
 
@@ -229,7 +239,7 @@ func (s *CompetitionConfigService) DeleteCompetitionConfig(ctx context.Context, 
 type MockCompetitionConfigService struct {
 	GetCompetitionConfigsByPkFunc      func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string) (*internal_types.CompetitionConfig, error)
 	GetCompetitionConfigsByEventIDFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string) ([]internal_types.CompetitionConfig, error)
-	UpdateCompetitionConfigFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string, competition internal_types.CompetitionConfigUpdate) (*internal_types.CompetitionConfig, error)
+	UpdateCompetitionConfigFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string, competition internal_types.CompetitionConfigUpdate, isNew bool) (*internal_types.CompetitionConfig, error)
 	DeleteCompetitionConfigFunc        func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string) error
 }
 
@@ -242,8 +252,8 @@ func (m *MockCompetitionConfigService) GetCompetitionConfigsByEventID(ctx contex
 	return m.GetCompetitionConfigsByEventIDFunc(ctx, dynamodbClient, eventId)
 }
 
-func (m *MockCompetitionConfigService) UpdateCompetitionConfigConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string, competition internal_types.CompetitionConfigUpdate) (*internal_types.CompetitionConfig, error) {
-	return m.UpdateCompetitionConfigFunc(ctx, dynamodbClient, id, competition)
+func (m *MockCompetitionConfigService) UpdateCompetitionConfigConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string, competition internal_types.CompetitionConfigUpdate, isNew bool) (*internal_types.CompetitionConfig, error) {
+	return m.UpdateCompetitionConfigFunc(ctx, dynamodbClient, id, competition, isNew)
 }
 
 func (m *MockCompetitionConfigService) DeleteCompetitionConfig(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, id string) error {

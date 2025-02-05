@@ -137,12 +137,15 @@ export function StorageStack({ stack }: StackContext) {
       competitors: 'string', // JSON string array of competitor IDs
       status: 'string', // DRAFT, ACTIVE, COMPLETE
       createdAt: 'number',
-      updatedAt: 'number'
+      updatedAt: 'number',
+      startTime: 'number',
+      endTime: 'number',
     },
     primaryIndex: { partitionKey: 'id' },
     globalIndexes: {
       primaryOwner:{ partitionKey: 'primaryOwner', sortKey: 'id' },
-    },
+      endTime:{ partitionKey: 'primaryOwner', sortKey: 'endTime' },
+    }
   });
 
   // This table needs the concept of sub rounds

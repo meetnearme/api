@@ -528,11 +528,14 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				activeRequests++
 				go func(id string) {
 					membersString, err := helpers.GetOtherUserMetaByID(id, "members")
-					if err != nil {
-						metaChan <- userMetaResult{id: id, members: []string{}, err: err}
+					if throwOnMissing && err != nil {
+						metaChan <- userMetaResult{id: id, members: nil, err: err}
 						return
 					}
-					members := strings.Split(membersString, ",")
+					members := []string{}
+					if membersString != "" {
+						members = strings.Split(membersString, ",")
+					}
 					metaChan <- userMetaResult{id: id, members: members, err: nil}
 				}(id)
 			}

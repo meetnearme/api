@@ -267,7 +267,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					type="datetime-local"
 					x-model.fill={ "formData.event.startTime" }
 					if (event.StartTime > 0) {
-						value={ helpers.GetDatetimePickerFormatted(event.StartTime, event.Timezone) }
+						value={ helpers.GetDatetimePickerFormatted(event.StartTime, &event.Timezone) }
 					}
 					:disabled="saveReqInFlight"
 				/>
@@ -279,7 +279,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					type="datetime-local"
 					x-model.fill={ "formData.event.endTime" }
 					if (event.EndTime > 0) {
-						value={ helpers.GetDatetimePickerFormatted(event.EndTime, event.Timezone) }
+						value={ helpers.GetDatetimePickerFormatted(event.EndTime, &event.Timezone) }
 					}
 					:disabled="saveReqInFlight"
 				/>
