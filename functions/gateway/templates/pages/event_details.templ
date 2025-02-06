@@ -162,7 +162,9 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				<br/>
 				<h3 class="text-xl">EVENT DESCRIPTION</h3>
 				<br/>
-				<div class="whitespace-pre-wrap">{ event.Description }</div>
+				<div class="whitespace-pre-wrap">
+					@templ.Raw(event.Description)
+				</div>
 				<template x-if="competitionConfigId && userId">
 					<div class="mt-4" id="voting-section">
 						<h3 class="text-xl">VOTING</h3>
