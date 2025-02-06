@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
+	"strings"
 
 	"github.com/meetnearme/api/functions/gateway/services"
 )
@@ -13,7 +16,45 @@ var codeChallenge, codeVerifier, err = services.GenerateCodeChallengeAndVerifier
 func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParams := r.URL.Query()
 	redirectUser := queryParams.Get("redirect")
-	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectUser)
+
+	// Extract subdomain from host
+	host := r.Host
+	parts := strings.Split(host, ".")
+	var subdomain string
+
+	apexURL := os.Getenv("APEX_URL")
+	if apexURL == "" {
+		http.Error(w, "APEX_URL not configured", http.StatusInternalServerError)
+		return http.HandlerFunc(nil)
+	}
+
+	parsedApex, err := url.Parse(apexURL)
+	if err != nil {
+		http.Error(w, "Invalid APEX_URL", http.StatusInternalServerError)
+		return http.HandlerFunc(nil)
+	}
+
+	baseDomain := strings.Split(parsedApex.Host, ".")
+	if len(baseDomain) < 2 {
+		http.Error(w, "Invalid APEX_URL format", http.StatusInternalServerError)
+		return http.HandlerFunc(nil)
+	}
+
+	// Find where the base domain starts
+	baseIndex := len(parts)
+	for i := len(parts) - 1; i >= 0; i-- {
+		if parts[i] == baseDomain[0] { // This will match "example" from example.com
+			baseIndex = i
+			break
+		}
+	}
+
+	// Join all parts before the base domain
+	if baseIndex > 0 {
+		subdomain = strings.Join(parts[:baseIndex], ".")
+	}
+
+	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectUser, subdomain)
 	if err != nil {
 		http.Error(w, "Failed to authorize request", http.StatusBadRequest)
 		return http.HandlerFunc(nil)
