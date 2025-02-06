@@ -5,6 +5,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"log"
+	"os"
 	"strconv"
 )
 
@@ -45,7 +46,7 @@ templ EventsInner(events []types.Event, mode string) {
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-24 md:pb-4">
-					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
+					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) }>
 						<img
 							loading="lazy"
 							src={ helpers.GetImgUrlFromHash(ev) }
@@ -59,7 +60,7 @@ templ EventsInner(events []types.Event, mode string) {
 							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
 						</div>
 						<br/>
-						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 							LEARN MORE
 							&rarr;
 						</a>
@@ -79,7 +80,7 @@ templ EventsInner(events []types.Event, mode string) {
 					<input type="hidden" id="current-slide-index" value="0"/> <!-- Hidden input to track current slide -->
 					for idx, ev := range events {
 						<div id={ "slide-" + strconv.Itoa(idx) } class="carousel-item bg-base-200 flex-shrink-0 w-48 snap-start mr-4 last:mr-0 whitespace-nowrap">
-							<a href={ templ.URL("/event/" + ev.Id) } class="block p-4 rounded-lg">
+							<a href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) } class="block p-4 rounded-lg">
 								<div class="text-lg font-semibold">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) }</div>
 								<div class="text-md">{ helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) }</div>
 							</a>
@@ -108,7 +109,7 @@ templ EventsInner(events []types.Event, mode string) {
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-12 md:pb-4">
-					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
+					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) }>
 						<img
 							loading="lazy"
 							src={ helpers.GetImgUrlFromHash(ev) }
@@ -121,7 +122,7 @@ templ EventsInner(events []types.Event, mode string) {
 							<h2 class="text-xl font-bold">{ ev.Name }</h2>
 							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
 						</div>
-						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
+						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
 							if ev.HasPurchasable {
 								BUY TICKETS
 								&rarr;
@@ -215,7 +216,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 										<div>
 											<template x-if="eventId !== fakeEventId">
 												<h3 class="text-xl font-bold my-2">
-													<a class="link link-primary" :href="`/event/${eventId}`">
+													<a class="link link-primary" :href="`${apexUrl}/event/${eventId}`">
 														Event #<span x-text="Object.keys(rounds[competition.id]).indexOf(eventId) + 1"></span>
 													</a>
 												</h3>
@@ -500,7 +501,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			}
 		</main>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") }>
 		// NOTE: this is used by htmx to get the data-attributes
 		// eslint-disable-next-line no-unused-vars
 		function sendParmsFromQs() {
@@ -781,6 +782,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				users: [],
 				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
 				fakeEventId: document.querySelector('#alpine-state').getAttribute('data-fake-event-id'),
+				apexUrl: document.querySelector('#alpine-state').getAttribute('data-apex-url'),
 			}
 		}
 	</script>
