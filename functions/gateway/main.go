@@ -91,7 +91,7 @@ func init() {
 		// "/api/location/geo" is for use there
 		{"/api/location/geo{trailingslash:\\/?}", "POST", handlers.GeoLookup, None},
 		{"/api/user-search{trailingslash:\\/?}", "GET", handlers.SearchUsersHandler, Require},
-		{"/api/users{trailingslash:\\/?}", "GET", handlers.GetUsersHandler, Require},
+		{"/api/users{trailingslash:\\/?}", "GET", handlers.GetUsersHandler, None},
 		{"/api/html/events{trailingslash:\\/?}", "GET", handlers.GetEventsPartial, None},
 		{"/api/html/event-series-form/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventAdminChildrenPartial, None},
 		{"/api/html/seshu/session/submit{trailingslash:\\/?}", "POST", handlers.SubmitSeshuSession, Require},
