@@ -210,15 +210,27 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							<h3 x-text="competition.name" class="text-2xl font-bold my-10"></h3>
 							<h4 class="text-xl font-bold my-2 uppercase">Rounds</h4>
 							<template x-if="rounds && rounds[competition.id]">
-								<template x-for="round in rounds[competition.id]">
-									<template x-if="round.eventId !== fakeEventId">
-										<a class="link link-primary" :href="`/event/${round.eventId}`"><div x-text="round.roundName"></div></a>
+								<div>
+									<template x-for="(eventRounds, eventId) in rounds[competition.id]">
+										<div>
+											<template x-if="eventId !== fakeEventId">
+												<h3 class="text-xl font-bold my-2">
+													<a class="link link-primary" :href="`/event/${eventId}`">
+														Event #<span x-text="Object.keys(rounds[competition.id]).indexOf(eventId) + 1"></span>
+													</a>
+												</h3>
+											</template>
+											<template x-if="eventId === fakeEventId">
+												<h3 class="text-xl font-bold my-2">Upcoming</h3>
+											</template>
+											<template x-for="round in eventRounds">
+												<div x-text="round.roundName"></div>
+											</template>
+										</div>
 									</template>
-									<template x-if="round.eventId === fakeEventId">
-										<div x-text="round.roundName"></div>
-									</template>
-								</template>
+								</div>
 							</template>
+							<div class="divider my-10"></div>
 							<template x-if="leaderboards && leaderboards[competition.id]">
 								<div>
 									<h3 class="text-xl font-bold my-2 uppercase">Leaderboard</h3>
@@ -724,7 +736,15 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							const roundsArray = results[i];
 							const leaderboardData = results[i + 1];
 							if (roundsArray && roundsArray.length > 0) {
-								this.rounds[roundsArray[0].competitionId] = roundsArray;
+								// Group rounds by eventId
+								const roundsByEvent = roundsArray.reduce((acc, round) => {
+									if (!acc[round.eventId]) {
+										acc[round.eventId] = [];
+									}
+									acc[round.eventId].push(round);
+									return acc;
+								}, {});
+								this.rounds[roundsArray[0].competitionId] = roundsByEvent;
 							}
 							if (leaderboardData) {
 								// Sort the entries by score in descending order
