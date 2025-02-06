@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -60,6 +61,9 @@ const (
 const COMP_EMPTY_TEAM_NAME = "___|~~EMPTY TEAM NAME~~|___"
 const COMP_UNASSIGNED_ROUND_EVENT_ID = "fake-event-id-123"
 const COMP_TEAM_ID_PREFIX = "tm_"
+
+// placeholder for unset end time, December 4th, 292,277,026,596 AD, at 20:10:55 UTC
+const DEFAULT_UNDEFINED_END_TIME = math.MaxInt64
 
 // NOTE: these are the default searchable event source types that show up in the home event list view
 var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SINGLE_EVENT, ES_EVENT_SERIES}

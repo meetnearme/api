@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
 // TransformFunc defines the signature for transformer functions
@@ -18,6 +20,13 @@ type TimestampInfo struct {
 
 // TransformerRegistry holds all available transformers
 var TransformerRegistry = map[string]TransformFunc{
+	"add_default_end_time_2025_02_06": func(doc map[string]interface{}) (map[string]interface{}, error) {
+		if _, endTimeExists := doc["endTime"]; !endTimeExists {
+			fmt.Printf("endTime value: %+v", doc["endTime"])
+			doc["endTime"] = helpers.DEFAULT_UNDEFINED_END_TIME
+		}
+		return doc, nil
+	},
 	"add_competition_config_id_2025_01": func(doc map[string]interface{}) (map[string]interface{}, error) {
 		// Check if competitionConfigId already exists
 		if _, exists := doc["competitionConfigId"]; !exists {
