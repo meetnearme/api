@@ -426,6 +426,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	maxLong := userLocation[1] + miToLong(maxDistance, userLocation[0])
 	minLat := userLocation[0] - miToLat(maxDistance)
 	minLong := userLocation[1] - miToLong(maxDistance, userLocation[0])
+	now := time.Now().Unix()
 
 	// Search for events based on the query
 	searchMethod := "HYBRID"
@@ -465,20 +466,20 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		eventSourceIdFilter = fmt.Sprintf("eventSourceId IN (%s) AND ", strings.Join(eventSourceIds, ","))
 	}
 
-	// Update the filter string construction to include the new filters
-	filter := fmt.Sprintf("%s %s %s %s startTime:[%v TO %v] AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]",
+	filter := fmt.Sprintf("%s %s %s %s (startTime:[%v TO %v] OR (endTime:[%v TO %v])) AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]",
 		addressFilter,
 		ownerFilter,
 		eventSourceTypeFilter,
 		eventSourceIdFilter,
 		startTime,
 		endTime,
+		now,
+		helpers.DEFAULT_UNDEFINED_END_TIME-1,
 		maxLong,
 		minLong,
 		maxLat,
 		minLat,
 	)
-
 	indexName := GetMarqoIndexName()
 
 	searchRequest := marqo.SearchRequest{

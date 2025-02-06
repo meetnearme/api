@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -44,6 +45,9 @@ const AUTH_METADATA_KEY = "urn:zitadel:iam:user:metadata"
 
 const DEFAULT_PAGINATION_LIMIT = 50
 const DEFAULT_MAX_RADIUS = 999999
+
+// placeholder for unset end time, December 4th, 292,277,026,596 AD, at 20:10:55 UTC
+const DEFAULT_UNDEFINED_END_TIME = math.MaxInt64
 
 const EventOwnerNameDelimiter = " _|_ "
 
