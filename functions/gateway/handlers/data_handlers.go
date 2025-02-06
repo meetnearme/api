@@ -70,6 +70,7 @@ type rawEvent struct {
 	StartingPrice         *int32      `json:"startingPrice,omitempty"`
 	Currency              *string     `json:"currency,omitempty"`
 	PayeeId               *string     `json:"payeeId,omitempty"`
+	CompetitionConfigId   *string     `json:"competitionConfigId,omitempty"`
 	HasRegistrationFields *bool       `json:"hasRegistrationFields,omitempty"`
 	HasPurchasable        *bool       `json:"hasPurchasable,omitempty"`
 	ImageUrl              *string     `json:"imageUrl,omitempty"`
@@ -89,6 +90,17 @@ type PurchaseResponse struct {
 
 type BulkDeleteEventsPayload struct {
 	Events []string `json:"events" validate:"required,min=1"`
+}
+
+type userMetaResult struct {
+	id      string
+	members []string
+	err     error
+}
+
+type searchResult struct {
+	foundUsers []internal_types.UserSearchResultDangerous
+	err        error
 }
 
 func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
@@ -148,6 +160,9 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	}
 	if raw.EventSourceId != nil {
 		event.EventSourceId = *raw.EventSourceId
+	}
+	if raw.CompetitionConfigId != nil {
+		event.CompetitionConfigId = *raw.CompetitionConfigId
 	}
 	if raw.StartTime == nil {
 		return types.Event{}, fmt.Errorf("startTime is required")
@@ -460,11 +475,24 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			return
 		}
 
+		throwOnMissing := r.URL.Query().Get("throw") == "1"
+
 		// Parse the comma-separated ids
 		ids := strings.Split(idsParam, ",")
 
 		// Validate each ID
 		for _, id := range ids {
+			if strings.HasPrefix(id, "tm_") {
+				err := helpers.ValidateTeamUUID(id)
+				if err != nil {
+					transport.SendServerRes(w,
+						[]byte(fmt.Sprintf(err.Error())),
+						http.StatusBadRequest,
+						nil)
+					return
+				}
+				continue // Skip the numeric validation below for tm_ prefixed IDs
+			}
 			// Check if ID is exactly 18 characters
 			if len(id) != 18 {
 				transport.SendServerRes(w,
@@ -484,18 +512,76 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			}
 		}
 
-		// Search for matching users
-		matches, err := helpers.SearchUsersByIDs(ids, false)
-		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to search users: "+err.Error()), http.StatusInternalServerError, err)
-			return
+		metaChan := make(chan userMetaResult)
+		searchChan := make(chan searchResult)
+
+		// Launch goroutine for SearchUsersByIDs
+		go func() {
+			matches, err := helpers.SearchUsersByIDs(ids, false)
+			searchChan <- searchResult{foundUsers: matches, err: err}
+		}()
+
+		// Launch goroutines for each team ID
+		activeRequests := 0
+		for _, id := range ids {
+			if strings.HasPrefix(id, "tm_") {
+				activeRequests++
+				go func(id string) {
+					membersString, err := helpers.GetOtherUserMetaByID(id, "members")
+					if throwOnMissing && err != nil {
+						metaChan <- userMetaResult{id: id, members: nil, err: err}
+						return
+					}
+					members := []string{}
+					if membersString != "" {
+						members = strings.Split(membersString, ",")
+					}
+					metaChan <- userMetaResult{id: id, members: members, err: nil}
+				}(id)
+			}
+		}
+
+		// Collect results
+		allUserMeta := make(map[string][]string)
+		var foundUsers []internal_types.UserSearchResultDangerous
+		// Handle all responses
+		for i := 0; i <= activeRequests; i++ {
+			select {
+			case metaRes := <-metaChan:
+				if metaRes.err != nil {
+					if throwOnMissing {
+						transport.SendServerRes(w, []byte("Failed to get user meta: "+metaRes.err.Error()), http.StatusInternalServerError, metaRes.err)
+						return
+					}
+					allUserMeta[metaRes.id] = []string{}
+				}
+				allUserMeta[metaRes.id] = metaRes.members
+			case res := <-searchChan:
+				if res.err != nil {
+					transport.SendServerRes(w, []byte("Failed to search users: "+res.err.Error()), http.StatusInternalServerError, res.err)
+					return
+				}
+				foundUsers = res.foundUsers
+			}
+		}
+
+		// Merge the metadata with foundUsers
+		for i, user := range foundUsers {
+			if members, exists := allUserMeta[user.UserID]; exists {
+				// Initialize the Metadata map if it's nil
+				if foundUsers[i].Metadata == nil {
+					foundUsers[i].Metadata = make(map[string]interface{})
+				}
+				// Add the members to the metadata as a comma-separated string
+				foundUsers[i].Metadata["members"] = members
+			}
 		}
 
 		var jsonResponse []byte
-		if len(matches) < 1 {
+		if len(foundUsers) < 1 {
 			jsonResponse = []byte("[]")
 		} else {
-			jsonResponse, err = json.Marshal(matches)
+			jsonResponse, err = json.Marshal(foundUsers)
 			if err != nil {
 				transport.SendServerRes(w, []byte("Failed to create JSON response"), http.StatusInternalServerError, err)
 				return
@@ -692,7 +778,6 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// is an event that does not have `RegistrationFields` or `PurchasableItems`
 	if len(createPurchase.PurchasedItems) == 0 {
 		db := transport.GetDB()
-		log.Printf("createPurchase: %+v", createPurchase)
 		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to insert free purchase into database: "+err.Error()), http.StatusInternalServerError, err)
@@ -777,7 +862,6 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		createPurchase.Status = helpers.PurchaseStatus.Registered // Mark as registered immediately since it's free
 
 		db := transport.GetDB()
-		log.Printf("createPurchase: %+v", createPurchase)
 		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
 			needsRevert = true
@@ -797,7 +881,6 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 			transport.SendServerRes(w, []byte("Failed to marshal purchase response: "+err.Error()), http.StatusInternalServerError, err)
 			return err
 		}
-		log.Printf("purchaseJSON: %s", string(purchaseJSON)) // Conve
 		transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
 		return nil
 	}
@@ -853,17 +936,22 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// Now that the checks are in place, we defer the transaction creation in the database
 	// to respond to the client as quickly as possible
 	defer func() {
+		purchaseService := dynamodb_service.NewPurchaseService()
+		h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
 		createPurchase.Status = helpers.PurchaseStatus.Pending
 
-		log.Printf("db payload `createPurchase`: %+v", createPurchase)
+		// Create the composite key
+		compositeKey := fmt.Sprintf("%s_%s_%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
+
+		// Add the composite key and createdAt to the purchase object
+		createPurchase.CompositeKey = compositeKey
+
 		db := transport.GetDB()
-		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
+		_, err := h.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
 			log.Printf("ERR: failed to insert purchase into purchases database for stripe session ID: %+v, err: %+v", stripeCheckoutResult.ID, err)
 		}
 	}()
-
-	log.Printf("\nstripe result: %+v", stripeCheckoutResult)
 
 	// Create the response object
 	response := PurchaseResponse{

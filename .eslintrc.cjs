@@ -8,7 +8,7 @@ module.exports = {
   },
   parserOptions: {
     ecmaVersion: 'latest',
-    sourceType: 'script'
+    sourceType: 'module'
   },
   settings: {
     'html/html-extensions': ['.html', '.templ'],

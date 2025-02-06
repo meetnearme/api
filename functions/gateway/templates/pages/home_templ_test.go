@@ -38,7 +38,7 @@ func TestHomePage(t *testing.T) {
 	// Test cases
 	tests := []struct {
 		name          string
-		pageUser      *helpers.UserSearchResult
+		pageUser      *types.UserSearchResult
 		expectedItems []string
 	}{
 		{
@@ -52,8 +52,8 @@ func TestHomePage(t *testing.T) {
 		},
 		{
 			name: "With page user",
-			// pageUser: &helpers.UserSearchResult{ID: "1234567890", DisplayName: "Test User", Meta: map[string]string{"about": "Welcome to Brian's Pub"}},
-			pageUser: &helpers.UserSearchResult{
+			// pageUser: &types.UserSearchResult{ID: "1234567890", DisplayName: "Test User", Meta: map[string]string{"about": "Welcome to Brian's Pub"}},
+			pageUser: &types.UserSearchResult{
 				UserID:      "1234567890",
 				DisplayName: "Brian Feister",
 			},
@@ -66,7 +66,7 @@ func TestHomePage(t *testing.T) {
 		},
 		{
 			name: "With page user and `about` section",
-			pageUser: &helpers.UserSearchResult{
+			pageUser: &types.UserSearchResult{
 				UserID:      "1234567890",
 				DisplayName: "Brian's Pub",
 				Metadata: map[string]string{
@@ -78,7 +78,7 @@ func TestHomePage(t *testing.T) {
 				"Test Event 2",
 				"New York, US",
 				"data-page-user-id=\"1234567890\"",
-				"Welcome to Brian&#39;s Pub",
+				"Welcome to Brian's Pub",
 				"Brian&#39;s Pub</h1>",
 			},
 		},

@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64) {
+templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64, isCompetitionAdmin bool) {
 	<div
 		x-data="getAddEditEventState()"
 		@child-updated.window="formData.eventChildren[$event.detail.index] = $event.detail.value"
@@ -267,7 +267,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					type="datetime-local"
 					x-model.fill={ "formData.event.startTime" }
 					if (event.StartTime > 0) {
-						value={ helpers.GetDatetimePickerFormatted(event.StartTime, event.Timezone) }
+						value={ helpers.GetDatetimePickerFormatted(event.StartTime, &event.Timezone) }
 					}
 					:disabled="saveReqInFlight"
 				/>
@@ -279,7 +279,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					type="datetime-local"
 					x-model.fill={ "formData.event.endTime" }
 					if (event.EndTime > 0) {
-						value={ helpers.GetDatetimePickerFormatted(event.EndTime, event.Timezone) }
+						value={ helpers.GetDatetimePickerFormatted(event.EndTime, &event.Timezone) }
 					}
 					:disabled="saveReqInFlight"
 				/>
@@ -341,7 +341,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					<div>
 						if event.EventSourceType == helpers.ES_SERIES_PARENT {
 							<div
-								hx-get={ "/api/html/event-series-form/" + event.Id + "?&event_source_ids=" + event.Id }
+								hx-get={ "/api/html/event-series-form/" + event.Id + "?&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES }
 								hx-trigger="load"
 								hx-swap="outerHTML"
 								@htmx:after-request="setEventChildrenLoaded()"
@@ -357,11 +357,14 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							</div>
 						}
 						<div>
-							<template x-for="(child, idx) in formData.eventChildren" :key="child.startTime || child.id">
+							<template x-for="(child, idx) in formData.eventChildren" :key="child.id">
 								<div
+									x-ref="childContainer"
 									x-data="{ hidden: false, contentHeight: 0 }"
 									x-init="contentHeight = $el.scrollHeight"
-									class="transition-all duration-300 ease-in-out overflow-hidden"
+									@child-content-changed.window="$nextTick(() => contentHeight = $el.scrollHeight)"
+									class="transition-all duration-300 ease-in-out bg-base-200"
+									:class="hidden ? 'overflow-hidden' : '' "
 									:style="hidden ? 'max-height: 0px' : `max-height: ${contentHeight}px`"
 								>
 									<div class="divider my-3"></div>
@@ -393,9 +396,58 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 												type="datetime-local"
 												name={ string(` 'event_' + idx + '_' + ` + string(diffField[0])) }
 												x-model={ "formData.eventChildren[idx]." + strings.ToLower(string(diffField[0])) + diffField[1:] }
-												:disabled="saveReqInFlight"
 											/>
 										}
+									</div>
+									<template x-if="child.competitionConfigId">
+										<div class="form-control">
+											<label class="label">Competition Config</label>
+											<a class="link link-primary" :href="'/admin/competition/' + child.competitionConfigId + '/edit' ">
+												View Competition Config
+											</a>
+											<input disabled type="hidden" name="competitionConfigId" x-model.fill="child.competitionConfigId"/>
+											<template x-if="child?.competitionConfigId && !competitionRoundsLoaded">
+												<div class="flex justify-between items-center">
+													<div>Loading competition rounds...</div>
+													<span class="loading loading-spinner loading-sm"></span>
+												</div>
+											</template>
+											<template x-if="child?.competitionConfigId && competitionRoundsLoaded">
+												<template x-for="(competitionRound, index) in child.competitionRounds">
+													<div class="flex justify-between items-center">
+														<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
+														<button
+															@click="handleRemoveCompetitionRoundFromEvent(competitionRound, child)"
+															class="btn btn-ghost btn-circle btn-sm"
+															:disabled="competitionRound.isRemoving || saveReqInFlight"
+															aria-label="remove this competition round from event"
+														>
+															<template x-if="!competitionRound.isRemoving">
+																<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+																</svg>
+															</template>
+															<template x-if="competitionRound.isRemoving">
+																<span class="loading loading-spinner loading-sm"></span>
+															</template>
+														</button>
+													</div>
+												</template>
+											</template>
+										</div>
+									</template>
+									<div class="dropdown">
+										<div tabindex="0" role="button" class="btn btn-outline m-1 mt-2">
+											Override Parent Event
+										</div>
+										<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
+											<li>
+												<a @click="addChildCompetition(child)">
+													<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
+													&nbsp;Add Competition
+												</a>
+											</li>
+										</ul>
 									</div>
 								</div>
 							</template>
@@ -668,7 +720,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 													x-model="purchasable.expires_on"
 												/>
 											</div>
-											<!-- Other fields... -->
 											<div class="form-control">
 												<label class="label">Inventory</label>
 												<input
@@ -763,6 +814,66 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				</div>
 			</div>
 		</div>
+		// <dialog id="add-competition-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+		// 	<div class="modal-box">
+		// 		<h3 class="text-lg font-bold">YAY!</h3>
+		// 		<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+		// 		<form method="dialog" class="modal-backdrop">
+		// 			<!-- if there is a button in form, it will close the modal -->
+		// 			<button class="btn btn-primary">Close</button>
+		// 		</form>
+		// 	</div>
+		// </dialog>
+		<dialog id="add-competition-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+			<div class="modal-box">
+				<h3 class="text-lg font-bold">Add Competition to Event</h3>
+				<p class="py-4">Choose a competition to add to this event</p>
+				<select x-model="competitionModalCompetitionSelection" class="select select-bordered" @change="handleCompetitionSelection(competitionModalCompetitionSelection)">
+					<option value="">Select a competition</option>
+					<template x-for="competition in competitionConfigs">
+						<option :value="competition.id"><span x-text="competition.name"></span></option>
+					</template>
+				</select>
+				<template x-if="competitionModalCompetitionSelection">
+					<div>
+						<h3 class="text-lg font-bold my-4">Add Rounds to this Event</h3>
+						<p class="py-4">Choose rounds to add to this event</p>
+						<template x-if="competitionModalRoundsLoading">
+							<div>
+								Loading rounds...
+								<span class="loading loading-spinner loading-sm"></span>
+							</div>
+						</template>
+						<template x-if="competitionModalRounds.length > 0">
+							<div class="space-y-2">
+								<template x-for="round in competitionModalRounds" :key="round.roundNumber">
+									<div class="form-control">
+										<label class="flex items-center gap-2 cursor-pointer">
+											<input
+												type="checkbox"
+												class="checkbox my-2"
+												:value="round.roundNumber"
+												x-model="competitionModalRoundSelections"
+											/>
+											<span x-text="round.roundName"></span>
+										</label>
+									</div>
+								</template>
+							</div>
+						</template>
+						<button class="btn btn-primary mt-4" @click="handleAddRoundClick()">
+							Add Selected Rounds
+							<template x-if="saveReqInFlight">
+								<span class="loading loading-spinner loading-sm"></span>
+							</template>
+						</button>
+					</div>
+				</template>
+			</div>
+			<form method="dialog" class="modal-backdrop">
+				<button>close</button>
+			</form>
+		</dialog>
 		<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
 			<button class="btn btn-outline">Cancel</button>
 			<button :disabled="saveReqInFlight" @click="handlePublishClick()" class="btn btn-primary mx-4">
@@ -771,16 +882,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					<span class="loading loading-spinner loading-sm"></span>
 				</template>
 			</button>
-			<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
-				<div class="modal-box">
-					<h3 class="text-lg font-bold">YAY!</h3>
-					<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
-					<form method="dialog" class="modal-backdrop">
-						<!-- if there is a button in form, it will close the modal -->
-						<button class="btn btn-primary">Close</button>
-					</form>
-				</div>
-			</dialog>
 		</div>
 		<template x-if="showToast === true">
 			<div class="toast m-4 z-50 ">
@@ -793,26 +894,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 			</div>
 		</template>
 	</div>
-	// 	<div class="bottom-drawer">
-	// 		<div class="container mx-auto">
-	// 			<button class="btn btn-block btn-primary">Cancel</button>
-	// 			<br/>
-	// 			<br/>
-	// 			<button class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Save Changes</button>
-	// 			<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
-	// 				<div class="modal-box">
-	// 					<h3 class="text-lg font-bold">YAY!</h3>
-	// 					<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
-	// 					<form method="dialog" class="modal-backdrop">
-	// 						<!-- if there is a button in form, it will close the modal -->
-	// 						<button class="btn btn-primary">Close</button>
-	// 					</form>
-	// 				</div>
-	// 			</dialog>
-	// 		</div>
-	// 	</div>
-	// </div>
-	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) }>
+	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-config-id={ event.CompetitionConfigId } data-is-competition-admin={ strconv.FormatBool(isCompetitionAdmin) } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID }>
 
 	function getAddEditEventState() {
 		return {
@@ -824,6 +906,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 									return { label: ownerNames?.[idx], value: ownerId };
 								});
 								this.allOptions = this.owners
+
 								if (this.formData.event.hasPurchasable) {
 									try {
 										const purchasablesResponse = await fetch(`/api/purchasables/${this.formData.event.id}`);
@@ -878,11 +961,87 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 									this.registrationFields = [];
 									this.registrationFieldsLoaded = true;
 								}
+
+								if (this.isCompetitionAdmin) {
+									await fetch(`/api/competition-config/owner`).then(res => {
+										return res.json()
+									}).then(json => {
+										this.competitionConfigs = json
+									});
+								}
+
+								try {
+										// Wait for eventChildrenLoaded using a Promise
+										await new Promise((resolve) => {
+												const checkLoaded = () => {
+														if (this.eventChildrenLoaded) {
+																resolve();
+														} else {
+																setTimeout(checkLoaded, 100);
+														}
+												};
+												checkLoaded();
+										});
+
+										const allEvents = [this.formData.event, ...Object.values(this.formData.eventChildren)]
+										const competitionIdsToFetch = []
+										const promises = []
+										allEvents.forEach(event => {
+											if (event.competitionConfigId) {
+												competitionIdsToFetch.push(event.competitionConfigId)
+											}
+										})
+
+										competitionIdsToFetch.forEach(competitionId => {
+											promises.push(fetch(`/api/competition-round/competition/${competitionId}`))
+										})
+										this.competitionRoundsLoaded = false
+										const roundResponses = await Promise.all(promises)
+										const roundData = await Promise.all(roundResponses.map(r => r.json()))
+										// Flatten the array of round data arrays
+										const flattenedRoundData = roundData.flat()
+										flattenedRoundData.forEach(round => {
+												// Check parent event first
+												if (this.formData.event.id === round.eventId) {
+														if (!this.formData.event.competitionRounds) {
+																this.formData.event.competitionRounds = [];
+														}
+														this.formData.event.competitionRounds.push(round);
+												} else {
+														// Check children events
+														const childIndex = this.formData.eventChildren.findIndex(
+																child => child.id === round.eventId
+														);
+														if (childIndex !== -1) {
+																// instantiate if empty, otherwise keep the existing array
+																// this.formData.eventChildren[childIndex].competitionRounds = this.formData.eventChildren[childIndex]?.competitionRounds || []
+																// this.formData.eventChildren[childIndex].competitionRounds.push(round);
+																if (!this.formData.eventChildren[childIndex]?.competitionRounds?.find?.(r => r.roundNumber === round.roundNumber)) {
+																	if (!Array.isArray(this.formData.eventChildren[childIndex]?.competitionRounds)) {
+																		this.formData.eventChildren[childIndex].competitionRounds = []
+																	}
+																	this.formData.eventChildren[childIndex].competitionRounds.push(round);
+																}
+														}
+												}
+										});
+
+
+										this.competitionRoundsLoaded = true
+										this.$nextTick(() => {
+											// Dispatch event to trigger event child height recalculation
+											window.dispatchEvent(new CustomEvent('child-content-changed'));
+										});
+								} catch (error) {
+									// eslint-disable-next-line no-console
+									console.error('Error fetching event children:', error);
+								}
 						})()
 					},
 					formData: {
 						eventChildren: [],
 						event: {
+							competitionConfigId: document.querySelector('#add-edit-event').getAttribute('data-competition-config-id') ?? null,
 							id: document.querySelector('#add-edit-event').getAttribute('data-event-id') ?? null,
 							eventSourceId: document.querySelector('#add-edit-event').getAttribute('data-event-source-id') ?? null,
 							eventOwners: JSON.parse(document.querySelector('#add-edit-event').getAttribute('data-event-owners')) ?? [],
@@ -899,7 +1058,16 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							hideCrossPromo: document.querySelector('[name=hideCrossPromo]').checked ?? false,
 						},
 					},
-
+					isCompetitionAdmin: document.querySelector('#add-edit-event').getAttribute('data-is-competition-admin') ?? false,
+					roundEmptyEventId: document.querySelector('#add-edit-event').getAttribute('data-round-empty-event-id') ?? null,
+					competitionConfigs: [],
+					competitionModalIndex: null,
+					competitionModalEventSelection: null,
+					competitionModalCompetitionSelection: null,
+					competitionModalRounds: [],
+					competitionModalRoundsLoading: false,
+					competitionRoundsLoaded: false,
+					competitionModalRoundSelections: [],
 					eventDetailUrl: document.querySelector('#add-edit-event').getAttribute('data-event-detail-url') ?? null,
 					eventChildrenLoaded: false,
 					purchasablesLoaded: false,
@@ -926,7 +1094,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					// The API expects RFC3339 HH:MM:SS, but datetime-local is in HH:MM
 					timeZuluSuffix: ":00Z",
 					// BEGIN: Event Owners typeahead state
-
 					allOptions: [],
 					options: [],
 					isOpen: false,
@@ -965,16 +1132,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							this.$nextTick(() => {
 								document.querySelector('[x-ref=ownerSearch]').focus();
 							})
-					},
-					getFilteredOptions(query) {
-							this.options = this.allOptions.filter((option) =>
-									option.label.toLowerCase().includes(query.toLowerCase()),
-							)
-							if (this.options.length === 0) {
-									this.$refs.noResultsMessage.classList.remove('hidden')
-							} else {
-									this.$refs.noResultsMessage.classList.add('hidden')
-							}
 					},
 					handleKeydownOnOptions(event) {
 							// if the user presses backspace or the alpha-numeric keys, focus on the search field
@@ -1028,19 +1185,20 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						})
 					},
 					transformEventToPayload(event) {
-						const eventFiltered = Object.fromEntries(
-							Object.entries(event)
+						const _event = JSON.parse(JSON.stringify(event))
+						const _eventFiltered = Object.fromEntries(
+							Object.entries(_event)
 								// eslint-disable-next-line no-unused-vars
 								.filter(([_, value]) => value !== '')
 						)
-						if (!event.hasPurchasable) {
-							delete eventFiltered.startingPrice
-							delete eventFiltered.currency
-							delete eventFiltered.payeeId
+						if (!_event.hasPurchasable) {
+							delete _eventFiltered.startingPrice
+							delete _eventFiltered.currency
+							delete _eventFiltered.payeeId
 						}
 
 						return {
-							...eventFiltered,
+							..._eventFiltered,
 							startTime: this.formData.event.startTime ? this.formData.event.startTime + this.timeZuluSuffix : null,
 							endTime: this.formData.event.endTime ? this.formData.event.endTime + this.timeZuluSuffix : null,
 							lat: parseFloat(this.formData.event.lat),
@@ -1224,19 +1382,176 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						});
 					},
 
+					addChildCompetition(event) {
+						this.competitionModalEventSelection = event
+						document.getElementById('add-competition-modal').showModal()
+					},
+
+					async handleCompetitionSelection(competitionId) {
+						this.competitionModalCompetitionSelection = competitionId
+						this.competitionModalRoundsLoading = true
+						try {
+							const response = await fetch(`/api/competition-round/competition/${competitionId}`)
+							if (!response.ok) {
+								throw new Error(`HTTP error! status: ${response.status}`)
+							}
+							const json = await response.json()
+							this.$nextTick(() => {
+								this.competitionModalRounds = json
+							})
+						} catch (error) {
+							// eslint-disable-next-line no-console
+							console.error('Error fetching rounds:', error)
+						} finally {
+							this.competitionModalRoundsLoading = false
+						}
+					},
+
+					async handleAddRoundClick() {
+							this.saveReqInFlight = true
+							// First update local state
+							if (this.formData.event.id === this.competitionModalEventSelection.id) {
+									this.formData.event.competitionConfigId = this.competitionModalCompetitionSelection;
+									this.formData.event.competitionRounds = [...this.competitionModalRounds.filter(round =>
+											this.competitionModalRoundSelections.includes(round.roundNumber.toString())
+									)]
+							} else {
+									// Check children events
+									const childIndex = this.formData.eventChildren.findIndex(child => child.id === this.competitionModalEventSelection.id);
+									if (childIndex !== -1) {
+											this.formData.eventChildren[childIndex].competitionConfigId = this.competitionModalCompetitionSelection;
+											this.formData.eventChildren[childIndex].competitionRounds = [...this.competitionModalRounds.filter(round =>
+													this.competitionModalRoundSelections.includes(round.roundNumber.toString())
+											)]
+									}
+							}
+
+							// Create array of round updates
+							const roundsUpdatePayload = this.competitionModalRounds.filter(round =>
+									this.competitionModalRoundSelections.includes(round.roundNumber.toString())
+							).map(round => ({
+									...round,
+									eventId: this.competitionModalEventSelection.id,
+									competitionId: this.competitionModalCompetitionSelection
+							}));
+
+							// Send update request
+							try {
+								const response = await fetch(`/api/competition-round/${this.competitionModalCompetitionSelection}`, {
+										method: 'PUT',
+										headers: {
+											'Content-Type': 'application/json',
+									},
+									body: JSON.stringify(roundsUpdatePayload),
+								});
+								if (!response.ok) {
+									throw new Error(`HTTP error! status: ${response.status}`)
+								}
+								await response.json()
+
+								const allEvents = [this.formData.event, ...Object.values(this.formData.eventChildren)]
+
+								roundsUpdatePayload.forEach(round => {
+									// find all event.competitionRounds with the given roundNumber
+									// if there are multiple, we need to prune one of them
+									const events = allEvents.filter(event => event?.competitionRounds?.find(r => r.roundNumber === round.roundNumber));
+									if (events.length > 0) {
+										events.forEach(event => {
+											// prune the round from `event.competitionRounds` if `round.eventId` DOES NOT match `event.id`
+											if (round.eventId !== event.id) {
+												const newVal = event.competitionRounds.filter(r => r.roundNumber !== round.roundNumber);
+												event.competitionRounds = newVal;
+											}
+										})
+									}
+								});
+							} catch (error) {
+								// eslint-disable-next-line no-console
+								console.error('Error adding rounds:', error)
+							} finally {
+
+
+								this.$nextTick(() => {
+									// Dispatch event to trigger event child height recalculation
+									window.dispatchEvent(new CustomEvent('child-content-changed'));
+								});
+
+								// Close the modal
+								document.getElementById('add-competition-modal').close();
+
+								// Reset selections
+								this.competitionModalEventSelection = null;
+								this.competitionModalCompetitionSelection = null;
+								this.competitionModalRounds = [];
+								this.competitionModalRoundSelections = [];
+								this.saveReqInFlight = false
+						}
+					},
+
+					async handleRemoveCompetitionRoundFromEvent(competitionRound, child) {
+						// Set loading state for this specific round
+						competitionRound.isRemoving = true;
+
+						try {
+								const _competitionRound = JSON.parse(JSON.stringify(competitionRound))
+								let _roundUpdate = {
+									..._competitionRound,
+									eventId: this.roundEmptyEventId
+								}
+								delete _roundUpdate.isRemoving
+								const response = await fetch(`/api/competition-round/${competitionRound.competitionId}`, {
+										method: 'PUT',
+										headers: {
+												'Content-Type': 'application/json',
+										},
+										body: JSON.stringify([_roundUpdate]),
+								});
+
+								if (!response.ok) {
+										throw new Error('Failed to remove competition round');
+								}
+
+								// Remove the round from child.competitionRounds
+								child.competitionRounds = child.competitionRounds.filter(round =>
+										round.roundNumber !== competitionRound.roundNumber
+								);
+
+								// Update allCompetitionRounds if it exists
+								if (this.allCompetitionRounds) {
+										this.allCompetitionRounds = this.allCompetitionRounds.filter(round =>
+												!(round.roundNumber === competitionRound.roundNumber &&
+													round.competitionConfigId === competitionRound.competitionConfigId)
+										);
+								}
+
+						} catch (error) {
+								// eslint-disable-next-line no-console
+								console.error('Error removing competition round from event:', error);
+								// Reset loading state on error
+								competitionRound.isRemoving = false;
+
+								this.showToast = true;
+								this.toastContent = {
+										type: 'error',
+										message: 'Failed to remove competition round'
+								};
+						}
+					},
+
 					async handlePublishClick() {
 						this.saveReqInFlight = true
-
-						const parentEvent = this.transformEventToPayload(this.formData.event)
+						const _parentEvent = JSON.parse(JSON.stringify(this.transformEventToPayload(this.formData.event)))
 						this.purchasables = this.purchasables.map(p => ({
 							...p,
 							currency: this.formData.event.currency,
 						}))
 						// NOTE: never set the eventSourceId on the parent event, it IS the parent
-						delete parentEvent.eventSourceId
+						delete _parentEvent.eventSourceId
+						delete _parentEvent.competitionRounds
+
 						let payload = {
 							events: [{
-								...parentEvent,
+								..._parentEvent,
 							}],
 							purchasableUpdate: {
 								event_id: this.formData.event.id,
@@ -1260,13 +1575,17 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								// body size limit constraints. The API will
 								// always take the parent event's description
 								// and seed it to each child event
-								delete parentEvent.description
-								delete child.description
+								const _childEvent = JSON.parse(JSON.stringify(child))
+
+								delete _parentEvent.description
+								delete _childEvent.description
+
+								delete _childEvent.competitionRounds
 								// NOTE: never override the child event's id with the parent id
-								delete parentEvent.id
+								delete _parentEvent.id
 								payload.events.push({
-									...parentEvent,
-									...child,
+									..._parentEvent,
+									..._childEvent,
 									eventSourceId: this.formData.event.id,
 									startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
 									endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,

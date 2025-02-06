@@ -78,10 +78,11 @@ jobs:
           PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET: ${{ secrets.PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
           CLOUDFLARE_API_BASE_URL: ${{ secrets.CLOUDFLARE_API_BASE_URL }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE: ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE }}
           CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }}
+          USER_TEAM_EMAIL_SCHEMA: ${{ secrets.USER_TEAM_EMAIL_SCHEMA }}
+          USER_TEAM_PASSWORD: ${{ secrets.USER_TEAM_PASSWORD }}
           # Not set because this is dynamic in lower environments
           # APEX_URL: ${{ secrets.APEX_URL }}
       - name: Generate Cloudflare locations Go file
@@ -96,7 +97,6 @@ jobs:
       #   uses: cloudflare/wrangler-action@v3.7.0
       #   env:
       #     CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      #     CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
       #   with:
       #     apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       #     accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

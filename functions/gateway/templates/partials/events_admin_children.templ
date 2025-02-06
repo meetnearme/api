@@ -18,7 +18,7 @@ type FieldDiff struct {
 var AlwaysShowEventDiffFields = []string{"StartTime", "EndTime"}
 
 func GetChildEventFields(parent types.Event, child types.Event) []FieldDiff {
-	allowList := []string{"StartTime", "EndTime", "Id"}
+	allowList := []string{"StartTime", "EndTime", "Id", "CompetitionConfigId"}
 	childFields := []FieldDiff{}
 	allowMap := make(map[string]bool)
 	for _, field := range allowList {
@@ -86,7 +86,7 @@ func HasValidOverride(fieldName string, parentValue interface{}, childValue inte
 }
 
 templ EventAdminChildren(eventParent types.Event, eventChildren []types.Event) {
-	if eventParent.EventSourceType != "SLF_EVS" {
+	if eventParent.EventSourceType != helpers.ES_SERIES_PARENT {
 		<div>This event is not a series</div>
 		return
 	}
@@ -114,11 +114,12 @@ templ EventAdminChildren(eventParent types.Event, eventChildren []types.Event) {
 						// NOTE: we simply push hidden fields here in order for Alpine to pick them up on the
 						// front end in a for loop. The only purpose of these inivisible fields is to propagate
 						// the data model to the front end via `x-model.fill`
+						{{ camelCaseFieldName := strings.ToLower(string(child.FieldName[0])) + child.FieldName[1:] }}
 						if child.FieldName == "Id" {
 							<input
 								class="hidden"
 								name={ string("event_" + strconv.Itoa(idx) + "_" + string(child.FieldName)) }
-								x-model.fill={ "formData.eventChildren[" + strconv.Itoa(idx) + "]." + strings.ToLower(string(child.FieldName[0])) + child.FieldName[1:] }
+								x-model.fill={ "formData.eventChildren[" + strconv.Itoa(idx) + "]." + camelCaseFieldName }
 								if (child.ChildValue != "" ) {
 									value={ string(child.ChildValue.(string)) }
 								}
@@ -129,10 +130,19 @@ templ EventAdminChildren(eventParent types.Event, eventChildren []types.Event) {
 								class="hidden"
 								type="datetime-local"
 								name={ string("event_" + strconv.Itoa(idx) + "_" + string(child.FieldName)) }
-								x-model.fill={ "formData.eventChildren[" + strconv.Itoa(idx) + "]." + strings.ToLower(string(child.FieldName[0])) + child.FieldName[1:] }
+								x-model.fill={ "formData.eventChildren[" + strconv.Itoa(idx) + "]." + camelCaseFieldName }
 								if (child.ChildValue != "" && child.ChildValue.(int64) != 0) {
-									value={ helpers.GetDatetimePickerFormatted(child.ChildValue.(int64), eventParent.Timezone) }
+									value={ helpers.GetDatetimePickerFormatted(child.ChildValue.(int64), &eventParent.Timezone) }
 								}
+							/>
+						}
+						if child.FieldName == "CompetitionConfigId" {
+							<input
+								class="hidden"
+								type="text"
+								name={ string("event_" + strconv.Itoa(idx) + "_" + string(child.FieldName)) }
+								x-model.fill={ "formData.eventChildren[" + strconv.Itoa(idx) + "]." + camelCaseFieldName }
+								value={ child.ChildValue.(string) }
 							/>
 						}
 					}

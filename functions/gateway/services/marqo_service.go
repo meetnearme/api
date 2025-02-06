@@ -378,6 +378,9 @@ func ConvertEventsToDocuments(events []types.Event) (documents []interface{}) {
 		if event.HideCrossPromo {
 			document["hideCrossPromo"] = bool(event.HideCrossPromo)
 		}
+		if event.CompetitionConfigId != "" {
+			document["competitionConfigId"] = string(event.CompetitionConfigId)
+		}
 
 		documents = append(documents, document)
 	}
@@ -388,6 +391,7 @@ func ConvertEventsToDocuments(events []types.Event) (documents []interface{}) {
 func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
 	// Bulk upsert multiple events
 	documents := ConvertEventsToDocuments(events)
+	log.Printf(">>> 394 documents: %+v", documents)
 	indexName := GetMarqoIndexName()
 	req := marqo.UpsertDocumentsRequest{
 		Documents: documents,
@@ -422,6 +426,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	maxLong := userLocation[1] + miToLong(maxDistance, userLocation[0])
 	minLat := userLocation[0] - miToLat(maxDistance)
 	minLong := userLocation[1] - miToLong(maxDistance, userLocation[0])
+	now := time.Now().Unix()
 
 	// Search for events based on the query
 	searchMethod := "HYBRID"
@@ -461,20 +466,20 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		eventSourceIdFilter = fmt.Sprintf("eventSourceId IN (%s) AND ", strings.Join(eventSourceIds, ","))
 	}
 
-	// Update the filter string construction to include the new filters
-	filter := fmt.Sprintf("%s %s %s %s startTime:[%v TO %v] AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]",
+	filter := fmt.Sprintf("%s %s %s %s (startTime:[%v TO %v] OR (endTime:[%v TO %v])) AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]",
 		addressFilter,
 		ownerFilter,
 		eventSourceTypeFilter,
 		eventSourceIdFilter,
 		startTime,
 		endTime,
+		now,
+		helpers.DEFAULT_UNDEFINED_END_TIME-1,
 		maxLong,
 		minLong,
 		maxLat,
 		minLat,
 	)
-
 	indexName := GetMarqoIndexName()
 
 	searchRequest := marqo.SearchRequest{
@@ -677,7 +682,6 @@ func BulkGetMarqoEventByID(client *marqo.Client, docIds []string, parseDates str
 		log.Printf("Failed to get documents: %v", err)
 		return nil, err
 	}
-
 	// Check if no documents were found
 	if len(res.Results) == 1 && res.Results[0]["_found"] == false {
 		log.Printf("No documents found for the given IDs, %v", docIds)
@@ -735,20 +739,21 @@ func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Even
 	}
 
 	event = &types.Event{
-		Id:              getValue[string](doc, "_id"),
-		EventOwners:     getStringSlice(doc, "eventOwners"),
-		EventOwnerName:  getValue[string](doc, "eventOwnerName"),
-		EventSourceId:   getValue[string](doc, "eventSourceId"),
-		EventSourceType: getValue[string](doc, "eventSourceType"),
-		Name:            getValue[string](doc, "name"),
-		Description:     getValue[string](doc, "description"),
-		StartTime:       startTimeInt,
-		Address:         getValue[string](doc, "address"),
-		Lat:             getValue[float64](doc, "lat"),
-		Long:            getValue[float64](doc, "long"),
-		Timezone:        *loc,
-		Categories:      getStringSlice(doc, "categories"),
-		Tags:            getStringSlice(doc, "tags"),
+		Id:                  getValue[string](doc, "_id"),
+		EventOwners:         getStringSlice(doc, "eventOwners"),
+		EventOwnerName:      getValue[string](doc, "eventOwnerName"),
+		EventSourceId:       getValue[string](doc, "eventSourceId"),
+		EventSourceType:     getValue[string](doc, "eventSourceType"),
+		Name:                getValue[string](doc, "name"),
+		Description:         getValue[string](doc, "description"),
+		StartTime:           startTimeInt,
+		Address:             getValue[string](doc, "address"),
+		Lat:                 getValue[float64](doc, "lat"),
+		Long:                getValue[float64](doc, "long"),
+		Timezone:            *loc,
+		Categories:          getStringSlice(doc, "categories"),
+		Tags:                getStringSlice(doc, "tags"),
+		CompetitionConfigId: getValue[string](doc, "competitionConfigId"),
 	}
 
 	// Handle optional fields
@@ -833,6 +838,11 @@ func NormalizeMarqoDocOrSearchRes(doc map[string]interface{}) (event *types.Even
 		{"hideCrossPromo", func() {
 			if v := getValue[bool](doc, "hideCrossPromo"); v {
 				event.HideCrossPromo = v
+			}
+		}},
+		{"competitionConfigId", func() {
+			if v := getValue[string](doc, "competitionConfigId"); v != "" {
+				event.CompetitionConfigId = v
 			}
 		}},
 	}

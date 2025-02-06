@@ -24,6 +24,7 @@ function updateCSSFiles(css, result) {
   const newFileName = `${baseStylesPath}.${newHash}.css`;
   const templatePath = 'functions/gateway/templates/pages/layout.templ';
   // Always copy the file in production mode
+  // eslint-disable-next-line no-undef
   if (process.env.NODE_ENV === 'production') {
     if (fs.existsSync(tempFile)) {
       fs.copyFileSync(tempFile, newFileName);
