@@ -49,7 +49,6 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 	}
 
-	// Join all parts before the base domain
 	if baseIndex > 0 {
 		subdomain = strings.Join(parts[:baseIndex], ".")
 	}
