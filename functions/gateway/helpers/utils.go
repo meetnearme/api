@@ -624,8 +624,30 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	return nil
 }
 
+// Define a struct for the request payload
+type createUserPayload struct {
+	UserID string `json:"userId"`
+	Email  struct {
+		Email      string `json:"email"`
+		IsVerified bool   `json:"isVerified"`
+	} `json:"email"`
+	Password struct {
+		Password       string `json:"password"`
+		ChangeRequired bool   `json:"changeRequired"`
+	} `json:"password"`
+	Profile struct {
+		GivenName   string `json:"givenName"`
+		FamilyName  string `json:"familyName"`
+		NickName    string `json:"nickName"`
+		DisplayName string `json:"displayName"`
+	} `json:"profile"`
+	Metadata []struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	} `json:"metadata"`
+}
+
 func CreateTeamUserWithMembers(displayName, candidateUUID string, members []string) (types.UserSearchResultDangerous, error) {
-	log.Printf("628 DEBUG: displayName: %s, candidateUUID: %s, members: %v", displayName, candidateUUID, members)
 	err := ValidateTeamUUID(candidateUUID)
 	if err != nil {
 		return types.UserSearchResultDangerous{}, err
@@ -635,55 +657,56 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
 	password := os.Getenv("USER_TEAM_PASSWORD")
 	email := strings.Replace(emailSchema, "<replace>", candidateUUID, 1)
 
-	firstPartName := strings.Split(displayName, " ")[0]
-	secondPartName := strings.Split(displayName, " ")[1]
+	nameParts := strings.SplitN(displayName, " ", 2)
+	if len(nameParts) < 2 {
+		return types.UserSearchResultDangerous{}, fmt.Errorf("display name must contain first and last name")
+	}
+	firstPartName := nameParts[0]
+	secondPartName := nameParts[1]
 
-	var metadataItems []string
+	// Create the payload struct
+	payload := createUserPayload{
+		UserID: candidateUUID,
+	}
+	payload.Email.Email = email
+	payload.Email.IsVerified = true
+	payload.Password.Password = password
+	payload.Password.ChangeRequired = false
+	payload.Profile.GivenName = firstPartName
+	payload.Profile.FamilyName = secondPartName
+	payload.Profile.NickName = displayName
+	payload.Profile.DisplayName = displayName
 
-	// Only add members metadata if there are members
-	if len(members) > 0 && members != nil {
-		// NOTE: IMPORTANT: `strings.Join()` will return an empty string if the array is empty
-		metadataItems = append(metadataItems, `{
-			"key": "members",
-			"value": "`+base64.StdEncoding.EncodeToString([]byte(strings.Join(members, ",")))+`"
-		}`)
+	// Add metadata
+	if len(members) > 0 {
+		payload.Metadata = append(payload.Metadata, struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		}{
+			Key:   "members",
+			Value: base64.StdEncoding.EncodeToString([]byte(strings.Join(members, ","))),
+		})
 	}
 
-	// Add userType metadata (always included)
-	metadataItems = append(metadataItems, `{
-		"key": "userType",
-		"value": "`+base64.StdEncoding.EncodeToString([]byte("team"))+`"
-	}`)
+	payload.Metadata = append(payload.Metadata, struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}{
+		Key:   "userType",
+		Value: base64.StdEncoding.EncodeToString([]byte("team")),
+	})
 
-	// Join metadata items with commas
-	metadataJSON := strings.Join(metadataItems, ",")
-
-	payload := strings.NewReader(`{
-        "userId": "` + candidateUUID + `",
-        "email": {
-            "email": "` + email + `",
-            "isVerified": true
-        },
-        "password": {
-            "password": "` + password + `",
-            "changeRequired": false
-        },
-        "profile": {
-            "givenName": "` + firstPartName + `",
-            "familyName": "` + secondPartName + `",
-            "nickName": "` + firstPartName + ` ` + secondPartName + `",
-            "displayName": "` + firstPartName + ` ` + secondPartName + `"
-        },
-        "metadata": [` + metadataJSON + `]
-    }`)
-
-	log.Printf("679 DEBUG: payload: %+v", payload)
+	// Marshal the payload struct to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, fmt.Errorf("failed to marshal payload: %w", err)
+	}
 
 	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/human", os.Getenv("ZITADEL_INSTANCE_HOST"))
 	method := "POST"
 
 	client := &http.Client{}
-	req, err := http.NewRequest(method, url, payload)
+	req, err := http.NewRequest(method, url, bytes.NewReader(jsonPayload))
 	if err != nil {
 		return types.UserSearchResultDangerous{}, err
 	}
@@ -707,8 +730,6 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
 	if err := json.Unmarshal(body, &respData); err != nil {
 		return types.UserSearchResultDangerous{}, err
 	}
-
-	log.Printf("710 DEBUG: respData: %v", respData)
 
 	return respData, nil
 }

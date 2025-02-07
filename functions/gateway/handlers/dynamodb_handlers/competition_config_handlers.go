@@ -67,9 +67,7 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 	// Store teams data before removing it from the struct
 	teamsData := updateCompetitionConfigPayload.Teams
 
-	log.Printf("70 DEBUG: teamsData: %v", teamsData)
 	roundsData := updateCompetitionConfigPayload.Rounds
-	log.Printf("72 DEBUG: roundsData: %v", roundsData)
 	// Create target struct
 	var configUpdate internal_types.CompetitionConfigUpdate
 
@@ -98,11 +96,8 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 	}
 	roundsData = updatedRounds
 
-	log.Printf("101 DEBUG: roundsData: %v", roundsData)
-
 	if len(teamsData) > 0 {
 
-		log.Printf("105 DEBUG: teamsData: %v", teamsData)
 		findTeamMembers := func(teamId string) []string {
 			for _, team := range teamsData {
 				if team.Id == teamId {
@@ -120,21 +115,16 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		for _, team := range teamsData {
 			candidateUsers = append(candidateUsers, team.Id)
 		}
-		log.Printf("123 DEBUG: candidateUsers: %v", candidateUsers)
 		existingUsers, err := helpers.SearchUsersByIDs(candidateUsers, false)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to search existing users: "+err.Error()), http.StatusInternalServerError, err)
 			return
 		}
 
-		log.Printf("130 DEBUG: existingUsers: %v", existingUsers)
-
 		existingUserIds := make(map[string]bool)
 		for _, user := range existingUsers {
 			existingUserIds[user.UserID] = true
 		}
-
-		log.Printf("137 DEBUG: existingUserIds: %v", existingUserIds)
 
 		filteredUsersToCreate := make([]map[string]interface{}, 0)
 		for _, team := range teamsData {
@@ -146,8 +136,6 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 				})
 			}
 		}
-
-		log.Printf("150 DEBUG: filteredUsersToCreate: %v", filteredUsersToCreate)
 
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(filteredUsersToCreate))
@@ -169,7 +157,6 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 					errChan <- fmt.Errorf("failed to create team user %s: %w", userData["id"].(string), err)
 				}
 				users = append(users, user)
-				log.Printf("172 DEBUG: users: %v", users)
 			}(user)
 		}
 
@@ -186,7 +173,6 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 
 	} else {
-		log.Printf("DEBUG: no teamsData")
 	}
 
 	roundsData, err = helpers.NormalizeCompetitionRounds(roundsData)
