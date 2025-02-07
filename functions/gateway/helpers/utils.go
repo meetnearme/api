@@ -677,7 +677,7 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
         "metadata": [` + metadataJSON + `]
     }`)
 
-	log.Printf("679 DEBUG: payload: %s", payload)
+	log.Printf("679 DEBUG: payload: %+v", payload)
 
 	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/human", os.Getenv("ZITADEL_INSTANCE_HOST"))
 	method := "POST"
