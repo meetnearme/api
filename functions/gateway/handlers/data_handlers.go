@@ -528,7 +528,10 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				activeRequests++
 				go func(id string) {
 					membersString, err := helpers.GetOtherUserMetaByID(id, "members")
+					log.Printf("531 DEBUG: id: %s, membersString: %s, err: %v", id, membersString, err)
+					log.Printf("531 DEBUG: membersString: %s, err: %+v", membersString, err)
 					if throwOnMissing && err != nil {
+						log.Printf("534 DEBUG: throwOnMissing: %+v, err: %+v", throwOnMissing, err)
 						metaChan <- userMetaResult{id: id, members: nil, err: err}
 						return
 					}
@@ -536,6 +539,7 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 					if membersString != "" {
 						members = strings.Split(membersString, ",")
 					}
+					log.Printf("540 DEBUG: id: %s, members: %+vv", id, members)
 					metaChan <- userMetaResult{id: id, members: members, err: nil}
 				}(id)
 			}
