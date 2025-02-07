@@ -625,7 +625,6 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 }
 
 func CreateTeamUserWithMembers(displayName, candidateUUID string, members []string) (types.UserSearchResultDangerous, error) {
-	log.Printf("628 DEBUG: displayName: %s, candidateUUID: %s, members: %v", displayName, candidateUUID, members)
 	err := ValidateTeamUUID(candidateUUID)
 	if err != nil {
 		return types.UserSearchResultDangerous{}, err
@@ -677,8 +676,6 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
         "metadata": [` + metadataJSON + `]
     }`)
 
-	log.Printf("679 DEBUG: payload: %+v", payload)
-
 	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/human", os.Getenv("ZITADEL_INSTANCE_HOST"))
 	method := "POST"
 
@@ -707,8 +704,6 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
 	if err := json.Unmarshal(body, &respData); err != nil {
 		return types.UserSearchResultDangerous{}, err
 	}
-
-	log.Printf("710 DEBUG: respData: %v", respData)
 
 	return respData, nil
 }

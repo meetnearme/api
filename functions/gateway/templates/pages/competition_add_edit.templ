@@ -117,7 +117,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					</template>
 					<template x-for="competitor in waitingRoom">
 						<div class="flex items-center gap-4 mb-4">
-							<span x-text="competitor.displayName"></span>
 							<select class="select" x-model.fill="competitor.team">
 								<option selected value="">Select team</option>
 								<template x-for="team in teams">
@@ -285,41 +284,57 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 											</svg>
 										</button>
 									</div>
+									<template x-if="round && round?.eventId">
+										<div class="flex items-center gap-4 mb-4">
+											<a :href="`/admin/event/${round.eventId}/edit`" class="link link-primary">View Associated Event</a>
+										</div>
+									</template>
 									<div class="round-item flex items-center gap-4 mb-4">
-										<input
-											type="text"
-											class="input input-bordered"
-											x-model="round.roundName"
-											placeholder="Round name"
-										/>
+										<div class="form-control">
+											<label class="label">Round Name</label>
+											<input
+												type="text"
+												class="input input-bordered"
+												x-model="round.roundName"
+												placeholder="Round name"
+											/>
+										</div>
 										<span class="text-xl">: </span>
-										<select
-											class="select input-bordered"
-											x-model.fill="round.competitorA"
-										>
-											<template x-for="team in teams">
-												<option
-													:value="team.id"
-													:selected="round.competitorA === team.id"
-												>
-													<span x-text="team.label"></span>
-												</option>
-											</template>
-										</select>
+										<div class="form-control">
+											<label class="label">Competitor A</label>
+											<select
+												class="select input-bordered"
+												x-model.fill="round.competitorA"
+											>
+												<option value="">Select team</option>
+												<template x-for="team in teams">
+													<option
+														:value="team.id"
+														:selected="round.competitorA === team.id"
+													>
+														<span x-text="team.label"></span>
+													</option>
+												</template>
+											</select>
+										</div>
 										<span class="text-xl">&larr; VS &rarr;</span>
-										<select
-											class="select input-bordered"
-											x-model.fill="round.competitorB"
-										>
-											<template x-for="team in teams">
-												<option
-													:value="team.id"
-													:selected="round.competitorB === team.id"
-												>
-													<span x-text="team.label"></span>
-												</option>
-											</template>
-										</select>
+										<div class="form-control">
+											<label class="label">Competitor B</label>
+											<select
+												class="select input-bordered"
+												x-model.fill="round.competitorB"
+											>
+												<option value="">Select team</option>
+												<template x-for="team in teams">
+													<option
+														:value="team.id"
+														:selected="round.competitorB === team.id"
+													>
+														<span x-text="team.label"></span>
+													</option>
+												</template>
+											</select>
+										</div>
 									</div>
 									<label class="form-control w-full max-w-xs">
 										<div class="label">Round Description</div>
@@ -733,6 +748,22 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									}
 							})
 						};
+
+						competitionData?.rounds?.forEach?.((round, index) => {
+							if (!round?.competitorA || round?.competitorB) {
+								throw new Error(`Competitor A or B for Round ${index + 1} is empty`)
+							}
+							if (round.competitorA === round.competitorB) {
+								throw new Error(`Competitor A and B for Round ${index + 1} are the same`)
+							}
+							if (!competitionData.competitors.includes(round.competitorA)) {
+								throw new Error(`Competitor A for Round ${index + 1} not included in teams / competitors`)
+							}
+							if (!competitionData.competitors.includes(round.competitorB)) {
+								throw new Error(`Competitor B for Round ${index + 1} not included in teams / competitors`)
+							}
+						})
+
 						const response = await fetch('/api/competition-config', {
 							method: 'PUT',
 							headers: {
