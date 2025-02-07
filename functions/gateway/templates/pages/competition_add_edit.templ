@@ -750,7 +750,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						};
 
 						competitionData?.rounds?.forEach?.((round, index) => {
-							if (!round?.competitorA || round?.competitorB) {
+							if (!round?.competitorA || !round?.competitorB) {
 								throw new Error(`Competitor A or B for Round ${index + 1} is empty`)
 							}
 							if (round.competitorA === round.competitorB) {
