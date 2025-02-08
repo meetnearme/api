@@ -341,7 +341,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					<div>
 						if event.EventSourceType == helpers.ES_SERIES_PARENT {
 							<div
-								hx-get={ "/api/html/event-series-form/" + event.Id + "?&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES }
+								hx-get={ "/api/html/event-series-form/" + event.Id + "?&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES + "&start_time=" + helpers.GetDatetimePickerFormatted(0, &event.Timezone) + ":00Z" + "&end_time=" + helpers.GetDatetimePickerFormatted(helpers.DEFAULT_UNDEFINED_END_TIME, &event.Timezone) + ":00Z" }
 								hx-trigger="load"
 								hx-swap="outerHTML"
 								@htmx:after-request="setEventChildrenLoaded()"
