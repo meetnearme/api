@@ -27,9 +27,9 @@ func NewCompetitionRoundService() internal_types.CompetitionRoundServiceInterfac
 }
 
 func (s *CompetitionRoundService) PutCompetitionRounds(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, rounds *[]internal_types.CompetitionRoundUpdate) (dynamodb.BatchWriteItemOutput, error) {
-	log.Printf("Service: Starting PutCompetitionRounds with %d rounds", len(*rounds))
-	log.Printf("ATTENTION: rounds: \n%+v", *rounds)
-
+	if rounds == nil || len(*rounds) < 1 {
+		return dynamodb.BatchWriteItemOutput{}, fmt.Errorf("rounds cannot be empty or nil")
+	}
 	if competitionRoundsTableName == "" {
 		log.Printf("Service ERROR: competitionRoundsTableName is empty")
 		return dynamodb.BatchWriteItemOutput{}, fmt.Errorf("ERR: competitionRoundsTableName is empty")
@@ -55,16 +55,12 @@ func (s *CompetitionRoundService) PutCompetitionRounds(ctx context.Context, dyna
 		})
 	}
 
-	log.Printf("Service: Created %d write requests", len(writeRequests))
-
 	// Create BatchWriteItemInput
 	input := &dynamodb.BatchWriteItemInput{
 		RequestItems: map[string][]dynamodb_types.WriteRequest{
 			competitionRoundsTableName: writeRequests,
 		},
 	}
-
-	log.Printf("Service: BatchWriteItemInput prepared for table: %s", competitionRoundsTableName)
 
 	result, err := dynamodbClient.BatchWriteItem(ctx, input)
 	if err != nil {
