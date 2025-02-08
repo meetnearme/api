@@ -6,6 +6,9 @@ inputs:
   SCRAPINGBEE_API_KEY:
     description: 'The API key for the ScrapingBee API'
     required: true
+  SCRAPINGBEE_API_URL_BASE:
+    description: 'The base URL for the ScrapingBee API'
+    required: true
   GOOGLE_API_KEY:
     description: 'The API key for the Google API'
     required: true
@@ -106,6 +109,7 @@ runs:
         echo APEX_URL=${{ inputs.APEX_URL }} >> .env
         echo APEX_DEV_URL=${{ inputs.APEX_DEV_URL }} >> .env
         echo SCRAPINGBEE_API_KEY=${{ inputs.SCRAPINGBEE_API_KEY }} >> .env
+        echo SCRAPINGBEE_API_URL_BASE=${{ inputs.SCRAPINGBEE_API_URL_BASE }} >> .env
         echo GOOGLE_API_KEY=${{ inputs.GOOGLE_API_KEY }} >> .env
         echo OPENAI_API_KEY=${{ inputs.OPENAI_API_KEY }} >> .env
         echo OPENAI_API_BASE_URL=${{ inputs.OPENAI_API_BASE_URL }} >> .env
