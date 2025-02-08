@@ -258,6 +258,63 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				</div>
 			</div>
 		</div>
+		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Competition</h2>
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
+			<input
+				disabled
+				type="hidden"
+				name="competitionConfigId"
+				value={ event.CompetitionConfigId }
+				x-model.fill="formData.event.competitionConfigId"
+			/>
+			if !isCompetitionAdmin {
+				<div>
+					<p>Only competition admins can modify competition config settings</p>
+				</div>
+			} else {
+				<template x-if="formData.event?.competitionConfigId">
+					<div class="form-control">
+						<a class="link link-primary" :href="'/admin/competition/' + formData.event.competitionConfigId + '/edit' ">
+							View Competition Config
+						</a>
+						<template x-if="formData.event?.competitionConfigId && !competitionRoundsLoaded">
+							<div class="flex justify-between items-center">
+								<div>Loading competition rounds...</div>
+								<span class="loading loading-spinner loading-sm"></span>
+							</div>
+						</template>
+						<template x-if="formData.event?.competitionConfigId && competitionRoundsLoaded">
+							<template x-for="(competitionRound, index) in formData.event.competitionRounds">
+								<div class="flex justify-between items-center">
+									<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
+									<button
+										@click="handleRemoveCompetitionRoundFromEvent(competitionRound, formData.event)"
+										class="btn btn-ghost btn-circle btn-sm"
+										:disabled="competitionRound.isRemoving || saveReqInFlight"
+										aria-label="remove this competition round from event"
+									>
+										<template x-if="!competitionRound.isRemoving">
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+											</svg>
+										</template>
+										<template x-if="competitionRound.isRemoving">
+											<span class="loading loading-spinner loading-sm"></span>
+										</template>
+									</button>
+								</div>
+							</template>
+						</template>
+					</div>
+				</template>
+				<div class="form-control">
+					<button @click="addChildCompetition(formData.event)" class="btn btn-primary">
+						<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
+						&nbsp;Add Competition
+					</button>
+				</div>
+			}
+		</div>
 		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Date &amp; Media</h2>
 		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
 			<div class="form-control">
@@ -971,17 +1028,20 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								}
 
 								try {
-										// Wait for eventChildrenLoaded using a Promise
-										await new Promise((resolve) => {
-												const checkLoaded = () => {
+
+										// Wait for eventChildrenLoaded using a Promise, but skip if not an event series
+										if (this.isEventSeries) {
+											await new Promise((resolve) => {
+													const checkLoaded = () => {
 														if (this.eventChildrenLoaded) {
-																resolve();
-														} else {
-																setTimeout(checkLoaded, 100);
-														}
-												};
-												checkLoaded();
-										});
+																	resolve();
+															} else {
+																	setTimeout(checkLoaded, 100);
+															}
+													};
+													checkLoaded();
+											});
+										}
 
 										const allEvents = [this.formData.event, ...Object.values(this.formData.eventChildren)]
 										const competitionIdsToFetch = []
