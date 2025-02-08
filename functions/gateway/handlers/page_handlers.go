@@ -459,6 +459,7 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 			err := errors.New("You are not authorized to edit this event")
 			return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, "page", err)
 		}
+		isEditor = canEdit
 	}
 
 	cfRay := GetCfRay(r)
@@ -531,7 +532,9 @@ func GetEventAttendeesPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 			err := errors.New("You are not authorized to edit this event")
 			return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, "page", err)
 		}
+		isEditor = canEdit
 	}
+
 	addOrEditEventPage := pages.EventAttendeesPage(pageObj, event, isEditor)
 
 	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event, []string{})
