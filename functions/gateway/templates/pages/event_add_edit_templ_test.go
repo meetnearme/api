@@ -128,6 +128,28 @@ func TestAddOrEditEventPage(t *testing.T) {
 				"Add Competition</button",
 			},
 		},
+		{
+			name: "Edit unpublished event",
+			event: types.Event{
+				Id:                  "123",
+				Name:                "Test Event",
+				Description:         "This is a test event",
+				Address:             "123 Test St",
+				CompetitionConfigId: "xyz-uuid",
+				EventOwners:         []string{"abc-uuid"},
+				EventOwnerName:      "Brians Pub",
+				Timezone:            *lALoc,
+				EventSourceType:     helpers.ES_SINGLE_EVENT_UNPUB,
+			},
+			isEditor:           true,
+			isCompetitionAdmin: true,
+			sitePage:           helpers.SitePages["edit-event"],
+			cfLat:              39.764252,
+			cfLon:              -104.937511,
+			expected: []string{
+				`<option value="_UNPUB" selected`,
+			},
+		},
 	}
 
 	for _, tt := range tests {

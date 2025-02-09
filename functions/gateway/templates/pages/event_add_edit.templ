@@ -10,143 +10,95 @@ import (
 )
 
 templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64, isCompetitionAdmin bool) {
-	<div
-		x-data="getAddEditEventState()"
-		@child-updated.window="formData.eventChildren[$event.detail.index] = $event.detail.value"
-		@lat-updated.window="formData.event.lat = $event.detail.value"
-		@lon-updated.window="formData.event.long = $event.detail.value"
-		@address-updated.window="formData.event.address = $event.detail.value"
-	>
-		// NOTE: intentionally hidden fields that users can't affect directly
+	if event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB {
 		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
 			<h1 class="text-3xl mb-4 truncate whitespace-nowrap overflow-hidden max-w-full">
-				{ pageObj.Name }
-				<template x-if="formData.event.id">
-					<span>:&nbsp;<a x-text="formData.event.name" target="_blank" class="link link-primary" :href="eventDetailUrl.replace('{}',formData.event.id)"></a></span>
-				</template>
-				<template x-if="!formData.event.id && formData.event.name">
-					<span x-text=" ': ' + formData.event.name"></span>
-				</template>
+				This is a series event, you must edit it's parent
 			</h1>
-			<a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["attendees-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>View Attendees</a>
 		</header>
-		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Overview</h2>
-		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
-			<div class="card">
-				<label class="form-control w-full max-w-xs">
-					<div class="label">Event Name</div>
-					<input
-						class="input input-bordered w-full"
-						id="name"
-						type="text"
-						placeholder="Enter event name"
-						x-model.fill={ "formData.event.name" }
-						value={ event.Name }
-						:disabled="saveReqInFlight"
-					/>
-				</label>
-				<div class="form-control">
-					<label class="label" for="description">Description</label>
-					<textarea
-						class="textarea textarea-bordered w-full"
-						id="description"
-						placeholder="Enter event description"
-						x-model.fill={ "formData.event.description" }
-						:disabled="saveReqInFlight"
-					>{ event.Description }</textarea>
-				</div>
-				<div class="form-control">
-					<label class="label">Categories</label>
-					<div class="categories" id="categoriesList">
-						<template x-for="category in formData.event.categories">
-							<span
-								class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
-							>
-								<span x-text="category"></span>
-								<button aria-label="remove category" class="btn btn-circle btn-neutral  btn-xs" @click="removeCategory(category)" :disabled="saveReqInFlight">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-6 w-6"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M6 18L18 6M6 6l12 12"
-										></path>
-									</svg>
-								</button>
-							</span>
-						</template>
-					</div>
-					<input
-						placeholder="Add categories (press Enter)"
-						class="input input-bordered"
-						id="categoryInput"
-						type="text"
-						x-model="categoryInput"
-						@keydown="handleCategoryKeydown"
-						:disabled="saveReqInFlight"
-					/>
-				</div>
-				<div class="form-control">
-					<label class="label">Tags</label>
-					<div class="tags" id="tagsList">
-						<template x-for="tag in formData.event.tags">
-							<span
-								class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
-							>
-								<span x-text="tag"></span>
-								<button aria-label="remove tag" class="btn btn-circle btn-neutral  btn-xs" @click="removeTag(tag)" :disabled="saveReqInFlight">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-6 w-6"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M6 18L18 6M6 6l12 12"
-										></path>
-									</svg>
-								</button>
-							</span>
-						</template>
-					</div>
-					<input
-						placeholder="Add tags (press Enter)"
-						class="input input-bordered"
-						id="tagInput"
-						type="text"
-						x-model="tagInput"
-						@keydown="handleTagKeydown"
-						:disabled="saveReqInFlight"
-					/>
-				</div>
-			</div>
-			<div class="card">
-				<h2 class="text-2xl mt-4">Event Ownership</h2>
-				<div class="form-control">
+	} else {
+		<div
+			x-data="getAddEditEventState()"
+			@child-updated.window="formData.eventChildren[$event.detail.index] = $event.detail.value"
+			@lat-updated.window="formData.event.lat = $event.detail.value"
+			@lon-updated.window="formData.event.long = $event.detail.value"
+			@address-updated.window="formData.event.address = $event.detail.value"
+		>
+			// NOTE: intentionally hidden fields that users can't affect directly
+			<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
+				<h1 class="text-3xl mb-4 truncate whitespace-nowrap overflow-hidden max-w-full">
+					{ pageObj.Name }
+					<template x-if="formData.event.id">
+						<span>:&nbsp;<a x-text="formData.event.name" target="_blank" class="link link-primary" :href="eventDetailUrl.replace('{}',formData.event.id)"></a></span>
+					</template>
+					<template x-if="!formData.event.id && formData.event.name">
+						{ event.EventSourceType }
+						<span x-text=" ': ' + formData.event.name"></span>
+					</template>
+				</h1>
+				<a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["attendees-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>View Attendees</a>
+			</header>
+			<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Overview</h2>
+			<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
+				<div class="card">
+					<label class="form-control w-full max-w-xs">
+						<div class="label">Event Name</div>
+						<input
+							class="input input-bordered w-full"
+							id="name"
+							type="text"
+							placeholder="Enter event name"
+							x-model.fill={ "formData.event.name" }
+							value={ event.Name }
+							:disabled="saveReqInFlight"
+						/>
+					</label>
+					<label class="form-control w-full max-w-xs">
+						<div class="label">Publish Status</div>
+						<select
+							id="publishStatus"
+							data-test-id={ event.EventSourceType }
+							class="select select-bordered w-full"
+							x-model.fill="publishStatus"
+							if strings.Contains(event.EventSourceType, helpers.UNPUB_SUFFIX) {
+								value={ helpers.UNPUB_SUFFIX }
+							} else {
+								value={ helpers.PUBLISHED_SUFFIX }
+							}
+						>
+							<option
+								value={ helpers.UNPUB_SUFFIX }
+								if strings.Contains(event.EventSourceType, helpers.UNPUB_SUFFIX) {
+									selected
+								}
+							>Unpublished</option>
+							<option
+								value={ helpers.PUBLISHED_SUFFIX }
+								if !strings.Contains(event.EventSourceType, helpers.UNPUB_SUFFIX) {
+									selected
+								}
+							>Published</option>
+						</select>
+					</label>
 					<div class="form-control">
-						<label class="label">{ helpers.GetFieldDisplayName("EventOwners") }</label>
-						<div class="tags" id="ownersList">
-							<template x-for="owner in owners">
+						<label class="label" for="description">Description</label>
+						<textarea
+							class="textarea textarea-bordered w-full"
+							id="description"
+							placeholder="Enter event description"
+							x-model.fill={ "formData.event.description" }
+							:disabled="saveReqInFlight"
+						>{ event.Description }</textarea>
+					</div>
+					<div class="form-control">
+						<label class="label">Categories</label>
+						<div class="categories" id="categoriesList">
+							<template x-for="category in formData.event.categories">
 								<span
 									class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
 								>
-									<template x-if="owner.label">
-										<span x-text="owner.label"></span>
-									</template>
-									<template x-if="!owner.label">
-										<span class="loading loading-spinner loading-sm"></span>
-									</template>
-									<button aria-label="remove owner" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeOwner(owner)" :disabled="saveReqInFlight">
+									<span x-text="category"></span>
+									<button aria-label="remove category" class="btn btn-circle btn-neutral  btn-xs" @click="removeCategory(category)" :disabled="saveReqInFlight">
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
 											class="h-6 w-6"
@@ -165,44 +117,127 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								</span>
 							</template>
 						</div>
+						<input
+							placeholder="Add categories (press Enter)"
+							class="input input-bordered"
+							id="categoryInput"
+							type="text"
+							x-model="categoryInput"
+							@keydown="handleCategoryKeydown"
+							:disabled="saveReqInFlight"
+						/>
+					</div>
+					<div class="form-control">
+						<label class="label">Tags</label>
+						<div class="tags" id="tagsList">
+							<template x-for="tag in formData.event.tags">
+								<span
+									class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
+								>
+									<span x-text="tag"></span>
+									<button aria-label="remove tag" class="btn btn-circle btn-neutral  btn-xs" @click="removeTag(tag)" :disabled="saveReqInFlight">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-6 w-6"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M6 18L18 6M6 6l12 12"
+											></path>
+										</svg>
+									</button>
+								</span>
+							</template>
+						</div>
+						<input
+							placeholder="Add tags (press Enter)"
+							class="input input-bordered"
+							id="tagInput"
+							type="text"
+							x-model="tagInput"
+							@keydown="handleTagKeydown"
+							:disabled="saveReqInFlight"
+						/>
 					</div>
 				</div>
-				<div class="form-control">
-					<div class="flex w-full flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
-						<div class="relative">
-							<input
-								type="text"
-								class="input input-bordered w-full disabled:cursor-not-allowed disabled:opacity-75 "
-								name="ownerSearch"
-								aria-label="Add event owners (search by name, organization, or email)"
-								@input.throttle="fetchUsers($event.target.value)"
-								x-ref="ownerSearch"
-								placeholder="Add event owners (search by name, organization, or email)"
-								class="input input-bordered"
-								role="combobox"
-								aria-controls="ownersList"
-								aria-haspopup="listbox"
-								x-on:click="isOpen = ! isOpen"
-								x-on:keydown.down.prevent="
+				<div class="card">
+					<h2 class="text-2xl mt-4">Event Ownership</h2>
+					<div class="form-control">
+						<div class="form-control">
+							<label class="label">{ helpers.GetFieldDisplayName("EventOwners") }</label>
+							<div class="tags" id="ownersList">
+								<template x-for="owner in owners">
+									<span
+										class="tag badge badge-neutral gap-2 mr-2 mb-4 text-lg py-4 pl-4 pr-2"
+									>
+										<template x-if="owner.label">
+											<span x-text="owner.label"></span>
+										</template>
+										<template x-if="!owner.label">
+											<span class="loading loading-spinner loading-sm"></span>
+										</template>
+										<button aria-label="remove owner" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeOwner(owner)" :disabled="saveReqInFlight">
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-6 w-6"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M6 18L18 6M6 6l12 12"
+												></path>
+											</svg>
+										</button>
+									</span>
+								</template>
+							</div>
+						</div>
+					</div>
+					<div class="form-control">
+						<div class="flex w-full flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
+							<div class="relative">
+								<input
+									type="text"
+									class="input input-bordered w-full disabled:cursor-not-allowed disabled:opacity-75 "
+									name="ownerSearch"
+									aria-label="Add event owners (search by name, organization, or email)"
+									@input.throttle="fetchUsers($event.target.value)"
+									x-ref="ownerSearch"
+									placeholder="Add event owners (search by name, organization, or email)"
+									class="input input-bordered"
+									role="combobox"
+									aria-controls="ownersList"
+									aria-haspopup="listbox"
+									x-on:click="isOpen = ! isOpen"
+									x-on:keydown.down.prevent="
 								isOpen = true;
 								openedWithKeyboard = true;
 								$nextTick(() => {
 									$el.closest('.relative').querySelector('li[role=option]')?.focus()
 								})"
-								x-bind:aria-expanded="isOpen || openedWithKeyboard"
-								autocomplete="new-password"
-								:disabled="saveReqInFlight"
-							/>
-							<div
-								x-show="isOpen || openedWithKeyboard"
-								:class="{'opacity-100': isOpen || openedWithKeyboard}"
-								class="w-full opacity-0 transition-all absolute left-0 top-12 z-50 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
-								id="ownersList"
-								role="listbox"
-								aria-label="event owners list"
-								x-on:click.outside="isOpen = false, openedWithKeyboard = false"
-								x-on:keydown.down.prevent="$focus.wrap().next()"
-								x-on:keydown.up.prevent="
+									x-bind:aria-expanded="isOpen || openedWithKeyboard"
+									autocomplete="new-password"
+									:disabled="saveReqInFlight"
+								/>
+								<div
+									x-show="isOpen || openedWithKeyboard"
+									:class="{'opacity-100': isOpen || openedWithKeyboard}"
+									class="w-full opacity-0 transition-all absolute left-0 top-12 z-50 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
+									id="ownersList"
+									role="listbox"
+									aria-label="event owners list"
+									x-on:click.outside="isOpen = false, openedWithKeyboard = false"
+									x-on:keydown.down.prevent="$focus.wrap().next()"
+									x-on:keydown.up.prevent="
 								if ($el.querySelector('li:focus') === $refs.optionsList.querySelector('li[role=option]')) {
 									isOpen = false;
 									openedWithKeyboard = false;
@@ -213,474 +248,348 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 										$focus.wrap().previous()
 								}
 							"
-								x-transition
-								x-trap="openedWithKeyboard"
-							>
-								<!-- Options  -->
-								<ul x-ref="optionsList" class="flex max-h-44 flex-col overflow-y-auto">
-									<template x-if="options?.length < 1">
-										<li class="px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
-											<span>No matches found</span>
-										</li>
-									</template>
-									<template x-for="(item, index) in options" :key="index">
-										<li
-											class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white"
-											role="option"
-											@click="setSelectedOwner(item)"
-											@keydown.enter="setSelectedOwner(item)"
-											:id="'option-' + index"
-											tabindex="0"
-										>
-											<span x-text="item.label"></span>
-										</li>
-									</template>
-								</ul>
+									x-transition
+									x-trap="openedWithKeyboard"
+								>
+									<!-- Options  -->
+									<ul x-ref="optionsList" class="flex max-h-44 flex-col overflow-y-auto">
+										<template x-if="options?.length < 1">
+											<li class="px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
+												<span>No matches found</span>
+											</li>
+										</template>
+										<template x-for="(item, index) in options" :key="index">
+											<li
+												class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white"
+												role="option"
+												@click="setSelectedOwner(item)"
+												@keydown.enter="setSelectedOwner(item)"
+												:id="'option-' + index"
+												tabindex="0"
+											>
+												<span x-text="item.label"></span>
+											</li>
+										</template>
+									</ul>
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
-				<h2 class="text-2xl mt-4">Related Events</h2>
-				<div class="form-control w-full">
-					<label class="label cursor-pointer">
-						<span class="label-text">Only show my events as recommendations</span>
-						<input
-							name="hideCrossPromo"
-							type="checkbox"
-							class="toggle toggle-primary"
-							x-model.fill="formData.event.hideCrossPromo"
-							if event.HideCrossPromo {
-								checked
-							}
-							:disabled="saveReqInFlight"
-						/>
-					</label>
+					<h2 class="text-2xl mt-4">Related Events</h2>
+					<div class="form-control w-full">
+						<label class="label cursor-pointer">
+							<span class="label-text">Only show my events as recommendations</span>
+							<input
+								name="hideCrossPromo"
+								type="checkbox"
+								class="toggle toggle-primary"
+								x-model.fill="formData.event.hideCrossPromo"
+								if event.HideCrossPromo {
+									checked
+								}
+								:disabled="saveReqInFlight"
+							/>
+						</label>
+					</div>
 				</div>
 			</div>
-		</div>
-		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Competition</h2>
-		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
-			<input
-				disabled
-				type="hidden"
-				name="competitionConfigId"
-				value={ event.CompetitionConfigId }
-				x-model.fill="formData.event.competitionConfigId"
-			/>
-			if !isCompetitionAdmin {
-				<div>
-					<p>Only competition admins can modify competition config settings</p>
-				</div>
-			} else {
-				<template x-if="formData.event?.competitionConfigId">
-					<div class="form-control">
-						<a class="link link-primary" :href="'/admin/competition/' + formData.event.competitionConfigId + '/edit' ">
-							View Competition Config
-						</a>
-						<template x-if="formData.event?.competitionConfigId && !competitionRoundsLoaded">
-							<div class="flex justify-between items-center">
-								<div>Loading competition rounds...</div>
-								<span class="loading loading-spinner loading-sm"></span>
-							</div>
-						</template>
-						<template x-if="formData.event?.competitionConfigId && competitionRoundsLoaded">
-							<template x-for="(competitionRound, index) in formData.event.competitionRounds">
+			<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Competition</h2>
+			<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
+				<input
+					disabled
+					type="hidden"
+					name="competitionConfigId"
+					value={ event.CompetitionConfigId }
+					x-model.fill="formData.event.competitionConfigId"
+				/>
+				if !isCompetitionAdmin {
+					<div>
+						<p>Only competition admins can modify competition config settings</p>
+					</div>
+				} else {
+					<template x-if="formData.event?.competitionConfigId">
+						<div class="form-control">
+							<a class="link link-primary" :href="'/admin/competition/' + formData.event.competitionConfigId + '/edit' ">
+								View Competition Config
+							</a>
+							<template x-if="formData.event?.competitionConfigId && !competitionRoundsLoaded">
 								<div class="flex justify-between items-center">
-									<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
-									<button
-										@click="handleRemoveCompetitionRoundFromEvent(competitionRound, formData.event)"
-										class="btn btn-ghost btn-circle btn-sm"
-										:disabled="competitionRound.isRemoving || saveReqInFlight"
-										aria-label="remove this competition round from event"
-									>
-										<template x-if="!competitionRound.isRemoving">
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-											</svg>
-										</template>
-										<template x-if="competitionRound.isRemoving">
-											<span class="loading loading-spinner loading-sm"></span>
-										</template>
-									</button>
+									<div>Loading competition rounds...</div>
+									<span class="loading loading-spinner loading-sm"></span>
 								</div>
 							</template>
-						</template>
+							<template x-if="formData.event?.competitionConfigId && competitionRoundsLoaded">
+								<template x-for="(competitionRound, index) in formData.event.competitionRounds">
+									<div class="flex justify-between items-center">
+										<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
+										<button
+											@click="handleRemoveCompetitionRoundFromEvent(competitionRound, formData.event)"
+											class="btn btn-ghost btn-circle btn-sm"
+											:disabled="competitionRound.isRemoving || saveReqInFlight"
+											aria-label="remove this competition round from event"
+										>
+											<template x-if="!competitionRound.isRemoving">
+												<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+												</svg>
+											</template>
+											<template x-if="competitionRound.isRemoving">
+												<span class="loading loading-spinner loading-sm"></span>
+											</template>
+										</button>
+									</div>
+								</template>
+							</template>
+						</div>
+					</template>
+					<div class="form-control">
+						<button @click="addCompetition(formData.event)" class="btn btn-primary">
+							<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
+							&nbsp;Add Competition
+						</button>
 					</div>
-				</template>
+				}
+			</div>
+			<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Date &amp; Media</h2>
+			<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
 				<div class="form-control">
-					<button @click="addChildCompetition(formData.event)" class="btn btn-primary">
-						<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
-						&nbsp;Add Competition
-					</button>
-				</div>
-			}
-		</div>
-		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Date &amp; Media</h2>
-		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
-			<div class="form-control">
-				<label class="label">{ helpers.GetFieldDisplayName("StartTime") }</label>
-				<input
-					class="input input-bordered"
-					type="datetime-local"
-					x-model.fill={ "formData.event.startTime" }
-					if (event.StartTime > 0) {
-						value={ helpers.GetDatetimePickerFormatted(event.StartTime, &event.Timezone) }
-					}
-					:disabled="saveReqInFlight"
-				/>
-			</div>
-			<div class="form-control">
-				<label class="label">{ helpers.GetFieldDisplayName("EndTime") }</label>
-				<input
-					class="input input-bordered"
-					type="datetime-local"
-					x-model.fill={ "formData.event.endTime" }
-					if (event.EndTime > 0) {
-						value={ helpers.GetDatetimePickerFormatted(event.EndTime, &event.Timezone) }
-					}
-					:disabled="saveReqInFlight"
-				/>
-			</div>
-			<div class="form-control">
-				<label class="label">Timezone</label>
-				<select
-					class="select select-bordered"
-					x-model.fill={ "formData.event.timezone" }
-					value={ event.Timezone.String() }
-					:disabled="saveReqInFlight"
-				>
-					<option value="">Select timezone</option>
-					<option
-						if (event.Timezone.String() == "America/New_York") {
-							selected
-						}
-						value="America/New_York"
-					>America/New_York</option>
-					<option
-						if (event.Timezone.String() == "America/Chicago") {
-							selected
-						}
-						value="America/Chicago"
-					>America/Chicago</option>
-					<option
-						if (event.Timezone.String() == "America/Denver") {
-							selected
-						}
-						value="America/Denver"
-					>America/Denver</option>
-					<option
-						if (event.Timezone.String() == "America/Los_Angeles") {
-							selected
-						}
-						value="America/Los_Angeles"
-					>America/Los_Angeles</option>
-				</select>
-			</div>
-		</div>
-		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Series</h2>
-		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
-			<div class="card">
-				<label class="label cursor-pointer">
-					<span class="label-text">Enable Multi-Event Series</span>
+					<label class="label">{ helpers.GetFieldDisplayName("StartTime") }</label>
 					<input
-						name="isEventSeries"
-						type="checkbox"
-						class="toggle toggle-primary"
-						x-model="isEventSeries"
-						@change={ `formData.event.eventSourceType = isEventSeries ? "` + helpers.ES_SERIES_PARENT + `" : "` + helpers.ES_SINGLE_EVENT + `"` }
-						if event.EventSourceType == helpers.ES_SERIES_PARENT {
-							checked
+						class="input input-bordered"
+						type="datetime-local"
+						x-model.fill={ "formData.event.startTime" }
+						if (event.StartTime > 0) {
+							value={ helpers.GetDatetimePickerFormatted(event.StartTime, &event.Timezone) }
 						}
 						:disabled="saveReqInFlight"
 					/>
-				</label>
-				<template x-if="isEventSeries">
-					<div>
-						if event.EventSourceType == helpers.ES_SERIES_PARENT {
-							<div
-								hx-get={ "/api/html/event-series-form/" + event.Id + "?&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES + "&start_time=" + helpers.GetDatetimePickerFormatted(0, &event.Timezone) + ":00Z" + "&end_time=" + helpers.GetDatetimePickerFormatted(helpers.DEFAULT_UNDEFINED_END_TIME, &event.Timezone) + ":00Z" }
-								hx-trigger="load"
-								hx-swap="outerHTML"
-								@htmx:after-request="setEventChildrenLoaded()"
-							>
-								// TODO: add htmx response callback behavior to set eventChildrenLoaded to true
-								<template x-if="!eventChildrenLoaded && formData.eventChildren.length < 1">
-									<div class="flex w-full flex-col gap-4 my-3">
-										<div class="skeleton h-4 w-1/2"></div>
-										<div class="skeleton h-4 w-full"></div>
-										<div class="skeleton h-4 w-full"></div>
-									</div>
-								</template>
-							</div>
+				</div>
+				<div class="form-control">
+					<label class="label">{ helpers.GetFieldDisplayName("EndTime") }</label>
+					<input
+						class="input input-bordered"
+						type="datetime-local"
+						x-model.fill={ "formData.event.endTime" }
+						if (event.EndTime > 0) {
+							value={ helpers.GetDatetimePickerFormatted(event.EndTime, &event.Timezone) }
 						}
+						:disabled="saveReqInFlight"
+					/>
+				</div>
+				<div class="form-control">
+					<label class="label">Timezone</label>
+					<select
+						class="select select-bordered"
+						x-model.fill={ "formData.event.timezone" }
+						value={ event.Timezone.String() }
+						:disabled="saveReqInFlight"
+					>
+						<option value="">Select timezone</option>
+						<option
+							if (event.Timezone.String() == "America/New_York") {
+								selected
+							}
+							value="America/New_York"
+						>America/New_York</option>
+						<option
+							if (event.Timezone.String() == "America/Chicago") {
+								selected
+							}
+							value="America/Chicago"
+						>America/Chicago</option>
+						<option
+							if (event.Timezone.String() == "America/Denver") {
+								selected
+							}
+							value="America/Denver"
+						>America/Denver</option>
+						<option
+							if (event.Timezone.String() == "America/Los_Angeles") {
+								selected
+							}
+							value="America/Los_Angeles"
+						>America/Los_Angeles</option>
+					</select>
+				</div>
+			</div>
+			<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Series</h2>
+			<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
+				<div class="card">
+					<label class="label cursor-pointer">
+						<span class="label-text">Enable Multi-Event Series</span>
 						<div>
-							<template x-for="(child, idx) in formData.eventChildren" :key="child.id">
+							<input
+								name="isEventSeries"
+								type="checkbox"
+								class="toggle toggle-primary"
+								x-model="isEventSeries"
+								@change={ `formData.event.eventSourceType = isEventSeries ? "` + helpers.ES_SERIES_PARENT + `" : "` + helpers.ES_SINGLE_EVENT + `"` }
+								if event.EventSourceType == helpers.ES_SERIES_PARENT || event.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
+									checked
+								}
+								:disabled="saveReqInFlight"
+							/>
+						</div>
+					</label>
+					<template x-if="isEventSeries">
+						<div>
+							if event.EventSourceType == helpers.ES_SERIES_PARENT {
 								<div
-									x-ref="childContainer"
-									x-data="{ hidden: false, contentHeight: 0 }"
-									x-init="contentHeight = $el.scrollHeight"
-									@child-content-changed.window="$nextTick(() => contentHeight = $el.scrollHeight)"
-									class="transition-all duration-300 ease-in-out bg-base-200"
-									:class="hidden ? 'overflow-hidden' : '' "
-									:style="hidden ? 'max-height: 0px' : `max-height: ${contentHeight}px`"
+									hx-get={ "/api/html/event-series-form/" + event.Id + "?&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES + "&start_time=" + helpers.GetDatetimePickerFormatted(0, &event.Timezone) + ":00Z" + "&end_time=" + helpers.GetDatetimePickerFormatted(helpers.DEFAULT_UNDEFINED_END_TIME, &event.Timezone) + ":00Z" }
+									hx-trigger="load"
+									hx-swap="outerHTML"
+									@htmx:after-request="setEventChildrenLoaded()"
 								>
-									<div class="divider my-3"></div>
-									<div class="flex justify-between items-center">
-										<h3 x-text=" 'Event #' + (idx + 1) + ' in Series' "></h3>
-										// NOTE: this hack addresses a bug where Alpine IDs are not stable
-										// by default https://github.com/alpinejs/alpine/discussions/2325#discussioncomment-1599008
-										<button
-											@click="hidden = true; setTimeout(() => {
+									// TODO: add htmx response callback behavior to set eventChildrenLoaded to true
+									<template x-if="!eventChildrenLoaded && formData.eventChildren.length < 1">
+										<div class="flex w-full flex-col gap-4 my-3">
+											<div class="skeleton h-4 w-1/2"></div>
+											<div class="skeleton h-4 w-full"></div>
+											<div class="skeleton h-4 w-full"></div>
+										</div>
+									</template>
+								</div>
+							}
+							<div>
+								<template x-for="(child, idx) in formData.eventChildren" :key="child.id">
+									<div
+										x-ref="childContainer"
+										x-data="{ hidden: false, contentHeight: 0 }"
+										x-init="contentHeight = $el.scrollHeight"
+										@child-content-changed.window="$nextTick(() => contentHeight = $el.scrollHeight)"
+										class="transition-all duration-300 ease-in-out bg-base-200"
+										:class="hidden ? 'overflow-hidden' : '' "
+										:style="hidden ? 'max-height: 0px' : `max-height: ${contentHeight}px`"
+									>
+										<div class="divider my-3"></div>
+										<div class="flex justify-between items-center">
+											<h3 x-text=" 'Event #' + (idx + 1) + ' in Series' "></h3>
+											// NOTE: this hack addresses a bug where Alpine IDs are not stable
+											// by default https://github.com/alpinejs/alpine/discussions/2325#discussioncomment-1599008
+											<button
+												@click="hidden = true; setTimeout(() => {
 												const childIndex = formData.eventChildren.findIndex(evChild => evChild.id === child.id);
 												if (childIndex !== -1) {
 														formData.eventChildren.splice(childIndex, 1);
 												}
 											}, 200)"
-											class="btn btn-ghost btn-circle btn-sm"
-											:disabled="saveReqInFlight"
-											aria-label="remove this event from series"
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-											</svg>
-										</button>
-									</div>
-									<div class="form-control">
-										for _, diffField := range partials.AlwaysShowEventDiffFields {
-											<label class="label">{ helpers.GetFieldDisplayName(diffField) }</label>
-											<input
-												class="input input-bordered w-full"
-												type="datetime-local"
-												name={ string(` 'event_' + idx + '_' + ` + string(diffField[0])) }
-												x-model={ "formData.eventChildren[idx]." + strings.ToLower(string(diffField[0])) + diffField[1:] }
-											/>
-										}
-									</div>
-									<template x-if="child.competitionConfigId">
+												class="btn btn-ghost btn-circle btn-sm"
+												:disabled="saveReqInFlight"
+												aria-label="remove this event from series"
+											>
+												<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+												</svg>
+											</button>
+										</div>
 										<div class="form-control">
-											<label class="label">Competition Config</label>
-											<a class="link link-primary" :href="'/admin/competition/' + child.competitionConfigId + '/edit' ">
-												View Competition Config
-											</a>
-											<input disabled type="hidden" name="competitionConfigId" x-model.fill="child.competitionConfigId"/>
-											<template x-if="child?.competitionConfigId && !competitionRoundsLoaded">
-												<div class="flex justify-between items-center">
-													<div>Loading competition rounds...</div>
-													<span class="loading loading-spinner loading-sm"></span>
-												</div>
-											</template>
-											<template x-if="child?.competitionConfigId && competitionRoundsLoaded">
-												<template x-for="(competitionRound, index) in child.competitionRounds">
+											for _, diffField := range partials.AlwaysShowEventDiffFields {
+												<label class="label">{ helpers.GetFieldDisplayName(diffField) }</label>
+												<input
+													class="input input-bordered w-full"
+													type="datetime-local"
+													name={ string(` 'event_' + idx + '_' + ` + string(diffField[0])) }
+													x-model={ "formData.eventChildren[idx]." + strings.ToLower(string(diffField[0])) + diffField[1:] }
+												/>
+											}
+										</div>
+										<template x-if="child.competitionConfigId">
+											<div class="form-control">
+												<label class="label">Competition Config</label>
+												<a class="link link-primary" :href="'/admin/competition/' + child.competitionConfigId + '/edit' ">
+													View Competition Config
+												</a>
+												<input disabled type="hidden" name="competitionConfigId" x-model.fill="child.competitionConfigId"/>
+												<template x-if="child?.competitionConfigId && !competitionRoundsLoaded">
 													<div class="flex justify-between items-center">
-														<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
-														<button
-															@click="handleRemoveCompetitionRoundFromEvent(competitionRound, child)"
-															class="btn btn-ghost btn-circle btn-sm"
-															:disabled="competitionRound.isRemoving || saveReqInFlight"
-															aria-label="remove this competition round from event"
-														>
-															<template x-if="!competitionRound.isRemoving">
-																<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-																</svg>
-															</template>
-															<template x-if="competitionRound.isRemoving">
-																<span class="loading loading-spinner loading-sm"></span>
-															</template>
-														</button>
+														<div>Loading competition rounds...</div>
+														<span class="loading loading-spinner loading-sm"></span>
 													</div>
 												</template>
-											</template>
-										</div>
-									</template>
-									<div class="dropdown">
-										<div tabindex="0" role="button" class="btn btn-outline m-1 mt-2">
-											Override Parent Event
-										</div>
-										<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
-											<li>
-												<a @click="addChildCompetition(child)">
-													<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
-													&nbsp;Add Competition
-												</a>
-											</li>
-										</ul>
-									</div>
-								</div>
-							</template>
-						</div>
-						<button class="btn btn-primary mt-3 w-full" @click="addNewEventChild()" :disabled="saveReqInFlight">
-							<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
-							Add New Event
-						</button>
-					</div>
-				</template>
-			</div>
-		</div>
-		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Location</h2>
-		<div id="location" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
-			<div class="card">
-				@components.LocationLookupPartial("post", "/api/location/geo", "", "formData.url", "Confirm Address", "Address Confirmed", event.Lat, event.Long, event.Address, cfLocationLat, cfLocationLon)
-			</div>
-		</div>
-		<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Tickets, Sales, & Registrations</h2>
-		<div id="pricing" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
-			<div class="card">
-				<h3 class="text-xl">Registration</h3>
-				<div class="form-control w-full">
-					<label class="label cursor-pointer">
-						<span class="label-text">Enable Event Registration (collect attendee question responses)</span>
-						<input
-							name="hasRegistrationFields"
-							type="checkbox"
-							class="toggle toggle-primary"
-							x-model.fill="formData.event.hasRegistrationFields"
-							if event.HasRegistrationFields {
-								checked
-							}
-							:disabled="saveReqInFlight"
-						/>
-					</label>
-				</div>
-				<template x-if="formData.event.hasRegistrationFields && !registrationFieldsLoaded && registrationFields.length < 1">
-					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
-				</template>
-				<template x-if="formData.event.hasRegistrationFields">
-					<div class="registration-fields-manager">
-						<div class="flex justify-between items-center mb-4 mt-8">
-							<h4 class="text-xl">Registration Fields</h4>
-						</div>
-						<ul x-sort="($item, $position) => handleRegFieldReorder($item, $position, $el)" class="space-y-4">
-							<template x-for="(field, index) in registrationFields" :key="field.id + '-' + field.order">
-								<li x-sort:item="field.id" class="card bg-base-100 shadow-md p-4">
-									<div class="flex items-center gap-2 mb-4">
-										<span x-sort:handle class="cursor-move">
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
-											</svg>
-										</span>
-										<button
-											@click="removeField(index)"
-											class="btn btn-ghost btn-circle btn-sm ml-auto"
-											:disabled="saveReqInFlight"
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-											</svg>
-										</button>
-									</div>
-									<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-										<div class="form-control">
-											<label class="label">Field Name</label>
-											<input
-												type="text"
-												class="input input-bordered"
-												x-model="field.name"
-												:disabled="saveReqInFlight"
-											/>
-										</div>
-										<div class="form-control">
-											<label class="label">Field Type</label>
-											<select
-												class="select select-bordered"
-												x-model="field.type"
-												@change="handleTypeChange($event, index)"
-												:disabled="saveReqInFlight"
-											>
-												<option value="text">Text</option>
-												<option value="checkbox">Checkbox</option>
-												<option value="select">Select</option>
-											</select>
-										</div>
-										<div class="form-control md:col-span-2">
-											<div class="flex flex-col items-start">
-												<label class="label cursor-pointer">
-													<span class="label-text">Required Field</span>
-													<input
-														type="checkbox"
-														class="toggle toggle-primary ml-4"
-														x-model="field.required"
-														:disabled="saveReqInFlight"
-													/>
-												</label>
-											</div>
-										</div>
-										<template x-if="field.type === 'select'">
-											<div class="form-control md:col-span-2">
-												<label class="label">Options (one per line)</label>
-												<textarea
-													class="textarea textarea-bordered"
-													x-model="field.optionsText"
-													@input="updateOptions(index)"
-													:disabled="saveReqInFlight"
-												></textarea>
+												<template x-if="child?.competitionConfigId && competitionRoundsLoaded">
+													<template x-for="(competitionRound, index) in child.competitionRounds">
+														<div class="flex justify-between items-center">
+															<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
+															<button
+																@click="handleRemoveCompetitionRoundFromEvent(competitionRound, child)"
+																class="btn btn-ghost btn-circle btn-sm"
+																:disabled="competitionRound.isRemoving || saveReqInFlight"
+																aria-label="remove this competition round from event"
+															>
+																<template x-if="!competitionRound.isRemoving">
+																	<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+																		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+																	</svg>
+																</template>
+																<template x-if="competitionRound.isRemoving">
+																	<span class="loading loading-spinner loading-sm"></span>
+																</template>
+															</button>
+														</div>
+													</template>
+												</template>
 											</div>
 										</template>
-										<div class="form-control">
-											<label class="label">Default Value</label>
-											<input
-												type="text"
-												class="input input-bordered"
-												x-model="field.default"
-												:disabled="saveReqInFlight"
-											/>
-										</div>
-										<div class="form-control">
-											<label class="label">Placeholder</label>
-											<input
-												type="text"
-												class="input input-bordered"
-												x-model="field.placeholder"
-												:disabled="saveReqInFlight"
-											/>
-										</div>
-										<div class="form-control md:col-span-2">
-											<label class="label">Description</label>
-											<textarea
-												class="textarea textarea-bordered"
-												x-model="field.description"
-												:disabled="saveReqInFlight"
-											></textarea>
+										<div class="dropdown">
+											<div tabindex="0" role="button" class="btn btn-outline m-1 mt-2">
+												Override Parent Event
+											</div>
+											<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
+												<li>
+													<a @click="addCompetition(child)">
+														<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
+														&nbsp;Add Competition
+													</a>
+												</li>
+											</ul>
 										</div>
 									</div>
-								</li>
-							</template>
-						</ul>
-						<button
-							@click="addRegistrationField()"
-							class="btn btn-primary mt-3 mb-8 w-full"
-							:disabled="saveReqInFlight"
-						>
-							<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
-							Add Registration Field
-						</button>
-					</div>
-				</template>
-				<h3 class="text-xl mt-4">Purchasable Items, Tickets, Merch, etc.</h3>
-				<div class="form-control w-full">
-					<label class="label cursor-pointer">
-						<span class="label-text">Enable Purchasable Items</span>
-						<input
-							name="hasPurchasable"
-							type="checkbox"
-							class="toggle toggle-primary"
-							x-model.fill="formData.event.hasPurchasable"
-							if event.HasPurchasable {
-								checked
-							}
-							:disabled="saveReqInFlight"
-						/>
-					</label>
+								</template>
+							</div>
+							<button class="btn btn-primary mt-3 w-full" @click="addNewEventChild()" :disabled="saveReqInFlight">
+								<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
+								Add New Event
+							</button>
+						</div>
+					</template>
 				</div>
-				<template x-if="formData.event.hasPurchasable">
-					<div>
-						<template x-if="formData.event.hasPurchasable && !purchasablesLoaded && purchasables.length < 1">
-							<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
-						</template>
-						<template x-if="purchasables.length > 0">
-							<ul x-sort="($item, $position) => handlePurchasableOrder($item, $position)" class="list-none p-0">
-								<template x-for="(purchasable, index) in purchasables" :key="purchasable.id + '-' + purchasable.order">
-									<li x-sort:item="purchasable.id" class="card bg-base-100 shadow-md p-4 mt-4">
+			</div>
+			<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Location</h2>
+			<div id="location" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
+				<div class="card">
+					@components.LocationLookupPartial("post", "/api/location/geo", "", "formData.url", "Confirm Address", "Address Confirmed", event.Lat, event.Long, event.Address, cfLocationLat, cfLocationLon)
+				</div>
+			</div>
+			<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Tickets, Sales, & Registrations</h2>
+			<div id="pricing" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
+				<div class="card">
+					<h3 class="text-xl">Registration</h3>
+					<div class="form-control w-full">
+						<label class="label cursor-pointer">
+							<span class="label-text">Enable Event Registration (collect attendee question responses)</span>
+							<input
+								name="hasRegistrationFields"
+								type="checkbox"
+								class="toggle toggle-primary"
+								x-model.fill="formData.event.hasRegistrationFields"
+								if event.HasRegistrationFields {
+									checked
+								}
+								:disabled="saveReqInFlight"
+							/>
+						</label>
+					</div>
+					<template x-if="formData.event.hasRegistrationFields && !registrationFieldsLoaded && registrationFields.length < 1">
+						<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+					</template>
+					<template x-if="formData.event.hasRegistrationFields">
+						<div class="registration-fields-manager">
+							<div class="flex justify-between items-center mb-4 mt-8">
+								<h4 class="text-xl">Registration Fields</h4>
+							</div>
+							<ul x-sort="($item, $position) => handleRegFieldReorder($item, $position, $el)" class="space-y-4">
+								<template x-for="(field, index) in registrationFields" :key="field.id + '-' + field.order">
+									<li x-sort:item="field.id" class="card bg-base-100 shadow-md p-4">
 										<div class="flex items-center gap-2 mb-4">
 											<span x-sort:handle class="cursor-move">
 												<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -688,7 +597,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 												</svg>
 											</span>
 											<button
-												@click="removePurchasable(index)"
+												@click="removeField(index)"
 												class="btn btn-ghost btn-circle btn-sm ml-auto"
 												:disabled="saveReqInFlight"
 											>
@@ -698,260 +607,393 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 											</button>
 										</div>
 										<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-											<!-- Name -->
 											<div class="form-control">
-												<label class="label">Name</label>
+												<label class="label">Field Name</label>
 												<input
 													type="text"
 													class="input input-bordered"
-													x-model="purchasable.name"
+													x-model="field.name"
+													:disabled="saveReqInFlight"
 												/>
 											</div>
-											<!-- Item Type -->
 											<div class="form-control">
-												<label class="label">Item Type</label>
-												<select class="select select-bordered" x-model="purchasable.item_type">
-													<option value="ticket">Ticket</option>
-													<option value="merchandise">Merchandise</option>
+												<label class="label">Field Type</label>
+												<select
+													class="select select-bordered"
+													x-model="field.type"
+													@change="handleTypeChange($event, index)"
+													:disabled="saveReqInFlight"
+												>
+													<option value="text">Text</option>
+													<option value="checkbox">Checkbox</option>
+													<option value="select">Select</option>
 												</select>
 											</div>
-											<!-- Cost with currency formatting -->
-											<div class="form-control">
-												<label class="label">Cost</label>
-												<input
-													class="input input-bordered"
-													x-mask:dynamic="$money($input)"
-													x-model="purchasable.cost"
-												/>
-											</div>
-											<!-- Registration Fields Multi-select -->
-											<div class="form-control md:col-span-2 mt-8">
-												<label class="label">Registration Fields</label>
-												<div class="flex flex-wrap gap-2">
-													<ul
-														x-sort="($item, $position) => handlePurchasableRegFieldReorder($item, $position, purchasable)"
-														class="flex flex-wrap gap-2"
-													>
-														<template
-															x-for="(fieldName, index) in purchasable.registration_fields"
-															:key="fieldName + '-' + index"
-														>
-															<li
-																x-sort:item="fieldName"
-																class="label cursor-pointer inline-flex items-center gap-2 bg-base-200 px-3 py-1 rounded-full"
-															>
-																<span x-sort:handle class="cursor-move mr-1">
-																	<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-																		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
-																	</svg>
-																</span>
-																<input
-																	type="checkbox"
-																	class="checkbox checkbox-sm"
-																	checked
-																	@change="purchasable.registration_fields = purchasable.registration_fields.filter(f => f !== fieldName)"
-																/>
-																<span x-text="fieldName"></span>
-															</li>
-														</template>
-													</ul>
-													<!-- Available fields that aren't selected yet -->
-													<template x-for="field in registrationFields.filter(f => !purchasable.registration_fields.includes(f.name))" :key="field.id">
-														<label class="label cursor-pointer inline-flex items-center gap-2 px-3 py-1 rounded-full">
-															<input
-																type="checkbox"
-																class="checkbox checkbox-sm"
-																@change="purchasable.registration_fields.push(field.name)"
-															/>
-															<span x-text="field.name"></span>
-														</label>
-													</template>
+											<div class="form-control md:col-span-2">
+												<div class="flex flex-col items-start">
+													<label class="label cursor-pointer">
+														<span class="label-text">Required Field</span>
+														<input
+															type="checkbox"
+															class="toggle toggle-primary ml-4"
+															x-model="field.required"
+															:disabled="saveReqInFlight"
+														/>
+													</label>
 												</div>
 											</div>
-											<!-- Expires On -->
+											<template x-if="field.type === 'select'">
+												<div class="form-control md:col-span-2">
+													<label class="label">Options (one per line)</label>
+													<textarea
+														class="textarea textarea-bordered"
+														x-model="field.optionsText"
+														@input="updateOptions(index)"
+														:disabled="saveReqInFlight"
+													></textarea>
+												</div>
+											</template>
 											<div class="form-control">
-												<label class="label">Expires On</label>
+												<label class="label">Default Value</label>
 												<input
-													type="datetime-local"
+													type="text"
 													class="input input-bordered"
-													x-model="purchasable.expires_on"
+													x-model="field.default"
+													:disabled="saveReqInFlight"
 												/>
 											</div>
 											<div class="form-control">
-												<label class="label">Inventory</label>
+												<label class="label">Placeholder</label>
 												<input
-													type="number"
+													type="text"
 													class="input input-bordered"
-													x-model="purchasable.inventory"
-													@input="purchasable.inventory = parseInt($event.target.value || 0)"
+													x-model="field.placeholder"
+													:disabled="saveReqInFlight"
 												/>
 											</div>
-											<div class="form-control">
-												<label class="label">Starting Quantity</label>
-												<input
-													type="number"
-													class="input input-bordered"
-													x-model="purchasable.starting_quantity"
-													@input="purchasable.starting_quantity = parseInt($event.target.value || 0)"
-												/>
+											<div class="form-control md:col-span-2">
+												<label class="label">Description</label>
+												<textarea
+													class="textarea textarea-bordered"
+													x-model="field.description"
+													:disabled="saveReqInFlight"
+												></textarea>
 											</div>
 										</div>
 									</li>
 								</template>
 							</ul>
-						</template>
-						<button
-							@click="addPurchasable()"
-							class="btn btn-primary mt-3 mb-8 w-full"
-							:disabled="saveReqInFlight"
-						>
-							<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
-							Add Purchasable Item
-						</button>
-					</div>
-				</template>
-				<div :class="formData.event.hasPurchasable ? 'grid grid-2' : 'hidden'">
-					<div class="form-control">
-						<label class="label">Starting Price</label>
-						<input
-							class="input"
-							placeholder="Enter starting price"
-							x-model.fill={ "formData.event.startingPrice" }
-							x-mask:dynamic="$money($input)"
-							if event.StartingPrice > 0 {
-								value={ strconv.FormatFloat(float64(event.StartingPrice)/100.0, 'f', 2, 64) }
-							}
-						/>
-					</div>
-					<div class="form-control">
-						<label class="label">Currency</label>
-						<select class="select" value={ event.Currency }>
-							<option value="">Select currency</option>
-							<option
-								value="USD"
-								x-model.fill={ "formData.event.currency" }
-								if event.Currency == "USD" {
-									selected
-								}
-							>USD</option>
-							<option
-								value="CAD"
-								disabled
-								if event.Currency == "CAD" {
-									selected
-								}
-							>CAD</option>
-							<option
-								value="EUR"
-								disabled
-								if event.Currency == "EUR" {
-									selected
-								}
-							>EUR</option>
-							<option
-								value="GBP"
-								disabled
-								if event.Currency == "GBP" {
-									selected
-								}
-							>GBP</option>
-						</select>
-					</div>
-					<div class="form-control">
-						// TODO: make this a typeahead like other user lookup for event owners
-						<label class="label">Payee (user id)</label>
-						<input
-							class="input"
-							type="text"
-							x-model="formData.event.payeeId"
-							value={ event.PayeeId }
-							:disabled="saveReqInFlight"
-						/>
-					</div>
-				</div>
-			</div>
-		</div>
-		// <dialog id="add-competition-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
-		// 	<div class="modal-box">
-		// 		<h3 class="text-lg font-bold">YAY!</h3>
-		// 		<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
-		// 		<form method="dialog" class="modal-backdrop">
-		// 			<!-- if there is a button in form, it will close the modal -->
-		// 			<button class="btn btn-primary">Close</button>
-		// 		</form>
-		// 	</div>
-		// </dialog>
-		<dialog id="add-competition-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
-			<div class="modal-box">
-				<h3 class="text-lg font-bold">Add Competition to Event</h3>
-				<p class="py-4">Choose a competition to add to this event</p>
-				<select x-model="competitionModalCompetitionSelection" class="select select-bordered" @change="handleCompetitionSelection(competitionModalCompetitionSelection)">
-					<option value="">Select a competition</option>
-					<template x-for="competition in competitionConfigs">
-						<option :value="competition.id"><span x-text="competition.name"></span></option>
+							<button
+								@click="addRegistrationField()"
+								class="btn btn-primary mt-3 mb-8 w-full"
+								:disabled="saveReqInFlight"
+							>
+								<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
+								Add Registration Field
+							</button>
+						</div>
 					</template>
-				</select>
-				<template x-if="competitionModalCompetitionSelection">
-					<div>
-						<h3 class="text-lg font-bold my-4">Add Rounds to this Event</h3>
-						<p class="py-4">Choose rounds to add to this event</p>
-						<template x-if="competitionModalRoundsLoading">
-							<div>
-								Loading rounds...
-								<span class="loading loading-spinner loading-sm"></span>
-							</div>
-						</template>
-						<template x-if="competitionModalRounds.length > 0">
-							<div class="space-y-2">
-								<template x-for="round in competitionModalRounds" :key="round.roundNumber">
-									<div class="form-control">
-										<label class="flex items-center gap-2 cursor-pointer">
-											<input
-												type="checkbox"
-												class="checkbox my-2"
-												:value="round.roundNumber"
-												x-model="competitionModalRoundSelections"
-											/>
-											<span x-text="round.roundName"></span>
-										</label>
-									</div>
-								</template>
-							</div>
-						</template>
-						<button class="btn btn-primary mt-4" @click="handleAddRoundClick()">
-							Add Selected Rounds
-							<template x-if="saveReqInFlight">
-								<span class="loading loading-spinner loading-sm"></span>
-							</template>
-						</button>
+					<h3 class="text-xl mt-4">Purchasable Items, Tickets, Merch, etc.</h3>
+					<div class="form-control w-full">
+						<label class="label cursor-pointer">
+							<span class="label-text">Enable Purchasable Items</span>
+							<input
+								name="hasPurchasable"
+								type="checkbox"
+								class="toggle toggle-primary"
+								x-model.fill="formData.event.hasPurchasable"
+								if event.HasPurchasable {
+									checked
+								}
+								:disabled="saveReqInFlight"
+							/>
+						</label>
 					</div>
-				</template>
-			</div>
-			<form method="dialog" class="modal-backdrop">
-				<button>close</button>
-			</form>
-		</dialog>
-		<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
-			<button class="btn btn-outline">Cancel</button>
-			<button :disabled="saveReqInFlight" @click="handlePublishClick()" class="btn btn-primary mx-4">
-				Publish
-				<template x-if="saveReqInFlight">
-					<span class="loading loading-spinner loading-sm"></span>
-				</template>
-			</button>
-		</div>
-		<template x-if="showToast === true">
-			<div class="toast m-4 z-50 ">
-				<div :class="toastContent.type == 'error' ? 'alert-error' : 'alert-success'" class="alert  border-2 border-base-300">
-					<span x-text="toastContent.message"></span>
-					<div class="block justify-end">
-						<button class="btn btn-sm btn-circle btn-ghost text-2xl float-end" @click="showToast = false"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
+					<template x-if="formData.event.hasPurchasable">
+						<div>
+							<template x-if="formData.event.hasPurchasable && !purchasablesLoaded && purchasables.length < 1">
+								<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+							</template>
+							<template x-if="purchasables.length > 0">
+								<ul x-sort="($item, $position) => handlePurchasableOrder($item, $position)" class="list-none p-0">
+									<template x-for="(purchasable, index) in purchasables" :key="purchasable.id + '-' + purchasable.order">
+										<li x-sort:item="purchasable.id" class="card bg-base-100 shadow-md p-4 mt-4">
+											<div class="flex items-center gap-2 mb-4">
+												<span x-sort:handle class="cursor-move">
+													<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+													</svg>
+												</span>
+												<button
+													@click="removePurchasable(index)"
+													class="btn btn-ghost btn-circle btn-sm ml-auto"
+													:disabled="saveReqInFlight"
+												>
+													<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+													</svg>
+												</button>
+											</div>
+											<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+												<!-- Name -->
+												<div class="form-control">
+													<label class="label">Name</label>
+													<input
+														type="text"
+														class="input input-bordered"
+														x-model="purchasable.name"
+													/>
+												</div>
+												<!-- Item Type -->
+												<div class="form-control">
+													<label class="label">Item Type</label>
+													<select class="select select-bordered" x-model="purchasable.item_type">
+														<option value="ticket">Ticket</option>
+														<option value="merchandise">Merchandise</option>
+													</select>
+												</div>
+												<!-- Cost with currency formatting -->
+												<div class="form-control">
+													<label class="label">Cost</label>
+													<input
+														class="input input-bordered"
+														x-mask:dynamic="$money($input)"
+														x-model="purchasable.cost"
+													/>
+												</div>
+												<!-- Registration Fields Multi-select -->
+												<div class="form-control md:col-span-2 mt-8">
+													<label class="label">Registration Fields</label>
+													<div class="flex flex-wrap gap-2">
+														<ul
+															x-sort="($item, $position) => handlePurchasableRegFieldReorder($item, $position, purchasable)"
+															class="flex flex-wrap gap-2"
+														>
+															<template
+																x-for="(fieldName, index) in purchasable.registration_fields"
+																:key="fieldName + '-' + index"
+															>
+																<li
+																	x-sort:item="fieldName"
+																	class="label cursor-pointer inline-flex items-center gap-2 bg-base-200 px-3 py-1 rounded-full"
+																>
+																	<span x-sort:handle class="cursor-move mr-1">
+																		<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+																			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+																		</svg>
+																	</span>
+																	<input
+																		type="checkbox"
+																		class="checkbox checkbox-sm"
+																		checked
+																		@change="purchasable.registration_fields = purchasable.registration_fields.filter(f => f !== fieldName)"
+																	/>
+																	<span x-text="fieldName"></span>
+																</li>
+															</template>
+														</ul>
+														<!-- Available fields that aren't selected yet -->
+														<template x-for="field in registrationFields.filter(f => !purchasable.registration_fields.includes(f.name))" :key="field.id">
+															<label class="label cursor-pointer inline-flex items-center gap-2 px-3 py-1 rounded-full">
+																<input
+																	type="checkbox"
+																	class="checkbox checkbox-sm"
+																	@change="purchasable.registration_fields.push(field.name)"
+																/>
+																<span x-text="field.name"></span>
+															</label>
+														</template>
+													</div>
+												</div>
+												<!-- Expires On -->
+												<div class="form-control">
+													<label class="label">Expires On</label>
+													<input
+														type="datetime-local"
+														class="input input-bordered"
+														x-model="purchasable.expires_on"
+													/>
+												</div>
+												<div class="form-control">
+													<label class="label">Inventory</label>
+													<input
+														type="number"
+														class="input input-bordered"
+														x-model="purchasable.inventory"
+														@input="purchasable.inventory = parseInt($event.target.value || 0)"
+													/>
+												</div>
+												<div class="form-control">
+													<label class="label">Starting Quantity</label>
+													<input
+														type="number"
+														class="input input-bordered"
+														x-model="purchasable.starting_quantity"
+														@input="purchasable.starting_quantity = parseInt($event.target.value || 0)"
+													/>
+												</div>
+											</div>
+										</li>
+									</template>
+								</ul>
+							</template>
+							<button
+								@click="addPurchasable()"
+								class="btn btn-primary mt-3 mb-8 w-full"
+								:disabled="saveReqInFlight"
+							>
+								<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
+								Add Purchasable Item
+							</button>
+						</div>
+					</template>
+					<div :class="formData.event.hasPurchasable ? 'grid grid-2' : 'hidden'">
+						<div class="form-control">
+							<label class="label">Starting Price</label>
+							<input
+								class="input"
+								placeholder="Enter starting price"
+								x-model.fill={ "formData.event.startingPrice" }
+								x-mask:dynamic="$money($input)"
+								if event.StartingPrice > 0 {
+									value={ strconv.FormatFloat(float64(event.StartingPrice)/100.0, 'f', 2, 64) }
+								}
+							/>
+						</div>
+						<div class="form-control">
+							<label class="label">Currency</label>
+							<select class="select" value={ event.Currency }>
+								<option value="">Select currency</option>
+								<option
+									value="USD"
+									x-model.fill={ "formData.event.currency" }
+									if event.Currency == "USD" {
+										selected
+									}
+								>USD</option>
+								<option
+									value="CAD"
+									disabled
+									if event.Currency == "CAD" {
+										selected
+									}
+								>CAD</option>
+								<option
+									value="EUR"
+									disabled
+									if event.Currency == "EUR" {
+										selected
+									}
+								>EUR</option>
+								<option
+									value="GBP"
+									disabled
+									if event.Currency == "GBP" {
+										selected
+									}
+								>GBP</option>
+							</select>
+						</div>
+						<div class="form-control">
+							// TODO: make this a typeahead like other user lookup for event owners
+							<label class="label">Payee (user id)</label>
+							<input
+								class="input"
+								type="text"
+								x-model="formData.event.payeeId"
+								value={ event.PayeeId }
+								:disabled="saveReqInFlight"
+							/>
+						</div>
 					</div>
 				</div>
 			</div>
-		</template>
-	</div>
-	<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-config-id={ event.CompetitionConfigId } data-is-competition-admin={ strconv.FormatBool(isCompetitionAdmin) } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID }>
+			// <dialog id="add-competition-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+			// 	<div class="modal-box">
+			// 		<h3 class="text-lg font-bold">YAY!</h3>
+			// 		<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+			// 		<form method="dialog" class="modal-backdrop">
+			// 			<!-- if there is a button in form, it will close the modal -->
+			// 			<button class="btn btn-primary">Close</button>
+			// 		</form>
+			// 	</div>
+			// </dialog>
+			<dialog id="add-competition-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+				<div class="modal-box">
+					<h3 class="text-lg font-bold">Add Competition to Event</h3>
+					<p class="py-4">Choose a competition to add to this event</p>
+					<select x-model="competitionModalCompetitionSelection" class="select select-bordered" @change="handleCompetitionSelection(competitionModalCompetitionSelection)">
+						<option value="">Select a competition</option>
+						<template x-for="competition in competitionConfigs">
+							<option :value="competition.id"><span x-text="competition.name"></span></option>
+						</template>
+					</select>
+					<template x-if="competitionModalCompetitionSelection">
+						<div>
+							<h3 class="text-lg font-bold my-4">Add Rounds to this Event</h3>
+							<p class="py-4">Choose rounds to add to this event</p>
+							<template x-if="competitionModalRoundsLoading">
+								<div>
+									Loading rounds...
+									<span class="loading loading-spinner loading-sm"></span>
+								</div>
+							</template>
+							<template x-if="competitionModalRounds.length > 0">
+								<div class="space-y-2">
+									<template x-for="round in competitionModalRounds" :key="round.roundNumber">
+										<div class="form-control">
+											<label class="flex items-center gap-2 cursor-pointer">
+												<input
+													type="checkbox"
+													class="checkbox my-2"
+													:value="round.roundNumber"
+													x-model="competitionModalRoundSelections"
+												/>
+												<span x-text="round.roundName"></span>
+											</label>
+										</div>
+									</template>
+								</div>
+							</template>
+							<button class="btn btn-primary mt-4" @click="handleAddRoundClick()">
+								Add Selected Rounds
+								<template x-if="saveReqInFlight">
+									<span class="loading loading-spinner loading-sm"></span>
+								</template>
+							</button>
+						</div>
+					</template>
+				</div>
+				<form method="dialog" class="modal-backdrop">
+					<button>close</button>
+				</form>
+			</dialog>
+			<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
+				// <button class="btn btn-outline">Cancel</button>
+				<button :disabled="saveReqInFlight" @click="handlePublishClick()" class="btn btn-primary mx-4">
+					<template x-if="publishStatus?.endsWith?.(unpubSuffix)">
+						<span>Save as Draft</span>
+					</template>
+					<template x-if="!publishStatus?.endsWith?.(unpubSuffix)">
+						<span>Publish</span>
+					</template>
+					<template x-if="saveReqInFlight">
+						<span class="loading loading-spinner loading-sm"></span>
+					</template>
+				</button>
+			</div>
+			<template x-if="showToast === true">
+				<div class="toast m-4 z-50 ">
+					<div :class="toastContent.type == 'error' ? 'alert-error' : 'alert-success'" class="alert  border-2 border-base-300">
+						<span x-text="toastContent.message"></span>
+						<div class="block justify-end">
+							<button class="btn btn-sm btn-circle btn-ghost text-2xl float-end" @click="showToast = false"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
+						</div>
+					</div>
+				</div>
+			</template>
+		</div>
+		<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-config-id={ event.CompetitionConfigId } data-is-competition-admin={ strconv.FormatBool(isCompetitionAdmin) } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-unpub-suffix={ helpers.UNPUB_SUFFIX } data-published-suffix={ helpers.PUBLISHED_SUFFIX }>
 
 	function getAddEditEventState() {
 		return {
@@ -1118,6 +1160,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							hideCrossPromo: document.querySelector('[name=hideCrossPromo]').checked ?? false,
 						},
 					},
+					publishStatus: document.querySelector('#publishStatus')?.value ?? null,
 					isCompetitionAdmin: document.querySelector('#add-edit-event').getAttribute('data-is-competition-admin') ?? false,
 					roundEmptyEventId: document.querySelector('#add-edit-event').getAttribute('data-round-empty-event-id') ?? null,
 					competitionConfigs: [],
@@ -1137,7 +1180,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					purchasables: [],
 					registrationFields: [],
 					owners: [],
-					isEventSeries: document.querySelector('[name=isEventSeries]').checked ?? false,
+					isEventSeries: document.querySelector('[name=isEventSeries]')?.checked ?? false,
 					categoryInput: '',
 					tagInput: '',
 					ownerInput: '',
@@ -1151,6 +1194,8 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					eventTypeSingleConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
 					eventTypeSeriesParentConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent'),
 					eventTypeSeriesChildConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-child'),
+					unpubSuffix: document.querySelector("#add-edit-event").getAttribute('data-unpub-suffix'),
+					publishedSuffix: document.querySelector("#add-edit-event").getAttribute('data-published-suffix'),
 					// The API expects RFC3339 HH:MM:SS, but datetime-local is in HH:MM
 					timeZuluSuffix: ":00Z",
 					// BEGIN: Event Owners typeahead state
@@ -1244,6 +1289,16 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							id: crypto.randomUUID(),
 						})
 					},
+					deriveEventSourceTypeFromDropdown(event, publishStatus, isEventSeries, isChild) {
+						let sourceTypeSansSuffix = event.eventSourceType.replace(this.unpubSuffix, '').replace(this.publishedSuffix, '')
+						if (isEventSeries && !isChild) {
+							sourceTypeSansSuffix = this.eventTypeSeriesParentConstant
+						} else if (isEventSeries && isChild) {
+							sourceTypeSansSuffix = this.eventTypeSeriesChildConstant
+						}
+						// NOTE: for backwards compatibility, the suffix is only included for UNPUBLISHED events, published events lack a correlating suffix
+						return publishStatus === this.publishedSuffix ? sourceTypeSansSuffix : sourceTypeSansSuffix + this.unpubSuffix
+					},
 					transformEventToPayload(event) {
 						const _event = JSON.parse(JSON.stringify(event))
 						const _eventFiltered = Object.fromEntries(
@@ -1257,13 +1312,15 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							delete _eventFiltered.payeeId
 						}
 
+						const _eventSourceType = this.deriveEventSourceTypeFromDropdown(event, this.publishStatus, this.isEventSeries, false)
+
 						return {
 							..._eventFiltered,
 							startTime: this.formData.event.startTime ? this.formData.event.startTime + this.timeZuluSuffix : null,
 							endTime: this.formData.event.endTime ? this.formData.event.endTime + this.timeZuluSuffix : null,
 							lat: parseFloat(this.formData.event.lat),
 							long: parseFloat(this.formData.event.long),
-							eventSourceType: this.isEventSeries ? this.eventTypeSeriesParentConstant : this.eventTypeSingleConstant,
+							eventSourceType: _eventSourceType,
 							eventOwners: this.owners.map(owner => owner.value),
 							eventOwnerName: this.owners.map(owner => owner.label).join(this.eventOwnerDelimiter),
 							...(this.formData.event.hasPurchasable ? {
@@ -1442,7 +1499,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						});
 					},
 
-					addChildCompetition(event) {
+					addCompetition(event) {
 						this.competitionModalEventSelection = event
 						document.getElementById('add-competition-modal').showModal()
 					},
@@ -1643,13 +1700,14 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								delete _childEvent.competitionRounds
 								// NOTE: never override the child event's id with the parent id
 								delete _parentEvent.id
+								const _mergedEvent = {..._parentEvent, ..._childEvent}
 								payload.events.push({
-									..._parentEvent,
-									..._childEvent,
+									..._mergedEvent,
 									eventSourceId: this.formData.event.id,
+									eventSourceType: this.deriveEventSourceTypeFromDropdown(_mergedEvent, this.isEventSeries, this.publishStatus, true),
 									startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
 									endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,
-									eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
+									// eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
 								})
 							})
 						}
@@ -1692,4 +1750,5 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				}
 			}
 	</script>
+	}
 }
