@@ -23,6 +23,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 		cfLat              float64
 		cfLon              float64
 		expected           []string
+		notExpected        []string
 	}{
 		{
 			name:               "New event form",
@@ -94,6 +95,9 @@ func TestAddOrEditEventPage(t *testing.T) {
 				"data-cf-lon=\"-104.937511\"",
 				"Only competition admins can modify competition config settings",
 			},
+			notExpected: []string{
+				"Add Competition</button",
+			},
 		},
 		{
 			name: "Edit existing event, as competition admin",
@@ -128,6 +132,28 @@ func TestAddOrEditEventPage(t *testing.T) {
 				"Add Competition</button",
 			},
 		},
+		{
+			name: "Edit unpublished event",
+			event: types.Event{
+				Id:                  "123",
+				Name:                "Test Event",
+				Description:         "This is a test event",
+				Address:             "123 Test St",
+				CompetitionConfigId: "xyz-uuid",
+				EventOwners:         []string{"abc-uuid"},
+				EventOwnerName:      "Brians Pub",
+				Timezone:            *lALoc,
+				EventSourceType:     helpers.ES_SINGLE_EVENT_UNPUB,
+			},
+			isEditor:           true,
+			isCompetitionAdmin: true,
+			sitePage:           helpers.SitePages["edit-event"],
+			cfLat:              39.764252,
+			cfLon:              -104.937511,
+			expected: []string{
+				`<option value="_UNPUB" selected`,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -146,6 +172,12 @@ func TestAddOrEditEventPage(t *testing.T) {
 			for _, exp := range tt.expected {
 				if !strings.Contains(result, exp) {
 					t.Errorf("Expected string not found: %s", exp)
+					t.Errorf("Result: %s", result)
+				}
+			}
+			for _, notExp := range tt.notExpected {
+				if strings.Contains(result, notExp) {
+					t.Errorf("Unexpected string found: %s", notExp)
 					t.Errorf("Result: %s", result)
 				}
 			}

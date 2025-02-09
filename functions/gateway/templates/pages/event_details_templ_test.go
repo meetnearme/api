@@ -25,10 +25,11 @@ func TestEventDetailsPage(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		event    types.Event
-		expected []string
-		canEdit  bool
+		name        string
+		event       types.Event
+		expected    []string
+		notExpected []string
+		canEdit     bool
 	}{
 		{
 			name: "Valid DST event",
@@ -164,6 +165,52 @@ func TestEventDetailsPage(t *testing.T) {
 			canEdit: true,
 		},
 		{
+			name: "Not published event, as non-editor",
+			event: types.Event{
+				Id:              "123",
+				Name:            "Test Event",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventNonDSTStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: helpers.ES_SINGLE_EVENT_UNPUB,
+			},
+			expected: []string{
+				"This event is unpublished",
+			},
+			canEdit: false,
+		},
+		{
+			name: "Not published event, as editor",
+			event: types.Event{
+				Id:              "123",
+				Name:            "Test Event",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventNonDSTStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: helpers.ES_SINGLE_EVENT_UNPUB,
+			},
+			expected: []string{
+				"Test Event",
+				"This is a test event",
+				"123 Test St",
+				"Jan 31, 2099",
+
+				"abc-uuid",
+				"Brians Pub",
+				"editor for this event",
+			},
+			notExpected: []string{
+				"This event is unpublished",
+				// NOTE: series parent events don't show their time
+				"12:00am",
+			},
+			canEdit: true,
+		},
+		{
 			name:  "Empty event",
 			event: types.Event{},
 			expected: []string{
@@ -191,6 +238,12 @@ func TestEventDetailsPage(t *testing.T) {
 			for _, exp := range tt.expected {
 				if !strings.Contains(result, exp) {
 					t.Errorf("Expected string not found: %s", exp)
+					t.Logf("Result: %s", result)
+				}
+			}
+			for _, notExp := range tt.notExpected {
+				if strings.Contains(result, notExp) {
+					t.Errorf("Unexpected string found: %s", notExp)
 					t.Logf("Result: %s", result)
 				}
 			}
