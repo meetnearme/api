@@ -23,6 +23,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 		cfLat              float64
 		cfLon              float64
 		expected           []string
+		notExpected        []string
 	}{
 		{
 			name:               "New event form",
@@ -93,6 +94,9 @@ func TestAddOrEditEventPage(t *testing.T) {
 				"data-cf-lat=\"39.764252\"",
 				"data-cf-lon=\"-104.937511\"",
 				"Only competition admins can modify competition config settings",
+			},
+			notExpected: []string{
+				"Add Competition</button",
 			},
 		},
 		{
@@ -168,6 +172,12 @@ func TestAddOrEditEventPage(t *testing.T) {
 			for _, exp := range tt.expected {
 				if !strings.Contains(result, exp) {
 					t.Errorf("Expected string not found: %s", exp)
+					t.Errorf("Result: %s", result)
+				}
+			}
+			for _, notExp := range tt.notExpected {
+				if strings.Contains(result, notExp) {
+					t.Errorf("Unexpected string found: %s", notExp)
 					t.Errorf("Result: %s", result)
 				}
 			}
