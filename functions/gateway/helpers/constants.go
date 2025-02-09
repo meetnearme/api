@@ -56,6 +56,8 @@ const EV_MODE_UPCOMING = "DETAILED"
 const EV_MODE_LIST = "LIST"
 
 const UNPUB_SUFFIX = "_UNPUB"
+
+// NOTE: used by the frontend dropdown, but not included in the event source type string
 const PUBLISHED_SUFFIX = "_PUBLISHED"
 
 const (
