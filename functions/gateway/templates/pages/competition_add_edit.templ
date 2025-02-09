@@ -415,7 +415,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 		</div>
 		// Action Buttons
 		<div class="sticky bottom-0 flex justify-end border-2 border-base-300 bg-base-200 py-4 z-50">
-			<button class="btn btn-outline">Cancel</button>
+			// <button class="btn btn-outline">Cancel</button>
 			<button class="btn btn-primary mx-4" @click="saveCompetition" :disabled="saveReqInFlight || !roundsDataLoaded || !usersDataLoaded">Save Competition<span class="loading loading-spinner loading-md" x-show="saveReqInFlight"></span></button>
 		</div>
 		<template x-if="showToast === true">
