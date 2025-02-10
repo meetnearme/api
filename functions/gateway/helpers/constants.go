@@ -55,10 +55,18 @@ const EV_MODE_CAROUSEL = "CAROUSEL"
 const EV_MODE_UPCOMING = "DETAILED"
 const EV_MODE_LIST = "LIST"
 
+const UNPUB_SUFFIX = "_UNPUB"
+
+// NOTE: used by the frontend dropdown, but not included in the event source type string
+const PUBLISHED_SUFFIX = "_PUBLISHED"
+
 const (
-	ES_SINGLE_EVENT  = "SLF"
-	ES_EVENT_SERIES  = "EVS"
-	ES_SERIES_PARENT = "SLF_EVS"
+	ES_SINGLE_EVENT        = "SLF"
+	ES_EVENT_SERIES        = "EVS"
+	ES_SERIES_PARENT       = "SLF_EVS"
+	ES_SINGLE_EVENT_UNPUB  = "SLF" + UNPUB_SUFFIX
+	ES_EVENT_SERIES_UNPUB  = "EVS" + UNPUB_SUFFIX
+	ES_SERIES_PARENT_UNPUB = "SLF_EVS" + UNPUB_SUFFIX
 )
 
 const COMP_EMPTY_TEAM_NAME = "___|~~EMPTY TEAM NAME~~|___"
@@ -68,7 +76,7 @@ const COMP_TEAM_ID_PREFIX = "tm_"
 // NOTE: these are the default searchable event source types that show up in the home event list view
 var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT, ES_SINGLE_EVENT}
 
-var DEFAULT_NON_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_EVENT_SERIES}
+var DEFAULT_NON_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_EVENT_SERIES, ES_SINGLE_EVENT_UNPUB, ES_SERIES_PARENT_UNPUB, ES_EVENT_SERIES_UNPUB}
 
 var ALL_EVENT_SOURCE_TYPES []string
 
@@ -203,6 +211,8 @@ var SitePages = map[string]SitePage{
 	"competition-new":    {Key: "competition-new", Slug: "/admin/competition/new{trailingslash:\\/?}", Name: "Add Competition", SubnavItems: []string{SubnavItems[NvMain]}},
 	"competition-edit":   {Key: "competition-edit", Slug: "/admin/competition/{" + COMPETITIONS_ID_KEY + "}/edit{trailingslash:\\/?}", Name: "Edit Competition", SubnavItems: []string{SubnavItems[NvMain]}},
 	"competition-detail": {Key: "competition-detail", Slug: "/competition/{" + COMPETITIONS_ID_KEY + "}{trailingslash:\\/?}", Name: "Competition Detail", SubnavItems: []string{SubnavItems[NvMain]}},
+	"privacy-policy":     {Key: "privacy-policy", Slug: "/privacy-policy{trailingslash:\\/?}", Name: "Privacy Policy", SubnavItems: []string{SubnavItems[NvMain]}},
+	"data-request":       {Key: "data-request", Slug: "/data-request{trailingslash:\\/?}", Name: "Data Request", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 // EventFields holds references to all fields in the Event struct

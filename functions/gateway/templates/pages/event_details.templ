@@ -71,6 +71,24 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			<br/>
 			<br/>
 			<br/>
+		} else if strings.Contains(event.EventSourceType, helpers.UNPUB_SUFFIX) && !canEdit {
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<h1 class="text-3xl mt-2 text-center">
+				This event is unpublished
+			</h1>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
 		} else {
 			if event.CompetitionConfigId != "" {
 				<template x-if="shouldShowCompetitionCta()">

@@ -42,11 +42,6 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get competitionConfig: "+err.Error()), http.StatusInternalServerError, err)
-		return
-	}
-
 	err = json.Unmarshal(body, &updateCompetitionConfigPayload)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
@@ -71,8 +66,8 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 
 	// Store teams data before removing it from the struct
 	teamsData := updateCompetitionConfigPayload.Teams
-	roundsData := updateCompetitionConfigPayload.Rounds
 
+	roundsData := updateCompetitionConfigPayload.Rounds
 	// Create target struct
 	var configUpdate internal_types.CompetitionConfigUpdate
 
@@ -179,24 +174,31 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 
 	}
 
-	roundsData, err = helpers.NormalizeCompetitionRounds(roundsData)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to normalize competition rounds: "+err.Error()), http.StatusInternalServerError, err)
-		return
-	}
+	// Initialize empty rounds slice for the response
+	competitionConfigRes.Rounds = []types.CompetitionRound{}
 
-	service := dynamodb_service.NewCompetitionRoundService()
-	_, err = service.PutCompetitionRounds(ctx, db, &roundsData)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to save competition rounds: "+err.Error()), http.StatusInternalServerError, err)
-		return
-	}
+	// Only process rounds if there are any
+	if len(roundsData) > 0 {
+		normalizedRounds, err := helpers.NormalizeCompetitionRounds(roundsData)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to normalize competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
 
-	rounds := make([]types.CompetitionRound, len(roundsData))
-	for i, r := range roundsData {
-		rounds[i] = types.CompetitionRound(r)
+		service := dynamodb_service.NewCompetitionRoundService()
+		_, err = service.PutCompetitionRounds(ctx, db, &normalizedRounds)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to save competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		// Convert and assign rounds to response
+		rounds := make([]types.CompetitionRound, len(normalizedRounds))
+		for i, r := range normalizedRounds {
+			rounds[i] = types.CompetitionRound(r)
+		}
+		competitionConfigRes.Rounds = rounds
 	}
-	competitionConfigRes.Rounds = rounds
 
 	response, err := json.Marshal(competitionConfigRes)
 	if err != nil {
