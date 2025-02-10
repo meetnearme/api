@@ -181,17 +181,33 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 										<h3 class="text-lg text-bold" x-text="round.roundName"></h3>
 										<p class="text-lg" x-text="round.description"></p>
 										<div class="flex items-center justify-between gap-4 w-full mt-2">
-											<button :disabled="voteSubmitting === `${round.competitorA}-${round.roundNumber}`" class="btn btn-block btn-primary btn-bold-outline btn-bg-inverted flex-1" @click="submitVote(round.competitorA, round.roundNumber)">
+											<button
+												:disabled="voteSubmitting === `${round.competitorA}-${round.roundNumber}`"
+												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA }"
+												class="btn btn-block btn-primary btn-bold-outline flex-1 inline-flex items-baseline gap-2"
+												@click="submitVote(round.competitorA, round.roundNumber)"
+											>
 												<span x-text="'Vote ' + round?.competitorADisplayName"></span>
+												<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA">
+													<span><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+												</template>
 												<template x-if="voteSubmitting === `${round.competitorA}-${round.roundNumber}`">
 													<span class="loading loading-spinner loading-md text-primary"></span>
 												</template>
 											</button>
 											<div class="text-3xl font-bold">&larr; VS &rarr;</div>
-											<button :disabled="voteSubmitting === `${round.competitorB}-${round.roundNumber}`" class="btn btn-block btn-primary btn-bold-outline btn-bg-inverted flex-1" @click="submitVote(round.competitorB, round.roundNumber)">
+											<button
+												:disabled="voteSubmitting === `${round.competitorB}-${round.roundNumber}`"
+												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB }"
+												class="btn btn-block btn-primary btn-bold-outline flex-1 inline-flex items-baseline gap-2"
+												@click="submitVote(round.competitorB, round.roundNumber)"
+											>
 												<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
 												<template x-if="voteSubmitting === `${round.competitorB}-${round.roundNumber}`">
 													<span class="loading loading-spinner loading-md text-primary"></span>
+												</template>
+												<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB">
+													<span><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
 												</template>
 											</button>
 										</div>
@@ -379,6 +395,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				eventTypeSeriesChildConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-child'),
 				rounds: [],
 				voteSubmitting: null,
+				votesSubmitted: {},
 				competitors: {},
 				pollInterval: null,
 				roundsDataFetching: false,
@@ -398,6 +415,8 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 						if (response.status > 400) {
 							throw new Error(data.message || 'Vote submission failed')
 						}
+
+						this.votesSubmitted[`${roundNumber}`] = { voteRecipientId: competitorId}
 					} catch (e) {
 						// eslint-disable-next-line no-console
 						console.error(e);
