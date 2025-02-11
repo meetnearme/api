@@ -1713,8 +1713,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							})
 						}
 
-						// console.log('payload', payload)
-            // return
 						try {
 							const response = await fetch(`/api/event-reg-purch/${this.formData.event.id}`, {
 								method: 'PUT',
