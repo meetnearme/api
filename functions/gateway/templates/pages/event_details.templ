@@ -134,10 +134,10 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				</div>
 			}
 			<h2 class="text-3xl mt-2">{ event.Name }</h2>
-			if event.EventSourceType == helpers.ES_SERIES_PARENT {
+			if event.EventSourceType == helpers.ES_SERIES_PARENT || event.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
 				<h3 class="text-xl mt-2">Event Series</h3>
 				<div
-					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=" + strconv.Itoa(helpers.DEFAULT_MAX_RADIUS) + "&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES }
+					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=" + strconv.Itoa(helpers.DEFAULT_MAX_RADIUS) + "&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES + "," + helpers.ES_EVENT_SERIES_UNPUB }
 					hx-trigger="load"
 					hx-swap="outerHTML"
 				>
@@ -166,11 +166,11 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 					// TODO: handle basecurrency
 					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", "", event)
 				}
-				if event.EventSourceType == helpers.ES_EVENT_SERIES && event.EventSourceId != "" {
+				if event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB && event.EventSourceId != "" {
 					<div class="divider my-3"></div>
 					<h3 class="text-xl mt-2 mb-2">All Events in this Series</h3>
 					<div
-						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId + "&event_source_types=" + helpers.ES_EVENT_SERIES }
+						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId + "&event_source_types=" + helpers.ES_EVENT_SERIES + "," + helpers.ES_EVENT_SERIES_UNPUB }
 						hx-trigger="load"
 						hx-swap="outerHTML"
 					>

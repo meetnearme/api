@@ -433,9 +433,10 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					</label>
 					<template x-if="isEventSeries">
 						<div>
-							if event.EventSourceType == helpers.ES_SERIES_PARENT {
+							<h1>{ event.EventSourceType }</h1>
+							if event.EventSourceType == helpers.ES_SERIES_PARENT || event.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
 								<div
-									hx-get={ "/api/html/event-series-form/" + event.Id + "?&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES + "&start_time=" + helpers.GetDatetimePickerFormatted(0, &event.Timezone) + ":00Z" + "&end_time=" + helpers.GetDatetimePickerFormatted(helpers.DEFAULT_UNDEFINED_END_TIME, &event.Timezone) + ":00Z" }
+									hx-get={ "/api/html/event-series-form/" + event.Id + "?&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES + "," + helpers.ES_EVENT_SERIES_UNPUB + "&start_time=" + helpers.GetDatetimePickerFormatted(0, &event.Timezone) + ":00Z" + "&end_time=" + helpers.GetDatetimePickerFormatted(helpers.DEFAULT_UNDEFINED_END_TIME, &event.Timezone) + ":00Z" }
 									hx-trigger="load"
 									hx-swap="outerHTML"
 									@htmx:after-request="setEventChildrenLoaded()"
@@ -1712,6 +1713,8 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							})
 						}
 
+						// console.log('payload', payload)
+            // return
 						try {
 							const response = await fetch(`/api/event-reg-purch/${this.formData.event.id}`, {
 								method: 'PUT',

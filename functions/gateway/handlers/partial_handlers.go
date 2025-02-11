@@ -159,7 +159,7 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 
 	// NOTE: we want the children AND the parent event, empty string gets the parent
 	eventSourceIds = []string{eventId}
-	eventSourceTypes = []string{helpers.ES_EVENT_SERIES}
+	eventSourceTypes = []string{helpers.ES_EVENT_SERIES, helpers.ES_EVENT_SERIES_UNPUB}
 
 	// Separate parent and children events
 	var eventParent *internal_types.Event
