@@ -109,6 +109,8 @@ func GetImgUrlFromHash(event types.Event) string {
 			catImgCountRange = noneCatImgCount
 		case "karaoke":
 			catImgCountRange = 4
+		case "karaoke-quirky":
+			catImgCountRange = 10
 		case "bocce-ball":
 			catImgCountRange = 4
 		case "trivia-night":
