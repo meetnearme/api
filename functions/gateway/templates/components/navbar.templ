@@ -266,6 +266,10 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							Meet Near Me LLC.
 						</span> All rights reserved.
 					</p>
+					<p>
+						<a href={ templ.URL(os.Getenv("APEX_URL") + "/terms-of-service") }>Terms of Service</a> &bull;&nbsp;
+						<a href={ templ.URL(os.Getenv("APEX_URL") + "/privacy-policy") }>Privacy Policy</a>
+					</p>
 				</aside>
 				<nav>
 					<div class="grid grid-flow-col gap-4">
