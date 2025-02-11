@@ -61,6 +61,7 @@ func init() {
 		{helpers.SitePages["map-embed"].Slug, "GET", handlers.GetMapEmbedPage, Check},
 		{helpers.SitePages["privacy-policy"].Slug, "GET", handlers.GetPrivacyPolicyPage, Check},
 		{helpers.SitePages["data-request"].Slug, "GET", handlers.GetDataRequestPage, Check},
+		{helpers.SitePages["terms-of-service"].Slug, "GET", handlers.GetTermsOfServicePage, Check},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...
 		// the complexity is we might want "in the middle", which would be "auto-refresh
