@@ -1377,7 +1377,7 @@ func UpdateEventRegPurch(w http.ResponseWriter, r *http.Request) {
 	// delete "sweeper" we do in the `defer` function below
 
 	farFutureTime, _ := time.Parse(time.RFC3339, "2099-05-01T12:00:00Z")
-	childEventsToDelete, err := services.SearchMarqoEvents(marqoClient, "", []float64{0, 0}, 1000000, 0, farFutureTime.Unix(), []string{}, "", "", "", []string{helpers.ES_EVENT_SERIES}, []string{eventId})
+	childEventsToDelete, err := services.SearchMarqoEvents(marqoClient, "", []float64{0, 0}, 1000000, 0, farFutureTime.Unix(), []string{}, "", "", "", []string{helpers.ES_EVENT_SERIES, helpers.ES_EVENT_SERIES_UNPUB}, []string{eventId})
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to search for existing child events: "+err.Error()), http.StatusInternalServerError, err)
 		return
