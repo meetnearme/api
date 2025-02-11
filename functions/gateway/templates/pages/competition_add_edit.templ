@@ -31,7 +31,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 		</header>
 		// Basic Information Section
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Basic Information</h2>
-		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-10 mb-10 rounded-box">
+		<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 mb-10 rounded-box">
 			<div class="card">
 				// Competition Name
 				<label class="form-control w-full max-w-xs">
@@ -106,7 +106,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 			</div>
 		</div>
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Competitors</h2>
-		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-10 mb-10 rounded-box">
+		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 mb-10 rounded-box">
 			<div class="card">
 				<h3 class="text-xl font-bold mb-4">Waiting Room</h3>
 				<div class="form-control">
@@ -257,7 +257,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 		</div>
 		// Rounds Configuration Section
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Rounds Configuration</h2>
-		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-10 mb-10 rounded-box">
+		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 mb-10 rounded-box">
 			<div class="card">
 				<h5 class="text-lg font-bold mb-4">Rounds</h5>
 				<div class="form-control">
@@ -289,18 +289,27 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 											<a :href="`/admin/event/${round.eventId}/edit`" class="link link-primary">View Associated Event</a>
 										</div>
 									</template>
-									<div class="round-item flex items-center gap-4 mb-4">
-										<div class="form-control">
-											<label class="label">Round Name</label>
-											<input
-												type="text"
-												class="input input-bordered"
-												x-model="round.roundName"
-												placeholder="Round name"
-											/>
-										</div>
-										<span class="text-xl">: </span>
-										<div class="form-control">
+									<div class="form-control">
+										<label class="label">Round Name</label>
+										<input
+											type="text"
+											class="input input-bordered w-full md:w-auto"
+											x-model="round.roundName"
+											placeholder="Round name"
+										/>
+									</div>
+									<label class="form-control w-full md:w-auto">
+										<div class="label">Round Description</div>
+										<input
+											class="input input-bordered w-full md:w-auto"
+											id="round"
+											type="text"
+											placeholder="Enter Round description"
+											x-model.fill="round.description"
+										/>
+									</label>
+									<div class="flow-root md:flex items-center md:gap-4 mb-4">
+										<div class="form-control w-full md:grow">
 											<label class="label">Competitor A</label>
 											<select
 												class="select input-bordered"
@@ -317,8 +326,8 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 												</template>
 											</select>
 										</div>
-										<span class="text-xl">&larr; VS &rarr;</span>
-										<div class="form-control">
+										<span class="text-xl mx-4">&larr; VS &rarr;</span>
+										<div class="form-control w-full md:grow">
 											<label class="label">Competitor B</label>
 											<select
 												class="select input-bordered"
@@ -336,16 +345,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 											</select>
 										</div>
 									</div>
-									<label class="form-control w-full max-w-xs">
-										<div class="label">Round Description</div>
-										<input
-											class="input input-bordered w-full"
-											id="round"
-											type="text"
-											placeholder="Enter Round description"
-											x-model.fill="formData.description"
-										/>
-									</label>
 									<div class="divider"></div>
 									<div class="form-control mb-4">
 										<label class="cursor-pointer">
@@ -386,14 +385,14 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 										</div>
 									</div>
 									<br/>
-									<div class="flex items-center gap-4 mb-4">
-										<div class="form-control">
+									<div class="flow-root md:flex items-center md:gap-4 mb-4">
+										<div class="form-control w-full md:grow">
 											<label class="label">
 												<span class="label-text">Competitor A Score</span>
 											</label>
 											<input type="number" class="input input-bordered" x-model="round.competitorAScore" value="0"/>
 										</div>
-										<div class="form-control">
+										<div class="form-control w-full md:grow">
 											<label class="label">
 												<span class="label-text">Competitor B Score</span>
 											</label>
