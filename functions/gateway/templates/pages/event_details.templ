@@ -184,30 +184,34 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 											<button
 												:disabled="voteSubmitting === `${round.competitorA}-${round.roundNumber}`"
 												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA }"
-												class="btn btn-block btn-primary btn-bold-outline flex-1 inline-flex items-baseline gap-2"
+												class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
 												@click="submitVote(round.competitorA, round.roundNumber)"
 											>
-												<span x-text="'Vote ' + round?.competitorADisplayName"></span>
-												<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA">
-													<span><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
-												</template>
-												<template x-if="voteSubmitting === `${round.competitorA}-${round.roundNumber}`">
-													<span class="loading loading-spinner loading-md text-primary"></span>
-												</template>
+												<span x-text="'Vote ' + round?.competitorADisplayName" class="flex-grow"></span>
+												<div class="flex-none">
+													<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA && voteSubmitting !== `${round.competitorA}-${round.roundNumber}`">
+														<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+													</template>
+													<template x-if="voteSubmitting === `${round.competitorA}-${round.roundNumber}`">
+														<span class="loading loading-spinner loading-md text-primary"></span>
+													</template>
+												</div>
 											</button>
 											<div class="text-3xl font-bold">&larr; VS &rarr;</div>
 											<button
 												:disabled="voteSubmitting === `${round.competitorB}-${round.roundNumber}`"
 												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB }"
-												class="btn btn-block btn-primary btn-bold-outline flex-1 inline-flex items-baseline gap-2"
+												class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
 												@click="submitVote(round.competitorB, round.roundNumber)"
 											>
 												<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
 												<template x-if="voteSubmitting === `${round.competitorB}-${round.roundNumber}`">
 													<span class="loading loading-spinner loading-md text-primary"></span>
 												</template>
-												<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB">
-													<span><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+												<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB && voteSubmitting !== `${round.competitorB}-${round.roundNumber}`">
+													<div class="flex-none">
+														<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+													</div>
 												</template>
 											</button>
 										</div>
