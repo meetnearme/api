@@ -379,8 +379,8 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 	userInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
 	userSubdomain := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.SUBDOMAIN_KEY)
-	userAbout := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.META_ABOUT_KEY)
-	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests, userSubdomain, userAbout)
+	userAboutData, err := helpers.GetOtherUserMetaByID(userInfo.Sub, helpers.META_ABOUT_KEY)
+	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests, userSubdomain, userAboutData)
 	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, types.Event{}, []string{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
