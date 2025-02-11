@@ -263,7 +263,7 @@ func TestEventDetailsPage(t *testing.T) {
 			expected: []string{
 				"Weekly Karaoke - Week 1",
 				"This is a test event",
-				"123 Test St",,
+				"123 Test St",
 				"abc-uuid",
 				"Brians Pub",
 				"Edit Event",
