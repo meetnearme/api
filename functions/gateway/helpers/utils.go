@@ -98,7 +98,7 @@ func GetImgUrlFromHash(event types.Event) string {
 	noneCatImgCount := 18
 	catNumString := "_"
 	if len(event.Categories) > 0 {
-		firstCat := ArrFindFirst(event.Categories, []string{"Karaoke", "Bocce Ball", "Trivia Night"})
+		firstCat := ArrFindFirst(event.Categories, []string{"Karaoke", "Karaoke Quirky", "Bocce Ball", "Trivia Night"})
 		firstCat = strings.ToLower(strings.ReplaceAll(firstCat, " ", "-"))
 		if firstCat == "" {
 			firstCat = "none"
