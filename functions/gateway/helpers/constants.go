@@ -213,6 +213,7 @@ var SitePages = map[string]SitePage{
 	"competition-detail": {Key: "competition-detail", Slug: "/competition/{" + COMPETITIONS_ID_KEY + "}{trailingslash:\\/?}", Name: "Competition Detail", SubnavItems: []string{SubnavItems[NvMain]}},
 	"privacy-policy":     {Key: "privacy-policy", Slug: "/privacy-policy{trailingslash:\\/?}", Name: "Privacy Policy", SubnavItems: []string{SubnavItems[NvMain]}},
 	"data-request":       {Key: "data-request", Slug: "/data-request{trailingslash:\\/?}", Name: "Data Request", SubnavItems: []string{SubnavItems[NvMain]}},
+	"terms-of-service":   {Key: "terms-of-service", Slug: "/terms-of-service{trailingslash:\\/?}", Name: "Terms of Service", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 // EventFields holds references to all fields in the Event struct

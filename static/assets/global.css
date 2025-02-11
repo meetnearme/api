@@ -263,7 +263,7 @@ body:has(.bottom-drawer) {
 
 .btn.btn-primary.btn-bg-inverted:hover {
   background-color: oklch(var(--p));
-  color: oklch(var(--btn-bg-inverted));
+  color: oklch(var(--btn-bg-inverted-content));
 }
 
 .btn-outline.btn-primary.text-neutral-content {

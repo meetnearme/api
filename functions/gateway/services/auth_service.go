@@ -129,20 +129,10 @@ func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string, subdoma
 		return nil, err
 	}
 
-	redirectURL, err := url.Parse(*redirectURI)
-	if err != nil {
-		return nil, err
-	}
-
-	// If we have a subdomain, inject it into the host
-	if subdomain != "" {
-		redirectURL.Host = subdomain + "." + redirectURL.Host
-	}
-
 	query := authURL.Query()
 	query.Set("client_id", *clientID)
 	query.Set("redirect_uri", *redirectURI)
-	query.Set("response_type", "code")
+	query.Set("response_type", "code") // code for authorization grant
 	query.Set("scope", "openid oidc profile email offline_access "+helpers.AUTH_METADATA_KEY)
 	query.Set("code_challenge", codeChallenge)
 	query.Set("code_challenge_method", "S256")

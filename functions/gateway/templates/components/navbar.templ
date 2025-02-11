@@ -261,10 +261,14 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					<br/>
 					<br/>
 					<p>
-						&copy; { time.Now().Format("2006") }
+						&copy; 2024-{ time.Now().Format("2006") }
 						<span class="font-bold">
 							Meet Near Me LLC.
 						</span> All rights reserved.
+					</p>
+					<p>
+						<a href={ templ.URL(os.Getenv("APEX_URL") + "/terms-of-service") }>Terms of Service</a> &bull;&nbsp;
+						<a href={ templ.URL(os.Getenv("APEX_URL") + "/privacy-policy") }>Privacy Policy</a>
 					</p>
 				</aside>
 				<nav>
