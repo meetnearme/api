@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -79,6 +78,5 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, timeout int, jsRender 
 
 func GetHTMLFromURL(unescapedURL string, timeout int, jsRender bool, waitFor string) (string, error) {
 	defaultBaseURL := os.Getenv("SCRAPINGBEE_API_URL_BASE")
-	log.Printf("DEBUG: defaultBaseURL: %s", defaultBaseURL)
 	return GetHTMLFromURLWithBase(defaultBaseURL, unescapedURL, timeout, jsRender, waitFor)
 }
