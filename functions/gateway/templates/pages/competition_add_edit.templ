@@ -286,7 +286,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									</div>
 									<template x-if="round && round?.eventId">
 										<div class="flex items-center gap-4 mb-4">
-											<a :href="`/admin/event/${round.eventId}/edit`" class="link link-primary">View Associated Event</a>
+											<a :href="`/event/${round.eventId}`" class="link link-primary">View Associated Event</a>
 										</div>
 									</template>
 									<div class="form-control">
