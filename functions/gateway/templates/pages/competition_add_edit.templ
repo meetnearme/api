@@ -726,6 +726,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 								const _round  = JSON.parse(JSON.stringify(round))
 								delete _round.competitorADisplayName
 								delete _round.competitorBDisplayName
+                delete _round.eventId
 								return {
 									..._round,
 									...(this.formData.id ? { competitionId: this.formData.id } : {}),
@@ -738,7 +739,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									// isPending
 									// isVotingOpen
 									// status
-									// eventId
+									// eventId - this is removed to prevent out of sync data when round associated with event in event admin
 									// competitorA
 									// competitorB
 									// competitorAScore
