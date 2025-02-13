@@ -1705,7 +1705,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								payload.events.push({
 									..._mergedEvent,
 									eventSourceId: this.formData.event.id,
-									eventSourceType: this.deriveEventSourceTypeFromDropdown(_mergedEvent, this.isEventSeries, this.publishStatus, true),
+									eventSourceType: this.deriveEventSourceTypeFromDropdown(_mergedEvent, this.publishStatus, this.isEventSeries, true),
 									startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
 									endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,
 									// eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
