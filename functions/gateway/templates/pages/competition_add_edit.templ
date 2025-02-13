@@ -726,7 +726,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 								const _round  = JSON.parse(JSON.stringify(round))
 								delete _round.competitorADisplayName
 								delete _round.competitorBDisplayName
-                delete _round.eventId
 								return {
 									..._round,
 									...(this.formData.id ? { competitionId: this.formData.id } : {}),

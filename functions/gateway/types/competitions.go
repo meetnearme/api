@@ -17,6 +17,7 @@ type CompetitionConfigServiceInterface interface {
 // CompetitionRoundServiceInterface defines the methods for competition round operations
 type CompetitionRoundServiceInterface interface {
 	PutCompetitionRounds(ctx context.Context, dynamodbClient DynamoDBAPI, roundUpdate *[]CompetitionRoundUpdate) (dynamodb.BatchWriteItemOutput, error)
+	BatchPatchCompetitionRounds(ctx context.Context, dynamodbClient DynamoDBAPI, roundUpdate []CompetitionRoundUpdate, keysToUpdate []string) error
 	GetCompetitionRounds(ctx context.Context, dynamodbClient DynamoDBAPI, competitionId string) (*[]CompetitionRound, error)
 	GetCompetitionRoundsByEventId(ctx context.Context, dynamodbClient DynamoDBAPI, competitionId string) (*[]CompetitionRound, error)
 	GetCompetitionRoundByPrimaryKey(ctx context.Context, dynamodbClient DynamoDBAPI, competitionId, roundNumber string) (*CompetitionRound, error)
