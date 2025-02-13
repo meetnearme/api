@@ -178,6 +178,7 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 	competitionConfigRes.Rounds = []types.CompetitionRound{}
 
 	// Only process rounds if there are any
+	// Only process rounds if there are any
 	if len(roundsData) > 0 {
 		normalizedRounds, err := helpers.NormalizeCompetitionRounds(roundsData)
 		if err != nil {
@@ -186,15 +187,54 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 
 		service := dynamodb_service.NewCompetitionRoundService()
-		_, err = service.PutCompetitionRounds(ctx, db, &normalizedRounds)
-		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to save competition rounds: "+err.Error()), http.StatusInternalServerError, err)
-			return
+
+		// Define base update keys (excluding eventId)
+		baseKeysToUpdate := []string{
+			"roundName",
+			"competitorA",
+			"competitorAScore",
+			"competitorB",
+			"competitorBScore",
+			"matchup",
+			"status",
+			"isPending",
+			"isVotingOpen",
+			"description",
 		}
 
-		// Convert and assign rounds to response
-		rounds := make([]types.CompetitionRound, len(normalizedRounds))
-		for i, r := range normalizedRounds {
+		// Group rounds by whether they need eventId update
+		var unassignedEventRounds, assignedEventRounds []internal_types.CompetitionRoundUpdate
+		for _, round := range normalizedRounds {
+			if round.EventId == helpers.COMP_UNASSIGNED_ROUND_EVENT_ID {
+				unassignedEventRounds = append(unassignedEventRounds, round)
+			} else {
+				assignedEventRounds = append(assignedEventRounds, round)
+			}
+		}
+
+		// Handle rounds with unassigned events (include eventId in updates)
+		if len(unassignedEventRounds) > 0 {
+			keysWithEventId := append(baseKeysToUpdate, "eventId")
+			err = service.BatchPatchCompetitionRounds(ctx, db, unassignedEventRounds, keysWithEventId)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to update unassigned rounds: "+err.Error()), http.StatusInternalServerError, err)
+				return
+			}
+		}
+
+		// Handle rounds with assigned events (exclude eventId from updates)
+		if len(assignedEventRounds) > 0 {
+			err = service.BatchPatchCompetitionRounds(ctx, db, assignedEventRounds, baseKeysToUpdate)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to update assigned rounds: "+err.Error()), http.StatusInternalServerError, err)
+				return
+			}
+		}
+
+		// Combine all rounds for response
+		allRounds := append(unassignedEventRounds, assignedEventRounds...)
+		rounds := make([]types.CompetitionRound, len(allRounds))
+		for i, r := range allRounds {
 			rounds[i] = types.CompetitionRound(r)
 		}
 		competitionConfigRes.Rounds = rounds
