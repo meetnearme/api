@@ -203,6 +203,9 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 												:disabled="voteSubmitting === `${round.competitorA}-${round.roundNumber}`"
 												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA }"
 												class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
+												data-umami-event={ "comp-vote-clk" }
+												data-umami-event-event-id={ event.Id }
+												data-umami-event-user-id={ userInfo.Sub }
 												@click="submitVote(round.competitorA, round.roundNumber)"
 											>
 												<span x-text="'Vote ' + round?.competitorADisplayName" class="flex-grow"></span>
@@ -220,6 +223,9 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 												:disabled="voteSubmitting === `${round.competitorB}-${round.roundNumber}`"
 												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB }"
 												class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
+												data-umami-event={ "comp-vote-clk" }
+												data-umami-event-event-id={ event.Id }
+												data-umami-event-user-id={ userInfo.Sub }
 												@click="submitVote(round.competitorB, round.roundNumber)"
 											>
 												<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
