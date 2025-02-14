@@ -60,7 +60,7 @@ func TestLayout(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			component := Layout(tc.sitePage, helpers.UserInfo{}, templ.Raw("hello world!"), tc.event, []string{})
+			component := Layout(tc.sitePage, helpers.UserInfo{}, templ.Raw("hello world!"), tc.event, nil, []string{})
 
 			var buf bytes.Buffer
 			err := component.Render(context.Background(), &buf)
