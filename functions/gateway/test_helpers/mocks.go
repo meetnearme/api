@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -205,4 +208,111 @@ func NewMockRdsDataClientWithJSONRecords(records []map[string]interface{}) *Mock
 			}, nil
 		},
 	}
+}
+
+// PlaywrightTestConfig holds configuration for running Playwright tests
+type PlaywrightTestConfig struct {
+	TestName   string // Base name of the test (e.g., "home_templ")
+	ConfigPath string // Path to playwright.config.js
+	TestPath   string // Path to the test file
+	TestURL    string // The test server instance
+}
+
+// RunPlaywrightTest sets up and runs a Playwright test with the given configuration
+func RunPlaywrightTest(t *testing.T, config PlaywrightTestConfig) error {
+	// Create temporary directory for test execution
+	testDir, err := os.MkdirTemp("", fmt.Sprintf("%s-test", config.TestName))
+	if err != nil {
+		return fmt.Errorf("failed to create test directory: %v", err)
+	}
+	defer os.RemoveAll(testDir)
+
+	// Copy the test file to temp dir
+	testContent, err := os.ReadFile(config.TestPath)
+	if err != nil {
+		return fmt.Errorf("failed to read test file: %v", err)
+	}
+	tempTestPath := filepath.Join(testDir, fmt.Sprintf("%s.test.js", config.TestName))
+	if err := os.WriteFile(tempTestPath, testContent, 0644); err != nil {
+		return fmt.Errorf("failed to write test file: %v", err)
+	}
+
+	// Copy the config file to temp dir
+	configContent, err := os.ReadFile(config.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %v", err)
+	}
+	tempConfigPath := filepath.Join(testDir, "playwright.config.js")
+	if err := os.WriteFile(tempConfigPath, configContent, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %v", err)
+	}
+
+	// Create package.json with ES modules support
+	packageJSON := `{
+		"type": "module",
+		"private": true
+	}`
+	if err := os.WriteFile(filepath.Join(testDir, "package.json"), []byte(packageJSON), 0644); err != nil {
+		return fmt.Errorf("failed to create package.json: %v", err)
+	}
+
+	// Install dependencies
+	installCmd := exec.Command("npm", "install", "@playwright/test", "playwright")
+	installCmd.Dir = testDir
+	if output, err := installCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to install dependencies: %v\n%s", err, output)
+	}
+
+	// Execute Playwright tests
+	cmd := exec.Command("npx", "playwright", "test",
+		tempTestPath,
+		"--config", tempConfigPath,
+		"--project", "chromium",
+		"--reporter", "list",
+		"--ignore-snapshots")
+	cmd.Dir = testDir
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("TEST_SERVER_URL=%s", config.TestURL),
+		"PLAYWRIGHT_JSON_OUTPUT=true")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("playwright tests failed: %v\n%s", err, output)
+	}
+
+	return nil
+}
+
+// Helper function to find test files and configs
+func GetTestPaths(t *testing.T, filename string) (string, string, error) {
+	// Find project root by looking for package.json
+	dir := filepath.Dir(filename)
+	rootDir := dir
+	for {
+		if _, err := os.Stat(filepath.Join(rootDir, "package.json")); err == nil {
+			break
+		}
+		parentDir := filepath.Dir(rootDir)
+		if parentDir == rootDir {
+			return "", "", fmt.Errorf("could not find project root (package.json)")
+		}
+		rootDir = parentDir
+	}
+
+	// Config path (now from project root)
+	configPath := filepath.Join(rootDir, "playwright.config.js")
+	t.Logf("configPath: %s", configPath)
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return "", "", fmt.Errorf("playwright config not found at %s", configPath)
+	}
+
+	// Test file path (relative to current directory)
+	baseFileName := strings.TrimSuffix(filepath.Base(filename), "_test.go")
+	testPath := filepath.Join(dir, baseFileName+".test.js")
+	t.Logf("testPath: %s", testPath)
+	if _, err := os.Stat(testPath); os.IsNotExist(err) {
+		return "", "", fmt.Errorf("interactive test not found at %s", testPath)
+	}
+
+	return configPath, testPath, nil
 }

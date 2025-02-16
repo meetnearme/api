@@ -33,6 +33,8 @@ module.exports = {
     '$data': 'readonly',
     '$store': 'readonly',
     '$refs': 'readonly',
-    '$el': 'readonly'
+    '$el': 'readonly',
+    // Node globals
+    'process': 'readonly'
   }
 }

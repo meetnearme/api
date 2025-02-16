@@ -3,10 +3,15 @@ package pages
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -105,5 +110,87 @@ func TestHomePage(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestHomePageInteractive(t *testing.T) {
+	// Skip if not in integration test mode
+	if testing.Short() {
+		t.Skip("Skipping interactive tests in short mode")
+	}
+
+	// Get paths to test files
+	// Get current file path
+	_, filename, _, ok := runtime.Caller(0)
+	configPath, testPath, err := test_helpers.GetTestPaths(t, filename)
+	if !ok {
+		t.Errorf("failed to get current file path")
+	}
+
+	if err != nil {
+		t.Errorf("Skipping interactive test: %v", err)
+		t.Skip(fmt.Sprintf("Skipping interactive test: %v", err))
+		return
+	}
+
+	// Setup test data (reusing from existing tests)
+	events := []types.Event{
+		{
+			Id:          "123",
+			Name:        "Test Event 1",
+			Description: "Description for Test Event 1",
+		},
+		{
+			Id:          "456",
+			Name:        "Test Event 2",
+			Description: "Description for Test Event 2",
+		},
+	}
+
+	cfLocation := helpers.CdnLocation{
+		City: "New York",
+		CCA2: "US",
+	}
+
+	// Create test server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/":
+			component := HomePage(events, nil, cfLocation, "40.7128", "-74.0060", "", "")
+			component.Render(r.Context(), w)
+		case "/api/html/events":
+			categories := r.URL.Query().Get("categories")
+			if categories == "Academic & Career Development" {
+				filteredEvents := []types.Event{
+					{
+						Id:          "789",
+						Name:        "Academic Workshop",
+						Description: "An academic focused event",
+					},
+					{
+						Id:          "101",
+						Name:        "Career Fair",
+						Description: "A career development event",
+					},
+				}
+				component := EventsInner(filteredEvents, "")
+				component.Render(r.Context(), w)
+			} else {
+				component := EventsInner(events, "")
+				component.Render(r.Context(), w)
+			}
+		}
+	}))
+	defer ts.Close()
+
+	// Run Playwright test
+	err = test_helpers.RunPlaywrightTest(t, test_helpers.PlaywrightTestConfig{
+		TestName:   "home_templ",
+		ConfigPath: configPath,
+		TestPath:   testPath,
+		TestURL:    ts.URL,
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
