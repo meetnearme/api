@@ -83,28 +83,28 @@ func (s *CompetitionRoundService) PutCompetitionRounds(ctx context.Context, dyna
 }
 
 func (s *CompetitionRoundService) BatchPatchCompetitionRounds(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, updates []internal_types.CompetitionRoundUpdate, keysToUpdate []string) error {
-    // Create error channel for goroutines
-    errChan := make(chan error, len(updates))
-    var wg sync.WaitGroup
+	// Create error channel for goroutines
+	errChan := make(chan error, len(updates))
+	var wg sync.WaitGroup
 
-    // Process each update in parallel
-    for _, update := range updates {
-        wg.Add(1)
-        go func(update internal_types.CompetitionRoundUpdate) {
-            defer wg.Done()
+	// Process each update in parallel
+	for _, update := range updates {
+		wg.Add(1)
+		go func(update internal_types.CompetitionRoundUpdate) {
+			defer wg.Done()
 
-            input := &dynamodb.UpdateItemInput{
-                TableName: aws.String(competitionRoundsTableName),
-                Key: map[string]dynamodb_types.AttributeValue{
-                    "competitionId": &dynamodb_types.AttributeValueMemberS{Value: update.CompetitionId},
-                    "roundNumber":   &dynamodb_types.AttributeValueMemberN{Value: strconv.FormatInt(update.RoundNumber, 10)},
-                },
-                ExpressionAttributeNames:  make(map[string]string),
-                ExpressionAttributeValues: make(map[string]dynamodb_types.AttributeValue),
-                UpdateExpression:          aws.String("SET"),
-            }
+			input := &dynamodb.UpdateItemInput{
+				TableName: aws.String(competitionRoundsTableName),
+				Key: map[string]dynamodb_types.AttributeValue{
+					"competitionId": &dynamodb_types.AttributeValueMemberS{Value: update.CompetitionId},
+					"roundNumber":   &dynamodb_types.AttributeValueMemberN{Value: strconv.FormatInt(update.RoundNumber, 10)},
+				},
+				ExpressionAttributeNames:  make(map[string]string),
+				ExpressionAttributeValues: make(map[string]dynamodb_types.AttributeValue),
+				UpdateExpression:          aws.String("SET"),
+			}
 
-            // Build update expression based on keysToUpdate
+			// Build update expression based on keysToUpdate
 			for _, key := range keysToUpdate {
 				switch key {
 				case "eventId":
@@ -168,42 +168,41 @@ func (s *CompetitionRoundService) BatchPatchCompetitionRounds(ctx context.Contex
 				}
 			}
 
-            // Always update updatedAt
-            input.ExpressionAttributeNames["#updatedAt"] = "updatedAt"
-            input.ExpressionAttributeValues[":updatedAt"] = &dynamodb_types.AttributeValueMemberN{Value: strconv.FormatInt(time.Now().Unix(), 10)}
-            *input.UpdateExpression += " #updatedAt = :updatedAt"
+			// Always update updatedAt
+			input.ExpressionAttributeNames["#updatedAt"] = "updatedAt"
+			input.ExpressionAttributeValues[":updatedAt"] = &dynamodb_types.AttributeValueMemberN{Value: strconv.FormatInt(time.Now().Unix(), 10)}
+			*input.UpdateExpression += " #updatedAt = :updatedAt"
 
-            // Execute the update
-            _, err := dynamodbClient.UpdateItem(ctx, input)
-            if err != nil {
-                errChan <- fmt.Errorf("failed to update round %s-%d: %w", update.CompetitionId, update.RoundNumber, err)
-                return
-            }
-        }(update)
-    }
+			// Execute the update
+			_, err := dynamodbClient.UpdateItem(ctx, input)
+			if err != nil {
+				errChan <- fmt.Errorf("failed to update round %s-%d: %w", update.CompetitionId, update.RoundNumber, err)
+				return
+			}
+		}(update)
+	}
 
-    // Wait for all updates to complete
-    go func() {
-        wg.Wait()
-        close(errChan)
-    }()
+	// Wait for all updates to complete
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
 
-    // Collect any errors
-    var errors []error
-    for err := range errChan {
-        if err != nil {
-            errors = append(errors, err)
-        }
-    }
+	// Collect any errors
+	var errors []error
+	for err := range errChan {
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
 
-    // Return combined error if any occurred
-    if len(errors) > 0 {
-        return fmt.Errorf("batch update errors: %v", errors)
-    }
+	// Return combined error if any occurred
+	if len(errors) > 0 {
+		return fmt.Errorf("batch update errors: %v", errors)
+	}
 
-    return nil
+	return nil
 }
-
 
 func (s *CompetitionRoundService) GetCompetitionRoundByPrimaryKey(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, competitionId, roundNumber string) (*internal_types.CompetitionRound, error) {
 	queryInput := &dynamodb.GetItemInput{

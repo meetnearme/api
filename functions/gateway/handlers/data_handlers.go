@@ -1236,7 +1236,7 @@ type UpdateEventRegPurchPayload struct {
 	Events                   []rawEvent                              `json:"events" validate:"required"`
 	RegistrationFieldsUpdate internal_types.RegistrationFieldsUpdate `json:"registrationFieldsUpdate"`
 	PurchasableUpdate        internal_types.PurchasableUpdate        `json:"purchasableUpdate"`
-	Rounds []internal_types.CompetitionRoundUpdate `json:"rounds"`
+	Rounds                   []internal_types.CompetitionRoundUpdate `json:"rounds"`
 }
 
 func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -1292,7 +1292,6 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			createdAt = time.Now().Unix()
 		}
 
-
 		if eventId == "" {
 			eventId = uuid.NewString()
 			updateEventRegPurchPayload.Events[0].Id = eventId
@@ -1326,7 +1325,6 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 				return
 			}
 		}
-
 
 		// Update purchasable
 		if updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.IsZero() {
@@ -1455,7 +1453,6 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 		transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
 	}
 }
-
 
 func BulkDeleteEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
