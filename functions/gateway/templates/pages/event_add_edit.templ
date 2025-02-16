@@ -1141,7 +1141,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						})()
 					},
 					formData: {
-            pendingRoundUpdates: [], // store rounds that need to be updated or published
+						pendingRoundUpdates: [], // store rounds that need to be updated or published
 						eventChildren: [],
 						event: {
 							competitionConfigId: document.querySelector('#add-edit-event').getAttribute('data-competition-config-id') ?? null,
@@ -1524,74 +1524,74 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							this.competitionModalRoundsLoading = false
 						}
 					},
-          async handleAddRoundClick() {
-            this.saveReqInFlight = true;
-            try {
-                // Create array of round updates for pending updates (includes eventId)
-                const roundsUpdatePayload = this.competitionModalRounds.filter(round =>
-                    this.competitionModalRoundSelections.includes(round.roundNumber.toString())
-                ).map(round => ({
-                    ...round,
-                    eventId: this.competitionModalEventSelection.id
-                }));
+					async handleAddRoundClick() {
+						this.saveReqInFlight = true;
+						try {
+								// Create array of round updates for pending updates (includes eventId)
+								const roundsUpdatePayload = this.competitionModalRounds.filter(round =>
+										this.competitionModalRoundSelections.includes(round.roundNumber.toString())
+								).map(round => ({
+										...round,
+										eventId: this.competitionModalEventSelection.id
+								}));
 
-                // Update local state
-                if (this.formData.event.id === this.competitionModalEventSelection.id) {
-                    // Preserve existing event data
-                    this.formData.event = {
-                        ...this.formData.event,
-                        competitionConfigId: this.competitionModalCompetitionSelection,
-                        competitionRounds: roundsUpdatePayload
-                    };
-                } else {
-                    // Check children events
-                    const childIndex = this.formData.eventChildren.findIndex(child =>
-                        child.id === this.competitionModalEventSelection.id
-                    );
-                    if (childIndex !== -1) {
-                        // Preserve existing child event data
-                        this.formData.eventChildren[childIndex] = {
-                            ...this.formData.eventChildren[childIndex],
-                            competitionConfigId: this.competitionModalCompetitionSelection,
-                            competitionRounds: roundsUpdatePayload
-                        };
-                    }
-                }
+								// Update local state
+								if (this.formData.event.id === this.competitionModalEventSelection.id) {
+										// Preserve existing event data
+										this.formData.event = {
+												...this.formData.event,
+												competitionConfigId: this.competitionModalCompetitionSelection,
+												competitionRounds: roundsUpdatePayload
+										};
+								} else {
+										// Check children events
+										const childIndex = this.formData.eventChildren.findIndex(child =>
+												child.id === this.competitionModalEventSelection.id
+										);
+										if (childIndex !== -1) {
+												// Preserve existing child event data
+												this.formData.eventChildren[childIndex] = {
+														...this.formData.eventChildren[childIndex],
+														competitionConfigId: this.competitionModalCompetitionSelection,
+														competitionRounds: roundsUpdatePayload
+												};
+										}
+								}
 
-                // Store pending updates
-                this.formData.pendingRoundUpdates = roundsUpdatePayload;
+								// Store pending updates
+								this.formData.pendingRoundUpdates = roundsUpdatePayload;
 
-                // Update other events' rounds
-                const allEvents = [this.formData.event, ...Object.values(this.formData.eventChildren)];
-                roundsUpdatePayload.forEach(round => {
-                    const events = allEvents.filter(event =>
-                        event?.competitionRounds?.find(r => r.roundNumber === round.roundNumber)
-                    );
-                    if (events.length > 0) {
-                        events.forEach(event => {
-                            if (round.eventId !== event.id) {
-                                event.competitionRounds = event.competitionRounds.filter(
-                                    r => r.roundNumber !== round.roundNumber
-                                );
-                            }
-                        });
-                    }
-                });
+								// Update other events' rounds
+								const allEvents = [this.formData.event, ...Object.values(this.formData.eventChildren)];
+								roundsUpdatePayload.forEach(round => {
+										const events = allEvents.filter(event =>
+												event?.competitionRounds?.find(r => r.roundNumber === round.roundNumber)
+										);
+										if (events.length > 0) {
+												events.forEach(event => {
+														if (round.eventId !== event.id) {
+																event.competitionRounds = event.competitionRounds.filter(
+																		r => r.roundNumber !== round.roundNumber
+																);
+														}
+												});
+										}
+								});
 
-                this.$nextTick(() => {
-                    window.dispatchEvent(new CustomEvent('child-content-changed'));
-                });
-            } catch (error) {
-                console.error('Error preparing rounds:', error);
-            } finally {
-                document.getElementById('add-competition-modal').close();
-                this.competitionModalEventSelection = null;
-                this.competitionModalCompetitionSelection = null;
-                this.competitionModalRounds = [];
-                this.competitionModalRoundSelections = [];
-                this.saveReqInFlight = false;
-            }
-        },
+								this.$nextTick(() => {
+										window.dispatchEvent(new CustomEvent('child-content-changed'));
+								});
+						} catch (error) {
+								console.error('Error preparing rounds:', error);
+						} finally {
+								document.getElementById('add-competition-modal').close();
+								this.competitionModalEventSelection = null;
+								this.competitionModalCompetitionSelection = null;
+								this.competitionModalRounds = [];
+								this.competitionModalRoundSelections = [];
+								this.saveReqInFlight = false;
+						}
+				},
 					async handleRemoveCompetitionRoundFromEvent(competitionRound, child) {
 						// Set loading state for this specific round
 						competitionRound.isRemoving = true;
@@ -1671,7 +1671,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
 								fields: this.registrationFields,
 							},
-              rounds: this.formData.pendingRoundUpdates || [],
+							rounds: this.formData.pendingRoundUpdates || [],
 						}
 						if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
 							this.formData.eventChildren.forEach(child => {
