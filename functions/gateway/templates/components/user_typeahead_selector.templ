@@ -6,10 +6,15 @@ import (
 	"strconv"
 )
 
-templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespace, label, noun string, showChips bool) {
+templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespace, label, noun string, showChips bool, userRemovedEventName string) {
 	<div
 		x-data="getUsersSelectState($el)"
 		data-namespace={ namespace }
+		if userRemovedEventName != "" {
+			{ templ.Attributes{
+				"@" + userRemovedEventName + ".window": "removeUser($event.detail)",
+			}... }
+		}
 	>
 		<input type="hidden" value={ namespace }/>
 		<div class="form-control">
@@ -58,7 +63,7 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 						name="userSearch"
 						aria-label={ "Add " + noun + " (search by name, organization, or email)" }
 						@input.throttle="fetchUsers($event.target.value)"
-						x-ref="userSearch"
+						x-ref={ namespace + "-userSearch" }
 						placeholder={ "Add " + noun + " (search by name, organization, or email)" }
 						class="input input-bordered"
 						role="combobox"
@@ -89,7 +94,7 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 									isOpen = false;
 									openedWithKeyboard = false;
 									$nextTick(() => {
-											document.querySelector('[x-ref=userSearch]').focus();
+											document.querySelector(`[x-ref=${this.namespace + '-userSearch'}]`).focus();
 									});
 								} else {
 										$focus.wrap().previous()
@@ -147,9 +152,9 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 										this.emitUpdate();
 								},
 								emitUpdate() {
-									this.$dispatch(`users-updated-${this.namespace}`, {
-										...this.users
-									});
+                  this.$dispatch(`users-updated-${this.namespace}`, {
+                    ...this.users
+                  });
 								},
 
 								async fetchUsers(query) {
@@ -174,16 +179,20 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 								},
 
 								removeUser(userToRemove) {
-										this.users = this.users.filter(user => user !== userToRemove);
-										this.emitUpdate();
+										this.users = this.users.filter(user => user.value !== userToRemove);
+
+										this.$nextTick(() => {
+											this.emitUpdate();
+										});
 								},
 
 								setSelectedUser(option) {
 										this.isOpen = false
 										this.users.push(option);
 										this.options = this.options.filter(o => o.value !== option.value)
+
 										this.$nextTick(() => {
-											document.querySelector('[x-ref=userSearch]').focus();
+											document.querySelector(`[x-ref=${this.namespace + '-userSearch'}]`).focus();
 										})
 										this.emitUpdate();
 								},
@@ -191,7 +200,7 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 								handleKeydownOnOptions(event) {
 									// if the user presses backspace or the alpha-numeric keys, focus on the search field
 									if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
-											this.$refs.userSearch.focus()
+											this.$refs[`${this.namespace}-userSearch`].focus()
 									}
 								}
 						}
