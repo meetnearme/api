@@ -123,7 +123,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									<label class="label">Add to Team</label>
 									<select class="select" x-model.fill="competitor.team">
 										<option selected value="">Select team</option>
-										<template x-for="team in teams">
+										<template x-for="team in teams.filter(team => team.id.startsWith('tm_'))">
 											<option
 												:value="team.id"
 											>
