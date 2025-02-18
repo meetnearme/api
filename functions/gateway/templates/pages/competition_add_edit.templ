@@ -61,7 +61,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					>
 						<option value="">Select module type</option>
 						<option value="KARAOKE">Karaoke</option>
-						<option value="BOCCE">Bocce</option>
+						<option value="BOCCE" disabled>Bocce</option>
 					</select>
 				</div>
 				// Scoring Method
@@ -76,7 +76,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					>
 						<option value="">Select scoring method</option>
 						<option value="VOTE_MATCHUPS">Vote Matchups (Win, Loss, Draw)</option>
-						<option value="POINT_MATHCUPS">Point Matchups (Win, Loss, Draw)</option>
+						<option value="POINT_MATHCUPS" disabled>Point Matchups (Win, Loss, Draw)</option>
 						<option value="VOTE_TOTAL" disabled>Votes (Total)</option>
 						<option value="POINT_TOTAL" disabled>Points (Total)</option>
 					</select>
@@ -488,7 +488,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							this.formData.rounds = roundsData
 							// Update the rounds data with user display names
 							this.formData.rounds = this.formData.rounds.map(round => {
-								// round.user = usersData.find(user => user.id === round.userId)
 								return {
 									competitorADisplayName: usersData?.find?.(user => user.userId === round.competitorA)?.displayName,
 									competitorBDisplayName: usersData?.find?.(user => user.userId === round.competitorB)?.displayName,
