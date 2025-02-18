@@ -26,9 +26,9 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 	</ul>
 }
 
-templ NavListItems(userInfo helpers.UserInfo) {
+templ NavListItems(userInfo helpers.UserInfo, pageUser *types.UserSearchResult) {
 	<li><a href="/about" class="px-5 py-3">About</a></li>
-	if userInfo.Email == "" {
+	if userInfo.Email == "" && pageUser == nil {
 		<li><a href="/auth/login" class="px-5 py-3">Login</a></li>
 		<li><a href="/auth/login" class="btn btn-primary update-text-if-cookie">Signup</a></li>
 	}
@@ -192,7 +192,7 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 	</template>
 }
 
-templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) {
+templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, pageUser *types.UserSearchResult) {
 	<div class="drawer drawer-end">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content flex flex-col">
@@ -208,7 +208,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					<div class="navbar-end flex">
 						<div class="items-center lg:flex">
 							<ul class="menu menu-horizontal px-1 hidden lg:inline-flex">
-								@NavListItems(userInfo)
+								@NavListItems(userInfo, pageUser)
 							</ul>
 							if userInfo.Email != "" {
 								<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
@@ -311,7 +311,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					<div role="tabpanel" class="tab-content p-2">
 						<ul class="">
 							<!-- Sidebar content here -->
-							@NavListItems(userInfo)
+							@NavListItems(userInfo, pageUser)
 						</ul>
 					</div>
 					if helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvFilters]}) != "" {

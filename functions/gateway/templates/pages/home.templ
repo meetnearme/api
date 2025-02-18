@@ -225,7 +225,18 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 												<h3 class="text-xl font-bold my-2">Upcoming</h3>
 											</template>
 											<template x-for="round in eventRounds">
-												<div x-text="round.roundName"></div>
+												<div class="flex justify-between">
+													<template x-if="round?.isVotingOpen">
+														// <span class="badge badge-primary mr-2">Voting Open</span>
+														<div class="tooltip tooltip-right w-6 mr-2 mt-1" data-tip="Voting Open">
+															<span aria-label="Voting Open" class="loading loading-ring loading-xs text-primary"></span>
+														</div>
+													</template>
+													<template x-if="!round?.isVotingOpen">
+														<div class="w-6 mr-2 mt-1"></div>
+													</template>
+													<div class="grow" x-text="round?.roundName"></div>
+												</div>
 											</template>
 										</div>
 									</template>
