@@ -92,8 +92,7 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 	authorizedOwners = append(authorizedOwners, competitionConfigRes.AuxilaryOwners...)
 	isAuthorized := false
 	for _, owner := range authorizedOwners {
-		if owner == competitionConfigRes.PrimaryOwner {
-			log.Printf("User %s is authorized to update competition %s", userInfo.Sub, competitionConfigRes.Id)
+		if owner == userInfo.Sub {
 			isAuthorized = true
 			break
 		}
