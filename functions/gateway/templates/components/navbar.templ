@@ -1,129 +1,669 @@
 package components
 
 import (
+	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
+	"time"
 )
 
-templ Navbar(userInfo helpers.UserInfo) {
-	<div class="drawer drawer-end overflow-hidden">
+templ MiniProfileInNav(userInfo helpers.UserInfo) {
+	<strong>{ string(userInfo.Name) }</strong>
+	<br/>
+	{ string(userInfo.Email) }
+	<ul
+		tabindex="0"
+		class="menu menu-sm"
+	>
+		<li>
+			<a href="/admin/profile" class="justify-between">
+				Profile
+				// <span class="badge">New</span>
+			</a>
+		</li>
+		<li><a href="/auth/logout">Logout</a></li>
+	</ul>
+}
+
+templ NavListItems(userInfo helpers.UserInfo, pageUser *types.UserSearchResult) {
+	<li><a href="/about" class="px-5 py-3">About</a></li>
+	if userInfo.Email == "" && pageUser == nil {
+		<li><a href="/auth/login" class="px-5 py-3">Login</a></li>
+		<li><a href="/auth/login" class="btn btn-primary update-text-if-cookie">Signup</a></li>
+	}
+	// Change back to "Add an Event" when we release Seshu
+	// if userInfo.Email != "" {
+	// 	<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
+	// } else {
+	// 	<li><a href="/auth/login" class="btn btn-primary">Sign Up</a></li>
+	// }
+}
+
+templ PurchasableItemsList(hasRegistrationFields bool) {
+	<template x-for="(purch, index) in purchasables" :key="index">
+		<template x-if="purch.inventory > 0 && (new Date(purch.expires_on) > new Date() || !purch.expires_on)">
+			<label class="form-control w-full bg-base-200 card mb-5 p-2 px-4">
+				<span class="label-text text-lg mt-5" x-text="purch.name"></span>
+				<template x-if="purch.expires_on">
+					<div class="alert alert-info p-2 mt-2 w-fit">
+						<span>Available until</span>
+						<strong>
+							<span
+								class="text-md"
+								x-text="new Date(purch.expires_on).toLocaleString('en-US', {
+							year: 'numeric',
+							month: 'short',
+							day: 'numeric',
+							hour: 'numeric',
+							minute: '2-digit',
+							hour12: true,
+							timeZone: eventTimezone
+						}).replace(',', ' @')"
+							></span>
+						</strong>
+					</div>
+				</template>
+				<span class="label-text text-lg mt-5" x-text="`\$${(purch.cost / 100)}`"></span>
+				<div>
+					<div class="relative flex items-center max-w-[8rem] mb-5 mt-3 counter-click-container">
+						<button @click="handleCounterClick($event.target, 'down', purch.name, index)" type="button" id="decrement-button" data-input-counter-decrement="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-s-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
+							<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
+								<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h16"></path>
+							</svg>
+						</button>
+						<input x-model="formData[`${purch.name}_count_${index}`]" type="number" id="quantity-input" data-input-counter aria-describedby="helper-text-explanation" class="input-number-counter bg-gray-50 border-x-0 border-gray-300 h-11 text-center text-gray-900 text-sm input-bordered input-primary bg-gray-700 border-gray-600 placeholder-gray-400 text-white" placeholder="" required/>
+						<button @click="handleCounterClick($event.target, 'up', purch.name, index)" type="button" id="increment-button" data-input-counter-increment="quantity-input" class="bg-gray-700 hover:bg-gray-600 border-gray-600 border rounded-e-lg p-3 h-11 focus:ring-gray-700 focus:ring-2 focus:outline-none">
+							<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
+								<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 1v16M1 9h16"></path>
+							</svg>
+						</button>
+					</div>
+					// show per-purchasables item registration fields if needed
+					if hasRegistrationFields {
+						<template
+							x-if="purch.registration_fields_copy?.length"
+						>
+							<template
+								x-for="(field, idx) in purch.registration_fields_copy"
+								:key="field.name"
+							>
+								<div class="flex-none">
+									<label class="form-control w-full">
+										<template x-if="parseInt(formData[`${purch.name}_count_${index}`]) > 0 && field.type !== 'checkbox' ">
+											<div class="label">
+												<span class="label-text" x-text="field.description"></span>
+											</div>
+										</template>
+										<template x-for="i in parseInt(formData[`${purch.name}_count_${index}`] || 0)" :key="i">
+											<div class="my-2" x-data="{ _index: `purch_${eventId}_${purch.name}_field_${field.name}_count_${i}` }">
+												@RegistrationFieldsByType(true)
+											</div>
+										</template>
+									</label>
+								</div>
+							</template>
+						</template>
+					}
+				</div>
+			</label>
+		</template>
+	</template>
+}
+
+templ RegistrationFieldsByType(nestedInPurchasable bool) {
+	<template x-if="field.type == 'text'">
+		// TODO: x-model.fill causes a problem with default values
+		// but only in the case of the `nestedInPurchasable` fields
+		<input
+			type="text"
+			if nestedInPurchasable {
+				x-model="formData[_index]"
+				x-on:change="validateOneField(field, _index, idx)"
+				:name="_index"
+				:data-index="_index"
+			} else {
+				x-model="formData[field.name]"
+				x-on:change="validateOneField(field, field?.name, idx)"
+				:name="field.name"
+				x-model.fill="field.default"
+			}
+			:placeholder="field.placeholder"
+			:required="field.required"
+			class="input input-bordered w-full border-opacity-100"
+		/>
+	</template>
+	<template x-if="field.type == 'checkbox'">
+		// NOTE: checkboxes look wrong in the UI without
+		// a label, we show individual labels only for them
+		<div>
+			<div class="label">
+				<span class="label-text" x-text="field.description"></span>
+			</div>
+			<input
+				type="checkbox"
+				class="z-[9] checkbox checkbox-xs checkbox-tertiary border-opacity-100 mr-5 my-1"
+				x-init="$el.indeterminate = true"
+				if nestedInPurchasable {
+					x-model="formData[_index]"
+					x-on:change="validateOneField(field, _index, idx)"
+					:name="_index"
+					:data-index="_index"
+				} else {
+					x-model="formData[field.name]"
+					x-on:change="validateOneField(field, field?.name, idx)"
+					:name="field.name"
+					x-model.fill="field.default"
+				}
+				:placeholder="field.placeholder"
+				:required="field.required"
+				class="input input-bordered w-full"
+			/>
+		</div>
+	</template>
+	<template x-if="field.type == 'select'">
+		<select
+			if nestedInPurchasable {
+				x-model="formData[_index]"
+				x-on:change="validateOneField(field, _index, idx)"
+				:name="_index"
+				:data-index="_index"
+			} else {
+				x-model="formData[field.name]"
+				x-on:change="validateOneField(field, field?.name, idx)"
+				:name="field.name"
+				x-model.fill="field.default"
+			}
+			:type="field.type"
+			:placeholder="field.placeholder"
+			:required="field.required"
+			class="select w-full select-bordered border-opacity-100"
+		>
+			<template x-if="!field.placeholder && field.required">
+				<option disabled selected x-text=" 'Select One' "></option>
+			</template>
+			<template x-if="field.placeholder">
+				<option disabled selected x-text="field.placeholder"></option>
+			</template>
+			<template x-for="(option, idx) in field.options" :key="idx">
+				<option x-text="option"></option>
+			</template>
+		</select>
+	</template>
+}
+
+templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, pageUser *types.UserSearchResult) {
+	<div class="drawer drawer-end">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content flex flex-col">
 			<!-- Navbar -->
-			<div class="navbar w-full bg-base-100 shadow-md mb-5">
+			<div id="main-nav" class="navbar fixed z-50 top-0 w-full bg-base-100 bg-opacity-75 shadow-md mb-5">
 				<div class="container mx-auto flex items-center">
-					<div class="flex-1">
-						<a href="/" class="btn btn-ghost text-xl">
-							<img alt="Meen Near Me" class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
-							MEET NEAR ME
+					<div class="flex flex-1">
+						<a href="/" class="btn btn-ghost pl-2 text-xl flex flex-col bg-black">
+							<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+							<img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
 						</a>
 					</div>
-					<div class="flex-none lg:hidden" onclick="document.getElementById('flyout-tab-nav').click();">
-						<label for="main-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
-							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-						</label>
-					</div>
-					<div class="navbar-end hidden lg:flex">
+					<div class="navbar-end flex">
 						<div class="items-center lg:flex">
-							<ul class="menu menu-horizontal px-1">
-								<li><a href="/about" class="px-5 py-3">About</a></li>
-								<li><a href="/login" class="btn btn-primary">Add an Event</a></li>
+							<ul class="menu menu-horizontal px-1 hidden lg:inline-flex">
+								@NavListItems(userInfo, pageUser)
 							</ul>
 							if userInfo.Email != "" {
-								<div class="dropdown dropdown-end px-3">
+								<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 										<div class="border-2 w-24 rounded-full">
 											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
 										</div>
-										// <div class="w-10 rounded-full">
-										// 	<img
-										// 		alt="Tailwind CSS Navbar component"
-										// 		src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg" />
-										// </div>
 									</div>
 									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
-										<strong>{ string(userInfo.Name) }</strong>
-										<br/>
-										{ string(userInfo.Email) }
-										<ul
-											tabindex="0"
-											class="menu menu-sm"
-										>
-											<li>
-												<a href="/admin/profile" class="justify-between">
-													Profile
-													<span class="badge">New</span>
-												</a>
-											</li>
-											<li><a href="/auth/logout">Logout</a></li>
-										</ul>
+										@MiniProfileInNav(userInfo)
 									</div>
 								</div>
 							}
+							<div class="flex-none" onclick="document.getElementById('flyout-tab-main').click();">
+								<label for="main-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+								</label>
+							</div>
 						</div>
 					</div>
 				</div>
 			</div>
 			{ children... }
+			<footer class="footer footer-center p-10 mt-20 bg-primary text-primary-content">
+				<aside>
+					<a href="/" class="btn h-auto text-xl bg-base-200 hover:bg-opacity-80">
+						<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+					</a>
+					<p>
+						<br/>
+						<em>I saw a friend of mine the other day</em>
+						<br/>
+						<em>And he told me that my eyes were gleaming</em>
+						<br/>
+						<em>I said I had been away</em>
+						<br/>
+						<em>And he knew, oh, he knew the depths I was meaning</em>
+						<br/>
+						<em>It felt so good to see his face</em>
+						<br/>
+						<em>The comfort invested in my soul</em>
+						<br/>
+						<em>To feel the warmth of his smile</em>
+						<br/>
+						<em>When he said &lsquo;I'm happy to have you home&rsquo;</em>
+						<br/>
+						<br/>
+						~ <a href="https://open.spotify.com/track/5fpEDGQX0Ah3utGnFYulQZ?si=608b29dece2c4e74&nd=1&dlsi=4e5280a68a5544b7" target="_blank">Ben Howard</a>
+					</p>
+					<br/>
+					<br/>
+					<p>
+						&copy; 2024-{ time.Now().Format("2006") }
+						<span class="font-bold">
+							Meet Near Me LLC.
+						</span> All rights reserved.
+					</p>
+					<p>
+						<a href={ templ.URL(os.Getenv("APEX_URL") + "/terms-of-service") }>Terms of Service</a> &bull;&nbsp;
+						<a href={ templ.URL(os.Getenv("APEX_URL") + "/privacy-policy") }>Privacy Policy</a>
+					</p>
+				</aside>
+				<nav>
+					<div class="grid grid-flow-col gap-4">
+						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path></svg></a>
+						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"></path></svg></a>
+						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"></path></svg></a>
+					</div>
+				</nav>
+			</footer>
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-			<div class="menu p-4 w-3/4 min-h-full bg-base-100">
-				<dv class="block justify-end pb-5">
+			<div class="menu border-2 border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
+				<div class="block justify-end pb-5">
 					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click();"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
-				</dv>
+				</div>
 				if userInfo.Email != "" {
-					<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
-						<div class="border-2 w-24 rounded-full">
-							<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+					<div class="p-2 m-1 card bg-base-200 lg:hidden">
+						<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
+							<div class="border-2 w-24 rounded-full">
+								<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+							</div>
+							// <div class="w-10 rounded-full">
+							// 	<img
+							// 		alt="Tailwind CSS Navbar component"
+							// 		src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg" />
+							// </div>
 						</div>
-						// <div class="w-10 rounded-full">
-						// 	<img
-						// 		alt="Tailwind CSS Navbar component"
-						// 		src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg" />
-						// </div>
+						<ul
+							tabindex="0"
+							class="menu menu-sm"
+						>
+							@MiniProfileInNav(userInfo)
+						</ul>
 					</div>
-					<strong>{ string(userInfo.Name) }</strong>
-					<br/>
-					{ string(userInfo.Email) }
-					<ul
-						tabindex="0"
-						class="menu menu-sm"
-					>
-						<li>
-							<a href="/admin/profile" class="justify-between">
-								Profile
-								<span class="badge">New</span>
-							</a>
-						</li>
-						<li><a href="/auth/logout">Logout</a></li>
-					</ul>
 				}
 				<div role="tablist" class="tabs tabs-bordered">
-					<input id="flyout-tab-nav" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
+					<input id="flyout-tab-main" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
 					<div role="tabpanel" class="tab-content p-2">
 						<ul class="">
 							<!-- Sidebar content here -->
-							<li><a href="/login" class="btn btn-primary mb-5">Add an Event</a></li>
-							<li><a href="/about">About</a></li>
+							@NavListItems(userInfo, pageUser)
 						</ul>
 					</div>
-					<input
-						id="flyout-tab-filters"
-						type="radio"
-						name="flyout-nav-tabs"
-						role="tab"
-						class="tab"
-						aria-label="Filters"
-						checked="checked"
-					/>
-					<div role="tabpanel" class="tab-content p-2">
-						@NestedCheckboxList(false)
-					</div>
-					<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
-					<div role="tabpanel" class="tab-content p-2">Idea here is that the cart is only sometimes visible</div>
+					if helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvFilters]}) != "" {
+						<input
+							id="flyout-tab-filters"
+							type="radio"
+							name="flyout-nav-tabs"
+							role="tab"
+							class="tab"
+							aria-label="Filters"
+							checked="checked"
+						/>
+						<div x-data="getHomeState()" role="tabpanel" class="tab-content">
+							<form
+								id="category-search-form"
+								novalidate
+								@submit.prevent=""
+							>
+								<br/>
+								<br/>
+								// @click function call is a global shared from home_details.templ
+								<button
+									type="submit"
+									class="btn btn-primary w-full self-start sticky top-0 z-[10]"
+									@click="sendCategoriesToQueryParams(); document.getElementById('main-drawer').click();"
+								>
+									Apply Filters
+								</button>
+								<br/>
+								<br/>
+								@NestedCheckboxList(false, []string{})
+							</form>
+						</div>
+					}
+					if (event.HasPurchasable || event.HasRegistrationFields) && helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvCart]}) != "" {
+						<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
+						<div x-data="getCartRegistrationState()" role="tabpanel" class="tab-content p-2">
+							<template x-if="registrationFields?.length">
+								<div>
+									<h3 class="text-xl my-3">Registration</h3>
+									<div class="divider"></div>
+								</div>
+							</template>
+							<template x-for="(field, index) in registrationFields" :key="index">
+								<label class="form-control w-full" x-data="{ idx: '' }">
+									<template x-if="field?.type !== 'checkbox' ">
+										<div class="label">
+											<span class="label-text" x-text="field.description"></span>
+										</div>
+									</template>
+									@RegistrationFieldsByType(false)
+								</label>
+							</template>
+							<br/>
+							<br/>
+							<template x-if="purchasables?.length">
+								<div>
+									<h3 class="text-xl my-3">Cart</h3>
+									<div class="divider my-3"></div>
+								</div>
+							</template>
+							if event.HasPurchasable && event.HasRegistrationFields {
+								<template x-if="!registrationFieldsLoaded || !purchasablesLoaded">
+									<div>
+										<div>Loading cart items...</div>
+										<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+									</div>
+								</template>
+								<template x-if="registrationFieldsLoaded && purchasablesLoaded">
+									@PurchasableItemsList(event.HasRegistrationFields)
+								</template>
+							} else if event.HasPurchasable {
+								<template x-if="!purchasablesLoaded">
+									<div>
+										<div>Loading cart items...</div>
+										<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+									</div>
+								</template>
+								<template x-if="purchasablesLoaded">
+									@PurchasableItemsList(event.HasRegistrationFields)
+								</template>
+							} else if event.HasRegistrationFields {
+								<template x-if="!registrationFieldsLoaded">
+									<div>
+										<div>Loading cart items...</div>
+										<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+									</div>
+								</template>
+								<template x-if="registrationFieldsLoaded">
+									@PurchasableItemsList(event.HasRegistrationFields)
+								</template>
+							}
+							// </div>
+							<template x-if="errors">
+								<template x-for="(err, _id) in errors" :key="_id">
+									<div class="alert alert-error mt-2">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+										</svg>
+										<span x-html="err"></span>
+									</div>
+								</template>
+							</template>
+							<br/>
+							<br/>
+							if event.HasPurchasable {
+								<button data-umami-event={ "checkout-reg-clk" } data-umami-event-event-id={ event.Id } data-umami-event-user-id={ userInfo.Sub } class="btn btn-primary w-full" @click="validateRegistrationThenSubmit()">Checkout<template x-if="reqInFlight"><span class="loading loading-spinner loading-sm"></span></template></button>
+							} else if event.HasRegistrationFields {
+								<button data-umami-event={ "checkout-reg-clk" } data-umami-event-event-id={ event.Id } data-umami-event-user-id={ userInfo.Sub } class="btn btn-primary w-full" @click="validateRegistrationThenSubmit()">Register<template x-if="reqInFlight"><span class="loading loading-spinner loading-sm"></span></template></button>
+							}
+						</div>
+					}
 				</div>
 			</div>
 		</div>
 	</div>
+	if helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvCart]}) != "" {
+		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub }>
+			function getCartRegistrationState() {
+				return {
+					registrationFields: null,
+					registrationFieldsLoaded: false,
+					purchasables: null,
+					purchasablesLoaded: false,
+					purchaseComplete: false,
+					reqInFlight: false,
+					formData: {},
+					errors: {},
+					eventId: document.querySelector('#registration-purchasables').getAttribute('data-event-id'),
+					eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
+					eventTimezone: document.querySelector('#registration-purchasables').getAttribute('data-event-timezone'),
+					hasRegistration: document.querySelector('#registration-purchasables').getAttribute('data-has-registration') === "true",
+					hasPurchasable: document.querySelector('#registration-purchasables').getAttribute('data-has-purchasables') === "true",
+					eventSourceId: document.querySelector('#registration-purchasables').getAttribute('data-event-source-id'),
+					eventSourceType: document.querySelector('#registration-purchasables').getAttribute('data-event-source-type'),
+					userId: document.querySelector('#registration-purchasables').getAttribute('data-user-id'),
+					async init() {
+						const promises = [];
+						if (this.hasRegistration) {
+							promises.push(this.fetchRegistrationFields());
+						}
+						if (this.hasPurchasable) {
+							promises.push(this.fetchPurchasables());
+						}
+						await Promise.all(promises);
+						this.checkAndMoveRegistrationFields();
+					},
+					checkAndMoveRegistrationFields() {
+						if (this.hasRegistration && this.hasPurchasable &&
+									this.registrationFieldsLoaded && this.purchasablesLoaded) {
+							this.moveRegistrationFieldsToPurchasable();
+						}
+					},
+					async fetchRegistrationFields() {
+						try {
+							const response = await fetch(`/api/registration-fields/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
+							const json = await response.json();
+							this.registrationFields = json?.fields;
+							this.registrationFieldsLoaded = true;
+						} catch (error) {
+							// eslint-disable-next-line no-console
+							console.error("Error fetching registration fields:", error);
+							this.registrationFieldsLoaded = false;
+						}
+					},
+					async submitPurchase() {
+						this.reqInFlight = true;
+						try {
+							const purchasedItems = this.purchasables
+								.map(purchasable => {
+									const countKey = Object.keys(this.formData).find(key =>
+										key.startsWith(`${purchasable.name}_count_`)
+									);
+									const quantity = parseInt(this.formData[countKey] || '0');
+
+									if (quantity > 0) {
+										// Construct reg_responses for this purchasable
+										const reg_responses = [];
+										for (let i = 1; i <= quantity; i++) {
+											const responseObj = {};
+											purchasable.registration_fields_copy?.forEach(field => {
+												const fieldKey = `purch_${this.eventId}_${purchasable.name}_field_${field.name}_count_${i}`;
+												if (Object.prototype.hasOwnProperty.call(this.formData, fieldKey)) {
+													responseObj[field.name] = this.formData[fieldKey];
+												}
+											});
+											if (Object.keys(responseObj).length > 0) {
+												reg_responses.push(responseObj);
+											}
+										}
+
+										return {
+											name: purchasable.name,
+											item_type: purchasable.item_type,
+											cost: purchasable.cost,
+											quantity: quantity,
+											currency: purchasable.currency,
+											donation_ratio: purchasable.donation_ratio,
+											reg_responses: reg_responses
+										};
+									}
+									return null;
+								})
+								.filter(item => item !== null);
+
+							const total = purchasedItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
+							if (purchasedItems?.length < 1) {
+								this.errors['checkout'] = "You have no selected items.";
+								this.reqInFlight = false;
+								return
+							}
+							const response = await fetch(`/api/checkout/${this.eventId}${this.eventSourceId ? `?event_source_id=${this.eventSourceId}&event_source_type=${this.eventSourceType}` : ''}`, {
+								method: 'POST',
+								headers: {
+									'Content-Type': 'application/json'
+								},
+								body: JSON.stringify({
+									event_name: this.eventName,
+									purchased_items: purchasedItems,
+									total: total,
+									currency: "USD"
+								})
+							});
+							if (response.status === 401) {
+								this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/event/${this.eventId}">Register or Login now</a>`;
+								this.reqInFlight = false;
+								return
+							}
+							const json = await response.json();
+							this.reqInFlight = false;
+							this.purchaseComplete = true;
+							if (json?.stripe_checkout_url) {
+								// Validate the URL to ensure it's a trusted Stripe URL
+								const trustedDomain = 'https://checkout.stripe.com/';
+								if (json.stripe_checkout_url.startsWith(trustedDomain)) {
+									window.location.href = json.stripe_checkout_url;
+								} else {
+									this.errors['checkout'] = "Invalid checkout URL received.";
+								}
+							} else if (total <= 0) {
+								// `?new_purch_key` is received by the profile page to both highlight, scroll to, and poll in
+								// wait for the new event because of dynamo's eventual consistency.
+								window.location.href = window.location.origin + `/admin/profile#registration-history${this.userId ? `?new_purch_key=${json?.composite_key}` : ''}`;
+							} else {
+								if (json?.error?.message) {
+									this.errors['checkout'] = json.error.message;
+								} else {
+									this.errors['checkout'] = "Unable to proceed. Please try again.";
+								}
+							}
+						} catch (error) {
+							// eslint-disable-next-line no-console
+							console.error("Error submitting:", error);
+							this.reqInFlight = false;
+							this.purchaseComplete = false;
+							this.errors['checkout'] = "Unable to proceed. Please try again.";
+						}
+					},
+					async fetchPurchasables() {
+						try {
+							const response = await fetch(`/api/purchasables/${ this.eventSourceId && this.eventSourceType === 'EVS' ? this.eventSourceId : this.eventId}`);
+							const json = await response.json();
+							this.purchasables = json?.purchasable_items;
+							this.purchasablesLoaded = true;
+						} catch (error) {
+							// eslint-disable-next-line no-console
+							console.error("Error fetching registration fields:", error);
+							this.purchasablesLoaded = false;
+						}
+					},
+					moveRegistrationFieldsToPurchasable() {
+						if (this.hasPurchasable && this.hasRegistration) {
+							let fieldsToRemove = new Set();
+
+							this.purchasables?.forEach?.(item => {
+								if (item.registration_fields && Array.isArray(item.registration_fields)) {
+									// Create a copy of the filtered fields
+									item.registration_fields_copy = this.registrationFields
+										.filter(field => item.registration_fields.includes(field.name))
+										.map(field => Object.assign({}, field));
+
+									// Add the copied fields to the set of fields to remove
+									item.registration_fields_copy.forEach(field => fieldsToRemove.add(field.name));
+								}
+							});
+
+							// Remove the copied fields from the main registration fields
+							this.registrationFields = this.registrationFields.filter(field => !fieldsToRemove.has(field.name));
+						}
+					},
+					validateOneField(field, fieldName, includeIdx) {
+						if (field?.required) {
+							if (field?.type === 'checkbox') {
+								if (this?.formData?.[fieldName] === undefined) {
+									this.errors[fieldName] = `Response to '${field?.description}' ${includeIdx > -1 ? '#' + (includeIdx + 1) : ''} is required`
+								} else {
+									delete this.errors[fieldName]
+								}
+							} else if ( !this?.formData?.[fieldName] ) {
+								this.errors[fieldName] = `Response to '${field?.description}' ${includeIdx > -1 ? '#' + (includeIdx + 1) : ''} is required`
+							} else {
+								delete this.errors[fieldName]
+							}
+						}
+					},
+					validateRegistrationThenSubmit() {
+						// reset previous checkout failure errors
+						delete this.errors['checkout']
+
+						this?.registrationFields?.forEach(field => {
+							if (field?.required) {
+								this.validateOneField(field, field?.name)
+							}
+						})
+
+						if (this.hasPurchasable) {
+							this?.purchasables?.forEach((purch, purchIdx) => {
+								(purch.registration_fields_copy || []).forEach((field) => {
+									if (field?.required) {
+										const searchMatchKey = `purch_${this.eventId}_${purch?.name}_field_${field?.name}`
+
+										Object.keys(this.formData || {}).forEach(() => {
+											const fieldCounterKey = `${purch?.name}_count_${purchIdx}`
+											const fieldCount = parseInt(this?.formData?.[fieldCounterKey])
+											for (let i = 0; i < fieldCount; i++) {
+												const fieldName = `${searchMatchKey}_count_${i + 1}`;
+												this.validateOneField(field, fieldName, i)
+											}
+										})
+									}
+								})
+							})
+						}
+						if (Object.keys(this.errors).length === 0) {
+							this.submitPurchase()
+						}
+					},
+					handleCounterClick(self, direction, purchName, idx) {
+						const inputElement = self.closest('.counter-click-container').querySelector('input[type="number"]');
+						if (inputElement) {
+							const modelName = `${purchName}_count_${idx}`
+							if (modelName) {
+								if (direction === 'up') {
+									this.formData[modelName] = (parseInt(this.formData[modelName] || 0) + 1).toString();
+								} else if (this.formData[modelName] > 0) {
+									this.formData[modelName] = (parseInt(this.formData[modelName] || 0) - 1).toString();
+								}
+							}
+						}
+					},
+				}
+			}
+		</script>
+	}
 }

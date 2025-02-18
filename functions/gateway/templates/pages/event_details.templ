@@ -1,42 +1,503 @@
 package pages
 
 import (
+	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/types"
+	"net/url"
 	"os"
+	"strconv"
+	"strings"
 )
 
-templ EventDetailsPage(event services.Event) {
-	<div class="max-w-prose mx-auto">
-		<h2 class="text-3xl mt-2">{ event.Name }</h2>
-		// <h3>Event Id: { eventId }</h3>
-		<br/>
-		<p>
-			<img style="display: inline-block;" alt="Location Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/location.svg") }/> <strong>Location:</strong> { event.Address }
-			<br/>
-			<br/>
-			<img style="display: inline-block;" alt="Calendar Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/calendar.svg") }/> <strong>Date:</strong> { helpers.FormatDate(event.StartTime) }
-			<br/>
-			<br/>
-			<img style="display: inline-block;" alt="Clock Icon" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/clock.svg") }/><strong>Time:</strong> { helpers.FormatTime(event.StartTime) }
-			<br/>
-			<br/>
-			<strong>Price:</strong> $10.00
-			<br/>
-			<br/>
-			<h3 class="text-xl">EVENT DESCRIPTION</h3>
-			<br/>
-			<br/>
-			{ event.Description }
-		</p>
-		<div class="bottom-drawer">
-			<div class="container mx-auto">
-				<button class="btn btn-block btn-primary">RSVP</button>
-				<br/>
-				<br/>
-				<button class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content">Interested, can't make it!</button>
+templ IconLeftSection(labelText, labelValue, icon string, urlString string, sectionType string, event types.Event) {
+	<div class="flex">
+		<div class="flex-none">
+			// Left column content (fit to width)
+			<div class="icon-container w-6 mr-2">
+				<img class="fill-current" alt={ icon + "icon " } src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/" + icon + ".svg") }/>
 			</div>
 		</div>
+		<div class="flex-grow">
+			<p>
+				if sectionType == "OWNER_NAME" {
+					<strong>{ labelText }:</strong>
+					// TODO: rewrite this after migrating to `event.EventOwners` array (required marqo db migration)
+					{{ eventOwnersArr := strings.Split(event.EventOwnerName, helpers.EventOwnerNameDelimiter) }}
+					// Fallback: if no delimiter was found, use the entire EventOwnerName
+					if len(eventOwnersArr) == 1 && len(event.EventOwners) > 0 {
+						<a class="link link-primary" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + event.EventOwners[0]) }>{ event.EventOwnerName }</a>
+					} else {
+						for idx, owner := range event.EventOwners {
+							if idx > 0 {
+								,&nbsp;
+							}
+							<a class="link link-primary" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + owner) }>{ eventOwnersArr[idx] }</a>
+						}
+					}
+				} else if urlString != "" {
+					<strong>{ labelText }:</strong> <a class="link link-primary" href={ templ.URL(urlString) }>{ labelValue }</a>
+				} else {
+					<strong>{ labelText }:</strong> { labelValue }
+				}
+				// This is a hack because it wasn't clear how to get nested templ components working
+				if sectionType == "venue" {
+					<p>
+						<a class="link link-primary" href={ templ.URL(fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=%f,%f", event.Lat, event.Long)) }>
+							{ "(Map Link)" }
+						</a>
+					</p>
+				}
+			</p>
+		</div>
 	</div>
-	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event.Id)) }/>
+}
+
+templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit bool) {
+	<div class="max-w-prose mx-auto" x-data="getEventDetailsState()">
+		if event.Id == "" {
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<h2 class="text-3xl mt-2 text-center">404 - Can't Find That Event</h2>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+		} else if strings.Contains(event.EventSourceType, helpers.UNPUB_SUFFIX) && !canEdit {
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<h1 class="text-3xl mt-2 text-center">
+				This event is unpublished
+			</h1>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+		} else {
+			if event.CompetitionConfigId != "" {
+				<template x-if="shouldShowCompetitionCta()">
+					<div id="vote-header" class="fixed sticky-under-top-nav alert alert-info rounded-none left-0 w-full z-50 flex items-center">
+						<div class="container mx-auto flex items-center justify-center">
+							<div role="alert">
+								<p>This event is part of a competition, log in to participate <a class="btn btn-xs" href="/auth/login">Login</a></p>
+							</div>
+						</div>
+					</div>
+				</template>
+				<template x-if="userId && shouldShowVoteHeader()">
+					<div id="vote-header" class="fixed sticky-under-top-nav alert alert-info rounded-none left-0 w-full z-50 flex items-center">
+						<div class="container mx-auto flex items-center justify-center">
+							<div role="alert">
+								<p>Voting for this event is open <a class="btn btn-xs" @click="scrollToVotingSection">Cast your vote now!</a></p>
+							</div>
+						</div>
+					</div>
+				</template>
+				// These are just added body top padding to avoid page content being cut off by the navbar
+				<template x-if="shouldShowVoteHeader() || shouldShowCompetitionCta()">
+					<div>
+						<br/>
+						<br/>
+					</div>
+				</template>
+			}
+			if (canEdit) {
+				<div class="alert alert-success">
+					You are an editor for this event.
+					if event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB {
+						<a
+							class="btn btn-sm"
+							href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.EventSourceId, 1), "{trailingslash:\\/?}", "", 1)) }
+						>Edit Series</a>
+					} else {
+						<a
+							class="btn btn-sm"
+							href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }
+						>Edit Event</a>
+					}
+				</div>
+			}
+			<h2 class="text-3xl mt-2">{ event.Name }</h2>
+			if event.EventSourceType == helpers.ES_SERIES_PARENT || event.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
+				<h3 class="text-xl mt-2">Event Series</h3>
+				<div
+					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=" + strconv.Itoa(helpers.DEFAULT_MAX_RADIUS) + "&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES + "," + helpers.ES_EVENT_SERIES_UNPUB }
+					hx-trigger="load"
+					hx-swap="outerHTML"
+				>
+					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+				</div>
+			}
+			<br/>
+			<p>
+				if event.EventOwnerName != "" {
+					@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				}
+				<br/>
+				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, "VENUE", event)
+				<br/>
+				if event.EventSourceType != "SLF_EVS" {
+					if helpers.GetDateOrShowNone(event.StartTime, event.Timezone) != "" {
+						@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime, event.Timezone), "calendar", "", "", event)
+					}
+					<br/>
+					if helpers.GetTimeOrShowNone(event.StartTime, event.Timezone) != "" {
+						@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime, event.Timezone), "clock", "", "", event)
+					}
+					<br/>
+				}
+				if event.StartingPrice > 0 {
+					// TODO: handle basecurrency
+					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", "", event)
+				}
+				if (event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB) && event.EventSourceId != "" {
+					<div class="divider my-3"></div>
+					<h3 class="text-xl mt-2 mb-2">All Events in this Series</h3>
+					<div
+						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId + "&event_source_types=" + helpers.ES_EVENT_SERIES + "," + helpers.ES_EVENT_SERIES_UNPUB }
+						hx-trigger="load"
+						hx-swap="outerHTML"
+					>
+						<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+					</div>
+				}
+				<br/>
+				<h3 class="text-xl">EVENT DESCRIPTION</h3>
+				<br/>
+				<div class="whitespace-pre-wrap">
+					@templ.Raw(event.Description)
+				</div>
+				<template x-if="competitionConfigId && userId">
+					<div class="mt-4" id="voting-section">
+						<h3 class="text-xl">VOTING</h3>
+						<template x-if="!Boolean(rounds?.[0]?.competitorADisplayName)">
+							<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+						</template>
+						<template x-if="!roundsDataFetching && rounds?.filter(round => round.isVotingOpen).length === 0">
+							<p class="text-lg">(No rounds are open for voting)</p>
+						</template>
+						<template x-if="Boolean(rounds?.[0]?.competitorADisplayName)">
+							<template x-for="round in rounds">
+								<template x-if="round.isVotingOpen">
+									<div>
+										<h3 class="text-lg text-bold" x-text="round.roundName"></h3>
+										<p class="text-lg" x-text="round.description"></p>
+										<div class="flex items-center justify-between gap-4 w-full mt-2">
+											<button
+												:disabled="voteSubmitting === `${round.competitorA}-${round.roundNumber}`"
+												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA }"
+												class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
+												data-umami-event={ "comp-vote-clk" }
+												data-umami-event-event-id={ event.Id }
+												data-umami-event-user-id={ userInfo.Sub }
+												@click="submitVote(round.competitorA, round.roundNumber)"
+											>
+												<span x-text="'Vote ' + round?.competitorADisplayName" class="flex-grow"></span>
+												<div class="flex-none">
+													<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA && voteSubmitting !== `${round.competitorA}-${round.roundNumber}`">
+														<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+													</template>
+													<template x-if="voteSubmitting === `${round.competitorA}-${round.roundNumber}`">
+														<span class="loading loading-spinner loading-md text-primary"></span>
+													</template>
+												</div>
+											</button>
+											<div class="text-3xl font-bold">&larr; VS &rarr;</div>
+											<button
+												:disabled="voteSubmitting === `${round.competitorB}-${round.roundNumber}`"
+												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB }"
+												class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
+												data-umami-event={ "comp-vote-clk" }
+												data-umami-event-event-id={ event.Id }
+												data-umami-event-user-id={ userInfo.Sub }
+												@click="submitVote(round.competitorB, round.roundNumber)"
+											>
+												<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
+												<template x-if="voteSubmitting === `${round.competitorB}-${round.roundNumber}`">
+													<span class="loading loading-spinner loading-md text-primary"></span>
+												</template>
+												<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB && voteSubmitting !== `${round.competitorB}-${round.roundNumber}`">
+													<div class="flex-none">
+														<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+													</div>
+												</template>
+											</button>
+										</div>
+										<div class="divider"></div>
+									</div>
+								</template>
+							</template>
+						</template>
+					</div>
+				</template>
+			</p>
+			<div class="bottom-drawer">
+				<div class="container mx-auto">
+					if event.StartingPrice > 0 {
+						<button data-umami-event={ "buy-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">BUY TICKETS</button>
+					} else if event.HasRegistrationFields && event.StartingPrice == 0 {
+						<button data-umami-event={ "reg-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
+					} else {
+						<a
+							data-umami-event={ "rsvp-click" }
+							data-umami-event-event-id={ event.Id }
+							target="_blank"
+							href={ templ.URL(fmt.Sprintf("https://calendar.google.com/calendar/render?action=TEMPLATE&dates=%s/%s&ctz=%s&details=%s&location=%s&text=%s",
+						helpers.FormatTimeForGoogleCalendar(event.StartTime, event.Timezone),
+						helpers.FormatTimeForGoogleCalendar(event.StartTime + (60*60), event.Timezone),
+						event.Timezone.String(),
+						url.QueryEscape(event.Description),
+						url.QueryEscape(event.Address),
+						url.QueryEscape(event.Name))) }
+							@click="handleCtaClick('rsvp')"
+							class="btn btn-block btn-primary"
+						>
+							if userInfo.Sub == "" {
+								ADD TO CALENDAR
+							} else {
+								RSVP
+							}
+						</a>
+					}
+					if userInfo.Sub != "" {
+						<br/>
+						<br/>
+						<button
+							data-umami-event={ "intrst-click" }
+							data-umami-event-event-id={ event.Id }
+							@click="document.getElementById('icmi-modal').showModal(); handleCtaClick('icmi')"
+							class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content"
+						>Interested, can't make it!</button>
+						<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
+							<div class="modal-box">
+								<h3 class="text-lg font-bold">YAY!</h3>
+								<p class="py-4">We've noted your interest, sorry to miss you... but next time!</p>
+								<form method="dialog" class="modal-backdrop">
+									<!-- if there is a button in form, it will close the modal -->
+									<button class="btn btn-primary">Close</button>
+								</form>
+							</div>
+						</dialog>
+					}
+				</div>
+			</div>
+		}
+	</div>
+	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
+	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId }>
+		function getEventDetailsState() {
+			return {
+				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),
+				eventId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-event-id'),
+				eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
+				interestedStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-interested-status'),
+				registeredStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-registered-status'),
+				competitionConfigId: document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id'),
+				init() {
+						(async () => {
+								const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
+								if (this.userId !== '' && competitionConfigId !== '') {
+										await this.fetchInitialData();
+										// Start polling after initial fetch
+										this.pollInterval = setInterval(() => this.pollRoundsData(), 10000);
+								}
+						})();
+
+						// Cleanup on component destroy
+						this.$cleanup = () => {
+								if (this.pollInterval) clearInterval(this.pollInterval);
+						};
+				},
+				async fetchInitialData() {
+						try {
+								this.roundsDataFetching = true;
+								await this.fetchAndUpdateRounds();
+						} catch (e) {
+								// eslint-disable-next-line no-console
+								console.error(e);
+						} finally {
+								this.roundsDataFetching = false;
+						}
+				},
+
+				async fetchAndUpdateRounds() {
+					if (this.userId !== '' && this.competitionConfigId !== '') {
+							const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
+									method: 'GET',
+							});
+							const roundsData = await roundsResponse.json();
+
+							if (roundsData.length > 0) {
+									const competitorIds = roundsData.flatMap(round => [round.competitorA, round.competitorB]);
+									const missingIds = competitorIds.filter(id => !this.competitors[id]);
+
+									if (missingIds.length > 0) {
+											const usersRes = await fetch(`/api/users?ids=${missingIds.join(',')}`, {
+													method: 'GET',
+											});
+											const usersData = await usersRes.json();
+
+											usersData.forEach(user => {
+													this.competitors[user.userId] = user;
+											});
+									}
+
+									this.rounds = roundsData.map(round => ({
+											...round,
+											competitorADisplayName: this.competitors[round.competitorA]?.displayName,
+											competitorBDisplayName: this.competitors[round.competitorB]?.displayName,
+									}));
+							} else {
+									this.rounds = [];
+							}
+					}
+				},
+
+				async pollRoundsData() {
+						if (!this.roundsDataFetching) {
+								try {
+										await this.fetchAndUpdateRounds();
+								} catch (e) {
+										// eslint-disable-next-line no-console
+										console.error('Error polling rounds data:', e);
+								}
+						}
+				},
+
+				// this is pre-LLM rewrite code, saving for reference, can delete once we
+				// are sure the replacement code is 100% working
+				// init() {
+				// 	(async () => {
+				// 		try {
+				// 			const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
+				// 			if (this.userId !== '' && competitionConfigId !== '') {
+				// 				this.roundsDataFetching = true
+				// 				const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
+				// 					method: 'GET',
+				// 				});
+				// 				const roundsData = await roundsResponse.json();
+				// 				this.rounds = roundsData
+				// 				if (this.rounds.length > 0) {
+				// 					const ids = this.rounds.flatMap(round => [round.competitorA, round.competitorB]).join(',')
+
+				// 					const usersRes = await fetch(`/api/users?ids=${ids}`, {
+				// 						method: 'GET',
+				// 					});
+				// 					const usersData = await usersRes.json();
+				// 					this.rounds = this.rounds.map(round => {
+				// 						// round.user = usersData.find(user => user.id === round.userId)
+				// 						return {
+				// 							competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
+				// 							competitorBDisplayName: usersData.find(user => user.userId === round.competitorB).displayName,
+				// 							...round
+				// 						}
+				// 					})
+				// 				}
+				// 			}
+				// 		} catch (e ) {
+				// 			// eslint-disable-next-line no-console
+				// 			console.error(e);
+				// 		} finally {
+				// 			this.roundsDataFetching = false
+				// 		}
+				// 	})();
+				// },
+				eventTypeSingleConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-single'),
+				eventTypeSeriesParentConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-parent'),
+				eventTypeSeriesChildConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-child'),
+				rounds: [],
+				voteSubmitting: null,
+				votesSubmitted: {},
+				competitors: {},
+				pollInterval: null,
+				roundsDataFetching: false,
+
+				async submitVote(competitorId, roundNumber) {
+					this.voteSubmitting = `${competitorId}-${roundNumber}`
+					try {
+						const response = await fetch(`/api/votes/${this.competitionConfigId}/${roundNumber}`, {
+							method: 'PUT',
+							body: JSON.stringify({
+								voteRecipientId: competitorId,
+								voteValue: 1,
+							}),
+						});
+
+						const data = await response.json();
+						if (response.status > 400) {
+							throw new Error(data.message || 'Vote submission failed')
+						}
+
+						this.votesSubmitted[`${roundNumber}`] = { voteRecipientId: competitorId}
+					} catch (e) {
+						// eslint-disable-next-line no-console
+						console.error(e);
+					} finally {
+						this.voteSubmitting = null
+					}
+				},
+				handleCtaClick(tab) {
+					if (tab === 'rsvp' || tab === 'icmi' && this.userId) {
+						const body = {
+							status: tab === 'rsvp' ? this.registeredStatus : this.interestedStatus,
+							event_name: this.eventName,
+							purchased_items: [],
+							total: 0,
+						}
+						const headers = {
+							type: 'application/json',
+						};
+						const blob = new Blob([JSON.stringify(body)], headers);
+						navigator.sendBeacon(`/api/checkout/${this.eventId}`, blob);
+						return
+					}
+					if (tab === 'cart') {
+						// select the subnav item
+						document.getElementById(`flyout-tab-${tab}`).click();
+						// toggle the main drawer
+						document.getElementById(`main-drawer`).click();
+					}
+
+				},
+				shouldShowVoteHeader() {
+					return this.rounds.filter(round => round.isVotingOpen).length > 0
+				},
+				shouldShowCompetitionCta() {
+					return this.competitionConfigId && !this.userId
+				},
+				scrollToVotingSection() {
+					const el = document.getElementById('voting-section');
+					if (el) {
+						// Calculate offset from fixed elements
+						const voteHeader = document.getElementById('vote-header');
+						const mainNav = document.getElementById('main-nav');
+						const offset = (voteHeader?.offsetHeight || 0) + (mainNav?.offsetHeight || 0);
+
+						// Scroll with offset
+						const elementPosition = el.getBoundingClientRect().top + window.pageYOffset;
+						window.scrollTo({
+							top: elementPosition - offset,
+							behavior: 'smooth'
+						});
+					}
+				}
+			}
+		}
+	</script>
 }

@@ -6,7 +6,7 @@ templ AddEventSource() {
 	<h1 class="text-3xl">Add an Event Source</h1>
 	<br/>
 	<br/>
-	<div class="grid grid-cols-7" x-data="getWizardData()">
+	<div class="grid grid-cols-7" x-data="getWizardState()">
 		<div class="self-start sticky top-0 col-span-2 mr-5 card border-2 border-base-300 bg-base-200 rounded-box place-items-center ">
 			<ul id="event-source-steps" class="steps steps-vertical">
 				<li
@@ -25,6 +25,7 @@ templ AddEventSource() {
              formStep >= 3}"
 				>Add to Site</li>
 			</ul>
+			<button @click="incrementFormStep()">Increment Step</button>
 		</div>
 		<div id="event-source-container" class="col-span-5 card border-2 border-base-300 bg-base-200 p-10 rounded-box">
 			<h2 class="text-3xl font-bold">Add a Target URL</h2>
@@ -70,7 +71,7 @@ templ AddEventSource() {
 				<h3 class="text-2xl font-bold">Are these events?</h3>
 				// note that the input[type='checkbox'] items come back in response to the SESHU_FN_URL
 				// call and the checkboxes are not present by default
-				<form id="event-candidates-form" class="group" novalidate hx-patch="/api/html/seshu/session/events" hx-ext="json-enc" hx-target="#events-valid-confirmation" hx-vals="js:{eventValidations: getEventValidations()}" hx-disabled-elt="input[type='checkbox'], button[type='submit']" @htmx:after-request="updateEventsValidated(event)">
+				<form id="event-candidates-form" class="group" novalidate hx-patch="/api/html/seshu/session/events" hx-ext="json-enc" hx-target="#events-valid-confirmation" hx-vals="js:{eventValidations: getEventValidationsState()}" hx-disabled-elt="input[type='checkbox'], button[type='submit']" @htmx:after-request="updateEventsValidated(event)">
 					<input
 						x-model="formData.url"
 						name="url"
@@ -173,100 +174,101 @@ templ AddEventSource() {
 		</div>
 	</div>
 	<script id="alpine-state" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") }>
-			function getEventValidations() {
-					const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'))
-					const outerArr = []
-					cards.forEach(card => {
-						const checkboxes = card.querySelectorAll('input[type="checkbox"]')
-						if (!checkboxes[0].checked) {
-							// Note that 5 here is a value determined by the API in seshu_services/EventInfo
-							outerArr.push(Array(5).fill(false))
-						} else {
-							outerArr.push(Array.from(checkboxes).map(checkbox => checkbox.checked).slice(1))
-						}
-					})
-					return outerArr
-			}
-			function getWizardData() {
-					return {
-							formData: {
-								url: "",
-								selectedLocationType: "address",
-								address: "",
-							},
-							formStep: 1,
-							hasEvents: false,
-							eventsValidated: false,
-							eventsLoading: false,
-							eventCandidates: [],
-							hasFallbackLocation: true,
-							locationValidated: false,
-							updateHasEvents(event) {
-								if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
-									this.hasEvents = true;
-								} else {
-									this.hasEvents = false;
-								}
-								console.log('this.hasEvents', this.hasEvents)
-							},
-							updateEventsValidated(event) {
-								if (event.detail.successful) {
-									this.eventsValidated = true;
-								} else {
-									this.eventsValidated = false;
-								}
-							},
-							getAddress() {
-								return `https://www.google.com/maps/embed/v1/place?key=${document.querySelector('#alpine-state').getAttribute('data-google-api-key')}&q=${this.formData.address}`
-							},
-							isURL(url) {
-									var re = /[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z0-9]{2,}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/;
-									return re.test(url);
-							},
-							handleURLSubmit() {
-									this.setEventsLoading(true);
-									this.incrementFormStep();
-							},
-							handleUrlRes(event) {
-									this.setEventsLoading(false);
-									this.updateHasEvents(event);
-							},
-							incrementFormStep() {
-									this.formStep += 1;
-							},
-							setEventsLoading(bool) {
-									this.eventsLoading = bool;
-							},
-							handleLocationValidation(event) {
-								if (event.detail.successful){
-									this.locationValidated = true;
-								}
-							},
-							handleFinalSubmission(event) {
-								if (event.detail.successful){
-									this.incrementFormStep();
-								}
-							},
-							getSubmissionStateText() {
-								if (this.formStep === 1 || !this.formData.url) {
-									return "In order to submit, a URL is required"
-								} else if (this.eventsLoading) {
-									return "Checking the provided URL for event listings ..."
-								} else if (!this.hasEvents) {
-									return "No events found at the URL provided. Please try another URL"
-								} else if (this.eventCandidates.length === 0) {
-									return "All events are marked invalid. Confirm their are events listed at the Target URL. Either click to search again, or try a different URL"
-								} else if (!this.eventsValidated) {
-									return "Events must be confirmed before submitting"
-								} else if (this.hasFallbackLocation && !this.formData.address) {
-									return "If events are all in the same geography, please provide a zip code, address, or city"
-								} else if (this.hasFallbackLocation && !this.locationValidated) {
-									return "Location must be confirmed before submitting"
-								} else if (this.formStep === 2) {
-									return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
-								}
-							}
+		function getEventValidationsState() {
+			const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'))
+			const outerArr = []
+			cards.forEach(card => {
+				const checkboxes = card.querySelectorAll('input[type="checkbox"]')
+				if (!checkboxes[0].checked) {
+					// Note that 5 here is a value determined by the API in seshu_services/EventInfo
+					outerArr.push(Array(5).fill(false))
+				} else {
+					outerArr.push(Array.from(checkboxes).map(checkbox => checkbox.checked).slice(1))
 				}
+			})
+			return outerArr
+		}
+		function getWizardState() {
+			return {
+				formData: {
+					url: "",
+					selectedLocationType: "address",
+					address: "",
+				},
+				formStep: 1,
+				hasEvents: false,
+				eventsValidated: false,
+				eventsLoading: false,
+				eventCandidates: [],
+				hasFallbackLocation: true,
+				locationValidated: false,
+				updateHasEvents(event) {
+					if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
+						this.hasEvents = true;
+					} else {
+						this.hasEvents = false;
+					}
+				},
+				updateEventsValidated(event) {
+					if (event.detail.successful) {
+						this.eventsValidated = true;
+					} else {
+						this.eventsValidated = false;
+					}
+				},
+				getAddress() {
+					return `https://www.google.com/maps/embed/v1/place?key=${document.querySelector('#alpine-state').getAttribute('data-google-api-key')}&q=${this.formData.address}`
+				},
+				isURL(url) {
+					// NOTE: unsure if this is a useless escape or not
+					// eslint-disable-next-line no-useless-escape
+					var re = /[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z0-9]{2,}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/;
+					return re.test(url);
+				},
+				handleURLSubmit() {
+					this.setEventsLoading(true);
+					this.incrementFormStep();
+				},
+				handleUrlRes(event) {
+					this.setEventsLoading(false);
+					this.updateHasEvents(event);
+				},
+				incrementFormStep() {
+					this.formStep += 1;
+				},
+				setEventsLoading(bool) {
+					this.eventsLoading = bool;
+				},
+				handleLocationValidation(event) {
+					if (event.detail.successful){
+						this.locationValidated = true;
+					}
+				},
+				handleFinalSubmission(event) {
+					if (event.detail.successful){
+						this.incrementFormStep();
+					}
+				},
+				getSubmissionStateText() {
+					if (this.formStep === 1 || !this.formData.url) {
+						return "In order to submit, a URL is required"
+					} else if (this.eventsLoading) {
+						return "Checking the provided URL for event listings ..."
+					} else if (!this.hasEvents) {
+						return "No events found at the URL provided. Please try another URL"
+					} else if (this.eventCandidates.length === 0) {
+						return "All events are marked invalid. Confirm their are events listed at the Target URL. Either click to search again, or try a different URL"
+					} else if (!this.eventsValidated) {
+						return "Events must be confirmed before submitting"
+					} else if (this.hasFallbackLocation && !this.formData.address) {
+						return "If events are all in the same geography, please provide a zip code, address, or city"
+					} else if (this.hasFallbackLocation && !this.locationValidated) {
+						return "Location must be confirmed before submitting"
+					} else if (this.formStep === 2) {
+						return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
+					}
+				}
+			}
 		}
 	</script>
 }

@@ -8,12 +8,17 @@ import (
 	"log"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
+	"strings"
+	"time"
 
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
 
@@ -26,7 +31,7 @@ type GeoLookupInputPayload struct {
 
 type GeoThenSeshuPatchInputPayload struct {
 	Location string `json:"location" validate:"required"`
-	Url string `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+	Url      string `json:"url" validate:"required"` // URL is the DB key in SeshuSession
 }
 
 type SeshuSessionSubmitPayload struct {
@@ -34,7 +39,7 @@ type SeshuSessionSubmitPayload struct {
 }
 
 type SeshuSessionEventsPayload struct {
-	Url string `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+	Url              string   `json:"url" validate:"required"` // URL is the DB key in SeshuSession
 	EventValidations [][]bool `json:"eventValidations" validate:"required"`
 }
 
@@ -42,179 +47,311 @@ type SetSubdomainRequestPayload struct {
 	Subdomain string `json:"subdomain" validate:"required"`
 }
 
+type UpdateUserAboutRequestPayload struct {
+	About string `json:"about" validate:"required"`
+}
+
+type eventSearchResult struct {
+	events []internal_types.Event
+	err    error
+}
+
+type eventParentResult struct {
+	event *internal_types.Event
+	err   error
+}
+
 func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-		var inputPayload SetSubdomainRequestPayload
+	var inputPayload SetSubdomainRequestPayload
 
-		authMw, _ := services.GetAuthMw()
-		authCtx := authMw.Context(r.Context())
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+	}
+	err = json.Unmarshal([]byte(body), &inputPayload)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
+	}
+	ctx := r.Context()
 
-		body, err := io.ReadAll(r.Body)
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userID := userInfo.Sub
+
+	// Call Cloudflare KV store to save the subdomain
+	metadata := map[string]string{"": ""}
+	err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
+	if err != nil {
+		if err.Error() == helpers.ERR_KV_KEY_EXISTS {
+			return transport.SendHtmlErrorPartial([]byte("Subdomain already taken"), http.StatusInternalServerError)
+		} else {
+			return transport.SendHtmlErrorPartial([]byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
+		}
+	}
+
+	var buf bytes.Buffer
+	successPartial := partials.SuccessBannerHTML(`Subdomain set successfully`)
+
+	err = successPartial.Render(r.Context(), &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	// Extract parameter values from the request query parameters
+	ctx := r.Context()
+
+	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+
+	marqoClient, err := services.GetMarqoClient()
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+
+	// we override the `owners` query param here, because subdomains should always show only
+	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
+	if subdomainValue != "" {
+		ownerIds = []string{subdomainValue}
+	}
+
+	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	events := res.Events
+	listMode := r.URL.Query().Get("list_mode")
+	// Sort events by StartTime
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].StartTime < events[j].StartTime
+	})
+
+	eventListPartial := pages.EventsInner(events, listMode)
+
+	var buf bytes.Buffer
+	err = eventListPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+
+	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+
+	radius = helpers.DEFAULT_MAX_RADIUS
+	farFutureTime, _ := time.Parse(time.RFC3339, "2099-01-01T00:00:00Z")
+	endTimeUnix = farFutureTime.Unix()
+
+	marqoClient, err := services.GetMarqoClient()
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+
+	// NOTE: we want the children AND the parent event, empty string gets the parent
+	eventSourceIds = []string{eventId}
+	eventSourceTypes = []string{helpers.ES_EVENT_SERIES, helpers.ES_EVENT_SERIES_UNPUB}
+
+	// Separate parent and children events
+	var eventParent *internal_types.Event
+	var eventChildren []internal_types.Event
+
+	parentChan := make(chan eventParentResult)
+	searchChan := make(chan eventSearchResult)
+
+	// Launch parent event fetch in goroutine
+	go func() {
+		parent, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+		parentChan <- eventParentResult{event: parent, err: err}
+	}()
+
+	// Launch search in parallel
+	go func() {
+		res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 		if err != nil {
-			return transport.SendHtmlError(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+			searchChan <- eventSearchResult{err: err}
+			return
 		}
-		err = json.Unmarshal([]byte(body), &inputPayload)
-		if err != nil {
-			return transport.SendHtmlError(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
-		}
-		if authCtx == nil || authCtx.UserInfo == nil {
-				return transport.SendHtmlError(w, []byte("User not authenticated"), http.StatusInternalServerError)
-		}
-		userID := authCtx.UserInfo.GetSubject()
+		searchChan <- eventSearchResult{events: res.Events}
+	}()
 
-		// Call Cloudflare KV store to save the subdomain
-		metadata := map[string]string{"": ""}
-		err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
-		if err != nil {
-				if err.Error() == helpers.ERR_KV_KEY_EXISTS {
-						return transport.SendHtmlError(w, []byte("Subdomain already taken"), http.StatusInternalServerError)
-				} else {
-						return transport.SendHtmlError(w, []byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
-				}
-		}
+	// Wait for both results
+	parentResult := <-parentChan
+	if parentResult.err != nil {
+		return transport.SendServerRes(w, []byte("Failed to get event: "+parentResult.err.Error()), http.StatusInternalServerError, parentResult.err)
+	}
+	eventParent = parentResult.event
 
-		var buf bytes.Buffer
-		successPartial := partials.SuccessBannerHTML(`Subdomain set successfully`)
+	searchResult := <-searchChan
+	if searchResult.err != nil {
+		return transport.SendServerRes(w, []byte("Failed to get events via search: "+searchResult.err.Error()), http.StatusInternalServerError, searchResult.err)
+	}
+	eventChildren = searchResult.events
 
-		err = successPartial.Render(r.Context(), &buf)
-		if err != nil {
-			return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
-		}
+	// Sort eventChildren by StartTime
+	sort.Slice(eventChildren, func(i, j int) bool {
+		return eventChildren[i].StartTime < eventChildren[j].StartTime
+	})
 
-		return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	eventListPartial := partials.EventAdminChildren(*eventParent, eventChildren)
+
+	var buf bytes.Buffer
+	err = eventListPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	log.Println("START GeoLookup")
 	ctx := r.Context()
 	var inputPayload GeoLookupInputPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, "partial", err)
 	}
 
 	err = json.Unmarshal([]byte(body), &inputPayload)
 	if err != nil {
-			return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, "partial", err)
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-			return transport.SendServerRes(w, []byte(string("Invalid Body: ") + err.Error()), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte(string("Invalid Body: ")+err.Error()), http.StatusBadRequest, "partial", err)
 	}
 
 	baseUrl := helpers.GetBaseUrlFromReq(r)
 
 	if baseUrl == "" {
-		return transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, "partial", err)
 	}
 
-    geoService := services.GetGeoService()
+	geoService := services.GetGeoService()
 	lat, lon, address, err := geoService.GetGeo(inputPayload.Location, baseUrl)
-
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ") + err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, "partial", err)
 	}
-
-	geoLookupPartial := partials.GeoLookup(lat, lon, address)
+	// Convert lat and lon to float64
+	latFloat, err := strconv.ParseFloat(lat, 64)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusInternalServerError, "partial", err)
+	}
+	lonFloat, err := strconv.ParseFloat(lon, 64)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusInternalServerError, "partial", err)
+	}
+	geoLookupPartial := partials.GeoLookup(latFloat, lonFloat, address, "form-hidden")
 
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
 	}
-
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        db := transport.GetDB()
-        geoThenPatchSeshuSessionHandler(w, r, db)
-    }
+	return func(w http.ResponseWriter, r *http.Request) {
+		db := transport.GetDB()
+		GeoThenPatchSeshuSessionHandler(w, r, db)
+	}
 }
 
-func geoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db internal_types.DynamoDBAPI) {
+func GeoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db internal_types.DynamoDBAPI) {
 	ctx := r.Context()
 	var inputPayload GeoThenSeshuPatchInputPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
-        return
+		transport.SendHtmlRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, "partial", err)
+		return
 	}
 	err = json.Unmarshal([]byte(body), &inputPayload)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, err)
-        return
+		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, "partial", err)
+		return
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid Body: "+err.Error()), http.StatusBadRequest, err)
-        return
+		transport.SendHtmlRes(w, []byte("Invalid Body: "+err.Error()), http.StatusBadRequest, "partial", err)
+		return
 	}
 
 	baseUrl := helpers.GetBaseUrlFromReq(r)
 
 	if baseUrl == "" {
-		transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, err)
-        return
+		transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, "partial", err)
+		return
 	}
 
-    geoService := services.GetGeoService()
+	geoService := services.GetGeoService()
 	lat, lon, address, err := geoService.GetGeo(inputPayload.Location, baseUrl)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Failed to get geocoordinates: "+err.Error()), http.StatusInternalServerError, err)
-        return
+		transport.SendHtmlRes(w, []byte("Failed to get geocoordinates: "+err.Error()), http.StatusInternalServerError, "partial", err)
+		return
 	}
 
 	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, err)
-        return
+		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, "partial", err)
+		return
 	}
 
 	latFloat, err := strconv.ParseFloat(lat, 64)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusUnprocessableEntity, err)
-        return
+		transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusUnprocessableEntity, "partial", err)
+		return
 	}
 
 	updateSeshuSession.LocationLatitude = latFloat
 	lonFloat, err := strconv.ParseFloat(lon, 64)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusUnprocessableEntity, err)
-        return
+		transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusUnprocessableEntity, "partial", err)
+		return
 	}
 	updateSeshuSession.LocationLongitude = lonFloat
 	updateSeshuSession.LocationAddress = address
 
-	if (updateSeshuSession.Url == "") {
-		transport.SendHtmlRes(w, []byte("ERR: Invalid body: url is required"), http.StatusBadRequest, nil)
-        return
+	if updateSeshuSession.Url == "" {
+		transport.SendHtmlRes(w, []byte("ERR: Invalid body: url is required"), http.StatusBadRequest, "partial", nil)
+		return
 	}
-	geoLookupPartial := partials.GeoLookup(lat, lon, address)
+	geoLookupPartial := partials.GeoLookup(latFloat, lonFloat, address, "badge")
 
 	_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Failed to update target URL session"), http.StatusNotFound, err)
-        return
+		transport.SendHtmlRes(w, []byte("Failed to update target URL session"), http.StatusNotFound, "partial", err)
+		return
 	}
 
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, err)
-        return
+		transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
+		return
 	}
-	transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-    db := transport.GetDB()
+	db := transport.GetDB()
 
 	ctx := r.Context()
 	var inputPayload SeshuSessionEventsPayload
@@ -226,19 +363,19 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	err = json.Unmarshal([]byte(body), &inputPayload)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, "partial", err)
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, "partial", err)
 	}
 
 	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, "partial", err)
 	}
 
 	updateSeshuSession.Url = inputPayload.Url
@@ -247,11 +384,11 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	// that is prone to manipulation
 	updateSeshuSession.EventValidations = inputPayload.EventValidations
 
-    seshuService := services.GetSeshuService()
+	seshuService := services.GetSeshuService()
 	_, err = seshuService.UpdateSeshuSession(ctx, db, updateSeshuSession)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
 	}
 
 	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`)
@@ -262,7 +399,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func getFieldIndices() map[string]int {
@@ -281,15 +418,24 @@ func getFieldIndices() map[string]int {
 
 func isFakeData(val string) bool {
 	switch val {
-		case services.FakeCity: return true
-		case services.FakeUrl1: return true
-		case services.FakeUrl2: return true
-		case services.FakeEventTitle1: return true
-		case services.FakeEventTitle2: return true
-		case services.FakeStartTime1: return true
-		case services.FakeStartTime2: return true
-		case services.FakeEndTime1: return true
-		case services.FakeEndTime2: return true
+	case services.FakeCity:
+		return true
+	case services.FakeUrl1:
+		return true
+	case services.FakeUrl2:
+		return true
+	case services.FakeEventTitle1:
+		return true
+	case services.FakeEventTitle2:
+		return true
+	case services.FakeStartTime1:
+		return true
+	case services.FakeStartTime2:
+		return true
+	case services.FakeEndTime1:
+		return true
+	case services.FakeEndTime2:
+		return true
 	}
 	return false
 }
@@ -298,7 +444,6 @@ func getValidatedEvents(candidates []internal_types.EventInfo, validations [][]b
 	var validatedEvents []internal_types.EventInfo
 	indiceMap := getFieldIndices()
 
-	log.Println("Indice Map: ", indiceMap)
 	for i := range candidates {
 		isValid := true
 
@@ -320,7 +465,6 @@ func getValidatedEvents(candidates []internal_types.EventInfo, validations [][]b
 	}
 	return validatedEvents
 }
-
 
 // TODO: I have no idea if this actually works or not, this is provided by ChatGPT 4o
 // I'm leaving this unifinished to go work on other more urgent items, please fix
@@ -366,29 +510,29 @@ func getValidatedEvents(candidates []internal_types.EventInfo, validations [][]b
 
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-    db := transport.GetDB()
+	db := transport.GetDB()
 	var inputPayload SeshuSessionEventsPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()),  http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	err = json.Unmarshal([]byte(body), &inputPayload)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, err)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, "partial", err)
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Invalid request body"), http.StatusBadRequest, "partial", err)
 	}
 
 	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, "partial", err)
 	}
 
 	defer func() {
@@ -399,7 +543,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		session, err := services.GetSeshuSession(ctx, db, seshuSessionGet)
 
 		if err != nil {
-			log.Println("Failed to get SeshuSession. ID: " , session, err)
+			log.Println("Failed to get SeshuSession. ID: ", session, err)
 		}
 
 		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLong`
@@ -409,7 +553,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		latMatch, err := regexp.MatchString(services.LatitudeRegex, fmt.Sprint(session.LocationLatitude))
 		if session.LocationLatitude == services.InitialEmptyLatLong {
 			hasDefaultLat = false
-		} else if (err != nil || !latMatch ) {
+		} else if err != nil || !latMatch {
 			hasDefaultLat = true
 		}
 
@@ -417,7 +561,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		lonMatch, err := regexp.MatchString(services.LongitudeRegex, fmt.Sprint(session.LocationLongitude))
 		if session.LocationLongitude == services.InitialEmptyLatLong {
 			hasDefaultLon = false
-		} else if (err != nil || !lonMatch || session.LocationLongitude == services.InitialEmptyLatLong) {
+		} else if err != nil || !lonMatch || session.LocationLongitude == services.InitialEmptyLatLong {
 			hasDefaultLon = true
 		}
 
@@ -462,7 +606,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
 
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, err)
+		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
 	}
 
 	// TODO: this sets the session to `submitted`, in a follow-up PR this will call a function
@@ -476,5 +620,82 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, nil)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	r.ParseForm()
+	ctx := r.Context()
+
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userID := userInfo.Sub
+
+	// TODO: pretty sure the Form approach here makes it so that you can't submit this multiple
+	// times in succession when using the profile settings page
+	categories := r.Form
+
+	// Use a map to track unique elements
+	flattenedCategories := []string{}
+
+	// Flatten and split by "|", then add to the map to remove duplicates
+	for key, values := range categories {
+		if strings.HasSuffix(key, "category") || strings.HasSuffix(key, "subCategory") {
+			for _, value := range values {
+				// Split by comma and trim spaces, in case there are multiple values
+				for _, item := range strings.Split(value, ",") {
+					trimmedItem := strings.TrimSpace(item)
+					if trimmedItem != "" {
+						flattenedCategories = append(flattenedCategories, trimmedItem)
+					}
+				}
+			}
+		}
+	}
+
+	flattenedCategoriesString := strings.Join(flattenedCategories, "|")
+
+	err := helpers.UpdateUserMetadataKey(userID, helpers.INTERESTS_KEY, flattenedCategoriesString)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`)
+	var buf bytes.Buffer
+	err = successPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	var inputPayload UpdateUserAboutRequestPayload
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+	}
+	err = json.Unmarshal([]byte(body), &inputPayload)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
+	}
+	ctx := r.Context()
+
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userID := userInfo.Sub
+	err = helpers.UpdateUserMetadataKey(userID, helpers.META_ABOUT_KEY, inputPayload.About)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to update 'about' field: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	var buf bytes.Buffer
+	successPartial := partials.SuccessBannerHTML(`About section successfully saved`)
+
+	err = successPartial.Render(r.Context(), &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }

@@ -1,11 +1,19 @@
 /** @type {import('tailwindcss').Config} */
 
 export default {
+  mode: 'jit',
+  purge: ['**/*.templ'],
   content: ['**/*.templ'],
   theme: {
+    extend: {
+      aspectRatio: {
+        '4/1': '4 / 1',
+      },
+    },
     fontSize: {
       sm: '0.8rem',
       base: '1rem',
+      lg: '1.15rem',
       xl: '1.25rem',
       '2xl': '1.563rem',
       '3xl': '1.953rem',
@@ -15,32 +23,36 @@ export default {
     container: {
       padding: {
         DEFAULT: '1rem',
-        // sm: '2rem',
-        // md: '3rem',
+        sm: '2rem',
+        md: '3rem',
         // lg: '8rem',
         // xl: '10rem',
         // '2xl': '12rem',
       },
     },
   },
+  corePlugins: {
+    container: false,
+  },
   plugins: [
     require('daisyui'),
     require('@tailwindcss/typography'),
     ({ addComponents }) => {
       addComponents({
+        '.alert': {
+          gridAutoFlow: 'column',
+        },
         '.container': {
           maxWidth: '100%',
+          width: '100%',
           '@screen sm': {
-            maxWidth: '95vw',
+            width: '100%',
           },
           '@screen md': {
-            maxWidth: '95vw',
+            width: '100%',
           },
           '@screen lg': {
-            maxWidth: '1280px',
-          },
-          '@screen xl': {
-            maxWidth: '1400px',
+            width: '960px',
           },
         },
         '.main-bg': {
@@ -85,15 +97,31 @@ export default {
             maxWidth: '70vw',
           },
         },
+        '.tab:is(input[type="radio"])': {
+          borderBottomRightRadius: 'inherit',
+          borderBottomLeftRadius: 'inherit',
+        },
+        '.carousel-control-left': {
+          display: 'none',
+          '@screen md': {
+            display: 'block',
+          },
+        },
+        '.carousel-control-right': {
+          display: 'none',
+          '@screen md': {
+            display: 'block',
+          },
+        },
       });
     },
   ],
   daisyui: {
-    lightTheme: 'meetnearme',
+    darkTheme: 'meetnearme',
     themes: [
       {
         meetnearme: {
-          ...require('daisyui/src/theming/themes')['cupcake'],
+          ...require('daisyui/src/theming/themes')['light'],
           // ...require('daisyui/src/theming/themes')['dark'],
           'color-scheme': 'light',
           fontFamily:
@@ -108,20 +136,36 @@ export default {
           '--tab-radius': '0.25rem',
 
           // BEGIN light theme colors
-          primary: '#00ceff',
-          secondary: '#5eead4',
-          accent: '#f0abfc',
+          primary: '#39FF14',
+          secondary: '#FF4500',
+          accent: '#FF69B4',
           neutral: '#190c04',
-          'neutral-content': '#00ceff',
-          'base-100': '#fffbe6',
+          'neutral-content': '#000000',
+          'base-100': '#ffffff',
           info: '#7cbbee',
+          '--btn-bg-inverted': '100% 0 0', // White in OKLCH
+          '--btn-bg-inverted-content': '0% 0 0', // Black in OKLCH
+          // primary: '#39FF14',
+          // 'primary-content': '#011600',
+          // secondary: '#FF4500',
+          // 'secondary-content': '#eeeeee',
+          // accent: '#FF69B4',
+          // 'accent-content': '#16040c',
+          // neutral: '#cccccc',
+          // 'neutral-content': '#000000',
+          // 'base-100': '#000000',
+          'base-200': '#2a2a2a',
+          'base-300': '#454545',
+          'base-content': '#000000',
+          // info: '#ffa914',
+          'info-content': '#000000',
           success: '#74ea62',
           warning: '#ffc458',
           error: '#ff7f7f',
-          primary: '#00ceff',
-          secondary: '#5eead4',
-          accent: '#f0abfc',
-          neutral: '#190c04',
+          // primary: '#00ceff',
+          // secondary: '#5eead4',
+          // accent: '#f0abfc',
+          // neutral: '#190c04',
           // END light theme colors
 
           // BEGIN dark theme colors
@@ -148,6 +192,10 @@ export default {
           // 'error-content': '#fff',
 
           // END dark theme colors
+          'warning-content': '#000000',
+          // error: '#e11d48',
+          'error-content': '#000000',
+
         },
       },
     ],

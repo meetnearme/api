@@ -10,9 +10,8 @@ export function StaticSiteStack({ stack }: StackContext) {
     path: 'static',
     dev: {
       deploy: true,
-      url: 'http://localhost:3001',
     },
-    buildCommand: 'npm run tailwind:prod',
+    buildCommand: 'NODE_ENV=production npm run tailwind:prod',
   });
   stack.addOutputs({
     StaticEndpoint: staticSite?.url,

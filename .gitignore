@@ -3,7 +3,9 @@ node_modules
 .env
 # ignored because this is a build artifact that must be generated
 static/assets/styles.css
+static/assets/styles.*.css
 *_templ.go
 coverage.out
 coverage.txt
 functions/gateway/helpers/cloudflare_locations.go
+cdk.context.json

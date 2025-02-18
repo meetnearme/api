@@ -19,8 +19,8 @@ import (
 var seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
 
 const FakeCity = "Nowhere City, NM 11111"
-const FakeUrl1 = "http://example.com/events/12345"
-const FakeUrl2 = "http://example.com/events/98765"
+const FakeUrl1 = "http://example.com/event/12345"
+const FakeUrl2 = "http://example.com/event/98765"
 const FakeEventTitle1 = "Fake Event Title 1"
 const FakeEventTitle2 = "Fake Event Title 2"
 const FakeStartTime1 = "Sep 26, 26:30pm"
@@ -28,9 +28,9 @@ const FakeStartTime2 = "Oct 10, 25:00am"
 const FakeEndTime1 = "Sep 26, 27:30pm"
 const FakeEndTime2 = "Oct 10, 26:00am"
 
-const InitialEmptyLatLong = 9e+10;
+const InitialEmptyLatLong = 9e+10
 
-func init () {
+func init() {
 	seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
 }
 
@@ -62,23 +62,23 @@ func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		seshuPayload.EventCandidates = []internal_types.EventInfo{}
 	}
 	newSeshuSession := internal_types.SeshuSessionInsert{
-		OwnerId:    seshuPayload.OwnerId,
-		Url:  seshuPayload.Url,
-		UrlDomain: seshuPayload.UrlDomain,
-		UrlPath: seshuPayload.UrlPath,
-		UrlQueryParams: seshuPayload.UrlQueryParams,
+		OwnerId:           seshuPayload.OwnerId,
+		Url:               seshuPayload.Url,
+		UrlDomain:         seshuPayload.UrlDomain,
+		UrlPath:           seshuPayload.UrlPath,
+		UrlQueryParams:    seshuPayload.UrlQueryParams,
 		LocationLatitude:  seshuPayload.LocationLatitude,
 		LocationLongitude: seshuPayload.LocationLongitude,
 		LocationAddress:   seshuPayload.LocationAddress,
-		Html:       seshuPayload.Html,
-		EventCandidates: seshuPayload.EventCandidates,
+		Html:              seshuPayload.Html,
+		EventCandidates:   seshuPayload.EventCandidates,
 		// TODO: this needs to become a map to avoid regressions pertaining
 		// to key ordering in the future
 		EventValidations: [][]bool{},
-		Status:		 "draft",
-		ExpireAt:   currentTime + 3600*24, // 24 hrs expiration
-		CreatedAt:  currentTime,
-		UpdatedAt:  currentTime,
+		Status:           "draft",
+		ExpireAt:         currentTime + 3600*24, // 24 hrs expiration
+		CreatedAt:        currentTime,
+		UpdatedAt:        currentTime,
 	}
 
 	item, err := attributevalue.MarshalMap(newSeshuSession)
@@ -86,18 +86,18 @@ func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		return nil, err
 	}
 
-	if (seshuSessionsTableName == "") {
+	if seshuSessionsTableName == "" {
 		return nil, fmt.Errorf("ERR: seshuSessionsTableName is empty")
 	}
 
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(seshuSessionsTableName),
-		Item: item,
+		Item:      item,
 	}
 
 	// TODO: Before this db PUT, check for existing seshu job
-  // key via query to "jobs" table... if it exists, then return a
-  // 409 error to the client, explaining it can't be added because
+	// key via query to "jobs" table... if it exists, then return a
+	// 409 error to the client, explaining it can't be added because
 	// that URL is already owned by someone else
 
 	res, err := db.PutItem(ctx, input)
@@ -118,7 +118,7 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 
 	// TODO: DB call to check if it exists first, and the the owner is the same as the one updating
 
-	if (seshuSessionsTableName == "") {
+	if seshuSessionsTableName == "" {
 		return nil, fmt.Errorf("ERR: seshuSessionsTableName is empty")
 	}
 
@@ -242,6 +242,3 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 //    db index (the URL itself is the index) collision / duplicates
 // 8. Delete the session from the `SeshuSessions` table once it's confirmed to be
 //    successfully committed to the "Scraping Jobs" table
-
-
-

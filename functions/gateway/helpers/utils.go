@@ -7,20 +7,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/go-playground/validator"
+	"github.com/google/uuid"
+	"github.com/meetnearme/api/functions/gateway/types"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var defaultProtocol string
+var validate *validator.Validate = validator.New()
+
+var DefaultProtocol string
 
 func InitDefaultProtocol() {
 	if os.Getenv("GO_ENV") == "test" {
-		defaultProtocol = "http://"
+		DefaultProtocol = "http://"
 	} else {
-		defaultProtocol = "https://"
+		DefaultProtocol = "https://"
 	}
 }
 
@@ -28,20 +36,43 @@ func init() {
 	InitDefaultProtocol()
 }
 
-func FormatDate(d string) string {
-	date, err := time.Parse(time.RFC3339, d)
-	if err != nil {
-		return "Invalid date"
+func UtcToUnix64(t interface{}, timezone *time.Location) (int64, error) {
+	switch v := t.(type) {
+	case string:
+		// First validate by parsing as RFC3339
+		_, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return 0, fmt.Errorf("invalid date format: %v", err)
+		}
+
+		// Now do local time parsing
+		timeStr := strings.TrimSuffix(v, "Z")
+		// Note the time layout here MUST NOT be RFC3339, it must be the local time layout
+		localTime, err := time.ParseInLocation("2006-01-02T15:04:05", timeStr, timezone)
+		if err != nil {
+			return 0, fmt.Errorf("invalid date format: %v", err)
+		}
+		return localTime.Unix(), nil
+
+	default:
+		return 0, fmt.Errorf("unsupported time format")
 	}
-	return date.Format("Jan 2, 2006 (Mon)")
 }
 
-func FormatTime(t string) string {
-	_time, err := time.Parse(time.RFC3339, t)
-	if err != nil {
-		return "Invalid time"
+func FormatDateLocal(t time.Time) (string, error) {
+	if t.IsZero() {
+		return "", fmt.Errorf("not a valid time: %v", t)
 	}
-	return _time.Format("3:04pm")
+	// Format: "Dec 24, 2024 (Tue)"
+	return t.Format("Jan 2, 2006 (Mon)"), nil
+}
+
+func FormatTimeLocal(t time.Time) (string, error) {
+	if t.IsZero() {
+		return "", fmt.Errorf("not a valid time: %v", t)
+	}
+	// Format: "7:00pm"
+	return strings.ToLower(t.Format("3:04PM")), nil
 }
 
 func TruncateStringByBytes(str string, limit int) (s string, exceededLimit bool) {
@@ -56,14 +87,48 @@ func GetBaseUrlFromReq(r *http.Request) string {
 	return r.URL.Scheme + "://" + r.URL.Host
 }
 
-func HashIDtoImgRange(id string) int {
+func HashIDtoImgRange(id string, num int) int {
 	hash := md5.Sum([]byte(id))
-	hashInt := int(hash[0]) % 8
+	hashInt := int(hash[0]) % num
 	return hashInt
 }
 
-func GetImgUrlFromHash(id string) string {
-	return os.Getenv("STATIC_BASE_URL")+"/assets/img/"+fmt.Sprint(HashIDtoImgRange(id)) + ".png"
+func GetImgUrlFromHash(event types.Event) string {
+	baseUrl := os.Getenv("STATIC_BASE_URL") + "/assets/img/"
+	noneCatImgCount := 18
+	catNumString := "_"
+	if len(event.Categories) > 0 {
+		firstCat := ArrFindFirst(event.Categories, []string{"Karaoke", "Karaoke Quirky", "Bocce Ball", "Trivia Night"})
+		firstCat = strings.ToLower(strings.ReplaceAll(firstCat, " ", "-"))
+		if firstCat == "" {
+			firstCat = "none"
+		}
+		catImgCountRange := 0
+		switch firstCat {
+		case "none":
+			catImgCountRange = noneCatImgCount
+		case "karaoke":
+			catImgCountRange = 4
+		case "karaoke-quirky":
+			catImgCountRange = 9
+		case "bocce-ball":
+			catImgCountRange = 4
+		case "trivia-night":
+			catImgCountRange = 4
+		}
+		imgNum := HashIDtoImgRange(event.Id, catImgCountRange)
+		if imgNum < 10 {
+			catNumString = catNumString + "0"
+		}
+
+		imgName := "cat_" + firstCat + catNumString + fmt.Sprint(imgNum) + ".jpeg"
+		return baseUrl + imgName
+	}
+	imgNum := HashIDtoImgRange(event.Id, noneCatImgCount)
+	if imgNum < 10 {
+		catNumString = catNumString + "0"
+	}
+	return baseUrl + "cat_none" + catNumString + fmt.Sprint(imgNum) + ".jpeg"
 }
 
 func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata map[string]string) error {
@@ -155,7 +220,7 @@ func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata ma
 	return nil
 }
 
-func DeleteCloudflareKV (subdomainValue, userID string) error {
+func DeleteCloudflareKV(subdomainValue, userID string) error {
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
 
@@ -183,8 +248,8 @@ func DeleteCloudflareKV (subdomainValue, userID string) error {
 	return nil
 }
 
-func GetUserMetadataByKey (userID, key string) (string, error) {
-	url := fmt.Sprintf( defaultProtocol + "%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
+func GetUserMetadataByKey(userID, key string) (string, error) {
+	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "GET"
 
 	client := &http.Client{}
@@ -194,7 +259,7 @@ func GetUserMetadataByKey (userID, key string) (string, error) {
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", "Bearer " + os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -212,6 +277,10 @@ func GetUserMetadataByKey (userID, key string) (string, error) {
 		return "", err
 	}
 
+	if len(respData) == 0 || respData["metadata"] == nil {
+		log.Printf("respData is empty or nil")
+		return "", nil
+	}
 	metadata, ok := respData["metadata"].(map[string]interface{})
 	if !ok {
 		return "", fmt.Errorf("metadata is not of type map[string]interface{}")
@@ -225,8 +294,295 @@ func GetUserMetadataByKey (userID, key string) (string, error) {
 	return value, nil
 }
 
-func UpdateUserMetadataKey (userID, key, value string) error {
-	url := fmt.Sprintf( defaultProtocol + "%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
+type ZitadelUserSearchResponse struct {
+	Details struct {
+		TotalResult string `json:"totalResult"`
+		Timestamp   string `json:"timestamp"`
+	} `json:"details"`
+	Result []struct {
+		UserID             string `json:"userId"`
+		Username           string `json:"username"`
+		PreferredLoginName string `json:"preferredLoginName"`
+		State              string `json:"state"`
+		Human              struct {
+			Profile struct {
+				DisplayName string `json:"displayName"`
+			} `json:"profile"`
+			Email map[string]interface{} `json:"email"`
+		} `json:"human"`
+	} `json:"result"`
+}
+
+func SearchUsersByIDs(userIDs []string, dangerous bool) ([]types.UserSearchResultDangerous, error) {
+	if len(userIDs) == 0 {
+		return nil, fmt.Errorf("userIDs must contain at least one element")
+	}
+	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	// Create the payload with inUserIdsQuery
+	payload := fmt.Sprintf(`{
+        "query": {
+            "offset": 0,
+            "limit": 100,
+            "asc": true
+        },
+        "sortingColumn": "USER_FIELD_NAME_UNSPECIFIED",
+        "queries": [
+            {
+                "inUserIdsQuery": {
+                    "userIds": %s
+                }
+            }
+        ]
+    }`, ToJSON(userIDs))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, strings.NewReader(payload))
+	if err != nil {
+		return []types.UserSearchResultDangerous{}, err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return []types.UserSearchResultDangerous{}, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return []types.UserSearchResultDangerous{}, err
+	}
+
+	var respData ZitadelUserSearchResponse
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Return empty array if no results
+	if len(respData.Result) == 0 {
+		return []types.UserSearchResultDangerous{}, nil
+	}
+
+	// Map users to UserSearchResult
+	var results []types.UserSearchResultDangerous
+	for _, user := range respData.Result {
+		appendItem := types.UserSearchResultDangerous{
+			UserID:      user.UserID,
+			DisplayName: user.Human.Profile.DisplayName,
+		}
+		// WARNING: enabling this is a security risk if not
+		// done with extreme caution
+		if dangerous {
+			appendItem.Email = user.Human.Email["email"].(string)
+		}
+		results = append(results, appendItem)
+	}
+
+	return results, nil
+}
+
+func SearchUserByEmailOrName(query string) ([]types.UserSearchResult, error) {
+	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	payload := fmt.Sprintf(`{
+		"query": {
+			"offset": 0,
+			"limit": 100,
+			"asc": true
+		},
+		"sortingColumn": "USER_FIELD_NAME_UNSPECIFIED",
+		"queries": [
+			{
+				"typeQuery": {
+					"type": "TYPE_HUMAN"
+				}
+			},
+			{
+				"orQuery": {
+					"queries": [
+						{
+							"emailQuery": {
+								"emailAddress": "%s",
+								"method": "TEXT_QUERY_METHOD_CONTAINS_IGNORE_CASE"
+							}
+						},
+						{
+							"displayNameQuery": {
+								"displayName": "%s",
+								"method": "TEXT_QUERY_METHOD_CONTAINS_IGNORE_CASE"
+							}
+						}
+					]
+				}
+			}
+		]
+	}`, query, query)
+
+	readerPayload := strings.NewReader(payload)
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, readerPayload)
+	if err != nil {
+		return []types.UserSearchResult{}, err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return []types.UserSearchResult{}, err
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return []types.UserSearchResult{}, err
+	}
+	var respData ZitadelUserSearchResponse
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Return empty array if no results
+	if len(respData.Result) == 0 {
+		return []types.UserSearchResult{}, nil
+	}
+
+	// Filter and map active users to UserSearchResult
+	var results []types.UserSearchResult
+	for _, user := range respData.Result {
+		results = append(results, types.UserSearchResult{
+			// we specifically omit `preferredLoginName` because it's an email address and we want
+			// to prevent a scenario where we expose a user's email address to a unauthorized party
+			UserID:      user.UserID,
+			DisplayName: user.Human.Profile.DisplayName,
+		})
+
+	}
+
+	return results, nil
+}
+
+func GetOtherUserByID(userID string) (types.UserSearchResult, error) {
+	// https://zitadel.com/docs/apis/resources/user_service_v2/user-service-get-user-by-id
+	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID)
+	method := "GET"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return types.UserSearchResult{}, err
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return types.UserSearchResult{}, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return types.UserSearchResult{}, err
+	}
+
+	// Check for error status codes
+	if res.StatusCode != http.StatusOK {
+		var errResp struct {
+			Code    int32  `json:"code"`
+			Message string `json:"message"`
+			Details []struct {
+				Type string `json:"@type"`
+			} `json:"details"`
+		}
+		if err := json.Unmarshal(body, &errResp); err != nil {
+			return types.UserSearchResult{}, fmt.Errorf("failed to get user: status %d", res.StatusCode)
+		}
+		return types.UserSearchResult{}, fmt.Errorf("failed to get user: %s", errResp.Message)
+	}
+
+	var respData struct {
+		User struct {
+			ID       string `json:"id"`
+			Username string `json:"username"`
+			Human    struct {
+				Profile struct {
+					DisplayName string `json:"displayName"`
+				} `json:"profile"`
+			} `json:"human"`
+		} `json:"user"`
+	}
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return types.UserSearchResult{}, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	result := types.UserSearchResult{
+		UserID:      respData.User.ID,
+		DisplayName: respData.User.Human.Profile.DisplayName,
+	}
+
+	return result, nil
+}
+
+func GetOtherUserMetaByID(userID, key string) (string, error) {
+	// https://zitadel.com/docs/apis/resources/mgmt/management-service-get-user-metadata
+	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
+	method := "GET"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+	if res.StatusCode > 400 {
+		log.Printf("res.StatusCode: %v", res.StatusCode)
+		return "", fmt.Errorf("failed to get user metadata: %v", res.StatusCode)
+	}
+
+	var respData map[string]interface{}
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Get the metadata map
+	metadata, ok := respData["metadata"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("metadata not found or invalid format")
+	}
+
+	// Use the helper function with the metadata map
+	decodedValue := GetBase64ValueFromMap(metadata, "value")
+	if decodedValue == "" {
+		return "", fmt.Errorf("no value found or failed to decode")
+	}
+
+	return decodedValue, nil
+}
+
+func UpdateUserMetadataKey(userID, key, value string) error {
+	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "POST"
 
 	payload := strings.NewReader(`{
@@ -237,16 +593,16 @@ func UpdateUserMetadataKey (userID, key, value string) error {
 	req, err := http.NewRequest(method, url, payload)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", "Bearer " + os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
 
 	res, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
 	defer res.Body.Close()
@@ -263,9 +619,306 @@ func UpdateUserMetadataKey (userID, key, value string) error {
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
-	fmt.Println("saved user metadata body response: ", string(body))
+	log.Println("saved user metadata body response: ", string(body))
 	return nil
+}
+
+// Define a struct for the request payload
+type createUserPayload struct {
+	UserID string `json:"userId"`
+	Email  struct {
+		Email      string `json:"email"`
+		IsVerified bool   `json:"isVerified"`
+	} `json:"email"`
+	Password struct {
+		Password       string `json:"password"`
+		ChangeRequired bool   `json:"changeRequired"`
+	} `json:"password"`
+	Profile struct {
+		GivenName   string `json:"givenName"`
+		FamilyName  string `json:"familyName"`
+		NickName    string `json:"nickName"`
+		DisplayName string `json:"displayName"`
+	} `json:"profile"`
+	Metadata []struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	} `json:"metadata"`
+}
+
+func CreateTeamUserWithMembers(displayName, candidateUUID string, members []string) (types.UserSearchResultDangerous, error) {
+	err := ValidateTeamUUID(candidateUUID)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	emailSchema := os.Getenv("USER_TEAM_EMAIL_SCHEMA")
+	password := os.Getenv("USER_TEAM_PASSWORD")
+	email := strings.Replace(emailSchema, "<replace>", candidateUUID, 1)
+
+	nameParts := strings.SplitN(displayName, " ", 2)
+	if len(nameParts) < 2 {
+		return types.UserSearchResultDangerous{}, fmt.Errorf("display name must contain first and last name")
+	}
+	firstPartName := nameParts[0]
+	secondPartName := nameParts[1]
+
+	// Create the payload struct
+	payload := createUserPayload{
+		UserID: candidateUUID,
+	}
+	payload.Email.Email = email
+	payload.Email.IsVerified = true
+	payload.Password.Password = password
+	payload.Password.ChangeRequired = false
+	payload.Profile.GivenName = firstPartName
+	payload.Profile.FamilyName = secondPartName
+	payload.Profile.NickName = displayName
+	payload.Profile.DisplayName = displayName
+
+	// Add metadata
+	if len(members) > 0 {
+		payload.Metadata = append(payload.Metadata, struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		}{
+			Key:   "members",
+			Value: base64.StdEncoding.EncodeToString([]byte(strings.Join(members, ","))),
+		})
+	}
+
+	payload.Metadata = append(payload.Metadata, struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}{
+		Key:   "userType",
+		Value: base64.StdEncoding.EncodeToString([]byte("team")),
+	})
+
+	// Marshal the payload struct to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/human", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	var respData types.UserSearchResultDangerous
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	return respData, nil
+}
+
+func ValidateTeamUUID(candidateUUID string) error {
+	parts := strings.SplitN(candidateUUID, "tm_", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid UUID format after 'tm_': %s", parts[1])
+	}
+	_uuid := parts[1]
+	_, err := uuid.Parse(_uuid)
+	if err != nil {
+		return fmt.Errorf("invalid UUID format after 'tm_': %s", _uuid)
+	}
+	return nil
+}
+
+func ArrFindFirst(needles []string, haystack []string) string {
+	for _, s := range needles {
+		for _, item := range haystack {
+			if s == item {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+func GetDateOrShowNone(datetime int64, timezone time.Location) string {
+	_, formattedDate := GetLocalDateAndTime(datetime, timezone)
+	if formattedDate == "" {
+		return ""
+	}
+	return formattedDate
+}
+
+func GetTimeOrShowNone(datetime int64, timezone time.Location) string {
+	formattedTime, _ := GetLocalDateAndTime(datetime, timezone)
+	if formattedTime == "" {
+		return ""
+	}
+	return formattedTime
+}
+
+func GetDatetimePickerFormatted(datetime int64, timezone *time.Location) string {
+	if timezone == nil {
+		timezone = time.UTC
+	}
+	return time.Unix(datetime, 0).In(timezone).Format("2006-01-02T15:04")
+}
+
+func GetLocalDateAndTime(datetime int64, timezone time.Location) (string, string) {
+	// Load the location based on the event's timezone
+	loc, err := time.LoadLocation(timezone.String())
+	if err != nil {
+		fmt.Println("Error loading timezone:", err)
+		return "", ""
+	}
+
+	// Convert start time to local time
+	localStartTime := time.Unix(datetime, 0).In(loc)
+
+	// Populate the local date and time fields
+	localStartDateStr, _ := FormatDateLocal(localStartTime)
+	localStartTimeStr, _ := FormatTimeLocal(localStartTime)
+	return localStartTimeStr, localStartDateStr
+}
+
+func FormatTimeRFC3339(unixTimestamp int64) string {
+	t := time.Unix(unixTimestamp, 0).UTC()
+	return t.Format("20060102T150405Z")
+}
+
+func FormatTimeForGoogleCalendar(timestamp int64, timezone time.Location) string {
+	loc, err := time.LoadLocation(timezone.String())
+	if err != nil {
+		// If there's an error loading the timezone, fall back to UTC
+		loc = time.UTC
+	}
+
+	t := time.Unix(timestamp, 0).In(loc)
+	return t.Format("20060102T150405")
+}
+
+func ToJSON(v interface{}) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return []byte("[]")
+	}
+	return b
+}
+
+func IsAuthorizedEventEditor(event *types.Event, userInfo *UserInfo) bool {
+	for _, ownerId := range event.EventOwners {
+		if ownerId == userInfo.Sub {
+			return true
+		}
+	}
+	return false
+}
+
+func IsAuthorizedCompetitionEditor(competition types.CompetitionConfig, userInfo *UserInfo) bool {
+	allOwners := []string{competition.PrimaryOwner}
+	for _, owner := range competition.AuxilaryOwners {
+		allOwners = append(allOwners, owner)
+	}
+	for _, owner := range allOwners {
+		if owner == userInfo.Sub {
+			return true
+		}
+	}
+	return false
+}
+
+func HasRequiredRole(roleClaims []RoleClaim, requiredRoles []string) bool {
+	for _, claim := range roleClaims {
+		for _, validRole := range requiredRoles {
+			if claim.Role == validRole {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func CanEditEvent(event *types.Event, userInfo *UserInfo, roleClaims []RoleClaim) bool {
+	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin"})
+	isEditor := IsAuthorizedEventEditor(event, userInfo)
+	return hasSuperAdminRole || isEditor
+}
+
+func CanEditCompetition(competition types.CompetitionConfig, userInfo *UserInfo, roleClaims []RoleClaim) bool {
+	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin", "competitionAdmin"})
+	isEditor := IsAuthorizedCompetitionEditor(competition, userInfo)
+	return hasSuperAdminRole || isEditor
+}
+
+func GetBase64ValueFromMap(claimsMeta map[string]interface{}, key string) string {
+	metadataValue, ok := claimsMeta[key].(string)
+	if !ok {
+		return ""
+	}
+
+	// Add padding if needed
+	padding := len(metadataValue) % 4
+	if padding > 0 {
+		metadataValue += strings.Repeat("=", 4-padding)
+	}
+
+	// Decode base64 string
+	decodedValue, err := base64.StdEncoding.DecodeString(metadataValue)
+	if err != nil {
+		log.Printf("Failed to decode base64 metadata: %v", err)
+		return ""
+	}
+	return string(decodedValue)
+}
+
+func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []string {
+	interests := GetBase64ValueFromMap(claimsMeta, key)
+	return strings.Split(interests, "|")
+}
+
+func CalculateTTL(days int) int64 {
+	return time.Now().Add(time.Duration(days) * 24 * time.Hour).Unix()
+}
+
+func NormalizeCompetitionRounds(competitionRounds []internal_types.CompetitionRoundUpdate) ([]internal_types.CompetitionRoundUpdate, error) {
+	now := time.Now().Unix()
+	for i := range competitionRounds {
+		if competitionRounds[i].CreatedAt == 0 {
+			competitionRounds[i].CreatedAt = now
+		}
+		competitionRounds[i].UpdatedAt = now
+		competitionRounds[i].Matchup = FormatMatchup(
+			competitionRounds[i].CompetitorA,
+			competitionRounds[i].CompetitorB,
+		)
+		err := validate.Struct(competitionRounds[i])
+		if err != nil {
+			log.Printf("Handler ERROR: Validation failed for round %d: %v", i+1, err)
+			return competitionRounds, err
+		}
+	}
+	return competitionRounds, nil
+}
+
+func FormatMatchup(competitorA, competitorB string) string {
+	return fmt.Sprintf("%s_%s", competitorA, competitorB)
 }

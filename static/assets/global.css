@@ -17,21 +17,91 @@
   }
 }
 
-.brand {
+@layer base {
+  h1.alt-title,
+  h2.alt-title,
+  h3.alt-title,
+  h4.alt-title,
+  h5.alt-title,
+  h6.alt-title {
+    font-family: 'Unbounded', 'Helvetica', 'Arial', 'sans-serif';
+    font-weight: 900;
+  }
+}
+
+@layer base {
+  h1.title,
+  h2.title,
+  h3.title,
+  h4.title,
+  h5.title,
+  h6.title {
+    letter-spacing: 0.15rem;
+    text-transform: uppercase;
+  }
+}
+
+@layer components {
+  .carousel-control-left {
+    @apply no-animation absolute left-0 mr-8 -m-1 top-1/2 -translate-y-1/2 -translate-x-full;
+  }
+  .carousel-control-right {
+    @apply no-animation absolute right-0 ml-8 -m-1 top-1/2 -translate-y-1/2 translate-x-full;
+  }
+}
+
+body {
+  padding-top: 5rem;
+}
+
+body:has(.bottom-drawer) {
+  padding-bottom: 10rem;
+}
+
+#main-nav {
+  min-height: 4.8rem;
+}
+
+.sticky-under-top-nav {
+  top: 4.8rem;
+}
+
+.sticky-under-top-nav.subheader {
+  top: 8rem;
+}
+
+.sticky-under-top-nav + *:first-child {
+  margin-top: 4.8rem;
+}
+
+.brand-logo {
   width: 3rem;
-  height: 4.5rem;
+  height: 4.8rem;
+  /* TODO: this shouldn't be hard coded  */
+  padding: 0.5rem;
+}
+
+.brand-type {
+  width: 7.7rem;
 }
 
 .drawer-end .drawer-toggle ~ .drawer-side {
   z-index: 999;
 }
 
-.dropdown-content .collapse {
+.menu .collapse .collapse-title {
   padding: 0;
+  min-height: 1.75rem;
 }
-.dropdown-content .collapse .collapse-title {
-  padding: 0;
-  gap: 0;
+
+.menu .collapse-content {
+  padding-left: 0;
+  padding-right: 0;
+  overflow: initial;
+}
+
+.menu :where(.menu li) {
+  flex-wrap: nowrap;
 }
 
 .menu li > *:not(ul, .menu-title, details, .btn):active,
@@ -75,6 +145,10 @@
   display: inherit;
 }
 
+.htmx-request .htmx-indicator.flex {
+  display: flex;
+}
+
 .htmx-show-in-flight {
   display: none;
 }
@@ -91,8 +165,9 @@
   display: none;
 }
 
-.margins-when-children.my-8:has(*) {
-  margin: 2rem 0;
+.margins-when-children:not(:has(:first-child)) {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
 }
 
 /* BEGIN seshu ingestion "add event source" section */
@@ -167,12 +242,31 @@
   width: 100%;
   z-index: 999;
   height: auto;
+  /* TODO: FIX THIS! use tailwind variables */
   background: white;
   padding: 20px;
 }
 
+.btn.carousel-control-left:active:hover, .btn.carousel-control-left:active:focus {
+  transform: translate(-100%, -50%)
+}
+
+.btn.carousel-control-right:active:hover, .btn.carousel-control-right:active:focus {
+  transform: translate(100%, -50%)
+}
+
 .btn.btn-bold-outline {
   border: 5px solid oklch(var(--p));
+}
+
+.btn.btn-primary.btn-bg-inverted {
+  background-color: oklch(var(--btn-bg-inverted));
+  color: oklch(var(--btn-bg-inverted-content));
+}
+
+.btn.btn-primary.btn-bg-inverted:hover {
+  background-color: oklch(var(--p));
+  color: oklch(var(--btn-bg-inverted-content));
 }
 
 .btn-outline.btn-primary.text-neutral-content {
@@ -181,8 +275,46 @@
 
 .drawer .collapse-content :where(.menu li) {
   flex-direction: inherit;
+  align-items: center;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type='number'] {
+  -moz-appearance: textfield;
 }
 
 .tab:is(input[type='radio']) {
   width: max-content;
+}
+
+.header-hero .opener {
+  font-size: 125%;
+}
+
+.icon-container {
+  display: inline-flex;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.table.top-align :where(th, td) {
+  vertical-align: top;
+}
+
+.object-position-25-25 {
+  object-position: 25% 25%;
 }

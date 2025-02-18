@@ -7,15 +7,39 @@ import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 import { SeshuFunction } from './SeshuFunction';
 
 export function ApiStack({ stack, app }: StackContext & { app: any }) {
-  const { seshuSessionsTable } = use(StorageStack);
+  const {
+    seshuSessionsTable,
+    // registrationsTable, // deprecated
+    registrationFieldsTable,
+    purchasablesTable,
+    // purchasesTable, // deprecated
+    purchasesTableV2,
+    competitionConfigTable,
+    competitionRoundsTable,
+    competitionWaitingRoomParticipantTable,
+    votesTable,
+    // eventRsvpsTable,  // deprecated
+  } = use(StorageStack);
   const { staticSite } = use(StaticSiteStack);
   const { seshuFn } = use(SeshuFunction);
 
   const api = new Api(stack, 'api', {
     defaults: {
       function: {
-        // Bind the tables to our API
-        bind: [seshuSessionsTable],
+        bind: [
+          seshuSessionsTable,
+          // registrationsTable,  // deprecated
+          registrationFieldsTable,
+          purchasablesTable,
+          // purchasesTable, // deprecated
+          purchasesTableV2,
+          competitionConfigTable,
+          competitionRoundsTable,
+          competitionWaitingRoomParticipantTable,
+          votesTable
+          // eventRsvpsTable,  // deprecated
+        ],
+
         environment: {
           ...envVars,
           // ----- BEGIN -----
@@ -24,6 +48,7 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
           STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
           SESHU_FN_URL: process.env.SESHU_FN_URL ?? seshuFn.url,
           SST_STAGE: app.stage,
+
           // ----- END -----
         },
       },

@@ -1,32 +1,109 @@
 package pages
 
-import "github.com/meetnearme/api/functions/gateway/helpers"
+import (
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
+)
 
-templ ProfilePage(userInfo helpers.UserInfo) {
+templ ProfilePage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, interests []string, userSubdomain string, userAbout string) {
 	<h1 class="text-3xl">Profile</h1>
 	<br/>
 	<br/>
-	<div class="grid grid-cols-7" x-data="getProfileData()">
-		<div class="self-start sticky top-0 col-span-2 mr-5 card border-2 border-base-300 bg-base-200 rounded-box place-items-center ">
-			<ul class="menu bg-base-200 rounded-box w-56">
-				<li>
-					<a>Profile</a>
-					<ul>
-						<li><a>Settings</a></li>
-						<li><a>Karma</a></li>
-					</ul>
-				</li>
-				<li>
-					<a>Events</a>
-					<ul>
-						<li><a href="/admin/add-event-source">Event Sources</a></li>
-						<li><a>Add an Event (Soon)</a></li>
-					</ul>
-				</li>
-			</ul>
-		</div>
+	<div class="md:grid md:grid-cols-7" x-data="getProfileState()">
+		@components.ProfileNav()
 		<div class="col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box">
-			<h2 class="text-3xl font-bold ">My Info</h2>
+			<h2 id="registration-history" class="text-2xl font-bold mt-4">Event Purchases &amp; Registrations</h2>
+			<div>
+				<template x-if="purchasesNextCursor">
+					<a class="btn btn-sm float-end" :href=" window.location.pathname + '?purch_start_key=' + purchasesNextCursor">Show Next &rarr;</a>
+				</template>
+				<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
+					<thead>
+						<tr>
+							<th>Status</th>
+							<th colspan="6">Purchase Type(s)</th>
+							<th>Total</th>
+							<th>Signup Time</th>
+						</tr>
+					</thead>
+					<template x-if="!hasPurchasesResults">
+						<template x-for="i in Array.from({length: 3}, (_, i) => i)" :key="i">
+							<tr class="border-t-2 border-base-300">
+								<td><div class="skeleton h-4 w-full"></div></td>
+								<td colspan="6">
+									<div class="flex w-full flex-col gap-4">
+										<div class="skeleton h-4 w-full"></div>
+										<div class="skeleton h-4 w-1/2"></div>
+										<div class="skeleton h-4 w-full"></div>
+									</div>
+								</td>
+								<td><div class="skeleton h-4 w-full"></div></td>
+								<td>
+									<div class="skeleton h-4 w-full"></div>
+								</td>
+							</tr>
+						</template>
+					</template>
+					<tbody>
+						<template x-if="hasPurchasesResults && purchases.length > 0">
+							<template x-for="purchase in purchases" :key="purchase.composite_key">
+								<tr
+									class="border-t-2 border-base-300"
+									:class="{ 'border-l-2 border-primary': newKeyId === purchase.composite_key }"
+									:data-purch-key="purchase.composite_key"
+								>
+									<td x-text="getPurchaseStatus(purchase)"></td>
+									<td colspan="6">
+										<a class="link link-primary" :href="`/event/${purchase.event_id}`" x-text="purchase.event_name"></a>
+										<template x-for="(item, idx) in purchase.purchased_items" :key="item.name">
+											<div>
+												<template x-if="idx >= 1">
+													<div class="divider"></div>
+												</template>
+												<div x-text="item.name"></div>
+												<div x-text="'Quantity: ' + item.quantity"></div>
+												<div>
+													<td x-text="`${item.cost > 0 ? '$' + (item.cost / 100).toFixed(2) : 'Free'}`"></td>
+													<span x-text="item.currency"></span>
+												</div>
+												<div x-show="item.reg_responses && item.reg_responses.length > 0">
+													<h2 class="text-md mt-2">Registration Responses</h2>
+													<div class="card bg-base-100 px-4 py-2 my-2">
+														<template x-for="(response, index) in item.reg_responses" :key="index">
+															<div>
+																<template x-if="index >= 1">
+																	<div class="divider my-1"></div>
+																</template>
+																<template x-for="(value, key) in response" :key="key">
+																	<div>
+																		<span class="font-medium font-bold" x-text="key + ': '"></span>
+																		<span x-text="value"></span>
+																	</div>
+																</template>
+															</div>
+														</template>
+													</div>
+												</div>
+											</div>
+										</template>
+									</td>
+									<td x-text="`${purchase.total > 0 ? '$' + (purchase.total / 100).toFixed(2) : 'Free'}`"></td>
+									<td x-text="new Date(purchase.created_at * 1000).toLocaleString()"></td>
+								</tr>
+							</template>
+						</template>
+					</tbody>
+					<tfoot>
+						<tr>
+							<th>Status</th>
+							<th colspan="6">Purchase Type(s)</th>
+							<th>Total</th>
+							<th>Time</th>
+						</tr>
+					</tfoot>
+				</table>
+			</div>
+			<h2 class="text-2xl font-bold ">My Info</h2>
 			Name: { userInfo.Name }
 			<br/>
 			Email: { userInfo.Email }
@@ -43,16 +120,75 @@ templ ProfilePage(userInfo helpers.UserInfo) {
 			Locale: { userInfo.Locale }
 			<br/>
 			<br/>
-			<h3 class="text-2xl font-bold">My Subdomain</h3>
-			<form class="group" novalidate hx-post="/api/user/set-subdomain" hx-ext="json-enc" hx-target="#subdomain-result" hx-disabled-elt="button[type='submit']" @submit.prevent="" @htmx:after-request="handleSubdomainPostRes(event)">
-				<label for="subdomain">Set Subdomain</label>
-				<input name="subdomain" type="text" class="input input-bordered input-sm w-full max-w-xs"/>
-				<button type="submit" class="btn btn-primary">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+			<h3 class="text-2xl font-bold">My Roles</h3>
+			<div class="flex space-x-4 mb-4">
+				for _, roleClaim := range roleClaims {
+					<span class="badge badge-lg badge-primary">{ roleClaim.Role }</span>
+				}
+			</div>
+			<h3 class="text-2xl font-bold">My Interests</h3>
+			if len(interests) > 1 {
+				<div class="mb-4">
+					<ul>
+						for _, interest := range interests {
+							<li>
+								- { interest }
+							</li>
+						}
+					</ul>
+				</div>
+			}
+			<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/profile/settings">settings page</a>.</p>
+			<h3 class="text-2xl font-bold mb-4">My Subdomain</h3>
+			<form
+				class="group"
+				novalidate
+				hx-post="/api/auth/users/set-subdomain"
+				hx-ext="json-enc"
+				hx-target="#subdomain-result"
+				hx-disabled-elt="button[type='submit']"
+				@submit.prevent=""
+				@htmx:after-request="handleSubdomainPostRes(event)"
+			>
+				<input
+					if userSubdomain != "" {
+						value={ userSubdomain }
+					}
+					pattern="[a-z0-9]+"
+					name="subdomain"
+					type="text"
+					class="input input-bordered w-full"
+				/>
+				<button type="submit" class="btn btn-primary mt-4">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 			</form>
 			<div id="subdomain-result" class="margins-when-children my-8"></div>
-			<br/>
-			<br/>
-			<h2 class="text-3xl font-bold ">Events Owned by Me</h2>
+			<h3 class="text-2xl font-bold mb-4 mt-4">About / Bio</h3>
+			<form
+				class="group"
+				novalidate
+				hx-post="/api/auth/users/update-about"
+				hx-ext="json-enc"
+				hx-target="#about-result"
+				hx-disabled-elt="button[type='submit']"
+				@submit.prevent=""
+				@htmx:after-request="handleSubdomainPostRes(event)"
+			>
+				<div class="form-control">
+					<label class="label" for="description">Description</label>
+					<textarea
+						name="about"
+						class="textarea textarea-bordered w-full"
+						maxlength="750"
+						id="about"
+						placeholder="Personal bio or organization description on your profile"
+					>
+						{ userAbout }
+					</textarea>
+				</div>
+				<button type="submit" class="btn btn-primary mt-4">Update About<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+			</form>
+			<div id="about-result" class="margins-when-children my-8"></div>
+			<h2 class="text-2xl font-bold mt-4">Events Owned by Me</h2>
 			// TODO: this is fake data, delete
 			<table class="table table-pin-rows table-pin-cols table-zebra">
 				<thead>
@@ -61,66 +197,66 @@ templ ProfilePage(userInfo helpers.UserInfo) {
 						<th>Date</th>
 						<th>Time</th>
 						<th>Location</th>
-						<th></th>
 					</tr>
 				</thead>
 				<tbody>
-					<tr>
-						<td>
-							<div class="flex items-center gap-3">
-								<div>
-									<div class="font-bold">Chess Club at Roseland Park</div>
-									<div class="text-sm opacity-50">United States</div>
-								</div>
-							</div>
-						</td>
-						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-						<td>3:07pm</td>
-						<td>15 Chess Street</td>
-						<th><a class="btn btn-primary btn-xs" href="/events/ecefe260-0f6c-41f5-b731-0e9767938f4a">details</a></th>
-					</tr>
-					<tr>
-						<td>
-							<div class="flex items-center gap-3">
-								<div>
-									<div class="font-bold">Monthly Permaculture Meetup</div>
-									<div class="text-sm opacity-50">United States</div>
-								</div>
-							</div>
-						</td>
-						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-						<td>3:07pm</td>
-						<td>15 Chess Street</td>
-						<th><a class="btn btn-primary btn-xs" href="/events/7bb12e44-f344-469d-820d-fdff1c060f05">details</a></th>
-					</tr>
-					<tr>
-						<td>
-							<div class="flex items-center gap-3">
-								<div>
-									<div class="font-bold">Bocce Club of DC @ Highland Brewing</div>
-									<div class="text-sm opacity-50">United States</div>
-								</div>
-							</div>
-						</td>
-						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-						<td>3:07pm</td>
-						<td>15 Chess Street</td>
-						<th><a class="btn btn-primary btn-xs" href="/events/d44d2dac-f5be-4c83-a0bd-3fa45475b0e7">details</a></th>
-					</tr>
-					<tr>
-						<td>
-							<div class="flex items-center gap-3">
-								<div>
-									<div class="font-bold">Karate (Black Belt Level)</div>
-									<div class="text-sm opacity-50">United States</div>
-								</div>
-							</div>
-						</td>
-						<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-						<td>3:07pm</td>
-						<td>15 Chess Street</td>
-						<th><a class="btn btn-primary btn-xs" href="/events/88784dfd-a8cc-4b15-b65e-f6f47e56e66d">details</a></th>
-					</tr>
+					<tr colspan="6">Add Your Own Events Soon</tr>
+					// <tr>
+					// 	<td>
+					// 		<div class="flex items-center gap-3">
+					// 			<div>
+					// 				<div class="font-bold">Chess Club at Roseland Park</div>
+					// 				<div class="text-sm opacity-50">United States</div>
+					// 			</div>
+					// 		</div>
+					// 	</td>
+					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+					// 	<td>3:07pm</td>
+					// 	<td>15 Chess Street</td>
+					// 	<th><a class="btn btn-primary btn-xs" href="/event/ecefe260-0f6c-41f5-b731-0e9767938f4a">details</a></th>
+					// </tr>
+					// <tr>
+					// 	<td>
+					// 		<div class="flex items-center gap-3">
+					// 			<div>
+					// 				<div class="font-bold">Monthly Permaculture Meetup</div>
+					// 				<div class="text-sm opacity-50">United States</div>
+					// 			</div>
+					// 		</div>
+					// 	</td>
+					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+					// 	<td>3:07pm</td>
+					// 	<td>15 Chess Street</td>
+					// 	<th><a class="btn btn-primary btn-xs" href="/event/7bb12e44-f344-469d-820d-fdff1c060f05">details</a></th>
+					// </tr>
+					// <tr>
+					// 	<td>
+					// 		<div class="flex items-center gap-3">
+					// 			<div>
+					// 				<div class="font-bold">Bocce Club of DC @ Highland Brewing</div>
+					// 				<div class="text-sm opacity-50">United States</div>
+					// 			</div>
+					// 		</div>
+					// 	</td>
+					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+					// 	<td>3:07pm</td>
+					// 	<td>15 Chess Street</td>
+					// 	<th><a class="btn btn-primary btn-xs" href="/event/d44d2dac-f5be-4c83-a0bd-3fa45475b0e7">details</a></th>
+					// </tr>
+					// <tr>
+					// 	<td>
+					// 		<div class="flex items-center gap-3">
+					// 			<div>
+					// 				<div class="font-bold">Karate (Black Belt Level)</div>
+					// 				<div class="text-sm opacity-50">United States</div>
+					// 			</div>
+					// 		</div>
+					// 	</td>
+					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
+					// 	<td>3:07pm</td>
+					// 	<td>15 Chess Street</td>
+					// 	<th><a class="btn btn-primary btn-xs" href="/event/88784dfd-a8cc-4b15-b65e-f6f47e56e66d">details</a></th>
+					// </tr>
 				</tbody>
 				<tfoot>
 					<tr>
@@ -134,13 +270,79 @@ templ ProfilePage(userInfo helpers.UserInfo) {
 			</table>
 		</div>
 	</div>
-	<script id="alpine-state">
-			function getProfileData() {
-          return {
-            handleSubdomainPostRes: function(event) {
-              console.log(event)
-            }
-          }
-      }
-  </script>
+	<script id="profile-state" data-user-id={ userInfo.Sub } data-status-pending={ helpers.PurchaseStatus.Pending } data-status-settled={ helpers.PurchaseStatus.Settled }>
+		function getProfileState() {
+			return {
+				init() {
+					(async () => {
+						window.location.href.match('#')
+						let searchQuery = window.location.hash.split('?')[1] || '';
+						if (!window.location.href.match('#')) {
+							searchQuery = window.location.search
+						}
+						this.newKeyId = new URLSearchParams(searchQuery).get('new_purch_key');
+						const maxAttempts = 10;
+						const delayMs = 250;
+						let attempts = 0;
+
+						const fetchPurchases = async () => {
+							const startKey = new URLSearchParams(window.location.search).get('purch_start_key') ?? '';
+							const reqUrl = `/api/purchases/user/${this.userId}${ startKey ? `?start_key=${encodeURIComponent(startKey)}` : '' }`;
+							const purchasesResponse = await fetch(reqUrl);
+							const purchasesResData = await purchasesResponse.json();
+							this.purchases = purchasesResData.purchases ?? [];
+							this.purchasesNextCursor = purchasesResData?.nextKey?.compositeKey?.Value;
+							this.hasPurchasesResults = true;
+						};
+
+						const poll = async () => {
+							try {
+								await fetchPurchases();
+
+								// If we're not looking for a specific purchase, or if we found it, stop polling
+								if (!this.newKeyId || this.purchases.some(p => p.composite_key === this.newKeyId)) {
+									if (this.purchases.some(p => p.composite_key === this.newKeyId)) {
+										const purchaseRow = document.querySelector(`[data-purch-key="${this.newKeyId}"]`);
+										if (purchaseRow) {
+											purchaseRow.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+										}
+									}
+									return;
+								}
+
+								// Continue polling if we haven't reached max attempts
+								if (attempts < maxAttempts) {
+									attempts++;
+									await new Promise(resolve => setTimeout(resolve, delayMs));
+									await poll();
+								}
+							} catch (error) {
+								// eslint-disable-next-line no-console
+								console.error('Failed to fetch purchases:', error);
+							}
+						};
+
+						await poll();
+					})()
+				},
+				newKeyId: null,
+				purchases: [],
+				hasPurchasesResults: false,
+				purchasesNextCursor: null,
+				userId: document.querySelector('#profile-state').getAttribute('data-user-id'),
+				statusPending: document.querySelector('#profile-state').getAttribute('data-status-pending'),
+				statusSettled: document.querySelector('#profile-state').getAttribute('data-status-settled'),
+				getPurchasesNextLink() {
+					return window.location.href + '?purch_start_key=' + this.purchasesNextCursor + '_' + this.userId;
+				},
+				handleSubdomainPostRes: function(event) {
+					// eslint-disable-next-line no-console
+					console.log(event)
+				},
+				getPurchaseStatus(purchase) {
+					return purchase.status.replace(this.statusSettled, 'PAID').replace(this.statusPending, 'INCOMPLETE')
+				}
+			}
+		}
+	</script>
 }

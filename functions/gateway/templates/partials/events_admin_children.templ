@@ -1,0 +1,151 @@
+package partials
+
+import (
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
+	"reflect"
+	"strconv"
+	"strings"
+)
+
+type FieldDiff struct {
+	FieldName   string
+	ParentValue interface{}
+	ChildValue  interface{}
+	ValueType   string
+}
+
+var AlwaysShowEventDiffFields = []string{"StartTime", "EndTime"}
+
+func GetChildEventFields(parent types.Event, child types.Event) []FieldDiff {
+	allowList := []string{"StartTime", "EndTime", "Id", "CompetitionConfigId"}
+	childFields := []FieldDiff{}
+	allowMap := make(map[string]bool)
+	for _, field := range allowList {
+		allowMap[field] = true
+	}
+
+	parentVal := reflect.ValueOf(parent)
+	childVal := reflect.ValueOf(child)
+	typeOf := reflect.TypeOf(parent)
+
+	for i := 0; i < typeOf.NumField(); i++ {
+		field := typeOf.Field(i)
+
+		// Skip if field is not in allow list
+		if !allowMap[field.Name] {
+			continue
+		}
+
+		parentField := parentVal.Field(i).Interface()
+		childField := childVal.Field(i).Interface()
+		// Only add if values are different
+		if !reflect.DeepEqual(parentField, childField) ||
+			helpers.ArrFindFirst([]string{field.Name}, AlwaysShowEventDiffFields) != "" {
+			// Determine the type
+			var valueType string
+			switch field.Type.Kind() {
+			case reflect.Bool:
+				valueType = "bool"
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				valueType = "integer"
+			case reflect.Float32, reflect.Float64:
+				valueType = "float"
+			default:
+				valueType = "string"
+			}
+
+			if HasValidOverride(field.Name, parentField, childField, valueType) {
+				childFields = append(childFields, FieldDiff{
+					FieldName:   field.Name,
+					ParentValue: parentField,
+					ChildValue:  childField,
+					ValueType:   valueType,
+				})
+			}
+		}
+	}
+
+	return childFields
+}
+
+func HasValidOverride(fieldName string, parentValue interface{}, childValue interface{}, valueType string) bool {
+	if helpers.ArrFindFirst([]string{fieldName}, AlwaysShowEventDiffFields) != "" {
+		return true
+	}
+	if valueType == "integer" {
+		return childValue.(int64) != 0
+	}
+	if valueType == "float" {
+		return childValue.(float64) != 0
+	}
+	if valueType == "bool" {
+		return childValue.(bool)
+	}
+	return childValue.(string) != ""
+}
+
+templ EventAdminChildren(eventParent types.Event, eventChildren []types.Event) {
+	if eventParent.EventSourceType != helpers.ES_SERIES_PARENT && eventParent.EventSourceType != helpers.ES_SERIES_PARENT_UNPUB {
+		<div>This event is not a series</div>
+	} else if len(eventChildren) == 0 {
+		<div>No children events found for this series</div>
+	} else {
+		// Define fields to ignore
+		<div class="event-diffs">
+			for idx, child := range eventChildren {
+				{{ childFields := GetChildEventFields(eventParent, child) }}
+				if strconv.Itoa(len(childFields)) != "0" {
+					<div
+						class="event-diff"
+						x-data={ `{
+            formData: {
+                eventChildren: Array(` + strconv.Itoa(len(eventChildren)) + `).fill({}).map(() => ({
+                    startTime: '',
+                    endTime: ''
+                }))
+            }}` }
+						x-init={ `$watch('formData.eventChildren[` + strconv.Itoa(idx) + `]', value => $dispatch('child-updated', { index: ` + strconv.Itoa(idx) + `, value }))` }
+					>
+						for _, child := range childFields {
+							// NOTE: we simply push hidden fields here in order for Alpine to pick them up on the
+							// front end in a for loop. The only purpose of these inivisible fields is to propagate
+							// the data model to the front end via `x-model.fill`
+							{{ camelCaseFieldName := strings.ToLower(string(child.FieldName[0])) + child.FieldName[1:] }}
+							if child.FieldName == "Id" {
+								<input
+									class="hidden"
+									name={ string("event_" + strconv.Itoa(idx) + "_" + string(child.FieldName)) }
+									x-model.fill={ "formData.eventChildren[" + strconv.Itoa(idx) + "]." + camelCaseFieldName }
+									if (child.ChildValue != "" ) {
+										value={ string(child.ChildValue.(string)) }
+									}
+								/>
+							}
+							if child.FieldName == "StartTime" || child.FieldName == "EndTime" {
+								<input
+									class="hidden"
+									type="datetime-local"
+									name={ string("event_" + strconv.Itoa(idx) + "_" + string(child.FieldName)) }
+									x-model.fill={ "formData.eventChildren[" + strconv.Itoa(idx) + "]." + camelCaseFieldName }
+									if (child.ChildValue != "" && child.ChildValue.(int64) != 0) {
+										value={ helpers.GetDatetimePickerFormatted(child.ChildValue.(int64), &eventParent.Timezone) }
+									}
+								/>
+							}
+							if child.FieldName == "CompetitionConfigId" {
+								<input
+									class="hidden"
+									type="text"
+									name={ string("event_" + strconv.Itoa(idx) + "_" + string(child.FieldName)) }
+									x-model.fill={ "formData.eventChildren[" + strconv.Itoa(idx) + "]." + camelCaseFieldName }
+									value={ child.ChildValue.(string) }
+								/>
+							}
+						}
+					</div>
+				}
+			}
+		</div>
+	}
+}

@@ -40,7 +40,8 @@ import (
 // 12. Check for "Fake Event Title 1" (and the same for `location`, `time`, and `url`) and null those values before sending to client
 // 13. Was discovered that google.com/events requires a "premium proxy" (20 scrape credits instead of 5)
 //     so we want to create a "deny list" of sites we don't support and respond with an API error to let users know
-// 14. Handle the scenario below where the scraped Markdown data is so large, that it exceeds the OpenAI API limit
+// 14. For Meetup.com URLs, we want to ensure the query param `&eventType=inPerson` is present to avoid online events
+// 15. Handle the scenario below where the scraped Markdown data is so large, that it exceeds the OpenAI API limit
 //    and results in the error `Error: unexpected response format, `id` missing` because OpenAI literally returns an empty
 //    Chat GPT response:  {  0  [] map[]}
 
@@ -50,24 +51,24 @@ import (
 // 		[sst] |  +10808ms 2024/04/26 15:07:55 {"errorMessage":"unexpected response format, `id` missing","errorType":"errorString"}
 // 		[sst] |  Error: unexpected response format, `id` missing
 
-
 var validate *validator.Validate = validator.New()
 var converter = md.NewConverter("", true, nil)
+
 // 395KB is just a bit under the 400KB dynamoDB limit
 // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html
 const maxHtmlDocSize = 395 * 1024
 
 type SeshuInputPayload struct {
-    Url string `json:"url" validate:"required"`
+	Url string `json:"url" validate:"required"`
 }
 
 type SeshuResponseBody struct {
-	SessionID string `json:"session_id"`
+	SessionID   string            `json:"session_id"`
 	EventsFound []types.EventInfo `json:"events_found"`
 }
 
 type CreateChatSessionPayload struct {
-	Model string `json:"model"` // Set the model you want to use
+	Model    string    `json:"model"` // Set the model you want to use
 	Messages []Message `json:"messages"`
 }
 
@@ -80,7 +81,6 @@ type Message struct {
 	Content string `json:"content"`
 }
 
-
 type Choice struct {
 	Index        int     `json:"index"`
 	Message      Message `json:"message"`
@@ -88,12 +88,33 @@ type Choice struct {
 }
 
 type ChatCompletionResponse struct {
-	ID      string         `json:"id"`
-	Object  string         `json:"object"`
-	Created int64          `json:"created"`
-	Model   string         `json:"model"`
-	Choices []Choice       `json:"choices"`
-	Usage   map[string]int `json:"usage"`
+	ID                string   `json:"id"`
+	Object            string   `json:"object"`
+	Created           int64    `json:"created"`
+	Model             string   `json:"model"`
+	Choices           []Choice `json:"choices"`
+	Usage             Usage    `json:"usage"`
+	SystemFingerprint string   `json:"system_fingerprint"`
+}
+
+type Usage struct {
+	PromptTokens            int                     `json:"prompt_tokens"`
+	CompletionTokens        int                     `json:"completion_tokens"`
+	TotalTokens             int                     `json:"total_tokens"`
+	PromptTokensDetails     PromptTokensDetails     `json:"prompt_tokens_details"`
+	CompletionTokensDetails CompletionTokensDetails `json:"completion_tokens_details"`
+}
+
+type PromptTokensDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+	AudioTokens  int `json:"audio_tokens"`
+}
+
+type CompletionTokensDetails struct {
+	ReasoningTokens          int `json:"reasoning_tokens"`
+	AudioTokens              int `json:"audio_tokens"`
+	AcceptedPredictionTokens int `json:"accepted_prediction_tokens"`
+	RejectedPredictionTokens int `json:"rejected_prediction_tokens"`
 }
 
 var systemPrompt = `You are a helpful LLM capable of accepting an array of strings and reorganizing them according to patterns only an LLM is capable of recognizing.
@@ -116,9 +137,10 @@ The categories to search for relevance matches in are as follows:
 =====
 1. Event title
 2. Event location
-3. Event date
-4. Event URL
-5. Event description
+3. Event start date / time
+4. Event end date / time
+5. Event URL
+6. Event description
 
 Note that some keys may be missing, for example, in the example below, the "event description" is missing. This is acceptable. The event metadata keys are not guaranteed to be present in the input array of strings.
 
@@ -126,7 +148,7 @@ Do not truncate the response with an ellipsis ` + "`...`" + `, list the full eve
 
 
 ` + "```" + `
-[{"event_title": "` + services.FakeEventTitle1 +`", "event_location": "` + services.FakeCity + `", "event_start_time": "` + services.FakeStartTime1 +`", "event_end_time": "` + services.FakeEndTime1 + `", event_url": "` + services.FakeUrl1 + `"},{"event_title": "` + services.FakeEventTitle2 + `", "event_location": "` + services.FakeCity + `", "event_start_time": "` + services.FakeStartTime2 + `", "event_end_time": "` + services.FakeEndTime2 + `", "event_url": "` + services.FakeUrl2 + `"}]
+[{"event_title": "` + services.FakeEventTitle1 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime1 + `", "event_end_datetime": "` + services.FakeEndTime1 + `", "event_url": "` + services.FakeUrl1 + `"},{"event_title": "` + services.FakeEventTitle2 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime2 + `", "event_end_datetime": "` + services.FakeEndTime2 + `", "event_url": "` + services.FakeUrl2 + `"}]
 ` + "```" + `
 
 The input is:
@@ -134,44 +156,46 @@ The input is:
 const textStrings = `
 
 var db types.DynamoDBAPI
+var scrapingService services.ScrapingService
 
 func init() {
 	db = transport.CreateDbClient()
+	scrapingService = &services.RealScrapingService{}
 }
 
 func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
-    switch req.RequestContext.HTTP.Method {
-    case "POST":
-				req.Headers["Access-Control-Allow-Origin"] = "*"
-				req.Headers["Access-Control-Allow-Credentials"] = "true"
-				return handlePost(ctx, req)
-    default:
-        return clientError(http.StatusMethodNotAllowed)
-    }
+	switch req.RequestContext.HTTP.Method {
+	case "POST":
+		req.Headers["Access-Control-Allow-Origin"] = "*"
+		req.Headers["Access-Control-Allow-Credentials"] = "true"
+		return handlePost(ctx, req, scrapingService)
+	default:
+		return clientError(http.StatusMethodNotAllowed)
+	}
 }
 
-func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scraper services.ScrapingService) (events.LambdaFunctionURLResponse, error) {
 	var inputPayload SeshuInputPayload
 
 	err := json.Unmarshal([]byte(req.Body), &inputPayload)
 	if err != nil {
-			log.Printf("Invalid JSON payload: %v", err)
-			return clientError(http.StatusUnprocessableEntity)
+		log.Printf("Invalid JSON payload: %v", err)
+		return clientError(http.StatusUnprocessableEntity)
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-			log.Printf("Invalid body: %v", err)
-			return clientError(http.StatusBadRequest)
+		log.Printf("Invalid body: %v", err)
+		return clientError(http.StatusBadRequest)
 	}
 
 	if err != nil {
-			return serverError(err)
+		return serverError(err)
 	}
 
-	htmlString, err := services.GetHTMLFromURL(inputPayload.Url, 4500, true)
+	htmlString, err := scraper.GetHTMLFromURL(inputPayload.Url, 4500, true, "")
 	if err != nil {
-		return SendHTMLError(err, ctx, req)
+		return _SendHtmlErrorPartial(err, ctx, req)
 	}
 
 	// avoid extra parsing work for <head> content outside of <body>
@@ -185,7 +209,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	markdown, err := converter.ConvertString(htmlString)
 	if err != nil {
 		log.Println("ERR: ", err)
-		return SendHTMLError(err, ctx, req)
+		return _SendHtmlErrorPartial(err, ctx, req)
 	}
 
 	lines := strings.Split(markdown, "\n")
@@ -193,16 +217,16 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	var nonEmptyLines []string
 	for i, line := range lines {
 		// 30,000 as a line limit helps stay under the OpenAI API token limit of 16k, but this is not at all precise
-			if line != "" && i < 1500 {
-					nonEmptyLines = append(nonEmptyLines, line)
-			}
+		if line != "" && i < 1500 {
+			nonEmptyLines = append(nonEmptyLines, line)
+		}
 	}
 
 	// Convert to JSON
 	jsonStringBytes, err := json.Marshal(nonEmptyLines)
 	if err != nil {
-			log.Println("Error converting to JSON:", err)
-			return SendHTMLError(err, ctx, req)
+		log.Println("Error converting to JSON:", err)
+		return _SendHtmlErrorPartial(err, ctx, req)
 	}
 	jsonString := string(jsonStringBytes)
 
@@ -210,7 +234,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	_, messageContent, err := CreateChatSession(jsonString)
 	if err != nil {
 		log.Println("Error creating chat session:", err)
-		return SendHTMLError(err, ctx, req)
+		return _SendHtmlErrorPartial(err, ctx, req)
 	}
 
 	// TODO: `CreateChatSession` returns `SessionID` which should be stored in session data
@@ -224,13 +248,13 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 
 	err = json.Unmarshal([]byte(openAIjson), &eventsFound)
 	if err != nil {
-		log.Println("Error unmarshaling OpenAI response into services.EventInfo slice:", err)
-		return SendHTMLError(err, ctx, req)
+		log.Println("Error unmarshaling OpenAI response into types.EventInfo slice:", err)
+		return _SendHtmlErrorPartial(err, ctx, req)
 	}
 
 	if err != nil {
 		log.Println("Error marshaling response body as JSON:", err)
-		return SendHTMLError(err, ctx, req)
+		return _SendHtmlErrorPartial(err, ctx, req)
 	}
 
 	// we want to save the session AFTER sending an HTML response, since we will already
@@ -253,7 +277,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 
 		truncatedHTMLStr, exceededLimit := helpers.TruncateStringByBytes(htmlString, maxHtmlDocSize)
 
-		if (exceededLimit) {
+		if exceededLimit {
 			log.Printf("WARN: HTML document exceeded %v byte limit, truncating", maxHtmlDocSize)
 		}
 
@@ -261,21 +285,21 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 		seshuSessionPayload := types.SeshuSessionInput{
 			SeshuSession: types.SeshuSession{
 				// TODO: this needs wiring up with Auth
-				OwnerId: "123",
-				Url: inputPayload.Url,
-				UrlDomain: domain,
-				UrlPath: path,
+				OwnerId:        "123",
+				Url:            inputPayload.Url,
+				UrlDomain:      domain,
+				UrlPath:        path,
 				UrlQueryParams: queryParams,
-				Html: truncatedHTMLStr,
+				Html:           truncatedHTMLStr,
 				// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
 				// when we create a new session, we can't allow it to be `0` because that is
 				// a valid value for both latitdue and longitude (see "null island")
-				LocationLatitude: services.InitialEmptyLatLong,
+				LocationLatitude:  services.InitialEmptyLatLong,
 				LocationLongitude: services.InitialEmptyLatLong,
-				EventCandidates: eventsFound,
-				CreatedAt: currentTime.Unix(),
-				UpdatedAt: currentTime.Unix(),
-				ExpireAt: currentTime.Add(time.Hour * 24).Unix(),
+				EventCandidates:   eventsFound,
+				CreatedAt:         currentTime.Unix(),
+				UpdatedAt:         currentTime.Unix(),
+				ExpireAt:          currentTime.Add(time.Hour * 24).Unix(),
 			},
 		}
 
@@ -293,13 +317,13 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest) (event
 	}
 
 	return events.LambdaFunctionURLResponse{
-			Headers: map[string]string{"Content-Type": "text/html"},
-			StatusCode: http.StatusOK,
-			Body: buf.String(),
+		Headers:    map[string]string{"Content-Type": "text/html"},
+		StatusCode: http.StatusOK,
+		Body:       buf.String(),
 	}, nil
 }
 
-func SendHTMLError(err error, ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+func _SendHtmlErrorPartial(err error, ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 	layoutTemplate := partials.ErrorHTML(err, req.RequestContext.RequestID)
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
@@ -308,9 +332,9 @@ func SendHTMLError(err error, ctx context.Context, req events.LambdaFunctionURLR
 	}
 
 	return events.LambdaFunctionURLResponse{
-			Headers: map[string]string{"Content-Type": "text/html"},
-			StatusCode: http.StatusOK,
-			Body: buf.String(),
+		Headers:    map[string]string{"Content-Type": "text/html"},
+		StatusCode: http.StatusOK,
+		Body:       buf.String(),
 	}, nil
 }
 
@@ -320,7 +344,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		Model: "gpt-4o-mini",
 		Messages: []Message{
 			{
-				Role: "user",
+				Role:    "user",
 				Content: systemPrompt + markdownLinesAsArr,
 			},
 		},
@@ -331,12 +355,12 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", err
 	}
 
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequest("POST", os.Getenv("OPENAI_API_BASE_URL")+"/chat/completions", bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return "", "", err
 	}
 
-	req.Header.Add("Authorization", "Bearer " + os.Getenv("OPENAI_API_KEY"))
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("OPENAI_API_KEY"))
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -369,19 +393,19 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	}
 
 	// TODO: figure out why this isn't working
-  // Use regex to remove incomplete JSON that OpenAI sometimes returns
-	unpaddedJSON := unpadJSON(messageContentArray)
+	// Use regex to remove incomplete JSON that OpenAI sometimes returns
+	unpaddedJSON := UnpadJSON(messageContentArray)
 
 	return sessionId, unpaddedJSON, nil
 }
 
-func unpadJSON(jsonStr string) string {
-    buffer := new(bytes.Buffer)
-    if err := json.Compact(buffer, []byte(jsonStr)); err != nil {
-        log.Println("Error unpadding JSON: ", err)
-        return jsonStr
-    }
-    return buffer.String()
+func UnpadJSON(jsonStr string) string {
+	buffer := new(bytes.Buffer)
+	if err := json.Compact(buffer, []byte(jsonStr)); err != nil {
+		log.Println("Error unpadding JSON: ", err)
+		return jsonStr
+	}
+	return buffer.String()
 }
 
 func SendMessage(sessionID string, message string) (string, error) {
@@ -390,7 +414,7 @@ func SendMessage(sessionID string, message string) (string, error) {
 	payload := SendMessagePayload{
 		Messages: []Message{
 			{
-				Role: "user",
+				Role:    "user",
 				Content: message,
 			},
 		},
@@ -402,13 +426,13 @@ func SendMessage(sessionID string, message string) (string, error) {
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.openai.com/v1/chat/completions/%s/messages", sessionID), bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequest("POST", fmt.Sprintf(os.Getenv("OPENAI_API_BASE_URL")+"/chat/completions/%s/messages", sessionID), bytes.NewBuffer(payloadBytes))
 
 	if err != nil {
 		return "", err
 	}
 
-	req.Header.Add("Authorization", "Bearer " + os.Getenv("OPENAI_API_KEY"))
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("OPENAI_API_KEY"))
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -446,5 +470,5 @@ func serverError(err error) (events.LambdaFunctionURLResponse, error) {
 }
 
 func main() {
-    lambda.Start(Router)
+	lambda.Start(Router)
 }
