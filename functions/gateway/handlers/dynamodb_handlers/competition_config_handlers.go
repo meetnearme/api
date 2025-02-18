@@ -56,7 +56,6 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 
 	now := time.Now().Unix()
 	updateCompetitionConfigPayload.UpdatedAt = now
-	updateCompetitionConfigPayload.PrimaryOwner = userInfo.Sub
 
 	err = validate.Struct(&updateCompetitionConfigPayload)
 	if err != nil {
