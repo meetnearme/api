@@ -88,6 +88,21 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		return
 	}
 
+	authorizedOwners := []string{userInfo.Sub}
+	authorizedOwners = append(authorizedOwners, competitionConfigRes.AuxilaryOwners...)
+	isAuthorized := false
+	for _, owner := range authorizedOwners {
+		if owner == competitionConfigRes.PrimaryOwner {
+			log.Printf("User %s is authorized to update competition %s", userInfo.Sub, competitionConfigRes.Id)
+			isAuthorized = true
+			break
+		}
+	}
+	if !isAuthorized {
+		transport.SendServerRes(w, []byte("You are not authorized to update this competition"), http.StatusUnauthorized, nil)
+		return
+	}
+
 	updatedRounds := make([]internal_types.CompetitionRoundUpdate, len(roundsData))
 	for i := range roundsData {
 		updatedRounds[i] = roundsData[i]

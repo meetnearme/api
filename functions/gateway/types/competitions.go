@@ -82,7 +82,7 @@ type CompetitionCompetitor struct {
 // Update type (all optional fields)
 type CompetitionConfigUpdate struct {
 	Id           string `json:"id,omitempty" dynamodbav:"id"`
-	PrimaryOwner string `json:"primaryOwner" dynamodbav:"primaryOwner"`
+	PrimaryOwner string `json:"primaryOwner" dynamodbav:"primaryOwner" validate:"required"`
 	Name         string `json:"name,omitempty" dynamodbav:"name"`
 	// TODO: these should be enums for re-use on the client
 	ModuleType string `json:"moduleType,omitempty" dynamodbav:"moduleType" validate:"omitempty,oneof=KARAOKE BOCCE"`
