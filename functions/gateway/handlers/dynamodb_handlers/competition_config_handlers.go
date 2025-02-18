@@ -56,7 +56,6 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 
 	now := time.Now().Unix()
 	updateCompetitionConfigPayload.UpdatedAt = now
-	updateCompetitionConfigPayload.PrimaryOwner = userInfo.Sub
 
 	err = validate.Struct(&updateCompetitionConfigPayload)
 	if err != nil {
@@ -86,6 +85,20 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 	competitionConfigRes, err := h.CompetitionConfigService.UpdateCompetitionConfig(r.Context(), db, configUpdate.Id, configUpdate, isNew)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to create eventCompetitionConfig: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	authorizedOwners := []string{userInfo.Sub}
+	authorizedOwners = append(authorizedOwners, competitionConfigRes.AuxilaryOwners...)
+	isAuthorized := false
+	for _, owner := range authorizedOwners {
+		if owner == userInfo.Sub {
+			isAuthorized = true
+			break
+		}
+	}
+	if !isAuthorized {
+		transport.SendServerRes(w, []byte("You are not authorized to update this competition"), http.StatusUnauthorized, nil)
 		return
 	}
 
