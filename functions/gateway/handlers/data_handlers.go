@@ -1258,7 +1258,7 @@ func UpdateEventRegPurch(w http.ResponseWriter, r *http.Request) {
 		roleClaims = claims
 	}
 
-	validRoles := []string{"superAdmin", "eventEditor"}
+	validRoles := []string{"superAdmin", "eventAdmin"}
 	userId := userInfo.Sub
 	if userId == "" {
 		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
