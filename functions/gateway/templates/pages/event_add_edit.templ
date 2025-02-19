@@ -1601,57 +1601,57 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
                 this.saveReqInFlight = false;
             }
           },
-					async handleRemoveCompetitionRoundFromEvent(competitionRound, child) {
-						// Set loading state for this specific round
-						competitionRound.isRemoving = true;
+        async handleRemoveCompetitionRoundFromEvent(competitionRound, child) {
+            // Set loading state for this specific round
+            competitionRound.isRemoving = true;
 
-						try {
-								const _competitionRound = JSON.parse(JSON.stringify(competitionRound))
-								let _roundUpdate = {
-									..._competitionRound,
-									eventId: this.roundEmptyEventId
-								}
-								delete _roundUpdate.isRemoving
-								const response = await fetch(`/api/competition-round/${competitionRound.competitionId}`, {
-										method: 'PUT',
-										headers: {
-												'Content-Type': 'application/json',
-										},
-										body: JSON.stringify([_roundUpdate]),
-								});
+            try {
+                    const _competitionRound = JSON.parse(JSON.stringify(competitionRound))
+                    let _roundUpdate = {
+                        ..._competitionRound,
+                        eventId: this.roundEmptyEventId
+                    }
+                    delete _roundUpdate.isRemoving
+                    const response = await fetch(`/api/competition-round/${competitionRound.competitionId}`, {
+                            method: 'PUT',
+                            headers: {
+                                    'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify([_roundUpdate]),
+                    });
 
-								if (!response.ok) {
-										throw new Error('Failed to remove competition round');
-								}
+                    if (!response.ok) {
+                            throw new Error('Failed to remove competition round');
+                    }
 
-								// Remove the round from child.competitionRounds
-								child.competitionRounds = child.competitionRounds.filter(round =>
-										round.roundNumber !== competitionRound.roundNumber
-								);
+                    // Remove the round from child.competitionRounds
+                    child.competitionRounds = child.competitionRounds.filter(round =>
+                            round.roundNumber !== competitionRound.roundNumber
+                    );
 
-								// Update allCompetitionRounds if it exists
-								if (this.allCompetitionRounds) {
-										this.allCompetitionRounds = this.allCompetitionRounds.filter(round =>
-												!(round.roundNumber === competitionRound.roundNumber &&
-													round.competitionConfigId === competitionRound.competitionConfigId)
-										);
-								}
+                    // Update allCompetitionRounds if it exists
+                    if (this.allCompetitionRounds) {
+                            this.allCompetitionRounds = this.allCompetitionRounds.filter(round =>
+                                    !(round.roundNumber === competitionRound.roundNumber &&
+                                        round.competitionConfigId === competitionRound.competitionConfigId)
+                            );
+                    }
 
-						} catch (error) {
-								// eslint-disable-next-line no-console
-								console.error('Error removing competition round from event:', error);
-								// Reset loading state on error
-								competitionRound.isRemoving = false;
+            } catch (error) {
+                    // eslint-disable-next-line no-console
+                    console.error('Error removing competition round from event:', error);
+                    // Reset loading state on error
+                    competitionRound.isRemoving = false;
 
-								this.showToast = true;
-								this.toastContent = {
-										type: 'error',
-										message: 'Failed to remove competition round'
-								};
-						}
-					},
+                    this.showToast = true;
+                    this.toastContent = {
+                            type: 'error',
+                            message: 'Failed to remove competition round'
+                    };
+            }
+        },
 
-					async handlePublishClick() {
+        async handlePublishClick() {
             if (this.formData.pendingRoundUpdates.length > 100) {
                 this.showToast = true;
                 this.toastContent = {
@@ -1662,100 +1662,140 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
                 return;
             }
 
-						this.saveReqInFlight = true
-						const _parentEvent = JSON.parse(JSON.stringify(this.transformEventToPayload(this.formData.event)))
-						this.purchasables = this.purchasables.map(p => ({
-							...p,
-							currency: this.formData.event.currency,
-						}))
-						// NOTE: never set the eventSourceId on the parent event, it IS the parent
-						delete _parentEvent.eventSourceId
-						delete _parentEvent.competitionRounds
+            this.saveReqInFlight = true
+            const _parentEvent = JSON.parse(JSON.stringify(this.transformEventToPayload(this.formData.event)))
+            this.purchasables = this.purchasables.map(p => ({
+                ...p,
+                currency: this.formData.event.currency,
+            }))
 
-						let payload = {
-							events: [{
-								..._parentEvent,
-							}],
-							purchasableUpdate: {
-								event_id: this.formData.event.id,
-								...(this.purchasablesCreatedAt !== '' ? {created_at: this.purchasablesCreatedAt} : {}),
-								purchasable_items: this.purchasables.map(p => ({
-									...p,
-									expires_on: p.expires_on ? p.expires_on + this.timeZuluSuffix : null,
-									cost: (p.cost * 100),
-									inventory: p.inventory,
-								})),
-							},
-							registrationFieldsUpdate: {
-								...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
-								fields: this.registrationFields,
-							},
-							rounds: this.formData.pendingRoundUpdates || [],
-						}
-						if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
-							this.formData.eventChildren.forEach(child => {
-								// NOTE: this is importantly set to null to
-								// prevent the payload from violaiting request
-								// body size limit constraints. The API will
-								// always take the parent event's description
-								// and seed it to each child event
-								const _childEvent = JSON.parse(JSON.stringify(child))
+            const allRounds = [];
 
-								delete _parentEvent.description
-								delete _childEvent.description
+            // add parent event rounds
+            if (this.formData.event.competitionRounds) {
+                allRounds.push(...this.formData.event.competitionRounds);
+            }
 
-								delete _childEvent.competitionRounds
-								// NOTE: never override the child event's id with the parent id
-								delete _parentEvent.id
-								const _mergedEvent = {..._parentEvent, ..._childEvent}
-								payload.events.push({
-									..._mergedEvent,
-									eventSourceId: this.formData.event.id,
-									eventSourceType: this.deriveEventSourceTypeFromDropdown(_mergedEvent, this.publishStatus, this.isEventSeries, true),
-									startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
-									endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,
-									// eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
-								})
-							})
-						}
+            // Add child event rounds
+            if (this.formData.eventChildren.length > 0) {
+                this.formData.eventChildren.forEach(child => {
+                    if (child.competitionRounds) {
+                        allRounds.push(...child.competitionRounds);
+                    }
+                });
+            }
 
-						try {
-							const response = await fetch(`/api/event-reg-purch/${this.formData.event.id}`, {
-								method: 'PUT',
-								headers: {
-									'Content-Type': 'application/json',
-								},
-								body: JSON.stringify(payload),
-							});
-							const json = await response.json()
-							if (json.status === 'success') {
-								this.saveReqInFlight = false
-								this.showToast = true;
-								this.toastContent = {
-									type: 'success',
-									message: 'Event updated successfully',
-								}
-								// NOTE: this API path should come from a data-* attribute
-								// that uses the `SitePages` constant for this API path
-								const newUrl = `/admin/event/${json.data.parentEvent._id}/edit`;
-								window.history.pushState({ path: newUrl }, '', newUrl);
-								this.formData.event.id = json.data.parentEvent._id
-							} else {
-								throw new Error(`Failed to update event ${ json?.error?.message ? ": " + json.error.message : ''}`)
-							}
-						} catch (error) {
-							// eslint-disable-next-line no-console
-							console.error('Failed to update event:', error);
-							this.saveReqInFlight = false
-							this.showToast = true;
-							this.toastContent = {
-								type: 'error',
-								message: error,
-							}
-						}
-					}
-				}
-			}
+            // Add any pending updates, overwriting existing rounds if necessary
+            if (this.formData.pendingRoundUpdates) {
+                this.formData.pendingRoundUpdates.forEach(pendingRound => {
+                    const existingIndex = allRounds.findIndex(r => 
+                        r.competitionId === pendingRound.competitionId && 
+                        r.roundNumber === pendingRound.roundNumber
+                    );
+                    if (existingIndex !== -1) {
+                        allRounds[existingIndex] = pendingRound;
+                    } else {
+                        allRounds.push(pendingRound);
+                    }
+                });
+            }
+
+            // Remove any UI-specific properties from rounds
+            const cleanedRounds = allRounds.map(round => {
+                const cleanRound = { ...round };
+                delete cleanRound.isRemoving;
+                return cleanRound;
+            });
+
+
+            // NOTE: never set the eventSourceId on the parent event, it IS the parent
+            delete _parentEvent.eventSourceId
+            delete _parentEvent.competitionRounds
+
+            let payload = {
+                events: [{
+                    ..._parentEvent,
+                }],
+                purchasableUpdate: {
+                    event_id: this.formData.event.id,
+                    ...(this.purchasablesCreatedAt !== '' ? {created_at: this.purchasablesCreatedAt} : {}),
+                    purchasable_items: this.purchasables.map(p => ({
+                        ...p,
+                        expires_on: p.expires_on ? p.expires_on + this.timeZuluSuffix : null,
+                        cost: (p.cost * 100),
+                        inventory: p.inventory,
+                    })),
+                },
+                registrationFieldsUpdate: {
+                    ...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
+                    fields: this.registrationFields,
+                },
+                rounds: this.formData.pendingRoundUpdates || [],
+            }
+            if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
+                this.formData.eventChildren.forEach(child => {
+                    // NOTE: this is importantly set to null to
+                    // prevent the payload from violaiting request
+                    // body size limit constraints. The API will
+                    // always take the parent event's description
+                    // and seed it to each child event
+                    const _childEvent = JSON.parse(JSON.stringify(child))
+
+                    delete _parentEvent.description
+                    delete _childEvent.description
+
+                    delete _childEvent.competitionRounds
+                    // NOTE: never override the child event's id with the parent id
+                    delete _parentEvent.id
+                    const _mergedEvent = {..._parentEvent, ..._childEvent}
+                    payload.events.push({
+                        ..._mergedEvent,
+                        eventSourceId: this.formData.event.id,
+                        eventSourceType: this.deriveEventSourceTypeFromDropdown(_mergedEvent, this.publishStatus, this.isEventSeries, true),
+                        startTime: child.startTime ? child.startTime + this.timeZuluSuffix : null,
+                        endTime: child.endTime ? child.endTime + this.timeZuluSuffix : null,
+                        // eventSourceType: this.isEventSeries ? this.eventTypeSeriesChildConstant : this.eventTypeSingleConstant,
+                    })
+                })
+            }
+
+            try {
+                const response = await fetch(`/api/event-reg-purch/${this.formData.event.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const json = await response.json()
+                if (json.status === 'success') {
+                    this.saveReqInFlight = false
+                    this.showToast = true;
+                    this.toastContent = {
+                        type: 'success',
+                        message: 'Event updated successfully',
+                    }
+                    // NOTE: this API path should come from a data-* attribute
+                    // that uses the `SitePages` constant for this API path
+                    const newUrl = `/admin/event/${json.data.parentEvent._id}/edit`;
+                    window.history.pushState({ path: newUrl }, '', newUrl);
+                    this.formData.event.id = json.data.parentEvent._id
+                } else {
+                    throw new Error(`Failed to update event ${ json?.error?.message ? ": " + json.error.message : ''}`)
+                }
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to update event:', error);
+                this.saveReqInFlight = false
+                this.showToast = true;
+                this.toastContent = {
+                    type: 'error',
+                    message: error,
+                }
+            }
+        }
+    }
+}
 	</script>
 	}
 }
