@@ -24,6 +24,16 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			// 🚨 WARNING 🚨 This filename is automatically updated by PostCSS
 			// ✅ DO commit it to version control whenever you see it change
 			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.59b1a67a.css") }/>
+			<style>
+				:root {
+					--p: 61.42% 0.25 29.234;
+					--fallback-p: #ff0000;
+					--b2: 100% 0 0;
+					--fallback-b2: #ffffff;
+					--nc: 100% 0 0;
+					--fallback-nc: #ffffff;
+				}
+			</style>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
