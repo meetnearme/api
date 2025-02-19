@@ -209,7 +209,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					<template x-for="competition in competitions">
 						<div>
 							<h3 x-text="competition.name" class="text-2xl font-bold my-10"></h3>
-							<h4 class="text-xl font-bold my-2 uppercase">Rounds</h4>
+							<h4 class="text-xl font-bold my-2 uppercase">Schedule</h4>
 							<template x-if="rounds && rounds[competition.id]">
 								<div>
 									<template x-for="(eventRounds, eventId) in rounds[competition.id]">
