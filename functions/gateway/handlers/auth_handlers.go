@@ -110,7 +110,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	log.Printf("431: request URL sent to callback: %v", r.URL)
 	var userRedirectURL string = "/"
 	var cookieDomain string = ""
-
+	log.Printf("432: cookieDomain: %v", cookieDomain)
 	if appState != "" {
 		userRedirectURL = appState
 		// Parse the redirect URL to get the host
@@ -119,20 +119,34 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:   "access_token",
-		Value:  accessToken,
-		Path:   "/",
-		Domain: cookieDomain,
-	})
-
-	http.SetCookie(w, &http.Cookie{
-		Name:   "refresh_token",
-		Value:  refreshToken,
-		Path:   "/",
-		Domain: cookieDomain,
-	})
-
+	atCookie := &http.Cookie{
+		Name:  "access_token",
+		Value: accessToken,
+		Path:  "/",
+		// Domain: cookieDomain,
+	}
+	rtCookie := &http.Cookie{
+		Name:  "refresh_token",
+		Value: refreshToken,
+		Path:  "/",
+		// Domain: cookieDomain,
+	}
+	if cookieDomain != "" {
+		// Ensure cookie domain starts with a dot for cross-subdomain compatibility
+		if !strings.HasPrefix(cookieDomain, ".") {
+			cookieDomain = "." + cookieDomain
+		}
+		// Remove port number if present
+		if colonIndex := strings.Index(cookieDomain, ":"); colonIndex != -1 {
+			cookieDomain = cookieDomain[:colonIndex]
+		}
+		atCookie.Domain = cookieDomain
+		rtCookie.Domain = cookieDomain
+	}
+	http.SetCookie(w, atCookie)
+	http.SetCookie(w, rtCookie)
+	log.Printf("433: atCookie: %+v", atCookie)
+	log.Printf("434: rtCookie: %+v", rtCookie)
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, userRedirectURL, http.StatusFound)
 	}
