@@ -15,8 +15,9 @@ var codeChallenge, codeVerifier, err = services.GenerateCodeChallengeAndVerifier
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParams := r.URL.Query()
-	redirectUser := queryParams.Get("redirect")
-
+	redirectQueryParam := queryParams.Get("redirect")
+	log.Printf("399: Redirect user: %s", redirectQueryParam)
+	log.Printf("400: Query params: %v", queryParams)
 	// Extract subdomain from host
 	host := r.Host
 	parts := strings.Split(host, ".")
@@ -35,6 +36,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	baseDomain := strings.Split(parsedApex.Host, ".")
+	log.Printf("410: Base domain: %v", baseDomain)
 	if len(baseDomain) < 2 {
 		http.Error(w, "Invalid APEX_URL format", http.StatusInternalServerError)
 		return http.HandlerFunc(nil)
@@ -42,6 +44,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	// Find where the base domain starts
 	baseIndex := len(parts)
+	log.Printf("415: Base index: %v", baseIndex)
 	for i := len(parts) - 1; i >= 0; i-- {
 		if parts[i] == baseDomain[0] { // This will match "example" from example.com
 			baseIndex = i
@@ -51,13 +54,15 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	if baseIndex > 0 {
 		subdomain = strings.Join(parts[:baseIndex], ".")
+		log.Printf("420: Subdomain: %v", subdomain)
 	}
 
-	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectUser, subdomain)
+	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectQueryParam)
 	if err != nil {
 		http.Error(w, "Failed to authorize request", http.StatusBadRequest)
 		return http.HandlerFunc(nil)
 	}
+	log.Printf("425: Auth URL: %v", authURL)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, authURL.String(), http.StatusFound)
@@ -112,7 +117,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		Value: refreshToken,
 		Path:  "/",
 	})
-
+	log.Printf("430: App state: %v", appState)
 	var userRedirectURL string = "/"
 	if appState != "" {
 		userRedirectURL = appState

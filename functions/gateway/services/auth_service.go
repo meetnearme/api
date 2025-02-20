@@ -123,7 +123,7 @@ func GenerateCodeChallengeAndVerifier() (string, string, error) {
 	return codeChallenge, codeVerifier, nil
 }
 
-func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string, subdomain string) (*url.URL, error) {
+func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string) (*url.URL, error) {
 	authURL, err := url.Parse(*authorizeURI)
 	if err != nil {
 		return nil, err
@@ -191,6 +191,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	// Clear local cookies
 	clearCookie(w, "access_token")
 	clearCookie(w, "refresh_token")
+	redirectURL := r.URL.Query().Get("post_logout_redirect_uri")
 
 	logoutURL, err := url.Parse(*endSessionURI)
 	if err != nil {
@@ -209,7 +210,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	query.Set("client_id", *clientID)
 
 	logoutURL.RawQuery = query.Encode()
-	http.Redirect(w, r, logoutURL.String(), http.StatusFound)
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 func clearCookie(w http.ResponseWriter, cookieName string) {
