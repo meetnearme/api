@@ -118,31 +118,35 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			cookieDomain = parsedURL.Host
 		}
 	}
-
+	apexURLCookieWildcard := strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
 	atCookie := &http.Cookie{
-		Name:  "access_token",
-		Value: accessToken,
-		Path:  "/",
-		// Domain: cookieDomain,
+		Name:   "access_token",
+		Value:  accessToken,
+		Path:   "/",
+		Domain: apexURLCookieWildcard,
 	}
 	rtCookie := &http.Cookie{
-		Name:  "refresh_token",
-		Value: refreshToken,
-		Path:  "/",
-		// Domain: cookieDomain,
+		Name:   "refresh_token",
+		Value:  refreshToken,
+		Path:   "/",
+		Domain: apexURLCookieWildcard,
 	}
-	if cookieDomain != "" {
-		// Ensure cookie domain starts with a dot for cross-subdomain compatibility
-		if !strings.HasPrefix(cookieDomain, ".") {
-			cookieDomain = "." + cookieDomain
-		}
-		// Remove port number if present
-		if colonIndex := strings.Index(cookieDomain, ":"); colonIndex != -1 {
-			cookieDomain = cookieDomain[:colonIndex]
-		}
-		atCookie.Domain = cookieDomain
-		rtCookie.Domain = cookieDomain
-	}
+	// if cookieDomain != "" {
+	// 	// Ensure cookie domain starts with a dot for cross-subdomain compatibility
+	// 	if !strings.HasPrefix(cookieDomain, ".") {
+	// 		cookieDomain = "." + cookieDomain
+	// 	}
+	// 	// Remove port number if present
+	// 	if colonIndex := strings.Index(cookieDomain, ":"); colonIndex != -1 {
+	// 		cookieDomain = cookieDomain[:colonIndex]
+	// 	}
+	// 	atCookie.Domain = cookieDomain
+	// 	atCookie.SameSite = http.SameSiteLaxMode
+	// 	atCookie.HttpOnly = true
+	// 	rtCookie.Domain = cookieDomain
+	// 	rtCookie.SameSite = http.SameSiteLaxMode
+	// 	rtCookie.HttpOnly = true
+	// }
 	http.SetCookie(w, atCookie)
 	http.SetCookie(w, rtCookie)
 	log.Printf("433: atCookie: %+v", atCookie)

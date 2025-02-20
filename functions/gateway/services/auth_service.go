@@ -234,15 +234,17 @@ func clearCookie(w http.ResponseWriter, cookieName string, cookieDomain string) 
 		Secure:   true,
 	}
 
-	if cookieDomain != "" {
-		if !strings.HasPrefix(cookieDomain, ".") {
-			cookieDomain = "." + cookieDomain
-		}
-		if colonIndex := strings.Index(cookieDomain, ":"); colonIndex != -1 {
-			cookieDomain = cookieDomain[:colonIndex]
-		}
-		cookie.Domain = cookieDomain
-	}
+	// if cookieDomain != "" {
+	// 	if !strings.HasPrefix(cookieDomain, ".") {
+	// 		cookieDomain = "." + cookieDomain
+	// 	}
+	// 	if colonIndex := strings.Index(cookieDomain, ":"); colonIndex != -1 {
+	// 		cookieDomain = cookieDomain[:colonIndex]
+	// 	}
+	// 	cookie.Domain = cookieDomain
+	// }
+	apexURLCookieWildcard := strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
+	cookie.Domain = apexURLCookieWildcard
 
 	http.SetCookie(w, cookie)
 }
