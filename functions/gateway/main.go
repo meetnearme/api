@@ -4,11 +4,13 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -157,9 +159,16 @@ func init() {
 	}
 }
 
+type AuthConfig struct {
+	AuthDomain     string
+	AllowedDomains []string
+	CookieDomain   string
+}
+
 type App struct {
-	Router *mux.Router
-	AuthZ  *authorization.Authorizer[*oauth.IntrospectionContext]
+	Router     *mux.Router
+	AuthZ      *authorization.Authorizer[*oauth.IntrospectionContext]
+	AuthConfig *AuthConfig
 }
 
 func NewApp() *App {
@@ -179,6 +188,11 @@ func NewApp() *App {
 func (app *App) InitializeAuth() {
 	services.InitAuth()
 	app.AuthZ = services.GetAuthMw()
+	app.AuthConfig = &AuthConfig{
+		AuthDomain:     os.Getenv("ZITADEL_INSTANCE_HOST"),
+		AllowedDomains: []string{strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1), strings.Replace(os.Getenv("APEX_URL"), "https://", "*.", 1)},
+		CookieDomain:   strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1),
+	}
 }
 
 func (app *App) SetupRoutes(routes []Route) {
@@ -205,6 +219,8 @@ func (app *App) addRoute(route Route) {
 			// First check Authorization header
 			authHeader := r.Header.Get("Authorization")
 			redirectUrl := r.URL.String()
+			host := r.Host
+
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				accessToken = strings.TrimPrefix(authHeader, "Bearer ")
 			} else {
@@ -213,7 +229,10 @@ func (app *App) addRoute(route Route) {
 				if err != nil {
 					refreshTokenCookie, refreshTokenCookieErr = r.Cookie("refresh_token")
 					if refreshTokenCookieErr != nil {
-						http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
+						// Store the original host and URL in the state parameter
+						state := base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%s|%s", host, redirectUrl)))
+						loginURL := fmt.Sprintf("/auth/login?state=%s", state)
+						http.Redirect(w, r, loginURL, http.StatusFound)
 						return
 					}
 
@@ -267,8 +286,10 @@ func (app *App) addRoute(route Route) {
 				if strings.HasPrefix(authHeader, "Bearer ") {
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				} else {
-					log.Printf("Redirecting to login, redirect is: %v", redirectUrl)
-					http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
+					// Store the original host and URL in the state parameter
+					state := base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%s|%s", host, redirectUrl)))
+					loginURL := fmt.Sprintf("/auth/login?state=%s", state)
+					http.Redirect(w, r, loginURL, http.StatusFound)
 				}
 				return
 			}
@@ -296,6 +317,25 @@ func (app *App) addRoute(route Route) {
 				ctx = context.WithValue(ctx, "userMetaClaims", userMetaClaims)
 			}
 			r = r.WithContext(ctx)
+
+			// After successful auth, check for state parameter to handle subdomain redirect
+			state := r.URL.Query().Get("state")
+			if state != "" {
+				decodedState, err := base64.URLEncoding.DecodeString(state)
+				if err == nil {
+					parts := strings.Split(string(decodedState), "|")
+					if len(parts) == 2 {
+						originalHost := parts[0]
+						originalURL := parts[1]
+						if originalHost != host {
+							finalURL := fmt.Sprintf("https://%s%s", originalHost, originalURL)
+							http.Redirect(w, r, finalURL, http.StatusFound)
+							return
+						}
+					}
+				}
+			}
+
 			route.Handler(w, r).ServeHTTP(w, r)
 		}
 	case Check:

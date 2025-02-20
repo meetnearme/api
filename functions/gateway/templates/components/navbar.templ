@@ -28,7 +28,7 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 
 templ NavListItems(userInfo helpers.UserInfo, pageUser *types.UserSearchResult) {
 	<li><a href="/about" class="px-5 py-3">About</a></li>
-	if userInfo.Email == "" && pageUser == nil {
+	if userInfo.Email == "" {
 		<li><a href="/auth/login" class="px-5 py-3">Login</a></li>
 		<li><a href="/auth/login" class="btn btn-primary update-text-if-cookie">Signup</a></li>
 	}
