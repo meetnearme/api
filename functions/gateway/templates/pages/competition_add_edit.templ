@@ -620,32 +620,65 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				},
 
 				addCompetitorToTeam(competitor) {
-					if (competitor.team === this.ownTeamId || competitor?.userId?.match(/^tm_/)) {
+					// Create a clean copy of the competitor object
+					const competitorToAdd = {
+						userId: competitor.userId,
+						displayName: competitor.displayName,
+						team: competitor.team
+					};
+					
+					console.log('Adding competitor:', competitorToAdd);
+					
+					if (competitorToAdd.team === this.ownTeamId || competitorToAdd.userId?.match(/^tm_/)) {
+						// Team creation path...
 						this.teams.push({
-							label:  competitor.displayName,
-							id: competitor.userId,
+							label:  competitorToAdd.displayName,
+							id: competitorToAdd.userId,
 							competitors: []
 						})
-						this.waitingRoom = this.waitingRoom.filter(_competitor => _competitor.userId !== competitor.userId)
+						this.waitingRoom = this.waitingRoom.filter(_competitor => _competitor.userId !== competitorToAdd.userId)
 					} else {
-						this.teams = this.teams.map(team => {
-							if (team.id === competitor.team) {
-								if (!team.competitors.includes(competitor.userId)) {
-									const userToAdd = this.waitingRoom.find(competitor => competitor.userId === competitor.userId)
-									team.competitors.push({
-										displayName: userToAdd.displayName,
-										userId: userToAdd.userId
-									})
-									this.waitingRoom = this.waitingRoom.filter(competitor => competitor.userId !== competitor.userId);
-								}
-								return ({
+						// Find the exact competitor in the waiting room
+						const waitingRoomIndex = this.waitingRoom.findIndex(c => c.userId === competitorToAdd.userId);
+						
+						if (waitingRoomIndex === -1) {
+							console.error('Competitor not found in waiting room:', competitorToAdd);
+							return;
+						}
+						
+						// Find the target team
+						const teamIndex = this.teams.findIndex(t => t.id === competitorToAdd.team);
+						
+						if (teamIndex === -1) {
+							console.error('Selected team not found:', competitorToAdd.team);
+							return;
+						}
+						
+						// Create new team array with the updated team
+						this.teams = this.teams.map((team, index) => {
+							if (index === teamIndex) {
+								return {
 									...team,
-								})
+									competitors: [...team.competitors, {
+										displayName: competitorToAdd.displayName,
+										userId: competitorToAdd.userId
+									}]
+								};
 							}
 							return team;
 						});
-						this.competitors = this.teams.flatMap(team => team.competitors)
+						
+						// Remove from waiting room
+						this.waitingRoom = this.waitingRoom.filter((_, index) => index !== waitingRoomIndex);
 					}
+					
+					// Force a UI update
+					this.$nextTick(() => {
+						console.log('Updated state:', {
+							waitingRoom: this.waitingRoom,
+							teams: this.teams
+						});
+					});
 				},
 
 				removeCompetitorFromTeam(team, competitor) {
