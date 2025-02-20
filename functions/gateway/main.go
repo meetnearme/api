@@ -327,11 +327,25 @@ func (app *App) addRoute(route Route) {
 					if len(parts) == 2 {
 						originalHost := parts[0]
 						originalURL := parts[1]
-						if originalHost != host {
-							finalURL := fmt.Sprintf("https://%s%s", originalHost, originalURL)
-							http.Redirect(w, r, finalURL, http.StatusFound)
-							return
+
+						// Extract subdomain from original host
+						hostParts := strings.Split(originalHost, ".")
+						apexDomain := strings.Join(hostParts[len(hostParts)-2:], ".")
+						subdomain := ""
+						if len(hostParts) > 2 {
+							subdomain = strings.Join(hostParts[:len(hostParts)-2], ".")
 						}
+
+						// Build the final URL with subdomain
+						var finalURL string
+						if subdomain != "" {
+							finalURL = fmt.Sprintf("https://%s.%s%s", subdomain, apexDomain, originalURL)
+						} else {
+							finalURL = fmt.Sprintf("https://%s%s", apexDomain, originalURL)
+						}
+
+						http.Redirect(w, r, finalURL, http.StatusFound)
+						return
 					}
 				}
 			}
