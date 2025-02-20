@@ -106,6 +106,13 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return http.HandlerFunc(nil)
 	}
 
+	log.Printf("430: App state: %v", appState)
+	log.Printf("431: request URL sent to callback: %v", r.URL)
+	var userRedirectURL string = "/"
+	if appState != "" {
+		userRedirectURL = appState
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:  "access_token",
 		Value: accessToken,
@@ -117,11 +124,6 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		Value: refreshToken,
 		Path:  "/",
 	})
-	log.Printf("430: App state: %v", appState)
-	var userRedirectURL string = "/"
-	if appState != "" {
-		userRedirectURL = appState
-	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, userRedirectURL, http.StatusFound)
