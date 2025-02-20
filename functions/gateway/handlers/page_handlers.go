@@ -426,7 +426,7 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		roleClaims = claims
 	}
 
-	validRoles := []string{"superAdmin", "eventEditor"}
+	validRoles := []string{"superAdmin", "eventAdmin"}
 	if !helpers.HasRequiredRole(roleClaims, validRoles) {
 		err := errors.New("Only event editors can add or edit events")
 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
@@ -501,7 +501,7 @@ func GetEventAttendeesPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		roleClaims = claims
 	}
 
-	validRoles := []string{"superAdmin", "eventEditor"}
+	validRoles := []string{"superAdmin", "eventAdmin"}
 	if !helpers.HasRequiredRole(roleClaims, validRoles) {
 		err := errors.New("Only event editors can add or edit events")
 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
