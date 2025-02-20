@@ -22,7 +22,7 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 				// <span class="badge">New</span>
 			</a>
 		</li>
-		<li><a href="/auth/logout">Logout</a></li>
+		<li><a x-data="" :href="'/auth/logout?post_logout_redirect_uri=' + window.location.href">Logout</a></li>
 	</ul>
 }
 
@@ -31,12 +31,14 @@ templ NavListItems(userInfo helpers.UserInfo, pageUser *types.UserSearchResult) 
 	if userInfo.Email == "" {
 		<li>
 			<a
+				x-data=""
 				:href="'/auth/login?redirect=' + window.location.href"
 				class="px-5 py-3"
 			>Login</a>
 		</li>
 		<li>
 			<a
+				x-data=""
 				:href="'/auth/login?redirect=' + window.location.href"
 				class="btn btn-primary update-text-if-cookie"
 			>Signup</a>

@@ -95,13 +95,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 					<div id="vote-header" class="fixed sticky-under-top-nav alert alert-info rounded-none left-0 w-full z-50 flex items-center">
 						<div class="container mx-auto flex items-center justify-center">
 							<div role="alert">
-								<p>
-									This event is part of a competition, log in to participate
-									<a
-										class="btn btn-xs"
-										:href="'/auth/login?redirect=' + window.location.href"
-									>Login</a>
-								</p>
+								<p>This event is part of a competition, log in to participate <a class="btn btn-xs" x-data="" :href="'/auth/login?redirect=' + window.location.href">Login</a></p>
 							</div>
 						</div>
 					</div>
