@@ -710,7 +710,9 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 		competitionConfig = internal_types.CompetitionConfig{
 			EventIds: []string{},
 			Status:   "DRAFT",
+			PrimaryOwner: userInfo.Sub,
 		}
+
 	} else {
 		eventCompetitionRoundService := dynamodb_service.NewCompetitionConfigService()
 		pageObj = helpers.SitePages["competition-edit"]
