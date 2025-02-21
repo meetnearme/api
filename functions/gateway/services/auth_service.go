@@ -216,18 +216,28 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 func ClearCookie(w http.ResponseWriter, cookieName string) {
 	apexURLCookieWildcard := strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
-	cookie := &http.Cookie{
+	subdomainCookie := &http.Cookie{
 		Name:     cookieName,
 		Value:    "",
 		Path:     "/",
 		Expires:  time.Unix(0, 0), // Expire the cookie
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   true,
 		Domain:   apexURLCookieWildcard,
 	}
 
-	http.SetCookie(w, cookie)
+	http.SetCookie(w, subdomainCookie)
+
+	apexCookie := &http.Cookie{
+		Name:     cookieName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0), // Expire the cookie
+		MaxAge:   -1,
+		HttpOnly: true,
+	}
+
+	http.SetCookie(w, apexCookie)
 }
 
 func FetchJWKS() (*JWKS, error) {
@@ -288,14 +298,25 @@ func GetPublicKey(jwks *JWKS, kid string) (*rsa.PublicKey, error) {
 	return nil, fmt.Errorf("no matching RSA key found in JWKS")
 }
 
-func SetContextualCookie(cookieName string, cookieValue string) *http.Cookie {
+func GetContextualCookie(cookieName string, cookieValue string) (*http.Cookie, *http.Cookie) {
+	apexDomain := os.Getenv("APEX_URL")
+	if apexDomain == "" {
+		log.Print("ERR: APEX_URL is not set, cannot set cookies")
+		return nil, nil
+	}
 	apexURLCookieWildcard := strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
-	cookie := &http.Cookie{
+	subdomainCookie := &http.Cookie{
 		Name:     cookieName,
 		Value:    cookieValue,
 		Path:     "/",
+		HttpOnly: true,
 		Domain:   apexURLCookieWildcard,
+	}
+	apexCookie := &http.Cookie{
+		Name:     cookieName,
+		Value:    cookieValue,
+		Path:     "/",
 		HttpOnly: true,
 	}
-	return cookie
+	return subdomainCookie, apexCookie
 }
