@@ -291,10 +291,11 @@ func GetPublicKey(jwks *JWKS, kid string) (*rsa.PublicKey, error) {
 func SetContextualCookie(cookieName string, cookieValue string) *http.Cookie {
 	apexURLCookieWildcard := strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
 	cookie := &http.Cookie{
-		Name:   cookieName,
-		Value:  cookieValue,
-		Path:   "/",
-		Domain: apexURLCookieWildcard,
+		Name:     cookieName,
+		Value:    cookieValue,
+		Path:     "/",
+		Domain:   apexURLCookieWildcard,
+		HttpOnly: true,
 	}
 	return cookie
 }
