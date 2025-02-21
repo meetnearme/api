@@ -493,8 +493,22 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 												/>
 											}
 										</div>
-										<template x-if="child.competitionConfigId">
+										<div x-text="JSON.stringify(child)"></div>
+										<template x-if="child && child.competitionConfigId">
 											<div class="form-control">
+												<div
+													x-init="
+                          console.log('Child event debug:', {
+                              childId: child.id,
+                              hasConfigId: !!child.competitionConfigId,
+                              configId: child.competitionConfigId,
+                              roundsLoaded: competitionRoundsLoaded,
+                              hasRounds: !!child.competitionRounds,
+                              roundsCount: child.competitionRounds?.length,
+                              rounds: child.competitionRounds
+                            })
+                        "
+												></div>
 												<label class="label">Competition Config</label>
 												<a class="link link-primary" :href="'/admin/competition/' + child.competitionConfigId + '/edit' ">
 													View Competition Config
@@ -506,7 +520,11 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 														<span class="loading loading-spinner loading-sm"></span>
 													</div>
 												</template>
-												<template x-if="child?.competitionConfigId && competitionRoundsLoaded">
+												<template x-if="child && child?.competitionConfigId && competitionRoundsLoaded">
+													<!-- remove this -->
+													<div class="text-sm opacity-50">
+														<div x-text="'Rounds count: ' + (child.competitionRounds?.length || 0)"></div>
+													</div>
 													<template x-for="(competitionRound, index) in child.competitionRounds">
 														<div class="flex justify-between items-center">
 															<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
@@ -1070,73 +1088,99 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								}
 
 								try {
-
-										// Wait for eventChildrenLoaded using a Promise, but skip if not an event series
-										if (this.isEventSeries) {
-											await new Promise((resolve) => {
-													const checkLoaded = () => {
-														if (this.eventChildrenLoaded) {
-																	resolve();
-															} else {
-																	setTimeout(checkLoaded, 100);
-															}
-													};
-													checkLoaded();
-											});
-										}
-
-										const allEvents = [this.formData.event, ...Object.values(this.formData.eventChildren)]
-										const competitionIdsToFetch = []
-										const promises = []
-										allEvents.forEach(event => {
-											if (event.competitionConfigId) {
-												competitionIdsToFetch.push(event.competitionConfigId)
-											}
-										})
-
-										competitionIdsToFetch.forEach(competitionId => {
-											promises.push(fetch(`/api/competition-round/competition/${competitionId}`))
-										})
-										this.competitionRoundsLoaded = false
-										const roundResponses = await Promise.all(promises)
-										const roundData = await Promise.all(roundResponses.map(r => r.json()))
-										// Flatten the array of round data arrays
-										const flattenedRoundData = roundData.flat()
-										flattenedRoundData.forEach(round => {
-												// Check parent event first
-												if (this.formData.event.id === round.eventId) {
-														if (!this.formData.event.competitionRounds) {
-																this.formData.event.competitionRounds = [];
-														}
-														this.formData.event.competitionRounds.push(round);
+									// Wait for eventChildrenLoaded using a Promise
+									if (this.isEventSeries) {
+										await new Promise((resolve) => {
+											const checkLoaded = () => {
+												if (this.eventChildrenLoaded) {
+													console.log('Event children loaded:', this.formData.eventChildren);
+													resolve();
 												} else {
-														// Check children events
-														const childIndex = this.formData.eventChildren.findIndex(
-																child => child.id === round.eventId
-														);
-														if (childIndex !== -1) {
-																// instantiate if empty, otherwise keep the existing array
-																// this.formData.eventChildren[childIndex].competitionRounds = this.formData.eventChildren[childIndex]?.competitionRounds || []
-																// this.formData.eventChildren[childIndex].competitionRounds.push(round);
-																if (!this.formData.eventChildren[childIndex]?.competitionRounds?.find?.(r => r.roundNumber === round.roundNumber)) {
-																	if (!Array.isArray(this.formData.eventChildren[childIndex]?.competitionRounds)) {
-																		this.formData.eventChildren[childIndex].competitionRounds = []
-																	}
-																	this.formData.eventChildren[childIndex].competitionRounds.push(round);
-																}
-														}
+													setTimeout(checkLoaded, 100);
 												}
+											};
+											checkLoaded();
 										});
+									}
 
+									const allEvents = [this.formData.event, ...Object.values(this.formData.eventChildren)]
+									console.log('All events before fetching rounds:', allEvents);
 
-										this.competitionRoundsLoaded = true
-										this.$nextTick(() => {
-											// Dispatch event to trigger event child height recalculation
-											window.dispatchEvent(new CustomEvent('child-content-changed'));
-										});
+									const competitionIdsToFetch = []
+									allEvents.forEach(event => {
+										if (event.competitionConfigId) {
+											competitionIdsToFetch.push(event.competitionConfigId)
+										}
+									})
+
+									// Fetch and process rounds
+									const promises = []
+									competitionIdsToFetch.forEach(competitionId => {
+										promises.push(fetch(`/api/competition-round/competition/${competitionId}`))
+									})
+
+									this.competitionRoundsLoaded = false
+									const roundResponses = await Promise.all(promises)
+									const roundData = await Promise.all(roundResponses.map(r => r.json()))
+									const flattenedRoundData = roundData.flat()
+
+									// Process rounds after ensuring children are loaded
+									flattenedRoundData.forEach(round => {
+										const childEvent = this.formData.eventChildren.find(child =>
+											child.id === round.eventId
+										);
+
+										if (childEvent) {
+											console.log('Found matching child event for round:', {
+												roundId: round.id,
+												eventId: childEvent.id,
+												roundNumber: round.roundNumber
+											});
+
+											// Ensure reactive array initialization
+											if (!childEvent.competitionRounds) {
+												this.$nextTick(() => {
+													childEvent.competitionRounds = [];
+												});
+											}
+
+											// Force reactivity by using array spread
+											this.$nextTick(() => {
+												childEvent.competitionRounds = [
+													...(childEvent.competitionRounds || []),
+													round
+												];
+											});
+
+											console.log('Updated child event rounds:', childEvent.competitionRounds);
+										}
+										// If not a child event, check if it belongs to parent
+										else if (this.formData.event.id === round.eventId) {
+											if (!this.formData.event.competitionRounds) {
+												this.formData.event.competitionRounds = [];
+											}
+											this.formData.event.competitionRounds.push(round);
+										}
+									});
+
+									// After processing all rounds
+									this.$nextTick(() => {
+										// Force reactivity update
+										this.formData.eventChildren = [...this.formData.eventChildren];
+										this.competitionRoundsLoaded = true;
+
+										console.log('Verification - Child events after processing:',
+											this.formData.eventChildren.map(child => ({
+												id: child.id,
+												roundsCount: child.competitionRounds?.length || 0,
+												rounds: child.competitionRounds
+											}))
+										);
+									});
+
 								} catch (error) {
-									// eslint-disable-next-line no-console
-									console.error('Error fetching event children:', error);
+									console.error('Error in round initialization:', error);
+									this.competitionRoundsLoaded = true;
 								}
 						})()
 					},
@@ -1671,16 +1715,22 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 
             const allRounds = [];
 
-            // add parent event rounds
+            // add parent event rounds with explicit eventId
             if (this.formData.event.competitionRounds) {
-                allRounds.push(...this.formData.event.competitionRounds);
+                allRounds.push(...this.formData.event.competitionRounds.map(round => ({
+                    ...round,
+                    eventId: this.formData.event.id
+                })));
             }
 
-            // Add child event rounds
+            // Add child event rounds with explicit eventId
             if (this.formData.eventChildren.length > 0) {
                 this.formData.eventChildren.forEach(child => {
                     if (child.competitionRounds) {
-                        allRounds.push(...child.competitionRounds);
+                        allRounds.push(...child.competitionRounds.map(round => ({
+                            ...round,
+                            eventId: child.id
+                        })));
                     }
                 });
             }
@@ -1688,8 +1738,8 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
             // Add any pending updates, overwriting existing rounds if necessary
             if (this.formData.pendingRoundUpdates) {
                 this.formData.pendingRoundUpdates.forEach(pendingRound => {
-                    const existingIndex = allRounds.findIndex(r => 
-                        r.competitionId === pendingRound.competitionId && 
+                    const existingIndex = allRounds.findIndex(r =>
+                        r.competitionId === pendingRound.competitionId &&
                         r.roundNumber === pendingRound.roundNumber
                     );
                     if (existingIndex !== -1) {
@@ -1730,7 +1780,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
                     ...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
                     fields: this.registrationFields,
                 },
-                rounds: this.formData.pendingRoundUpdates || [],
+                rounds: cleanedRounds,
             }
             if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
                 this.formData.eventChildren.forEach(child => {
@@ -1760,6 +1810,8 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
             }
 
             try {
+                console.log("Checking for issue of sending updates always");
+                console.log("Payload for event, checking rounds \n", payload.rounds);
                 const response = await fetch(`/api/event-reg-purch/${this.formData.event.id}`, {
                     method: 'PUT',
                     headers: {

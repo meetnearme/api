@@ -626,9 +626,9 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						displayName: competitor.displayName,
 						team: competitor.team
 					};
-					
+
 					console.log('Adding competitor:', competitorToAdd);
-					
+
 					if (competitorToAdd.team === this.ownTeamId || competitorToAdd.userId?.match(/^tm_/)) {
 						// Team creation path...
 						this.teams.push({
@@ -640,20 +640,20 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					} else {
 						// Find the exact competitor in the waiting room
 						const waitingRoomIndex = this.waitingRoom.findIndex(c => c.userId === competitorToAdd.userId);
-						
+
 						if (waitingRoomIndex === -1) {
 							console.error('Competitor not found in waiting room:', competitorToAdd);
 							return;
 						}
-						
+
 						// Find the target team
 						const teamIndex = this.teams.findIndex(t => t.id === competitorToAdd.team);
-						
+
 						if (teamIndex === -1) {
 							console.error('Selected team not found:', competitorToAdd.team);
 							return;
 						}
-						
+
 						// Create new team array with the updated team
 						this.teams = this.teams.map((team, index) => {
 							if (index === teamIndex) {
@@ -667,11 +667,11 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							}
 							return team;
 						});
-						
+
 						// Remove from waiting room
 						this.waitingRoom = this.waitingRoom.filter((_, index) => index !== waitingRoomIndex);
 					}
-					
+
 					// Force a UI update
 					this.$nextTick(() => {
 						console.log('Updated state:', {
@@ -827,6 +827,8 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							})
 						};
 
+            console.log("Rounds field on comp config payload\n", competitionData.rounds);
+
 						competitionData?.rounds?.forEach?.((round, index) => {
 							if (!round?.competitorA || !round?.competitorB) {
 								throw new Error(`Competitor A or B for Round ${index + 1} is empty`)
@@ -879,6 +881,12 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							message: `Failed to update competition: ${error.message}`,
 						}
 					} finally {
+          // remove the fake keys
+            this.formData?.rounds?.forEach(round => {
+              if (round.eventId === 'fake-event-id-123') {
+                delete round.eventId
+              }
+            })
 						this.saveReqInFlight = false;
 					}
 				}
