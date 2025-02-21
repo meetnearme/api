@@ -242,8 +242,8 @@ func (app *App) addRoute(route Route) {
 					}
 
 					// Store tokens in cookies
-					subdomainAccessToken, apexAccessToken := services.GetContextualCookie("access_token", newAccessToken)
-					subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("refresh_token", refreshToken)
+					subdomainAccessToken, apexAccessToken := services.GetContextualCookie("access_token", newAccessToken, false)
+					subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("refresh_token", refreshToken, false)
 					http.SetCookie(w, subdomainAccessToken)
 					http.SetCookie(w, apexAccessToken)
 					http.SetCookie(w, subdomainRefreshToken)
