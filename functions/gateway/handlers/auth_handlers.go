@@ -82,8 +82,13 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 	}
 
-	http.SetCookie(w, services.SetContextualCookie("access_token", accessToken))
-	http.SetCookie(w, services.SetContextualCookie("refresh_token", refreshToken))
+	// Store tokens in cookies
+	subdomainAccessToken, apexAccessToken := services.GetContextualCookie("access_token", accessToken, false)
+	subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("refresh_token", refreshToken, false)
+	http.SetCookie(w, subdomainAccessToken)
+	http.SetCookie(w, apexAccessToken)
+	http.SetCookie(w, subdomainRefreshToken)
+	http.SetCookie(w, apexRefreshToken)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, userRedirectURL, http.StatusFound)
