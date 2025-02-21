@@ -190,18 +190,9 @@ func RefreshAccessToken(refreshToken string) (map[string]interface{}, error) {
 func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	redirectURL := r.URL.Query().Get("post_logout_redirect_uri")
 
-	// Extract domain from the redirect URL
-	var cookieDomain string
-	if parsedURL, err := url.Parse(redirectURL); err == nil {
-		cookieDomain = parsedURL.Host
-	} else {
-		cookieDomain = os.Getenv("APEX_URL")
-		log.Printf("Failed to parse redirect URL, falling back to COOKIE_DOMAIN: %v", err)
-	}
-
 	// Clear local cookies
-	clearCookie(w, "access_token", cookieDomain)
-	clearCookie(w, "refresh_token", cookieDomain)
+	ClearCookie(w, "access_token")
+	ClearCookie(w, "refresh_token")
 
 	logoutURL, err := url.Parse(*endSessionURI)
 	if err != nil {
@@ -223,7 +214,8 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
-func clearCookie(w http.ResponseWriter, cookieName string, cookieDomain string) {
+func ClearCookie(w http.ResponseWriter, cookieName string) {
+	apexURLCookieWildcard := strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
 	cookie := &http.Cookie{
 		Name:     cookieName,
 		Value:    "",
@@ -232,19 +224,8 @@ func clearCookie(w http.ResponseWriter, cookieName string, cookieDomain string) 
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   true,
+		Domain:   apexURLCookieWildcard,
 	}
-
-	// if cookieDomain != "" {
-	// 	if !strings.HasPrefix(cookieDomain, ".") {
-	// 		cookieDomain = "." + cookieDomain
-	// 	}
-	// 	if colonIndex := strings.Index(cookieDomain, ":"); colonIndex != -1 {
-	// 		cookieDomain = cookieDomain[:colonIndex]
-	// 	}
-	// 	cookie.Domain = cookieDomain
-	// }
-	apexURLCookieWildcard := strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
-	cookie.Domain = apexURLCookieWildcard
 
 	http.SetCookie(w, cookie)
 }
@@ -305,4 +286,16 @@ func GetPublicKey(jwks *JWKS, kid string) (*rsa.PublicKey, error) {
 	}
 
 	return nil, fmt.Errorf("no matching RSA key found in JWKS")
+}
+
+func SetContextualCookie(cookieName string, cookieValue string) *http.Cookie {
+	apexURLCookieWildcard := strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
+	cookie := &http.Cookie{
+		Name:     cookieName,
+		Value:    cookieValue,
+		Path:     "/",
+		Domain:   apexURLCookieWildcard,
+		HttpOnly: true,
+	}
+	return cookie
 }

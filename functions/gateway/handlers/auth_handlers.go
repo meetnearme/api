@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 
 	"github.com/meetnearme/api/functions/gateway/services"
 )
@@ -16,45 +15,11 @@ var codeChallenge, codeVerifier, err = services.GenerateCodeChallengeAndVerifier
 func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParams := r.URL.Query()
 	redirectQueryParam := queryParams.Get("redirect")
-	log.Printf("399: Redirect user: %s", redirectQueryParam)
-	log.Printf("400: Query params: %v", queryParams)
-	// Extract subdomain from host
-	host := r.Host
-	parts := strings.Split(host, ".")
-	var subdomain string
 
 	apexURL := os.Getenv("APEX_URL")
 	if apexURL == "" {
 		http.Error(w, "APEX_URL not configured", http.StatusInternalServerError)
 		return http.HandlerFunc(nil)
-	}
-
-	parsedApex, err := url.Parse(apexURL)
-	if err != nil {
-		http.Error(w, "Invalid APEX_URL", http.StatusInternalServerError)
-		return http.HandlerFunc(nil)
-	}
-
-	baseDomain := strings.Split(parsedApex.Host, ".")
-	log.Printf("410: Base domain: %v", baseDomain)
-	if len(baseDomain) < 2 {
-		http.Error(w, "Invalid APEX_URL format", http.StatusInternalServerError)
-		return http.HandlerFunc(nil)
-	}
-
-	// Find where the base domain starts
-	baseIndex := len(parts)
-	log.Printf("415: Base index: %v", baseIndex)
-	for i := len(parts) - 1; i >= 0; i-- {
-		if parts[i] == baseDomain[0] { // This will match "example" from example.com
-			baseIndex = i
-			break
-		}
-	}
-
-	if baseIndex > 0 {
-		subdomain = strings.Join(parts[:baseIndex], ".")
-		log.Printf("420: Subdomain: %v", subdomain)
 	}
 
 	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectQueryParam)
@@ -106,8 +71,6 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return http.HandlerFunc(nil)
 	}
 
-	log.Printf("430: App state: %v", appState)
-	log.Printf("431: request URL sent to callback: %v", r.URL)
 	var userRedirectURL string = "/"
 	var cookieDomain string = ""
 	log.Printf("432: cookieDomain: %v", cookieDomain)
@@ -118,39 +81,10 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			cookieDomain = parsedURL.Host
 		}
 	}
-	apexURLCookieWildcard := strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
-	atCookie := &http.Cookie{
-		Name:   "access_token",
-		Value:  accessToken,
-		Path:   "/",
-		Domain: apexURLCookieWildcard,
-	}
-	rtCookie := &http.Cookie{
-		Name:   "refresh_token",
-		Value:  refreshToken,
-		Path:   "/",
-		Domain: apexURLCookieWildcard,
-	}
-	// if cookieDomain != "" {
-	// 	// Ensure cookie domain starts with a dot for cross-subdomain compatibility
-	// 	if !strings.HasPrefix(cookieDomain, ".") {
-	// 		cookieDomain = "." + cookieDomain
-	// 	}
-	// 	// Remove port number if present
-	// 	if colonIndex := strings.Index(cookieDomain, ":"); colonIndex != -1 {
-	// 		cookieDomain = cookieDomain[:colonIndex]
-	// 	}
-	// 	atCookie.Domain = cookieDomain
-	// 	atCookie.SameSite = http.SameSiteLaxMode
-	// 	atCookie.HttpOnly = true
-	// 	rtCookie.Domain = cookieDomain
-	// 	rtCookie.SameSite = http.SameSiteLaxMode
-	// 	rtCookie.HttpOnly = true
-	// }
-	http.SetCookie(w, atCookie)
-	http.SetCookie(w, rtCookie)
-	log.Printf("433: atCookie: %+v", atCookie)
-	log.Printf("434: rtCookie: %+v", rtCookie)
+
+	http.SetCookie(w, services.SetContextualCookie("access_token", accessToken))
+	http.SetCookie(w, services.SetContextualCookie("refresh_token", refreshToken))
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, userRedirectURL, http.StatusFound)
 	}

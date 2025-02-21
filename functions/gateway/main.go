@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -219,7 +220,6 @@ func (app *App) addRoute(route Route) {
 			// First check Authorization header
 			authHeader := r.Header.Get("Authorization")
 			redirectUrl := r.URL.String()
-			host := r.Host
 
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				accessToken = strings.TrimPrefix(authHeader, "Bearer ")
@@ -229,16 +229,14 @@ func (app *App) addRoute(route Route) {
 				if err != nil {
 					refreshTokenCookie, refreshTokenCookieErr = r.Cookie("refresh_token")
 					if refreshTokenCookieErr != nil {
-						// Store the original host and URL in the state parameter
-						state := base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%s|%s", host, redirectUrl)))
-						loginURL := fmt.Sprintf("/auth/login?state=%s", state)
+						state := base64.URLEncoding.EncodeToString([]byte(redirectUrl))
+						loginURL := fmt.Sprintf("/auth/login?state=%s&redirect=%s", state, url.QueryEscape(redirectUrl))
 						http.Redirect(w, r, loginURL, http.StatusFound)
 						return
 					}
 
 					tokens, refreshAccessTokenErr := services.RefreshAccessToken(refreshTokenCookie.Value)
 					if refreshAccessTokenErr != nil {
-						log.Printf("Authentication Failed: %v", refreshAccessTokenErr)
 						http.Error(w, "Authentication failed", http.StatusUnauthorized)
 						return
 					}
@@ -258,19 +256,8 @@ func (app *App) addRoute(route Route) {
 					}
 
 					// Store tokens in cookies
-					http.SetCookie(w, &http.Cookie{
-						Name:     "access_token",
-						Value:    newAccessToken,
-						Path:     "/",
-						HttpOnly: true,
-					})
-
-					http.SetCookie(w, &http.Cookie{
-						Name:     "refresh_token",
-						Value:    refreshToken,
-						Path:     "/",
-						HttpOnly: true,
-					})
+					http.SetCookie(w, services.SetContextualCookie("access_token", newAccessToken))
+					http.SetCookie(w, services.SetContextualCookie("refresh_token", refreshToken))
 
 					accessToken = newAccessToken
 					http.Redirect(w, r, redirectUrl, http.StatusFound)
@@ -287,8 +274,8 @@ func (app *App) addRoute(route Route) {
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				} else {
 					// Store the original host and URL in the state parameter
-					state := base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%s|%s", host, redirectUrl)))
-					loginURL := fmt.Sprintf("/auth/login?state=%s", state)
+					state := base64.URLEncoding.EncodeToString([]byte(redirectUrl))
+					loginURL := fmt.Sprintf("/auth/login?state=%s&redirect=%s", state, url.QueryEscape(redirectUrl))
 					http.Redirect(w, r, loginURL, http.StatusFound)
 				}
 				return
