@@ -22,15 +22,27 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 				// <span class="badge">New</span>
 			</a>
 		</li>
-		<li><a href="/auth/logout">Logout</a></li>
+		<li><a x-data="" :href="'/auth/logout?post_logout_redirect_uri=' + window.location.href">Logout</a></li>
 	</ul>
 }
 
 templ NavListItems(userInfo helpers.UserInfo, pageUser *types.UserSearchResult) {
 	<li><a href="/about" class="px-5 py-3">About</a></li>
-	if userInfo.Email == "" && pageUser == nil {
-		<li><a href="/auth/login" class="px-5 py-3">Login</a></li>
-		<li><a href="/auth/login" class="btn btn-primary update-text-if-cookie">Signup</a></li>
+	if userInfo.Email == "" {
+		<li>
+			<a
+				x-data=""
+				:href="'/auth/login?redirect=' + window.location.href"
+				class="px-5 py-3"
+			>Login</a>
+		</li>
+		<li>
+			<a
+				x-data=""
+				:href="'/auth/login?redirect=' + window.location.href"
+				class="btn btn-primary update-text-if-cookie"
+			>Signup</a>
+		</li>
 	}
 	// Change back to "Add an Event" when we release Seshu
 	// if userInfo.Email != "" {
@@ -536,7 +548,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 								})
 							});
 							if (response.status === 401) {
-								this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/event/${this.eventId}">Register or Login now</a>`;
+								this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=${window.location.href}">Register or Login now</a>`;
 								this.reqInFlight = false;
 								return
 							}

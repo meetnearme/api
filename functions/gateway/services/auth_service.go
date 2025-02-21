@@ -123,7 +123,7 @@ func GenerateCodeChallengeAndVerifier() (string, string, error) {
 	return codeChallenge, codeVerifier, nil
 }
 
-func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string, subdomain string) (*url.URL, error) {
+func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string) (*url.URL, error) {
 	authURL, err := url.Parse(*authorizeURI)
 	if err != nil {
 		return nil, err
@@ -188,9 +188,11 @@ func RefreshAccessToken(refreshToken string) (map[string]interface{}, error) {
 }
 
 func HandleLogout(w http.ResponseWriter, r *http.Request) {
+	redirectURL := r.URL.Query().Get("post_logout_redirect_uri")
+
 	// Clear local cookies
-	clearCookie(w, "access_token")
-	clearCookie(w, "refresh_token")
+	ClearCookie(w, "access_token")
+	ClearCookie(w, "refresh_token")
 
 	logoutURL, err := url.Parse(*endSessionURI)
 	if err != nil {
@@ -209,11 +211,12 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	query.Set("client_id", *clientID)
 
 	logoutURL.RawQuery = query.Encode()
-	http.Redirect(w, r, logoutURL.String(), http.StatusFound)
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
-func clearCookie(w http.ResponseWriter, cookieName string) {
-	http.SetCookie(w, &http.Cookie{
+func ClearCookie(w http.ResponseWriter, cookieName string) {
+	apexURLCookieWildcard := strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
+	cookie := &http.Cookie{
 		Name:     cookieName,
 		Value:    "",
 		Path:     "/",
@@ -221,7 +224,10 @@ func clearCookie(w http.ResponseWriter, cookieName string) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   true,
-	})
+		Domain:   apexURLCookieWildcard,
+	}
+
+	http.SetCookie(w, cookie)
 }
 
 func FetchJWKS() (*JWKS, error) {
@@ -280,4 +286,15 @@ func GetPublicKey(jwks *JWKS, kid string) (*rsa.PublicKey, error) {
 	}
 
 	return nil, fmt.Errorf("no matching RSA key found in JWKS")
+}
+
+func SetContextualCookie(cookieName string, cookieValue string) *http.Cookie {
+	apexURLCookieWildcard := strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
+	cookie := &http.Cookie{
+		Name:   cookieName,
+		Value:  cookieValue,
+		Path:   "/",
+		Domain: apexURLCookieWildcard,
+	}
+	return cookie
 }
