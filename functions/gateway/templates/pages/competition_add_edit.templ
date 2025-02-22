@@ -83,7 +83,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				</div>
 				<div class="divider"></div>
 				// Replace the owners section with the new component
-				@components.UsersSelect(users, competition.PrimaryOwner, "owners", "Additional Admins", "admins", true)
+				@components.UsersSelect(users, competition.PrimaryOwner, "owners", "Additional Admins", "admins", true, "")
 				<div class="divider"></div>
 				<div class="form-control">
 					<label class="label">Start Time (of First Event)</label>
@@ -116,27 +116,46 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						</div>
 					</template>
 					<template x-for="competitor in waitingRoom">
-						<div class="flex items-center gap-4 mb-4">
-							<select class="select" x-model.fill="competitor.team">
-								<option selected value="">Select team</option>
-								<template x-for="team in teams">
-									<option
-										:value="team.id"
-									>
-										<span x-text="team.label"></span>
-									</option>
-								</template>
-								<option
-									value="OWN_TEAM"
-								>Own team</option>
-							</select>
-							<button aria-label="add to team" class="btn btn-primary" @click="addCompetitorToTeam(competitor.userId, competitor.team)">
-								Add to Team
-								// <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								// 	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-								// </svg>
-							</button>
-							<button aria-label="remove competitor" class="btn btn-circle btn-neutral  btn-xs" @click="removeCompetitor(competitor.userId)">
+						<div class="flex gap-4 mb-4 items-end">
+							<div class="w-full md:grow" x-text="competitor?.displayName ?? 'Missing name'"></div>
+							<template x-if="!competitor.userId?.match(/^tm_/)">
+								<div class="form-control w-full md:grow">
+									<label class="label">Add to Team</label>
+									<select class="select" x-model.fill="competitor.team">
+										<option selected value="">Select team</option>
+										<template x-for="team in teams.filter(team => team.id.startsWith('tm_'))">
+											<option
+												:value="team.id"
+											>
+												<span x-text="team.label"></span>
+											</option>
+										</template>
+										<option
+											:value="ownTeamId"
+										>Own team</option>
+									</select>
+								</div>
+							</template>
+							<template x-if="competitor.userId?.match?.(/^tm_/)">
+								<div class="form-control w-full md:grow">
+									(Previously created team)
+								</div>
+							</template>
+							<template x-if="!competitor.userId?.match?.(/^tm_/)">
+								<button
+									:disabled="competitor.team === '' "
+									class="btn btn-primary"
+									@click="addCompetitorToTeam(competitor)"
+								>
+									<span x-text="competitor?.team === ownTeamId ? 'Add to Own Team' : 'Add to Team'"></span>
+								</button>
+							</template>
+							<template x-if="competitor.userId?.match?.(/^tm_/)">
+								<button class="btn btn-primary" @click="addCompetitorToTeam(competitor)">
+									Add Team
+								</button>
+							</template>
+							<button aria-label="remove competitor" class="btn btn-circle btn-neutral btn-xs mb-2" @click="removeCompetitor(competitor.userId)">
 								<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
 								</svg>
@@ -144,7 +163,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						</div>
 					</template>
 				</div>
-				@components.UsersSelect([]types.UserSearchResultDangerous{}, "", "competitors", "Competitors", "competitors", false)
+				@components.UsersSelect([]types.UserSearchResultDangerous{}, "", "competitors", "Competitors", "competitors", false, "competitor-removed")
 				<template x-if="formData?.competitors?.length > 0 && usersDataLoaded">
 					<template x-for="(competitor, idx) in competitors">
 						<div class="flex items-center gap-4 my-4 pl-4">
@@ -194,49 +213,51 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 										</button>
 									</div>
 									<!-- Name -->
-									<h5 class="text-lg font-bold">Name</h5>
-									<div class="form-control">
-										<input
-											type="text"
-											class="input input-bordered"
-											x-model="team.label"
-										/>
-									</div>
+									<h5 class="text-lg font-bold" x-text="team.label"></h5>
 									<h5 class="text-lg font-bold mt-4 border-b border-base-300 pt-4">Members</h5>
-									<div class="form-control">
-										<ul class="p-0">
-											<template x-if="team.competitors.length === 0">
-												<li class="w-full">
-													<div class="flex justify-between py-3">
-														<span>(No members)</span>
-													</div>
-												</li>
-											</template>
-											<template x-for="(competitor, index) in team.competitors">
-												<li class="w-full">
-													<div class="flex justify-between py-3">
-														<span x-text="index + 1 + '. ' + competitor.displayName"></span>
-														<button aria-label="remove competitor" class="btn btn-circle btn-neutral btn-xs" @click="removeCompetitorFromTeam(team.label, competitor)" :disabled="saveReqInFlight">
-															<svg
-																xmlns="http://www.w3.org/2000/svg"
-																class="h-6 w-6"
-																fill="none"
-																viewBox="0 0 24 24"
-																stroke="currentColor"
-															>
-																<path
-																	stroke-linecap="round"
-																	stroke-linejoin="round"
-																	stroke-width="2"
-																	d="M6 18L18 6M6 6l12 12"
-																></path>
-															</svg>
-														</button>
-													</div>
-												</li>
-											</template>
-										</ul>
-									</div>
+									<template x-if="!team.id?.match(/^tm_/)">
+										<div>
+											(Individual Competitor)
+										</div>
+									</template>
+									<template x-if="team.id?.match(/^tm_/)">
+										<div>
+											<div class="form-control">
+												<ul class="p-0">
+													<template x-if="team.competitors.length === 0">
+														<li class="w-full">
+															<div class="flex justify-between py-3">
+																<span>(No members)</span>
+															</div>
+														</li>
+													</template>
+													<template x-for="(competitor, index) in team.competitors">
+														<li class="w-full">
+															<div class="flex justify-between py-3">
+																<span x-text="index + 1 + '. ' + competitor.displayName"></span>
+																<button aria-label="remove competitor" class="btn btn-circle btn-neutral btn-xs" @click="removeCompetitorFromTeam(team, competitor)" :disabled="saveReqInFlight">
+																	<svg
+																		xmlns="http://www.w3.org/2000/svg"
+																		class="h-6 w-6"
+																		fill="none"
+																		viewBox="0 0 24 24"
+																		stroke="currentColor"
+																	>
+																		<path
+																			stroke-linecap="round"
+																			stroke-linejoin="round"
+																			stroke-width="2"
+																			d="M6 18L18 6M6 6l12 12"
+																		></path>
+																	</svg>
+																</button>
+															</div>
+														</li>
+													</template>
+												</ul>
+											</div>
+										</div>
+									</template>
 								</li>
 							</template>
 						</ul>
@@ -517,6 +538,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				emptyTeamName: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-team-name') ?? null,
 				emptyRoundEventId: document.querySelector('#add-edit-competition').getAttribute('data-round-empty-event-id') ?? null,
 				teamIdPrefix: document.querySelector('#add-edit-competition').getAttribute('data-team-id-prefix') ?? null,
+				ownTeamId: 'OWN_TEAM',
 				formData: {
 					id: document.querySelector('#add-edit-competition').getAttribute('data-competition-id'),
 					name: document.querySelector('#add-edit-competition').getAttribute('data-competition-name'),
@@ -576,9 +598,14 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				},
 				removeCompetitor(userId) {
 					this.waitingRoom = this.waitingRoom.filter(competitor => competitor.userId !== userId);
+					this.$dispatch('competitor-removed', userId);
 				},
 				removeTeam(team) {
 					this.teams = this.teams.filter(_team => _team.id !== team.id);
+					this.waitingRoom.push({
+						displayName: team.label,
+						userId: team.id
+					})
 				},
 				addTeam(teamName) {
 					this.teams.push({
@@ -592,37 +619,91 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					});
 				},
 
-				addCompetitorToTeam(userId, teamId) {
-					this.teams = this.teams.map(team => {
-						if (team.id === teamId) {
-							if (!team.competitors.includes(userId)) {
-								const userToAdd = this.waitingRoom.find(competitor => competitor.userId === userId)
-								team.competitors.push({
-									displayName: userToAdd.displayName,
-									userId: userToAdd.userId
-								})
-								this.waitingRoom = this.waitingRoom.filter(competitor => competitor.userId !== userId);
-							}
-							return ({
-								...team,
-							})
+				addCompetitorToTeam(competitor) {
+					// Create a clean copy of the competitor object
+					const competitorToAdd = {
+						userId: competitor.userId,
+						displayName: competitor.displayName,
+						team: competitor.team
+					};
+
+					if (competitorToAdd.team === this.ownTeamId || competitorToAdd.userId?.match(/^tm_/)) {
+						// Team creation path...
+						this.teams.push({
+							label:  competitorToAdd.displayName,
+							id: competitorToAdd.userId,
+							competitors: []
+						})
+						this.waitingRoom = this.waitingRoom.filter(_competitor => _competitor.userId !== competitorToAdd.userId)
+					} else {
+						// Find the exact competitor in the waiting room
+						const waitingRoomIndex = this.waitingRoom.findIndex(c => c.userId === competitorToAdd.userId);
+
+						if (waitingRoomIndex === -1) {
+							// eslint-disable-next-line no-console
+							console.error('Competitor not found in waiting room:', competitorToAdd);
+							return;
 						}
-						return team;
+
+						// Find the target team
+						const teamIndex = this.teams.findIndex(t => t.id === competitorToAdd.team);
+
+						if (teamIndex === -1) {
+							// eslint-disable-next-line no-console
+							console.error('Selected team not found:', competitorToAdd.team);
+							return;
+						}
+
+						// Create new team array with the updated team
+						this.teams = this.teams.map((team, index) => {
+							if (index === teamIndex) {
+								return {
+									...team,
+									competitors: [...team.competitors, {
+										displayName: competitorToAdd.displayName,
+										userId: competitorToAdd.userId
+									}]
+								};
+							}
+							return team;
+						});
+
+						// Remove from waiting room
+						this.waitingRoom = this.waitingRoom.filter((_, index) => index !== waitingRoomIndex);
+					}
+
+					// Force a UI update
+					this.$nextTick(() => {
+						// eslint-disable-next-line no-console
+						console.log('Updated state:', {
+							waitingRoom: this.waitingRoom,
+							teams: this.teams
+						});
 					});
-					this.competitors = this.teams.flatMap(team => team.competitors)
 				},
 
-				removeCompetitorFromTeam(teamName, competitor) {
-					this.teams = this.teams.map(team => {
-						if (team.label === teamName) {
-							team.competitors = team.competitors.filter(_competitor => _competitor.displayName !== competitor.displayName);
-						}
-						return team;
-					});
-
-					this.waitingRoom.push({
+				removeCompetitorFromTeam(team, competitor) {
+					// Create copies of the data we need before modifying the array
+					const teamId = team.id;
+					const competitorToMove = {
 						displayName: competitor.displayName,
 						userId: competitor.userId
+					};
+
+					// Add to waiting room
+					this.waitingRoom.push(competitorToMove);
+
+					// Update teams array
+					this.$nextTick(() => {
+						this.teams = this.teams.map(_team => {
+							if (_team.id === teamId) {
+								return {
+									..._team,
+									competitors: _team.competitors.filter(_competitor => _competitor.userId !== competitorToMove.userId)
+								};
+							}
+							return _team;
+						});
 					});
 				},
 
@@ -725,6 +806,10 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 								const _round  = JSON.parse(JSON.stringify(round))
 								delete _round.competitorADisplayName
 								delete _round.competitorBDisplayName
+								// NOTE: this is removed to prevent out of sync data when round associated with event in event admin
+								if (_round.eventId !== this.emptyRoundEventId) {
+									delete _round.eventId
+								}
 								return {
 									..._round,
 									...(this.formData.id ? { competitionId: this.formData.id } : {}),
@@ -800,6 +885,12 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						}
 					} finally {
 						this.saveReqInFlight = false;
+						// remove the fake keys
+						this.formData?.rounds?.forEach(round => {
+							if (round.eventId === 'fake-event-id-123') {
+								delete round.eventId
+							}
+						})
 					}
 				}
 			}

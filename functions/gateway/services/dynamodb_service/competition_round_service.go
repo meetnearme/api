@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
+	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -77,6 +80,128 @@ func (s *CompetitionRoundService) PutCompetitionRounds(ctx context.Context, dyna
 	log.Printf("BatchItemOUtput: %+v", result)
 
 	return *result, nil
+}
+
+func (s *CompetitionRoundService) BatchPatchCompetitionRounds(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, updates []internal_types.CompetitionRoundUpdate, keysToUpdate []string) error {
+	// Create error channel for goroutines
+	errChan := make(chan error, len(updates))
+	var wg sync.WaitGroup
+
+	// Process each update in parallel
+	for _, update := range updates {
+		wg.Add(1)
+		go func(update internal_types.CompetitionRoundUpdate) {
+			defer wg.Done()
+
+			input := &dynamodb.UpdateItemInput{
+				TableName: aws.String(competitionRoundsTableName),
+				Key: map[string]dynamodb_types.AttributeValue{
+					"competitionId": &dynamodb_types.AttributeValueMemberS{Value: update.CompetitionId},
+					"roundNumber":   &dynamodb_types.AttributeValueMemberN{Value: strconv.FormatInt(update.RoundNumber, 10)},
+				},
+				ExpressionAttributeNames:  make(map[string]string),
+				ExpressionAttributeValues: make(map[string]dynamodb_types.AttributeValue),
+				UpdateExpression:          aws.String("SET"),
+			}
+
+			// Build update expression based on keysToUpdate
+			for _, key := range keysToUpdate {
+				switch key {
+				case "eventId":
+					if update.EventId != "" {
+						input.ExpressionAttributeNames["#eventId"] = "eventId"
+						input.ExpressionAttributeValues[":eventId"] = &dynamodb_types.AttributeValueMemberS{Value: update.EventId}
+						*input.UpdateExpression += " #eventId = :eventId,"
+					}
+				case "roundName":
+					if update.RoundName != "" {
+						input.ExpressionAttributeNames["#roundName"] = "roundName"
+						input.ExpressionAttributeValues[":roundName"] = &dynamodb_types.AttributeValueMemberS{Value: update.RoundName}
+						*input.UpdateExpression += " #roundName = :roundName,"
+					}
+				case "competitorA":
+					if update.CompetitorA != "" {
+						input.ExpressionAttributeNames["#competitorA"] = "competitorA"
+						input.ExpressionAttributeValues[":competitorA"] = &dynamodb_types.AttributeValueMemberS{Value: update.CompetitorA}
+						*input.UpdateExpression += " #competitorA = :competitorA,"
+					}
+				case "competitorAScore":
+					input.ExpressionAttributeNames["#competitorAScore"] = "competitorAScore"
+					input.ExpressionAttributeValues[":competitorAScore"] = &dynamodb_types.AttributeValueMemberN{Value: strconv.FormatFloat(update.CompetitorAScore, 'f', -1, 64)}
+					*input.UpdateExpression += " #competitorAScore = :competitorAScore,"
+				case "competitorB":
+					if update.CompetitorB != "" {
+						input.ExpressionAttributeNames["#competitorB"] = "competitorB"
+						input.ExpressionAttributeValues[":competitorB"] = &dynamodb_types.AttributeValueMemberS{Value: update.CompetitorB}
+						*input.UpdateExpression += " #competitorB = :competitorB,"
+					}
+				case "competitorBScore":
+					input.ExpressionAttributeNames["#competitorBScore"] = "competitorBScore"
+					input.ExpressionAttributeValues[":competitorBScore"] = &dynamodb_types.AttributeValueMemberN{Value: strconv.FormatFloat(update.CompetitorBScore, 'f', -1, 64)}
+					*input.UpdateExpression += " #competitorBScore = :competitorBScore,"
+				case "matchup":
+					if update.Matchup != "" {
+						input.ExpressionAttributeNames["#matchup"] = "matchup"
+						input.ExpressionAttributeValues[":matchup"] = &dynamodb_types.AttributeValueMemberS{Value: update.Matchup}
+						*input.UpdateExpression += " #matchup = :matchup,"
+					}
+				case "status":
+					if update.Status != "" {
+						input.ExpressionAttributeNames["#status"] = "status"
+						input.ExpressionAttributeValues[":status"] = &dynamodb_types.AttributeValueMemberS{Value: update.Status}
+						*input.UpdateExpression += " #status = :status,"
+					}
+				case "isPending":
+					input.ExpressionAttributeNames["#isPending"] = "isPending"
+					input.ExpressionAttributeValues[":isPending"] = &dynamodb_types.AttributeValueMemberBOOL{Value: update.IsPending}
+					*input.UpdateExpression += " #isPending = :isPending,"
+				case "isVotingOpen":
+					input.ExpressionAttributeNames["#isVotingOpen"] = "isVotingOpen"
+					input.ExpressionAttributeValues[":isVotingOpen"] = &dynamodb_types.AttributeValueMemberBOOL{Value: update.IsVotingOpen}
+					*input.UpdateExpression += " #isVotingOpen = :isVotingOpen,"
+				case "description":
+					if update.Description != "" {
+						input.ExpressionAttributeNames["#description"] = "description"
+						input.ExpressionAttributeValues[":description"] = &dynamodb_types.AttributeValueMemberS{Value: update.Description}
+						*input.UpdateExpression += " #description = :description,"
+					}
+				}
+			}
+
+			// Always update updatedAt
+			input.ExpressionAttributeNames["#updatedAt"] = "updatedAt"
+			input.ExpressionAttributeValues[":updatedAt"] = &dynamodb_types.AttributeValueMemberN{Value: strconv.FormatInt(time.Now().Unix(), 10)}
+			*input.UpdateExpression += " #updatedAt = :updatedAt"
+
+			// Execute the update
+			_, err := dynamodbClient.UpdateItem(ctx, input)
+			if err != nil {
+				errChan <- fmt.Errorf("failed to update round %s-%d: %w", update.CompetitionId, update.RoundNumber, err)
+				return
+			}
+		}(update)
+	}
+
+	// Wait for all updates to complete
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+
+	// Collect any errors
+	var errors []error
+	for err := range errChan {
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	// Return combined error if any occurred
+	if len(errors) > 0 {
+		return fmt.Errorf("batch update errors: %v", errors)
+	}
+
+	return nil
 }
 
 func (s *CompetitionRoundService) GetCompetitionRoundByPrimaryKey(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, competitionId, roundNumber string) (*internal_types.CompetitionRound, error) {

@@ -323,7 +323,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 									<div class="flex justify-between items-center">
 										<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
 										<button
-											@click="handleRemoveCompetitionRoundFromEvent(competitionRound, formData.event)"
+											@click="handleRemoveCompetitionRoundFromEvent(competitionRound)"
 											class="btn btn-ghost btn-circle btn-sm"
 											:disabled="competitionRound.isRemoving || saveReqInFlight"
 											aria-label="remove this competition round from event"
@@ -511,7 +511,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 														<div class="flex justify-between items-center">
 															<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
 															<button
-																@click="handleRemoveCompetitionRoundFromEvent(competitionRound, child)"
+																@click="handleRemoveCompetitionRoundFromEvent(competitionRound)"
 																class="btn btn-ghost btn-circle btn-sm"
 																:disabled="competitionRound.isRemoving || saveReqInFlight"
 																aria-label="remove this competition round from event"
@@ -1141,6 +1141,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						})()
 					},
 					formData: {
+						pendingRoundUpdates: [], // store rounds that need to be updated or published
 						eventChildren: [],
 						event: {
 							competitionConfigId: document.querySelector('#add-edit-event').getAttribute('data-competition-config-id') ?? null,
@@ -1162,7 +1163,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					},
 					publishStatus: document.querySelector('#publishStatus')?.value ?? null,
 					isCompetitionAdmin: document.querySelector('#add-edit-event').getAttribute('data-is-competition-admin') ?? false,
-					roundEmptyEventId: document.querySelector('#add-edit-event').getAttribute('data-round-empty-event-id') ?? null,
+					emptyRoundEventId: document.querySelector('#add-edit-event').getAttribute('data-round-empty-event-id') ?? null,
 					competitionConfigs: [],
 					competitionModalIndex: null,
 					competitionModalEventSelection: null,
@@ -1203,11 +1204,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 					options: [],
 					isOpen: false,
 					openedWithKeyboard: false,
-					// END: Event Owners typeahead state
-					getFormChildrenData() {
-						return JSON.stringify(this.formData.eventChildren);
-					},
-					// BEGIN: Event Owners typeahead helper functions
 					async fetchUsers(query) {
 						if (query.length >= 3) {
 							await fetch(`/api/user-search?q=${query}`).then(res => {
@@ -1523,136 +1519,85 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							this.competitionModalRoundsLoading = false
 						}
 					},
+					handleAddRoundClick() {
+						try {
+								const roundsUpdatePayload = this.competitionModalRounds.map(round => ({
+										...round,
+										// NOTE: reverting eventId association requires us to save it as
+										// a fake eventId, because round update database schema requires it
+										...(this.competitionModalRoundSelections.includes(round.roundNumber.toString()) ? {
+											eventId: this.competitionModalEventSelection.id
+										} : {eventId: this.emptyRoundEventId})
+									})
+								);
 
-					async handleAddRoundClick() {
-							this.saveReqInFlight = true
-							// First update local state
-							if (this.formData.event.id === this.competitionModalEventSelection.id) {
-									this.formData.event.competitionConfigId = this.competitionModalCompetitionSelection;
-									this.formData.event.competitionRounds = [...this.competitionModalRounds.filter(round =>
-											this.competitionModalRoundSelections.includes(round.roundNumber.toString())
-									)]
-							} else {
-									// Check children events
-									const childIndex = this.formData.eventChildren.findIndex(child => child.id === this.competitionModalEventSelection.id);
-									if (childIndex !== -1) {
-											this.formData.eventChildren[childIndex].competitionConfigId = this.competitionModalCompetitionSelection;
-											this.formData.eventChildren[childIndex].competitionRounds = [...this.competitionModalRounds.filter(round =>
-													this.competitionModalRoundSelections.includes(round.roundNumber.toString())
-											)]
-									}
-							}
-
-							// Create array of round updates
-							const roundsUpdatePayload = this.competitionModalRounds.filter(round =>
-									this.competitionModalRoundSelections.includes(round.roundNumber.toString())
-							).map(round => ({
-									...round,
-									eventId: this.competitionModalEventSelection.id,
-									competitionId: this.competitionModalCompetitionSelection
-							}));
-
-							// Send update request
-							try {
-								const response = await fetch(`/api/competition-round/${this.competitionModalCompetitionSelection}`, {
-										method: 'PUT',
-										headers: {
-											'Content-Type': 'application/json',
-									},
-									body: JSON.stringify(roundsUpdatePayload),
-								});
-								if (!response.ok) {
-									throw new Error(`HTTP error! status: ${response.status}`)
+								// Update local state
+								if (this.formData.event.id === this.competitionModalEventSelection.id) {
+										// Preserve existing event data
+										this.formData.event = {
+												...this.formData.event,
+												competitionConfigId: this.competitionModalCompetitionSelection,
+												competitionRounds: roundsUpdatePayload
+										};
+								} else {
+										// Check children events
+										const childIndex = this.formData.eventChildren.findIndex(child =>
+												child.id === this.competitionModalEventSelection.id
+										);
+										if (childIndex !== -1) {
+												// Preserve existing child event data
+												this.formData.eventChildren[childIndex] = {
+														...this.formData.eventChildren[childIndex],
+														competitionConfigId: this.competitionModalCompetitionSelection,
+														competitionRounds: roundsUpdatePayload
+												};
+										}
 								}
-								await response.json()
 
-								const allEvents = [this.formData.event, ...Object.values(this.formData.eventChildren)]
+								// Store pending updates
+								this.formData.pendingRoundUpdates = roundsUpdatePayload;
 
+								// Update other events' rounds
+								const allEvents = [this.formData.event, ...Object.values(this.formData.eventChildren)];
 								roundsUpdatePayload.forEach(round => {
-									// find all event.competitionRounds with the given roundNumber
-									// if there are multiple, we need to prune one of them
-									const events = allEvents.filter(event => event?.competitionRounds?.find(r => r.roundNumber === round.roundNumber));
-									if (events.length > 0) {
-										events.forEach(event => {
-											// prune the round from `event.competitionRounds` if `round.eventId` DOES NOT match `event.id`
-											if (round.eventId !== event.id) {
-												const newVal = event.competitionRounds.filter(r => r.roundNumber !== round.roundNumber);
-												event.competitionRounds = newVal;
-											}
-										})
-									}
+										const events = allEvents.filter(event =>
+												event?.competitionRounds?.find(r => r.roundNumber === round.roundNumber)
+										);
+										if (events.length > 0) {
+												events.forEach(event => {
+														if (round.eventId !== event.id) {
+																event.competitionRounds = event.competitionRounds.filter(
+																		r => r.roundNumber !== round.roundNumber
+																);
+														}
+												});
+										}
 								});
-							} catch (error) {
-								// eslint-disable-next-line no-console
-								console.error('Error adding rounds:', error)
-							} finally {
-
 
 								this.$nextTick(() => {
-									// Dispatch event to trigger event child height recalculation
-									window.dispatchEvent(new CustomEvent('child-content-changed'));
+										window.dispatchEvent(new CustomEvent('child-content-changed'));
 								});
-
-								// Close the modal
+						} catch (error) {
+								// eslint-disable-next-line no-console
+								console.error('Error preparing rounds:', error);
+						} finally {
 								document.getElementById('add-competition-modal').close();
-
-								// Reset selections
 								this.competitionModalEventSelection = null;
 								this.competitionModalCompetitionSelection = null;
 								this.competitionModalRounds = [];
 								this.competitionModalRoundSelections = [];
-								this.saveReqInFlight = false
 						}
 					},
+					handleRemoveCompetitionRoundFromEvent(competitionRound) {
+						this.formData.pendingRoundUpdates = this.formData.pendingRoundUpdates.filter(round => round.id !== competitionRound.id)
+						this.formData.pendingRoundUpdates.push({
+							...competitionRound,
+							eventId: this.emptyRoundEventId
+						})
 
-					async handleRemoveCompetitionRoundFromEvent(competitionRound, child) {
-						// Set loading state for this specific round
-						competitionRound.isRemoving = true;
-
-						try {
-								const _competitionRound = JSON.parse(JSON.stringify(competitionRound))
-								let _roundUpdate = {
-									..._competitionRound,
-									eventId: this.roundEmptyEventId
-								}
-								delete _roundUpdate.isRemoving
-								const response = await fetch(`/api/competition-round/${competitionRound.competitionId}`, {
-										method: 'PUT',
-										headers: {
-												'Content-Type': 'application/json',
-										},
-										body: JSON.stringify([_roundUpdate]),
-								});
-
-								if (!response.ok) {
-										throw new Error('Failed to remove competition round');
-								}
-
-								// Remove the round from child.competitionRounds
-								child.competitionRounds = child.competitionRounds.filter(round =>
-										round.roundNumber !== competitionRound.roundNumber
-								);
-
-								// Update allCompetitionRounds if it exists
-								if (this.allCompetitionRounds) {
-										this.allCompetitionRounds = this.allCompetitionRounds.filter(round =>
-												!(round.roundNumber === competitionRound.roundNumber &&
-													round.competitionConfigId === competitionRound.competitionConfigId)
-										);
-								}
-
-						} catch (error) {
-								// eslint-disable-next-line no-console
-								console.error('Error removing competition round from event:', error);
-								// Reset loading state on error
-								competitionRound.isRemoving = false;
-
-								this.showToast = true;
-								this.toastContent = {
-										type: 'error',
-										message: 'Failed to remove competition round'
-								};
-						}
+						this.$nextTick(() => {
+							window.dispatchEvent(new CustomEvent('child-content-changed'));
+						})
 					},
 
 					async handlePublishClick() {
@@ -1684,6 +1629,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
 								fields: this.registrationFields,
 							},
+							rounds: this.formData.pendingRoundUpdates || [],
 						}
 						if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
 							this.formData.eventChildren.forEach(child => {
