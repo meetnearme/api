@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/meetnearme/api/functions/gateway/services"
 )
@@ -12,8 +13,15 @@ var codeChallenge, codeVerifier, err = services.GenerateCodeChallengeAndVerifier
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParams := r.URL.Query()
-	redirectUser := queryParams.Get("redirect")
-	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectUser)
+	redirectQueryParam := queryParams.Get("redirect")
+
+	apexURL := os.Getenv("APEX_URL")
+	if apexURL == "" {
+		http.Error(w, "APEX_URL not configured", http.StatusInternalServerError)
+		return http.HandlerFunc(nil)
+	}
+
+	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectQueryParam)
 	if err != nil {
 		http.Error(w, "Failed to authorize request", http.StatusBadRequest)
 		return http.HandlerFunc(nil)
@@ -61,22 +69,18 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return http.HandlerFunc(nil)
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:  "access_token",
-		Value: accessToken,
-		Path:  "/",
-	})
-
-	http.SetCookie(w, &http.Cookie{
-		Name:  "refresh_token",
-		Value: refreshToken,
-		Path:  "/",
-	})
-
 	var userRedirectURL string = "/"
 	if appState != "" {
 		userRedirectURL = appState
 	}
+
+	// Store tokens in cookies
+	subdomainAccessToken, apexAccessToken := services.GetContextualCookie("access_token", accessToken, false)
+	subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("refresh_token", refreshToken, false)
+	http.SetCookie(w, subdomainAccessToken)
+	http.SetCookie(w, apexAccessToken)
+	http.SetCookie(w, subdomainRefreshToken)
+	http.SetCookie(w, apexRefreshToken)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, userRedirectURL, http.StatusFound)

@@ -20,7 +20,7 @@ func (s *RealGeoService) GetGeo(location string, baseUrl string) (lat string, lo
 	if baseUrl == "" {
 		return "", "", "", fmt.Errorf("base URL is empty")
 	}
-	htmlString, err := GetHTMLFromURL(baseUrl+"/map-embed?address="+location, 0, false, "#mapDiv div div")
+	htmlString, err := GetHTMLFromURL(baseUrl+"/map-embed?address="+location, 0, true, "#mapDiv")
 	if err != nil {
 		return "", "", "", err
 	}
