@@ -123,7 +123,7 @@ func GenerateCodeChallengeAndVerifier() (string, string, error) {
 	return codeChallenge, codeVerifier, nil
 }
 
-func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string, subdomain string) (*url.URL, error) {
+func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string) (*url.URL, error) {
 	authURL, err := url.Parse(*authorizeURI)
 	if err != nil {
 		return nil, err
@@ -188,9 +188,11 @@ func RefreshAccessToken(refreshToken string) (map[string]interface{}, error) {
 }
 
 func HandleLogout(w http.ResponseWriter, r *http.Request) {
+	redirectURL := r.URL.Query().Get("post_logout_redirect_uri")
+
 	// Clear local cookies
-	clearCookie(w, "access_token")
-	clearCookie(w, "refresh_token")
+	ClearCookie(w, "access_token")
+	ClearCookie(w, "refresh_token")
 
 	logoutURL, err := url.Parse(*endSessionURI)
 	if err != nil {
@@ -209,19 +211,13 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	query.Set("client_id", *clientID)
 
 	logoutURL.RawQuery = query.Encode()
-	http.Redirect(w, r, logoutURL.String(), http.StatusFound)
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
-func clearCookie(w http.ResponseWriter, cookieName string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName,
-		Value:    "",
-		Path:     "/",
-		Expires:  time.Unix(0, 0), // Expire the cookie
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-	})
+func ClearCookie(w http.ResponseWriter, cookieName string) {
+	subdomainCookie, apexCookie := GetContextualCookie(cookieName, "", true)
+	http.SetCookie(w, subdomainCookie)
+	http.SetCookie(w, apexCookie)
 }
 
 func FetchJWKS() (*JWKS, error) {
@@ -280,4 +276,38 @@ func GetPublicKey(jwks *JWKS, kid string) (*rsa.PublicKey, error) {
 	}
 
 	return nil, fmt.Errorf("no matching RSA key found in JWKS")
+}
+
+func GetContextualCookie(cookieName string, cookieValue string, clearing bool) (*http.Cookie, *http.Cookie) {
+	apexDomain := os.Getenv("APEX_URL")
+	if apexDomain == "" {
+		log.Print("ERR: APEX_URL is not set, cannot set cookies")
+		return nil, nil
+	}
+	apexDomain = strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1)
+	subdomainCookieWildcard := "." + apexDomain
+	subdomainCookie := &http.Cookie{
+		Name:     cookieName,
+		Value:    cookieValue,
+		Path:     "/",
+		HttpOnly: true,
+		Domain:   subdomainCookieWildcard,
+	}
+	apexCookie := &http.Cookie{
+		Name:     cookieName,
+		Value:    cookieValue,
+		Path:     "/",
+		HttpOnly: true,
+		Domain:   apexDomain,
+	}
+	if clearing {
+		subdomainCookie.Expires = time.Unix(0, 0)
+		subdomainCookie.Value = ""
+		subdomainCookie.MaxAge = -1
+
+		apexCookie.Expires = time.Unix(0, 0)
+		apexCookie.Value = ""
+		apexCookie.MaxAge = -1
+	}
+	return subdomainCookie, apexCookie
 }

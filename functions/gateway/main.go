@@ -4,11 +4,13 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -213,13 +215,14 @@ func (app *App) addRoute(route Route) {
 				if err != nil {
 					refreshTokenCookie, refreshTokenCookieErr = r.Cookie("refresh_token")
 					if refreshTokenCookieErr != nil {
-						http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
+						state := base64.URLEncoding.EncodeToString([]byte(redirectUrl))
+						loginURL := fmt.Sprintf("/auth/login?state=%s&redirect=%s", state, url.QueryEscape(redirectUrl))
+						http.Redirect(w, r, loginURL, http.StatusFound)
 						return
 					}
 
 					tokens, refreshAccessTokenErr := services.RefreshAccessToken(refreshTokenCookie.Value)
 					if refreshAccessTokenErr != nil {
-						log.Printf("Authentication Failed: %v", refreshAccessTokenErr)
 						http.Error(w, "Authentication failed", http.StatusUnauthorized)
 						return
 					}
@@ -239,19 +242,12 @@ func (app *App) addRoute(route Route) {
 					}
 
 					// Store tokens in cookies
-					http.SetCookie(w, &http.Cookie{
-						Name:     "access_token",
-						Value:    newAccessToken,
-						Path:     "/",
-						HttpOnly: true,
-					})
-
-					http.SetCookie(w, &http.Cookie{
-						Name:     "refresh_token",
-						Value:    refreshToken,
-						Path:     "/",
-						HttpOnly: true,
-					})
+					subdomainAccessToken, apexAccessToken := services.GetContextualCookie("access_token", newAccessToken, false)
+					subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("refresh_token", refreshToken, false)
+					http.SetCookie(w, subdomainAccessToken)
+					http.SetCookie(w, apexAccessToken)
+					http.SetCookie(w, subdomainRefreshToken)
+					http.SetCookie(w, apexRefreshToken)
 
 					accessToken = newAccessToken
 					http.Redirect(w, r, redirectUrl, http.StatusFound)
@@ -267,8 +263,10 @@ func (app *App) addRoute(route Route) {
 				if strings.HasPrefix(authHeader, "Bearer ") {
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				} else {
-					log.Printf("Redirecting to login, redirect is: %v", redirectUrl)
-					http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
+					// Store the original host and URL in the state parameter
+					state := base64.URLEncoding.EncodeToString([]byte(redirectUrl))
+					loginURL := fmt.Sprintf("/auth/login?state=%s&redirect=%s", state, url.QueryEscape(redirectUrl))
+					http.Redirect(w, r, loginURL, http.StatusFound)
 				}
 				return
 			}

@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
-	"strings"
 
 	"github.com/meetnearme/api/functions/gateway/services"
 )
@@ -15,12 +13,7 @@ var codeChallenge, codeVerifier, err = services.GenerateCodeChallengeAndVerifier
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParams := r.URL.Query()
-	redirectUser := queryParams.Get("redirect")
-
-	// Extract subdomain from host
-	host := r.Host
-	parts := strings.Split(host, ".")
-	var subdomain string
+	redirectQueryParam := queryParams.Get("redirect")
 
 	apexURL := os.Getenv("APEX_URL")
 	if apexURL == "" {
@@ -28,32 +21,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return http.HandlerFunc(nil)
 	}
 
-	parsedApex, err := url.Parse(apexURL)
-	if err != nil {
-		http.Error(w, "Invalid APEX_URL", http.StatusInternalServerError)
-		return http.HandlerFunc(nil)
-	}
-
-	baseDomain := strings.Split(parsedApex.Host, ".")
-	if len(baseDomain) < 2 {
-		http.Error(w, "Invalid APEX_URL format", http.StatusInternalServerError)
-		return http.HandlerFunc(nil)
-	}
-
-	// Find where the base domain starts
-	baseIndex := len(parts)
-	for i := len(parts) - 1; i >= 0; i-- {
-		if parts[i] == baseDomain[0] { // This will match "example" from example.com
-			baseIndex = i
-			break
-		}
-	}
-
-	if baseIndex > 0 {
-		subdomain = strings.Join(parts[:baseIndex], ".")
-	}
-
-	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectUser, subdomain)
+	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectQueryParam)
 	if err != nil {
 		http.Error(w, "Failed to authorize request", http.StatusBadRequest)
 		return http.HandlerFunc(nil)
@@ -101,22 +69,18 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return http.HandlerFunc(nil)
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:  "access_token",
-		Value: accessToken,
-		Path:  "/",
-	})
-
-	http.SetCookie(w, &http.Cookie{
-		Name:  "refresh_token",
-		Value: refreshToken,
-		Path:  "/",
-	})
-
 	var userRedirectURL string = "/"
 	if appState != "" {
 		userRedirectURL = appState
 	}
+
+	// Store tokens in cookies
+	subdomainAccessToken, apexAccessToken := services.GetContextualCookie("access_token", accessToken, false)
+	subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("refresh_token", refreshToken, false)
+	http.SetCookie(w, subdomainAccessToken)
+	http.SetCookie(w, apexAccessToken)
+	http.SetCookie(w, subdomainRefreshToken)
+	http.SetCookie(w, apexRefreshToken)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, userRedirectURL, http.StatusFound)
