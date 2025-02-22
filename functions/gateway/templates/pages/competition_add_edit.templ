@@ -627,8 +627,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						team: competitor.team
 					};
 
-					console.log('Adding competitor:', competitorToAdd);
-
 					if (competitorToAdd.team === this.ownTeamId || competitorToAdd.userId?.match(/^tm_/)) {
 						// Team creation path...
 						this.teams.push({
@@ -642,6 +640,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						const waitingRoomIndex = this.waitingRoom.findIndex(c => c.userId === competitorToAdd.userId);
 
 						if (waitingRoomIndex === -1) {
+							// eslint-disable-next-line no-console
 							console.error('Competitor not found in waiting room:', competitorToAdd);
 							return;
 						}
@@ -650,6 +649,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						const teamIndex = this.teams.findIndex(t => t.id === competitorToAdd.team);
 
 						if (teamIndex === -1) {
+							// eslint-disable-next-line no-console
 							console.error('Selected team not found:', competitorToAdd.team);
 							return;
 						}
@@ -674,6 +674,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 
 					// Force a UI update
 					this.$nextTick(() => {
+						// eslint-disable-next-line no-console
 						console.log('Updated state:', {
 							waitingRoom: this.waitingRoom,
 							teams: this.teams
@@ -805,6 +806,10 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 								const _round  = JSON.parse(JSON.stringify(round))
 								delete _round.competitorADisplayName
 								delete _round.competitorBDisplayName
+								// NOTE: this is removed to prevent out of sync data when round associated with event in event admin
+								if (_round.eventId !== this.emptyRoundEventId) {
+									delete _round.eventId
+								}
 								return {
 									..._round,
 									...(this.formData.id ? { competitionId: this.formData.id } : {}),
@@ -817,7 +822,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									// isPending
 									// isVotingOpen
 									// status
-									// eventId - this is removed to prevent out of sync data when round associated with event in event admin
+									// eventId
 									// competitorA
 									// competitorB
 									// competitorAScore
@@ -826,8 +831,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									}
 							})
 						};
-
-            console.log("Rounds field on comp config payload\n", competitionData.rounds);
 
 						competitionData?.rounds?.forEach?.((round, index) => {
 							if (!round?.competitorA || !round?.competitorB) {
@@ -881,13 +884,13 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							message: `Failed to update competition: ${error.message}`,
 						}
 					} finally {
-          // remove the fake keys
-            this.formData?.rounds?.forEach(round => {
-              if (round.eventId === 'fake-event-id-123') {
-                delete round.eventId
-              }
-            })
 						this.saveReqInFlight = false;
+						// remove the fake keys
+						this.formData?.rounds?.forEach(round => {
+							if (round.eventId === 'fake-event-id-123') {
+								delete round.eventId
+							}
+						})
 					}
 				}
 			}

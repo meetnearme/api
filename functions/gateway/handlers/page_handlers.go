@@ -675,7 +675,6 @@ func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerF
 func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	db := transport.GetDB()
-
 	// Get user info from context
 	userInfo := helpers.UserInfo{}
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
@@ -708,8 +707,8 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 		pageObj = helpers.SitePages["competition-new"]
 		// Set default values for new competition
 		competitionConfig = internal_types.CompetitionConfig{
-			EventIds: []string{},
-			Status:   "DRAFT",
+			EventIds:     []string{},
+			Status:       "DRAFT",
 			PrimaryOwner: userInfo.Sub,
 		}
 
@@ -717,9 +716,14 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 		eventCompetitionRoundService := dynamodb_service.NewCompetitionConfigService()
 		pageObj = helpers.SitePages["competition-edit"]
 		competitionConfigResponse, err := eventCompetitionRoundService.GetCompetitionConfigById(ctx, db, competitionId)
-		if err != nil || competitionConfigResponse.CompetitionConfig.Id == "" {
+		if err != nil {
 			return transport.SendHtmlRes(w, []byte("Failed to get competition: "+err.Error()),
 				http.StatusInternalServerError, "page", err)
+		}
+
+		if competitionConfigResponse.CompetitionConfig.Id == "" {
+			return transport.SendHtmlRes(w, []byte("Competition not found"),
+				http.StatusNotFound, "page", errors.New("empty competition ID"))
 		}
 		competitionConfig = competitionConfigResponse.CompetitionConfig
 		users = competitionConfigResponse.Owners

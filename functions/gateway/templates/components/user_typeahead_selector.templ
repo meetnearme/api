@@ -152,9 +152,9 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 										this.emitUpdate();
 								},
 								emitUpdate() {
-                  this.$dispatch(`users-updated-${this.namespace}`, {
-                    ...this.users
-                  });
+									this.$dispatch(`users-updated-${this.namespace}`, {
+										...this.users
+									});
 								},
 
 								async fetchUsers(query) {
