@@ -19,7 +19,6 @@ func TestAddEventSource(t *testing.T) {
 		expectedContent  []string
 		doNotShowContent []string
 		event            types.Event
-		pageUser         *types.UserSearchResult
 	}{
 		{
 			name:        string("Event Details, registration / purchasable"),
@@ -33,8 +32,7 @@ func TestAddEventSource(t *testing.T) {
 				">Checkout<",
 				">Register<",
 			},
-			event:    types.Event{},
-			pageUser: nil,
+			event: types.Event{},
 		},
 		{
 			name:        string("Event Details, with purchasable"),
@@ -47,8 +45,7 @@ func TestAddEventSource(t *testing.T) {
 			doNotShowContent: []string{
 				">Register<",
 			},
-			event:    types.Event{HasPurchasable: true},
-			pageUser: nil,
+			event: types.Event{HasPurchasable: true},
 		},
 		{
 			name:        string("Event Details, with registration"),
@@ -61,8 +58,7 @@ func TestAddEventSource(t *testing.T) {
 			doNotShowContent: []string{
 				">Checkout<",
 			},
-			event:    types.Event{HasRegistrationFields: true},
-			pageUser: nil,
+			event: types.Event{HasRegistrationFields: true},
 		},
 		{
 			name:        string("About page"),
@@ -74,8 +70,7 @@ func TestAddEventSource(t *testing.T) {
 				"flyout-tab-cart",
 				"flyout-tab-filters",
 			},
-			event:    types.Event{HasPurchasable: true},
-			pageUser: nil,
+			event: types.Event{HasPurchasable: true},
 		},
 		{
 			name:        string("Home / event search page"),
@@ -87,23 +82,7 @@ func TestAddEventSource(t *testing.T) {
 			doNotShowContent: []string{
 				"flyout-tab-cart",
 			},
-			event:    types.Event{HasPurchasable: true},
-			pageUser: nil,
-		}, {
-			name:        string("Home / event search page, with pageUser"),
-			subnavItems: helpers.SitePages["home"].SubnavItems,
-			expectedContent: []string{
-				"John Doe",
-				"flyout-tab-filters",
-			},
-			doNotShowContent: []string{
-				"flyout-tab-cart",
-				"Sign Up",
-			},
 			event: types.Event{HasPurchasable: true},
-			pageUser: &types.UserSearchResult{
-				DisplayName: "John Doe",
-			},
 		},
 	}
 
@@ -122,7 +101,7 @@ func TestAddEventSource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := Navbar(mockUserInfo, tt.subnavItems, tt.event, tt.pageUser)
+			component := Navbar(mockUserInfo, tt.subnavItems, tt.event)
 			// Render the template
 			var buf bytes.Buffer
 			err := component.Render(context.Background(), &buf)

@@ -60,7 +60,7 @@ func SendHtmlErrorPage(body []byte, status int) http.HandlerFunc {
 		}
 
 		errorPartial := pages.ErrorPage(body, requestID)
-		layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, errorPartial, types.Event{}, nil, []string{})
+		layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, errorPartial, types.Event{}, []string{})
 		var buf bytes.Buffer
 		err := layoutTemplate.Render(ctx, &buf)
 		if err != nil {
