@@ -307,41 +307,39 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						<p>Only competition admins can modify competition config settings</p>
 					</div>
 				} else {
-					<template x-if="formData.event?.competitionConfigId">
-						<div class="form-control">
-							<a class="link link-primary" :href="'/admin/competition/' + formData.event.competitionConfigId + '/edit' ">
-								View Competition Config
-							</a>
-							<template x-if="formData.event?.competitionConfigId && !competitionRoundsLoaded">
-								<div class="flex justify-between items-center">
-									<div>Loading competition rounds...</div>
-									<span class="loading loading-spinner loading-sm"></span>
+					<div :class="formData.event?.competitionConfigId ? '' : 'hidden'">
+						<div
+							class="form-control"
+						>
+							<div :class="!competitionRoundsLoaded ? '' : 'hidden'">
+								<div>Loading competition rounds...</div>
+								<div class="flex w-full flex-col gap-4 my-3">
+									<div class="skeleton h-4 w-1/2"></div>
+									<div class="skeleton h-4 w-full"></div>
 								</div>
-							</template>
-							<template x-if="formData.event?.competitionConfigId && competitionRoundsLoaded">
-								<template x-for="(competitionRound, index) in formData.event.competitionRounds">
+							</div>
+							<div :class="competitionRoundsLoaded ? '' : 'hidden'">
+								<a class="link link-primary" :href="'/admin/competition/' + formData.event.competitionConfigId + '/edit' ">
+									View Competition Config
+								</a>
+								<template x-for="(competitionRound, index) in formData.event?.competitionRounds?.filter?.(round => round.eventId !== emptyRoundEventId)">
 									<div class="flex justify-between items-center">
 										<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
 										<button
-											@click="handleRemoveCompetitionRoundFromEvent(competitionRound)"
+											@click="handleRemoveCompetitionRoundFromEvent(competitionRound, false)"
 											class="btn btn-ghost btn-circle btn-sm"
-											:disabled="competitionRound.isRemoving || saveReqInFlight"
+											:disabled="saveReqInFlight"
 											aria-label="remove this competition round from event"
 										>
-											<template x-if="!competitionRound.isRemoving">
-												<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-												</svg>
-											</template>
-											<template x-if="competitionRound.isRemoving">
-												<span class="loading loading-spinner loading-sm"></span>
-											</template>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+											</svg>
 										</button>
 									</div>
 								</template>
-							</template>
+							</div>
 						</div>
-					</template>
+					</div>
 					<div class="form-control">
 						<button @click="addCompetition(formData.event)" class="btn btn-primary">
 							<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 13h-5v5h-2v-5h-5v-2h5v-5h2v5h5v2z"></path></svg>
@@ -493,43 +491,40 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 												/>
 											}
 										</div>
-										<template x-if="child.competitionConfigId">
-											<div class="form-control">
-												<label class="label">Competition Config</label>
-												<a class="link link-primary" :href="'/admin/competition/' + child.competitionConfigId + '/edit' ">
-													View Competition Config
-												</a>
-												<input disabled type="hidden" name="competitionConfigId" x-model.fill="child.competitionConfigId"/>
-												<template x-if="child?.competitionConfigId && !competitionRoundsLoaded">
-													<div class="flex justify-between items-center">
-														<div>Loading competition rounds...</div>
-														<span class="loading loading-spinner loading-sm"></span>
-													</div>
-												</template>
-												<template x-if="child?.competitionConfigId && competitionRoundsLoaded">
-													<template x-for="(competitionRound, index) in child.competitionRounds">
-														<div class="flex justify-between items-center">
-															<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
-															<button
-																@click="handleRemoveCompetitionRoundFromEvent(competitionRound)"
-																class="btn btn-ghost btn-circle btn-sm"
-																:disabled="competitionRound.isRemoving || saveReqInFlight"
-																aria-label="remove this competition round from event"
-															>
-																<template x-if="!competitionRound.isRemoving">
-																	<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-																		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-																	</svg>
-																</template>
-																<template x-if="competitionRound.isRemoving">
-																	<span class="loading loading-spinner loading-sm"></span>
-																</template>
-															</button>
-														</div>
-													</template>
-												</template>
+										<div :class="!competitionRoundsLoaded && (formData.event.competitionConfigId || child.competitionConfigId) ? '' : 'hidden'">
+											<div>Loading competition rounds...</div>
+											<div class="flex w-full flex-col gap-4 my-3">
+												<div class="skeleton h-4 w-1/2"></div>
+												<div class="skeleton h-4 w-full"></div>
 											</div>
-										</template>
+										</div>
+										<div class="form-control" :class="child.competitionRounds?.filter(round => round.eventId !== emptyRoundEventId)?.length ? '' : 'hidden'">
+											<label class="label">Competition Config</label>
+											<a class="link link-primary" :href="'/admin/competition/' + (child.competitionConfigId || formData.event.competitionConfigId) + '/edit' ">
+												View Competition Config
+											</a>
+											<input disabled type="hidden" name="competitionConfigId" x-model.fill="child.competitionConfigId"/>
+											<template x-for="(competitionRound, index) in child.competitionRounds?.filter?.(round => round.eventId !== emptyRoundEventId)">
+												<div class="flex justify-between items-center">
+													<div x-text=" (index + 1) + '. ' + competitionRound.roundName"></div>
+													<button
+														@click="handleRemoveCompetitionRoundFromEvent(competitionRound, true)"
+														class="btn btn-ghost btn-circle btn-sm"
+														:disabled="saveReqInFlight"
+														aria-label="remove this competition round from event"
+													>
+														<template x-if="!competitionRound.isRemoving">
+															<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+															</svg>
+														</template>
+														<template x-if="competitionRound.isRemoving">
+															<span class="loading loading-spinner loading-sm"></span>
+														</template>
+													</button>
+												</div>
+											</template>
+										</div>
 										<div class="dropdown">
 											<div tabindex="0" role="button" class="btn btn-outline m-1 mt-2">
 												Override Parent Event
@@ -919,7 +914,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 			// 	</div>
 			// </dialog>
 			<dialog id="add-competition-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
-				<div class="modal-box">
+				<div class="modal-box relative">
 					<h3 class="text-lg font-bold">Add Competition to Event</h3>
 					<p class="py-4">Choose a competition to add to this event</p>
 					<select x-model="competitionModalCompetitionSelection" class="select select-bordered" @change="handleCompetitionSelection(competitionModalCompetitionSelection)">
@@ -955,12 +950,14 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 									</template>
 								</div>
 							</template>
-							<button class="btn btn-primary mt-4" @click="handleAddRoundClick()">
-								Add Selected Rounds
-								<template x-if="saveReqInFlight">
-									<span class="loading loading-spinner loading-sm"></span>
-								</template>
-							</button>
+							<div class="sticky bottom-0 z-50 bg-base-200">
+								<button class="btn btn-primary mt-4 w-full" @click="handleAddRoundClick()">
+									Add Selected Rounds
+									<template x-if="saveReqInFlight">
+										<span class="loading loading-spinner loading-sm"></span>
+									</template>
+								</button>
+							</div>
 						</div>
 					</template>
 				</div>
@@ -1116,8 +1113,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 														);
 														if (childIndex !== -1) {
 																// instantiate if empty, otherwise keep the existing array
-																// this.formData.eventChildren[childIndex].competitionRounds = this.formData.eventChildren[childIndex]?.competitionRounds || []
-																// this.formData.eventChildren[childIndex].competitionRounds.push(round);
 																if (!this.formData.eventChildren[childIndex]?.competitionRounds?.find?.(r => r.roundNumber === round.roundNumber)) {
 																	if (!Array.isArray(this.formData.eventChildren[childIndex]?.competitionRounds)) {
 																		this.formData.eventChildren[childIndex].competitionRounds = []
@@ -1141,7 +1136,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						})()
 					},
 					formData: {
-						pendingRoundUpdates: [], // store rounds that need to be updated or published
 						eventChildren: [],
 						event: {
 							competitionConfigId: document.querySelector('#add-edit-event').getAttribute('data-competition-config-id') ?? null,
@@ -1519,85 +1513,135 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							this.competitionModalRoundsLoading = false
 						}
 					},
-					handleAddRoundClick() {
-						try {
-								const roundsUpdatePayload = this.competitionModalRounds.map(round => ({
-										...round,
-										// NOTE: reverting eventId association requires us to save it as
-										// a fake eventId, because round update database schema requires it
-										...(this.competitionModalRoundSelections.includes(round.roundNumber.toString()) ? {
-											eventId: this.competitionModalEventSelection.id
-										} : {eventId: this.emptyRoundEventId})
-									})
-								);
+					getReconciledRounds(roundsUpdatePayload, existingRounds, modalEventId) {
+						// Take the update payload and use it only for non-empty round ids,
+						// EXCEPT if the inclusion of an empty round id correlates with
+						// an override of a previous round that we now want to disassociate
+						return roundsUpdatePayload.reduce((acc, round) => {
+							const existingRound = existingRounds.find(r => r.roundNumber === round.roundNumber && r.competitionConfigId === round.competitionConfigId)
+							// negative selection from modal should not add to change queue if not overriding an existing round
+							if (!existingRound && round.eventId === this.emptyRoundEventId) {
+								return acc
+							}
 
-								// Update local state
-								if (this.formData.event.id === this.competitionModalEventSelection.id) {
-										// Preserve existing event data
-										this.formData.event = {
-												...this.formData.event,
-												competitionConfigId: this.competitionModalCompetitionSelection,
-												competitionRounds: roundsUpdatePayload
-										};
-								} else {
-										// Check children events
-										const childIndex = this.formData.eventChildren.findIndex(child =>
-												child.id === this.competitionModalEventSelection.id
-										);
-										if (childIndex !== -1) {
-												// Preserve existing child event data
-												this.formData.eventChildren[childIndex] = {
-														...this.formData.eventChildren[childIndex],
-														competitionConfigId: this.competitionModalCompetitionSelection,
-														competitionRounds: roundsUpdatePayload
-												};
-										}
-								}
-
-								// Store pending updates
-								this.formData.pendingRoundUpdates = roundsUpdatePayload;
-
-								// Update other events' rounds
-								const allEvents = [this.formData.event, ...Object.values(this.formData.eventChildren)];
-								roundsUpdatePayload.forEach(round => {
-										const events = allEvents.filter(event =>
-												event?.competitionRounds?.find(r => r.roundNumber === round.roundNumber)
-										);
-										if (events.length > 0) {
-												events.forEach(event => {
-														if (round.eventId !== event.id) {
-																event.competitionRounds = event.competitionRounds.filter(
-																		r => r.roundNumber !== round.roundNumber
-																);
-														}
-												});
-										}
-								});
-
-								this.$nextTick(() => {
-										window.dispatchEvent(new CustomEvent('child-content-changed'));
-								});
-						} catch (error) {
-								// eslint-disable-next-line no-console
-								console.error('Error preparing rounds:', error);
-						} finally {
-								document.getElementById('add-competition-modal').close();
-								this.competitionModalEventSelection = null;
-								this.competitionModalCompetitionSelection = null;
-								this.competitionModalRounds = [];
-								this.competitionModalRoundSelections = [];
-						}
+							// negative selection from modal should override an existing round, provided the existing round
+							// matches the round number and competition config id
+							if (existingRound?.eventId === modalEventId && round.eventId === this.emptyRoundEventId) {
+								return [...acc.filter(r => r.roundNumber !== existingRound.roundNumber), round]
+							}
+							// if an existing round is found, use that, otherwise, we've not filtered out irrelevant negative selections
+							// so we can safely add the round to the change queue if an existing one isn't found
+							return [...acc, (existingRound || round)]
+						}, [])
 					},
-					handleRemoveCompetitionRoundFromEvent(competitionRound) {
-						this.formData.pendingRoundUpdates = this.formData.pendingRoundUpdates.filter(round => round.id !== competitionRound.id)
-						this.formData.pendingRoundUpdates.push({
-							...competitionRound,
-							eventId: this.emptyRoundEventId
-						})
+					getAllCompetitionRounds() {
+						const allEvents = [this.formData.event, ...this.formData.eventChildren]
+						return allEvents?.flatMap?.(event => event?.competitionRounds || []);
+					},
+					handleAddRoundClick() {
+							const roundsUpdatePayload = this.competitionModalRounds.map(round => ({
+									...round,
+									// NOTE: reverting eventId association requires us to save it as
+									// a fake eventId, because round update database schema requires it
+									...(this.competitionModalRoundSelections.includes(round.roundNumber.toString()) ? {
+										eventId: this.competitionModalEventSelection.id
+									} : {eventId: this.emptyRoundEventId})
+								})
+							);
 
-						this.$nextTick(() => {
-							window.dispatchEvent(new CustomEvent('child-content-changed'));
-						})
+							// Now assign rounds to their respective events based on eventId
+							const allEvents = [this.formData.event, ...this.formData.eventChildren]
+							const allEventsCompetitionRounds = this.getAllCompetitionRounds();
+							const reconciledRounds = this.getReconciledRounds(roundsUpdatePayload, allEventsCompetitionRounds, this.competitionModalEventSelection.id);
+
+							// Now assign rounds to their respective events based on eventId
+							allEvents.forEach(event => {
+									if (event.id === this.formData.event.id) {
+										const _competitionRounds =  reconciledRounds.filter(round => round.eventId === event.id);
+										this.formData.event.competitionRounds = _competitionRounds;
+										this.formData.event.competitionConfigId = this.competitionModalCompetitionSelection;
+									} else {
+											const childIndex = this.formData.eventChildren.findIndex(
+													child => child.id === event.id
+											);
+											if (childIndex !== -1) {
+												const _competitionRounds = reconciledRounds.filter(round => round.eventId === event.id);
+												this.formData.eventChildren[childIndex].competitionRounds = _competitionRounds;
+												this.formData.eventChildren[childIndex].competitionConfigId = this.competitionModalCompetitionSelection;
+											}
+									}
+							});
+
+							this.$nextTick(() => {
+									window.dispatchEvent(new CustomEvent('child-content-changed'));
+							});
+
+
+							document.getElementById('add-competition-modal').close();
+							this.competitionModalEventSelection = null;
+							this.competitionModalCompetitionSelection = null;
+							this.competitionModalRounds = [];
+							this.competitionModalRoundSelections = [];
+
+					},
+					handleRemoveCompetitionRoundFromEvent(competitionRound, isChild) {
+						let shouldRemoveConfigAssociation = false
+
+						if (isChild) {
+								this.formData.eventChildren = this.formData.eventChildren.map(child => {
+								if (child.id === competitionRound.eventId) {
+									return {
+										...child,
+										competitionRounds: child.competitionRounds.map(round => {
+											if (round.roundNumber === competitionRound.roundNumber) {
+												return {
+													...round,
+													eventId: this.emptyRoundEventId
+												}
+											}
+											return round
+										})
+									}
+								}
+								return child
+								})
+							} else {
+							const roundIndex = this.formData.event?.competitionRounds?.findIndex?.(round => round.eventId === competitionRound.eventId);
+							if (roundIndex === -1) {
+								this.formData.event.competitionRounds.push({
+									...competitionRound,
+									eventId: this.emptyRoundEventId
+								});
+							} else {
+								this.formData.event.competitionRounds[roundIndex].eventId = this.emptyRoundEventId;
+							}
+						}
+
+						// delete the config association if all the rounds are marked for disassociation
+						if (isChild && this.formData.eventChildren?.find?.(child => {
+							return child.id === competitionRound.eventId &&
+										child.competitionRounds?.every?.(round => round.eventId === this.emptyRoundEventId)
+						})) {
+								shouldRemoveConfigAssociation = true
+						}
+
+						if (!isChild && this.formData.event?.competitionRounds?.every?.(round => round.eventId === this.emptyRoundEventId)) {
+								shouldRemoveConfigAssociation = true
+						}
+
+						if (shouldRemoveConfigAssociation && isChild) {
+							this.formData.eventChildren = this.formData.eventChildren.map(event => {
+								if (event.id === competitionRound.eventId) {
+									const _event = JSON.parse(JSON.stringify(event))
+									delete _event.competitionConfigId
+									return _event
+								}
+								return event
+							})
+						}
+						if (shouldRemoveConfigAssociation && !isChild) {
+							delete this.formData.event.competitionConfigId
+						}
 					},
 
 					async handlePublishClick() {
@@ -1629,7 +1673,13 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),
 								fields: this.registrationFields,
 							},
-							rounds: this.formData.pendingRoundUpdates || [],
+							// we explicitly avoid sending more data than necessary, if we include other keys, those keys will
+							// likely conflict and cause issues with save requests potentially coming from competition admin
+							rounds: this.getAllCompetitionRounds()?.map?.(round => ({
+								roundNumber: round.roundNumber,
+								competitionId: round.competitionId,
+								eventId: round.eventId
+							})) || [],
 						}
 						if (this.formData.eventChildren.length > 0 && this.isEventSeries) {
 							this.formData.eventChildren.forEach(child => {
@@ -1681,7 +1731,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								this.formData.event.id = json.data.parentEvent._id
 							} else {
 								throw new Error(`Failed to update event ${ json?.error?.message ? ": " + json.error.message : ''}`)
-							}
+								}
 						} catch (error) {
 							// eslint-disable-next-line no-console
 							console.error('Failed to update event:', error);
