@@ -39,7 +39,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				<a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["attendees-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>View Attendees</a>
 			</header>
 			<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Overview</h2>
-			<div id="basic" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
+			<div id="basic" class="card border-2 border-base-300 p-4 md:p-10 rounded-box mb-4">
 				<div class="card">
 					<label class="form-control w-full max-w-xs">
 						<div class="label">Event Name</div>
@@ -914,7 +914,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 			// 	</div>
 			// </dialog>
 			<dialog id="add-competition-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
-				<div class="modal-box">
+				<div class="modal-box relative">
 					<h3 class="text-lg font-bold">Add Competition to Event</h3>
 					<p class="py-4">Choose a competition to add to this event</p>
 					<select x-model="competitionModalCompetitionSelection" class="select select-bordered" @change="handleCompetitionSelection(competitionModalCompetitionSelection)">
@@ -950,12 +950,14 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 									</template>
 								</div>
 							</template>
-							<button class="btn btn-primary mt-4" @click="handleAddRoundClick()">
-								Add Selected Rounds
-								<template x-if="saveReqInFlight">
-									<span class="loading loading-spinner loading-sm"></span>
-								</template>
-							</button>
+							<div class="sticky bottom-0 z-50 bg-base-200">
+								<button class="btn btn-primary mt-4 w-full" @click="handleAddRoundClick()">
+									Add Selected Rounds
+									<template x-if="saveReqInFlight">
+										<span class="loading loading-spinner loading-sm"></span>
+									</template>
+								</button>
+							</div>
 						</div>
 					</template>
 				</div>
@@ -1084,7 +1086,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 										const competitionIdsToFetch = []
 										const promises = []
 										allEvents.forEach(event => {
-											// console.log('1087 event', event)
 											if (event.competitionConfigId) {
 												competitionIdsToFetch.push(event.competitionConfigId)
 											}
@@ -1516,29 +1517,33 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						}
 					},
 					getReconciledRounds(roundsUpdatePayload, existingRounds) {
-							let newCompetitionRounds = []
-							if (existingRounds) {
-								newCompetitionRounds = [
-										...existingRounds.filter(round => round.competitionId === this.competitionModalCompetitionSelection)
-										.map(round => {
-											const roundNewOverride = roundsUpdatePayload.find(r => r.roundNumber === round.roundNumber && r.competitionId === round.competitionId)
-											if (roundNewOverride && roundNewOverride.eventId === this.emptyRoundEventId) {
-												return roundNewOverride
+						let overrideRounds = []
+						if (existingRounds) {
+							// Find if the roundsUpdatePayload will attempt to override any existing rounds marked to be saved
+								overrideRounds = [
+										...roundsUpdatePayload.reduce((acc, round) => {
+											const existingRound = existingRounds?.find?.(r => r.roundNumber === round.roundNumber)
+											if (existingRound) {
+												acc.push(existingRound)
 											}
-											return round
-										})
-										.map(round => {
-											return round
-										}),
+											return acc
+										}, [])
 								]
-							}
-							newCompetitionRounds = [
-								...newCompetitionRounds,
-								...roundsUpdatePayload?.filter?.(round => round.eventId !== this.emptyRoundEventId) ?? []
-							]
+						}
 
-							return newCompetitionRounds
-					},
+						// Take the update payload and use it only for non-empty round ids,
+						// EXCEPT if the inclusion of an empty round id correlates with
+						// an override of a previous round that we now want to disassociate
+						roundsUpdatePayload = roundsUpdatePayload.reduce((acc, round) => {
+							const existingOverride = overrideRounds.find(r => r.roundNumber === round.roundNumber && r.eventId !== round.eventId)
+							if (existingOverride || (!existingOverride && round.eventId === this.emptyRoundEventId)) {
+								return acc
+							}
+							return [...acc, round]
+						}, [])
+
+						return [...overrideRounds, ...roundsUpdatePayload]
+				},
 					handleAddRoundClick() {
 							const roundsUpdatePayload = this.competitionModalRounds.map(round => ({
 									...round,
@@ -1550,66 +1555,27 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								})
 							);
 
-							// Update local state
-							if (this.formData.event.id === this.competitionModalEventSelection.id) {
-								const reconciledRounds = this.getReconciledRounds(roundsUpdatePayload, this.formData.event.competitionRounds)
+							// Now assign rounds to their respective events based on eventId
+							const allEvents = [this.formData.event, ...this.formData.eventChildren]
+							const allEventsCompetitionRounds = allEvents?.flatMap(event => event?.competitionRounds || []);
+							const reconciledRounds = this.getReconciledRounds(roundsUpdatePayload, allEventsCompetitionRounds);
 
-								this.formData.event = {
-									...this.formData.event,
-									competitionConfigId: this.competitionModalCompetitionSelection,
-									competitionRounds: reconciledRounds
-								};
-							} else {
-									// Check children events
-									const childIndex = this.formData.eventChildren.findIndex(child =>
-											child.id === this.competitionModalEventSelection.id
-									);
-									if (childIndex !== -1) {
-											const reconciledRounds = this.getReconciledRounds(roundsUpdatePayload, this.formData.eventChildren[childIndex].competitionRounds)
-
-											this.formData.eventChildren[childIndex] = {
-												...this.formData.eventChildren[childIndex],
-												competitionConfigId: this.competitionModalCompetitionSelection,
-												competitionRounds: reconciledRounds
-											};
-									}
-							}
-
-							// Deduplicate rounds based on roundNumber and eventId
-							this.formData.pendingRoundUpdates = [
-								...(this.formData.pendingRoundUpdates || []),
-								...this.formData.event.competitionRounds,
-								...this.formData.eventChildren.flatMap(child => child.competitionRounds).filter(round => round),
-							]
-							.reverse() // Reverse to process most recent first
-							.filter((round, index, self) => {
-								// Find all instances of this round
-								const duplicates = self.filter(r =>
-									r.roundNumber === round.roundNumber &&
-									r.competitionId === round.competitionId
-								);
-
-								// Keep only if this is the first occurrence among duplicates
-								return duplicates[0] === round;
-							})
-							.reverse() // Reverse back to original order
-
-							// Update other events' rounds
-							const allEvents = [this.formData.event, ...Object.values(this.formData.eventChildren)];
-							roundsUpdatePayload.forEach(round => {
-									const events = allEvents.filter(event =>
-											event?.competitionRounds?.find(r => r.roundNumber === round.roundNumber)
-									);
-									if (events.length > 0) {
-											events.forEach(event => {
-													if (round.eventId !== event.id) {
-															event.competitionRounds = event.competitionRounds.filter(
-																	r => r.roundNumber !== round.roundNumber
-															);
-													}
-											});
+							// Now assign rounds to their respective events based on eventId
+							allEvents.forEach(event => {
+									if (event.id === this.formData.event.id) {
+										const _competitionRounds =  reconciledRounds.filter(round => round.eventId === event.id);
+										this.formData.event.competitionRounds = _competitionRounds;
+									} else {
+											const childIndex = this.formData.eventChildren.findIndex(
+													child => child.id === event.id
+											);
+											if (childIndex !== -1) {
+												const _competitionRounds = reconciledRounds.filter(round => round.eventId === event.id);
+												this.formData.eventChildren[childIndex].competitionRounds = _competitionRounds;
+											}
 									}
 							});
+							this.formData.pendingRoundUpdates = reconciledRounds;
 
 							this.$nextTick(() => {
 									window.dispatchEvent(new CustomEvent('child-content-changed'));
@@ -1627,7 +1593,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						let shouldRemoveConfigAssociation = false
 
 						if (isChild) {
-							this.formData.eventChildren = this.formData.eventChildren.map(child => {
+								this.formData.eventChildren = this.formData.eventChildren.map(child => {
 								if (child.id === competitionRound.eventId) {
 									return {
 										...child,
@@ -1643,8 +1609,8 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 									}
 								}
 								return child
-							})
-						} else {
+								})
+							} else {
 							const roundIndex = this.formData.event?.competitionRounds?.findIndex?.(round => round.eventId === competitionRound.eventId);
 							if (roundIndex === -1) {
 								this.formData.event.competitionRounds.push({
@@ -1764,7 +1730,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								this.formData.event.id = json.data.parentEvent._id
 							} else {
 								throw new Error(`Failed to update event ${ json?.error?.message ? ": " + json.error.message : ''}`)
-							}
+								}
 						} catch (error) {
 							// eslint-disable-next-line no-console
 							console.error('Failed to update event:', error);
