@@ -75,8 +75,8 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	// Store tokens in cookies
-	subdomainAccessToken, apexAccessToken := services.GetContextualCookie("mnm_access_token", accessToken, false)
-	subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("mnm_refresh_token", refreshToken, false)
+	subdomainAccessToken, apexAccessToken := services.GetContextualCookie("access_token", accessToken, false)
+	subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("refresh_token", refreshToken, false)
 	http.SetCookie(w, subdomainAccessToken)
 	http.SetCookie(w, apexAccessToken)
 	http.SetCookie(w, subdomainRefreshToken)

@@ -211,9 +211,9 @@ func (app *App) addRoute(route Route) {
 				accessToken = strings.TrimPrefix(authHeader, "Bearer ")
 			} else {
 				// Fall back to cookie-based auth
-				accessTokenCookie, err = r.Cookie("mnm_access_token")
+				accessTokenCookie, err = r.Cookie("access_token")
 				if err != nil {
-					refreshTokenCookie, refreshTokenCookieErr = r.Cookie("mnm_refresh_token")
+					refreshTokenCookie, refreshTokenCookieErr = r.Cookie("refresh_token")
 					if refreshTokenCookieErr != nil {
 						state := base64.URLEncoding.EncodeToString([]byte(redirectUrl))
 						loginURL := fmt.Sprintf("/auth/login?state=%s&redirect=%s", state, url.QueryEscape(redirectUrl))
@@ -228,13 +228,13 @@ func (app *App) addRoute(route Route) {
 					}
 
 					// Store the access token and refresh token securely
-					newAccessToken, ok := tokens["mnm_access_token"].(string)
+					newAccessToken, ok := tokens["access_token"].(string)
 					if !ok {
 						http.Error(w, "Failed to get access token", http.StatusInternalServerError)
 						return
 					}
 
-					refreshToken, ok := tokens["mnm_refresh_token"].(string)
+					refreshToken, ok := tokens["refresh_token"].(string)
 					if !ok {
 						fmt.Printf("Refresh token error: %v", ok)
 						http.Error(w, "Failed to get refresh token", http.StatusInternalServerError)
@@ -242,8 +242,8 @@ func (app *App) addRoute(route Route) {
 					}
 
 					// Store tokens in cookies
-					subdomainAccessToken, apexAccessToken := services.GetContextualCookie("mnm_access_token", newAccessToken, false)
-					subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("mnm_refresh_token", refreshToken, false)
+					subdomainAccessToken, apexAccessToken := services.GetContextualCookie("access_token", newAccessToken, false)
+					subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("refresh_token", refreshToken, false)
 					http.SetCookie(w, subdomainAccessToken)
 					http.SetCookie(w, apexAccessToken)
 					http.SetCookie(w, subdomainRefreshToken)
@@ -299,7 +299,7 @@ func (app *App) addRoute(route Route) {
 	case Check:
 		handler = func(w http.ResponseWriter, r *http.Request) {
 			// Get the access token from cookies
-			accessTokenCookie, err = r.Cookie("mnm_access_token")
+			accessTokenCookie, err = r.Cookie("access_token")
 			if err != nil {
 				route.Handler(w, r).ServeHTTP(w, r)
 				return
@@ -341,7 +341,7 @@ func (app *App) addRoute(route Route) {
 		}
 	case RequireServiceUser:
 		handler = func(w http.ResponseWriter, r *http.Request) {
-			accessTokenCookie, err = r.Cookie("mnm_access_token")
+			accessTokenCookie, err = r.Cookie("access_token")
 			if err != nil {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
