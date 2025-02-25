@@ -191,8 +191,8 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	redirectURL := r.URL.Query().Get("post_logout_redirect_uri")
 
 	// Clear local cookies
-	ClearCookie(w, "access_token")
-	ClearCookie(w, "refresh_token")
+	ClearCookie(w, "mnm_access_token")
+	ClearCookie(w, "mnm_refresh_token")
 
 	logoutURL, err := url.Parse(*endSessionURI)
 	if err != nil {
