@@ -240,7 +240,12 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 		query.Set("client_id", *clientID)
 	}
 	// Create a proper state parameter that includes the final_redirect_uri
-	stateValue := helpers.FINAL_REDIRECT_URI_KEY + "=" + url.QueryEscape(redirectURL.String())
+	stateValue := helpers.FINAL_REDIRECT_URI_KEY + "="
+	if redirectURL != nil {
+		stateValue += url.QueryEscape(redirectURL.String())
+	} else {
+		stateValue += url.QueryEscape(os.Getenv("APEX_URL"))
+	}
 
 	// Encode the state for security
 	encodedState := base64.URLEncoding.EncodeToString([]byte(stateValue))
