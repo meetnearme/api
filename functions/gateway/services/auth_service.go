@@ -254,7 +254,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logoutURL.RawQuery = query.Encode()
-	http.Redirect(w, r, logoutURL.String(), http.StatusFound)
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 func ClearSubdomainCookie(w http.ResponseWriter, cookieName string) {

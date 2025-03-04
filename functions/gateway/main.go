@@ -233,7 +233,7 @@ func (app *App) addRoute(route Route) {
 					}
 
 					// Store the access token and refresh token securely
-					newAccessToken, ok := tokens["access_token"].(string)
+					newAccessToken, ok := tokens["mnm_access_token"].(string)
 					if !ok {
 						log.Printf("Failed to get access token in require middleware: %+v", refreshAccessTokenErr)
 						loginURL := fmt.Sprintf("/auth/login?redirect=%s", url.QueryEscape(redirectUrl))
@@ -241,7 +241,7 @@ func (app *App) addRoute(route Route) {
 						return
 					}
 
-					refreshToken, ok := tokens["refresh_token"].(string)
+					refreshToken, ok := tokens["mnm_refresh_token"].(string)
 					if !ok {
 						log.Printf("Failed to get refresh token in require middleware: %+v", refreshAccessTokenErr)
 						loginURL := fmt.Sprintf("/auth/login?redirect=%s", url.QueryEscape(redirectUrl))
