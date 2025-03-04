@@ -1645,6 +1645,7 @@ func TestGetUsersHandler(t *testing.T) {
 
 	// Set the mock Zitadel server URL
 	mockZitadelServer.Listener.Close()
+	var err error
 	mockZitadelServer.Listener, err = net.Listen("tcp", helpers.MOCK_ZITADEL_HOST)
 	if err != nil {
 		t.Fatalf("Failed to start mock Zitadel server: %v", err)
@@ -1956,6 +1957,7 @@ func TestSearchUsersHandler(t *testing.T) {
 
 	// Set the mock Zitadel server URL
 	mockZitadelServer.Listener.Close()
+	var err error
 	mockZitadelServer.Listener, err = net.Listen("tcp", helpers.MOCK_ZITADEL_HOST)
 	if err != nil {
 		t.Fatalf("Failed to start mock Zitadel server: %v", err)

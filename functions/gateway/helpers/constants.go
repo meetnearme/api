@@ -35,6 +35,13 @@ const META_ABOUT_KEY = "about"
 const ERR_KV_KEY_EXISTS = "key already exists in KV store"
 const GO_TEST_ENV = "test"
 
+const PKCE_VERIFIER_COOKIE_NAME = "mnm_pkce_verifier"
+const MNM_ACCESS_TOKEN_COOKIE_NAME = "mnm_access_token"
+const MNM_REFRESH_TOKEN_COOKIE_NAME = "mnm_refresh_token"
+const MNM_ID_TOKEN_COOKIE_NAME = "mnm_id_token"
+const FINAL_REDIRECT_URI_KEY = "final_redirect_uri"
+const POST_LOGOUT_REDIRECT_URI_KEY = "post_logout_redirect_uri"
+
 const MOCK_CLOUDFLARE_URL = "http://localhost:8999"
 const MOCK_ZITADEL_HOST = "localhost:8998"
 const MOCK_MARQO_URL = "http://localhost:8997"

@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/transport"
 )
-
-var codeChallenge, codeVerifier, err = services.GenerateCodeChallengeAndVerifier()
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParams := r.URL.Query()
@@ -17,14 +17,29 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	apexURL := os.Getenv("APEX_URL")
 	if apexURL == "" {
-		http.Error(w, "APEX_URL not configured", http.StatusInternalServerError)
-		return http.HandlerFunc(nil)
+		log.Println("APEX_URL not configured")
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("APEX_URL not configured"), http.StatusInternalServerError)
+		}
 	}
+
+	codeChallenge, codeVerifier, err := services.GenerateCodeChallengeAndVerifier()
+	if err != nil {
+		log.Println("Failed to generate code challenge and verifier", err)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Failed to generate code challenge and verifier"), http.StatusInternalServerError)
+		}
+	}
+
+	services.SetSubdomainCookie(w, helpers.PKCE_VERIFIER_COOKIE_NAME, codeVerifier, false, 600)
 
 	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectQueryParam)
 	if err != nil {
-		http.Error(w, "Failed to authorize request", http.StatusBadRequest)
-		return http.HandlerFunc(nil)
+		msg := fmt.Sprintf("Failed to authorize request: %+v", err)
+		log.Println(msg)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte(msg), http.StatusBadRequest)(w, r)
+		}
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -38,35 +53,77 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	if sessionId != "" {
 		location := r.Header.Get("Location")
-		http.Redirect(w, r, location, http.StatusFound)
-		return http.HandlerFunc(nil)
+		return func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, location, http.StatusFound)
+		}
 	}
+
+	// NOTE: We get the code verifier from stored cookies beacuse
+	// distributed ephemeral lambda environments can have a conflict
+	// where the lambda instance issuing the auth request can be
+	// different from the lambda instance receiving the callback
+	verifierCookie, err := r.Cookie(helpers.PKCE_VERIFIER_COOKIE_NAME)
+	if err != nil {
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Invalid or expired authorization session"), http.StatusBadRequest)(w, r)
+		}
+	}
+
+	codeVerifier := verifierCookie.Value
+	if codeVerifier == "" {
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Invalid or expired authorization session"), http.StatusBadRequest)(w, r)
+		}
+	}
+
+	// PKCE verifiier token is now consumed, clear it
+	services.ClearSubdomainCookie(w, helpers.PKCE_VERIFIER_COOKIE_NAME)
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		http.Error(w, "Authorization code is missing", http.StatusBadRequest)
-		return http.HandlerFunc(nil)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Authorization code is missing"), http.StatusBadRequest)(w, r)
+		}
 	}
 
-	tokens, err := services.GetAuthToken(code, codeVerifier)
+	zitadelRes, err := services.GetAuthToken(code, codeVerifier)
 	if err != nil {
 		log.Printf("Authentication Failed: %v", err)
-		http.Error(w, "Authentication failed", http.StatusUnauthorized)
-		return http.HandlerFunc(nil)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Authentication failed"), http.StatusUnauthorized)(w, r)
+		}
 	}
 
 	// Store the access token and refresh token securely
-	accessToken, ok := tokens["access_token"].(string)
+	accessToken, ok := zitadelRes["access_token"].(string)
 	if !ok {
-		http.Error(w, "Failed to get access token", http.StatusInternalServerError)
-		return http.HandlerFunc(nil)
+		if zitadelRes["error"] != "" {
+			msg := fmt.Sprintf("Failed to get access tokens, error from zitadel: %+v", zitadelRes["error"])
+			if zitadelRes["error_description"] != "" {
+				msg += fmt.Sprintf(", error_description: %+v", zitadelRes["error_description"])
+			}
+			log.Printf(msg)
+			return func(w http.ResponseWriter, r *http.Request) {
+				transport.SendHtmlErrorPage([]byte(msg), http.StatusUnauthorized)(w, r)
+			}
+		}
+		log.Printf("Failed to get access tokens, error from zitadel: %+v", zitadelRes)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Failed to get access token"), http.StatusInternalServerError)(w, r)
+		}
 	}
 
-	refreshToken, ok := tokens["refresh_token"].(string)
+	refreshToken, ok := zitadelRes["refresh_token"].(string)
 	if !ok {
-		fmt.Printf("Refresh token error: %v", ok)
-		http.Error(w, "Failed to get refresh token", http.StatusInternalServerError)
-		return http.HandlerFunc(nil)
+		log.Printf("Refresh token error: %v", ok)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Failed to get refresh token"), http.StatusInternalServerError)(w, r)
+		}
+	}
+	idTokenHint, ok := zitadelRes["id_token"].(string)
+	if !ok {
+		log.Printf("id_token_hint not found in query params")
 	}
 
 	var userRedirectURL string = "/"
@@ -75,12 +132,9 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	// Store tokens in cookies
-	subdomainAccessToken, apexAccessToken := services.GetContextualCookie("mnm_access_token", accessToken, false)
-	subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("mnm_refresh_token", refreshToken, false)
-	http.SetCookie(w, subdomainAccessToken)
-	http.SetCookie(w, apexAccessToken)
-	http.SetCookie(w, subdomainRefreshToken)
-	http.SetCookie(w, apexRefreshToken)
+	services.SetSubdomainCookie(w, helpers.MNM_ACCESS_TOKEN_COOKIE_NAME, accessToken, false, 0)
+	services.SetSubdomainCookie(w, helpers.MNM_REFRESH_TOKEN_COOKIE_NAME, refreshToken, false, 0)
+	services.SetSubdomainCookie(w, helpers.MNM_ID_TOKEN_COOKIE_NAME, idTokenHint, false, 0)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, userRedirectURL, http.StatusFound)
