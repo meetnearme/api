@@ -125,5 +125,8 @@ func SendServerRes(w http.ResponseWriter, body []byte, status int, err error) ht
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 
+	// NOTE: we don't want to return `nil` to a handler function in general, but we need to clean
+	// up a bunch of other code connected to this
+
 	return http.HandlerFunc(nil)
 }
