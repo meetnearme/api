@@ -22,7 +22,7 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 				// <span class="badge">New</span>
 			</a>
 		</li>
-		<li><a x-data="" :href="'/auth/logout?post_logout_redirect_uri=' + window.location.href">Logout</a></li>
+		<li><a x-data="" :href={ " '/auth/logout?" + helpers.POST_LOGOUT_REDIRECT_URI_KEY + "=' + window.location.href " }>Logout</a></li>
 	</ul>
 }
 

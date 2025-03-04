@@ -76,9 +76,9 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 
 	// convert endTime either UTC / time.RFC3339 or integer
 	// string (presumed unix) to int64
-	if _, err = time.Parse(time.RFC3339, endTimeStr); err == nil {
+	if _, err := time.Parse(time.RFC3339, endTimeStr); err == nil {
 		endTime, _ = time.Parse(time.RFC3339, endTimeStr)
-	} else if endTimeUnix, err = strconv.ParseInt(endTimeStr, 10, 64); err == nil {
+	} else if endTimeUnix, err := strconv.ParseInt(endTimeStr, 10, 64); err == nil {
 		endTime = time.Unix(endTimeUnix, 0)
 		// Set end time to 24 hours after start time
 		// default wrong query string usage to PLUS ONE MONTH for endTime
@@ -352,7 +352,7 @@ func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage, types.Event{}, []string{})
 	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
+	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
@@ -407,7 +407,7 @@ func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.Handler
 	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, types.Event{}, []string{})
 
 	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
+	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}

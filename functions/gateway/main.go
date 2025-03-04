@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -168,6 +169,7 @@ func NewApp() *App {
 	app := &App{
 		Router: mux.NewRouter(),
 	}
+	app.Router.Use(stateRedirectMiddleware)
 	app.Router.Use(withContext)
 	app.InitializeAuth()
 	log.Printf("App created: %+v", app)
@@ -199,6 +201,7 @@ func (app *App) addRoute(route Route) {
 	var refreshTokenCookie *http.Cookie
 	var err error
 	var refreshTokenCookieErr error
+
 	switch route.Auth {
 	case Require:
 		handler = func(w http.ResponseWriter, r *http.Request) {
@@ -211,9 +214,9 @@ func (app *App) addRoute(route Route) {
 				accessToken = strings.TrimPrefix(authHeader, "Bearer ")
 			} else {
 				// Fall back to cookie-based auth
-				accessTokenCookie, err = r.Cookie("mnm_access_token")
+				accessTokenCookie, err = r.Cookie(helpers.MNM_ACCESS_TOKEN_COOKIE_NAME)
 				if err != nil {
-					refreshTokenCookie, refreshTokenCookieErr = r.Cookie("mnm_refresh_token")
+					refreshTokenCookie, refreshTokenCookieErr = r.Cookie(helpers.MNM_REFRESH_TOKEN_COOKIE_NAME)
 					if refreshTokenCookieErr != nil {
 						state := base64.URLEncoding.EncodeToString([]byte(redirectUrl))
 						loginURL := fmt.Sprintf("/auth/login?state=%s&redirect=%s", state, url.QueryEscape(redirectUrl))
@@ -223,32 +226,41 @@ func (app *App) addRoute(route Route) {
 
 					tokens, refreshAccessTokenErr := services.RefreshAccessToken(refreshTokenCookie.Value)
 					if refreshAccessTokenErr != nil {
-						http.Error(w, "Authentication failed", http.StatusUnauthorized)
+						log.Printf("Require middleware refresh / access token error: %+v", refreshAccessTokenErr)
+						loginURL := fmt.Sprintf("/auth/login?redirect=%s", url.QueryEscape(redirectUrl))
+						http.Redirect(w, r, loginURL, http.StatusFound)
 						return
 					}
 
 					// Store the access token and refresh token securely
 					newAccessToken, ok := tokens["mnm_access_token"].(string)
 					if !ok {
-						http.Error(w, "Failed to get access token", http.StatusInternalServerError)
+						log.Printf("Failed to get access token in require middleware: %+v", refreshAccessTokenErr)
+						loginURL := fmt.Sprintf("/auth/login?redirect=%s", url.QueryEscape(redirectUrl))
+						http.Redirect(w, r, loginURL, http.StatusFound)
 						return
 					}
 
 					refreshToken, ok := tokens["mnm_refresh_token"].(string)
 					if !ok {
-						fmt.Printf("Refresh token error: %v", ok)
-						http.Error(w, "Failed to get refresh token", http.StatusInternalServerError)
+						log.Printf("Failed to get refresh token in require middleware: %+v", refreshAccessTokenErr)
+						loginURL := fmt.Sprintf("/auth/login?redirect=%s", url.QueryEscape(redirectUrl))
+						http.Redirect(w, r, loginURL, http.StatusFound)
+						return
+					}
+
+					idTokenHint, ok := tokens["id_token"].(string)
+					if !ok {
+						log.Printf("Failed to get id_token in require middleware: %+v", refreshAccessTokenErr)
+						loginURL := fmt.Sprintf("/auth/login?redirect=%s", url.QueryEscape(redirectUrl))
+						http.Redirect(w, r, loginURL, http.StatusFound)
 						return
 					}
 
 					// Store tokens in cookies
-					subdomainAccessToken, apexAccessToken := services.GetContextualCookie("mnm_access_token", newAccessToken, false)
-					subdomainRefreshToken, apexRefreshToken := services.GetContextualCookie("mnm_refresh_token", refreshToken, false)
-					http.SetCookie(w, subdomainAccessToken)
-					http.SetCookie(w, apexAccessToken)
-					http.SetCookie(w, subdomainRefreshToken)
-					http.SetCookie(w, apexRefreshToken)
-
+					services.SetSubdomainCookie(w, helpers.MNM_ACCESS_TOKEN_COOKIE_NAME, newAccessToken, false, 0)
+					services.SetSubdomainCookie(w, helpers.MNM_REFRESH_TOKEN_COOKIE_NAME, refreshToken, false, 0)
+					services.SetSubdomainCookie(w, helpers.MNM_ID_TOKEN_COOKIE_NAME, idTokenHint, false, 0)
 					accessToken = newAccessToken
 					http.Redirect(w, r, redirectUrl, http.StatusFound)
 					return
@@ -261,7 +273,8 @@ func (app *App) addRoute(route Route) {
 			if err != nil {
 				log.Printf("Authorization Failed: %v", err)
 				if strings.HasPrefix(authHeader, "Bearer ") {
-					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					loginURL := fmt.Sprintf("/auth/login?redirect=%s", url.QueryEscape(redirectUrl))
+					http.Redirect(w, r, loginURL, http.StatusFound)
 				} else {
 					// Store the original host and URL in the state parameter
 					state := base64.URLEncoding.EncodeToString([]byte(redirectUrl))
@@ -299,7 +312,7 @@ func (app *App) addRoute(route Route) {
 	case Check:
 		handler = func(w http.ResponseWriter, r *http.Request) {
 			// Get the access token from cookies
-			accessTokenCookie, err = r.Cookie("mnm_access_token")
+			accessTokenCookie, err = r.Cookie(helpers.MNM_ACCESS_TOKEN_COOKIE_NAME)
 			if err != nil {
 				route.Handler(w, r).ServeHTTP(w, r)
 				return
@@ -341,7 +354,7 @@ func (app *App) addRoute(route Route) {
 		}
 	case RequireServiceUser:
 		handler = func(w http.ResponseWriter, r *http.Request) {
-			accessTokenCookie, err = r.Cookie("mnm_access_token")
+			accessTokenCookie, err = r.Cookie(helpers.MNM_ACCESS_TOKEN_COOKIE_NAME)
 			if err != nil {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
@@ -425,6 +438,41 @@ func withContext(next http.Handler) http.Handler {
 		}
 		// Add context to request
 		r = r.WithContext(ctx)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Global middleware function for final_redirect_uri state parameter handling
+func stateRedirectMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		stateParam := r.URL.Query().Get("state")
+		if stateParam != "" {
+			// Try to decode the state parameter
+			decodedBytes, err := base64.URLEncoding.DecodeString(stateParam)
+			if err == nil {
+				decodedState := string(decodedBytes)
+				if strings.Contains(decodedState, helpers.FINAL_REDIRECT_URI_KEY+"=") {
+					parts := strings.Split(decodedState, helpers.FINAL_REDIRECT_URI_KEY+"=")
+					if len(parts) > 1 {
+						redirectURI := parts[1]
+						// Remove any additional parameters if present
+						if idx := strings.Index(redirectURI, "&"); idx != -1 {
+							redirectURI = redirectURI[:idx]
+						}
+						redirectURI, err = url.QueryUnescape(redirectURI)
+						if err != nil {
+							log.Printf("Failed to unescape redirectURI: %v", err)
+							http.Redirect(w, r, os.Getenv("APEX_URL"), http.StatusFound)
+							return
+						}
+						http.Redirect(w, r, redirectURI, http.StatusFound)
+						return
+					}
+				}
+			}
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }

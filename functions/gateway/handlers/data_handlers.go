@@ -581,11 +581,12 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		if len(foundUsers) < 1 {
 			jsonResponse = []byte("[]")
 		} else {
-			jsonResponse, err = json.Marshal(foundUsers)
+			_jsonResponse, err := json.Marshal(foundUsers)
 			if err != nil {
 				transport.SendServerRes(w, []byte("Failed to create JSON response"), http.StatusInternalServerError, err)
 				return
 			}
+			jsonResponse = _jsonResponse
 		}
 
 		w.Header().Set("Content-Type", "application/json")
