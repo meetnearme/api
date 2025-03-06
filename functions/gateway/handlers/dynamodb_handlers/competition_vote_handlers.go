@@ -246,7 +246,6 @@ func EXPERIMENTAL_GetCompetitionVoterScoresByCompetitionHandler(w http.ResponseW
 				defer wg.Done()
 
 				compositePartitionKey := fmt.Sprintf("%s_%d", competitionId, round.RoundNumber)
-				log.Printf("250: compositePartitionKey: %+v", compositePartitionKey)
 				eventCompetitionVotes, err := service.GetCompetitionVotesByCompetitionRound(r.Context(), db, compositePartitionKey)
 
 				mu.Lock()
@@ -283,17 +282,23 @@ func EXPERIMENTAL_GetCompetitionVoterScoresByCompetitionHandler(w http.ResponseW
 			voteUserId := vote.UserId
 			voteRoundNumber := strings.Split(vote.CompositePartitionKey, "_")[1]
 			competitionRound := competitionRoundMap[voteRoundNumber]
+			log.Printf("CompetitionRound: %+v", competitionRound)
 			var winningUserId string
 			if competitionRound.CompetitorAScore > competitionRound.CompetitorBScore {
 				winningUserId = competitionRound.CompetitorA
 			} else if competitionRound.CompetitorAScore != competitionRound.CompetitorBScore {
 				winningUserId = competitionRound.CompetitorB
 			}
-			if vote.VoteRecipientId == winningUserId {
-				voteTally[voteUserId] += 1
-			} else {
+			log.Printf("vote.VoteRecipientId: %+v", vote.VoteRecipientId)
+			log.Printf("winningUserId: %+v", winningUserId)
+			if _, ok := voteTally[voteUserId]; !ok {
 				voteTally[voteUserId] = 0
 			}
+			if vote.VoteRecipientId == winningUserId {
+				voteTally[voteUserId] += 1
+			}
+
+			log.Printf("voteTally: %+v", voteTally)
 		}
 
 		response, err := json.Marshal(voteTally)
