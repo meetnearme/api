@@ -98,6 +98,12 @@ inputs:
   USER_TEAM_PASSWORD:
     description: 'The password for user teams'
     required: true
+  FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS:
+    description: 'The feature flag for experimental voter score matchups'
+    required: true
+  FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS_ALLOWED:
+    description: 'The user IDs allowed to use the experimental voter score matchups feature flag'
+    required: true
 runs:
   using: composite
   steps:
@@ -138,6 +144,8 @@ runs:
         # Below is quote to avoid special character bash issues
         echo "USER_TEAM_EMAIL_SCHEMA=\"${{ inputs.USER_TEAM_EMAIL_SCHEMA }}\"" >> .env
         echo USER_TEAM_PASSWORD=${{ inputs.USER_TEAM_PASSWORD }} >> .env
+        echo FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS=${{ inputs.FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS }} >> .env
+        echo FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS_ALLOWED=${{ inputs.FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS_ALLOWED }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

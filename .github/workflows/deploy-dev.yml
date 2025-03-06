@@ -77,6 +77,8 @@ jobs:
           CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }}
           USER_TEAM_EMAIL_SCHEMA: ${{ secrets.USER_TEAM_EMAIL_SCHEMA }}
           USER_TEAM_PASSWORD: ${{ secrets.USER_TEAM_PASSWORD }}
+          FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS: ${{ secrets.FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS }}
+          FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS_ALLOWED: ${{ secrets.FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS_ALLOWED }}
       - name: Generate Cloudflare locations Go file
         uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Deploy AWS resources via SST
