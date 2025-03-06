@@ -119,8 +119,8 @@ func TestGetPurchasesByEventID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &dynamodb_service.MockPurchaseService{
-				GetPurchasesByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.Purchase, map[string]dynamodb_types.AttributeValue, error) {
-					return []internal_types.Purchase{{EventID: eventId, UserID: "user1"}}, nil, nil
+				GetPurchasesByEventIDFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId string, limit int32, startKey string) ([]internal_types.PurchaseDangerous, map[string]dynamodb_types.AttributeValue, error) {
+					return []internal_types.PurchaseDangerous{{EventID: eventId, UserID: "user1", UserEmail: "user1@example.com", UserDisplayName: "User 1"}}, nil, nil
 				},
 			}
 			handler := NewPurchaseHandler(mockService)

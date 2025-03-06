@@ -14,8 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-playground/validator"
+	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/types"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
+
+var validate *validator.Validate = validator.New()
 
 var DefaultProtocol string
 
@@ -93,7 +98,7 @@ func GetImgUrlFromHash(event types.Event) string {
 	noneCatImgCount := 18
 	catNumString := "_"
 	if len(event.Categories) > 0 {
-		firstCat := ArrFindFirst(event.Categories, []string{"Karaoke", "Bocce Ball", "Trivia Night"})
+		firstCat := ArrFindFirst(event.Categories, []string{"Karaoke", "Karaoke Quirky", "Bocce Ball", "Trivia Night"})
 		firstCat = strings.ToLower(strings.ReplaceAll(firstCat, " ", "-"))
 		if firstCat == "" {
 			firstCat = "none"
@@ -104,6 +109,8 @@ func GetImgUrlFromHash(event types.Event) string {
 			catImgCountRange = noneCatImgCount
 		case "karaoke":
 			catImgCountRange = 4
+		case "karaoke-quirky":
+			catImgCountRange = 9
 		case "bocce-ball":
 			catImgCountRange = 4
 		case "trivia-night":
@@ -306,13 +313,7 @@ type ZitadelUserSearchResponse struct {
 	} `json:"result"`
 }
 
-type UserSearchResult struct {
-	UserID      string            `json:"userId"`
-	DisplayName string            `json:"displayName"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
-}
-
-func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
+func SearchUsersByIDs(userIDs []string, dangerous bool) ([]types.UserSearchResultDangerous, error) {
 	if len(userIDs) == 0 {
 		return nil, fmt.Errorf("userIDs must contain at least one element")
 	}
@@ -339,7 +340,7 @@ func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, strings.NewReader(payload))
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResultDangerous{}, err
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -348,13 +349,13 @@ func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResultDangerous{}, err
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResultDangerous{}, err
 	}
 
 	var respData ZitadelUserSearchResponse
@@ -364,22 +365,28 @@ func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
 
 	// Return empty array if no results
 	if len(respData.Result) == 0 {
-		return []UserSearchResult{}, nil
+		return []types.UserSearchResultDangerous{}, nil
 	}
 
 	// Map users to UserSearchResult
-	var results []UserSearchResult
+	var results []types.UserSearchResultDangerous
 	for _, user := range respData.Result {
-		results = append(results, UserSearchResult{
+		appendItem := types.UserSearchResultDangerous{
 			UserID:      user.UserID,
 			DisplayName: user.Human.Profile.DisplayName,
-		})
+		}
+		// WARNING: enabling this is a security risk if not
+		// done with extreme caution
+		if dangerous {
+			appendItem.Email = user.Human.Email["email"].(string)
+		}
+		results = append(results, appendItem)
 	}
 
 	return results, nil
 }
 
-func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
+func SearchUserByEmailOrName(query string) ([]types.UserSearchResult, error) {
 	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users", os.Getenv("ZITADEL_INSTANCE_HOST"))
 	method := "POST"
 
@@ -421,7 +428,7 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, readerPayload)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResult{}, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
@@ -429,12 +436,12 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResult{}, err
 	}
 	defer res.Body.Close()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResult{}, err
 	}
 	var respData ZitadelUserSearchResponse
 	if err := json.Unmarshal(body, &respData); err != nil {
@@ -443,13 +450,13 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 
 	// Return empty array if no results
 	if len(respData.Result) == 0 {
-		return []UserSearchResult{}, nil
+		return []types.UserSearchResult{}, nil
 	}
 
 	// Filter and map active users to UserSearchResult
-	var results []UserSearchResult
+	var results []types.UserSearchResult
 	for _, user := range respData.Result {
-		results = append(results, UserSearchResult{
+		results = append(results, types.UserSearchResult{
 			// we specifically omit `preferredLoginName` because it's an email address and we want
 			// to prevent a scenario where we expose a user's email address to a unauthorized party
 			UserID:      user.UserID,
@@ -461,7 +468,7 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 	return results, nil
 }
 
-func GetOtherUserByID(userID string) (UserSearchResult, error) {
+func GetOtherUserByID(userID string) (types.UserSearchResult, error) {
 	// https://zitadel.com/docs/apis/resources/user_service_v2/user-service-get-user-by-id
 	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID)
 	method := "GET"
@@ -469,7 +476,7 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
-		return UserSearchResult{}, err
+		return types.UserSearchResult{}, err
 	}
 
 	req.Header.Add("Accept", "application/json")
@@ -477,13 +484,13 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return UserSearchResult{}, err
+		return types.UserSearchResult{}, err
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return UserSearchResult{}, err
+		return types.UserSearchResult{}, err
 	}
 
 	// Check for error status codes
@@ -496,9 +503,9 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 			} `json:"details"`
 		}
 		if err := json.Unmarshal(body, &errResp); err != nil {
-			return UserSearchResult{}, fmt.Errorf("failed to get user: status %d", res.StatusCode)
+			return types.UserSearchResult{}, fmt.Errorf("failed to get user: status %d", res.StatusCode)
 		}
-		return UserSearchResult{}, fmt.Errorf("failed to get user: %s", errResp.Message)
+		return types.UserSearchResult{}, fmt.Errorf("failed to get user: %s", errResp.Message)
 	}
 
 	var respData struct {
@@ -514,10 +521,10 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 	}
 
 	if err := json.Unmarshal(body, &respData); err != nil {
-		return UserSearchResult{}, fmt.Errorf("failed to unmarshal response: %w", err)
+		return types.UserSearchResult{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	result := UserSearchResult{
+	result := types.UserSearchResult{
 		UserID:      respData.User.ID,
 		DisplayName: respData.User.Human.Profile.DisplayName,
 	}
@@ -619,6 +626,129 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	return nil
 }
 
+// Define a struct for the request payload
+type createUserPayload struct {
+	UserID string `json:"userId"`
+	Email  struct {
+		Email      string `json:"email"`
+		IsVerified bool   `json:"isVerified"`
+	} `json:"email"`
+	Password struct {
+		Password       string `json:"password"`
+		ChangeRequired bool   `json:"changeRequired"`
+	} `json:"password"`
+	Profile struct {
+		GivenName   string `json:"givenName"`
+		FamilyName  string `json:"familyName"`
+		NickName    string `json:"nickName"`
+		DisplayName string `json:"displayName"`
+	} `json:"profile"`
+	Metadata []struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	} `json:"metadata"`
+}
+
+func CreateTeamUserWithMembers(displayName, candidateUUID string, members []string) (types.UserSearchResultDangerous, error) {
+	err := ValidateTeamUUID(candidateUUID)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	emailSchema := os.Getenv("USER_TEAM_EMAIL_SCHEMA")
+	password := os.Getenv("USER_TEAM_PASSWORD")
+	email := strings.Replace(emailSchema, "<replace>", candidateUUID, 1)
+
+	nameParts := strings.SplitN(displayName, " ", 2)
+	if len(nameParts) < 2 {
+		return types.UserSearchResultDangerous{}, fmt.Errorf("display name must contain first and last name")
+	}
+	firstPartName := nameParts[0]
+	secondPartName := nameParts[1]
+
+	// Create the payload struct
+	payload := createUserPayload{
+		UserID: candidateUUID,
+	}
+	payload.Email.Email = email
+	payload.Email.IsVerified = true
+	payload.Password.Password = password
+	payload.Password.ChangeRequired = false
+	payload.Profile.GivenName = firstPartName
+	payload.Profile.FamilyName = secondPartName
+	payload.Profile.NickName = displayName
+	payload.Profile.DisplayName = displayName
+
+	// Add metadata
+	if len(members) > 0 {
+		payload.Metadata = append(payload.Metadata, struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		}{
+			Key:   "members",
+			Value: base64.StdEncoding.EncodeToString([]byte(strings.Join(members, ","))),
+		})
+	}
+
+	payload.Metadata = append(payload.Metadata, struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}{
+		Key:   "userType",
+		Value: base64.StdEncoding.EncodeToString([]byte("team")),
+	})
+
+	// Marshal the payload struct to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/human", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	var respData types.UserSearchResultDangerous
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	return respData, nil
+}
+
+func ValidateTeamUUID(candidateUUID string) error {
+	parts := strings.SplitN(candidateUUID, "tm_", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid UUID format after 'tm_': %s", parts[1])
+	}
+	_uuid := parts[1]
+	_, err := uuid.Parse(_uuid)
+	if err != nil {
+		return fmt.Errorf("invalid UUID format after 'tm_': %s", _uuid)
+	}
+	return nil
+}
+
 func ArrFindFirst(needles []string, haystack []string) string {
 	for _, s := range needles {
 		for _, item := range haystack {
@@ -646,8 +776,11 @@ func GetTimeOrShowNone(datetime int64, timezone time.Location) string {
 	return formattedTime
 }
 
-func GetDatetimePickerFormatted(datetime int64, timezone time.Location) string {
-	return time.Unix(datetime, 0).In(&timezone).Format("2006-01-02T15:04")
+func GetDatetimePickerFormatted(datetime int64, timezone *time.Location) string {
+	if timezone == nil {
+		timezone = time.UTC
+	}
+	return time.Unix(datetime, 0).In(timezone).Format("2006-01-02T15:04")
 }
 
 func GetLocalDateAndTime(datetime int64, timezone time.Location) (string, string) {
@@ -691,9 +824,22 @@ func ToJSON(v interface{}) []byte {
 	return b
 }
 
-func IsAuthorizedEditor(event *types.Event, userInfo *UserInfo) bool {
+func IsAuthorizedEventEditor(event *types.Event, userInfo *UserInfo) bool {
 	for _, ownerId := range event.EventOwners {
 		if ownerId == userInfo.Sub {
+			return true
+		}
+	}
+	return false
+}
+
+func IsAuthorizedCompetitionEditor(competition types.CompetitionConfig, userInfo *UserInfo) bool {
+	allOwners := []string{competition.PrimaryOwner}
+	for _, owner := range competition.AuxilaryOwners {
+		allOwners = append(allOwners, owner)
+	}
+	for _, owner := range allOwners {
+		if owner == userInfo.Sub {
 			return true
 		}
 	}
@@ -712,8 +858,14 @@ func HasRequiredRole(roleClaims []RoleClaim, requiredRoles []string) bool {
 }
 
 func CanEditEvent(event *types.Event, userInfo *UserInfo, roleClaims []RoleClaim) bool {
-	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin", "eventAdmin"})
-	isEditor := IsAuthorizedEditor(event, userInfo)
+	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin"})
+	isEditor := IsAuthorizedEventEditor(event, userInfo)
+	return hasSuperAdminRole || isEditor
+}
+
+func CanEditCompetition(competition types.CompetitionConfig, userInfo *UserInfo, roleClaims []RoleClaim) bool {
+	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin", "competitionAdmin"})
+	isEditor := IsAuthorizedCompetitionEditor(competition, userInfo)
 	return hasSuperAdminRole || isEditor
 }
 
@@ -741,4 +893,32 @@ func GetBase64ValueFromMap(claimsMeta map[string]interface{}, key string) string
 func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []string {
 	interests := GetBase64ValueFromMap(claimsMeta, key)
 	return strings.Split(interests, "|")
+}
+
+func CalculateTTL(days int) int64 {
+	return time.Now().Add(time.Duration(days) * 24 * time.Hour).Unix()
+}
+
+func NormalizeCompetitionRounds(competitionRounds []internal_types.CompetitionRoundUpdate) ([]internal_types.CompetitionRoundUpdate, error) {
+	now := time.Now().Unix()
+	for i := range competitionRounds {
+		if competitionRounds[i].CreatedAt == 0 {
+			competitionRounds[i].CreatedAt = now
+		}
+		competitionRounds[i].UpdatedAt = now
+		competitionRounds[i].Matchup = FormatMatchup(
+			competitionRounds[i].CompetitorA,
+			competitionRounds[i].CompetitorB,
+		)
+		err := validate.Struct(competitionRounds[i])
+		if err != nil {
+			log.Printf("Handler ERROR: Validation failed for round %d: %v", i+1, err)
+			return competitionRounds, err
+		}
+	}
+	return competitionRounds, nil
+}
+
+func FormatMatchup(competitorA, competitorB string) string {
+	return fmt.Sprintf("%s_%s", competitorA, competitorB)
 }
