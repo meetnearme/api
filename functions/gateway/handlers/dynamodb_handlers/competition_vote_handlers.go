@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -195,6 +197,102 @@ func GetCompetitionVotesTallyForRoundHandler(w http.ResponseWriter, r *http.Requ
 				voteTally[voteRecipientId] += 1
 			} else {
 				voteTally[voteRecipientId] = 1
+			}
+		}
+
+		response, err := json.Marshal(voteTally)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+			return
+		}
+
+		transport.SendServerRes(w, response, http.StatusOK, nil)
+	}
+}
+
+func EXPERIMENTAL_GetCompetitionVoterScoresByCompetitionHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		competitionId := vars["competitionId"]
+		if competitionId == "" {
+			transport.SendServerRes(w, []byte("Missing competition ID"), http.StatusBadRequest, nil)
+			return
+		}
+
+		competitionRoundService := dynamodb_service.NewCompetitionRoundService()
+		competitionRounds, err := competitionRoundService.GetCompetitionRounds(r.Context(), db, competitionId)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get user: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+		log.Printf("CompetitionRounds: %+v", competitionRounds)
+
+		// Create a wait group to coordinate goroutines
+		var wg sync.WaitGroup
+		// Mutex to safely collect results
+		var mu sync.Mutex
+		// Slice to collect all votes
+		var allVotes []internal_types.CompetitionVote
+		// Track the first error we encounter
+		var firstError error
+
+		db := transport.GetDB()
+		service := dynamodb_service.NewCompetitionVoteService()
+
+		// Iterate through each round and fetch votes in parallel
+		for _, round := range *competitionRounds {
+			wg.Add(1)
+			go func(round internal_types.CompetitionRound) {
+				defer wg.Done()
+
+				compositePartitionKey := fmt.Sprintf("%s_%d", competitionId, round.RoundNumber)
+				log.Printf("250: compositePartitionKey: %+v", compositePartitionKey)
+				eventCompetitionVotes, err := service.GetCompetitionVotesByCompetitionRound(r.Context(), db, compositePartitionKey)
+
+				mu.Lock()
+				defer mu.Unlock()
+
+				if err != nil && firstError == nil {
+					firstError = err
+					return
+				}
+
+				allVotes = append(allVotes, eventCompetitionVotes...)
+			}(round)
+		}
+
+		// Wait for all goroutines to complete
+		wg.Wait()
+
+		// Check if any errors occurred
+		if firstError != nil {
+			transport.SendServerRes(w, []byte("Failed to get user: "+firstError.Error()), http.StatusInternalServerError, firstError)
+			return
+		}
+
+		competitionRoundMap := make(map[string]internal_types.CompetitionRound)
+		for _, round := range *competitionRounds {
+			competitionRoundMap[fmt.Sprintf("%d", round.RoundNumber)] = round
+		}
+
+		log.Printf("AllVotes: %+v", allVotes)
+
+		// Now use allVotes which contains votes from all rounds
+		var voteTally = map[string]int64{}
+		for _, vote := range allVotes {
+			voteUserId := vote.UserId
+			voteRoundNumber := strings.Split(vote.CompositePartitionKey, "_")[1]
+			competitionRound := competitionRoundMap[voteRoundNumber]
+			var winningUserId string
+			if competitionRound.CompetitorAScore > competitionRound.CompetitorBScore {
+				winningUserId = competitionRound.CompetitorA
+			} else if competitionRound.CompetitorAScore != competitionRound.CompetitorBScore {
+				winningUserId = competitionRound.CompetitorB
+			}
+			if vote.VoteRecipientId == winningUserId {
+				voteTally[voteUserId] += 1
+			} else {
+				voteTally[voteUserId] = 0
 			}
 		}
 

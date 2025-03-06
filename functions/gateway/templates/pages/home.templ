@@ -247,7 +247,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							<div class="divider my-10"></div>
 							<template x-if="leaderboards && leaderboards[competition.id]">
 								<div>
-									<h3 class="text-xl font-bold my-2 uppercase">Leaderboard</h3>
+									<h3 class="text-xl font-bold my-2 uppercase">Standings</h3>
 									<template x-for="[teamId, score] in Object.entries(leaderboards[competition.id])">
 										<div class="flex justify-between border-b border-gray-700">
 											<div x-text="users?.find?.(user => user?.userId === teamId)?.displayName"></div>
@@ -514,7 +514,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			}
 		</main>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-feat-experimental-voter-score-matchups={ helpers.FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS }>
 		// NOTE: this is used by htmx to get the data-attributes
 		// eslint-disable-next-line no-unused-vars
 		function sendParmsFromQs() {
@@ -721,7 +721,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					});
 
 					// Create an array of promises for fetching competition rounds and leaderboards
-					const fetchPromises = this.competitions.flatMap(competition => [
+					let fetchPromises = this.competitions.flatMap(competition => [
 						// Fetch rounds
 						fetch(`/api/competition-round/competition/${competition.id}`)
 							.then(response => response.json())
@@ -731,7 +731,15 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 								return null;
 							}),
 						// Fetch leaderboard
-						fetch(`/api/competition-round/competition-sum/${competition.id}`)
+						competition.scoringMethod === this.featExperimentalVoterScoreMatchups
+						? fetch(`/api/votes/voter-scores/${competition.id}`)
+							.then(response => response.json())
+							.catch(error => {
+								// eslint-disable-next-line no-console
+								console.error(`Error fetching leaderboard for competition ${competition.id}:`, error);
+								return null;
+							})
+						: fetch(`/api/competition-round/competition-sum/${competition.id}`)
 							.then(response => response.json())
 							.catch(error => {
 								// eslint-disable-next-line no-console
@@ -796,6 +804,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
 				fakeEventId: document.querySelector('#alpine-state').getAttribute('data-fake-event-id'),
 				apexUrl: document.querySelector('#alpine-state').getAttribute('data-apex-url'),
+				featExperimentalVoterScoreMatchups: document.querySelector('#alpine-state').getAttribute('data-feat-experimental-voter-score-matchups'),
 			}
 		}
 	</script>

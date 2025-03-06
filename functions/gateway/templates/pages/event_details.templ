@@ -300,7 +300,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 		}
 	</div>
 	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
-	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId }>
+	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId } data-is-experimental-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-is-experimental-event-owners-allowed={ os.Getenv("FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS_ALLOWED") }>
 		function getEventDetailsState() {
 			return {
 				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),
@@ -309,6 +309,9 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				interestedStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-interested-status'),
 				registeredStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-registered-status'),
 				competitionConfigId: document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id'),
+				// NOTE: FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS is for the experimental feature `VOTER_SCORE_MATCHUPS`
+				isExperimentalEventOwners: JSON.parse(document.querySelector('#event-details-script')?.getAttribute?.('data-is-experimental-event-owners')) ?? [],
+				isExperimentalEventOwnersAllowed: document.querySelector('#event-details-script')?.getAttribute?.('data-is-experimental-event-owners-allowed')?.split(',') ?? [],
 				init() {
 						(async () => {
 								const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
@@ -436,7 +439,10 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 							body: JSON.stringify({
 								voteRecipientId: competitorId,
 								voteValue: 1,
-							}),
+								...(
+									this.isExperimentalEventOwners.some(owner => this.isExperimentalEventOwnersAllowed.includes(owner))
+									? { expiresOn: Date.now() + 1000 * 60 * 60 * 24 * 45 } : {})
+							})
 						});
 
 						const data = await response.json();

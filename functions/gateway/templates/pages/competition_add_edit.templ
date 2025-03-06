@@ -4,6 +4,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"os"
 	"strings"
 )
 
@@ -61,6 +62,9 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					>
 						<option value="">Select module type</option>
 						<option value="KARAOKE">Karaoke</option>
+						if os.Getenv("FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS") == "true" {
+							<option value="MARCH_MADNESS">March Madness</option>
+						}
 						<option value="BOCCE" disabled>Bocce</option>
 					</select>
 				</div>
@@ -76,6 +80,9 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					>
 						<option value="">Select scoring method</option>
 						<option value="VOTE_MATCHUPS">Vote Matchups (Win, Loss, Draw)</option>
+						if os.Getenv("FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS") == "true" {
+							<option value="VOTER_SCORE_MATCHUPS">Voter Score Matchups (Ranked by Voter)</option>
+						}
 						<option value="POINT_MATHCUPS" disabled>Point Matchups (Win, Loss, Draw)</option>
 						<option value="VOTE_TOTAL" disabled>Votes (Total)</option>
 						<option value="POINT_TOTAL" disabled>Points (Total)</option>
@@ -385,41 +392,45 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 										</div>
 									</template>
 									<br/>
-									<div class="flex items-center gap-4 mb-4 rounded-box bg-base-100 p-4">
-										<div>
-											<span x-text="round.competitorADisplayName + ' votes: ' "></span>
-											<template x-if="!$data['tallyVotesReqInFlight' + round.roundNumber]">
-												<span x-text="(round.competitorAVotes || '?')"></span>
-											</template>
-											<template x-if="$data['tallyVotesReqInFlight' + round.roundNumber]">
-												<span class="loading loading-spinner loading-xs text-primary"></span>
-											</template>
+									<template x-if="formData.scoringMethod === 'VOTE_MATCHUPS' ">
+										<div class="flex items-center gap-4 mb-4 rounded-box bg-base-100 p-4">
+											<div>
+												<span x-text="round.competitorADisplayName + ' votes: ' "></span>
+												<template x-if="!$data['tallyVotesReqInFlight' + round.roundNumber]">
+													<span x-text="(round.competitorAVotes || '?')"></span>
+												</template>
+												<template x-if="$data['tallyVotesReqInFlight' + round.roundNumber]">
+													<span class="loading loading-spinner loading-xs text-primary"></span>
+												</template>
+											</div>
+											<div>
+												<span x-text="round.competitorBDisplayName + ' votes: ' "></span>
+												<template x-if="!$data['tallyVotesReqInFlight' + round.roundNumber]">
+													<span x-text="(round.competitorBVotes || '?')"></span>
+												</template>
+												<template x-if="$data['tallyVotesReqInFlight' + round.roundNumber]">
+													<span class="loading loading-spinner loading-xs text-primary"></span>
+												</template>
+											</div>
 										</div>
-										<div>
-											<span x-text="round.competitorBDisplayName + ' votes: ' "></span>
-											<template x-if="!$data['tallyVotesReqInFlight' + round.roundNumber]">
-												<span x-text="(round.competitorBVotes || '?')"></span>
-											</template>
-											<template x-if="$data['tallyVotesReqInFlight' + round.roundNumber]">
-												<span class="loading loading-spinner loading-xs text-primary"></span>
-											</template>
-										</div>
-									</div>
+									</template>
 									<br/>
-									<div class="flow-root md:flex items-center md:gap-4 mb-4">
-										<div class="form-control w-full md:grow">
-											<label class="label">
-												<span class="label-text">Competitor A Score</span>
-											</label>
-											<input type="number" class="input input-bordered" x-model="round.competitorAScore" value="0"/>
+									<template x-if="formData.scoringMethod === 'VOTE_MATCHUPS' || formData.scoringMethod === 'VOTER_SCORE_MATCHUPS' ">
+										<div class="flow-root md:flex items-center md:gap-4 mb-4">
+											<div class="form-control w-full md:grow">
+												<label class="label">
+													<span class="label-text">Competitor A Score</span>
+												</label>
+												<input type="number" class="input input-bordered" x-model="round.competitorAScore" value="0"/>
+											</div>
+											<div class="form-control w-full md:grow">
+												<label class="label">
+													<span class="label-text">Competitor B Score</span>
+												</label>
+												<input type="number" class="input input-bordered" x-model="round.competitorBScore" value="0"/>
+											</div>
 										</div>
-										<div class="form-control w-full md:grow">
-											<label class="label">
-												<span class="label-text">Competitor B Score</span>
-											</label>
-											<input type="number" class="input input-bordered" x-model="round.competitorBScore" value="0"/>
-										</div>
-									</div>
+									</template>
 								</li>
 							</template>
 						</template>
@@ -517,7 +528,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									userId: user.userId
 								}));
 
-							this.competitors = this.teams.flatMap(team => team.competitors)
+							this.competitors = [...this.teams.flatMap(team => team.competitors), ...this.competitors]
 						} catch (e) {
 							// eslint-disable-next-line no-console
 							console.error('Error fetching competition data:', e);
@@ -632,9 +643,10 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						this.teams.push({
 							label:  competitorToAdd.displayName,
 							id: competitorToAdd.userId,
-							competitors: []
+							competitors: competitorToAdd?.competitors ?? []
 						})
 						this.waitingRoom = this.waitingRoom.filter(_competitor => _competitor.userId !== competitorToAdd.userId)
+						this.competitors = this.teams.flatMap(team => team.competitors)
 					} else {
 						// Find the exact competitor in the waiting room
 						const waitingRoomIndex = this.waitingRoom.findIndex(c => c.userId === competitorToAdd.userId);

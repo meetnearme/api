@@ -42,6 +42,8 @@ const MNM_ID_TOKEN_COOKIE_NAME = "mnm_id_token"
 const FINAL_REDIRECT_URI_KEY = "final_redirect_uri"
 const POST_LOGOUT_REDIRECT_URI_KEY = "post_logout_redirect_uri"
 
+const FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS = "VOTER_SCORE_MATCHUPS"
+
 const MOCK_CLOUDFLARE_URL = "http://localhost:8999"
 const MOCK_ZITADEL_HOST = "localhost:8998"
 const MOCK_MARQO_URL = "http://localhost:8997"
@@ -57,7 +59,6 @@ const DEFAULT_MAX_RADIUS = 999999
 const DEFAULT_UNDEFINED_END_TIME = math.MaxInt64
 
 const EventOwnerNameDelimiter = " _|_ "
-
 const EV_MODE_CAROUSEL = "CAROUSEL"
 const EV_MODE_UPCOMING = "DETAILED"
 const EV_MODE_LIST = "LIST"

@@ -45,10 +45,12 @@ type CompetitionConfig struct {
 	// TODO: `dynamodbav:"eventIds,stringset"` shows to the user string set must only contain non-nil strings which
 	// is not sufficiently human readable. We need controller level validation to
 	// ensure the user understands the error
-	EventIds      []string           `json:"eventIds" dynamodbav:"eventIds" validate:"required"`
-	Name          string             `json:"name" dynamodbav:"name" validate:"required"`
-	ModuleType    string             `json:"moduleType" dynamodbav:"moduleType" validate:"required,oneof=KARAOKE BOCCE"`
-	ScoringMethod string             `json:"scoringMethod" dynamodbav:"scoringMethod" validate:"required,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL"`
+	EventIds []string `json:"eventIds" dynamodbav:"eventIds" validate:"required"`
+	Name     string   `json:"name" dynamodbav:"name" validate:"required"`
+	// NOTE: `FEAT_EXPERIMENTAL_MARCH_MADNESS` correlates to the ModuleType `MARCH_MADNESS`
+	ModuleType string `json:"moduleType" dynamodbav:"moduleType" validate:"required,oneof=KARAOKE BOCCE MARCH_MADNESS"`
+	// NOTE: `FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS` correlates to the ScoringMethod `VOTER_SCORE_MATCHUPS`
+	ScoringMethod string             `json:"scoringMethod" dynamodbav:"scoringMethod" validate:"required,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL VOTER_SCORE_MATCHUPS"`
 	Rounds        []CompetitionRound `json:"rounds" dynamodbav:"rounds" validate:"required"`
 	Competitors   []string           `json:"competitors" dynamodbav:"competitors"`
 	Status        string             `json:"status" dynamodbav:"status" validate:"required,oneof=DRAFT ACTIVE COMPLETE"`
@@ -86,9 +88,11 @@ type CompetitionConfigUpdate struct {
 	PrimaryOwner string `json:"primaryOwner" dynamodbav:"primaryOwner" validate:"required"`
 	Name         string `json:"name,omitempty" dynamodbav:"name"`
 	// TODO: these should be enums for re-use on the client
-	ModuleType string `json:"moduleType,omitempty" dynamodbav:"moduleType" validate:"omitempty,oneof=KARAOKE BOCCE"`
+	// NOTE: `FEAT_EXPERIMENTAL_MARCH_MADNESS` correlates to the ModuleType `MARCH_MADNESS`
+	ModuleType string `json:"moduleType,omitempty" dynamodbav:"moduleType" validate:"omitempty,oneof=KARAOKE BOCCE MARCH_MADNESS"`
 	// TODO: these should be enums for re-use on the client
-	ScoringMethod  string   `json:"scoringMethod,omitempty" dynamodbav:"scoringMethod" validate:"omitempty,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL"`
+	// NOTE: `FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS` correlates to the ScoringMethod `VOTER_SCORE_MATCHUPS`
+	ScoringMethod  string   `json:"scoringMethod,omitempty" dynamodbav:"scoringMethod" validate:"omitempty,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL VOTER_SCORE_MATCHUPS"`
 	AuxilaryOwners []string `json:"auxilaryOwners,omitempty" dynamodbav:"auxilaryOwners"` // JSON array string
 	EventIds       []string `json:"eventIds,omitempty" dynamodbav:"eventIds"`             // JSON array string
 	Competitors    []string `json:"competitors,omitempty" dynamodbav:"competitors"`       // JSON array string
