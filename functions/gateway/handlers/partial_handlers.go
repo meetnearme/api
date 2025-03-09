@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 
 	"net/http"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -38,8 +38,8 @@ type SeshuSessionSubmitPayload struct {
 }
 
 type SeshuSessionEventsPayload struct {
-	Url              string   `json:"url" validate:"required"` // URL is the DB key in SeshuSession
-	EventValidations [][]bool `json:"eventValidations" validate:"required"`
+	Url            string                          `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+	EventBoolValid []internal_types.EventBoolValid `json:"eventValidations" validate:"required"`
 }
 
 type SetSubdomainRequestPayload struct {
@@ -379,7 +379,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	// Note that only OpenAI can push events as candidates, `eventValidations` is an array of
 	// arrays that confirms the subfields, but avoids a scenario where users can push string data
 	// that is prone to manipulation
-	updateSeshuSession.EventValidations = inputPayload.EventValidations
+	updateSeshuSession.EventValidations = inputPayload.EventBoolValid
 
 	seshuService := services.GetSeshuService()
 	_, err = seshuService.UpdateSeshuSession(ctx, db, updateSeshuSession)
@@ -397,20 +397,6 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	}
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
-}
-
-func getFieldIndices() map[string]int {
-	indices := make(map[string]int)
-	eventType := reflect.TypeOf(internal_types.EventInfo{})
-
-	for i := 0; i < eventType.NumField(); i++ {
-		fieldName := eventType.Field(i).Name
-		switch fieldName {
-		case "EventTitle", "EventLocation", "EventStartTime", "EventEndTime", "EventURL", "EventDescription":
-			indices[fieldName] = i
-		}
-	}
-	return indices
 }
 
 func isFakeData(val string) bool {
@@ -437,28 +423,34 @@ func isFakeData(val string) bool {
 	return false
 }
 
-func getValidatedEvents(candidates []internal_types.EventInfo, validations [][]bool, hasDefaultLocation bool) []internal_types.EventInfo {
+func getValidatedEvents(candidates []internal_types.EventInfo, validations []internal_types.EventBoolValid, hasDefaultLocation bool) []internal_types.EventInfo {
 	var validatedEvents []internal_types.EventInfo
-	indiceMap := getFieldIndices()
 
 	for i := range candidates {
 		isValid := true
 
-		if candidates[i].EventTitle == "" || !validations[i][indiceMap["EventTitle"]] || isFakeData(candidates[i].EventTitle) {
-			isValid = false
-		}
-		if hasDefaultLocation {
-			isValid = true
-		} else if candidates[i].EventLocation == "" || !validations[i][indiceMap["EventLocation"]] || isFakeData(candidates[i].EventLocation) {
-			isValid = false
-		}
-		if candidates[i].EventStartTime == "" || !validations[i][indiceMap["EventStartTime"]] || isFakeData(candidates[i].EventTitle) {
+		// Validate Event Title
+		if candidates[i].EventTitle == "" || isFakeData(candidates[i].EventTitle) || !validations[i].EventValidateTitle {
 			isValid = false
 		}
 
+		// Validate Event Location (Only if no default location is provided)
+		if !hasDefaultLocation {
+			if candidates[i].EventLocation == "" || isFakeData(candidates[i].EventLocation) || !validations[i].EventValidateLocation {
+				isValid = false
+			}
+		}
+
+		// Validate Event Start Time
+		if candidates[i].EventStartTime == "" || isFakeData(candidates[i].EventStartTime) || !validations[i].EventValidateStartTime {
+			isValid = false
+		}
+
+		// If valid, add event to list
 		if isValid {
 			validatedEvents = append(validatedEvents, candidates[i])
 		}
+
 	}
 	return validatedEvents
 }
@@ -514,7 +506,25 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
+	var payload SeshuSessionEventsPayload
+	err = json.Unmarshal([]byte(body), &payload)
+	if err != nil {
+		log.Fatal("Failed to parse JSON:", err)
+	}
+
+	var seshuSessionGet internal_types.SeshuSessionGet
+	// TODO: this needs to use Auth
+	seshuSessionGet.OwnerId = "123"
+	seshuSessionGet.Url = payload.Url
+	seshuService := services.GetSeshuService()
+
+	session, err := seshuService.GetSeshuSession(ctx, db, seshuSessionGet)
+	if err != nil {
+		log.Println("Failed to get SeshuSession. ID: ", session, err)
+	}
+
 	err = json.Unmarshal([]byte(body), &inputPayload)
+	inputPayload.EventBoolValid = session.EventValidations
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, "partial", err)
@@ -533,16 +543,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	}
 
 	defer func() {
-		var seshuSessionGet internal_types.SeshuSessionGet
-		seshuSessionGet.Url = inputPayload.Url
-		// TODO: this needs to use Auth
-		seshuSessionGet.OwnerId = "123"
-		session, err := services.GetSeshuSession(ctx, db, seshuSessionGet)
-
-		if err != nil {
-			log.Println("Failed to get SeshuSession. ID: ", session, err)
-		}
-
 		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLong`
 		// which is an intentionally invalid placeholder
 
@@ -568,6 +568,22 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		log.Println("Validated Events, length: ", len(validatedEvents), " | events: ", validatedEvents)
 
 		// TODO: search `session.Html` for the items in the `validatedEvents` array
+		//Loop through eventTitle
+
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
+		if err != nil {
+			print("Error for doc conversion")
+		}
+
+		// Create a map to store DOM path as key and event titles as values
+		validationMap := make(map[string][]string)
+		for i := range validatedEvents {
+			domPath := findEventDomPath(doc, validatedEvents[i].EventTitle)
+			validationMap[domPath] = append(validationMap[domPath], validatedEvents[i].EventTitle)
+		}
+		log.Println("Extracted DOM Paths:", validationMap)
+
+		//URL as a key --
 
 		// TODO: [0] is just a placeholder, should be a loop over `validatedEvents` array and search for each
 		// or maybe once it finds the first one that's good enough? Walking a long array might be wasted compute
@@ -695,4 +711,51 @@ func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func getFullDomPath(element *goquery.Selection) string {
+	var path []string
+
+	// Traverse up the parent elements
+	for node := element; node.Length() > 0; node = node.Parent() {
+		tag := goquery.NodeName(node)
+
+		// Get unique identifiers (ID or first class)
+		id, existsID := node.Attr("id")
+		if existsID {
+			path = append([]string{fmt.Sprintf("%s#%s", tag, id)}, path...)
+			break // IDs are unique, stop traversal
+		}
+
+		class, existsClass := node.Attr("class")
+		if existsClass {
+			classes := strings.Fields(class)
+			if len(classes) > 0 {
+				path = append([]string{fmt.Sprintf("%s.%s", tag, classes[0])}, path...)
+				continue
+			}
+		}
+
+		// If no ID or class, just append the tag
+		path = append([]string{tag}, path...)
+	}
+
+	return strings.Join(path, " > ") // Return full selector path
+}
+
+func findEventDomPath(doc *goquery.Document, eventTitle string) string {
+
+	var domPath string
+
+	// Search for the element containing the event title
+	doc.Find("*").Each(func(index int, element *goquery.Selection) {
+		text := strings.TrimSpace(element.Text())
+
+		// Check if this element contains the event title
+		if strings.Contains(text, eventTitle) {
+			domPath = getFullDomPath(element)
+		}
+	})
+
+	return domPath
 }
