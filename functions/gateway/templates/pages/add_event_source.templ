@@ -85,7 +85,7 @@ templ AddEventSource() {
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 						</div>
 					</div>
-					<button type="submit" :disabled="!hasEvents || eventCandidates.length === 0" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Event Data <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+					<button type="submit" hx-put="/api/html/seshu/session/events" :disabled="!hasEvents || eventCandidates.length === 0" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Event Data <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 				</form>
 				<div id="events-valid-confirmation" class="margins-when-children my-8"></div>
 				<div id="event-candidates-location" class="has-toggleable-text">
@@ -174,20 +174,59 @@ templ AddEventSource() {
 		</div>
 	</div>
 	<script id="alpine-state" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") }>
-		function getEventValidationsState() {
-			const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'))
-			const outerArr = []
+	function getEventValidationsState() {
+			const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
+			const eventValidations = [];
+
 			cards.forEach(card => {
-				const checkboxes = card.querySelectorAll('input[type="checkbox"]')
-				if (!checkboxes[0].checked) {
-					// Note that 5 here is a value determined by the API in seshu_services/EventInfo
-					outerArr.push(Array(5).fill(false))
-				} else {
-					outerArr.push(Array.from(checkboxes).map(checkbox => checkbox.checked).slice(1))
-				}
-			})
-			return outerArr
-		}
+					const mainToggle = card.querySelector('input[type="checkbox"].toggle');
+					const eventData = {};
+
+					if (!mainToggle.checked) {
+							eventData["event_title"] = false;
+							eventData["event_location"] = false;
+							eventData["event_start_datetime"] = false;
+					} else {
+							const checkboxes = card.querySelectorAll('.card-body input[type="checkbox"]');
+							checkboxes.forEach(checkbox => {
+									const labelText = checkbox.closest('label').querySelector('.label-text');
+									if (labelText) {
+											const [key, value] = labelText.innerText.split(/:\s(.+)/);
+											if (key) {
+													switch (key.trim()) {
+															case "Title":
+																	eventData["event_title"] = checkbox.checked;
+																	break;
+															case "Location":
+																	eventData["event_location"] = checkbox.checked;
+																	break;
+															case "Start Time":
+																	eventData["event_start_datetime"] = checkbox.checked;
+																	break;
+															case "End Time":
+																	eventData["event_end_datetime"] = checkbox.checked;
+																	break;
+															case "URL":
+																	eventData["event_url"] = checkbox.checked;
+																	break;
+															case "Description":
+																	eventData["event_description"] = checkbox.checked;
+																	break;
+													}
+											}
+									}
+							});
+
+							eventData["event_title"] = eventData["event_title"] ?? false;
+							eventData["event_location"] = eventData["event_location"] ?? false;
+							eventData["event_start_datetime"] = eventData["event_start_datetime"] ?? false;
+					}
+
+					eventValidations.push(eventData);
+			});
+
+			return eventValidations;
+	}
 		function getWizardState() {
 			return {
 				formData: {
