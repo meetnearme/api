@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/go-playground/validator"
@@ -176,6 +176,7 @@ func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.La
 
 func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scraper services.ScrapingService) (events.LambdaFunctionURLResponse, error) {
 	var inputPayload SeshuInputPayload
+	var eventValidation []types.EventBoolValid
 
 	err := json.Unmarshal([]byte(req.Body), &inputPayload)
 	if err != nil {
@@ -189,10 +190,6 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 		return clientError(http.StatusBadRequest)
 	}
 
-	if err != nil {
-		return serverError(err)
-	}
-
 	htmlString, err := scraper.GetHTMLFromURL(inputPayload.Url, 4500, true, "")
 	if err != nil {
 		return _SendHtmlErrorPartial(err, ctx, req)
@@ -200,10 +197,22 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 
 	// avoid extra parsing work for <head> content outside of <body>
 	// TODO: this doesn't appear to be working
-	re := regexp.MustCompile(`<body>(.*?)<\/body>`)
-	matches := re.FindStringSubmatch(htmlString)
-	if len(matches) > 1 {
-		htmlString = matches[1]
+
+	// re := regexp.MustCompile(`<body>(.*?)<\/body>`)
+	// matches := re.FindStringSubmatch(htmlString)
+	// if len(matches) > 1 {
+	// 	htmlString = matches[1]
+	// }
+
+	// Getting <body> content only
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlString))
+	if err != nil {
+		return _SendHtmlErrorPartial(err, ctx, req)
+	}
+	// Goquery usage to get the <body> tag
+	htmlString, err = doc.Find("body").Html()
+	if err != nil {
+		return _SendHtmlErrorPartial(err, ctx, req)
 	}
 
 	markdown, err := converter.ConvertString(htmlString)
@@ -252,11 +261,6 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 		return _SendHtmlErrorPartial(err, ctx, req)
 	}
 
-	if err != nil {
-		log.Println("Error marshaling response body as JSON:", err)
-		return _SendHtmlErrorPartial(err, ctx, req)
-	}
-
 	// we want to save the session AFTER sending an HTML response, since we will already
 	// have the session's `partitionKey` (which is always the full URL) for lookup later
 	defer func() {
@@ -297,6 +301,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 				LocationLatitude:  services.InitialEmptyLatLong,
 				LocationLongitude: services.InitialEmptyLatLong,
 				EventCandidates:   eventsFound,
+				EventValidations:  eventValidation,
 				CreatedAt:         currentTime.Unix(),
 				UpdatedAt:         currentTime.Unix(),
 				ExpireAt:          currentTime.Add(time.Hour * 24).Unix(),
