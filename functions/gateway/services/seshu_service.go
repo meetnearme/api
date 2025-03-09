@@ -61,6 +61,9 @@ func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 	if len(seshuPayload.EventCandidates) < 1 {
 		seshuPayload.EventCandidates = []internal_types.EventInfo{}
 	}
+	if len(seshuPayload.EventValidations) < 1 {
+		seshuPayload.EventValidations = []internal_types.EventBoolValid{}
+	}
 	newSeshuSession := internal_types.SeshuSessionInsert{
 		OwnerId:           seshuPayload.OwnerId,
 		Url:               seshuPayload.Url,
@@ -74,7 +77,7 @@ func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		EventCandidates:   seshuPayload.EventCandidates,
 		// TODO: this needs to become a map to avoid regressions pertaining
 		// to key ordering in the future
-		EventValidations: [][]bool{},
+		EventValidations: seshuPayload.EventValidations,
 		Status:           "draft",
 		ExpireAt:         currentTime + 3600*24, // 24 hrs expiration
 		CreatedAt:        currentTime,
