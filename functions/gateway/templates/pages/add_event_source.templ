@@ -70,6 +70,26 @@ templ AddEventSource() {
 				// <br/>
 			</div>
 			<div id="event-candidates" :class="{'opacity-100 h-auto': formStep >= 2}" aria-live="polite" class="w-full opacity-0 h-0 transition-all">
+				<h3 class="text-2xl font-bold">Are these events?</h3>
+				// note that the input[type='checkbox'] items come back in response to the SESHU_FN_URL
+				// call and the checkboxes are not present by default
+				<form id="event-candidates-form" class="group" novalidate hx-patch="/api/html/seshu/session/events" hx-ext="json-enc" hx-target="#events-valid-confirmation" hx-vals="js:{eventValidations: getEventValidationsState()}" hx-disabled-elt="input[type='checkbox'], button[type='submit']" @htmx:after-request="updateEventsValidated(event)">
+					<input
+						x-model="formData.url"
+						name="url"
+						id="url"
+						type="hidden"
+					/>
+					<div id="event-candidates-inner" class="mb-8">
+						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-stretch">
+							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
+							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
+							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
+						</div>
+					</div>
+					<button type="submit" hx-put="/api/html/seshu/session/events" :disabled="!hasEvents || eventCandidates.length === 0" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Event Data <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+				</form>
+				<div id="events-valid-confirmation" class="margins-when-children my-8"></div>
 				<div id="event-candidates-location" class="has-toggleable-text">
 					<h3 class="text-2xl font-bold mt-16">Are all events at the target URL located in the same geography?</h3>
 					<label class="label cursor-pointer justify-normal">
