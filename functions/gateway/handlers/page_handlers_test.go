@@ -313,7 +313,6 @@ func TestGetEventDetailsPage(t *testing.T) {
 	testMarqoIndexName := "testing-index"
 
 	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	// os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
 	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
 
 	// Defer resetting environment variables

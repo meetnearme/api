@@ -3,6 +3,7 @@ package pages
 import (
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"log"
 	"os"
@@ -381,7 +382,13 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				</div>
 			</div>
 		</div>
-		<div x-data="getHomeState()" class="p-4" @location-selected.window="handleLocationSelected">
+		<div
+			x-data="getHomeState()"
+			@lat-updated.window="this.lat = $event.detail.value"
+			@lon-updated.window="this.lon = $event.detail.value"
+			class="p-4"
+			@location-selected.window="handleLocationSelected"
+		>
 			<form
 				id="event-search-form"
 				class="flex"
@@ -514,6 +521,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			}
 		</main>
 	</div>
+	@components.Geolocation(true)
 	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-feat-experimental-voter-score-matchups={ helpers.FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS }>
 		// NOTE: this is used by htmx to get the data-attributes
 		// eslint-disable-next-line no-unused-vars

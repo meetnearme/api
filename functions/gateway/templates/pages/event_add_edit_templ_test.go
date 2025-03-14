@@ -14,9 +14,15 @@ import (
 
 func TestAddOrEditEventPage(t *testing.T) {
 	lALoc, _ := time.LoadLocation("America/Los_Angeles")
+	userInfo := helpers.UserInfo{
+		Email: "test@domain.com",
+		Sub:   "testID",
+		Name:  "Test User",
+	}
 	tests := []struct {
 		name               string
 		event              types.Event
+		userInfo           helpers.UserInfo
 		isEditor           bool
 		isCompetitionAdmin bool
 		sitePage           helpers.SitePage
@@ -28,6 +34,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 		{
 			name:               "New event form",
 			event:              types.Event{},
+			userInfo:           userInfo,
 			isEditor:           false,
 			isCompetitionAdmin: false,
 			sitePage:           helpers.SitePages["add-event"],
@@ -46,6 +53,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 		{
 			name:               "New event form, with admin user geolocation",
 			event:              types.Event{},
+			userInfo:           userInfo,
 			isEditor:           false,
 			isCompetitionAdmin: false,
 			sitePage:           helpers.SitePages["add-event"],
@@ -78,6 +86,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 			isEditor:           true,
 			isCompetitionAdmin: false,
 			sitePage:           helpers.SitePages["edit-event"],
+			userInfo:           userInfo,
 			cfLat:              39.764252,
 			cfLon:              -104.937511,
 			expected: []string{
@@ -114,6 +123,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 			isEditor:           true,
 			isCompetitionAdmin: true,
 			sitePage:           helpers.SitePages["edit-event"],
+			userInfo:           userInfo,
 			cfLat:              39.764252,
 			cfLon:              -104.937511,
 			expected: []string{
@@ -158,7 +168,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := AddOrEditEventPage(helpers.SitePages["event-detail"], tt.event, tt.isEditor, tt.cfLat, tt.cfLon, tt.isCompetitionAdmin)
+			component := AddOrEditEventPage(helpers.SitePages["event-detail"], tt.userInfo, tt.event, tt.isEditor, tt.cfLat, tt.cfLon, tt.isCompetitionAdmin)
 
 			// Render the component to a string
 			var buf bytes.Buffer

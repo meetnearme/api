@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -705,6 +706,17 @@ func SearchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	}
 }
 
+type LocationCookieData struct {
+	Lat struct {
+		Cookie *http.Cookie
+		Err    string
+	}
+	Lon struct {
+		Cookie *http.Cookie
+		Err    string
+	}
+}
+
 func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
@@ -717,6 +729,23 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
+	}
+
+
+	var locationCookieData LocationCookieData
+	userLat, errUserLat := r.Cookie("mnm_user_lat")
+	if errUserLat != nil {
+		locationCookieData.Lat.Err = errUserLat.Error()
+	}
+	if userLat != nil {
+		locationCookieData.Lat.Cookie = userLat
+	}
+	userLon, errUserLon := r.Cookie("mnm_user_lon")
+	if errUserLon != nil {
+		locationCookieData.Lon.Err = errUserLon.Error()
+	}
+	if userLon != nil {
+		locationCookieData.Lon.Cookie = userLon
 	}
 
 	userInfo := helpers.UserInfo{}
@@ -805,15 +834,81 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	purchasableHandler := dynamodb_handlers.NewPurchasableHandler(purchasableService)
 
 	db := transport.GetDB()
-	purchasable, err := purchasableHandler.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventId)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get purchasables for event id: "+eventId+" "+err.Error()), http.StatusInternalServerError, err)
-		return
+	// Check for proximity requirement first
+	var hasProxmityRequirement bool
+	for _, item := range createPurchase.PurchasedItems {
+		if item.ProxmityRequirement > 0 {
+			hasProxmityRequirement = true
+			break
+		}
 	}
 
+	// Create channels for results
+	purchasableChan := make(chan struct {
+		purchasable *internal_types.Purchasable
+		err         error
+	})
+	eventChan := make(chan struct {
+		event *types.Event
+		err   error
+	})
+
+	// Start goroutine for purchasables (always needed)
+	go func() {
+		purchasable, err := purchasableHandler.PurchasableService.GetPurchasablesByEventID(r.Context(), db, eventId)
+		purchasableChan <- struct {
+			purchasable *internal_types.Purchasable
+			err         error
+		}{purchasable, err}
+	}()
+
+	// Start goroutine for Marqo event (only if needed)
+	if hasProxmityRequirement {
+		go func() {
+			marqoClient, err := services.GetMarqoClient()
+			if err != nil {
+				eventChan <- struct {
+					event *types.Event
+					err   error
+				}{nil, err}
+				return
+			}
+			parseDates := r.URL.Query().Get("parse_dates")
+			event, err := services.GetMarqoEventByID(marqoClient, eventId, parseDates)
+			eventChan <- struct {
+				event *types.Event
+				err   error
+			}{event, err}
+		}()
+	} else {
+		// If not needed, send nil to avoid blocking
+		eventChan <- struct {
+			event *types.Event
+			err   error
+		}{nil, nil}
+	}
+
+	// Wait for results from purchasables
+	purchasableResult := <-purchasableChan
+	if purchasableResult.err != nil {
+		transport.SendServerRes(w, []byte("Failed to get purchasables for event id: "+eventId+" "+purchasableResult.err.Error()), http.StatusInternalServerError, purchasableResult.err)
+		return
+	}
+	purchasable := purchasableResult.purchasable
+
+	// Wait for results from Marqo event (if needed)
+	eventResult := <-eventChan
+	if hasProxmityRequirement && eventResult.err != nil {
+		transport.SendServerRes(w, []byte("Failed to get event: "+eventResult.err.Error()), http.StatusInternalServerError, eventResult.err)
+		return
+	}
+	var event *types.Event
+	if hasProxmityRequirement {
+		event = eventResult.event
+	}
 	// Validate inventory
 	var purchasableMap = map[string]internal_types.PurchasableItemInsert{}
-	if purchasableMap, err = validatePurchase(purchasable, createPurchase); err != nil {
+	if purchasableMap, err = validatePurchase(purchasable, createPurchase, locationCookieData, event); err != nil {
 		transport.SendServerRes(w, []byte("Failed to validate inventory for event id: "+eventId+": "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
@@ -1180,18 +1275,19 @@ func HandleCheckoutWebhookHandler(w http.ResponseWriter, r *http.Request) http.H
 	}
 }
 
-func validatePurchase(purchasable *internal_types.Purchasable, createPurchase internal_types.PurchaseInsert) (purchasableItems map[string]internal_types.PurchasableItemInsert, err error) {
+func validatePurchase(purchasable *internal_types.Purchasable, createPurchase internal_types.PurchaseInsert, locationCookieData LocationCookieData, event *types.Event) (purchasableItems map[string]internal_types.PurchasableItemInsert, err error) {
 	purchases := make([]*internal_types.PurchasedItem, len(purchasable.PurchasableItems))
 
 	// Create a map for quick lookup of purchasable items
 	purchasableMap := make(map[string]internal_types.PurchasableItemInsert)
 	for i, p := range purchasable.PurchasableItems {
 		purchasableMap[p.Name] = internal_types.PurchasableItemInsert{
-			Name:             p.Name,
-			Inventory:        p.Inventory,
-			Cost:             p.Cost,
-			PurchasableIndex: i,
-			ExpiresOn:        p.ExpiresOn,
+			Name:                p.Name,
+			Inventory:           p.Inventory,
+			Cost:                p.Cost,
+			PurchasableIndex:    i,
+			ExpiresOn:           p.ExpiresOn,
+			ProxmityRequirement: p.ProxmityRequirement,
 		}
 	}
 
@@ -1199,10 +1295,16 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 	for i, item := range createPurchase.PurchasedItems {
 		// Security check, users should not be able to modify the frontend `cost` field
 		// so we validate that the cost matches the cost fetched from the database in `purchasableMap`
+		if purchasableMap[item.Name].ProxmityRequirement != item.ProxmityRequirement {
+			log.Printf("item '%s' has incorrect proxmity requirement, expected %+v, got %+v", item.Name, purchasableMap[item.Name].ProxmityRequirement, item.ProxmityRequirement)
+			return purchasableMap, fmt.Errorf("item '%s' has incorrect proxmity requirement", item.Name)
+		}
 		if purchasableMap[item.Name].Cost != item.Cost {
+			log.Printf("item '%s' has incorrect cost, expected %+v, got %+v", item.Name, purchasableMap[item.Name].Cost, item.Cost)
 			return purchasableMap, fmt.Errorf("item '%s' has incorrect cost", item.Name)
 		}
 		if purchasableMap[item.Name].ExpiresOn != nil && time.Now().After(*purchasableMap[item.Name].ExpiresOn) {
+			log.Printf("item '%s' has expired, expires on: %+v, current time: %+v", item.Name, *purchasableMap[item.Name].ExpiresOn, time.Now().After(*purchasableMap[item.Name].ExpiresOn))
 			return purchasableMap, fmt.Errorf("item '%s' has expired", item.Name)
 		}
 		total += int(item.Quantity) * int(item.Cost)
@@ -1220,6 +1322,28 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 
 	// Validate each purchased item
 	for _, purchasedItem := range createPurchase.PurchasedItems {
+		if purchasedItem.ProxmityRequirement > 0 {
+			if locationCookieData.Lat.Cookie == nil || locationCookieData.Lon.Cookie == nil {
+				return purchasableMap, fmt.Errorf("item '%s' requires geolocation, but geolocation is not enabled", purchasedItem.Name)
+			}
+			floatUserLat, err := strconv.ParseFloat(locationCookieData.Lat.Cookie.Value, 64)
+			if err != nil {
+				return purchasableMap, fmt.Errorf("failed to parse user latitude: %v", err)
+			}
+			floatUserLon, err := strconv.ParseFloat(locationCookieData.Lon.Cookie.Value, 64)
+			if err != nil {
+				return purchasableMap, fmt.Errorf("failed to parse user longitude: %v", err)
+			}
+
+			latAboveRange := event.Lat <= (floatUserLat - purchasedItem.ProxmityRequirement)
+			latBelowRange := event.Lat >= (floatUserLat + purchasedItem.ProxmityRequirement)
+			lonAboveRange := event.Long <= (floatUserLon - purchasedItem.ProxmityRequirement)
+			lonBelowRange := event.Long >= (floatUserLon + purchasedItem.ProxmityRequirement)
+			if latAboveRange || latBelowRange || lonAboveRange || lonBelowRange {
+				return purchasableMap, fmt.Errorf("item '%s' can only be ordered while at the event location with geolocation turned on", purchasedItem.Name)
+			}
+		}
+
 		purchasableItem, exists := purchasableMap[purchasedItem.Name]
 		if !exists {
 			return purchasableMap, fmt.Errorf("item '%s' is not available for purchase", purchasedItem.Name)

@@ -23,11 +23,11 @@ func TestRegistrationFieldsInsert(t *testing.T) {
 				Description: "We need your updated email in case of any changes",
 			},
 			{
-				Name:        "tshirtSize",
-				Type:        "select",
-				Required:    true,
-				Default:     "large",
-				Options:     []string{"small", "medium", "large", "XL"},
+				Name:     "tshirtSize",
+				Type:     "select",
+				Required: true,
+				Default:  "large",
+				Options:  []string{"small", "medium", "large", "XL"},
 			},
 		},
 		CreatedAt: now,
@@ -88,4 +88,3 @@ func TestRegistrationFieldsServiceInterface(t *testing.T) {
 	// Mock implementation could be done here with a mocking library
 	// Example usage with a mocking library like testify/mock can be added later
 }
-

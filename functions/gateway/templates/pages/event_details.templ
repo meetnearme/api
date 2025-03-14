@@ -3,6 +3,7 @@ package pages
 import (
 	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"net/url"
 	"os"
@@ -249,10 +250,8 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			</p>
 			<div class="bottom-drawer">
 				<div class="container mx-auto">
-					if event.StartingPrice > 0 {
-						<button data-umami-event={ "buy-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">BUY TICKETS</button>
-					} else if event.HasRegistrationFields && event.StartingPrice == 0 {
-						<button data-umami-event={ "reg-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
+					if event.StartingPrice > 0 || event.HasRegistrationFields && event.StartingPrice == 0 {
+						<button data-umami-event={ "buy-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">GET TICKETS</button>
 					} else {
 						<a
 							data-umami-event={ "rsvp-click" }
@@ -300,6 +299,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 		}
 	</div>
 	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
+	@components.Geolocation(false)
 	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId } data-is-experimental-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-is-experimental-event-owners-allowed={ os.Getenv("FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS_ALLOWED") }>
 		function getEventDetailsState() {
 			return {

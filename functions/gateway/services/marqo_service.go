@@ -17,7 +17,7 @@ import (
 
 const (
 	earthRadiusKm = 6371.0
-	milesPerKm    = 0.621371
+	kmPerMile     = 1.60934
 )
 
 // considered the best embedding model as of 8/15/2024
@@ -421,10 +421,29 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event) (*marqo.
 // EX : SearchMarqoEvents(client, "music", []float64{37.7749, -122.4194}, 10)
 func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime, endTime int64, ownerIds []string, categories string, address string, parseDates string, eventSourceTypes []string, eventSourceIds []string) (types.EventSearchResponse, error) {
 	// Calculate the maximum and minimum latitude and longitude based on the user's location and maximum distance
-	maxLat := userLocation[0] + miToLat(maxDistance)
-	maxLong := userLocation[1] + miToLong(maxDistance, userLocation[0])
-	minLat := userLocation[0] - miToLat(maxDistance)
-	minLong := userLocation[1] - miToLong(maxDistance, userLocation[0])
+	latOffset := miToLat(maxDistance)
+	longOffset := miToLong(maxDistance, userLocation[0])
+
+	maxLat := math.Min(90, userLocation[0]+latOffset)
+	minLat := math.Max(-90, userLocation[0]-latOffset)
+
+	// Handle longitude wraparound properly
+	maxLong := userLocation[1] + longOffset
+	minLong := userLocation[1] - longOffset
+
+	// If the longitude range wraps around the globe, cover all longitudes
+	// (this happens when longOffset > 180 degrees)
+	if longOffset >= 180 {
+		minLong = -180
+		maxLong = 180
+	} else if maxLong > 180 {
+		// Handle wraparound at 180 degrees
+		maxLong = 180
+	} else if minLong < -180 {
+		// Handle wraparound at -180 degrees
+		minLong = -180
+	}
+
 	now := time.Now().Unix()
 
 	// Search for events based on the query
@@ -465,7 +484,19 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		eventSourceIdFilter = fmt.Sprintf("eventSourceId IN (%s) AND ", strings.Join(eventSourceIds, ","))
 	}
 
-	filter := fmt.Sprintf("%s %s %s %s (startTime:[%v TO %v] OR (endTime:[%v TO %v])) AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]",
+	// Build the filter with proper longitude handling
+	var longitudeFilter string
+
+	// Check if we have a longitude wraparound situation (crossing the ±180° meridian)
+	if minLong > maxLong {
+		// When we wrap around, we need an OR condition instead of AND
+		longitudeFilter = fmt.Sprintf("(long:[%f TO 180] OR long:[-180 TO %f])", minLong, maxLong)
+	} else {
+		// Normal case - longitude is in proper order
+		longitudeFilter = fmt.Sprintf("long:[%f TO %f]", minLong, maxLong)
+	}
+
+	filter := fmt.Sprintf("%s %s %s %s (startTime:[%v TO %v] OR (endTime:[%v TO %v])) AND %s AND lat:[%f TO %f]",
 		addressFilter,
 		ownerFilter,
 		eventSourceTypeFilter,
@@ -474,11 +505,11 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		endTime,
 		now,
 		helpers.DEFAULT_UNDEFINED_END_TIME-1,
-		maxLong,
-		minLong,
-		maxLat,
+		longitudeFilter,
 		minLat,
+		maxLat,
 	)
+
 	indexName := GetMarqoIndexName()
 
 	searchRequest := marqo.SearchRequest{
@@ -873,14 +904,19 @@ func BulkDeleteEventsFromMarqo(client *marqo.Client, events []string) (*marqo.De
 	return client.DeleteDocuments(deleteDocumentsReq)
 }
 
-// miToLat converts miles to latitude offset
+// miToLat converts miles to latitude offset (degrees)
 func miToLat(mi float64) float64 {
-	return (mi * milesPerKm) / earthRadiusKm * (180 / math.Pi)
+	// One degree of latitude is approximately 69 miles
+	ret := mi / 69.0
+	return ret
 }
 
-// miToLong converts kilometers to longitude
+// miToLong converts miles to longitude offset (degrees)
+// This varies with latitude - longitude degrees are closer together as you move away from the equator
 func miToLong(mi float64, lat float64) float64 {
-	return (mi * milesPerKm) / (earthRadiusKm * math.Cos(lat*math.Pi/180)) * (180 / math.Pi)
+	// One degree of longitude at given latitude is approximately 69 * cos(latitude) miles
+	ret := mi / (69.0 * math.Cos(lat*math.Pi/180))
+	return ret
 }
 
 func getValue[T string | *string | []string | *[]string | float64 | *float64 | int64 | *int64 | int32 | *int32 | bool | *bool | time.Location | *time.Location](doc map[string]interface{}, key string) T {

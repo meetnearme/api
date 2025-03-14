@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64, isCompetitionAdmin bool) {
+templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64, isCompetitionAdmin bool) {
 	if event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB {
 		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
 			<h1 class="text-3xl mb-4 truncate whitespace-nowrap overflow-hidden max-w-full">
@@ -181,7 +181,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 										<template x-if="!owner.label">
 											<span class="loading loading-spinner loading-sm"></span>
 										</template>
-										<button aria-label="remove owner" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeOwner(owner)" :disabled="saveReqInFlight">
+										<button aria-label="remove owner" class="btn btn-circle btn-neutral  btn-xs" x-on:click="removeOwner(owner)" :disabled="saveReqInFlight || owners.length < 2">
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
 												class="h-6 w-6"
@@ -747,6 +747,24 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 														<option value="merchandise">Merchandise</option>
 													</select>
 												</div>
+												<div class="form-control">
+													<label class="label">Inventory</label>
+													<input
+														type="number"
+														class="input input-bordered"
+														x-model="purchasable.inventory"
+														@input="purchasable.inventory = parseInt($event.target.value || 0)"
+													/>
+												</div>
+												<div class="form-control">
+													<label class="label">Starting Quantity</label>
+													<input
+														type="number"
+														class="input input-bordered"
+														x-model="purchasable.starting_quantity"
+														@input="purchasable.starting_quantity = parseInt($event.target.value || 0)"
+													/>
+												</div>
 												<!-- Cost with currency formatting -->
 												<div class="form-control">
 													<label class="label">Cost</label>
@@ -754,6 +772,23 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 														class="input input-bordered"
 														x-mask:dynamic="$money($input)"
 														x-model="purchasable.cost"
+													/>
+												</div>
+												<!-- Expires On -->
+												<div class="form-control">
+													<label class="label">Expires On</label>
+													<input
+														type="datetime-local"
+														class="input input-bordered"
+														x-model="purchasable.expires_on"
+													/>
+												</div>
+												<div class="form-control">
+													<label class="label">Proxmity Requirement</label>
+													<input
+														class="input input-bordered"
+														x-mask:dynamic="$money($input, '.', ',', 4)"
+														x-model="purchasable.proxmity_requirement"
 													/>
 												</div>
 												<!-- Registration Fields Multi-select -->
@@ -799,33 +834,6 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 															</label>
 														</template>
 													</div>
-												</div>
-												<!-- Expires On -->
-												<div class="form-control">
-													<label class="label">Expires On</label>
-													<input
-														type="datetime-local"
-														class="input input-bordered"
-														x-model="purchasable.expires_on"
-													/>
-												</div>
-												<div class="form-control">
-													<label class="label">Inventory</label>
-													<input
-														type="number"
-														class="input input-bordered"
-														x-model="purchasable.inventory"
-														@input="purchasable.inventory = parseInt($event.target.value || 0)"
-													/>
-												</div>
-												<div class="form-control">
-													<label class="label">Starting Quantity</label>
-													<input
-														type="number"
-														class="input input-bordered"
-														x-model="purchasable.starting_quantity"
-														@input="purchasable.starting_quantity = parseInt($event.target.value || 0)"
-													/>
 												</div>
 											</div>
 										</li>
@@ -990,7 +998,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				</div>
 			</template>
 		</div>
-		<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-config-id={ event.CompetitionConfigId } data-is-competition-admin={ strconv.FormatBool(isCompetitionAdmin) } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-unpub-suffix={ helpers.UNPUB_SUFFIX } data-published-suffix={ helpers.PUBLISHED_SUFFIX }>
+		<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-config-id={ event.CompetitionConfigId } data-is-competition-admin={ strconv.FormatBool(isCompetitionAdmin) } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-unpub-suffix={ helpers.UNPUB_SUFFIX } data-published-suffix={ helpers.PUBLISHED_SUFFIX } data-current-user-id={ userInfo.Sub } data-current-user-display-name={ userInfo.Name }>
 
 	function getAddEditEventState() {
 		return {
@@ -1001,6 +1009,9 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								this.owners = ownerIds.map((ownerId, idx) => {
 									return { label: ownerNames?.[idx], value: ownerId };
 								});
+								if (this.owners.length < 1) {
+									this.owners.push({ label: this.currentUserDisplayName, value: this.currentUserId })
+								}
 								this.allOptions = this.owners
 
 								if (this.formData.event.hasPurchasable) {
@@ -1012,6 +1023,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 											...p,
 											id: crypto.randomUUID(),
 											cost: (p.cost / 100).toFixed(2),
+											...(p.proxmity_requirement ? { proxmity_requirement: p.proxmity_requirement?.toFixed(4) } : {}),
 											registration_fields: p.registration_fields || [],
 											currency: this.formData.event.currency,
 											expires_on: p.expires_on?.replace(this.timeZuluSuffix, '') ?? null
@@ -1185,6 +1197,8 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						type: '',
 						message: ' updated successfully',
 					},
+					currentUserId: document.querySelector('#add-edit-event').getAttribute('data-current-user-id') ?? null,
+					currentUserDisplayName: document.querySelector('#add-edit-event').getAttribute('data-current-user-display-name') ?? null,
 					eventOwnerDelimiter: document.querySelector('#add-edit-event').getAttribute('data-event-owner-delimiter'),
 					eventTypeSingleConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
 					eventTypeSeriesParentConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent'),
@@ -1450,6 +1464,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							cost: 0,
 							inventory: 0,
 							starting_quantity: 0,
+							proxmity_requirement: 0.0000,
 							registration_fields: [],
 							expires_on: null,
 							currency: this.formData.event.currency
@@ -1662,12 +1677,31 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 							purchasableUpdate: {
 								event_id: this.formData.event.id,
 								...(this.purchasablesCreatedAt !== '' ? {created_at: this.purchasablesCreatedAt} : {}),
-								purchasable_items: this.purchasables.map(p => ({
-									...p,
-									expires_on: p.expires_on ? p.expires_on + this.timeZuluSuffix : null,
-									cost: (p.cost * 100),
-									inventory: p.inventory,
-								})),
+								purchasable_items: this.purchasables.map(p => {
+									let cost
+									let proxmityRequirement
+									// NOTE: x-mask:dynamic restricts input but stores
+									try {
+										cost = parseFloat(p.cost) * 100
+										proxmityRequirement = parseFloat(p.proxmity_requirement)
+									} catch (error) {
+										// eslint-disable-next-line no-console
+										console.error('Error parsing purchasable:', error)
+
+										this.showToast = true;
+										this.toastContent = {
+											type: 'error',
+											message: `Error parsing purchasable: ${error}`,
+										}
+									}
+									return ({
+										...p,
+										expires_on: p.expires_on ? p.expires_on + this.timeZuluSuffix : null,
+										cost: cost,
+										inventory: p.inventory,
+										...(p.proxmity_requirement ? { proxmity_requirement: proxmityRequirement } : {}),
+									})
+								}),
 							},
 							registrationFieldsUpdate: {
 								...(this.registrationFieldsCreatedAt !== '' ? {created_at: this.registrationFieldsCreatedAt} : {}),

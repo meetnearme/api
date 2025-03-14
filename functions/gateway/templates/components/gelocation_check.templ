@@ -1,0 +1,91 @@
+package components
+
+import "strconv"
+
+templ Geolocation(updateQueryParams bool) {
+	<script id="geolocation-check" data-should-update-query-params={ strconv.FormatBool(updateQueryParams) }>
+		function getGeolocationState() {
+			return {
+				shouldUpdateQueryParams: document.querySelector('#geolocation-check')?.getAttribute?.('data-should-update-query-params') === 'true' ?? false,
+				init() {
+					if ('geolocation' in navigator) {
+						// Get existing cookies if available
+						const getCookieValue = (name) => {
+							const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+							return match ? match[2] : null;
+						};
+
+						const existingLat = getCookieValue('mnm_user_lat');
+						const existingLon = getCookieValue('mnm_user_lon');
+
+						navigator.geolocation.getCurrentPosition((position) => {
+							// Check if the accuracy is poor (high number = less accurate)
+							// Accuracy is in meters - 1000 meters = 1km accuracy
+							const accuracyThreshold = 1000; // Adjust based on your needs
+							const isLowPrecision = position.coords.accuracy > accuracyThreshold;
+							const params = {};
+							const lat = position.coords.latitude.toFixed(6);
+							const lon = position.coords.longitude.toFixed(6);
+
+							// Only update coordinates if they've changed
+							if (existingLat !== lat || existingLon !== lon) {
+								params['lat'] = lat;
+								params['lon'] = lon;
+							}
+
+							// Add precision indicator if needed
+							if (isLowPrecision) {
+								params['precision'] = 'low';
+								params['radius'] = '750';
+							}
+
+							// Dispatch events so parent components can listen
+							this.$dispatch('lat-updated', { value: lat });
+							this.$dispatch('lon-updated', { value: lon });
+
+							// Store in cookies for future use
+							// NOTE: these should be stored as HttpOnly cookies, but
+							// the server wasn't picking them up
+							document.cookie = `mnm_user_lat=${lat}; path=/; max-age=86400; Secure; SameSite=Strict;`;
+							document.cookie = `mnm_user_lon=${lon}; path=/; max-age=86400; Secure; SameSite=Strict;`;
+							document.cookie = `mnm_location_accuracy=${position.coords.accuracy}; path=/; max-age=86400; Secure; SameSite=Strict;`;
+
+							// Get the current query string and parse it manually to avoid re-encoding
+							const queryString = window.location.search.substring(1);
+
+							if (!this.shouldUpdateQueryParams) {
+								return;
+							}
+
+							// Parse existing parameters without re-encoding them
+							if (queryString) {
+								queryString.split('&').forEach(param => {
+									const [key, value] = param.split('=');
+									if (key) params[key] = value || '';
+								});
+							}
+
+							// Build the new query string
+							const newQueryString = Object.entries(params)
+								.map(([key, value]) => `${key}=${value}`)
+								.join('&');
+
+							// Update the URL without reloading the page
+							const newUrl = `${window.location.pathname}${newQueryString ? '?' + newQueryString : ''}`;
+							history.pushState({}, '', newUrl);
+						}, (error) => {
+							console.error("Error getting location:", error.message);
+							this.$dispatch('location-error', { error: error.message });
+						}, {
+							// Request high accuracy (will prompt for GPS on mobile)
+							enableHighAccuracy: true,
+							timeout: 5000,
+							maximumAge: 0
+						});
+					}
+				},
+			}
+		}
+	</script>
+	<div x-data="getGeolocationState()"></div>
+}

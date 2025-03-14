@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"regexp"
-	"strings"
 )
 
 const (
@@ -25,24 +24,20 @@ func (s *RealGeoService) GetGeo(location string, baseUrl string) (lat string, lo
 		return "", "", "", err
 	}
 	// this regex specifically captures the pattern of a lat/lon pair e.g. [40.7128, -74.0060]
-	re := regexp.MustCompile(`\[\-?\+?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*\-?\+?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)\]`)
-	latLon := re.FindString(htmlString)
-	if latLon == "" {
+	re := regexp.MustCompile(`\[(\-?(?:[1-8]?\d(?:\.\d+)?|90(?:\.0+)?)),\s*(\-?(?:180(?:\.0+)?|(?:1[0-7]\d|[1-9]?\d)(?:\.\d+)?))\]`)
+
+	matches := re.FindStringSubmatch(htmlString)
+	if len(matches) < 3 {
 		return "", "", "", fmt.Errorf("location is not valid")
 	}
 
-	latLonArr := strings.Split(latLon, ",")
-	lat = latLonArr[0]
-	lon = latLonArr[1]
-	re = regexp.MustCompile(`[^\d.]`)
-	lat = re.ReplaceAllString(lat, "")
-	lon = re.ReplaceAllString(lon, "")
+	lat = matches[1]
+	lon = matches[2]
 
-	// Regular expression pattern
-	pattern := `"([^"]*)"\s*,\s*\` + latLon
+	pattern := `"([^"]*)"\s*,\s*\[\s*` + regexp.QuoteMeta(lat) + `\s*,\s*` + regexp.QuoteMeta(lon) + `\s*\]`
 	re = regexp.MustCompile(pattern)
 
-	matches := re.FindStringSubmatch(htmlString)
+	matches = re.FindStringSubmatch(htmlString)
 	if len(matches) > 0 {
 		address = matches[1]
 	} else {

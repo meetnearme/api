@@ -20,6 +20,7 @@ type PurchasedItem struct {
 	ChargeRecurrenceEndDate       time.Time                `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
 	DonationRatio                 float64                  `json:"donation_ratio" dynamodbav:"donationRatio" validate:"gte=0,lte=1"`
 	RegResponses                  []map[string]interface{} `json:"reg_responses" dynamodbav:"regResponses"`
+	ProxmityRequirement           float64                  `json:"proxmity_requirement" dynamodbav:"proxmityRequirement" validate:"gte=0"`
 }
 
 // PurchaseInsert represents the data required to insert a new purchase

@@ -162,6 +162,10 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 
 	startTimeUnix, endTimeUnix := ParseStartEndTime(startTimeStr, endTimeStr)
 
+	if startTimeUnix < time.Now().Unix() && endTimeStr == "" {
+		endTimeUnix = time.Now().Unix()
+	}
+
 	// Handle owners query parameter
 	ownerIds = []string{}
 	if owners != "" {
@@ -477,7 +481,7 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 	isCompetitionAdmin := helpers.HasRequiredRole(roleClaims, []string{"superAdmin", "competitionAdmin"})
 
-	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, event, isEditor, cfLocationLat, cfLocationLon, isCompetitionAdmin)
+	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, userInfo, event, isEditor, cfLocationLat, cfLocationLon, isCompetitionAdmin)
 
 	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/mask@3.x.x/dist/cdn.min.js"})
 
