@@ -17,7 +17,7 @@ type PurchasableItemInsert struct {
 	ChargeRecurrenceIntervalCount int32      `json:"charge_recurrence_interval_count" validate:"required" dynamodbav:"chargeRecurrenceIntervalCount"`
 	ChargeRecurrenceEndDate       time.Time  `json:"charge_recurrence_end_date" validate:"required" dynamodbav:"chargeRecurrenceEndDate"`
 	DonationRatio                 float64    `json:"donation_ratio" validate:"required" dynamodbav:"donationRatio"`
-	ProxmityRequirement           float64    `json:"proxmity_requirement" validate:"required" dynamodbav:"proxmityRequirement"`
+	ProximityRequirement          float64    `json:"proximity_requirement" validate:"required" dynamodbav:"proximityRequirement"`
 	RegistrationFields            []string   `json:"registration_fields" dynamodbav:"registrationFields"`
 	ExpiresOn                     *time.Time `json:"expires_on,omitempty" dynamodbav:"expiresOn,omitempty"`
 	CreatedAt                     time.Time  `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
@@ -42,7 +42,7 @@ type PurchasableItem struct {
 	ChargeRecurrenceIntervalCount int32      `json:"charge_recurrence_interval_count" dynamodbav:"chargeRecurrenceIntervalCount"`
 	ChargeRecurrenceEndDate       time.Time  `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
 	DonationRatio                 float64    `json:"donation_ratio" dynamodbav:"donationRatio"`
-	ProxmityRequirement           float64    `json:"proxmity_requirement" dynamodbav:"proxmityRequirement"`
+	ProximityRequirement          float64    `json:"proximity_requirement" dynamodbav:"proximityRequirement"`
 	RegistrationFields            []string   `json:"registration_fields" dynamodbav:"registrationFields"`
 	ExpiresOn                     *time.Time `json:"expires_on,omitempty" dynamodbav:"expiresOn,omitempty"`
 	CreatedAt                     time.Time  `json:"created_at" dynamodbav:"createdAt"` // Adjust based on your date format
@@ -59,7 +59,7 @@ type PurchasableItemUpdate struct {
 	ChargeRecurrenceInterval      string     `json:"charge_recurrence_interval" dynamodbav:"chargeRecurrenceInterval"`
 	ChargeRecurrenceIntervalCount int32      `json:"charge_recurrence_interval_count" dynamodbav:"chargeRecurrenceIntervalCount"`
 	ChargeRecurrenceEndDate       time.Time  `json:"charge_recurrence_end_date" dynamodbav:"chargeRecurrenceEndDate"`
-	ProxmityRequirement           float64    `json:"proxmity_requirement" dynamodbav:"proxmityRequirement"`
+	ProximityRequirement          float64    `json:"proximity_requirement" dynamodbav:"proximityRequirement"`
 	RegistrationFields            []string   `json:"registration_fields" dynamodbav:"registrationFields"`
 	DonationRatio                 float64    `json:"donation_ratio" dynamodbav:"donationRatio"`
 	ExpiresOn                     *time.Time `json:"expires_on,omitempty" dynamodbav:"expiresOn,omitempty"`

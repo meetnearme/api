@@ -523,7 +523,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 											currency: purchasable.currency,
 											donation_ratio: purchasable.donation_ratio,
 											reg_responses: reg_responses,
-											proxmity_requirement: purchasable.proxmity_requirement,
+											proximity_requirement: purchasable.proximity_requirement,
 										};
 									}
 									return null;
@@ -564,6 +564,8 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								} else {
 									this.errors['checkout'] = "Invalid checkout URL received.";
 								}
+							// NOTE: this can throw an error for `purchasable.proximity_requirement`
+							// where we let the user know
 							} else if (json?.error?.message) {
 								this.errors['checkout'] = json.error.message;
 							} else if (total <= 0) {

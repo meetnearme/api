@@ -784,11 +784,11 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 													/>
 												</div>
 												<div class="form-control">
-													<label class="label">Proxmity Requirement</label>
+													<label class="label">Proximity Requirement</label>
 													<input
 														class="input input-bordered"
 														x-mask:dynamic="$money($input, '.', ',', 4)"
-														x-model="purchasable.proxmity_requirement"
+														x-model="purchasable.proximity_requirement"
 													/>
 												</div>
 												<!-- Registration Fields Multi-select -->
@@ -1023,7 +1023,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 											...p,
 											id: crypto.randomUUID(),
 											cost: (p.cost / 100).toFixed(2),
-											...(p.proxmity_requirement ? { proxmity_requirement: p.proxmity_requirement?.toFixed(4) } : {}),
+											...(p.proximity_requirement ? { proximity_requirement: p.proximity_requirement?.toFixed(4) } : {}),
 											registration_fields: p.registration_fields || [],
 											currency: this.formData.event.currency,
 											expires_on: p.expires_on?.replace(this.timeZuluSuffix, '') ?? null
@@ -1464,7 +1464,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 							cost: 0,
 							inventory: 0,
 							starting_quantity: 0,
-							proxmity_requirement: 0.0000,
+							proximity_requirement: 0.0000,
 							registration_fields: [],
 							expires_on: null,
 							currency: this.formData.event.currency
@@ -1679,11 +1679,11 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 								...(this.purchasablesCreatedAt !== '' ? {created_at: this.purchasablesCreatedAt} : {}),
 								purchasable_items: this.purchasables.map(p => {
 									let cost
-									let proxmityRequirement
+									let proximityRequirement
 									// NOTE: x-mask:dynamic restricts input but stores
 									try {
 										cost = parseFloat(p.cost) * 100
-										proxmityRequirement = parseFloat(p.proxmity_requirement)
+										proximityRequirement = parseFloat(p.proximity_requirement)
 									} catch (error) {
 										// eslint-disable-next-line no-console
 										console.error('Error parsing purchasable:', error)
@@ -1699,7 +1699,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 										expires_on: p.expires_on ? p.expires_on + this.timeZuluSuffix : null,
 										cost: cost,
 										inventory: p.inventory,
-										...(p.proxmity_requirement ? { proxmity_requirement: proxmityRequirement } : {}),
+										...(p.proximity_requirement ? { proximity_requirement: proximityRequirement } : {}),
 									})
 								}),
 							},

@@ -835,10 +835,10 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 
 	db := transport.GetDB()
 	// Check for proximity requirement first
-	var hasProxmityRequirement bool
+	var hasProximityRequirement bool
 	for _, item := range createPurchase.PurchasedItems {
-		if item.ProxmityRequirement > 0 {
-			hasProxmityRequirement = true
+		if item.ProximityRequirement > 0 {
+			hasProximityRequirement = true
 			break
 		}
 	}
@@ -863,7 +863,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	}()
 
 	// Start goroutine for Marqo event (only if needed)
-	if hasProxmityRequirement {
+	if hasProximityRequirement {
 		go func() {
 			marqoClient, err := services.GetMarqoClient()
 			if err != nil {
@@ -898,12 +898,12 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 
 	// Wait for results from Marqo event (if needed)
 	eventResult := <-eventChan
-	if hasProxmityRequirement && eventResult.err != nil {
+	if hasProximityRequirement && eventResult.err != nil {
 		transport.SendServerRes(w, []byte("Failed to get event: "+eventResult.err.Error()), http.StatusInternalServerError, eventResult.err)
 		return
 	}
 	var event *types.Event
-	if hasProxmityRequirement {
+	if hasProximityRequirement {
 		event = eventResult.event
 	}
 	// Validate inventory
@@ -1275,7 +1275,7 @@ func HandleCheckoutWebhookHandler(w http.ResponseWriter, r *http.Request) http.H
 	}
 }
 
-func validateProxmityRequirement(proxmityRequirement float64, locationCookieData LocationCookieData, event *types.Event) (isValid bool, err error) {
+func validateProximityRequirement(proximityRequirement float64, locationCookieData LocationCookieData, event *types.Event) (isValid bool, err error) {
 	if locationCookieData.Lat.Cookie == nil || locationCookieData.Lon.Cookie == nil {
 		return false, fmt.Errorf("item requires geolocation, but geolocation is not enabled")
 	}
@@ -1288,10 +1288,10 @@ func validateProxmityRequirement(proxmityRequirement float64, locationCookieData
 		return false, fmt.Errorf("failed to parse user longitude: %v", err)
 	}
 
-	latAboveRange := event.Lat <= (floatUserLat - proxmityRequirement)
-	latBelowRange := event.Lat >= (floatUserLat + proxmityRequirement)
-	lonAboveRange := event.Long <= (floatUserLon - proxmityRequirement)
-	lonBelowRange := event.Long >= (floatUserLon + proxmityRequirement)
+	latAboveRange := event.Lat <= (floatUserLat - proximityRequirement)
+	latBelowRange := event.Lat >= (floatUserLat + proximityRequirement)
+	lonAboveRange := event.Long <= (floatUserLon - proximityRequirement)
+	lonBelowRange := event.Long >= (floatUserLon + proximityRequirement)
 
 	return !latAboveRange && !latBelowRange && !lonAboveRange && !lonBelowRange, nil
 }
@@ -1303,12 +1303,12 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 	purchasableMap := make(map[string]internal_types.PurchasableItemInsert)
 	for i, p := range purchasable.PurchasableItems {
 		purchasableMap[p.Name] = internal_types.PurchasableItemInsert{
-			Name:                p.Name,
-			Inventory:           p.Inventory,
-			Cost:                p.Cost,
-			PurchasableIndex:    i,
-			ExpiresOn:           p.ExpiresOn,
-			ProxmityRequirement: p.ProxmityRequirement,
+			Name:                 p.Name,
+			Inventory:            p.Inventory,
+			Cost:                 p.Cost,
+			PurchasableIndex:     i,
+			ExpiresOn:            p.ExpiresOn,
+			ProximityRequirement: p.ProximityRequirement,
 		}
 	}
 
@@ -1316,9 +1316,9 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 	for i, item := range createPurchase.PurchasedItems {
 		// Security check, users should not be able to modify the frontend `cost` field
 		// so we validate that the cost matches the cost fetched from the database in `purchasableMap`
-		if purchasableMap[item.Name].ProxmityRequirement != item.ProxmityRequirement {
-			log.Printf("item '%s' has incorrect proxmity requirement, expected %+v, got %+v", item.Name, purchasableMap[item.Name].ProxmityRequirement, item.ProxmityRequirement)
-			return purchasableMap, fmt.Errorf("item '%s' has incorrect proxmity requirement", item.Name)
+		if purchasableMap[item.Name].ProximityRequirement != item.ProximityRequirement {
+			log.Printf("item '%s' has incorrect proximity requirement, expected %+v, got %+v", item.Name, purchasableMap[item.Name].ProximityRequirement, item.ProximityRequirement)
+			return purchasableMap, fmt.Errorf("item '%s' has incorrect proximity requirement", item.Name)
 		}
 		if purchasableMap[item.Name].Cost != item.Cost {
 			log.Printf("item '%s' has incorrect cost, expected %+v, got %+v", item.Name, purchasableMap[item.Name].Cost, item.Cost)
@@ -1343,8 +1343,8 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 
 	// Validate each purchased item
 	for _, purchasedItem := range createPurchase.PurchasedItems {
-		if purchasedItem.ProxmityRequirement > 0 {
-			isValid, err := validateProxmityRequirement(purchasedItem.ProxmityRequirement, locationCookieData, event)
+		if purchasedItem.ProximityRequirement > 0 {
+			isValid, err := validateProximityRequirement(purchasedItem.ProximityRequirement, locationCookieData, event)
 			if err != nil {
 				return purchasableMap, fmt.Errorf(err.Error())
 			}
