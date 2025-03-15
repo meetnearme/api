@@ -187,63 +187,70 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				<template x-if="competitionConfigId && userId">
 					<div class="mt-4" id="voting-section">
 						<h3 class="text-xl">VOTING</h3>
-						<template x-if="!Boolean(rounds?.[0]?.competitorADisplayName)">
+						<template x-if="!Boolean(rounds?.[0]?.competitorADisplayName) && initialDataFetching">
 							<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
 						</template>
-						<template x-if="!roundsDataFetching && rounds?.filter(round => round.isVotingOpen).length === 0">
-							<p class="text-lg">(No rounds are open for voting)</p>
-						</template>
-						<template x-if="Boolean(rounds?.[0]?.competitorADisplayName)">
-							<template x-for="round in rounds">
-								<template x-if="round.isVotingOpen">
-									<div>
-										<h3 class="text-lg text-bold" x-text="round.roundName"></h3>
-										<p class="text-lg" x-text="round.description"></p>
-										<div class="flex items-center justify-between gap-4 w-full mt-2">
-											<button
-												:disabled="voteSubmitting === `${round.competitorA}-${round.roundNumber}`"
-												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA }"
-												class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
-												data-umami-event={ "comp-vote-clk" }
-												data-umami-event-event-id={ event.Id }
-												data-umami-event-user-id={ userInfo.Sub }
-												@click="submitVote(round.competitorA, round.roundNumber)"
-											>
-												<span x-text="'Vote ' + round?.competitorADisplayName" class="flex-grow"></span>
-												<div class="flex-none">
-													<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA && voteSubmitting !== `${round.competitorA}-${round.roundNumber}`">
-														<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-													</template>
-													<template x-if="voteSubmitting === `${round.competitorA}-${round.roundNumber}`">
-														<span class="loading loading-spinner loading-md text-primary"></span>
-													</template>
-												</div>
-											</button>
-											<div class="text-3xl font-bold">&larr; VS &rarr;</div>
-											<button
-												:disabled="voteSubmitting === `${round.competitorB}-${round.roundNumber}`"
-												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB }"
-												class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
-												data-umami-event={ "comp-vote-clk" }
-												data-umami-event-event-id={ event.Id }
-												data-umami-event-user-id={ userInfo.Sub }
-												@click="submitVote(round.competitorB, round.roundNumber)"
-											>
-												<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
-												<template x-if="voteSubmitting === `${round.competitorB}-${round.roundNumber}`">
-													<span class="loading loading-spinner loading-md text-primary"></span>
-												</template>
-												<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB && voteSubmitting !== `${round.competitorB}-${round.roundNumber}`">
-													<div class="flex-none">
-														<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-													</div>
-												</template>
-											</button>
-										</div>
-										<div class="divider"></div>
-									</div>
+						<template x-if="!initialDataFetching">
+							<div>
+								<template x-if="!initialDataFetching && competitionConfig?.registrationRequired && !hasPurchase">
+									<p class="text-lg">You must be registered for this event in order to participate</p>
 								</template>
-							</template>
+								<template x-if="!initialDataFetching && rounds?.filter(round => round.isVotingOpen).length === 0">
+									<p class="text-lg">(No rounds are open for voting)</p>
+								</template>
+								<template x-if="( !competitionConfig?.registrationRequired && Boolean(rounds?.[0]?.competitorADisplayName) ) || ( competitionConfig?.registrationRequired && hasPurchase && Boolean(rounds?.[0]?.competitorADisplayName) )">
+									<template x-for="round in rounds">
+										<template x-if="round.isVotingOpen">
+											<div>
+												<h3 class="text-lg text-bold" x-text="round.roundName"></h3>
+												<p class="text-lg" x-text="round.description"></p>
+												<div class="flex items-center justify-between gap-4 w-full mt-2">
+													<button
+														:disabled="voteSubmitting === `${round.competitorA}-${round.roundNumber}`"
+														:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA }"
+														class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
+														data-umami-event={ "comp-vote-clk" }
+														data-umami-event-event-id={ event.Id }
+														data-umami-event-user-id={ userInfo.Sub }
+														@click="submitVote(round.competitorA, round.roundNumber)"
+													>
+														<span x-text="'Vote ' + round?.competitorADisplayName" class="flex-grow"></span>
+														<div class="flex-none">
+															<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA && voteSubmitting !== `${round.competitorA}-${round.roundNumber}`">
+																<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+															</template>
+															<template x-if="voteSubmitting === `${round.competitorA}-${round.roundNumber}`">
+																<span class="loading loading-spinner loading-md text-primary"></span>
+															</template>
+														</div>
+													</button>
+													<div class="text-3xl font-bold">&larr; VS &rarr;</div>
+													<button
+														:disabled="voteSubmitting === `${round.competitorB}-${round.roundNumber}`"
+														:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB }"
+														class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
+														data-umami-event={ "comp-vote-clk" }
+														data-umami-event-event-id={ event.Id }
+														data-umami-event-user-id={ userInfo.Sub }
+														@click="submitVote(round.competitorB, round.roundNumber)"
+													>
+														<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
+														<template x-if="voteSubmitting === `${round.competitorB}-${round.roundNumber}`">
+															<span class="loading loading-spinner loading-md text-primary"></span>
+														</template>
+														<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB && voteSubmitting !== `${round.competitorB}-${round.roundNumber}`">
+															<div class="flex-none">
+																<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+															</div>
+														</template>
+													</button>
+												</div>
+												<div class="divider"></div>
+											</div>
+										</template>
+									</template>
+								</template>
+							</div>
 						</template>
 					</div>
 				</template>
@@ -309,6 +316,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				interestedStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-interested-status'),
 				registeredStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-registered-status'),
 				competitionConfigId: document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id'),
+				parentEventId: document.querySelector('#event-details-script')?.getAttribute?.('data-event-source-id'),
 				// NOTE: FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS is for the experimental feature `VOTER_SCORE_MATCHUPS`
 				isExperimentalEventOwners: JSON.parse(document.querySelector('#event-details-script')?.getAttribute?.('data-is-experimental-event-owners')) ?? [],
 				isExperimentalEventOwnersAllowed: document.querySelector('#event-details-script')?.getAttribute?.('data-is-experimental-event-owners-allowed')?.split(',') ?? [],
@@ -329,13 +337,50 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				},
 				async fetchInitialData() {
 						try {
-								this.roundsDataFetching = true;
-								await this.fetchAndUpdateRounds();
+								this.initialDataFetching = true;
+
+								await Promise.all([
+										this.fetchAndUpdateRounds(),
+										this.fetchCompetitionConfig(),
+										this.fetchHasPurchased()
+								]);
 						} catch (e) {
 								// eslint-disable-next-line no-console
 								console.error(e);
 						} finally {
-								this.roundsDataFetching = false;
+								this.initialDataFetching = false;
+						}
+				},
+
+				async fetchCompetitionConfig() {
+						if (this.userId !== '' && this.competitionConfigId !== '') {
+								try {
+										const response = await fetch(`/api/competition-config/${this.competitionConfigId}`, {
+												method: 'GET',
+										});
+										const data = await response.json();
+										this.competitionConfig = data;
+								} catch (e) {
+										console.error('Error fetching competition config:', e);
+								}
+						}
+				},
+
+				async fetchHasPurchased() {
+						if (this.userId !== '') {
+								try {
+										const response = await fetch('/api/purchases/has-for-event', {
+												method: 'POST',
+												body: JSON.stringify({
+													...(this.parentEventId !== '' ? {childEventId: this.eventId} : {}),
+													parentEventId: this.parentEventId === '' ? this.eventId : this.parentEventId,
+												})
+										});
+										const data = await response.json();
+										this.hasPurchase = data?.hasPurchase;
+								} catch (e) {
+										console.error('Error fetching purchase status:', e);
+								}
 						}
 				},
 
@@ -373,7 +418,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				},
 
 				async pollRoundsData() {
-						if (!this.roundsDataFetching) {
+						if (!this.initialDataFetching) {
 								try {
 										await this.fetchAndUpdateRounds();
 								} catch (e) {
@@ -383,44 +428,6 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 						}
 				},
 
-				// this is pre-LLM rewrite code, saving for reference, can delete once we
-				// are sure the replacement code is 100% working
-				// init() {
-				// 	(async () => {
-				// 		try {
-				// 			const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
-				// 			if (this.userId !== '' && competitionConfigId !== '') {
-				// 				this.roundsDataFetching = true
-				// 				const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
-				// 					method: 'GET',
-				// 				});
-				// 				const roundsData = await roundsResponse.json();
-				// 				this.rounds = roundsData
-				// 				if (this.rounds.length > 0) {
-				// 					const ids = this.rounds.flatMap(round => [round.competitorA, round.competitorB]).join(',')
-
-				// 					const usersRes = await fetch(`/api/users?ids=${ids}`, {
-				// 						method: 'GET',
-				// 					});
-				// 					const usersData = await usersRes.json();
-				// 					this.rounds = this.rounds.map(round => {
-				// 						// round.user = usersData.find(user => user.id === round.userId)
-				// 						return {
-				// 							competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
-				// 							competitorBDisplayName: usersData.find(user => user.userId === round.competitorB).displayName,
-				// 							...round
-				// 						}
-				// 					})
-				// 				}
-				// 			}
-				// 		} catch (e ) {
-				// 			// eslint-disable-next-line no-console
-				// 			console.error(e);
-				// 		} finally {
-				// 			this.roundsDataFetching = false
-				// 		}
-				// 	})();
-				// },
 				eventTypeSingleConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-single'),
 				eventTypeSeriesParentConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-parent'),
 				eventTypeSeriesChildConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-child'),
@@ -429,7 +436,9 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				votesSubmitted: {},
 				competitors: {},
 				pollInterval: null,
-				roundsDataFetching: false,
+				initialDataFetching: false,
+				competitionConfig: null,
+				hasPurchase: false,
 
 				async submitVote(competitorId, roundNumber) {
 					this.voteSubmitting = `${competitorId}-${roundNumber}`

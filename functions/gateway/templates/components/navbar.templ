@@ -564,6 +564,8 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								} else {
 									this.errors['checkout'] = "Invalid checkout URL received.";
 								}
+							} else if (json?.error?.message) {
+								this.errors['checkout'] = json.error.message;
 							} else if (total <= 0) {
 								// `?new_purch_key` is received by the profile page to both highlight, scroll to, and poll in
 								// wait for the new event because of dynamo's eventual consistency.

@@ -50,14 +50,15 @@ type CompetitionConfig struct {
 	// NOTE: `FEAT_EXPERIMENTAL_MARCH_MADNESS` correlates to the ModuleType `MARCH_MADNESS`
 	ModuleType string `json:"moduleType" dynamodbav:"moduleType" validate:"required,oneof=KARAOKE BOCCE MARCH_MADNESS"`
 	// NOTE: `FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS` correlates to the ScoringMethod `VOTER_SCORE_MATCHUPS`
-	ScoringMethod string             `json:"scoringMethod" dynamodbav:"scoringMethod" validate:"required,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL VOTER_SCORE_MATCHUPS"`
-	Rounds        []CompetitionRound `json:"rounds" dynamodbav:"rounds" validate:"required"`
-	Competitors   []string           `json:"competitors" dynamodbav:"competitors"`
-	Status        string             `json:"status" dynamodbav:"status" validate:"required,oneof=DRAFT ACTIVE COMPLETE"`
-	CreatedAt     int64              `json:"createdAt" dynamodbav:"createdAt"`
-	UpdatedAt     int64              `json:"updatedAt" dynamodbav:"updatedAt"`
-	StartTime     int64              `json:"startTime" dynamodbav:"startTime"`
-	EndTime       int64              `json:"endTime" dynamodbav:"endTime"`
+	ScoringMethod        string             `json:"scoringMethod" dynamodbav:"scoringMethod" validate:"required,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL VOTER_SCORE_MATCHUPS"`
+	Rounds               []CompetitionRound `json:"rounds" dynamodbav:"rounds" validate:"required"`
+	Competitors          []string           `json:"competitors" dynamodbav:"competitors"`
+	RegistrationRequired bool               `json:"registrationRequired" dynamodbav:"registrationRequired"`
+	Status               string             `json:"status" dynamodbav:"status" validate:"required,oneof=DRAFT ACTIVE COMPLETE"`
+	CreatedAt            int64              `json:"createdAt" dynamodbav:"createdAt"`
+	UpdatedAt            int64              `json:"updatedAt" dynamodbav:"updatedAt"`
+	StartTime            int64              `json:"startTime" dynamodbav:"startTime"`
+	EndTime              int64              `json:"endTime" dynamodbav:"endTime"`
 }
 
 type CompetitionConfigResponse struct {
@@ -92,10 +93,11 @@ type CompetitionConfigUpdate struct {
 	ModuleType string `json:"moduleType,omitempty" dynamodbav:"moduleType" validate:"omitempty,oneof=KARAOKE BOCCE MARCH_MADNESS"`
 	// TODO: these should be enums for re-use on the client
 	// NOTE: `FEAT_EXPERIMENTAL_VOTER_SCORE_MATCHUPS` correlates to the ScoringMethod `VOTER_SCORE_MATCHUPS`
-	ScoringMethod  string   `json:"scoringMethod,omitempty" dynamodbav:"scoringMethod" validate:"omitempty,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL VOTER_SCORE_MATCHUPS"`
-	AuxilaryOwners []string `json:"auxilaryOwners,omitempty" dynamodbav:"auxilaryOwners"` // JSON array string
-	EventIds       []string `json:"eventIds,omitempty" dynamodbav:"eventIds"`             // JSON array string
-	Competitors    []string `json:"competitors,omitempty" dynamodbav:"competitors"`       // JSON array string
+	ScoringMethod        string   `json:"scoringMethod,omitempty" dynamodbav:"scoringMethod" validate:"omitempty,oneof=VOTE_MATCHUPS POINT_MATCHUPS VOTE_TOTAL POINT_TOTAL VOTER_SCORE_MATCHUPS"`
+	AuxilaryOwners       []string `json:"auxilaryOwners,omitempty" dynamodbav:"auxilaryOwners"` // JSON array string
+	EventIds             []string `json:"eventIds,omitempty" dynamodbav:"eventIds"`             // JSON array string
+	Competitors          []string `json:"competitors,omitempty" dynamodbav:"competitors"`       // JSON array string
+	RegistrationRequired bool     `json:"registrationRequired,omitempty" dynamodbav:"registrationRequired"`
 	// TODO: these should be enums for re-use on the client
 	Status    string `json:"status,omitempty" dynamodbav:"status" validate:"omitempty,oneof=DRAFT ACTIVE COMPLETE"`
 	UpdatedAt int64  `json:"updatedAt" dynamodbav:"updatedAt"`

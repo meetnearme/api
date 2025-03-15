@@ -90,7 +90,7 @@ type PurchaseUpdate struct {
 }
 
 type HasPurchaseForEventPayload struct {
-	ChildEventId  string `json:"childEventId" validate:"required" dynamodbav:"childEventId"`
+	ChildEventId  string `json:"childEventId" dynamodbav:"childEventId"`
 	ParentEventId string `json:"parentEventId" validate:"required" dynamodbav:"parentEventId"`
 }
 

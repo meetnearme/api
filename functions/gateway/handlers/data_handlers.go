@@ -1275,6 +1275,27 @@ func HandleCheckoutWebhookHandler(w http.ResponseWriter, r *http.Request) http.H
 	}
 }
 
+func validateProxmityRequirement(proxmityRequirement float64, locationCookieData LocationCookieData, event *types.Event) (isValid bool, err error) {
+	if locationCookieData.Lat.Cookie == nil || locationCookieData.Lon.Cookie == nil {
+		return false, fmt.Errorf("item requires geolocation, but geolocation is not enabled")
+	}
+	floatUserLat, err := strconv.ParseFloat(locationCookieData.Lat.Cookie.Value, 64)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse user latitude: %v", err)
+	}
+	floatUserLon, err := strconv.ParseFloat(locationCookieData.Lon.Cookie.Value, 64)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse user longitude: %v", err)
+	}
+
+	latAboveRange := event.Lat <= (floatUserLat - proxmityRequirement)
+	latBelowRange := event.Lat >= (floatUserLat + proxmityRequirement)
+	lonAboveRange := event.Long <= (floatUserLon - proxmityRequirement)
+	lonBelowRange := event.Long >= (floatUserLon + proxmityRequirement)
+
+	return !latAboveRange && !latBelowRange && !lonAboveRange && !lonBelowRange, nil
+}
+
 func validatePurchase(purchasable *internal_types.Purchasable, createPurchase internal_types.PurchaseInsert, locationCookieData LocationCookieData, event *types.Event) (purchasableItems map[string]internal_types.PurchasableItemInsert, err error) {
 	purchases := make([]*internal_types.PurchasedItem, len(purchasable.PurchasableItems))
 
@@ -1323,23 +1344,11 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 	// Validate each purchased item
 	for _, purchasedItem := range createPurchase.PurchasedItems {
 		if purchasedItem.ProxmityRequirement > 0 {
-			if locationCookieData.Lat.Cookie == nil || locationCookieData.Lon.Cookie == nil {
-				return purchasableMap, fmt.Errorf("item '%s' requires geolocation, but geolocation is not enabled", purchasedItem.Name)
-			}
-			floatUserLat, err := strconv.ParseFloat(locationCookieData.Lat.Cookie.Value, 64)
+			isValid, err := validateProxmityRequirement(purchasedItem.ProxmityRequirement, locationCookieData, event)
 			if err != nil {
-				return purchasableMap, fmt.Errorf("failed to parse user latitude: %v", err)
+				return purchasableMap, fmt.Errorf(err.Error())
 			}
-			floatUserLon, err := strconv.ParseFloat(locationCookieData.Lon.Cookie.Value, 64)
-			if err != nil {
-				return purchasableMap, fmt.Errorf("failed to parse user longitude: %v", err)
-			}
-
-			latAboveRange := event.Lat <= (floatUserLat - purchasedItem.ProxmityRequirement)
-			latBelowRange := event.Lat >= (floatUserLat + purchasedItem.ProxmityRequirement)
-			lonAboveRange := event.Long <= (floatUserLon - purchasedItem.ProxmityRequirement)
-			lonBelowRange := event.Long >= (floatUserLon + purchasedItem.ProxmityRequirement)
-			if latAboveRange || latBelowRange || lonAboveRange || lonBelowRange {
+			if !isValid {
 				return purchasableMap, fmt.Errorf("item '%s' can only be ordered while at the event location with geolocation turned on", purchasedItem.Name)
 			}
 		}

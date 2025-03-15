@@ -135,6 +135,7 @@ export function StorageStack({ stack }: StackContext) {
       scoringMethod: 'string', // POINTS, VOTES, etc
       rounds: 'string', // JSON string array of round configs
       competitors: 'string', // JSON string array of competitor IDs
+      registrationRequired: 'string', // bool
       status: 'string', // DRAFT, ACTIVE, COMPLETE
       createdAt: 'number',
       updatedAt: 'number',
