@@ -5,7 +5,6 @@ import (
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -102,7 +101,9 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						type="checkbox"
 						class="toggle toggle-primary"
 						x-model.fill="formData.registrationRequired"
-						checked={ strconv.FormatBool(competition.RegistrationRequired) }
+						if competition.RegistrationRequired {
+							checked
+						}
 						:disabled="saveReqInFlight"
 					/>
 				</div>
