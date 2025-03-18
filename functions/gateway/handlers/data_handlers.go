@@ -882,10 +882,12 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}()
 	} else {
 		// If not needed, send nil to avoid blocking
-		eventChan <- struct {
-			event *types.Event
-			err   error
-		}{nil, nil}
+		go func() {
+			eventChan <- struct {
+				event *types.Event
+				err   error
+			}{nil, nil}
+		}()
 	}
 
 	// Wait for results from purchasables
