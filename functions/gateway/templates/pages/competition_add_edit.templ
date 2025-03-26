@@ -367,18 +367,20 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 										</div>
 									</div>
 									<template x-if="formData.scoringMethod === 'VOTE_MATCHUPS'">
-										<div class="divider"></div>
-										<div class="form-control mb-4">
-											<label class="cursor-pointer">
-												<input
-													name="isVotingOpen"
-													type="checkbox"
-													class="toggle toggle-primary"
-													x-model.fill="round.isVotingOpen"
-													:disabled="saveReqInFlight"
-												/>
-												<span class="label-text text-lg">Voting is <strong><span x-text="round.isVotingOpen ? 'open' : 'closed'"></span></strong></span>
-											</label>
+										<div>
+											<div class="divider"></div>
+											<div class="form-control mb-4">
+												<label class="cursor-pointer">
+													<input
+														name="isVotingOpen"
+														type="checkbox"
+														class="toggle toggle-primary"
+														x-model.fill="round.isVotingOpen"
+														:disabled="saveReqInFlight"
+													/>
+													<span class="label-text text-lg">Voting is <strong><span x-text="round.isVotingOpen ? 'open' : 'closed'"></span></strong></span>
+												</label>
+											</div>
 										</div>
 									</template>
 									<template x-if="formData.scoringMethod === 'VOTE_MATCHUPS' ">
