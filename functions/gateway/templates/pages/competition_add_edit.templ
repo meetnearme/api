@@ -61,7 +61,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					>
 						<option value="">Select module type</option>
 						<option value="KARAOKE">Karaoke</option>
-						<option value="BOCCE" disabled>Bocce</option>
+						<option value="BOCCE">Bocce</option>
 					</select>
 				</div>
 				// Scoring Method
@@ -76,7 +76,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					>
 						<option value="">Select scoring method</option>
 						<option value="VOTE_MATCHUPS">Vote Matchups (Win, Loss, Draw)</option>
-						<option value="POINT_MATHCUPS" disabled>Point Matchups (Win, Loss, Draw)</option>
+						<option value="POINT_MATCHUPS">Point Matchups (Win, Loss, Draw)</option>
 						<option value="VOTE_TOTAL" disabled>Votes (Total)</option>
 						<option value="POINT_TOTAL" disabled>Points (Total)</option>
 					</select>
@@ -366,45 +366,49 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 											</select>
 										</div>
 									</div>
-									<div class="divider"></div>
-									<div class="form-control mb-4">
-										<label class="cursor-pointer">
-											<input
-												name="isVotingOpen"
-												type="checkbox"
-												class="toggle toggle-primary"
-												x-model.fill="round.isVotingOpen"
-												:disabled="saveReqInFlight"
-											/>
-											<span class="label-text text-lg">Voting is <strong><span x-text="round.isVotingOpen ? 'open' : 'closed'"></span></strong></span>
-										</label>
-									</div>
+									<template x-if="formData.scoringMethod === 'VOTE_MATCHUPS'">
+										<div class="divider"></div>
+										<div class="form-control mb-4">
+											<label class="cursor-pointer">
+												<input
+													name="isVotingOpen"
+													type="checkbox"
+													class="toggle toggle-primary"
+													x-model.fill="round.isVotingOpen"
+													:disabled="saveReqInFlight"
+												/>
+												<span class="label-text text-lg">Voting is <strong><span x-text="round.isVotingOpen ? 'open' : 'closed'"></span></strong></span>
+											</label>
+										</div>
+									</template>
 									<template x-if="formData.scoringMethod === 'VOTE_MATCHUPS' ">
 										<div class="flex items-center gap-4 mb-4">
 											<button class="btn btn-primary" @click="tallyVotes(round)">Tally Votes</button>
 										</div>
 									</template>
 									<br/>
-									<div class="flex items-center gap-4 mb-4 rounded-box bg-base-100 p-4">
-										<div>
-											<span x-text="round.competitorADisplayName + ' votes: ' "></span>
-											<template x-if="!$data['tallyVotesReqInFlight' + round.roundNumber]">
-												<span x-text="(round.competitorAVotes || '?')"></span>
-											</template>
-											<template x-if="$data['tallyVotesReqInFlight' + round.roundNumber]">
-												<span class="loading loading-spinner loading-xs text-primary"></span>
-											</template>
+									<template x-if="formData.scoringMethod === 'VOTE_MATCHUPS' ">
+										<div class="flex items-center gap-4 mb-4 rounded-box bg-base-100 p-4">
+											<div>
+												<span x-text="round.competitorADisplayName + ' votes: ' "></span>
+												<template x-if="!$data['tallyVotesReqInFlight' + round.roundNumber]">
+													<span x-text="(round.competitorAVotes || '?')"></span>
+												</template>
+												<template x-if="$data['tallyVotesReqInFlight' + round.roundNumber]">
+													<span class="loading loading-spinner loading-xs text-primary"></span>
+												</template>
+											</div>
+											<div>
+												<span x-text="round.competitorBDisplayName + ' votes: ' "></span>
+												<template x-if="!$data['tallyVotesReqInFlight' + round.roundNumber]">
+													<span x-text="(round.competitorBVotes || '?')"></span>
+												</template>
+												<template x-if="$data['tallyVotesReqInFlight' + round.roundNumber]">
+													<span class="loading loading-spinner loading-xs text-primary"></span>
+												</template>
+											</div>
 										</div>
-										<div>
-											<span x-text="round.competitorBDisplayName + ' votes: ' "></span>
-											<template x-if="!$data['tallyVotesReqInFlight' + round.roundNumber]">
-												<span x-text="(round.competitorBVotes || '?')"></span>
-											</template>
-											<template x-if="$data['tallyVotesReqInFlight' + round.roundNumber]">
-												<span class="loading loading-spinner loading-xs text-primary"></span>
-											</template>
-										</div>
-									</div>
+									</template>
 									<br/>
 									<div class="flow-root md:flex items-center md:gap-4 mb-4">
 										<div class="form-control w-full md:grow">
