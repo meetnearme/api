@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -24,7 +25,12 @@ type IndexInfo struct {
 }
 
 type ListIndexesResponse struct {
-	Results []IndexInfo `json:"results"`
+	Results []struct {
+		IndexName     string `json:"indexName"`
+		IndexStatus   string `json:"indexStatus"`
+		MarqoEndpoint string `json:"marqoEndpoint"`
+		Created       string `json:"Created"`
+	} `json:"results"`
 }
 
 type Schema struct {
@@ -102,6 +108,12 @@ type Parameters struct {
 	M              int `json:"m"`
 }
 
+// IndexStats represents the statistics of an index
+type IndexStats struct {
+	NumberOfDocuments int `json:"numberOfDocuments"`
+	// Add other stats fields as needed
+}
+
 func NewMarqoClient(baseURL, apiKey string) *MarqoClient {
 	// This trimming is not strictly needed but it adds clarity and readability to all of the Sprintf functions called in Search, Upsert etc below
 	baseURL = strings.TrimRight(baseURL, "/")
@@ -169,7 +181,7 @@ func (c *MarqoClient) CreateStructuredIndex(indexName string, schema map[string]
 
 	fmt.Printf("Index creation initiated, waiting for index to be ready...\n")
 
-	endpoint, err := c.waitForIndexReady(indexName, 15*time.Minute)
+	endpoint, err := c.waitForIndexReady(indexName, 16*time.Minute)
 	if err != nil {
 		return "", fmt.Errorf("failed waiting for index: %w", err)
 	}
@@ -376,53 +388,161 @@ func (c *MarqoClient) addHeaders(req *http.Request) {
 
 func (c *MarqoClient) waitForIndexReady(indexName string, timeout time.Duration) (string, error) {
 	start := time.Now()
-	checkInterval := 10 * time.Second
+	checkInterval := 15 * time.Second
 	maxAttempts := int(timeout / checkInterval)
 	attempt := 1
 
-	fmt.Printf("Waiting for index %s to be ready (max %v)...\n", indexName, timeout)
+	// Use api.marqo.ai for checking index status
+	statusBaseURL := "https://api.marqo.ai/api/v2"
+
+	fmt.Printf("\n=== Starting Index Ready Check ===\n")
+	fmt.Printf("Index Name: %s\n", indexName)
+	fmt.Printf("Using status URL: %s\n", statusBaseURL)
+
 	for {
 		if time.Since(start) > timeout {
-			return "", fmt.Errorf("timeout waiting for index %s to be ready", indexName)
+			return "", fmt.Errorf("timeout waiting for index %s to be ready after %v (made %d attempts)",
+				indexName, timeout, attempt)
 		}
 
-		url := "https://api.marqo.ai/api/v2/indexes"
+		// Use the main API endpoint for status checks
+		url := fmt.Sprintf("%s/indexes", statusBaseURL)
+		fmt.Printf("Attempt %d/%d: Checking URL: %s\n", attempt, maxAttempts, url)
+
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
+			fmt.Printf("Error creating request: %v\n", err)
 			return "", err
 		}
 
-		c.addHeaders(req)
+		// Add headers
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Api-Key", c.apiKey)
+
 		resp, err := c.client.Do(req)
 		if err != nil {
-			fmt.Printf("Attempt %d/%d: Error checking index status: %v\n", attempt, maxAttempts, err)
+			fmt.Printf("Attempt %d/%d: Error making request: %v\n", attempt, maxAttempts, err)
 			time.Sleep(checkInterval)
 			attempt++
 			continue
 		}
 
+		fmt.Printf("Response Status: %s\n", resp.Status)
+
 		var result ListIndexesResponse
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Printf("Error reading response body: %v\n", err)
 			resp.Body.Close()
-			fmt.Printf("Attempt %d/%d: Error decoding response: %v\n", attempt, maxAttempts, err)
+			time.Sleep(checkInterval)
+			attempt++
+			continue
+		}
+
+		fmt.Printf("Raw Response Body:\n%s\n", string(body))
+
+		if err := json.Unmarshal(body, &result); err != nil {
+			fmt.Printf("Error unmarshaling response: %v\n", err)
+			resp.Body.Close()
 			time.Sleep(checkInterval)
 			attempt++
 			continue
 		}
 		resp.Body.Close()
 
+		fmt.Printf("Found %d indexes in response\n", len(result.Results))
+
+		indexFound := false
 		for _, idx := range result.Results {
+			fmt.Printf("Checking index: %s (Status: %s)\n", idx.IndexName, idx.IndexStatus)
 			if idx.IndexName == indexName {
-				fmt.Printf("Attempt %d/%d: Index status: %s\n", attempt, maxAttempts, idx.IndexStatus)
-				if idx.IndexStatus == "READY" {
+				indexFound = true
+				fmt.Printf("Found target index!\n")
+				fmt.Printf("Status: %s\n", idx.IndexStatus)
+				fmt.Printf("Endpoint: %s\n", idx.MarqoEndpoint)
+
+				switch idx.IndexStatus {
+				case "READY":
+					fmt.Printf("Index is READY! Returning endpoint: %s\n", idx.MarqoEndpoint)
 					return idx.MarqoEndpoint, nil
+				case "FAILED":
+					return "", fmt.Errorf("index creation failed for %s", indexName)
+				case "CREATING":
+					fmt.Printf("Index still creating, will check again in %v\n", checkInterval)
+					break
+				default:
+					fmt.Printf("Unknown index status: %s\n", idx.IndexStatus)
 				}
 				break
 			}
 		}
 
-		fmt.Printf("Attempt %d/%d: Index not ready yet, waiting %v...\n", attempt, maxAttempts, checkInterval)
+		if !indexFound {
+			fmt.Printf("WARNING: Index %s not found in response!\n", indexName)
+		}
+
+		fmt.Printf("Attempt %d/%d: Index not ready yet, waiting %v...\n\n",
+			attempt, maxAttempts, checkInterval)
 		time.Sleep(checkInterval)
 		attempt++
 	}
+}
+
+func (c *MarqoClient) GetIndexStats(indexName string) (*IndexStats, error) {
+	url := fmt.Sprintf("%s/indexes/%s/stats", c.baseURL, indexName)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.addHeaders(req)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get stats: status=%d body=%s",
+			resp.StatusCode, string(bodyBytes))
+	}
+
+	var stats IndexStats
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, fmt.Errorf("failed to decode stats: %w", err)
+	}
+
+	return &stats, nil
+}
+
+// SaveDocumentsToFile saves the documents to a temporary file
+func SaveDocumentsToFile(documents []map[string]interface{}, filename string) error {
+	file, err := json.MarshalIndent(documents, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal documents: %w", err)
+	}
+
+	if err := os.WriteFile(filename, file, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+
+// LoadDocumentsFromFile loads the documents from a file
+func LoadDocumentsFromFile(filename string) ([]map[string]interface{}, error) {
+	file, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var documents []map[string]interface{}
+	if err := json.Unmarshal(file, &documents); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal documents: %w", err)
+	}
+
+	return documents, nil
 }

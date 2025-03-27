@@ -705,7 +705,7 @@ func TestGetAddOrEditEventPage(t *testing.T) {
 				Name:  "Test User",
 			},
 			roleClaims: []helpers.RoleClaim{
-				{Role: "eventEditor", ProjectID: "project-id"},
+				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody:   "Edit Event",
@@ -853,7 +853,7 @@ func TestGetEventAttendeesPage(t *testing.T) {
 				Name:  "Authorized User",
 			},
 			roleClaims: []helpers.RoleClaim{
-				{Role: "eventEditor", ProjectID: "project-id"},
+				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody:   "Test Event", // Or some other expected content from the attendees page
@@ -867,7 +867,7 @@ func TestGetEventAttendeesPage(t *testing.T) {
 				Name:  "Unauthorized User",
 			},
 			roleClaims: []helpers.RoleClaim{
-				{Role: "eventEditor", ProjectID: "project-id"},
+				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody:   "You are not authorized to edit this event",

@@ -60,7 +60,7 @@ func SendHtmlErrorPage(body []byte, status int) http.HandlerFunc {
 		}
 
 		errorPartial := pages.ErrorPage(body, requestID)
-		layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, errorPartial, types.Event{})
+		layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, errorPartial, types.Event{}, []string{})
 		var buf bytes.Buffer
 		err := layoutTemplate.Render(ctx, &buf)
 		if err != nil {
@@ -124,6 +124,9 @@ func SendServerRes(w http.ResponseWriter, body []byte, status int, err error) ht
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
+
+	// NOTE: we don't want to return `nil` to a handler function in general, but we need to clean
+	// up a bunch of other code connected to this
 
 	return http.HandlerFunc(nil)
 }

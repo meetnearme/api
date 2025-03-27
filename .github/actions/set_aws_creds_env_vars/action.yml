@@ -6,6 +6,9 @@ inputs:
   SCRAPINGBEE_API_KEY:
     description: 'The API key for the ScrapingBee API'
     required: true
+  SCRAPINGBEE_API_URL_BASE:
+    description: 'The base URL for the ScrapingBee API'
+    required: true
   GOOGLE_API_KEY:
     description: 'The API key for the Google API'
     required: true
@@ -46,9 +49,6 @@ inputs:
     required: true
   CLOUDFLARE_ACCOUNT_ID:
     description: 'The account ID for the Cloudflare API'
-    required: true
-  CLOUDFLARE_KV_NAMESPACE_ID:
-    description: 'The KV namespace ID for the Cloudflare API'
     required: true
   CLOUDFLARE_API_BASE_URL:
     description: 'The base URL for the Cloudflare API'
@@ -92,7 +92,12 @@ inputs:
   PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET:
     description: 'Stripe (prod) checkout webhook signing secret'
     required: true
-
+  USER_TEAM_EMAIL_SCHEMA:
+    description: 'The email schema for user teams'
+    required: true
+  USER_TEAM_PASSWORD:
+    description: 'The password for user teams'
+    required: true
 runs:
   using: composite
   steps:
@@ -104,6 +109,7 @@ runs:
         echo APEX_URL=${{ inputs.APEX_URL }} >> .env
         echo APEX_DEV_URL=${{ inputs.APEX_DEV_URL }} >> .env
         echo SCRAPINGBEE_API_KEY=${{ inputs.SCRAPINGBEE_API_KEY }} >> .env
+        echo SCRAPINGBEE_API_URL_BASE=${{ inputs.SCRAPINGBEE_API_URL_BASE }} >> .env
         echo GOOGLE_API_KEY=${{ inputs.GOOGLE_API_KEY }} >> .env
         echo OPENAI_API_KEY=${{ inputs.OPENAI_API_KEY }} >> .env
         echo OPENAI_API_BASE_URL=${{ inputs.OPENAI_API_BASE_URL }} >> .env
@@ -125,11 +131,13 @@ runs:
         echo DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET=${{ inputs.DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }} >> .env
         echo PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET=${{ inputs.PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET }} >> .env
         echo CLOUDFLARE_ACCOUNT_ID=${{ inputs.CLOUDFLARE_ACCOUNT_ID }} >> .env
-        echo CLOUDFLARE_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_KV_NAMESPACE_ID }} >> .env
         echo CLOUDFLARE_API_TOKEN=${{ inputs.CLOUDFLARE_API_TOKEN }} >> .env
         echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
         echo CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE=${{ inputs.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE }} >> .env
         echo CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }} >> .env
+        # Below is quote to avoid special character bash issues
+        echo "USER_TEAM_EMAIL_SCHEMA=\"${{ inputs.USER_TEAM_EMAIL_SCHEMA }}\"" >> .env
+        echo USER_TEAM_PASSWORD=${{ inputs.USER_TEAM_PASSWORD }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:

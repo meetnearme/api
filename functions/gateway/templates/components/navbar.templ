@@ -22,16 +22,28 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 				// <span class="badge">New</span>
 			</a>
 		</li>
-		<li><a href="/auth/logout">Logout</a></li>
+		<li><a x-data="" :href={ " '/auth/logout?" + helpers.POST_LOGOUT_REDIRECT_URI_KEY + "=' + window.location.href " }>Logout</a></li>
 	</ul>
 }
 
 templ NavListItems(userInfo helpers.UserInfo) {
-	<li><a href="/about" class="px-5 py-3">About</a></li>
 	if userInfo.Email == "" {
-		<li><a href="/auth/login" class="px-5 py-3">Login</a></li>
-		<li><a href="/auth/login" class="btn btn-primary update-text-if-cookie">Signup</a></li>
+		<li>
+			<a
+				x-data=""
+				:href="'/auth/login?redirect=' + window.location.href"
+				class="btn btn-outline btn-primary mr-2 mb-2"
+			>Sign In</a>
+		</li>
+		<li>
+			<a
+				x-data=""
+				:href="'/auth/login?redirect=' + window.location.href"
+				class="btn btn-primary update-text-if-cookie"
+			>Sign Up</a>
+		</li>
 	}
+	<li><a href="/about" class="px-5 py-3">About</a></li>
 	// Change back to "Add an Event" when we release Seshu
 	// if userInfo.Email != "" {
 	// 	<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
@@ -197,7 +209,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content flex flex-col">
 			<!-- Navbar -->
-			<div class="navbar fixed z-50 top-0 w-full bg-base-100 bg-opacity-75 shadow-md mb-5">
+			<div id="main-nav" class="navbar fixed z-50 top-0 w-full bg-base-100 bg-opacity-75 shadow-md mb-5">
 				<div class="container mx-auto flex items-center">
 					<div class="flex flex-1">
 						<a href="/" class="brand btn btn-ghost pl-2 text-xl flex flex-col">
@@ -261,10 +273,14 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 					<br/>
 					<br/>
 					<p>
-						&copy; { time.Now().Format("2006") }
+						&copy; 2024-{ time.Now().Format("2006") }
 						<span class="font-bold">
 							Meet Near Me LLC.
 						</span> All rights reserved.
+					</p>
+					<p>
+						<a href={ templ.URL(os.Getenv("APEX_URL") + "/terms-of-service") }>Terms of Service</a> &bull;&nbsp;
+						<a href={ templ.URL(os.Getenv("APEX_URL") + "/privacy-policy") }>Privacy Policy</a>
 					</p>
 				</aside>
 				<nav>
@@ -532,7 +548,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								})
 							});
 							if (response.status === 401) {
-								this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/event/${this.eventId}">Register or Login now</a>`;
+								this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=${window.location.href}">Register or Login now</a>`;
 								this.reqInFlight = false;
 								return
 							}
