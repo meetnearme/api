@@ -261,6 +261,18 @@ func TestBulkUpsertEventToMarqo(t *testing.T) {
 	}
 }
 
+// NOTE: `calculateSearchBounds` is the function that actually calculates the bounds and
+// this helper function should have no significant logic
+func isPointInBounds(lat, long float64, minLat, maxLat, minLong, maxLong float64) bool {
+	var inLatBounds bool = lat >= minLat && lat <= maxLat
+	var inLongBounds bool = long >= minLong && long <= maxLong
+	if inLatBounds && inLongBounds {
+		return true
+	}
+
+	return false
+}
+
 func TestSearchMarqoEvents(t *testing.T) {
 	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
@@ -295,6 +307,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 			"eventOwners":    []interface{}{"789"},
 			"eventOwnerName": "Today Host",
 			"description":    "Event happening today",
+			"latitude":       51.5074, // Add coordinates
+			"longitude":      -0.1278,
 		},
 		{
 			"_id":            "2",
@@ -303,6 +317,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 			"eventOwners":    []interface{}{"012"},
 			"eventOwnerName": "Week Host",
 			"description":    "Event happening next week",
+			"latitude":       51.5074, // Add coordinates
+			"longitude":      -0.1278,
 		},
 		{
 			"_id":            "3",
@@ -311,12 +327,175 @@ func TestSearchMarqoEvents(t *testing.T) {
 			"eventOwners":    []interface{}{"345"},
 			"eventOwnerName": "Month Host",
 			"description":    "Event happening next month",
+			"latitude":       51.5074, // Add coordinates
+			"longitude":      -0.1278,
+		},
+		{
+			"_id":            "4",
+			"name":           "North Pole Event",
+			"startTime":      now.Unix(),
+			"eventOwners":    []interface{}{"678"},
+			"eventOwnerName": "Polar Host",
+			"description":    "Event near the North Pole",
+			"latitude":       89.5,
+			"longitude":      0.0,
+		},
+		{
+			"_id":            "5",
+			"name":           "International Date Line Event (East)",
+			"startTime":      now.Unix(),
+			"eventOwners":    []interface{}{"901"},
+			"eventOwnerName": "Date Line Host",
+			"description":    "Event East of date line",
+			"latitude":       0.0,
+			"longitude":      -179.9,
+		},
+		{
+			"_id":            "6",
+			"name":           "International Date Line Event (West)",
+			"startTime":      now.Unix(),
+			"eventOwners":    []interface{}{"389"},
+			"eventOwnerName": "Date Line Host",
+			"description":    "Event West of date line",
+			"latitude":       0.0,
+			"longitude":      179.9,
+		},
+		{
+			"_id":            "7",
+			"name":           "Prime Meridian Event (East)",
+			"startTime":      now.Unix(),
+			"eventOwners":    []interface{}{"251"},
+			"eventOwnerName": "Date Line Host",
+			"description":    "Event West of date line",
+			"latitude":       10.0,
+			"longitude":      -0.1,
+		},
+		{
+			"_id":            "8",
+			"name":           "Prime Meridian Event (West)",
+			"startTime":      now.Unix(),
+			"eventOwners":    []interface{}{"793"},
+			"eventOwnerName": "Date Line Host",
+			"description":    "Event East of date line",
+			"latitude":       10.0,
+			"longitude":      0.1,
 		},
 	}
 
-	// Modify mock server to filter events based on startTime and endTime
+	tests := []struct {
+		name        string
+		query       string
+		startTime   int64
+		endTime     int64
+		location    []float64
+		distance    float64
+		expectedIds []string
+	}{
+		{
+			name:        "Today's events",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.Add(24 * time.Hour).Unix(),
+			location:    []float64{51.5074, -0.1278},
+			distance:    10.0,
+			expectedIds: []string{"1"},
+		},
+		{
+			name:        "Near North Pole boundary",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.Add(24 * time.Hour).Unix(),
+			location:    []float64{88.0, 0.0},
+			distance:    200.0,
+			expectedIds: []string{"4"},
+		},
+		{
+			name:        "International Date Line wraparound, both events",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.Add(24 * time.Hour).Unix(),
+			location:    []float64{0.0, -177.9},
+			distance:    200.0,
+			expectedIds: []string{"5", "6"},
+		},
+		{
+			name:        "International Date Line wraparound, east event only",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.Add(24 * time.Hour).Unix(),
+			location:    []float64{0.0, -179.9},
+			distance:    5.0,
+			expectedIds: []string{"5"},
+		},
+		{
+			name:        "International Date Line wraparound, west event only",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.Add(24 * time.Hour).Unix(),
+			location:    []float64{0.0, 179.9},
+			distance:    5.0,
+			expectedIds: []string{"6"},
+		},
+		{
+			name:        "Prime Meridian wraparound, both events",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.Add(24 * time.Hour).Unix(),
+			location:    []float64{10.0, -0.1},
+			distance:    200.0,
+			expectedIds: []string{"7", "8"},
+		},
+		{
+			name:        "Prime Meridian wraparound, east event only",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.Add(24 * time.Hour).Unix(),
+			location:    []float64{10.0, -0.1},
+			distance:    5.0,
+			expectedIds: []string{"7"},
+		},
+		{
+			name:        "Prime Meridian wraparound, west event only",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.Add(24 * time.Hour).Unix(),
+			location:    []float64{10.0, 0.1},
+			distance:    5.0,
+			expectedIds: []string{"8"},
+		},
+		{
+			name:        "This week's events",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.AddDate(0, 0, 7).Unix(),
+			location:    []float64{51.5074, -0.1278},
+			distance:    100.0,
+			expectedIds: []string{"1", "2"},
+		},
+		{
+			name:        "This month's events",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.AddDate(0, 1, 0).Unix(),
+			location:    []float64{51.5074, -0.1278},
+			distance:    100.0,
+			expectedIds: []string{"1", "2", "3"},
+		},
+		{
+			name:        "Very large radius covers all longitudes",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.Add(24 * time.Hour).Unix(),
+			location:    []float64{0.0, 0.0},
+			distance:    12500.0,
+			expectedIds: []string{"1", "4", "5", "6", "7", "8"},
+		},
+	}
+
+	// Add a variable to track the current test case
+	var currentTestIndex int
+
 	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Parse the request body to get the filter string
 		var searchRequest struct {
 			Filter *string `json:"filter"`
 		}
@@ -326,11 +505,10 @@ func TestSearchMarqoEvents(t *testing.T) {
 			return
 		}
 
-		t.Logf("Received filter: %v", *searchRequest.Filter)
-
-		// Extract start and end time from the filter string
-		// The filter string format is: "... startTime:[{start} TO {end}] AND ..."
 		filterStr := *searchRequest.Filter
+		t.Logf("Received filter: %v", filterStr)
+
+		// Extract time bounds
 		startTimeStr := regexp.MustCompile(`startTime:\[(\d+) TO`).FindStringSubmatch(filterStr)
 		endTimeStr := regexp.MustCompile(`TO (\d+)\]`).FindStringSubmatch(filterStr)
 
@@ -342,14 +520,38 @@ func TestSearchMarqoEvents(t *testing.T) {
 			endTime, _ = strconv.ParseInt(endTimeStr[1], 10, 64)
 		}
 
-		t.Logf("Extracted time range: %d to %d", startTime, endTime)
+		// Get the current test case context
+		currentTest := tests[currentTestIndex]
 
-		// Filter events based on the time range
+		// Calculate bounds using the same function as the main service
+		minLat, maxLat, minLong1, maxLong1, minLong2, maxLong2, needsSplit := calculateSearchBounds(
+			currentTest.location,
+			currentTest.distance,
+		)
+
+		t.Logf("Calculated bounds: lat[%f TO %f], (long[%f TO %f] OR [%f TO %f]), needsSplit: %v", minLat, maxLat, minLong1, maxLong1, minLong2, maxLong2, needsSplit)
+
+		// Filter events based on both time and location
 		filteredEvents := []map[string]interface{}{}
 		for _, event := range testEvents {
 			eventTime := event["startTime"].(int64)
-			if eventTime >= startTime && eventTime <= endTime {
+			eventLat := event["latitude"].(float64)
+			eventLong := event["longitude"].(float64)
+
+			inTimeRange := eventTime >= startTime && eventTime <= endTime
+			inSpatialBound1 := isPointInBounds(eventLat, eventLong, minLat, maxLat, minLong1, maxLong1)
+			inSpatialBound2 := isPointInBounds(eventLat, eventLong, minLat, maxLat, minLong2, maxLong2)
+
+			log.Printf("event %s at [%f, %f] (time: %v, spatial bound 1: %v) || bounds: %v, %v, %v, %v", event["_id"], eventLat, eventLong, inTimeRange, inSpatialBound1, minLat, maxLat, minLong1, maxLong1)
+
+			log.Printf("event %s at [%f, %f] (time: %v, spatial bound 2: %v) || bounds: %v, %v, %v, %v", event["_id"], eventLat, eventLong, inTimeRange, inSpatialBound2, minLat, maxLat, minLong2, maxLong2)
+
+			if inTimeRange && (inSpatialBound1 || inSpatialBound2) {
 				filteredEvents = append(filteredEvents, event)
+				t.Logf("Including event %s at [%f, %f]", event["_id"], eventLat, eventLong)
+			} else {
+				t.Logf("Excluding event %s at [%f, %f] (time: %v, spatial: %v)",
+					event["_id"], eventLat, eventLong, inTimeRange, inSpatialBound1)
 			}
 		}
 
@@ -379,37 +581,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 	mockMarqoServer.Start()
 	defer mockMarqoServer.Close()
 
-	tests := []struct {
-		name        string
-		query       string
-		startTime   int64
-		endTime     int64
-		expectedIds []string
-	}{
-		{
-			name:        "Today's events",
-			query:       "",
-			startTime:   now.Unix(),
-			endTime:     now.Add(24 * time.Hour).Unix(),
-			expectedIds: []string{"1"},
-		},
-		{
-			name:        "This week's events",
-			query:       "",
-			startTime:   now.Unix(),
-			endTime:     now.AddDate(0, 0, 7).Unix(),
-			expectedIds: []string{"1", "2"},
-		},
-		{
-			name:        "This month's events",
-			query:       "",
-			startTime:   now.Unix(),
-			endTime:     now.AddDate(0, 1, 0).Unix(),
-			expectedIds: []string{"1", "2", "3"},
-		},
-	}
-
-	for _, tt := range tests {
+	for i, tt := range tests {
+		currentTestIndex = i // Update the current test index
 		t.Run(tt.name, func(t *testing.T) {
 			client, err := GetMarqoClient()
 			if err != nil {
@@ -419,8 +592,8 @@ func TestSearchMarqoEvents(t *testing.T) {
 			result, err := SearchMarqoEvents(
 				client,
 				tt.query,
-				[]float64{51.5074, -0.1278},
-				10000,
+				tt.location, // Use location from test case
+				tt.distance, // Use distance from test case
 				tt.startTime,
 				tt.endTime,
 				[]string{},
@@ -454,6 +627,7 @@ func TestSearchMarqoEvents(t *testing.T) {
 					}
 				}
 				if !found {
+					t.Errorf("Expected event with ID %s not found in results", expectedId)
 					t.Errorf("Expected event with ID %s not found in results", expectedId)
 				}
 			}

@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64, isCompetitionAdmin bool) {
+templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64, isCompetitionAdmin bool) {
 	if event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB {
 		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
 			<h1 class="text-3xl mb-4 truncate whitespace-nowrap overflow-hidden max-w-full">
@@ -990,7 +990,8 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				</div>
 			</template>
 		</div>
-		<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-config-id={ event.CompetitionConfigId } data-is-competition-admin={ strconv.FormatBool(isCompetitionAdmin) } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-unpub-suffix={ helpers.UNPUB_SUFFIX } data-published-suffix={ helpers.PUBLISHED_SUFFIX }>
+		<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-config-id={ event.CompetitionConfigId } data-is-competition-admin={ strconv.FormatBool(isCompetitionAdmin) } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-unpub-suffix={ helpers.UNPUB_SUFFIX } data-published-suffix={ helpers.PUBLISHED_SUFFIX } data-current-user-id={ userInfo.Sub } data-current-user-display-name={ userInfo.Name }>
+
 
 	function getAddEditEventState() {
 		return {
@@ -1001,6 +1002,10 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								this.owners = ownerIds.map((ownerId, idx) => {
 									return { label: ownerNames?.[idx], value: ownerId };
 								});
+								if (this.owners.length < 1) {
+									this.owners.push({ label: this.currentUserDisplayName, value: this.currentUserId })
+								}
+
 								this.allOptions = this.owners
 
 								if (this.formData.event.hasPurchasable) {
@@ -1185,6 +1190,8 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, event types.Event, isEditor b
 						type: '',
 						message: ' updated successfully',
 					},
+					currentUserId: document.querySelector('#add-edit-event').getAttribute('data-current-user-id') ?? null,
+					currentUserDisplayName: document.querySelector('#add-edit-event').getAttribute('data-current-user-display-name') ?? null,
 					eventOwnerDelimiter: document.querySelector('#add-edit-event').getAttribute('data-event-owner-delimiter'),
 					eventTypeSingleConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-single'),
 					eventTypeSeriesParentConstant: document.querySelector("#add-edit-event").getAttribute('data-event-type-series-parent'),

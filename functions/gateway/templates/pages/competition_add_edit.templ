@@ -73,6 +73,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							value={ competition.ScoringMethod }
 						}
 						x-model.fill="formData.scoringMethod"
+						:disabled="saveReqInFlight"
 					>
 						<option value="">Select scoring method</option>
 						<option value="VOTE_MATCHUPS">Vote Matchups (Win, Loss, Draw)</option>

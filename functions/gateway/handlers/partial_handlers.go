@@ -214,7 +214,6 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 }
 
 func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	log.Println("START GeoLookup")
 	ctx := r.Context()
 	var inputPayload GeoLookupInputPayload
 	body, err := io.ReadAll(r.Body)
