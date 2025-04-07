@@ -485,7 +485,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			cfRay:          "",
 			expectedQuery:  "",
 			expectedLoc:    []float64{40.7128, -74.0060},
-			expectedRadius: 150,
+			expectedRadius: helpers.DEFAULT_SEARCH_RADIUS,
 			expectedStart:  4070908800,
 			expectedEnd:    4071808800,
 			expectedCfLoc:  helpers.CdnLocation{},
@@ -536,7 +536,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			cfRay:          "1234567890000-LAX",
 			expectedLoc:    []float64{helpers.CfLocationMap["LAX"].Lat, helpers.CfLocationMap["LAX"].Lon}, // Los Angeles coordinates
 			expectedCfLoc:  helpers.CfLocationMap["LAX"],
-			expectedRadius: 150.0,
+			expectedRadius: helpers.DEFAULT_SEARCH_RADIUS,
 		},
 	}
 

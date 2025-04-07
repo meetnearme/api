@@ -52,6 +52,8 @@ const AUTH_METADATA_KEY = "urn:zitadel:iam:user:metadata"
 
 const DEFAULT_PAGINATION_LIMIT = 50
 const DEFAULT_MAX_RADIUS = 999999
+const DEFAULT_SEARCH_RADIUS = 500.0
+const DEFAULT_EXPANDED_SEARCH_RADIUS = 2500.0
 
 // placeholder for unset end time, December 4th, 292,277,026,596 AD, at 20:10:55 UTC
 const DEFAULT_UNDEFINED_END_TIME = math.MaxInt64

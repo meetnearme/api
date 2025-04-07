@@ -152,12 +152,12 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 
 	if radius < 0.0001 && (cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong ||
 		lat != US_GEO_CENTER_LAT && long != US_GEO_CENTER_LONG) {
-		radius = float64(150.0)
+		radius = helpers.DEFAULT_SEARCH_RADIUS
 		// we still don't have lat/lon, which means we'll be using "geographic center of US"
 		// which is in the middle of nowhere. Expand the radius to show all of the country
 		// showing events from anywhere
 	} else if radius == 0.0 {
-		radius = float64(2500.0)
+		radius = helpers.DEFAULT_EXPANDED_SEARCH_RADIUS
 	}
 
 	startTimeUnix, endTimeUnix := ParseStartEndTime(startTimeStr, endTimeStr)

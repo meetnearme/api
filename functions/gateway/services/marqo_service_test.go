@@ -380,6 +380,26 @@ func TestSearchMarqoEvents(t *testing.T) {
 			"latitude":       10.0,
 			"longitude":      0.1,
 		},
+		{
+			"_id":            "9",
+			"name":           "East Event (100 miles apart)",
+			"startTime":      now.Unix(),
+			"eventOwners":    []interface{}{"239"},
+			"eventOwnerName": "Pair Event Host",
+			"description":    "Paired Event East side",
+			"latitude":       35.685837,
+			"longitude":      -105.945083,
+		},
+		{
+			"_id":            "10",
+			"name":           "West Event (100 miles apart)",
+			"startTime":      now.Unix(),
+			"eventOwners":    []interface{}{"239"},
+			"eventOwnerName": "Pair Event Host",
+			"description":    "Paired Event West side",
+			"latitude":       35.685837,
+			"longitude":      -106.945083,
+		},
 	}
 
 	tests := []struct {
@@ -464,6 +484,15 @@ func TestSearchMarqoEvents(t *testing.T) {
 			expectedIds: []string{"8"},
 		},
 		{
+			name:        "Pair of Events, 56.25 miles apart",
+			query:       "",
+			startTime:   now.Unix(),
+			endTime:     now.Add(24 * time.Hour).Unix(),
+			location:    []float64{35.685837, -106.945083},
+			distance:    56.25,
+			expectedIds: []string{"9", "10"},
+		},
+		{
 			name:        "This week's events",
 			query:       "",
 			startTime:   now.Unix(),
@@ -488,7 +517,7 @@ func TestSearchMarqoEvents(t *testing.T) {
 			endTime:     now.Add(24 * time.Hour).Unix(),
 			location:    []float64{0.0, 0.0},
 			distance:    12500.0,
-			expectedIds: []string{"1", "4", "5", "6", "7", "8"},
+			expectedIds: []string{"1", "4", "5", "6", "7", "8", "9", "10"},
 		},
 	}
 

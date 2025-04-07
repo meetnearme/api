@@ -41,7 +41,7 @@ templ EventsInner(events []types.Event, mode string) {
 				No events found, try changing your filters like location, date, and time, or
 				<br/>
 				<br/>
-				<a class="btn btn-primary btn-small" href="/?radius=500">Expand Your Search</a>
+				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search</a>
 			</p>
 		} else {
 			for _, ev := range events {
@@ -140,7 +140,7 @@ templ EventsInner(events []types.Event, mode string) {
 
 func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLon string) string {
 	if cfLocation.City == "" && origLat != "" && origLon != "" {
-		return "Geocoordinates: " + origLat + ", " + origLat
+		return "Geocoordinates: " + origLat + ", " + origLon
 	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
 		return cfLocation.City + ", " + cfLocation.CCA2
 	}

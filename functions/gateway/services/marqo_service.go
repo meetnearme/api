@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ganeshdipdumbare/marqo-go" // marqo-go is an unofficial Go client library for Marqo
+	"github.com/golang/geo/s2"
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -420,58 +421,25 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event) (*marqo.
 // Returns minLat, maxLat, minLong1, maxLong1, minLong2, maxLong2, needsSplit
 // When needsSplit is true, minLong1/maxLong1 represents the first range and minLong2/maxLong2 represents the second range
 func calculateSearchBounds(location []float64, maxDistance float64) (minLat float64, maxLat float64, minLong1 float64, maxLong1 float64, minLong2 float64, maxLong2 float64, needsSplit bool) {
-	latOffset := miToLat(maxDistance)
-	longOffset := miToLong(maxDistance, location[0])
+	latOffset := miToLat(maxDistance) * 2
+	longOffset := miToLong(maxDistance, location[0]) * 2
+	s2Location := s2.LatLngFromDegrees(location[0], location[1])
+	s2rect := s2.RectFromCenterSize(s2Location, s2.LatLngFromDegrees(latOffset, longOffset))
 
-	// Calculate latitude bounds with pole clamping
-	maxLat = math.Min(90, location[0]+latOffset)
-	minLat = math.Max(-90, location[0]-latOffset)
+	minLat = s2rect.Lo().Lat.Degrees()
+	maxLat = s2rect.Hi().Lat.Degrees()
 
-	// Calculate longitude bounds with wraparound handling
-	maxLong1 = location[1] + longOffset
-	minLong1 = location[1] - longOffset
-
-	// If the longitude range wraps around the globe, cover all longitudes
-	// (this happens when longOffset > 180 degrees)
-	if longOffset >= 180 {
-		minLong1 = -180
+	// If the longitude range wraps around the prime meridian, split into two bounding boxes
+	if s2rect.Lo().Lng.Degrees() > s2rect.Hi().Lng.Degrees() {
+		needsSplit = true
+		minLong1 = float64(s2rect.Lo().Lng.Degrees())
 		maxLong1 = 180
-		return minLat, maxLat, minLong1, maxLong1, 0, 0, false
-	}
-	// Check if we need to split the range across the 0° prime meridian OR 180° international date line
-	// This happens when the range includes both negative and positive longitudes
-	needsSplit = minLong1 < -180 || maxLong1 > 180
-
-	if needsSplit {
-		if minLong1 < -180 {
-			origMinLong1 := minLong1
-			origMaxLong1 := maxLong1
-			minLong1 = (origMinLong1 + 360)
-			maxLong1 = 180
-			if origMaxLong1 < -180 {
-				minLong2 = -180
-				maxLong2 = (origMaxLong1 + 360) * -1
-			} else {
-				minLong2 = -180
-				maxLong2 = origMaxLong1
-			}
-		} else {
-			origMaxLong1 := maxLong1
-			origMinLong1 := minLong1
-			minLong1 = 0
-			maxLong1 = (origMaxLong1 - 180)
-			minLong2 = (180 - origMinLong1)
-			maxLong2 = 180
-		}
-	}
-
-	// prevent longitude from exceeding ALL possible values
-	if maxLong1 > 180 {
-		maxLong1 = 180
-	}
-	// prevent latitude from exceeding ALL possible values
-	if minLong1 < -180 {
-		minLong1 = -180
+		minLong2 = -180
+		maxLong2 = float64(s2rect.Hi().Lng.Degrees())
+	} else {
+		needsSplit = false
+		minLong1 = float64(s2rect.Lo().Lng.Degrees())
+		maxLong1 = float64(s2rect.Hi().Lng.Degrees())
 	}
 
 	return minLat, maxLat, minLong1, maxLong1, minLong2, maxLong2, needsSplit
