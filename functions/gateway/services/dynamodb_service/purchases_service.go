@@ -281,8 +281,8 @@ func (s *PurchaseService) HasPurchaseForEvent(ctx context.Context, dynamodbClien
 	selectInput := &dynamodb.ExecuteStatementInput{
 		Statement: aws.String(fmt.Sprintf(
 			`SELECT * FROM "%s"
-			 WHERE begins_with(compositeKey, '%s_%s')
-			 OR begins_with(compositeKey, '%s_%s')
+			 WHERE (begins_with(compositeKey, '%s_%s')
+			 	 OR begins_with(compositeKey, '%s_%s'))
 			 AND status <> 'INTERESTED'`,
 			purchasesTableName,
 			childEventId, userId,
