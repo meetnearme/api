@@ -365,8 +365,8 @@ func HasPurchaseForEventHandler(w http.ResponseWriter, r *http.Request) http.Han
 			return
 		}
 
-		if hasPurchasePayload.ChildEventId == "" && hasPurchasePayload.ParentEventId == "" {
-			transport.SendServerRes(w, []byte("Missing childEventId or parentEventId"), http.StatusBadRequest, nil)
+		if hasPurchasePayload.ParentEventId == "" {
+			transport.SendServerRes(w, []byte("Missing required parentEventId"), http.StatusBadRequest, nil)
 			return
 		}
 
