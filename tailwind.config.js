@@ -55,6 +55,15 @@ export default {
             width: '960px',
           },
         },
+        '.select-bordered': {
+          borderColor: 'var(--fallback-bc,oklch(var(--bc)/0.6))'
+        },
+        '.input-bordered': {
+          borderColor: 'var(--fallback-bc,oklch(var(--bc)/0.6))'
+        },
+        '.textarea-bordered': {
+          borderColor: 'var(--fallback-bc,oklch(var(--bc)/0.6))'
+        },
         '.main-bg': {
           width: '100vw',
           position: 'fixed',

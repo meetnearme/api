@@ -846,7 +846,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 						<div class="form-control">
 							<label class="label">Starting Price</label>
 							<input
-								class="input"
+								class="input input-bordered"
 								placeholder="Enter starting price"
 								x-model.fill={ "formData.event.startingPrice" }
 								x-mask:dynamic="$money($input)"
@@ -857,7 +857,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 						</div>
 						<div class="form-control">
 							<label class="label">Currency</label>
-							<select class="select" value={ event.Currency }>
+							<select class="select select-bordered" value={ event.Currency }>
 								<option value="">Select currency</option>
 								<option
 									value="USD"
@@ -893,7 +893,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 							// TODO: make this a typeahead like other user lookup for event owners
 							<label class="label">Payee (user id)</label>
 							<input
-								class="input"
+								class="input input-bordered"
 								type="text"
 								x-model="formData.event.payeeId"
 								value={ event.PayeeId }
