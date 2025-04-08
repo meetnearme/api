@@ -140,7 +140,7 @@ templ EventsInner(events []types.Event, mode string) {
 
 func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLon string) string {
 	if cfLocation.City == "" && origLat != "" && origLon != "" {
-		return "Geocoordinates: " + origLat + ", " + origLon
+		return origLat + ", " + origLon
 	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
 		return cfLocation.City + ", " + cfLocation.CCA2
 	}
@@ -172,7 +172,7 @@ func GetCitiesAsJsonStr() string {
 
 templ FilterButton() {
 	<button onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
-		FILTER <svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96" fill="#FFFFFF"></path></svg>
+		FILTERS <svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96" fill="#FFFFFF"></path></svg>
 	</button>
 }
 
@@ -266,7 +266,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 		class="min-h-screen"
 	>
 		if pageUser == nil {
-			<header class="flex justify-between p-4 bg-black border-b border-gray-700">
+			<header class="flex justify-between py-2 bg-base border-b border-gray-700">
 				<nav class="flex space-x-4">
 					<button href="#" class="text-sm md:text-xl font-bold border-b-2 border-white">
 						EVENTS
@@ -291,126 +291,13 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			x-data="getHomeState()"
 			@location-selected.window="handleLocationSelected"
 		>
-			<div class="flex space-x-4 justify-between">
-				// Source: https://www.penguinui.com/components/combobox
-				<div x-data="getLocationSearchState()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
-					<div class="relative px-4">
-						<!-- trigger button  -->
-						<button
-							type="button"
-							class="inline-flex w-full items-center justify-between gap-2 border border-slate-300 rounded-md bg-slate-100 mt-2 px-4 py-2 text-sm font-medium tracking-wide text-slate-700 transition hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:focus-visible:outline-green-600"
-							role="combobox"
-							aria-controls="makesList"
-							aria-haspopup="listbox"
-							x-on:click="isOpen = ! isOpen"
-							x-on:keydown.down.prevent="openedWithKeyboard = true"
-							x-on:keydown.enter.prevent="openedWithKeyboard = true"
-							x-on:keydown.space.prevent="openedWithKeyboard = true"
-							x-bind:aria-expanded="isOpen || openedWithKeyboard"
-							x-bind:aria-label="selectedOption.label ? '' : ''"
-						>
-							<span
-								class="text-sm font-normal"
-								x-text="selectedOption?.label ? selectedOption.label : 'Location: Please Select'"
-							></span>
-							<span
-								class="sr-only"
-								x-text="selectedOption?.label ? selectedOption.label : 'Location: Please Select'"
-							></span>
-							<!-- Chevron  -->
-							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true">
-								<path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"></path>
-							</svg>
-						</button>
-						<!-- Hidden Input To Grab The Selected Value  -->
-						<input id="make" name="make" x-ref="hiddenTextField" hidden=""/>
-						<div
-							x-show="isOpen || openedWithKeyboard"
-							:class="{'opacity-100': isOpen || openedWithKeyboard}"
-							class="w-full opacity-0 transition-all absolute left-4 top-12 z-10 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
-							id="makesList"
-							role="listbox"
-							aria-label="locations list"
-							x-on:click.outside="isOpen = false, openedWithKeyboard = false"
-							x-on:keydown.down.prevent="$focus.wrap().next()"
-							x-on:keydown.up.prevent="$focus.wrap().previous()"
-							x-transition
-							x-trap="openedWithKeyboard"
-						>
-							<!-- Search  -->
-							<div class="relative">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									fill="none"
-									stroke-width="1.5"
-									class="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-700/50 dark:text-slate-300/50"
-									aria-hidden="true"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"></path>
-								</svg>
-								<input
-									type="text"
-									class="w-full border-b border-slate-300 bg-slate-100 py-2.5 pl-11 pr-4 text-sm text-slate-700 focus:outline-none focus-visible:border-green-700 disabled:cursor-not-allowed disabled:opacity-75 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus-visible:border-green-600"
-									name="loc_search"
-									aria-label="Search"
-									@input.throttle="fetchLocations($event.target.value)"
-									x-ref="loc_search"
-									placeholder="Search"
-								/>
-							</div>
-							<!-- Options  -->
-							<ul class="flex max-h-44 flex-col overflow-y-auto">
-								<li class="hidden px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
-									<span>No matches found</span>
-								</li>
-								<template x-for="(item, index) in options" :key="index">
-									<li
-										class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white"
-										role="option"
-										@click="setSelectedOption(item)"
-										@keydown.enter="setSelectedOption(item)"
-										:id="'option-' + index"
-										tabindex="0"
-									>
-										<!-- Label  -->
-										<span :class="selectedOption && selectedOption.value == item.value ? 'font-bold' : null" x-text="item.label"></span>
-										<!-- Screen reader 'selected' indicator  -->
-										<span class="sr-only" x-text="selectedOption && selectedOption.value == item.value ? 'selected' : null"></span>
-										<!-- Checkmark  -->
-										<svg x-cloak x-show="selectedOption && selectedOption.value == item.value" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" class="size-4" aria-hidden="true">
-											<path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"></path>
-										</svg>
-									</li>
-								</template>
-							</ul>
-						</div>
-					</div>
-				</div>
-				<div class="flex items-center">
-					<svg xmlns="http://www.w3.org/2000/svg" class="stroke-none h-8 w-8 mr-4" fill="currentColor" viewBox="0 0 24 24">
-						<path d="M6.5,8.11C5.61,8.11 4.89,7.39 4.89,6.5A1.61,1.61 0 0,1 6.5,4.89C7.39,4.89 8.11,5.61 8.11,6.5V6.5A1.61,1.61 0 0,1 6.5,8.11M6.5,2C4,2 2,4 2,6.5C2,9.87 6.5,14.86 6.5,14.86C6.5,14.86 11,9.87 11,6.5C11,4 9,2 6.5,2M17.5,8.11A1.61,1.61 0 0,1 15.89,6.5C15.89,5.61 16.61,4.89 17.5,4.89C18.39,4.89 19.11,5.61 19.11,6.5A1.61,1.61 0 0,1 17.5,8.11M17.5,2C15,2 13,4 13,6.5C13,9.87 17.5,14.86 17.5,14.86C17.5,14.86 22,9.87 22,6.5C22,4 20,2 17.5,2M17.5,16C16.23,16 15.1,16.8 14.68,18H9.32C8.77,16.44 7.05,15.62 5.5,16.17C3.93,16.72 3.11,18.44 3.66,20C4.22,21.56 5.93,22.38 7.5,21.83C8.35,21.53 9,20.85 9.32,20H14.69C15.24,21.56 16.96,22.38 18.5,21.83C20.08,21.28 20.9,19.56 20.35,18C19.92,16.8 18.78,16 17.5,16V16M17.5,20.5A1.5,1.5 0 0,1 16,19A1.5,1.5 0 0,1 17.5,17.5A1.5,1.5 0 0,1 19,19A1.5,1.5 0 0,1 17.5,20.5Z"></path>
-					</svg>
-					<label class="form-control w-full max-w-xs">
-						<select
-							x-model="radius"
-							class="select select-bordered w-full max-w-xs"
-							@change="pushToQueryParams('radius', radius)"
-						>
-							<option value="10">10 mi</option>
-							<option value="25">25 mi</option>
-							<option value="50">50 mi</option>
-							<option value="100">100 mi</option>
-							<option value="250">250 mi</option>
-							<option value="500">500 mi</option>
-							<option value="1000">1,000 mi</option>
-							<option value="25000">Global</option>
-						</select>
-					</label>
-				</div>
+			<div
+				class="text-sm mt-4 mb-2"
+				@click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();"
+			>
+				Showing events within <span class="font-bold" x-text="radius"></span> miles of <span class="font-bold" x-data="getLocationSearchState()" x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + selectedOption?.label : selectedOption?.label"></span> <button class="btn btn-xs">Modify</button>
 			</div>
-			<div class="p-4">
+			<div class="pb-4">
 				<form
 					id="event-search-form"
 					class="flex"
@@ -464,7 +351,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							'btn-primary': start_time === 'this_month',
 							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'this_month'
 						}"
-							class="btn grow px-4 py-2 text-md md:text-xl "
+							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="pushToQueryParams('start_time', 'this_month')"
 						>
 							THIS MONTH
@@ -475,7 +362,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							'btn-primary': start_time === 'today',
 							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'today'
 						}"
-							class="btn grow px-4 py-2 text-md md:text-xl "
+							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="pushToQueryParams('start_time', 'today')"
 						>
 							TODAY
@@ -486,7 +373,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							'btn-primary': start_time === 'tomorrow',
 							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'tomorrow'
 						}"
-							class="btn grow px-4 py-2 text-md md:text-xl "
+							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="pushToQueryParams('start_time', 'tomorrow')"
 						>
 							TOMORROW
@@ -497,7 +384,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							'btn-primary': start_time === 'this_week',
 							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'this_week'
 						}"
-							class="btn grow px-4 py-2 text-md md:text-xl "
+							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="pushToQueryParams('start_time', 'this_week')"
 						>
 							THIS WEEK
