@@ -5,6 +5,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -337,7 +338,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							checked="checked"
 						/>
 						<div
-							x-data="getHomeState()"
+							x-data="getFilterFormState()"
 							role="tabpanel"
 							class="tab-content pt-4 relative"
 							@location-dropdown.window="locationDropdown = $event.detail.option;"
@@ -353,7 +354,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								<button
 									type="submit"
 									class="btn btn-primary w-full sticky top-0 z-[10]"
-									@click="handleApplyFilters"
+									@click="handleFilterSubmitDispatch"
 								>
 									Apply Filters
 								</button>
@@ -568,7 +569,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 		</div>
 	</div>
 	if helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvCart]}) != "" {
-		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub }>
+		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub } data-default-radius={ strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64) }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,

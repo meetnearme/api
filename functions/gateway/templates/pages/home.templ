@@ -289,11 +289,11 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 		}
 		<div
 			x-data="getHomeState()"
-			@apply-filters-submitted.window="radius = $event.detail.radius;"
+			@apply-filters-submitted.window="handleApplyFilters($event.detail.locationDropdown, $event.detail.radius);"
 		>
 			<div class="text-sm mt-4 mb-2">
 				Showing events within <span class="font-bold" x-text="radius"></span> miles of
-				<a class="link link-primary font-bold" x-data="getLocationSearchState()" @apply-filters-submitted.window="$event.detail?.locationDropdown ?selectedOption = $event.detail?.locationDropdown;" :href=" selectedOption?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${selectedOption?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${selectedOption?.label}` ">
+				<a class="link link-primary font-bold" x-data="getLocationSearchState()" @apply-filters-submitted.window="$event.detail?.locationDropdown ? selectedOption = $event.detail?.locationDropdown : null;" :href=" selectedOption?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${selectedOption?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${selectedOption?.label}` ">
 					<span x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + selectedOption?.label : selectedOption?.label"></span>
 				</a> <button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
 			</div>
@@ -431,7 +431,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			}
 		</main>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64) }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") }>
 		// NOTE: this is used by htmx to get the data-attributes
 		// eslint-disable-next-line no-unused-vars
 		function sendParmsFromQs() {
@@ -626,18 +626,35 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						this.hasEvents = false;
 					}
 				},
-				handleApplyFilters() {
+				handleApplyFilters(locationDropdown, radius) {
+					this.radius = radius
+					this.lat = locationDropdown?.latitude ?? this.lat
+					this.lon = locationDropdown?.longitude ?? this.lon
+
 					this.sendCategoriesToQueryParams();
-					this.pushToQueryParams('radius', this.radius)
-					this.pushToQueryParams('lat', this.locationDropdown?.latitude ?? this.lat)
-					this.pushToQueryParams('lon', this.locationDropdown?.longitude ?? this.lon)
-					this.$dispatch('apply-filters-submitted', { locationDropdown: this.locationDropdown, radius: this.radius });
+					this.pushToQueryParams('radius', radius)
+					this.pushToQueryParams('lat', locationDropdown?.latitude ?? this.lat)
+					this.pushToQueryParams('lon', locationDropdown?.longitude ?? this.lon)
 
 					document.getElementById('main-drawer').click();
-
 				},
 			}
 		}
+
+		function getFilterFormState() {
+				return {
+					init() {
+						const urlParams = new URLSearchParams(window.location.search);
+
+						this.radius = urlParams.get('radius') || document.querySelector('#alpine-state').getAttribute('data-default-radius')
+					},
+					radius: null,
+					locationDropdown: null,
+					handleFilterSubmitDispatch() {
+						this.$dispatch('apply-filters-submitted', { locationDropdown: this.locationDropdown, radius: this.radius });
+					},
+				}
+			}
 
 		function getCompetitionsState() {
 			return {
