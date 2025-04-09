@@ -5,6 +5,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -294,7 +295,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-			<div class="menu border-2 border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
+			<div class="border-2 border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
 				<div class="block justify-end pb-5">
 					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click();"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
 				</div>
@@ -321,7 +322,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 				<div role="tablist" class="tabs tabs-bordered">
 					<input id="flyout-tab-main" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
 					<div role="tabpanel" class="tab-content p-2">
-						<ul class="">
+						<ul class="menu">
 							<!-- Sidebar content here -->
 							@NavListItems(userInfo)
 						</ul>
@@ -336,7 +337,12 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							aria-label="Filters"
 							checked="checked"
 						/>
-						<div x-data="getHomeState()" role="tabpanel" class="tab-content pt-4 relative">
+						<div
+							x-data="getFilterFormState()"
+							role="tabpanel"
+							class="tab-content pt-4 relative"
+							@location-dropdown.window="locationDropdown = $event.detail.option;"
+						>
 							<form
 								id="category-search-form"
 								novalidate
@@ -348,7 +354,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								<button
 									type="submit"
 									class="btn btn-primary w-full sticky top-0 z-[10]"
-									@click="sendCategoriesToQueryParams(); document.getElementById('main-drawer').click();"
+									@click="handleFilterSubmitDispatch"
 								>
 									Apply Filters
 								</button>
@@ -356,12 +362,14 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								<br/>
 								// Source: https://www.penguinui.com/components/combobox
 								<div x-data="getLocationSearchState()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
-									<div>Location <span x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? '(Geocoordinates)' : '' "></span></div>
+									<h3 class="text-xl my-3">
+										Location <span x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? '(Geocoordinates)' : '' "></span>
+									</h3>
 									<div class="relative">
 										<!-- trigger button  -->
 										<button
 											type="button"
-											class="inline-flex w-full items-center justify-between gap-2 border rounded-md mt-2 px-4 py-2 text-sm font-medium tracking-wide  transition hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 dark:focus-visible:outline-green-600"
+											class="inline-flex w-full items-center justify-between gap-2 border rounded-md mt-2 p-3 text-sm font-medium tracking-wide  transition input-bordered focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 dark:focus-visible:outline-green-600"
 											role="combobox"
 											aria-controls="makesList"
 											aria-haspopup="listbox"
@@ -390,7 +398,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 										<div
 											x-show="isOpen || openedWithKeyboard"
 											:class="{'opacity-100': isOpen || openedWithKeyboard}"
-											class="w-full opacity-0 transition-all absolute top-12 z-10 overflow-hidden rounded-md border bg-base-200"
+											class="w-full opacity-0 transition-all absolute left-0 top-12 z-10 overflow-hidden rounded-md border bg-base-200"
 											id="makesList"
 											role="listbox"
 											aria-label="locations list"
@@ -425,7 +433,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 											</div>
 											<!-- Options  -->
 											<ul class="flex max-h-44 flex-col overflow-y-auto">
-												<li class="hidden px-4 py-2 text-sm 300" x-ref="noResultsMessage">
+												<li class="hidden px-4 py-2 text-sm" x-ref="noResultsMessage">
 													<span>No matches found</span>
 												</li>
 												<template x-for="(item, index) in options" :key="index">
@@ -453,11 +461,9 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								</div>
 								<br/>
 								<br/>
+								<h3 class="text-xl my-3">Distance</h3>
 								<div class="flex items-center">
 									<label class="form-control w-full max-w-xs">
-										<div class="label">
-											<span class="label-text">Distance</span>
-										</div>
 										<select
 											x-model="radius"
 											class="select select-bordered w-full max-w-xs"
@@ -475,6 +481,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								</div>
 								<br/>
 								<br/>
+								<h3 class="text-xl my-3">Categories</h3>
 								@NestedCheckboxList(false, []string{})
 							</form>
 						</div>
@@ -562,7 +569,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 		</div>
 	</div>
 	if helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvCart]}) != "" {
-		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub }>
+		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub } data-default-radius={ strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64) }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,
