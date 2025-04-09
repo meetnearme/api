@@ -289,13 +289,13 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 		}
 		<div
 			x-data="getHomeState()"
-			@location-selected.window="handleLocationSelected"
+			@apply-filters-submitted.window="radius = $event.detail.radius;"
 		>
-			<div
-				class="text-sm mt-4 mb-2"
-				@click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();"
-			>
-				Showing events within <span class="font-bold" x-text="radius"></span> miles of <span class="font-bold" x-data="getLocationSearchState()" x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + selectedOption?.label : selectedOption?.label"></span> <button class="btn btn-xs">Modify</button>
+			<div class="text-sm mt-4 mb-2">
+				Showing events within <span class="font-bold" x-text="radius"></span> miles of
+				<a class="link link-primary font-bold" x-data="getLocationSearchState()" @apply-filters-submitted.window="selectedOption = $event.detail.locationDropdown;" :href=" selectedOption?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${selectedOption?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${selectedOption?.label}` ">
+					<span x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + selectedOption?.label : selectedOption?.label"></span>
+				</a> <button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
 			</div>
 			<div class="pb-4">
 				<form
@@ -431,7 +431,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			}
 		</main>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64) }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64) }>
 		// NOTE: this is used by htmx to get the data-attributes
 		// eslint-disable-next-line no-unused-vars
 		function sendParmsFromQs() {
@@ -463,8 +463,11 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				isOpen: false,
 				openedWithKeyboard: false,
 				selectedOption: {
-					label: document.querySelector('#alpine-state').getAttribute('data-city-label-initial')
+					label: document.querySelector('#alpine-state').getAttribute('data-city-label-initial'),
+					latitude: document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
+					longitude: document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
 				},
+				radius: document.querySelector('#alpine-state').getAttribute('data-default-radius'),
 				async fetchLocations(query) {
 					if (query.length >= 3) {
 						this.options = await fetch(`/api/locations?q=${query}`).then(res => {
@@ -481,11 +484,13 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				},
 				setSelectedOption(option) {
 					this.selectedOption = option
+
 					this.isOpen = false
 					this.openedWithKeyboard = false
 					this.$refs.hiddenTextField.value = option.value
 					// Update lat and lon in the parent component
-					this.$dispatch('location-selected', { lat: option.latitude, lon: option.longitude })
+					this.$dispatch('location-dropdown', { option: { ...option } })
+
 				},
 				getFilteredOptions(query) {
 					this.options = this.allOptions.filter((option) =>
@@ -553,6 +558,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					'lon',
 					'categories'
 				],
+				locationDropdown: null,
 				updateParamsFromUrl (triggerSearch = true) {
 					const urlParams = new URLSearchParams(window.location.search);
 
@@ -596,9 +602,6 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				handleLocationSelected(event) {
 					this.lat = event.detail.lat
 					this.lon = event.detail.lon
-
-					this.pushToQueryParams('lat', event.detail.lat)
-					this.pushToQueryParams('lon', event.detail.lon)
 				},
 				pushToQueryParams(param, selected) {
 					// Get current URL and parse its query parameters
@@ -622,6 +625,14 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					} else {
 						this.hasEvents = false;
 					}
+				},
+				handleApplyFilters() {
+					this.sendCategoriesToQueryParams();
+					this.$dispatch('apply-filters-submitted', { locationDropdown: this.locationDropdown, radius: this.radius });
+					this.pushToQueryParams('lat', this.locationDropdown.latitude)
+					this.pushToQueryParams('lon', this.locationDropdown.longitude)
+					document.getElementById('main-drawer').click();
+
 				},
 			}
 		}
