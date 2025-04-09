@@ -293,7 +293,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 		>
 			<div class="text-sm mt-4 mb-2">
 				Showing events within <span class="font-bold" x-text="radius"></span> miles of
-				<a class="link link-primary font-bold" x-data="getLocationSearchState()" @apply-filters-submitted.window="selectedOption = $event.detail.locationDropdown;" :href=" selectedOption?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${selectedOption?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${selectedOption?.label}` ">
+				<a class="link link-primary font-bold" x-data="getLocationSearchState()" @apply-filters-submitted.window="$event.detail?.locationDropdown ?selectedOption = $event.detail?.locationDropdown;" :href=" selectedOption?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${selectedOption?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${selectedOption?.label}` ">
 					<span x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + selectedOption?.label : selectedOption?.label"></span>
 				</a> <button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
 			</div>
@@ -628,9 +628,11 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				},
 				handleApplyFilters() {
 					this.sendCategoriesToQueryParams();
+					this.pushToQueryParams('radius', this.radius)
+					this.pushToQueryParams('lat', this.locationDropdown?.latitude ?? this.lat)
+					this.pushToQueryParams('lon', this.locationDropdown?.longitude ?? this.lon)
 					this.$dispatch('apply-filters-submitted', { locationDropdown: this.locationDropdown, radius: this.radius });
-					this.pushToQueryParams('lat', this.locationDropdown.latitude)
-					this.pushToQueryParams('lon', this.locationDropdown.longitude)
+
 					document.getElementById('main-drawer').click();
 
 				},
