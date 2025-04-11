@@ -452,7 +452,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				radius: urlParams.get('radius') ?? document.querySelector('#alpine-state').getAttribute('data-default-radius'),
 				lat: urlParams.get('lat') ?? document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
 				lon: urlParams.get('lon') ?? document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
-				categories: urlParams.get('categories') ?? '',
+				categories: categories,
 				setRadius(value) {
 					this.radius = value;
 				},
@@ -673,6 +673,13 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				return {
 					init() {
 						this.radius = Alpine.store('filters').radius
+
+						const form = document.getElementById('category-search-form')
+						form.querySelectorAll('input[type="checkbox"]').forEach(itm => {
+							if (Alpine.store('filters').categories.includes(itm.value)) {
+								itm.checked = true
+							}
+						})
 					},
 					radius: null,
 					locationDropdown: null,
@@ -685,33 +692,15 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						const formValues = Object.fromEntries(formData.entries());
 						let formVals = []
 						Object.keys(formValues).forEach(itm => {
-              if (itm.startsWith('itm-')) {
-                formVals.push(formValues?.[itm])
-              }
+							if (itm.startsWith('itm-')) {
+								formVals.push(formValues?.[itm])
+							}
 						})
 						formVals = formVals.join(' | ')
 						Alpine.store('queryParams').pushToQueryParams('categories', formVals)
 					},
 					handleFilterSubmit(e) {
 						this.sendCategoriesToQueryParams();
-								// const form = event.target.closest('form');
-// 		const formData = new FormData(form);
-
-// 		const selections = {};
-// 		for (const [name, value] of formData.entries()) {
-// 				if (name.startsWith('itm-')) {
-// 						// If you need an array of selections for each name
-// 						if (!selections[name]) {
-// 								selections[name] = [];
-// 						}
-// 						selections[name].push(value);
-// 				}
-// 		}
-
-// console.log(selections);
-
-// Alpine.store('filters').setCategories(Object.values(selections).flat())
-
 						if (this.radius) {
 							Alpine.store('filters').setRadius(this.radius)
 							Alpine.store('queryParams').pushToQueryParams('radius', this.radius)
