@@ -456,6 +456,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				lat: urlParams.get('lat') ?? document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
 				lon: urlParams.get('lon') ?? document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
 				categories: categories,
+				q: urlParams.get('q') ?? '',
 				setRadius(value) {
 					this.radius = value;
 				},
@@ -464,7 +465,10 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				},
 				setLon(value) {
 					this.lon = value;
-				}
+				},
+				setQ(value) {
+					this.q = value;
+				},
 			});
 
 			Alpine.store('location', {
@@ -539,6 +543,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				options: [],
 				isOpen: false,
 				openedWithKeyboard: false,
+				isLoading: false,
 				selectedOption: {
 					label: Alpine.store('location').selected.label,
 					latitude: Alpine.store('location').selected.latitude,
@@ -546,6 +551,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				},
 				async fetchLocations(query) {
 					if (query.length >= 3) {
+						this.isLoading = true;
 						this.options = await fetch(`/api/locations?q=${query}`).then(res => {
 							return res.json()
 						}).then(json => {
@@ -555,6 +561,13 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 								latitude: city.latitude,
 								longitude: city.longitude,
 							}))
+						})
+						.catch(error => {
+							console.error('Error fetching locations:', error);
+							return [];
+						})
+						.finally(() => {
+							this.isLoading = false;
 						});
 					}
 				},
@@ -680,6 +693,56 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 								itm.checked = true
 							}
 						})
+
+						const searchPlaceholderExamples = [
+							'I want to meet people who enjoy theater',
+							'I want to meet active people',
+							'I want to exercise with a group',
+							'I want to find a running group',
+							'I want to find a hiking group',
+							'I want to find a biking group',
+							'I want to find a yoga group',
+							'I want to find a dance group',
+							'I want to find a cooking group',
+							'I want to find a book club',
+							'I want to find a wine tasting group',
+							'I want to meet people interested in nature',
+							'I want to meet people interested in natural living',
+							'I want to meet people interested in healthy eating',
+							'I want to meet people interested in sustainable living',
+							'I want to meet people interested in alternative medicine',
+							'I want to meet people interested in spirituality',
+							'I want to meet people interested in personal development',
+							'I want to meet people interested in personal growth',
+
+						]
+
+						const searchInput = document.querySelector('#search-input')
+						if (searchInput) {
+							// Fisher-Yates shuffle algorithm
+							const shuffleArray = array => {
+								for (let i = array.length - 1; i > 0; i--) {
+									const j = Math.floor(Math.random() * (i + 1));
+									[array[i], array[j]] = [array[j], array[i]];
+								}
+								return array;
+							}
+
+							// Shuffle the array once
+							const shuffledExamples = shuffleArray([...searchPlaceholderExamples])
+							let currentIndex = 0
+
+							const updatePlaceholder = () => {
+								searchInput.placeholder = shuffledExamples[currentIndex]
+								currentIndex = (currentIndex + 1) % shuffledExamples.length
+							}
+
+							// Set initial placeholder
+							updatePlaceholder()
+
+							// Update every 5 seconds
+							setInterval(updatePlaceholder, 1750)
+						}
 					},
 					radius: null,
 					locationDropdown: null,
@@ -696,6 +759,15 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						})
 						formVals = formVals.join(' | ')
 						Alpine.store('queryParams').pushToQueryParams('categories', formVals)
+					},
+					handleSearchSubmit(e) {
+            e.preventDefault()
+            const inputText = document.querySelector('#search-input').value
+            if (inputText.length > 0) {
+              Alpine.store('filters').setQ(inputText)
+              Alpine.store('queryParams').pushToQueryParams('q', inputText)
+              document.getElementById('main-drawer').click();
+            }
 					},
 					handleFilterSubmit() {
 						this.sendCategoriesToQueryParams();

@@ -343,11 +343,40 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							class="tab-content pt-4 relative"
 							@location-dropdown.window="locationDropdown = $event.detail.option;"
 						>
+							<br/>
+							<br/>
+							<h3 class="text-xl my-3">Search</h3>
+							<br/>
+							<br/>
+							<form id="query-search-form" novalidate>
+								<div class="join w-full">
+									<div class="w-full">
+										<input
+											id="search-input"
+											class="input join-item input-bordered w-full"
+											type="text"
+											placeholder="I want to exercise with a group"
+											required
+										/>
+									</div>
+									<div class="indicator">
+										<span class="indicator-item badge badge-secondary">new</span>
+										<button
+											type="submit"
+											id="search-submit-btn"
+											@click.prevent="handleSearchSubmit"
+											class="btn btn-primary join-item"
+										>Search</button>
+									</div>
+								</div>
+							</form>
 							<form
 								id="category-search-form"
 								novalidate
 								@submit.prevent=""
 							>
+								<br/>
+								<br/>
 								<br/>
 								<br/>
 								// @click function call is a global shared from home_details.templ
@@ -423,14 +452,15 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 												</svg>
 												<input
 													type="text"
-													class="w-full border-b py-2.5 pl-11 pr-4 text-sm focus:outline-none focus-visible:border-green-700 disabled:cursor-not-allowed disabled:opacity-75   dark:focus-visible:border-green-600"
+													class="w-full border-b py-2.5 pl-11 pr-4 text-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-75"
 													name="loc_search"
-													aria-label="Search"
+													aria-label="Search Locations"
 													@input.throttle="fetchLocations($event.target.value)"
 													x-ref="loc_search"
 													placeholder="Search"
 												/>
 											</div>
+											<progress :class="{ 'opacity-0': !isLoading }" class="progress absolute input-bottom h-2 w-full -m-[5px]"></progress>
 											<!-- Options  -->
 											<ul class="flex max-h-44 flex-col overflow-y-auto">
 												<li class="hidden px-4 py-2 text-sm" x-ref="noResultsMessage">

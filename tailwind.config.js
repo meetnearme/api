@@ -122,6 +122,10 @@ export default {
             display: 'block',
           },
         },
+        '.progress.input-bottom': {
+          borderRadius: '0',
+          height: '0.25rem',
+        },
       });
     },
   ],
