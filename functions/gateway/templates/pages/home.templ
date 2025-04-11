@@ -686,8 +686,6 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					},
 					radius: null,
 					locationDropdown: null,
-					// TODO: on initial page load, the categories need to be searched by text
-					// label and selected for each in query string
 					sendCategoriesToQueryParams() {
 						const form = document.getElementById('category-search-form')
 						// Collect form values
