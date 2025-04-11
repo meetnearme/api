@@ -354,7 +354,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								<button
 									type="submit"
 									class="btn btn-primary w-full sticky top-0 z-[10]"
-									@click="handleFilterSubmit"
+									@click.prevent="handleFilterSubmit"
 								>
 									Apply Filters
 								</button>
