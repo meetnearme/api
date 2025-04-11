@@ -23,8 +23,8 @@ import (
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-const US_GEO_CENTER_LAT = float64(39.8283)
-const US_GEO_CENTER_LONG = float64(-98.5795)
+var US_GEO_DEFAULT_LAT = float64(helpers.Cities[0].Latitude)
+var US_GEO_DEFAULT_LONG = float64(helpers.Cities[0].Longitude)
 
 func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTimeUnix int64) {
 	var startTime time.Time
@@ -119,8 +119,8 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	}
 
 	// default lat / lon to geographic center of US
-	lat := US_GEO_CENTER_LAT
-	long := US_GEO_CENTER_LONG
+	lat := US_GEO_DEFAULT_LAT
+	long := US_GEO_DEFAULT_LONG
 
 	// Parse parameter values if provided
 	if latStr != "" {
@@ -151,7 +151,7 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	// cfLocation has given us a reasonable local guess
 
 	if radius < 0.0001 && (cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong ||
-		lat != US_GEO_CENTER_LAT && long != US_GEO_CENTER_LONG) {
+		lat != US_GEO_DEFAULT_LAT && long != US_GEO_DEFAULT_LONG) {
 		radius = helpers.DEFAULT_SEARCH_RADIUS
 		// we still don't have lat/lon, which means we'll be using "geographic center of US"
 		// which is in the middle of nowhere. Expand the radius to show all of the country
