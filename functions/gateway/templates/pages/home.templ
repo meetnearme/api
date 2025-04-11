@@ -448,6 +448,9 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 
 			const urlParams = new URLSearchParams(window.location.search);
 
+			const categoriesParam = urlParams.get('categories');
+			const categories = categoriesParam ? decodeURIComponent(categoriesParam).split(' | ') : '';
+
 			Alpine.store('filters', {
 				radius: urlParams.get('radius') ?? document.querySelector('#alpine-state').getAttribute('data-default-radius'),
 				lat: urlParams.get('lat') ?? document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
