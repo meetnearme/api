@@ -319,6 +319,7 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	ctx := r.Context()
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
+	originalQueryLocation := r.URL.Query().Get("location")
 	events, cfLocation, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), status, err)
@@ -332,6 +333,7 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		fmt.Sprint(userLocation[1]),
 		fmt.Sprint(originalQueryLat),
 		fmt.Sprint(originalQueryLong),
+		originalQueryLocation,
 	)
 
 	userInfo := helpers.UserInfo{}
