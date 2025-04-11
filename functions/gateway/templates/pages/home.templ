@@ -299,10 +299,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				@FilterButton()
 			</header>
 		}
-		<div
-			x-data="getHomeState()"
-			@apply-filters-submitted.window="handleApplyFilters($event.detail.locationDropdown, $event.detail.radius);"
-		>
+		<div x-data="getHomeState()">
 			<div class="text-sm md:text-base mt-4 mb-2">
 				Showing events within <span class="font-bold" x-text="$store.filters.radius"></span> miles of
 				<a
@@ -455,7 +452,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				radius: urlParams.get('radius') ?? document.querySelector('#alpine-state').getAttribute('data-default-radius'),
 				lat: urlParams.get('lat') ?? document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
 				lon: urlParams.get('lon') ?? document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
-
+				categories: urlParams.get('categories') ?? '',
 				setRadius(value) {
 					this.radius = value;
 				},
@@ -464,6 +461,9 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				},
 				setLon(value) {
 					this.lon = value;
+				},
+				setCategories(value) {
+					this.categories = value.join('')
 				}
 			});
 
@@ -652,21 +652,6 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						form?.requestSubmit()
 					}, 250)
 				},
-				// TODO: on initial page load, the categories need to be searched by text
-				// label and selected for each in query string
-				sendCategoriesToQueryParams() {
-					const form = document.getElementById('category-search-form')
-					// Collect form values
-					const formData = new FormData(form);
-					const formValues = Object.fromEntries(formData.entries());
-					let formVals = []
-					Object.keys(formValues).forEach(itm => {
-						formVals.push(formValues?.[itm])
-					})
-					formVals = formVals.join(' | ')
-
-					Alpine.store('queryParams').pushToQueryParams('categories', formVals)
-				},
 				handleLocationSelected(event) {
 					this.lat = event.detail.lat
 					this.lon = event.detail.lon
@@ -677,21 +662,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					} else {
 						this.hasEvents = false;
 					}
-				},
-				handleApplyFilters(locationDropdown, radius) {
-					this.sendCategoriesToQueryParams();
-					if (radius) {
-						Alpine.store('queryParams').pushToQueryParams('radius', radius)
-					}
-					if (locationDropdown) {
-						this.lat = locationDropdown?.latitude ?? this.lat
-						this.lon = locationDropdown?.longitude ?? this.lon
-						Alpine.store('queryParams').pushToQueryParams('lat', locationDropdown?.latitude ?? this.lat)
-						Alpine.store('queryParams').pushToQueryParams('lon', locationDropdown?.longitude ?? this.lon)
-					}
-
-					document.getElementById('main-drawer').click();
-				},
+				}
 			}
 		}
 
@@ -705,7 +676,42 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					},
 					radius: null,
 					locationDropdown: null,
-					handleFilterSubmit() {
+					// TODO: on initial page load, the categories need to be searched by text
+					// label and selected for each in query string
+					sendCategoriesToQueryParams() {
+						const form = document.getElementById('category-search-form')
+						// Collect form values
+						const formData = new FormData(form);
+						const formValues = Object.fromEntries(formData.entries());
+						let formVals = []
+						Object.keys(formValues).forEach(itm => {
+              if (itm.startsWith('itm-')) {
+                formVals.push(formValues?.[itm])
+              }
+						})
+						formVals = formVals.join(' | ')
+						Alpine.store('queryParams').pushToQueryParams('categories', formVals)
+					},
+					handleFilterSubmit(e) {
+						this.sendCategoriesToQueryParams();
+								// const form = event.target.closest('form');
+// 		const formData = new FormData(form);
+
+// 		const selections = {};
+// 		for (const [name, value] of formData.entries()) {
+// 				if (name.startsWith('itm-')) {
+// 						// If you need an array of selections for each name
+// 						if (!selections[name]) {
+// 								selections[name] = [];
+// 						}
+// 						selections[name].push(value);
+// 				}
+// 		}
+
+// console.log(selections);
+
+// Alpine.store('filters').setCategories(Object.values(selections).flat())
+
 						if (this.radius) {
 							Alpine.store('filters').setRadius(this.radius)
 							Alpine.store('queryParams').pushToQueryParams('radius', this.radius)
