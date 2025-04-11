@@ -30,8 +30,6 @@ func TestHomePage(t *testing.T) {
 		CCA2: "US",
 	}
 
-	latStr := "40.7128"
-	lonStr := "-74.0060"
 	origLatStr := ""
 	origLonStr := ""
 	// Test cases
