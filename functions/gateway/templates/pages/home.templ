@@ -700,7 +700,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						formVals = formVals.join(' | ')
 						Alpine.store('queryParams').pushToQueryParams('categories', formVals)
 					},
-					handleFilterSubmit(e) {
+					handleFilterSubmit() {
 						this.sendCategoriesToQueryParams();
 						if (this.radius) {
 							Alpine.store('filters').setRadius(this.radius)
