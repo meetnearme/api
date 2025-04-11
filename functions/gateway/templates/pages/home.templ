@@ -138,8 +138,10 @@ templ EventsInner(events []types.Event, mode string) {
 	}
 }
 
-func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLon string) string {
-	if cfLocation.City == "" && origLat != "" && origLon != "" {
+func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLon, origQueryLocation string) string {
+	if origQueryLocation != "" {
+		return origQueryLocation
+	} else if cfLocation.City == "" && origLat != "" && origLon != "" {
 		return origLat + ", " + origLon
 	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
 		return cfLocation.City + ", " + cfLocation.CCA2
@@ -191,7 +193,7 @@ func GetDefaultRadius(cfLocation helpers.CdnLocation) string {
 	return strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64)
 }
 
-templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong string) {
+templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
 	// we assume this is "home" and not a community / user profile page
 	if pageUser == nil {
 		<div class="header-hero bg-[#00ffzz]">
@@ -442,7 +444,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			}
 		</main>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) }>
 		document.addEventListener('alpine:init', () => {
 
 			const urlParams = new URLSearchParams(window.location.search);
@@ -482,7 +484,8 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					'radius',
 					'lat',
 					'lon',
-					'categories'
+					'categories',
+					'location'
 				],
 				pushToQueryParams(param, selected) {
 					const url = new URL(window.location.href);
