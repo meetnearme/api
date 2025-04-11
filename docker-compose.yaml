@@ -1,6 +1,8 @@
 services:
   act_combined:
-    build: ./act-platform
+    build:
+      context: .
+      dockerfile: act-platform/Dockerfile
     image: act-combined
     ports:
       - "${SESHUJOBS_POSTGRES_PORT}:5432"

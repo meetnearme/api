@@ -1,11 +1,11 @@
 FROM ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV GO_VERSION=1.23.0
+ENV GO_VERSION=1.23.2
 ENV GO_ARCH=amd64
 
 RUN apt-get update && \
-    apt-get install -y wget gnupg2 lsb-release supervisor git && \
+    apt-get install -y wget gnupg2 lsb-release supervisor git awscli lsb-release build-essential nano vim && \
     echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
     apt-get update && \
@@ -14,13 +14,18 @@ RUN apt-get update && \
 
 # Download and install Go
 RUN wget https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz \
-    && mkdir -p /usr/local/go \
-    && tar -C /usr/local/go -xzf go${GO_VERSION}.linux-${GO_ARCH}.tar.gz \
+    && tar -C /usr/local -xzf go${GO_VERSION}.linux-${GO_ARCH}.tar.gz \
     && rm -rf go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
+
+# Install Node.js and npm using wget
+RUN wget -qO- https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g npm@latest
 
 # Set environment variables for Go
 ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH=/go
+ENV PATH="/go/bin:${PATH}"
 
 RUN mkdir -p /var/log/supervisor
 
@@ -35,13 +40,20 @@ RUN mkdir /meetnearme &&\
 
 WORKDIR /meetnearme/api
 
-COPY seshujobs_init.sql /docker-entrypoint-initdb.d/seshujobs_init.sql
+COPY .env /meetnearme/api/.env
 
-COPY init-postgres.sh /init-postgres.sh
+# Install templ 0.2.793 (minimal version)
+RUN go install github.com/a-h/templ/cmd/templ@v0.2.793
+
+COPY act-platform/seshujobs_init.sql /docker-entrypoint-initdb.d/seshujobs_init.sql
+
+COPY act-platform/init-postgres.sh /init-postgres.sh
 RUN chmod +x /init-postgres.sh
 
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY act-platform/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-EXPOSE 5432
+RUN npm install
+
+EXPOSE 3000 5432
 
 ENTRYPOINT ["/init-postgres.sh"]
