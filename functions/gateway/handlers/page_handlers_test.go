@@ -495,7 +495,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			queryParams:    map[string]string{},
 			cfRay:          "",
 			expectedQuery:  "",
-			expectedLoc:    []float64{39.8283, -98.5795},
+			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
 			expectedEnd:    0, // This will be one month from now in Unix seconds
@@ -524,7 +524,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
-			expectedLoc:    []float64{39.8283, -98.5795},
+			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
 			expectedEnd:    0, // This will be 7 days from now in Unix seconds

@@ -143,8 +143,9 @@ func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr, lonStr, 
 		return origLat + ", " + origLon
 	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
 		return cfLocation.City + ", " + cfLocation.CCA2
+	} else {
+		return helpers.Cities[0].City + ", " + helpers.Cities[0].State
 	}
-	return "Location: Please Select"
 }
 
 func GetCitiesAsJsonStr() string {
@@ -181,6 +182,13 @@ func GetPageUserID(pageUser *types.UserSearchResult) string {
 		return ""
 	}
 	return pageUser.UserID
+}
+
+func GetDefaultRadius(cfLocation helpers.CdnLocation) string {
+	if cfLocation.City == "" {
+		return strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)
+	}
+	return strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64)
 }
 
 templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong string) {
@@ -291,10 +299,13 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			x-data="getHomeState()"
 			@apply-filters-submitted.window="handleApplyFilters($event.detail.locationDropdown, $event.detail.radius);"
 		>
-			<div class="text-sm mt-4 mb-2">
-				Showing events within <span class="font-bold" x-text="radius"></span> miles of
-				<a class="link link-primary font-bold" x-data="getLocationSearchState()" @apply-filters-submitted.window="$event.detail?.locationDropdown ? selectedOption = $event.detail?.locationDropdown : null;" :href=" selectedOption?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${selectedOption?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${selectedOption?.label}` ">
-					<span x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + selectedOption?.label : selectedOption?.label"></span>
+			<div class="text-sm md:text-base mt-4 mb-2">
+				Showing events within <span class="font-bold" x-text="$store.filters.radius"></span> miles of
+				<a
+					class="link link-primary font-bold"
+					:href=" $store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${$store.location?.selected?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${$store.location?.selected?.label}` "
+				>
+					<span x-text="$store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + $store.location?.selected?.label : $store.location?.selected?.label"></span>
 				</a> <button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
 			</div>
 			<div class="pb-4">
@@ -330,7 +341,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						type="hidden"
 					/>
 					<input
-						x-model="radius"
+						x-model="$store.filters.radius"
 						id="radius"
 						type="hidden"
 					/>
@@ -352,7 +363,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'this_month'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="pushToQueryParams('start_time', 'this_month')"
+							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_month')"
 						>
 							THIS MONTH
 						</button>
@@ -363,7 +374,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'today'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="pushToQueryParams('start_time', 'today')"
+							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'today')"
 						>
 							TODAY
 						</button>
@@ -374,7 +385,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'tomorrow'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="pushToQueryParams('start_time', 'tomorrow')"
+							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'tomorrow')"
 						>
 							TOMORROW
 						</button>
@@ -385,7 +396,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'this_week'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="pushToQueryParams('start_time', 'this_week')"
+							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_week')"
 						>
 							THIS WEEK
 						</button>
@@ -431,7 +442,68 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 			}
 		</main>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) }>
+		document.addEventListener('alpine:init', () => {
+
+			const urlParams = new URLSearchParams(window.location.search);
+
+			Alpine.store('filters', {
+				radius: urlParams.get('radius') ?? document.querySelector('#alpine-state').getAttribute('data-default-radius'),
+				lat: urlParams.get('lat') ?? document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
+				lon: urlParams.get('lon') ?? document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
+
+				setRadius(value) {
+					this.radius = value;
+				},
+				setLat(value) {
+					this.lat = value;
+				},
+				setLon(value) {
+					this.lon = value;
+				}
+			});
+
+			Alpine.store('location', {
+				selected: {
+					label: document.querySelector('#alpine-state').getAttribute('data-city-label-initial'),
+					latitude: document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
+					longitude: document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
+				},
+				setSelectedLocation(location) {
+					this.selected = location
+				},
+			});
+
+			Alpine.store('queryParams', {
+				allParams: [
+					'start_time',
+					'end_time',
+					'q',
+					'radius',
+					'lat',
+					'lon',
+					'categories'
+				],
+				pushToQueryParams(param, selected) {
+					const url = new URL(window.location.href);
+					const params = new URLSearchParams(url.search);
+
+					this.allParams.forEach(key => {
+						if ( key && param && (key !== param && ( this[key] !== (null || '') ) ) ) {
+							if (this[key]) {
+								params.set(key, this[key])
+							}
+						}
+					})
+
+					this[param] = selected;
+					params.set(param, selected);
+
+					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
+				},
+			});
+		});
+
 		// NOTE: this is used by htmx to get the data-attributes
 		// eslint-disable-next-line no-unused-vars
 		function sendParmsFromQs() {
@@ -463,11 +535,10 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				isOpen: false,
 				openedWithKeyboard: false,
 				selectedOption: {
-					label: document.querySelector('#alpine-state').getAttribute('data-city-label-initial'),
-					latitude: document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
-					longitude: document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
+					label: Alpine.store('location').selected.label,
+					latitude: Alpine.store('location').selected.latitude,
+					longitude: Alpine.store('location').selected.longitude,
 				},
-				radius: document.querySelector('#alpine-state').getAttribute('data-default-radius'),
 				async fetchLocations(query) {
 					if (query.length >= 3) {
 						this.options = await fetch(`/api/locations?q=${query}`).then(res => {
@@ -490,7 +561,6 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					this.$refs.hiddenTextField.value = option.value
 					// Update lat and lon in the parent component
 					this.$dispatch('location-dropdown', { option: { ...option } })
-
 				},
 				getFilteredOptions(query) {
 					this.options = this.allOptions.filter((option) =>
@@ -549,15 +619,6 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				lat: null,
 				lon: null,
 				categories: null,
-				allParams: [
-					'start_time',
-					'end_time',
-					'q',
-					'radius',
-					'lat',
-					'lon',
-					'categories'
-				],
 				locationDropdown: null,
 				updateParamsFromUrl (triggerSearch = true) {
 					const urlParams = new URLSearchParams(window.location.search);
@@ -565,7 +626,9 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					this.start_time = urlParams.get('start_time') || '';
 					this.end_time = urlParams.get('end_time') || '';
 					this.q = urlParams.get('q') || '';
-					this.radius = urlParams.get('radius') || this.defaultRadius;
+					if (urlParams.get('radius')) {
+						Alpine.store('filters').setRadius(urlParams.get('radius'));
+					}
 					this.lat = urlParams.get('lat') || '';
 					this.lon = urlParams.get('lon') || '';
 					// these come from the sidebar
@@ -578,7 +641,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					// Submit the form
 					const form = document.getElementById('event-search-form')
 
-					// this is unforunately just to allow alpine to propage the form with
+					// this is unforunately just to allow alpine to propagate the form with
 					// updated values prior to submitting
 					setTimeout(()=> {
 						form?.requestSubmit()
@@ -597,27 +660,11 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					})
 					formVals = formVals.join(' | ')
 
-					this.pushToQueryParams('categories', formVals)
+					Alpine.store('queryParams').pushToQueryParams('categories', formVals)
 				},
 				handleLocationSelected(event) {
 					this.lat = event.detail.lat
 					this.lon = event.detail.lon
-				},
-				pushToQueryParams(param, selected) {
-					// Get current URL and parse its query parameters
-					const url = new URL(window.location.href);
-					const params = new URLSearchParams(url.search);
-
-					this.allParams.forEach(key => {
-						if ( key !== param && ( this[key] !== (null || '') ) ) {
-							params.set(key, this[key])
-						}
-					})
-
-					this[param] = selected;
-					params.set(param, selected);
-
-					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
 				},
 				updateHasEvents(event) {
 					if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
@@ -627,31 +674,49 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					}
 				},
 				handleApplyFilters(locationDropdown, radius) {
-					this.radius = radius
-					this.lat = locationDropdown?.latitude ?? this.lat
-					this.lon = locationDropdown?.longitude ?? this.lon
-
 					this.sendCategoriesToQueryParams();
-					this.pushToQueryParams('radius', radius)
-					this.pushToQueryParams('lat', locationDropdown?.latitude ?? this.lat)
-					this.pushToQueryParams('lon', locationDropdown?.longitude ?? this.lon)
+					if (radius) {
+						Alpine.store('queryParams').pushToQueryParams('radius', radius)
+					}
+					if (locationDropdown) {
+						this.lat = locationDropdown?.latitude ?? this.lat
+						this.lon = locationDropdown?.longitude ?? this.lon
+						Alpine.store('queryParams').pushToQueryParams('lat', locationDropdown?.latitude ?? this.lat)
+						Alpine.store('queryParams').pushToQueryParams('lon', locationDropdown?.longitude ?? this.lon)
+					}
 
 					document.getElementById('main-drawer').click();
 				},
 			}
 		}
 
+		// NOTE: this maintains an intentionally independent state from Alpine.store('filters').radius
+		// because the sidebar stores a "draft" state that is committed to URL params
+		// and Alpine global state only when the user clicks "Apply Filters"
 		function getFilterFormState() {
 				return {
 					init() {
-						const urlParams = new URLSearchParams(window.location.search);
-
-						this.radius = urlParams.get('radius') || document.querySelector('#alpine-state').getAttribute('data-default-radius')
+						this.radius = Alpine.store('filters').radius
 					},
 					radius: null,
 					locationDropdown: null,
-					handleFilterSubmitDispatch() {
-						this.$dispatch('apply-filters-submitted', { locationDropdown: this.locationDropdown, radius: this.radius });
+					handleFilterSubmit() {
+						if (this.radius) {
+							Alpine.store('filters').setRadius(this.radius)
+							Alpine.store('queryParams').pushToQueryParams('radius', this.radius)
+						}
+						if (this.locationDropdown) {
+							Alpine.store('filters').setLat(this.locationDropdown.latitude)
+							Alpine.store('filters').setLon(this.locationDropdown.longitude)
+							Alpine.store('location').setSelectedLocation(this.locationDropdown)
+
+							Alpine.store('queryParams').pushToQueryParams('lat', this.locationDropdown.latitude)
+							Alpine.store('queryParams').pushToQueryParams('lon', this.locationDropdown.longitude)
+							Alpine.store('queryParams').pushToQueryParams('location', this.locationDropdown.label)
+						}
+
+						// close the drawer
+						document.getElementById('main-drawer').click();
 					},
 				}
 			}
@@ -726,12 +791,12 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						const userIds = Object.values(this.leaderboards)
 							.flatMap(leaderboard => Object.keys(leaderboard))
 							.join(',');
-
-						const users = await fetch(`/api/users?ids=${userIds}`).then(res => {
-							return res.json()
-						})
-
-						this.users = users
+						if (userIds.length > 0) {
+							const users = await fetch(`/api/users?ids=${userIds}`).then(res => {
+								return res.json()
+							})
+							this.users = users
+						}
 					} catch (error) {
 						// eslint-disable-next-line no-console
 						console.error('Error fetching users:', error);
