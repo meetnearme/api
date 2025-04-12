@@ -452,6 +452,11 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 	minLat, maxLat, minLong1, maxLong1, minLong2, maxLong2, needsSplit := calculateSearchBounds(userLocation, maxDistance)
 
 	now := time.Now().Unix()
+	loc, _ := time.LoadLocation("America/New_York")
+	endOfTime, err := helpers.UtcToUnix64("2099-12-31T11:59:59Z", loc)
+	if err != nil {
+		log.Printf("Error converting UTC to Unix64: %v", err)
+	}
 
 	// Search for events based on the query
 	searchMethod := "HYBRID"
@@ -511,7 +516,7 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		endTime,
 		now,
 		// TODO: this filters on `endTime` ranging from NOW until END_OF_TIME we need to decide on reasonable scope default for this
-		endTime,
+		endOfTime,
 		longitudeFilter,
 		minLat,
 		maxLat,
