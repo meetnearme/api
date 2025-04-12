@@ -3,7 +3,6 @@ package partials
 import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
-	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -41,8 +40,6 @@ func GetChildEventFields(parent types.Event, child types.Event) []FieldDiff {
 		parentField := parentVal.Field(i).Interface()
 		childField := childVal.Field(i).Interface()
 
-		log.Println("parentField", parentField)
-		log.Println("childField", childField)
 		// Only add if values are different
 		if !reflect.DeepEqual(parentField, childField) ||
 			helpers.ArrFindFirst([]string{field.Name}, AlwaysShowEventDiffFields) != "" {

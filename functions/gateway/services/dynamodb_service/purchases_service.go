@@ -275,12 +275,16 @@ func (s *PurchaseService) DeletePurchase(ctx context.Context, dynamodbClient int
 }
 
 func (s *PurchaseService) HasPurchaseForEvent(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, childEventId, parentEventId, userId string) (bool, error) {
+	// NOTE: right now we filter out INTERESTED items as they are a lower commitment
+	// from the end user, we expect they have "registered" via purchasable,
+	// even if that item is FREE / $0
 	selectInput := &dynamodb.ExecuteStatementInput{
 		Statement: aws.String(fmt.Sprintf(
 			`SELECT * FROM "%s"
-             WHERE begins_with(compositeKey, '%s_%s')
-             OR begins_with(compositeKey, '%s_%s')`,
-			purchasesTableName, // Note: changed from purchasablesTableName
+			 WHERE (begins_with(compositeKey, '%s_%s')
+			 	 OR begins_with(compositeKey, '%s_%s'))
+			 AND status <> 'INTERESTED'`,
+			purchasesTableName,
 			childEventId, userId,
 			parentEventId, userId,
 		)),
