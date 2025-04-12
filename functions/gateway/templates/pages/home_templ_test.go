@@ -30,20 +30,23 @@ func TestHomePage(t *testing.T) {
 		CCA2: "US",
 	}
 
-	latStr := "40.7128"
-	lonStr := "-74.0060"
 	origLatStr := ""
 	origLonStr := ""
-
 	// Test cases
 	tests := []struct {
-		name          string
-		pageUser      *types.UserSearchResult
-		expectedItems []string
+		name              string
+		pageUser          *types.UserSearchResult
+		latStr            string
+		lonStr            string
+		origQueryLocation string
+		expectedItems     []string
 	}{
 		{
-			name:     "Without page user",
-			pageUser: nil,
+			name:              "Without page user",
+			pageUser:          nil,
+			latStr:            "",
+			lonStr:            "",
+			origQueryLocation: "",
 			expectedItems: []string{
 				"Test Event 1",
 				"Test Event 2",
@@ -57,6 +60,9 @@ func TestHomePage(t *testing.T) {
 				UserID:      "1234567890",
 				DisplayName: "Brian Feister",
 			},
+			latStr:            "",
+			lonStr:            "",
+			origQueryLocation: "",
 			expectedItems: []string{
 				"Test Event 1",
 				"Test Event 2",
@@ -73,6 +79,9 @@ func TestHomePage(t *testing.T) {
 					helpers.META_ABOUT_KEY: "Welcome to Brian's Pub",
 				},
 			},
+			latStr:            "",
+			lonStr:            "",
+			origQueryLocation: "",
 			expectedItems: []string{
 				"Test Event 1",
 				"Test Event 2",
@@ -82,12 +91,35 @@ func TestHomePage(t *testing.T) {
 				"Brian&#39;s Pub</h1>",
 			},
 		},
+		{
+			name: "With non-default city / lat / lon / location",
+			pageUser: &types.UserSearchResult{
+				UserID:      "1234567890",
+				DisplayName: "Brian's Pub",
+				Metadata: map[string]string{
+					helpers.META_ABOUT_KEY: "Welcome to Brian's Pub",
+				},
+			},
+			latStr:            "29.760427",
+			lonStr:            "-95.369803",
+			origQueryLocation: "Houston, TX",
+			expectedItems: []string{
+				"Test Event 1",
+				"Test Event 2",
+				"data-city-label-initial=\"Houston, TX\"",
+				"data-page-user-id=\"1234567890\"",
+				"data-city-latitude-initial=\"29.760427\"",
+				"data-city-longitude-initial=\"-95.369803\"",
+				"Welcome to Brian's Pub",
+				"Brian&#39;s Pub</h1>",
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Call the HomePage function
-			component := HomePage(events, tt.pageUser, cfLocation, latStr, lonStr, origLatStr, origLonStr)
+			component := HomePage(events, tt.pageUser, cfLocation, tt.latStr, tt.lonStr, origLatStr, origLonStr, tt.origQueryLocation)
 
 			// Render the component
 			var buf bytes.Buffer

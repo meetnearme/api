@@ -14,8 +14,13 @@ import (
 
 func TestAddOrEditEventPage(t *testing.T) {
 	lALoc, _ := time.LoadLocation("America/Los_Angeles")
+	userInfo := helpers.UserInfo{
+		Sub:  "abc-uuid",
+		Name: "Test User",
+	}
 	tests := []struct {
 		name               string
+		userInfo           helpers.UserInfo
 		event              types.Event
 		isEditor           bool
 		isCompetitionAdmin bool
@@ -27,6 +32,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 	}{
 		{
 			name:               "New event form",
+			userInfo:           userInfo,
 			event:              types.Event{},
 			isEditor:           false,
 			isCompetitionAdmin: false,
@@ -41,10 +47,12 @@ func TestAddOrEditEventPage(t *testing.T) {
 				"End Date &amp; Time",
 				"Publish",
 				"Address",
+				"Test User", // via chip for default in `owners` array
 			},
 		},
 		{
 			name:               "New event form, with admin user geolocation",
+			userInfo:           userInfo,
 			event:              types.Event{},
 			isEditor:           false,
 			isCompetitionAdmin: false,
@@ -64,14 +72,15 @@ func TestAddOrEditEventPage(t *testing.T) {
 			},
 		},
 		{
-			name: "Edit existing event",
+			name:     "Edit existing event",
+			userInfo: userInfo,
 			event: types.Event{
 				Id:                  "123",
 				Name:                "Test Event",
 				Description:         "This is a test event",
 				Address:             "123 Test St",
-				CompetitionConfigId: "abc-uuid",
-				EventOwners:         []string{"abc-uuid"},
+				CompetitionConfigId: "def-uuid",
+				EventOwners:         []string{"xyz-uuid"},
 				EventOwnerName:      "Brians Pub",
 				Timezone:            *lALoc,
 			},
@@ -90,7 +99,8 @@ func TestAddOrEditEventPage(t *testing.T) {
 				"Publish",
 				"This is a test event",
 				"123 Test St",
-				"abc-uuid",
+				"def-uuid",
+				`data-event-owners="[&#34;xyz-uuid&#34;]`, // NOTE: this intentionally omits the current user
 				"data-cf-lat=\"39.764252\"",
 				"data-cf-lon=\"-104.937511\"",
 				"Only competition admins can modify competition config settings",
@@ -100,7 +110,8 @@ func TestAddOrEditEventPage(t *testing.T) {
 			},
 		},
 		{
-			name: "Edit existing event, as competition admin",
+			name:     "Edit existing event, as competition admin",
+			userInfo: userInfo,
 			event: types.Event{
 				Id:                  "123",
 				Name:                "Test Event",
@@ -133,7 +144,8 @@ func TestAddOrEditEventPage(t *testing.T) {
 			},
 		},
 		{
-			name: "Edit unpublished event",
+			name:     "Edit unpublished event",
+			userInfo: userInfo,
 			event: types.Event{
 				Id:                  "123",
 				Name:                "Test Event",
@@ -158,7 +170,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := AddOrEditEventPage(helpers.SitePages["event-detail"], tt.event, tt.isEditor, tt.cfLat, tt.cfLon, tt.isCompetitionAdmin)
+			component := AddOrEditEventPage(helpers.SitePages["event-detail"], tt.userInfo, tt.event, tt.isEditor, tt.cfLat, tt.cfLon, tt.isCompetitionAdmin)
 
 			// Render the component to a string
 			var buf bytes.Buffer

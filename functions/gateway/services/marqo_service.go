@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ganeshdipdumbare/marqo-go" // marqo-go is an unofficial Go client library for Marqo
+	"github.com/golang/geo/s2"
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -416,16 +417,47 @@ func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event) (*marqo.
 	return res, nil
 }
 
+// calculateSearchBounds calculates the latitude and longitude bounds for a given location and distance
+// Returns minLat, maxLat, minLong1, maxLong1, minLong2, maxLong2, needsSplit
+// When needsSplit is true, minLong1/maxLong1 represents the first range and minLong2/maxLong2 represents the second range
+func calculateSearchBounds(location []float64, maxDistance float64) (minLat float64, maxLat float64, minLong1 float64, maxLong1 float64, minLong2 float64, maxLong2 float64, needsSplit bool) {
+	latOffset := miToLat(maxDistance) * 2
+	longOffset := miToLong(maxDistance, location[0]) * 2
+	s2Location := s2.LatLngFromDegrees(location[0], location[1])
+	s2rect := s2.RectFromCenterSize(s2Location, s2.LatLngFromDegrees(latOffset, longOffset))
+
+	minLat = s2rect.Lo().Lat.Degrees()
+	maxLat = s2rect.Hi().Lat.Degrees()
+
+	// If the longitude range wraps around the prime meridian, split into two bounding boxes
+	if s2rect.Lo().Lng.Degrees() > s2rect.Hi().Lng.Degrees() {
+		needsSplit = true
+		minLong1 = float64(s2rect.Lo().Lng.Degrees())
+		maxLong1 = 180
+		minLong2 = -180
+		maxLong2 = float64(s2rect.Hi().Lng.Degrees())
+	} else {
+		needsSplit = false
+		minLong1 = float64(s2rect.Lo().Lng.Degrees())
+		maxLong1 = float64(s2rect.Hi().Lng.Degrees())
+	}
+
+	return minLat, maxLat, minLong1, maxLong1, minLong2, maxLong2, needsSplit
+}
+
 // SearchMarqoEvents searches for events based on the given query, user location, and maximum distance.
 // It returns a list of events that match the search criteria.
 // EX : SearchMarqoEvents(client, "music", []float64{37.7749, -122.4194}, 10)
 func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float64, maxDistance float64, startTime, endTime int64, ownerIds []string, categories string, address string, parseDates string, eventSourceTypes []string, eventSourceIds []string) (types.EventSearchResponse, error) {
-	// Calculate the maximum and minimum latitude and longitude based on the user's location and maximum distance
-	maxLat := userLocation[0] + miToLat(maxDistance)
-	maxLong := userLocation[1] + miToLong(maxDistance, userLocation[0])
-	minLat := userLocation[0] - miToLat(maxDistance)
-	minLong := userLocation[1] - miToLong(maxDistance, userLocation[0])
+	// Calculate bounds using the shared function
+	minLat, maxLat, minLong1, maxLong1, minLong2, maxLong2, needsSplit := calculateSearchBounds(userLocation, maxDistance)
+
 	now := time.Now().Unix()
+	loc, _ := time.LoadLocation("America/New_York")
+	endOfTime, err := helpers.UtcToUnix64("2099-12-31T11:59:59Z", loc)
+	if err != nil {
+		log.Printf("Error converting UTC to Unix64: %v", err)
+	}
 
 	// Search for events based on the query
 	searchMethod := "HYBRID"
@@ -465,7 +497,18 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		eventSourceIdFilter = fmt.Sprintf("eventSourceId IN (%s) AND ", strings.Join(eventSourceIds, ","))
 	}
 
-	filter := fmt.Sprintf("%s %s %s %s (startTime:[%v TO %v] OR (endTime:[%v TO %v])) AND long:[* TO %f] AND long:[%f TO *] AND lat:[* TO %f] AND lat:[%f TO *]",
+	// Build the filter with proper longitude handling
+	var longitudeFilter string
+
+	// Check if we have a longitude wraparound situation (crossing the ±180° meridian)
+	if needsSplit {
+		longitudeFilter = fmt.Sprintf("(long:[%f TO %f] OR long:[%f TO %f])", minLong1, maxLong1, minLong2, maxLong2)
+	} else {
+		// Normal case - longitude is in proper order
+		longitudeFilter = fmt.Sprintf("long:[%f TO %f]", minLong1, maxLong1)
+	}
+
+	filter := fmt.Sprintf("%s %s %s %s (startTime:[%v TO %v] OR (endTime:[%v TO %v])) AND %s AND lat:[%f TO %f]",
 		addressFilter,
 		ownerFilter,
 		eventSourceTypeFilter,
@@ -473,11 +516,11 @@ func SearchMarqoEvents(client *marqo.Client, query string, userLocation []float6
 		startTime,
 		endTime,
 		now,
-		helpers.DEFAULT_UNDEFINED_END_TIME-1,
-		maxLong,
-		minLong,
-		maxLat,
+		// TODO: this filters on `endTime` ranging from NOW until END_OF_TIME we need to decide on reasonable scope default for this
+		endOfTime,
+		longitudeFilter,
 		minLat,
+		maxLat,
 	)
 	indexName := GetMarqoIndexName()
 
@@ -873,14 +916,19 @@ func BulkDeleteEventsFromMarqo(client *marqo.Client, events []string) (*marqo.De
 	return client.DeleteDocuments(deleteDocumentsReq)
 }
 
-// miToLat converts miles to latitude offset
+// miToLat converts miles to latitude offset (degrees)
 func miToLat(mi float64) float64 {
-	return (mi * milesPerKm) / earthRadiusKm * (180 / math.Pi)
+	// One degree of latitude is approximately 69 miles
+	ret := mi / 69.0
+	return ret
 }
 
-// miToLong converts kilometers to longitude
+// miToLong converts miles to longitude offset (degrees)
+// This varies with latitude - longitude degrees are closer together as you move away from the equator
 func miToLong(mi float64, lat float64) float64 {
-	return (mi * milesPerKm) / (earthRadiusKm * math.Cos(lat*math.Pi/180)) * (180 / math.Pi)
+	// One degree of longitude at given latitude is approximately 69 * cos(latitude) miles
+	ret := mi / (69.0 * math.Cos(lat*math.Pi/180))
+	return ret
 }
 
 func getValue[T string | *string | []string | *[]string | float64 | *float64 | int64 | *int64 | int32 | *int32 | bool | *bool | time.Location | *time.Location](doc map[string]interface{}, key string) T {
