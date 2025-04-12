@@ -37,7 +37,7 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	// of an explicit start_time query param ...
 	if startTimeStr == "" && endTimeStr == "" {
 		startTime = time.Now()
-		// NOTE: default to 1 month
+		// NOTE: default to 3 months
 		endTime = startTime.AddDate(0, 3, 0)
 	} else if strings.ToLower(startTimeStr) == "this_month" {
 		startTime = time.Now()
