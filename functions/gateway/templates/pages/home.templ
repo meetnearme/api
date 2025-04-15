@@ -139,14 +139,16 @@ templ EventsInner(events []types.Event, mode string) {
 }
 
 func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLon, origQueryLocation string) string {
+	log.Printf("GetCityCountryFromLocation: %v, %v, %v, %v, %v, %v", cfLocation, latStr, lonStr, origLat, origLon, origQueryLocation)
+
 	if origQueryLocation != "" {
 		return origQueryLocation
+	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
+		return cfLocation.City + ", " + cfLocation.CCA2
 	} else if latStr != "" && lonStr != "" {
 		return latStr + ", " + lonStr
 	} else if cfLocation.City == "" && origLat != "" && origLon != "" {
 		return origLat + ", " + origLon
-	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
-		return cfLocation.City + ", " + cfLocation.CCA2
 	} else {
 		return helpers.Cities[0].City + ", " + helpers.Cities[0].State
 	}
