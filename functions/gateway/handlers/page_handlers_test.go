@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -11,11 +12,13 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
+	"github.com/playwright-community/playwright-go"
 )
 
 func TestGetHomeOrUserPage(t *testing.T) {
@@ -329,11 +332,13 @@ func TestGetEventDetailsPage(t *testing.T) {
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
-					"_id":            "123",
-					"eventOwners":    []interface{}{"789"},
-					"eventOwnerName": "Event Host Test",
-					"name":           "Test Event",
-					"description":    "This is a test event",
+					"_id":                   "123",
+					"eventOwners":           []interface{}{"789"},
+					"eventOwnerName":        "Event Host Test",
+					"name":                  "Test Event",
+					"description":           "This is a test event",
+					"hasPurchasable":        true,
+					"hasRegistrationFields": true,
 				},
 			},
 		}
@@ -398,29 +403,101 @@ func TestGetEventDetailsPage(t *testing.T) {
 	req = req.WithContext(ctx)
 
 	// Set up router to extract variables
-	router := mux.NewRouter()
+	router := setupStaticTestRouter(t, "./assets")
+
 	router.HandleFunc("/event/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
 	})
 
-	rr := httptest.NewRecorder()
-	router.ServeHTTP(rr, req)
+	// Create a real HTTP server using the router
+	port = test_helpers.GetNextPort()
+	testServer := httptest.NewUnstartedServer(router)
+	listener, err = test_helpers.BindToPort(t, fmt.Sprintf(":%s", port))
+	if err != nil {
+		t.Fatalf("Failed to start test server: %v", err)
+	}
+	testServer.Listener = listener
+	testServer.Start()
+	defer testServer.Close()
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	t.Logf(">> 419 >> Installing playwright")
+	err = playwright.Install()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if rr.Body.String() == "" {
-		t.Errorf("Handler returned empty body")
+	t.Logf(">> 423 >> Running playwright")
+	pw, err := playwright.Run()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if !strings.Contains(rr.Body.String(), ">Test Event") {
-		t.Errorf("Event title is missing from the page")
+	t.Logf(">> 427 >> Launching browser")
+	browser, err := pw.Chromium.Launch()
+	if err != nil {
+		log.Fatalf("could not launch browser: %v\n", err)
+	}
+	page, err := browser.NewPage()
+	if err != nil {
+		log.Fatalf("could not create page: %v\n", err)
 	}
 
-	if !strings.Contains(rr.Body.String(), ">This is a test event") {
-		t.Errorf("Event description is missing from the page")
+	t.Logf(">> 433 >> Navigating to event page")
+	// Now we can use testServer.URL to access the server
+	if _, err = page.Goto(fmt.Sprintf("%s/event/123", testServer.URL)); err != nil {
+		log.Fatalf("could not goto: %v\n", err)
+	} else {
+		t.Logf(">> 441 >> Goto successful: %s", testServer.URL)
 	}
+
+	// html, err := page.Locator("body").InnerHTML()
+	// if err != nil {
+	// 	t.Fatalf("could not get page HTML: %v\n", err)
+	// }
+	// t.Logf("Page HTML content: %s", html)
+
+	t.Logf(">> 443 >> Checking if event title is visible")
+	// Check if the event title is visible
+	if _, err := page.Locator("h1").IsVisible(); err != nil {
+		t.Errorf("Event title is not visible")
+	}
+
+	t.Logf(">> 445 >> Getting event title")
+	title, err := page.Locator("h1").AllTextContents()
+	if err != nil {
+		t.Errorf("Error getting event title: %v", err)
+	}
+	t.Logf(">> 445 >> Event title: %s", title)
+
+	if title[0] != string("Test Event") {
+		t.Errorf("Failed to find event title, found: %s", title[0])
+	}
+
+	page.Locator("#buy-tkts").Click()
+
+	html, err := page.Locator("body").InnerHTML()
+	if err != nil {
+		t.Fatalf("could not get page HTML: %v\n", err)
+	}
+	t.Logf("Page HTML content: %s", html)
+
+	screenshotPath := fmt.Sprintf("screenshots/event_details_%s.png", eventID)
+	_, err = page.Screenshot(
+		playwright.PageScreenshotOptions{
+			Path: &screenshotPath,
+		},
+	)
+	if err != nil {
+		t.Fatalf("could not screenshot: %v\n", err)
+	}
+
+	t.Logf(">> 479 >> Screenshot saved to %s", screenshotPath)
+
+	// Sleep for 30 seconds to keep servers running
+	t.Log("Sleeping for 30 seconds...")
+	time.Sleep(30 * time.Second)
+
+	t.Errorf("FORCE ERROR")
 }
 
 func TestGetAddEventSourcePage(t *testing.T) {
@@ -938,4 +1015,15 @@ func TestGetEventAttendeesPage(t *testing.T) {
 			}
 		})
 	}
+}
+
+func setupStaticTestRouter(t *testing.T, staticDir string) *mux.Router {
+	router := mux.NewRouter()
+
+	// Add static file handling
+	router.PathPrefix("/assets/").Handler(
+		http.StripPrefix("", http.FileServer(http.Dir(staticDir))),
+	)
+
+	return router
 }
