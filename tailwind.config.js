@@ -55,6 +55,15 @@ export default {
             width: '960px',
           },
         },
+        '.select-bordered': {
+          borderColor: 'var(--fallback-bc,oklch(var(--bc)/0.6))'
+        },
+        '.input-bordered': {
+          borderColor: 'var(--fallback-bc,oklch(var(--bc)/0.6))'
+        },
+        '.textarea-bordered': {
+          borderColor: 'var(--fallback-bc,oklch(var(--bc)/0.6))'
+        },
         '.main-bg': {
           width: '100vw',
           position: 'fixed',
@@ -101,6 +110,18 @@ export default {
           borderBottomRightRadius: 'inherit',
           borderBottomLeftRadius: 'inherit',
         },
+        '.carousel-control-left': {
+          display: 'none',
+          '@screen md': {
+            display: 'block',
+          },
+        },
+        '.carousel-control-right': {
+          display: 'none',
+          '@screen md': {
+            display: 'block',
+          },
+        },
       });
     },
   ],
@@ -121,6 +142,8 @@ export default {
           '--rounded-btn': '0.25rem',
           '--rounded-badge': '1rem',
           '--tab-radius': '0.25rem',
+          '--btn-bg-inverted': '100% 0 0', // White in OKLCH
+          '--btn-bg-inverted-content': '0% 0 0', // Black in OKLCH
           primary: '#39FF14',
           'primary-content': '#011600',
           secondary: '#FF4500',
@@ -133,7 +156,7 @@ export default {
           'base-200': '#2a2a2a',
           'base-300': '#454545',
           'base-content': '#F5F5F5',
-          info: '#7cbbee',
+          info: '#ffa914',
           'info-content': '#000000',
           success: '#74ea62',
           'success-content': '#000000',
@@ -141,6 +164,7 @@ export default {
           'warning-content': '#000000',
           error: '#e11d48',
           'error-content': '#000000',
+
         },
       },
     ],

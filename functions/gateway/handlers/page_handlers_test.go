@@ -485,7 +485,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			cfRay:          "",
 			expectedQuery:  "",
 			expectedLoc:    []float64{40.7128, -74.0060},
-			expectedRadius: 150,
+			expectedRadius: helpers.DEFAULT_SEARCH_RADIUS,
 			expectedStart:  4070908800,
 			expectedEnd:    4071808800,
 			expectedCfLoc:  helpers.CdnLocation{},
@@ -495,7 +495,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			queryParams:    map[string]string{},
 			cfRay:          "",
 			expectedQuery:  "",
-			expectedLoc:    []float64{39.8283, -98.5795},
+			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
 			expectedEnd:    0, // This will be one month from now in Unix seconds
@@ -524,7 +524,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
-			expectedLoc:    []float64{39.8283, -98.5795},
+			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
 			expectedEnd:    0, // This will be 7 days from now in Unix seconds
@@ -536,7 +536,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			cfRay:          "1234567890000-LAX",
 			expectedLoc:    []float64{helpers.CfLocationMap["LAX"].Lat, helpers.CfLocationMap["LAX"].Lon}, // Los Angeles coordinates
 			expectedCfLoc:  helpers.CfLocationMap["LAX"],
-			expectedRadius: 150.0,
+			expectedRadius: helpers.DEFAULT_SEARCH_RADIUS,
 		},
 	}
 
@@ -705,7 +705,7 @@ func TestGetAddOrEditEventPage(t *testing.T) {
 				Name:  "Test User",
 			},
 			roleClaims: []helpers.RoleClaim{
-				{Role: "eventEditor", ProjectID: "project-id"},
+				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody:   "Edit Event",
@@ -853,7 +853,7 @@ func TestGetEventAttendeesPage(t *testing.T) {
 				Name:  "Authorized User",
 			},
 			roleClaims: []helpers.RoleClaim{
-				{Role: "eventEditor", ProjectID: "project-id"},
+				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody:   "Test Event", // Or some other expected content from the attendees page
@@ -867,7 +867,7 @@ func TestGetEventAttendeesPage(t *testing.T) {
 				Name:  "Unauthorized User",
 			},
 			roleClaims: []helpers.RoleClaim{
-				{Role: "eventEditor", ProjectID: "project-id"},
+				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody:   "You are not authorized to edit this event",

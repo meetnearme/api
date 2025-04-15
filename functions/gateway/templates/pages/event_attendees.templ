@@ -60,7 +60,13 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 								<tbody>
 									<template x-for="purchase in purchases" :key="purchase.composite_key">
 										<tr class="border-t-2 border-base-300">
-											<td x-text="purchase.user_id"></td>
+											<td>
+												<p x-text="purchase.user_display_name"></p>
+												<p x-text="purchase.user_email"></p>
+												<p>
+													<a class="link link-primary" :href="`/user/${purchase.user_id}`" x-text="purchase.user_id"></a>
+												</p>
+											</td>
 											<td x-text="purchase.status"></td>
 											<td colspan="5">
 												<template x-for="(item, idx) in purchase.purchased_items" :key="item.name">

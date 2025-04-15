@@ -57,8 +57,9 @@ type RegistrationFields struct {
 type RegistrationFieldsUpdate struct {
 	EventId   string              `json:"event_id" dynamodbav:"eventId" validate:"required"`
 	Fields    []RegistrationField `json:"fields" dynamodbav:"fields"`
+	CreatedAt time.Time           `json:"created_at" dynamodbav:"createdAt"`
 	UpdatedBy string              `json:"updated_by" validate:"required"`
-	UpdatedAt time.Time           `json:"updated_at" dynamodbav:"updatedAt"` // Adjust based on your date format
+	UpdatedAt time.Time           `json:"updated_at" dynamodbav:"updatedAt"`
 }
 
 // RegistrationFieldsServiceInterface defines the methods for user-related operations using the RDSDataAPI

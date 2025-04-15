@@ -15,7 +15,7 @@ templ NestedCheckboxList(isInDropdown bool, interests []string) {
 	if isInDropdown {
 		<summary class="m-1 btn">Categories</summary>
 	}
-	<div class="collapse-content bg-base-200 peer-checked:bg-base-200">
+	<div class="collapse-content p-0 bg-base-200 peer-checked:bg-base-200">
 		<ul
 			if isInDropdown {
 				class="shadow menu dropdown-content z-[1] bg-base-100 rounded-box"

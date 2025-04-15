@@ -5,6 +5,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"log"
+	"os"
 	"strconv"
 )
 
@@ -40,12 +41,12 @@ templ EventsInner(events []types.Event, mode string) {
 				No events found, try changing your filters like location, date, and time, or
 				<br/>
 				<br/>
-				<a class="btn btn-primary btn-small" href="/?radius=500">Expand Your Search</a>
+				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search</a>
 			</p>
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-24 md:pb-4">
-					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
+					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) }>
 						<img
 							loading="lazy"
 							src={ helpers.GetImgUrlFromHash(ev) }
@@ -59,7 +60,7 @@ templ EventsInner(events []types.Event, mode string) {
 							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
 						</div>
 						<br/>
-						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 							LEARN MORE
 							&rarr;
 						</a>
@@ -79,7 +80,7 @@ templ EventsInner(events []types.Event, mode string) {
 					<input type="hidden" id="current-slide-index" value="0"/> <!-- Hidden input to track current slide -->
 					for idx, ev := range events {
 						<div id={ "slide-" + strconv.Itoa(idx) } class="carousel-item bg-base-200 flex-shrink-0 w-48 snap-start mr-4 last:mr-0 whitespace-nowrap">
-							<a href={ templ.URL("/event/" + ev.Id) } class="block p-4 rounded-lg">
+							<a href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) } class="block p-4 rounded-lg">
 								<div class="text-lg font-semibold">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) }</div>
 								<div class="text-md">{ helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) }</div>
 							</a>
@@ -103,12 +104,12 @@ templ EventsInner(events []types.Event, mode string) {
 				No events found.
 				<br/>
 				<br/>
-				<a class="btn btn-primary btn-small" href="/?radius=500">Expand Your Search</a>
+				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search</a>
 			</p>
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-12 md:pb-4">
-					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
+					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) }>
 						<img
 							loading="lazy"
 							src={ helpers.GetImgUrlFromHash(ev) }
@@ -121,7 +122,7 @@ templ EventsInner(events []types.Event, mode string) {
 							<h2 class="text-xl font-bold">{ ev.Name }</h2>
 							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
 						</div>
-						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
+						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
 							if ev.HasPurchasable {
 								BUY TICKETS
 								&rarr;
@@ -137,13 +138,18 @@ templ EventsInner(events []types.Event, mode string) {
 	}
 }
 
-func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLon string) string {
-	if cfLocation.City == "" && origLat != "" && origLon != "" {
-		return "Geocoordinates: " + origLat + ", " + origLat
+func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLon, origQueryLocation string) string {
+	if origQueryLocation != "" {
+		return origQueryLocation
 	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
 		return cfLocation.City + ", " + cfLocation.CCA2
+	} else if latStr != "" && lonStr != "" {
+		return latStr + ", " + lonStr
+	} else if cfLocation.City == "" && origLat != "" && origLon != "" {
+		return origLat + ", " + origLon
+	} else {
+		return helpers.Cities[0].City + ", " + helpers.Cities[0].State
 	}
-	return "Location: Please Select"
 }
 
 func GetCitiesAsJsonStr() string {
@@ -171,18 +177,26 @@ func GetCitiesAsJsonStr() string {
 
 templ FilterButton() {
 	<button onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
-		FILTER <svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96" fill="#FFFFFF"></path></svg>
+		FILTERS <svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96" fill="#FFFFFF"></path></svg>
 	</button>
 }
 
-func GetPageUserID(pageUser *helpers.UserSearchResult) string {
+func GetPageUserID(pageUser *types.UserSearchResult) string {
 	if pageUser == nil {
 		return ""
 	}
 	return pageUser.UserID
 }
 
-templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong string) {
+func GetDefaultRadius(cfLocation helpers.CdnLocation) string {
+	if cfLocation.City == "" {
+		return strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)
+	}
+	return strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64)
+}
+
+templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
+	// we assume this is "home" and not a community / user profile page
 	if pageUser == nil {
 		<div class="header-hero bg-[#00ffzz]">
 			<h1 class="text-xl md:text-4xl text-center mb-5">
@@ -193,17 +207,78 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 			</h1>
 		</div>
 	} else {
-		<div class="space-y-10">
+		<div class="space-y-10" x-data="getCompetitionsState()">
 			<h1 class="text-5xl alt-title font-bold text-center uppercase">{ pageUser.DisplayName }</h1>
 			if pageUser.Metadata != nil && pageUser.Metadata[helpers.META_ABOUT_KEY] != "" {
 				<h2 class="text-3xl font-bold uppercase my-10">About</h2>
-				<p class="whitespace-pre-wrap">{ pageUser.Metadata[helpers.META_ABOUT_KEY] }</p>
+				<div class="prose prose-invert max-w-none">
+					@templ.Raw(pageUser.Metadata[helpers.META_ABOUT_KEY])
+				</div>
 			}
+			<template x-if="competitions?.length">
+				<div>
+					<h2 class="text-3xl font-bold uppercase my-10">Competitions</h2>
+					<template x-for="competition in competitions">
+						<div>
+							<h3 x-text="competition.name" class="text-2xl font-bold my-10"></h3>
+							<h4 class="text-xl font-bold my-2 uppercase">Rounds</h4>
+							<template x-if="rounds && rounds[competition.id]">
+								<div>
+									<template x-for="(eventRounds, eventId) in rounds[competition.id]">
+										<div>
+											<template x-if="eventId !== fakeEventId">
+												<h3 class="text-xl font-bold my-2">
+													<a class="link link-primary" :href="`${apexUrl}/event/${eventId}`">
+														Event #<span x-text="Object.keys(rounds[competition.id]).indexOf(eventId) + 1"></span>
+													</a>
+												</h3>
+											</template>
+											<template x-if="eventId === fakeEventId">
+												<h3 class="text-xl font-bold my-2">Upcoming</h3>
+											</template>
+											<template x-for="round in eventRounds">
+												<div class="flex justify-between">
+													<template x-if="round?.isVotingOpen">
+														<div>
+															<div class="tooltip tooltip-right w-6 mr-2" data-tip="Voting Open">
+																<span aria-label="Voting Open" class="loading loading-ring loading-xs text-primary"></span>
+															</div>
+															<span class="badge badge-primary mr-2">Voting Open</span>
+														</div>
+													</template>
+													<template x-if="!round?.isVotingOpen">
+														<div class="w-6 mr-2"></div>
+													</template>
+													<div class="grow" x-text="round?.roundName"></div>
+												</div>
+											</template>
+										</div>
+									</template>
+								</div>
+							</template>
+							<div class="divider my-10"></div>
+							<template x-if="leaderboards && leaderboards[competition.id]">
+								<div>
+									<h3 class="text-xl font-bold my-2 uppercase">Leaderboard</h3>
+									<template x-for="[teamId, score] in Object.entries(leaderboards[competition.id])">
+										<div class="flex justify-between border-b border-gray-700">
+											<div x-text="users?.find?.(user => user?.userId === teamId)?.displayName"></div>
+											<div x-text="'Score: ' + score"></div>
+										</div>
+									</template>
+								</div>
+							</template>
+						</div>
+					</template>
+				</div>
+			</template>
 		</div>
 	}
-	<div class="min-h-screen">
+	<div
+		class="min-h-screen"
+	>
 		if pageUser == nil {
-			<header class="flex justify-between p-4 bg-black border-b border-gray-700">
+			<header class="flex justify-between py-2 bg-base border-b border-gray-700">
 				<nav class="flex space-x-4">
 					<button href="#" class="text-sm md:text-xl font-bold border-b-2 border-white">
 						EVENTS
@@ -224,196 +299,111 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 				@FilterButton()
 			</header>
 		}
-		// Source: https://www.penguinui.com/components/combobox
-		<div x-data="getLocationSearchState()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
-			<div class="relative px-4">
-				<!-- trigger button  -->
-				<button
-					type="button"
-					class="inline-flex w-full items-center justify-between gap-2 border border-slate-300 rounded-md bg-slate-100 mt-2 px-4 py-2 text-sm font-medium tracking-wide text-slate-700 transition hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:focus-visible:outline-green-600"
-					role="combobox"
-					aria-controls="makesList"
-					aria-haspopup="listbox"
-					x-on:click="isOpen = ! isOpen"
-					x-on:keydown.down.prevent="openedWithKeyboard = true"
-					x-on:keydown.enter.prevent="openedWithKeyboard = true"
-					x-on:keydown.space.prevent="openedWithKeyboard = true"
-					x-bind:aria-expanded="isOpen || openedWithKeyboard"
-					x-bind:aria-label="selectedOption.label ? '' : ''"
+		<div x-data="getHomeState()">
+			<div class="text-sm md:text-base mt-4 mb-2">
+				Showing events within <span class="font-bold" x-text="$store.filters.radius"></span> miles of
+				<a
+					class="link link-primary font-bold"
+					:href=" $store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${$store.location?.selected?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${$store.location?.selected?.label}` "
 				>
-					<span
-						class="text-sm font-normal"
-						x-text="selectedOption?.label ? selectedOption.label : 'Location: Please Select'"
-					></span>
-					<span
-						class="sr-only"
-						x-text="selectedOption?.label ? selectedOption.label : 'Location: Please Select'"
-					></span>
-					<!-- Chevron  -->
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true">
-						<path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"></path>
-					</svg>
-				</button>
-				<!-- Hidden Input To Grab The Selected Value  -->
-				<input id="make" name="make" x-ref="hiddenTextField" hidden=""/>
-				<div
-					x-show="isOpen || openedWithKeyboard"
-					:class="{'opacity-100': isOpen || openedWithKeyboard}"
-					class="w-full opacity-0 transition-all absolute left-4 top-12 z-10 overflow-hidden rounded-md border border-slate-300 bg-slate-100"
-					id="makesList"
-					role="listbox"
-					aria-label="locations list"
-					x-on:click.outside="isOpen = false, openedWithKeyboard = false"
-					x-on:keydown.down.prevent="$focus.wrap().next()"
-					x-on:keydown.up.prevent="$focus.wrap().previous()"
-					x-transition
-					x-trap="openedWithKeyboard"
-				>
-					<!-- Search  -->
-					<div class="relative">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							fill="none"
-							stroke-width="1.5"
-							class="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-700/50 dark:text-slate-300/50"
-							aria-hidden="true"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"></path>
-						</svg>
-						<input
-							type="text"
-							class="w-full border-b border-slate-300 bg-slate-100 py-2.5 pl-11 pr-4 text-sm text-slate-700 focus:outline-none focus-visible:border-green-700 disabled:cursor-not-allowed disabled:opacity-75 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus-visible:border-green-600"
-							name="loc_search"
-							aria-label="Search"
-							@input.throttle="fetchLocations($event.target.value)"
-							x-ref="loc_search"
-							placeholder="Search"
-						/>
-					</div>
-					<!-- Options  -->
-					<ul class="flex max-h-44 flex-col overflow-y-auto">
-						<li class="hidden px-4 py-2 text-sm text-slate-700 dark:text-slate-300" x-ref="noResultsMessage">
-							<span>No matches found</span>
-						</li>
-						<template x-for="(item, index) in options" :key="index">
-							<li
-								class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-slate-100 px-4 py-2 text-sm text-slate-700 hover:bg-slate-800/5 hover:text-black focus-visible:bg-slate-800/5 focus-visible:text-black focus-visible:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-100/5 dark:hover:text-white dark:focus-visible:bg-slate-100/10 dark:focus-visible:text-white"
-								role="option"
-								@click="setSelectedOption(item)"
-								@keydown.enter="setSelectedOption(item)"
-								:id="'option-' + index"
-								tabindex="0"
-							>
-								<!-- Label  -->
-								<span :class="selectedOption && selectedOption.value == item.value ? 'font-bold' : null" x-text="item.label"></span>
-								<!-- Screen reader 'selected' indicator  -->
-								<span class="sr-only" x-text="selectedOption && selectedOption.value == item.value ? 'selected' : null"></span>
-								<!-- Checkmark  -->
-								<svg x-cloak x-show="selectedOption && selectedOption.value == item.value" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" class="size-4" aria-hidden="true">
-									<path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"></path>
-								</svg>
-							</li>
-						</template>
-					</ul>
-				</div>
+					<span x-text="$store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + $store.location?.selected?.label : $store.location?.selected?.label"></span>
+				</a> <button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
 			</div>
-		</div>
-		<div x-data="getHomeState()" class="p-4" @location-selected.window="handleLocationSelected">
-			<form
-				id="event-search-form"
-				class="flex"
-				novalidate
-				if pageUser == nil {
-					hx-get="/api/html/events"
-				} else {
-					hx-get={ `/api/html/events?list_mode=` + helpers.EV_MODE_LIST }
-				}
-				hx-indicator="#events-container"
-				hx-ext="json-enc"
-				hx-target="#events-container-inner"
-				hx-disabled-elt="button[type='submit']"
-				@submit.prevent=""
-				hx-vals="js:{...sendParmsFromQs()}"
-			>
-				<input
-					x-model="start_time"
-					id="start_time"
-					type="hidden"
-				/>
-				<input
-					x-model="end_time"
-					id="end_time"
-					type="hidden"
-				/>
-				<input
-					x-model="q"
-					id="q"
-					type="hidden"
-				/>
-				<input
-					x-model="radius"
-					id="radius"
-					type="hidden"
-				/>
-				<input
-					x-model="lat"
-					id="lat"
-					type="hidden"
-				/>
-				<input
-					x-model="lon"
-					id="lon"
-					type="hidden"
-				/>
-				<div class="flex flex-auto space-x-2">
-					<button
-						type="submit"
-						:class="{
-							'btn-primary': start_time === 'this_month',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'this_month'
+			<div class="pb-4">
+				<form
+					id="event-search-form"
+					class="flex"
+					novalidate
+					if pageUser == nil {
+						hx-get="/api/html/events"
+					} else {
+						hx-get={ `/api/html/events?list_mode=` + helpers.EV_MODE_LIST }
+					}
+					hx-indicator="#events-container"
+					hx-ext="json-enc"
+					hx-target="#events-container-inner"
+					hx-disabled-elt="button[type='submit']"
+					@submit.prevent=""
+					hx-vals="js:{...sendParmsFromQs()}"
+				>
+					<input
+						x-model="start_time"
+						id="start_time"
+						type="hidden"
+					/>
+					<input
+						x-model="end_time"
+						id="end_time"
+						type="hidden"
+					/>
+					<input
+						x-model="q"
+						id="q"
+						type="hidden"
+					/>
+					<input
+						x-model="$store.filters.radius"
+						id="radius"
+						type="hidden"
+					/>
+					<input
+						x-model="lat"
+						id="lat"
+						type="hidden"
+					/>
+					<input
+						x-model="lon"
+						id="lon"
+						type="hidden"
+					/>
+					<div class="flex flex-auto space-x-2">
+						<button
+							type="submit"
+							:class="{
+							'btn-primary': $store.queryParams.start_time === 'this_month',
+							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'this_month'
 						}"
-						class="btn grow px-4 py-2 text-md md:text-xl "
-						@click="pushToQueryParams('start_time', 'this_month')"
-					>
-						THIS MONTH
-					</button>
-					<button
-						type="submit"
-						:class="{
-							'btn-primary': start_time === 'today',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'today'
+							class="btn grow px-2 py-2 text-md md:text-xl "
+							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_month')"
+						>
+							THIS MONTH
+						</button>
+						<button
+							type="submit"
+							:class="{
+							'btn-primary': $store.queryParams.start_time === 'today',
+							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'today'
 						}"
-						class="btn grow px-4 py-2 text-md md:text-xl "
-						@click="pushToQueryParams('start_time', 'today')"
-					>
-						TODAY
-					</button>
-					<button
-						type="submit"
-						:class="{
-							'btn-primary': start_time === 'tomorrow',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'tomorrow'
+							class="btn grow px-2 py-2 text-md md:text-xl "
+							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'today')"
+						>
+							TODAY
+						</button>
+						<button
+							type="submit"
+							:class="{
+							'btn-primary': $store.queryParams.start_time === 'tomorrow',
+							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'tomorrow'
 						}"
-						class="btn grow px-4 py-2 text-md md:text-xl "
-						@click="pushToQueryParams('start_time', 'tomorrow')"
-					>
-						TOMORROW
-					</button>
-					<button
-						type="submit"
-						:class="{
-							'btn-primary': start_time === 'this_week',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': start_time !== 'this_week'
+							class="btn grow px-2 py-2 text-md md:text-xl "
+							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'tomorrow')"
+						>
+							TOMORROW
+						</button>
+						<button
+							type="submit"
+							:class="{
+							'btn-primary': $store.queryParams.start_time === 'this_week',
+							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'this_week'
 						}"
-						class="btn grow px-4 py-2 text-md md:text-xl "
-						@click="pushToQueryParams('start_time', 'this_week')"
-					>
-						THIS WEEK
-					</button>
-				</div>
-			</form>
+							class="btn grow px-2 py-2 text-md md:text-xl "
+							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_week')"
+						>
+							THIS WEEK
+						</button>
+					</div>
+				</form>
+			</div>
 		</div>
 		<main id="events-container">
 			if pageUser == nil {
@@ -453,7 +443,72 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 			}
 		</main>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong) } data-page-user-id={ GetPageUserID(pageUser) }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) }>
+		document.addEventListener('alpine:init', () => {
+
+			const urlParams = new URLSearchParams(window.location.search);
+
+			const categoriesParam = urlParams.get('categories');
+			const categories = categoriesParam ? decodeURIComponent(categoriesParam).split(' | ') : '';
+
+			Alpine.store('filters', {
+				radius: urlParams.get('radius') ?? document.querySelector('#alpine-state').getAttribute('data-default-radius'),
+				lat: urlParams.get('lat') ?? document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
+				lon: urlParams.get('lon') ?? document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
+				categories: categories,
+				setRadius(value) {
+					this.radius = value;
+				},
+				setLat(value) {
+					this.lat = value;
+				},
+				setLon(value) {
+					this.lon = value;
+				}
+			});
+
+			Alpine.store('location', {
+				selected: {
+					label: document.querySelector('#alpine-state').getAttribute('data-city-label-initial'),
+					latitude: document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
+					longitude: document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
+				},
+				setSelectedLocation(location) {
+					this.selected = location
+				},
+			});
+
+			Alpine.store('queryParams', {
+				allParams: [
+					'start_time',
+					'end_time',
+					'q',
+					'radius',
+					'lat',
+					'lon',
+					'categories',
+					'location'
+				],
+				pushToQueryParams(param, selected) {
+					const url = new URL(window.location.href);
+					const params = new URLSearchParams(url.search);
+
+					this.allParams.forEach(key => {
+						if ( key && param && (key !== param && ( this[key] !== (null || '') ) ) ) {
+							if (this[key]) {
+								params.set(key, this[key])
+							}
+						}
+					})
+
+					this[param] = selected;
+					params.set(param, selected);
+
+					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
+				},
+			});
+		});
+
 		// NOTE: this is used by htmx to get the data-attributes
 		// eslint-disable-next-line no-unused-vars
 		function sendParmsFromQs() {
@@ -485,7 +540,9 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 				isOpen: false,
 				openedWithKeyboard: false,
 				selectedOption: {
-					label: document.querySelector('#alpine-state').getAttribute('data-city-label-initial')
+					label: Alpine.store('location').selected.label,
+					latitude: Alpine.store('location').selected.latitude,
+					longitude: Alpine.store('location').selected.longitude,
 				},
 				async fetchLocations(query) {
 					if (query.length >= 3) {
@@ -503,11 +560,12 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 				},
 				setSelectedOption(option) {
 					this.selectedOption = option
+
 					this.isOpen = false
 					this.openedWithKeyboard = false
 					this.$refs.hiddenTextField.value = option.value
 					// Update lat and lon in the parent component
-					this.$dispatch('location-selected', { lat: option.latitude, lon: option.longitude })
+					this.$dispatch('location-dropdown', { option: { ...option } })
 				},
 				getFilteredOptions(query) {
 					this.options = this.allOptions.filter((option) =>
@@ -530,7 +588,7 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 
 		function getHomeState() {
 			return {
-				init() {
+				async init() {
 					this.updateParamsFromUrl(false);
 
 					// enhance history.pushState with a listener and call it on every
@@ -557,6 +615,8 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 						this.updateParamsFromUrl();
 					});
 				},
+				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
+				defaultRadius: document.querySelector('#alpine-state').getAttribute('data-default-radius'),
 				start_time: null,
 				end_time: null,
 				q: null,
@@ -564,22 +624,16 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 				lat: null,
 				lon: null,
 				categories: null,
-				allParams: [
-					'start_time',
-					'end_time',
-					'q',
-					'radius',
-					'lat',
-					'lon',
-					'categories'
-				],
+				locationDropdown: null,
 				updateParamsFromUrl (triggerSearch = true) {
 					const urlParams = new URLSearchParams(window.location.search);
 
 					this.start_time = urlParams.get('start_time') || '';
 					this.end_time = urlParams.get('end_time') || '';
 					this.q = urlParams.get('q') || '';
-					this.radius = urlParams.get('radius') || '';
+					if (urlParams.get('radius')) {
+						Alpine.store('filters').setRadius(urlParams.get('radius'));
+					}
 					this.lat = urlParams.get('lat') || '';
 					this.lon = urlParams.get('lon') || '';
 					// these come from the sidebar
@@ -592,49 +646,15 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 					// Submit the form
 					const form = document.getElementById('event-search-form')
 
-					// this is unforunately just to allow alpine to propage the form with
+					// this is unforunately just to allow alpine to propagate the form with
 					// updated values prior to submitting
 					setTimeout(()=> {
 						form?.requestSubmit()
 					}, 250)
 				},
-				// TODO: on initial page load, the categories need to be searched by text
-				// label and selected for each in query string
-				sendCategoriesToQueryParams() {
-					const form = document.getElementById('category-search-form')
-					// Collect form values
-					const formData = new FormData(form);
-					const formValues = Object.fromEntries(formData.entries());
-					let formVals = []
-					Object.keys(formValues).forEach(itm => {
-						formVals.push(formValues?.[itm])
-					})
-					formVals = formVals.join(' | ')
-
-					this.pushToQueryParams('categories', formVals)
-				},
 				handleLocationSelected(event) {
 					this.lat = event.detail.lat
 					this.lon = event.detail.lon
-
-					this.pushToQueryParams('lat', event.detail.lat)
-					this.pushToQueryParams('lon', event.detail.lon)
-				},
-				pushToQueryParams(param, selected) {
-					// Get current URL and parse its query parameters
-					const url = new URL(window.location.href);
-					const params = new URLSearchParams(url.search);
-
-					this.allParams.forEach(key => {
-						if ( key !== param && ( this[key] !== (null || '') ) ) {
-							params.set(key, this[key])
-						}
-					})
-
-					this[param] = selected;
-					params.set(param, selected);
-
-					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
 				},
 				updateHasEvents(event) {
 					if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
@@ -642,7 +662,151 @@ templ HomePage(events []types.Event, pageUser *helpers.UserSearchResult, cfLocat
 					} else {
 						this.hasEvents = false;
 					}
+				}
+			}
+		}
+
+		// NOTE: this maintains an intentionally independent state from Alpine.store('filters').radius
+		// because the sidebar stores a "draft" state that is committed to URL params
+		// and Alpine global state only when the user clicks "Apply Filters"
+		function getFilterFormState() {
+				return {
+					init() {
+						this.radius = Alpine.store('filters').radius
+
+						const form = document.getElementById('category-search-form')
+						form.querySelectorAll('input[type="checkbox"]').forEach(itm => {
+							if (Alpine.store('filters').categories.includes(itm.value)) {
+								itm.checked = true
+							}
+						})
+					},
+					radius: null,
+					locationDropdown: null,
+					sendCategoriesToQueryParams() {
+						const form = document.getElementById('category-search-form')
+						// Collect form values
+						const formData = new FormData(form);
+						const formValues = Object.fromEntries(formData.entries());
+						let formVals = []
+						Object.keys(formValues).forEach(itm => {
+							if (itm.startsWith('itm-')) {
+								formVals.push(formValues?.[itm])
+							}
+						})
+						formVals = formVals.join(' | ')
+						Alpine.store('queryParams').pushToQueryParams('categories', formVals)
+					},
+					handleFilterSubmit() {
+						this.sendCategoriesToQueryParams();
+						if (this.radius) {
+							Alpine.store('filters').setRadius(this.radius)
+							Alpine.store('queryParams').pushToQueryParams('radius', this.radius)
+						}
+						if (this.locationDropdown) {
+							Alpine.store('filters').setLat(this.locationDropdown.latitude)
+							Alpine.store('filters').setLon(this.locationDropdown.longitude)
+							Alpine.store('location').setSelectedLocation(this.locationDropdown)
+
+							Alpine.store('queryParams').pushToQueryParams('lat', this.locationDropdown.latitude)
+							Alpine.store('queryParams').pushToQueryParams('lon', this.locationDropdown.longitude)
+							Alpine.store('queryParams').pushToQueryParams('location', this.locationDropdown.label)
+						}
+
+						// close the drawer
+						document.getElementById('main-drawer').click();
+					},
+				}
+			}
+
+		function getCompetitionsState() {
+			return {
+				async init() {
+					await fetch(`/api/competition-config/owner/${this.pageUserId}`).then(res => {
+						return res.json()
+					}).then(json => {
+						const _competitions = json.filter(competition => {
+							return competition.endTime > new Date().getTime() / 1000
+						})
+						this.competitions = _competitions
+					});
+
+					// Create an array of promises for fetching competition rounds and leaderboards
+					const fetchPromises = this.competitions.flatMap(competition => [
+						// Fetch rounds
+						fetch(`/api/competition-round/competition/${competition.id}`)
+							.then(response => response.json())
+							.catch(error => {
+								// eslint-disable-next-line no-console
+								console.error(`Error fetching rounds for competition ${competition.id}:`, error);
+								return null;
+							}),
+						// Fetch leaderboard
+						fetch(`/api/competition-round/competition-sum/${competition.id}`)
+							.then(response => response.json())
+							.catch(error => {
+								// eslint-disable-next-line no-console
+								console.error(`Error fetching leaderboard for competition ${competition.id}:`, error);
+								return null;
+							})
+					]);
+
+					// Wait for all requests to complete
+					try {
+						const results = await Promise.all(fetchPromises);
+						// Process results in pairs (rounds and leaderboard for each competition)
+						this.rounds = {};
+						this.leaderboards = {};
+						for (let i = 0; i < results.length; i += 2) {
+							const roundsArray = results[i];
+							const leaderboardData = results[i + 1];
+							if (roundsArray && roundsArray.length > 0) {
+								// Group rounds by eventId
+								const roundsByEvent = roundsArray.reduce((acc, round) => {
+									if (!acc[round.eventId]) {
+										acc[round.eventId] = [];
+									}
+									acc[round.eventId].push(round);
+									return acc;
+								}, {});
+								this.rounds[roundsArray[0].competitionId] = roundsByEvent;
+							}
+							if (leaderboardData) {
+								// Sort the entries by score in descending order
+								const sortedEntries = Object.entries(leaderboardData)
+									.sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
+
+								// Convert back to object while maintaining sorted order
+								this.leaderboards[this.competitions[i / 2].id] = Object.fromEntries(sortedEntries);
+							}
+						}
+					} catch (error) {
+						// eslint-disable-next-line no-console
+						console.error('Error fetching competition data:', error);
+					}
+
+					try {
+						const userIds = Object.values(this.leaderboards)
+							.flatMap(leaderboard => Object.keys(leaderboard))
+							.join(',');
+						if (userIds.length > 0) {
+							const users = await fetch(`/api/users?ids=${userIds}`).then(res => {
+								return res.json()
+							})
+							this.users = users
+						}
+					} catch (error) {
+						// eslint-disable-next-line no-console
+						console.error('Error fetching users:', error);
+					}
 				},
+				competitions: [],
+				rounds: {},
+				leaderboards: {},
+				users: [],
+				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
+				fakeEventId: document.querySelector('#alpine-state').getAttribute('data-fake-event-id'),
+				apexUrl: document.querySelector('#alpine-state').getAttribute('data-apex-url'),
 			}
 		}
 	</script>
