@@ -1,0 +1,4 @@
+psycopg2-binary==2.9.9
+numpy==1.26.4
+transformers==4.38.2
+faker==24.1.0
