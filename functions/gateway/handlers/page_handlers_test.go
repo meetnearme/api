@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
+	"github.com/playwright-community/playwright-go"
 )
 
 func TestGetHomeOrUserPage(t *testing.T) {
@@ -329,11 +331,15 @@ func TestGetEventDetailsPage(t *testing.T) {
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
-					"_id":            "123",
-					"eventOwners":    []interface{}{"789"},
-					"eventOwnerName": "Event Host Test",
-					"name":           "Test Event",
-					"description":    "This is a test event",
+					"_id":                   "123",
+					"eventOwners":           []interface{}{"789"},
+					"eventOwnerName":        "Event Host Test",
+					"name":                  "Test Event",
+					"description":           "This is a test event",
+					"address":               "123 Main St, Anytown, USA",
+					"hasPurchasable":        true,
+					"hasRegistrationFields": true,
+					"startingPrice":         50,
 				},
 			},
 		}
@@ -395,31 +401,132 @@ func TestGetEventDetailsPage(t *testing.T) {
 
 	ctx = context.WithValue(req.Context(), "userInfo", mockUserInfo)
 	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
-	req = req.WithContext(ctx)
+	_ = req.WithContext(ctx)
 
 	// Set up router to extract variables
-	router := mux.NewRouter()
+	router := test_helpers.SetupStaticTestRouter(t, "./assets")
+
 	router.HandleFunc("/event/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
 	})
 
-	rr := httptest.NewRecorder()
-	router.ServeHTTP(rr, req)
+	router.HandleFunc("/api/purchasables/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+		json, _ := json.Marshal(map[string]interface{}{
+			"purchasable_items": []map[string]interface{}{
+				{
+					"name":              "Test Ticket",
+					"cost":              1000,
+					"inventory":         10,
+					"description":       "Test Description",
+					"currency":          "USD",
+					"registration_type": "text",
+					"registration_fields": []string{
+						"Test Field",
+					},
+				},
+			},
+		})
+		w.Write(json)
+	})
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	router.HandleFunc("/api/registration-fields/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+		json, _ := json.Marshal(map[string]interface{}{
+			"registration_fields": []map[string]interface{}{
+				{
+					"name": "Test Field",
+				},
+			},
+		})
+		w.Write(json)
+	})
+
+	router.HandleFunc("/api/checkout/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+		json, _ := json.Marshal(map[string]interface{}{
+			"checkout_url": "https://checkout.stripe.com/test_checkout_url",
+		})
+		w.Write(json)
+	})
+
+	// Create a real HTTP server using the router
+	port = test_helpers.GetNextPort()
+	testServer := httptest.NewUnstartedServer(router)
+	listener, err = test_helpers.BindToPort(t, port)
+	if err != nil {
+		t.Fatalf("Failed to start test server: %v", err)
+	}
+	testServer.Listener = listener
+	testServer.Start()
+	defer testServer.Close()
+
+	browser, err := test_helpers.GetPlaywrightBrowser()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if rr.Body.String() == "" {
-		t.Errorf("Handler returned empty body")
+	if browser == nil || err != nil {
+		log.Fatalf("could not launch browser: %v\n", err)
+		return
+	}
+	page, err := (*browser).NewPage()
+	if err != nil {
+		log.Fatalf("could not create page: %v\n", err)
 	}
 
-	if !strings.Contains(rr.Body.String(), ">Test Event") {
-		t.Errorf("Event title is missing from the page")
+	// Now use testServer.URL to access the server
+	if _, err = page.Goto(fmt.Sprintf("%s/event/123", testServer.URL)); err != nil {
+		log.Fatalf("could not goto: %v\n", err)
 	}
 
-	if !strings.Contains(rr.Body.String(), ">This is a test event") {
-		t.Errorf("Event description is missing from the page")
+	// Check if the event title is visible
+	if _, err := page.Locator("h1").IsVisible(); err != nil {
+		t.Errorf("Event title is not visible")
+	}
+
+	title, err := page.Locator("h1").AllTextContents()
+	if err != nil {
+		t.Errorf("Error getting event title: %v", err)
+	}
+
+	if title[0] != string("Test Event") {
+		t.Errorf("Failed to find event title, found: %s", title[0])
+	}
+
+	page.Locator("#buy-tkts").Click()
+
+	page.Locator("[data-input-counter-increment]").Click()
+	page.Locator("[data-input-counter-increment]").Click()
+	wasCheckoutCalled := false
+	// Expect API call to checkout endpoint
+	page.OnRequest(func(request playwright.Request) {
+		if strings.Contains(request.URL(), "api/checkout") {
+			wasCheckoutCalled = true
+			body, err := request.PostData()
+			if err != nil {
+				t.Fatalf("Failed to get request body: %v", err)
+			}
+			expectedBody := `{"event_name":"Test Event","purchased_items":[{"name":"Test Ticket","cost":1000,"quantity":2,"currency":"USD","reg_responses":[]}],"total":2000,"currency":"USD"}`
+			if body != expectedBody {
+				t.Errorf("Expected request body %s, got %s", expectedBody, body)
+			}
+			wasCheckoutCalled = true
+		}
+	})
+
+	// Click the checkout button
+	page.Locator("button:has-text('Checkout')").Click()
+	_, err = page.ExpectRequest("**/api/checkout/**", func() error {
+		return page.Locator("button:has-text('Checkout')").Click()
+	})
+	if err != nil {
+		t.Fatalf("Checkout request not observed: %v", err)
+	}
+	// Verify the request was made to the mock server
+	// The mock server will handle the request and we can verify its response
+	// in the mock server handler above
+	if !wasCheckoutCalled {
+		t.Errorf("Checkout API call was not made")
+		screenshotName := fmt.Sprintf("event_details_%s.png", eventID)
+		test_helpers.ScreenshotToStandardDir(t, page, screenshotName)
 	}
 }
 
