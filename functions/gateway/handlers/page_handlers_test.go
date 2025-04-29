@@ -468,7 +468,14 @@ func TestGetEventDetailsPage(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	browser, err := pw.Chromium.Launch()
+	var launchOptions playwright.BrowserTypeLaunchOptions
+	if os.Getenv("CI") == "true" {
+		launchOptions = playwright.BrowserTypeLaunchOptions{
+			Args: []string{"--no-sandbox"},
+		}
+	}
+
+	browser, err := pw.Chromium.Launch(launchOptions)
 	if err != nil {
 		log.Fatalf("could not launch browser: %v\n", err)
 	}

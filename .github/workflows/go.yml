@@ -34,6 +34,10 @@ jobs:
         uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Build Go binaries
         run: go build -v ./...
+      - name: Install Playwright-go
+        run: |
+          go install github.com/playwright-community/playwright-go/cmd/playwright@latest
+playwright install --with-deps
       - name: Run Go tests
         run: go test ./...
       - name: Run tests and generate coverage
