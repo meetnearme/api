@@ -12,7 +12,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/gorilla/mux"
@@ -337,8 +336,10 @@ func TestGetEventDetailsPage(t *testing.T) {
 					"eventOwnerName":        "Event Host Test",
 					"name":                  "Test Event",
 					"description":           "This is a test event",
+					"address":               "123 Main St, Anytown, USA",
 					"hasPurchasable":        true,
 					"hasRegistrationFields": true,
+					"startingPrice":         50,
 				},
 			},
 		}
@@ -400,13 +401,50 @@ func TestGetEventDetailsPage(t *testing.T) {
 
 	ctx = context.WithValue(req.Context(), "userInfo", mockUserInfo)
 	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
-	req = req.WithContext(ctx)
+	_ = req.WithContext(ctx)
 
 	// Set up router to extract variables
-	router := setupStaticTestRouter(t, "./assets")
+	router := test_helpers.SetupStaticTestRouter(t, "./assets")
 
 	router.HandleFunc("/event/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
+	})
+
+	router.HandleFunc("/api/purchasables/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+		json, _ := json.Marshal(map[string]interface{}{
+			"purchasable_items": []map[string]interface{}{
+				{
+					"name":              "Test Ticket",
+					"cost":              1000,
+					"inventory":         10,
+					"description":       "Test Description",
+					"currency":          "USD",
+					"registration_type": "text",
+					"registration_fields": []string{
+						"Test Field",
+					},
+				},
+			},
+		})
+		w.Write(json)
+	})
+
+	router.HandleFunc("/api/registration-fields/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+		json, _ := json.Marshal(map[string]interface{}{
+			"registration_fields": []map[string]interface{}{
+				{
+					"name": "Test Field",
+				},
+			},
+		})
+		w.Write(json)
+	})
+
+	router.HandleFunc("/api/checkout/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+		json, _ := json.Marshal(map[string]interface{}{
+			"checkout_url": "https://checkout.stripe.com/test_checkout_url",
+		})
+		w.Write(json)
 	})
 
 	// Create a real HTTP server using the router
@@ -420,19 +458,16 @@ func TestGetEventDetailsPage(t *testing.T) {
 	testServer.Start()
 	defer testServer.Close()
 
-	t.Logf(">> 419 >> Installing playwright")
 	err = playwright.Install()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	t.Logf(">> 423 >> Running playwright")
 	pw, err := playwright.Run()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	t.Logf(">> 427 >> Launching browser")
 	browser, err := pw.Chromium.Launch()
 	if err != nil {
 		log.Fatalf("could not launch browser: %v\n", err)
@@ -442,32 +477,20 @@ func TestGetEventDetailsPage(t *testing.T) {
 		log.Fatalf("could not create page: %v\n", err)
 	}
 
-	t.Logf(">> 433 >> Navigating to event page")
-	// Now we can use testServer.URL to access the server
+	// Now use testServer.URL to access the server
 	if _, err = page.Goto(fmt.Sprintf("%s/event/123", testServer.URL)); err != nil {
 		log.Fatalf("could not goto: %v\n", err)
-	} else {
-		t.Logf(">> 441 >> Goto successful: %s", testServer.URL)
 	}
 
-	// html, err := page.Locator("body").InnerHTML()
-	// if err != nil {
-	// 	t.Fatalf("could not get page HTML: %v\n", err)
-	// }
-	// t.Logf("Page HTML content: %s", html)
-
-	t.Logf(">> 443 >> Checking if event title is visible")
 	// Check if the event title is visible
 	if _, err := page.Locator("h1").IsVisible(); err != nil {
 		t.Errorf("Event title is not visible")
 	}
 
-	t.Logf(">> 445 >> Getting event title")
 	title, err := page.Locator("h1").AllTextContents()
 	if err != nil {
 		t.Errorf("Error getting event title: %v", err)
 	}
-	t.Logf(">> 445 >> Event title: %s", title)
 
 	if title[0] != string("Test Event") {
 		t.Errorf("Failed to find event title, found: %s", title[0])
@@ -475,29 +498,36 @@ func TestGetEventDetailsPage(t *testing.T) {
 
 	page.Locator("#buy-tkts").Click()
 
-	html, err := page.Locator("body").InnerHTML()
-	if err != nil {
-		t.Fatalf("could not get page HTML: %v\n", err)
+	page.Locator("[data-input-counter-increment]").Click()
+	page.Locator("[data-input-counter-increment]").Click()
+	wasCheckoutCalled := false
+	// Expect API call to checkout endpoint
+	page.OnRequest(func(request playwright.Request) {
+		if strings.Contains(request.URL(), "api/checkout") {
+			wasCheckoutCalled = true
+			body, err := request.PostData()
+			if err != nil {
+				t.Fatalf("Failed to get request body: %v", err)
+			}
+			expectedBody := `{"event_name":"Test Event","purchased_items":[{"name":"Test Ticket","cost":1000,"quantity":2,"currency":"USD","reg_responses":[]}],"total":2000,"currency":"USD"}`
+			if body != expectedBody {
+				t.Errorf("Expected request body %s, got %s", expectedBody, body)
+			}
+			wasCheckoutCalled = true
+		}
+	})
+
+	// Click the checkout button
+	page.Locator("button:has-text('Checkout')").Click()
+
+	// Verify the request was made to the mock server
+	// The mock server will handle the request and we can verify its response
+	// in the mock server handler above
+	if !wasCheckoutCalled {
+		t.Errorf("Checkout API call was not made")
+		screenshotName := fmt.Sprintf("event_details_%s.png", eventID)
+		test_helpers.ScreenshotToStandardDir(t, page, screenshotName)
 	}
-	t.Logf("Page HTML content: %s", html)
-
-	screenshotPath := fmt.Sprintf("screenshots/event_details_%s.png", eventID)
-	_, err = page.Screenshot(
-		playwright.PageScreenshotOptions{
-			Path: &screenshotPath,
-		},
-	)
-	if err != nil {
-		t.Fatalf("could not screenshot: %v\n", err)
-	}
-
-	t.Logf(">> 479 >> Screenshot saved to %s", screenshotPath)
-
-	// Sleep for 30 seconds to keep servers running
-	t.Log("Sleeping for 30 seconds...")
-	time.Sleep(30 * time.Second)
-
-	t.Errorf("FORCE ERROR")
 }
 
 func TestGetAddEventSourcePage(t *testing.T) {
@@ -1015,15 +1045,4 @@ func TestGetEventAttendeesPage(t *testing.T) {
 			}
 		})
 	}
-}
-
-func setupStaticTestRouter(t *testing.T, staticDir string) *mux.Router {
-	router := mux.NewRouter()
-
-	// Add static file handling
-	router.PathPrefix("/assets/").Handler(
-		http.StripPrefix("", http.FileServer(http.Dir(staticDir))),
-	)
-
-	return router
 }
