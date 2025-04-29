@@ -265,6 +265,31 @@ func ScreenshotToStandardDir(t *testing.T, page playwright.Page, screenshotName 
 	t.Logf("Screenshot saved to %s", screenshotPath)
 }
 
+func GetPlaywrightBrowser() (*playwright.Browser, error) {
+	err := playwright.Install()
+	if err != nil {
+		return nil, err
+	}
+	pw, err := playwright.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	var launchOptions playwright.BrowserTypeLaunchOptions
+	// Assuming GitHub Actions, CI is always `true`
+	if os.Getenv("CI") == "true" {
+		launchOptions = playwright.BrowserTypeLaunchOptions{
+			Args: []string{"--no-sandbox"},
+		}
+	}
+
+	browser, err := pw.Chromium.Launch(launchOptions)
+	if err != nil {
+		return nil, err
+	}
+	return &browser, nil
+}
+
 // Helper function to check if file exists
 func fileExists(path string) bool {
 	_, err := os.Stat(path)

@@ -450,7 +450,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 	// Create a real HTTP server using the router
 	port = test_helpers.GetNextPort()
 	testServer := httptest.NewUnstartedServer(router)
-	listener, err = test_helpers.BindToPort(t, fmt.Sprintf(":%s", port))
+	listener, err = test_helpers.BindToPort(t, port)
 	if err != nil {
 		t.Fatalf("Failed to start test server: %v", err)
 	}
@@ -458,28 +458,16 @@ func TestGetEventDetailsPage(t *testing.T) {
 	testServer.Start()
 	defer testServer.Close()
 
-	err = playwright.Install()
+	browser, err := test_helpers.GetPlaywrightBrowser()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	pw, err := playwright.Run()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var launchOptions playwright.BrowserTypeLaunchOptions
-	if os.Getenv("CI") == "true" {
-		launchOptions = playwright.BrowserTypeLaunchOptions{
-			Args: []string{"--no-sandbox"},
-		}
-	}
-
-	browser, err := pw.Chromium.Launch(launchOptions)
-	if err != nil {
+	if browser == nil || err != nil {
 		log.Fatalf("could not launch browser: %v\n", err)
+		return
 	}
-	page, err := browser.NewPage()
+	page, err := (*browser).NewPage()
 	if err != nil {
 		log.Fatalf("could not create page: %v\n", err)
 	}
