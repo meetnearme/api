@@ -514,7 +514,12 @@ func TestGetEventDetailsPage(t *testing.T) {
 
 	// Click the checkout button
 	page.Locator("button:has-text('Checkout')").Click()
-
+	_, err = page.ExpectRequest("**/api/checkout/**", func() error {
+		return page.Locator("button:has-text('Checkout')").Click()
+	})
+	if err != nil {
+		t.Fatalf("Checkout request not observed: %v", err)
+	}
 	// Verify the request was made to the mock server
 	// The mock server will handle the request and we can verify its response
 	// in the mock server handler above

@@ -266,10 +266,6 @@ func ScreenshotToStandardDir(t *testing.T, page playwright.Page, screenshotName 
 }
 
 func GetPlaywrightBrowser() (*playwright.Browser, error) {
-	err := playwright.Install()
-	if err != nil {
-		return nil, err
-	}
 	pw, err := playwright.Run()
 	if err != nil {
 		return nil, err
@@ -287,6 +283,14 @@ func GetPlaywrightBrowser() (*playwright.Browser, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: we can't stop this because we haven't run tests yet,
+	// but we should probably return `pw` and let the caller stop it
+	// or have some implicit way for something like this `defer` to happen
+
+	// defer browser.Close()
+	// defer pw.Stop()
+
 	return &browser, nil
 }
 
