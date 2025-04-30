@@ -10,7 +10,7 @@
     "dev": "concurrently \"npm:dev:*\"",
     "build": "sst build",
     "dev:sst": "sst dev",
-    "dev:serve-static": "npx http-server -o /static -a localhost -p 3001 --cors",
+    "dev:serve-static": "npx http-server -o /static -a localhost -p 8001 --cors",
     "dev:tailwind": "tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --watch",
     "dev:templ": "node scripts/watchTempl.js ./functions/gateway/templates ./functions/lambda/go/seshu/templates",
     "deploy": "sst deploy",
@@ -20,7 +20,17 @@
     "tailwind:prod": "NODE_ENV=production tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --minify",
     "typecheck": "tsc --noEmit",
     "lint:templ:dev": "eslint --ext .templ --fix .",
-    "lint:templ:prod": "eslint --ext .templ --max-warnings 0 ."
+    "lint:templ:prod": "eslint --ext .templ --max-warnings 0 .",
+    "marqo:local": "docker ps -a --format '{{.Names}}' | grep -w marqo && docker start -a marqo || (docker pull marqoai/marqo:latest && docker rm -f marqo && docker run --name marqo -it -p 8882:8882 -e MARQO_STORAGE_TYPE=local -e MARQO_STORAGE_PATH=/data -e MARQO_STORAGE_SIZE=10GB -e MARQO_STORAGE_ENABLED=true -e MARQO_STORAGE_PERSIST=true -e MARQO_STORAGE_CLEANUP=false -v marqo_data:/data marqoai/marqo:latest)",
+    "marqo:local:migrate": "LOCAL_MARQO=true go run ./internal/database/marqo/migration -env prod -schema ./internal/database/marqo/migration/schema.json -source-index prod-events-2025-02-06-1826 -source-endpoint https://prod-events-2025-02-06-1826-hxz5vw-g2amp25x.dp1.marqo.ai",
+    "docker:build": "docker build -t meetnearme-monolith .",
+    "docker:run": "docker run -it --name meetnearme-monolith -p 8000:8000 -p 5433:5432 -p 8080:8080 meetnearme-monolith",
+    "docker:start": "docker start -a meetnearme-monolith",
+    "docker:stop": "docker stop meetnearme-monolith",
+    "docker:logs": "docker logs -f meetnearme-monolith",
+    "docker:clean": "docker rm -f meetnearme-monolith",
+    "docker:rebuild": "npm run docker:clean && npm run docker:build && npm run docker:run",
+    "docker:restart": "npm run docker:stop && npm run docker:start"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.14",
@@ -43,5 +53,9 @@
   },
   "eslintConfig": {
     "sourceType": "commonjs"
+  },
+  "volta": {
+    "node": "21.6.0",
+    "npm": "10.2.4"
   }
 }
