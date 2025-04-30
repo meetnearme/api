@@ -49,12 +49,14 @@ func CreateDbClient() internal_types.DynamoDBAPI {
 	if err != nil {
 		fmt.Println("Error loading default Dynamo client config", err)
 	}
+	accessKeyId := os.Getenv("AWS_ACCESS_KEY")
+	secretAccessKey := os.Getenv("SECRET_ACCESS_KEY")
 
-	if !helpers.IsRemoteDB() {
+	if helpers.IsRemoteDB() {
 		optionalCredentials := config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
 			Value: aws.Credentials{
-				AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test",
-				Source: "Hard-coded credentials; values are irrelevant for local dynamo",
+				AccessKeyID: accessKeyId, SecretAccessKey: secretAccessKey,
+				Source: ".env file",
 			},
 		})
 		cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
@@ -91,3 +93,4 @@ func GetDB() internal_types.DynamoDBAPI {
 	})
 	return db
 }
+
