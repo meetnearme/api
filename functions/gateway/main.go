@@ -22,10 +22,9 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
-
-	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
@@ -58,7 +57,7 @@ func init() {
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
 		// TODO: revert home route to check ACT
-		{helpers.SitePages["home"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
+		{helpers.SitePages["home"].Slug, "GET", handlers.GetHomeOrUserPage, None},
 		{helpers.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
 		{helpers.SitePages["user"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
 		{helpers.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
@@ -195,7 +194,9 @@ func NewApp() *App {
 	log.Printf("App created: %+v", app)
 
 	defer func() {
+		log.Print("180")
 		app.InitStripe()
+		log.Print("182")
 	}()
 	return app
 }
@@ -578,18 +579,26 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 
 func main() {
 	deploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
+	instanceHost := os.Getenv("ZITADEL_INSTANCE_HOST")
+	log.Print("new env")
+	log.Printf("env var: %v", deploymentTarget)
+	log.Printf("env var: %v", instanceHost)
 
 	flag.Parse()
+	log.Print("441 ")
 	app := NewApp()
+	log.Print("443 ")
 	app.InitializeAuth()
+	log.Print("445 ")
 	app.SetupNotFoundHandler()
+	log.Print("450 ")
 
 	// This is the package level instance of Db in handlers
 	_ = transport.GetDB()
+	log.Print("451 ")
+	defer app.PostGresDB.Close()
 
 	app.SetupRoutes(Routes)
-
-	defer app.PostGresDB.Close()
 
 	if deploymentTarget == "ACT" {
 		// Start serving
@@ -606,11 +615,12 @@ func main() {
 			WriteTimeout: 15 * time.Second,
 			ReadTimeout:  15 * time.Second,
 		}
-
+		log.Printf("Starting server on %s", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
 	} else {
+		log.Printf(" 463:  Hitting esle")
 		adapter := gorillamux.NewV2(app.Router)
 
 		lambda.Start(func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
