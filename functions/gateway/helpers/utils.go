@@ -662,11 +662,12 @@ func CreateTeamUserWithMembers(displayName, candidateUUID string, members []stri
 	email := strings.Replace(emailSchema, "<replace>", candidateUUID, 1)
 
 	nameParts := strings.SplitN(displayName, " ", 2)
-	if len(nameParts) < 2 {
-		return types.UserSearchResultDangerous{}, fmt.Errorf("display name must contain first and last name")
-	}
 	firstPartName := nameParts[0]
-	secondPartName := nameParts[1]
+	// NOTE: this is a hack, zitadel doesn't accept omission of first + last names
+	secondPartName := "."
+	if strings.Contains(displayName, " ") {
+		secondPartName = nameParts[1]
+	}
 
 	// Create the payload struct
 	payload := createUserPayload{

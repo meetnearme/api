@@ -315,22 +315,6 @@ func (s *CompetitionRoundService) GetCompetitionRounds(ctx context.Context, dyna
 		ExpressionAttributeValues: expr.Values(),
 	}
 
-	// Try a test GetItem first to verify table access
-	testInput := &dynamodb.GetItemInput{
-		TableName: aws.String(competitionRoundsTableName),
-		Key: map[string]dynamodb_types.AttributeValue{
-			"competitionId": &dynamodb_types.AttributeValueMemberS{Value: competitionId},
-			"roundNumber":   &dynamodb_types.AttributeValueMemberN{Value: "1"}, // Test with first round
-		},
-	}
-
-	testResult, testErr := dynamodbClient.GetItem(ctx, testInput)
-	if testErr != nil {
-		log.Printf("WARNING: Test GetItem failed: %v", testErr)
-	} else {
-		log.Printf("Test GetItem succeeded. Item exists: %v", testResult.Item != nil)
-	}
-
 	// Perform the actual query
 	result, err := dynamodbClient.Query(ctx, queryInput)
 	if err != nil {

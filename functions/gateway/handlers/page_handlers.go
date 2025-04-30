@@ -23,8 +23,8 @@ import (
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-const US_GEO_CENTER_LAT = float64(39.8283)
-const US_GEO_CENTER_LONG = float64(-98.5795)
+var US_GEO_DEFAULT_LAT = float64(helpers.Cities[0].Latitude)
+var US_GEO_DEFAULT_LONG = float64(helpers.Cities[0].Longitude)
 
 func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTimeUnix int64) {
 	var startTime time.Time
@@ -35,10 +35,10 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 
 	// NOTE: This assumes the UI home page default is "THIS MONTH" and the absence
 	// of an explicit start_time query param ...
-	if (startTimeStr == "" && endTimeStr == "") || strings.ToLower(startTimeStr) == "this_year" {
+	if startTimeStr == "" && endTimeStr == "" {
 		startTime = time.Now()
-		// NOTE: default to 1 month
-		endTime = startTime.AddDate(0, 1, 0)
+		// NOTE: default to 3 months
+		endTime = startTime.AddDate(0, 3, 0)
 	} else if strings.ToLower(startTimeStr) == "this_month" {
 		startTime = time.Now()
 		endTime = startTime.AddDate(0, 1, 0)
@@ -76,9 +76,9 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 
 	// convert endTime either UTC / time.RFC3339 or integer
 	// string (presumed unix) to int64
-	if _, err = time.Parse(time.RFC3339, endTimeStr); err == nil {
+	if _, err := time.Parse(time.RFC3339, endTimeStr); err == nil {
 		endTime, _ = time.Parse(time.RFC3339, endTimeStr)
-	} else if endTimeUnix, err = strconv.ParseInt(endTimeStr, 10, 64); err == nil {
+	} else if endTimeUnix, err := strconv.ParseInt(endTimeStr, 10, 64); err == nil {
 		endTime = time.Unix(endTimeUnix, 0)
 		// Set end time to 24 hours after start time
 		// default wrong query string usage to PLUS ONE MONTH for endTime
@@ -119,8 +119,8 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	}
 
 	// default lat / lon to geographic center of US
-	lat := US_GEO_CENTER_LAT
-	long := US_GEO_CENTER_LONG
+	lat := US_GEO_DEFAULT_LAT
+	long := US_GEO_DEFAULT_LONG
 
 	// Parse parameter values if provided
 	if latStr != "" {
@@ -151,16 +151,20 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	// cfLocation has given us a reasonable local guess
 
 	if radius < 0.0001 && (cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong ||
-		lat != US_GEO_CENTER_LAT && long != US_GEO_CENTER_LONG) {
-		radius = float64(150.0)
+		lat != US_GEO_DEFAULT_LAT && long != US_GEO_DEFAULT_LONG) {
+		radius = helpers.DEFAULT_SEARCH_RADIUS
 		// we still don't have lat/lon, which means we'll be using "geographic center of US"
 		// which is in the middle of nowhere. Expand the radius to show all of the country
 		// showing events from anywhere
 	} else if radius == 0.0 {
-		radius = float64(2500.0)
+		radius = helpers.DEFAULT_EXPANDED_SEARCH_RADIUS
 	}
 
 	startTimeUnix, endTimeUnix := ParseStartEndTime(startTimeStr, endTimeStr)
+
+	if startTimeUnix < time.Now().Unix() && endTimeStr == "" {
+		endTimeUnix = time.Now().Unix()
+	}
 
 	// Handle owners query parameter
 	ownerIds = []string{}
@@ -315,6 +319,7 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	ctx := r.Context()
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
+	originalQueryLocation := r.URL.Query().Get("location")
 	events, cfLocation, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), status, err)
@@ -328,6 +333,7 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		fmt.Sprint(userLocation[1]),
 		fmt.Sprint(originalQueryLat),
 		fmt.Sprint(originalQueryLong),
+		originalQueryLocation,
 	)
 
 	userInfo := helpers.UserInfo{}
@@ -352,7 +358,7 @@ func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage, types.Event{}, []string{})
 	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
+	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
@@ -407,7 +413,7 @@ func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.Handler
 	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, types.Event{}, []string{})
 
 	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
+	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
@@ -477,7 +483,7 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 	isCompetitionAdmin := helpers.HasRequiredRole(roleClaims, []string{"superAdmin", "competitionAdmin"})
 
-	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, event, isEditor, cfLocationLat, cfLocationLon, isCompetitionAdmin)
+	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, userInfo, event, isEditor, cfLocationLat, cfLocationLon, isCompetitionAdmin)
 
 	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/mask@3.x.x/dist/cdn.min.js"})
 

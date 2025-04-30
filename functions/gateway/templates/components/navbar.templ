@@ -5,6 +5,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -22,7 +23,7 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 				// <span class="badge">New</span>
 			</a>
 		</li>
-		<li><a x-data="" :href="'/auth/logout?post_logout_redirect_uri=' + window.location.href">Logout</a></li>
+		<li><a x-data="" :href={ " '/auth/logout?" + helpers.POST_LOGOUT_REDIRECT_URI_KEY + "=' + window.location.href " }>Logout</a></li>
 	</ul>
 }
 
@@ -294,7 +295,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-			<div class="menu border-2 border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
+			<div class="border-2 border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
 				<div class="block justify-end pb-5">
 					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click();"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
 				</div>
@@ -318,10 +319,10 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 						</ul>
 					</div>
 				}
-				<div role="tablist" class="tabs tabs-bordered">
+				<div role="tablist" class="tabs tabs-bordered w-full">
 					<input id="flyout-tab-main" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
 					<div role="tabpanel" class="tab-content p-2">
-						<ul class="">
+						<ul class="menu">
 							<!-- Sidebar content here -->
 							@NavListItems(userInfo)
 						</ul>
@@ -336,7 +337,12 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							aria-label="Filters"
 							checked="checked"
 						/>
-						<div x-data="getHomeState()" role="tabpanel" class="tab-content">
+						<div
+							x-data="getFilterFormState()"
+							role="tabpanel"
+							class="tab-content pt-4 relative"
+							@location-dropdown.window="locationDropdown = $event.detail.option;"
+						>
 							<form
 								id="category-search-form"
 								novalidate
@@ -347,13 +353,136 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								// @click function call is a global shared from home_details.templ
 								<button
 									type="submit"
-									class="btn btn-primary w-full self-start sticky top-0 z-[10]"
-									@click="sendCategoriesToQueryParams(); document.getElementById('main-drawer').click();"
+									class="btn btn-primary w-full sticky top-0 z-[10]"
+									@click.prevent="handleFilterSubmit"
 								>
 									Apply Filters
 								</button>
 								<br/>
 								<br/>
+								// Source: https://www.penguinui.com/components/combobox
+								<div x-data="getLocationSearchState()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
+									<h3 class="text-xl my-3">
+										Location <span x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? '(Geocoordinates)' : '' "></span>
+									</h3>
+									<div class="relative">
+										<!-- trigger button  -->
+										<button
+											type="button"
+											class="inline-flex w-full items-center justify-between gap-2 border rounded-md mt-2 p-3 text-sm font-medium tracking-wide  transition input-bordered focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 dark:focus-visible:outline-green-600"
+											role="combobox"
+											aria-controls="makesList"
+											aria-haspopup="listbox"
+											x-on:click="isOpen = ! isOpen"
+											x-on:keydown.down.prevent="openedWithKeyboard = true"
+											x-on:keydown.enter.prevent="openedWithKeyboard = true"
+											x-on:keydown.space.prevent="openedWithKeyboard = true"
+											x-bind:aria-expanded="isOpen || openedWithKeyboard"
+											x-bind:aria-label="selectedOption.label ? '' : ''"
+										>
+											<span
+												class="text-sm font-normal"
+												x-text="selectedOption?.label ? selectedOption.label : 'Location: Please Select'"
+											></span>
+											<span
+												class="sr-only"
+												x-text="selectedOption?.label ? selectedOption.label : 'Location: Please Select'"
+											></span>
+											<!-- Chevron  -->
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true">
+												<path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"></path>
+											</svg>
+										</button>
+										<!-- Hidden Input To Grab The Selected Value  -->
+										<input id="make" name="make" x-ref="hiddenTextField" hidden=""/>
+										<div
+											x-show="isOpen || openedWithKeyboard"
+											:class="{'opacity-100': isOpen || openedWithKeyboard}"
+											class="w-full opacity-0 transition-all absolute left-0 top-12 z-10 overflow-hidden rounded-md border bg-base-200"
+											id="makesList"
+											role="listbox"
+											aria-label="locations list"
+											x-on:click.outside="isOpen = false, openedWithKeyboard = false"
+											x-on:keydown.down.prevent="$focus.wrap().next()"
+											x-on:keydown.up.prevent="$focus.wrap().previous()"
+											x-transition
+											x-trap="openedWithKeyboard"
+										>
+											<!-- Search  -->
+											<div class="relative">
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+													fill="none"
+													stroke-width="1.5"
+													class="absolute left-4 top-1/2 size-5 -translate-y-1/2"
+													aria-hidden="true"
+												>
+													<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"></path>
+												</svg>
+												<input
+													type="text"
+													class="w-full border-b py-2.5 pl-11 pr-4 text-sm focus:outline-none focus-visible:border-green-700 disabled:cursor-not-allowed disabled:opacity-75   dark:focus-visible:border-green-600"
+													name="loc_search"
+													aria-label="Search"
+													@input.throttle="fetchLocations($event.target.value)"
+													x-ref="loc_search"
+													placeholder="Search"
+												/>
+											</div>
+											<!-- Options  -->
+											<ul class="flex max-h-44 flex-col overflow-y-auto">
+												<li class="hidden px-4 py-2 text-sm" x-ref="noResultsMessage">
+													<span>No matches found</span>
+												</li>
+												<template x-for="(item, index) in options" :key="index">
+													<li
+														class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-base-200 px-4 py-2 text-sm hover:text-primary focus-visible:bg-slate-800/5 focus-visible:text-primary focus-visible:outline-none"
+														role="option"
+														@click="setSelectedOption(item)"
+														@keydown.enter="setSelectedOption(item)"
+														:id="'option-' + index"
+														tabindex="0"
+													>
+														<!-- Label  -->
+														<span :class="selectedOption && selectedOption.value == item.value ? 'font-bold' : null" x-text="item.label"></span>
+														<!-- Screen reader 'selected' indicator  -->
+														<span class="sr-only" x-text="selectedOption && selectedOption.value == item.value ? 'selected' : null"></span>
+														<!-- Checkmark  -->
+														<svg x-cloak x-show="selectedOption && selectedOption.value == item.value" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" class="size-4" aria-hidden="true">
+															<path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"></path>
+														</svg>
+													</li>
+												</template>
+											</ul>
+										</div>
+									</div>
+								</div>
+								<br/>
+								<br/>
+								<h3 class="text-xl my-3">Distance</h3>
+								<div class="flex items-center">
+									<label class="form-control w-full max-w-xs">
+										<select
+											x-model="radius"
+											class="select select-bordered w-full max-w-xs"
+										>
+											<option :selected="radius === '10'" value="10">10 mi</option>
+											<option :selected="radius === '25'" value="25">25 mi</option>
+											<option :selected="radius === '50'" value="50">50 mi</option>
+											<option :selected="radius === '100'" value="100">100 mi</option>
+											<option :selected="radius === '250'" value="250">250 mi</option>
+											<option :selected="radius === '500'" value="500">500 mi</option>
+											<option :selected="radius === '1000'" value="1000">1,000 mi</option>
+											<option :selected="radius === '2500'" value="2500">2,500 mi</option>
+											<option :selected="radius === '25000'" value="25000">Everywhere</option>
+										</select>
+									</label>
+								</div>
+								<br/>
+								<br/>
+								<h3 class="text-xl my-3">Categories</h3>
 								@NestedCheckboxList(false, []string{})
 							</form>
 						</div>
@@ -441,7 +570,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 		</div>
 	</div>
 	if helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvCart]}) != "" {
-		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub }>
+		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub } data-default-radius={ strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64) }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,
