@@ -13,9 +13,10 @@ on:
 
 jobs:
   build-go:
-    matrix:
-      # NOTE: add firefox, webkit ?
-      browser: [chromium]
+    strategy:
+      matrix:
+        # NOTE: add firefox, webkit ?
+        browser: [chromium]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
