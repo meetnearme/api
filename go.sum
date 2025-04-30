@@ -133,8 +133,6 @@ github.com/hashicorp/errwrap v1.1.0 h1:OxrOeh75EUXMY8TBjag2fzXGZ40LB6IKw45YeGUDY
 github.com/hashicorp/errwrap v1.1.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-multierror v1.1.1 h1:H5DkEtf6CXdFp0N0Em5UCwQpXMWke8IA0+lD48awMYo=
 github.com/hashicorp/go-multierror v1.1.1/go.mod h1:iw975J/qwKPdAO1clOe2L8331t/9/fmwbPZ6JB6eMoM=
-github.com/imroc/req v0.3.2 h1:M/JkeU6RPmX+WYvT2vaaOL0K+q8ufL5LxwvJc4xeB4o=
-github.com/imroc/req v0.3.2/go.mod h1:F+NZ+2EFSo6EFXdeIbpfE9hcC233id70kf0byW97Caw=
 github.com/imroc/req/v3 v3.49.1 h1:Nvwo02riiPEzh74ozFHeEJrtjakFxnoWNR3YZYuQm9U=
 github.com/imroc/req/v3 v3.49.1/go.mod h1:tsOk8K7zI6cU4xu/VWCZVtq9Djw9IWm4MslKzme5woU=
 github.com/jeremija/gosubmit v0.2.7 h1:At0OhGCFGPXyjPYAsCchoBUhE099pcBXmsb4iZqROIc=
