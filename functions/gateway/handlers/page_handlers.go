@@ -27,7 +27,6 @@ var US_GEO_DEFAULT_LAT = float64(helpers.Cities[0].Latitude)
 var US_GEO_DEFAULT_LONG = float64(helpers.Cities[0].Longitude)
 
 func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTimeUnix int64) {
-
 	var startTime time.Time
 	var endTime time.Time
 
