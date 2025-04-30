@@ -720,6 +720,7 @@ func floatSliceEqual(a, b []float64, epsilon float64) bool {
 }
 
 func TestGetAddOrEditEventPage(t *testing.T) {
+
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
