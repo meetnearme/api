@@ -1,64 +1,62 @@
 # Postgres builder image with pgvector installed
 FROM postgres:17.4-alpine3.21 AS postgres-builder
 
-RUN apk add --no-cache git build-base clang19 llvm19-dev
+RUN apk add --no-cache git build-base
+# WORKDIR /tmp
+# RUN git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git
+# WORKDIR /tmp/pgvector
+# RUN make && make install
 
-# Clone pgvector and build it
-WORKDIR /tmp
-RUN git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git
-WORKDIR /tmp/pgvector
-RUN make
-RUN make install
-
-# Python builder image
-FROM python:3.12-alpine3.21 AS python-builder
-
-# Install system dependencies
+# Golang builder image
+FROM golang:1.23.2-alpine AS golang-builder
 RUN apk add --no-cache build-base
 
 # Final image
 FROM postgres:17.4-alpine3.21
 
-# Copy pgvector files from the builder
-COPY --from=postgres-builder /usr/local/lib/postgresql/bitcode/vector.index.bc /usr/local/lib/postgresql/bitcode/vector.index.bc
-COPY --from=postgres-builder /usr/local/lib/postgresql/vector.so /usr/local/lib/postgresql/vector.so
-COPY --from=postgres-builder /usr/local/share/postgresql/extension /usr/local/share/postgresql/extension
+# Copy pgvector build
+# COPY --from=postgres-builder /usr/local/lib/postgresql/bitcode/vector.index.bc /usr/local/lib/postgresql/bitcode/vector.index.bc
+# COPY --from=postgres-builder /usr/local/lib/postgresql/vector.so /usr/local/lib/postgresql/vector.so
+# COPY --from=postgres-builder /usr/local/share/postgresql/extension /usr/local/share/postgresql/extension
 
-# Install dependencies for Go and Python
+# Install necessary dependencies
 RUN apk add --no-cache \
-    python3 \
-    py3-pip \
-    build-base \
-    libffi-dev \
-    libstdc++ \
     bash \
-    supervisor
+    curl \
+    go \
+    nodejs \
+    npm \
+    supervisor \
+    aws-cli \
+    git \
+    nano
 
-COPY --from=python-builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=python-builder /usr/local/bin /usr/local/bin
+# Clone API repo
+RUN mkdir -p /meetnearme && \
+    git clone https://github.com/meetnearme/api.git /meetnearme/api
 
-COPY ./internal/database/postgres/ /python-postgres-adapter/
+WORKDIR /meetnearme/api
 
-# Run pgvector_adapter.py to create the vector extension and test table and queries
-RUN python3 /python-postgres-adapter/pgvector_adapter.py
+# Install Go templ
+RUN go install github.com/a-h/templ/cmd/templ@v0.2.793
 
-RUN python3 -m venv /python-postgres-adapter/venv
-RUN /python-postgres-adapter/venv/bin/pip install --upgrade pip
-RUN /python-postgres-adapter/venv/bin/pip install -r /python-postgres-adapter/requirements.txt
+# Install Node dependencies
+RUN npm install
 
-# Create directory for postgres data
-RUN mkdir -p /var/lib/postgresql/data && \
-    chown -R postgres:postgres /var/lib/postgresql/data
+# Setup supervisor directory
+RUN mkdir -p /var/log/supervisor
 
-# Set environment variables
-ENV POSTGRES_PASSWORD=your_secure_password
-ENV POSTGRES_DB=app_database
+# Copy init script and make it executable
+RUN chmod +x /act-platform/initMNM.sh
 
-# Set up supervisord to manage multiple processes
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# Move seshujobs_init.sql to the expected Postgres init directory
+RUN cp /act-platform/seshujobs_init.sql /docker-entrypoint-initdb.d/seshujobs_init.sql
 
-# Expose ports
-EXPOSE 5432
+# Move supervisord.conf to supervisor config directory
+RUN cp supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Start supervisord to manage all processes
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Expose relevant ports
+EXPOSE 3000 5432
+
+# Run init script (it will call supervisord)
+ENTRYPOINT ["/act-platform/initMNM.sh"]
