@@ -186,7 +186,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				<template x-if="competitionConfigId && userId">
 					<div class="mt-4" id="voting-section">
 						<h3 class="text-xl">VOTING</h3>
-						<template x-if="!Boolean(rounds?.[0]?.competitorADisplayName)">
+						<template x-if="roundsDataFetching">
 							<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
 						</template>
 						<template x-if="!roundsDataFetching && rounds?.filter(round => round.isVotingOpen).length === 0">
