@@ -1041,7 +1041,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 									try {
 										const registrationFieldsResponse = await fetch(`/api/registration-fields/${this.formData.event.id}`);
 										const registrationFields = await registrationFieldsResponse.json();
-										this.registrationFields = registrationFields?.fields.map((field, index) => ({
+										this.registrationFields = registrationFields?.fields?.map?.((field, index) => ({
 											...field,
 											optionsText: field.options ? field.options.join('\n') : '',
 											order: index,
