@@ -26,7 +26,7 @@ func SendHtmlRes(w http.ResponseWriter, body []byte, status int, mode string, er
 				handler := SendHtmlErrorPartial(body, status)
 				handler.ServeHTTP(w, r)
 			} else {
-				handler := SendHtmlErrorPage(body, status)
+				handler := SendHtmlErrorPage(body, status, false)
 				handler.ServeHTTP(w, r)
 			}
 			return
@@ -40,7 +40,7 @@ func SendHtmlRes(w http.ResponseWriter, body []byte, status int, mode string, er
 	}
 }
 
-func SendHtmlErrorPage(body []byte, status int) http.HandlerFunc {
+func SendHtmlErrorPage(body []byte, status int, hideError bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userInfo := helpers.UserInfo{}
 		ctx := r.Context()
@@ -59,7 +59,7 @@ func SendHtmlErrorPage(body []byte, status int) http.HandlerFunc {
 			log.Println("Warning: No ApiGwV2ReqKey found in context")
 		}
 
-		errorPartial := pages.ErrorPage(body, requestID)
+		errorPartial := pages.ErrorPage(body, requestID, hideError)
 		layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, errorPartial, types.Event{}, []string{})
 		var buf bytes.Buffer
 		err := layoutTemplate.Render(ctx, &buf)
