@@ -569,7 +569,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					})() : document.querySelector('#add-edit-competition').getAttribute('data-competition-end-time'),
 				},
 				saveReqInFlight: false,
-				// tallyVotesReqInFlight: false,
 				waitingRoom: [],
 				newTeamName: '',
 				teams: [],
@@ -806,6 +805,14 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							const date = new Date(unixTimestamp * 1000); // Multiply by 1000 to convert seconds to milliseconds
 							return date.toISOString().slice(0, 16); // Get yyyy-MM-ddThh:mm format
 						};
+
+						// re-distribute rounds indexes to ensure they are contiguous
+						this.formData.rounds = this.formData.rounds.map((round, index) => {
+							return {
+								...round,
+								roundNumber: index + 1
+							}
+						})
 
 						const competitionData = {
 							...this.formData,
