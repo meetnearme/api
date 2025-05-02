@@ -470,7 +470,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 								fetch(`/api/competition-round/competition/${this.formData.id}`, {
 									method: 'GET',
 								}),
-								fetch(`/api/users?ids=${this.formData.competitors.join(',')}`, {
+								fetch(`/api/users?ids=${this.formData.competitors?.flat?.()?.join(',')}`, {
 									method: 'GET',
 								})
 							]);
@@ -478,6 +478,15 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							const roundsData = await roundsResponse.json()
 							const usersData = await usersResponse.json()
 
+							const teamMembers = usersData?.flatMap?.(user => user.metadata?.members || [])
+
+							let teamMemberUsersData = []
+							if (teamMembers?.length > 0) {
+								let teamMemberUsersResponse = await fetch(`/api/users?ids=${teamMembers?.flat()?.join(',')}`, {
+									method: 'GET',
+								})
+								teamMemberUsersData = await teamMemberUsersResponse.json()
+							}
 
 							this.formData.rounds = roundsData
 							// Update the rounds data with user display names
@@ -495,7 +504,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									label: team.displayName,
 									id: team.userId,
 									competitors: team.metadata?.members?.map(memberId => {
-										const member = usersData?.find(user => user.userId === memberId);
+										const member = teamMemberUsersData?.find(user => user.userId === memberId);
 										return {
 											displayName: member?.displayName,
 											userId: member?.userId
@@ -762,11 +771,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					try {
 						// Implement save logic
 						const competitors = this.teams?.flatMap?.( team => {
-							const ids = [team.id]
-							team.competitors.forEach(competitor => {
-								ids.push(competitor.userId)
-							})
-							return ids
+							return [team.id]
 						})
 						const formatDateTime = (dateTimeStr) => {
 							if (!dateTimeStr) return 0;
