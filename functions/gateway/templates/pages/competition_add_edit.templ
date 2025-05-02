@@ -584,6 +584,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				handleCompetitorsUpdate(updatePayload) {
 					let { users, event } = updatePayload
 					if (event === 'selected' && this.waitingRoom?.filter(competitor => users?.some(c => c.userId === competitor.userId)?.length === 0)) {
+            // eslint-disable-next-line no-unused-vars
 						users = Object.entries(users).map(([key, val]) => ({
 							displayName: val.label,
 							userId: val.value
