@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -277,6 +278,26 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 		competitionConfigRes.Rounds = rounds
 	}
+
+	// because we store rounds data in dynamo, there is no relational tables / foreign keys
+	// this means that we don't know if there are existing rounds for this competition that
+	// need to be deleted. Here, we make an API call to get all existing rounds and delete
+	// any that are beyond the last index of `roundsData`
+	defer func() {
+		// delete all rounds of index position greater than or equal to the lenght of `roundsData`
+		service := dynamodb_service.NewCompetitionRoundService()
+		rounds, err := service.GetCompetitionRounds(r.Context(), db, competitionConfigRes.Id)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+		for i, round := range *rounds {
+			if i >= len(roundsData) {
+				log.Printf("Deleting round, competitionId: %s, roundNumber: %s", round.CompetitionId, strconv.Itoa(int(round.RoundNumber)))
+				service.DeleteCompetitionRound(r.Context(), db, round.CompetitionId, strconv.Itoa(int(round.RoundNumber)))
+			}
+		}
+	}()
 
 	response, err := json.Marshal(competitionConfigRes)
 	if err != nil {
