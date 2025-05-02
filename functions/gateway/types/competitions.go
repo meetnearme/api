@@ -70,9 +70,11 @@ type CompetitionConfigUpdatePayload struct {
 }
 
 type CompetitionTeamUpdate struct {
-	Id          string                  `json:"id,omitempty" dynamodbav:"id"`
-	DisplayName string                  `json:"displayName" dynamodbav:"displayName"`
-	Competitors []CompetitionCompetitor `json:"competitors,omitempty" dynamodbav:"competitors"`
+	Id           string                  `json:"id,omitempty" dynamodbav:"id"`
+	DisplayName  string                  `json:"displayName" dynamodbav:"displayName"`
+	Competitors  []CompetitionCompetitor `json:"competitors,omitempty" dynamodbav:"competitors"`
+	ShouldCreate bool                    `json:"shouldCreate,omitempty" dynamodbav:"shouldCreate"`
+	ShouldUpdate bool                    `json:"shouldUpdate,omitempty" dynamodbav:"shouldUpdate"`
 }
 
 type CompetitionCompetitor struct {

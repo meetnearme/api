@@ -140,9 +140,16 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 
 		filteredUsersToCreate := make([]map[string]interface{}, 0)
+		filteredUsersToUpdate := make([]map[string]interface{}, 0)
 		for _, team := range teamsData {
-			if !existingUserIds[team.Id] {
+			if !existingUserIds[team.Id] && team.ShouldCreate {
 				filteredUsersToCreate = append(filteredUsersToCreate, map[string]interface{}{
+					"id":          team.Id,
+					"displayName": team.DisplayName,
+					"members":     strings.Join(findTeamMembers(team.Id), ","),
+				})
+			} else if existingUserIds[team.Id] && team.ShouldUpdate {
+				filteredUsersToUpdate = append(filteredUsersToUpdate, map[string]interface{}{
 					"id":          team.Id,
 					"displayName": team.DisplayName,
 					"members":     strings.Join(findTeamMembers(team.Id), ","),
@@ -151,7 +158,7 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 
 		var wg sync.WaitGroup
-		errChan := make(chan error, len(filteredUsersToCreate))
+		errChan := make(chan error, len(filteredUsersToCreate)+len(filteredUsersToUpdate))
 		var users []types.UserSearchResultDangerous
 		for _, user := range filteredUsersToCreate {
 			wg.Add(1)
@@ -170,6 +177,24 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 					errChan <- fmt.Errorf("failed to create team user %s: %w", userData["id"].(string), err)
 				}
 				users = append(users, user)
+			}(user)
+		}
+
+		for _, user := range filteredUsersToUpdate {
+			wg.Add(1)
+			go func(userData map[string]interface{}) {
+				defer wg.Done()
+				err := helpers.UpdateUserMetadataKey(userData["id"].(string),
+					"members",
+					userData["members"].(string),
+				)
+				if err != nil {
+					errChan <- fmt.Errorf("failed to update team user %s: %w", userData["id"].(string), err)
+				}
+				users = append(users, types.UserSearchResultDangerous{
+					UserID:      userData["id"].(string),
+					DisplayName: userData["displayName"].(string),
+				})
 			}(user)
 		}
 

@@ -128,7 +128,7 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 			</div>
 		</div>
 	</div>
-	<script id={ namespace + "-users-select" } data-primary-user={ primaryUser } data-users={ string(helpers.ToJSON(users)) } data-namespace={ namespace }>
+	<script id={ namespace + "-users-select" } data-primary-user={ primaryUser } data-users={ string(helpers.ToJSON(users)) } data-namespace={ namespace } data-show-chips={ strconv.FormatBool(showChips) }>
 				function getUsersSelectState(el) {
 						return {
 								allOptions: [],
@@ -137,6 +137,7 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 								openedWithKeyboard: false,
 								options: [],
 								namespace: el.querySelector('input').value,
+								showChips: el.parentElement.querySelector('[data-show-chips]').getAttribute('data-show-chips') === 'true',
 								init() {
 									const primaryUser = this.$el.closest('div').nextElementSibling.getAttribute('data-primary-user');
 									const usersData = JSON.parse(this.$el.closest('div').nextElementSibling.getAttribute('data-users')) ?? [];
@@ -149,11 +150,12 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 
 									this.users = filteredUsers;
 									this.allOptions = filteredUsers;
-										this.emitUpdate();
+									this.emitUpdate();
 								},
-								emitUpdate() {
+								emitUpdate(event) {
 									this.$dispatch(`users-updated-${this.namespace}`, {
-										...this.users
+										users: this.users,
+										event: event
 									});
 								},
 
@@ -175,7 +177,7 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 											})
 										});
 									}
-										this.emitUpdate();
+									this.emitUpdate('fetched');
 								},
 
 								removeUser(userToRemove) {
@@ -188,13 +190,17 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 
 								setSelectedUser(option) {
 										this.isOpen = false
-										this.users.push(option);
+										if (this.showChips) {
+											this.users.push(option);
+										} else {
+											this.users = [option];
+										}
 										this.options = this.options.filter(o => o.value !== option.value)
 
 										this.$nextTick(() => {
 											document.querySelector(`[x-ref=${this.namespace + '-userSearch'}]`).focus();
 										})
-										this.emitUpdate();
+										this.emitUpdate('selected');
 								},
 
 								handleKeydownOnOptions(event) {

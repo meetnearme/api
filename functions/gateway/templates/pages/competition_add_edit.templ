@@ -109,6 +109,20 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 		<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Competitors</h2>
 		<div id="rounds" class="card border-2 border-base-300 bg-base-200 p-4 md:p-10 mb-10 rounded-box">
 			<div class="card">
+				<div class="form-control">
+					<form novalidate @submit.prevent="addTeam(newTeamName)">
+						<input
+							type="text"
+							class="input input-bordered"
+							placeholder="New Team Name"
+							x-model.fill="newTeamName"
+						/>
+						<button type="submit" class="btn btn-primary mt-4 ml-2">Create New Team</button>
+					</form>
+				</div>
+				<br/>
+				@components.UsersSelect([]types.UserSearchResultDangerous{}, "", "competitors", "Add Competitors", "competitors", false, "competitor-removed")
+				<div class="divider"></div>
 				<h3 class="text-xl font-bold mb-4">Waiting Room</h3>
 				<div class="form-control">
 					<template x-if="waitingRoom.length == 0">
@@ -154,6 +168,9 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							<template x-if="competitor.userId?.match?.(/^tm_/)">
 								<button class="btn btn-primary" @click="addCompetitorToTeam(competitor)">
 									Add Team
+									<template x-if="saveReqInFlight">
+										<span class="loading loading-spinner loading-md" x-show="saveReqInFlight"></span>
+									</template>
 								</button>
 							</template>
 							<button aria-label="remove competitor" class="btn btn-circle btn-neutral btn-xs mb-2" @click="removeCompetitor(competitor.userId)">
@@ -164,22 +181,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						</div>
 					</template>
 				</div>
-				@components.UsersSelect([]types.UserSearchResultDangerous{}, "", "competitors", "Competitors", "competitors", false, "competitor-removed")
-				<template x-if="formData?.competitors?.length > 0 && usersDataLoaded">
-					<template x-for="(competitor, idx) in competitors">
-						<div class="flex items-center gap-4 my-4 pl-4">
-							<span x-text="idx + 1 + '. ' + competitor.displayName"></span>
-						</div>
-					</template>
-				</template>
-				<template x-if="!usersDataLoaded">
-					<div class="flex items-center gap-4 my-4 pl-4">
-						<span>Loading competitors... <span class="loading loading-spinner loading-md text-primary"></span></span>
-					</div>
-				</template>
-				<template x-if="formData?.competitors?.length === 0 && usersDataLoaded">
-					<div class="flex items-center gap-4 my-4 pl-4">No competitors yet</div>
-				</template>
 				<div class="divider"></div>
 				<h3 class="text-xl font-bold mb-4">Teams</h3>
 				<div class="form-control">
@@ -263,17 +264,6 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							</template>
 						</ul>
 					</template>
-				</div>
-				<div class="form-control">
-					<form novalidate @submit.prevent="addTeam(newTeamName)">
-						<input
-							type="text"
-							class="input input-bordered mt-8"
-							placeholder="New Team Name"
-							x-model.fill="newTeamName"
-						/>
-						<button type="submit" class="btn btn-primary mt-4">Create Team</button>
-					</form>
 				</div>
 			</div>
 		</div>
@@ -483,7 +473,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 								fetch(`/api/competition-round/competition/${this.formData.id}`, {
 									method: 'GET',
 								}),
-								fetch(`/api/users?ids=${this.formData.competitors.join(',')}`, {
+								fetch(`/api/users?ids=${this.formData.competitors?.flat?.()?.join(',')}`, {
 									method: 'GET',
 								})
 							]);
@@ -491,6 +481,15 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							const roundsData = await roundsResponse.json()
 							const usersData = await usersResponse.json()
 
+							const teamMembers = usersData?.flatMap?.(user => user.metadata?.members || [])
+
+							let teamMemberUsersData = []
+							if (teamMembers?.length > 0) {
+								let teamMemberUsersResponse = await fetch(`/api/users?ids=${teamMembers?.flat()?.join(',')}`, {
+									method: 'GET',
+								})
+								teamMemberUsersData = await teamMemberUsersResponse.json()
+							}
 
 							this.formData.rounds = roundsData
 							// Update the rounds data with user display names
@@ -508,7 +507,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 									label: team.displayName,
 									id: team.userId,
 									competitors: team.metadata?.members?.map(memberId => {
-										const member = usersData?.find(user => user.userId === memberId);
+										const member = teamMemberUsersData?.find(user => user.userId === memberId);
 										return {
 											displayName: member?.displayName,
 											userId: member?.userId
@@ -579,16 +578,21 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					type: '',
 					message: '',
 				},
-				handleOwnersUpdate(owners) {
-					this.owners = owners;
+				handleOwnersUpdate(usersPayload) {
+					this.owners = usersPayload.users
 				},
+				handleCompetitorsUpdate(updatePayload) {
+					let { users, event } = updatePayload
+					if (event === 'selected' && this.waitingRoom?.filter(competitor => users?.some(c => c.userId === competitor.userId)?.length === 0)) {
+						// eslint-disable-next-line no-unused-vars
+						users = Object.entries(users).map(([key, val]) => ({
+							displayName: val.label,
+							userId: val.value
+						}));
 
-				handleCompetitorsUpdate(competitors) {
-					// eslint-disable-next-line no-unused-vars
-					this.waitingRoom = Object.entries(competitors).map(([key, val]) => ({
-						displayName: val.label,
-						userId: val.value
-					}));
+						this.waitingRoom?.push(...users)
+					}
+
 				},
 				addRound() {
 					this.formData.rounds?.push?.({
@@ -619,14 +623,15 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						label: teamName,
 						// id: this.emptyTeamIdPrefix + (this.teams.length + 1).toString(),
 						id: this.teamIdPrefix + crypto.randomUUID(),
-						competitors: []
+						shouldCreate: true,
+						competitors: [],
 					});
 					this.$nextTick(() => {
 						this.newTeamName = '';
 					});
 				},
 
-				addCompetitorToTeam(competitor) {
+				async addCompetitorToTeam(competitor) {
 					// Create a clean copy of the competitor object
 					const competitorToAdd = {
 						userId: competitor.userId,
@@ -635,11 +640,25 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					};
 
 					if (competitorToAdd.team === this.ownTeamId || competitorToAdd.userId?.match(/^tm_/)) {
+						let teamMemberUsersData = null
+						if (competitorToAdd.userId?.match(/^tm_/)) {
+							this.saveReqInFlight = true
+							teamMemberUsersData = await fetch(`/api/users?ids=${competitorToAdd.userId}`, {
+								method: 'GET',
+							})
+							teamMemberUsersData = await teamMemberUsersData.json()
+							teamMemberUsersData = await fetch(`/api/users?ids=${teamMemberUsersData?.[0]?.metadata?.members?.flat()?.join(',')}`, {
+								method: 'GET',
+							})
+							teamMemberUsersData = await teamMemberUsersData.json()
+							this.saveReqInFlight = false
+						}
+
 						// Team creation path...
 						this.teams.push({
 							label:  competitorToAdd.displayName,
 							id: competitorToAdd.userId,
-							competitors: []
+							competitors: teamMemberUsersData ?? []
 						})
 						this.waitingRoom = this.waitingRoom.filter(_competitor => _competitor.userId !== competitorToAdd.userId)
 					} else {
@@ -666,6 +685,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							if (index === teamIndex) {
 								return {
 									...team,
+									...(!team?.shouldCreate ? { shouldUpdate: true } : {}),
 									competitors: [...team.competitors, {
 										displayName: competitorToAdd.displayName,
 										userId: competitorToAdd.userId
@@ -769,11 +789,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					try {
 						// Implement save logic
 						const competitors = this.teams?.flatMap?.( team => {
-							const ids = [team.id]
-							team.competitors.forEach(competitor => {
-								ids.push(competitor.userId)
-							})
-							return ids
+							return [team.id]
 						})
 						const formatDateTime = (dateTimeStr) => {
 							if (!dateTimeStr) return 0;
@@ -839,6 +855,18 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							})
 						};
 
+						if (competitionData?.name === '') {
+							throw new Error('Competition name is required')
+						}
+
+						if (competitionData?.moduleType === '') {
+							throw new Error('Module type is required')
+						}
+
+						if (competitionData?.scoringMethod === '') {
+							throw new Error('Scoring method is required')
+						}
+
 						competitionData?.rounds?.forEach?.((round, index) => {
 							if (!round?.competitorA || !round?.competitorB) {
 								throw new Error(`Competitor A or B for Round ${index + 1} is empty`)
@@ -888,7 +916,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 						this.showToast = true;
 						this.toastContent = {
 							type: 'error',
-							message: `Failed to update competition: ${error.message}`,
+							message: `Failed to save competition: ${error.message}`,
 						}
 					} finally {
 						this.saveReqInFlight = false;
