@@ -168,6 +168,9 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 							<template x-if="competitor.userId?.match?.(/^tm_/)">
 								<button class="btn btn-primary" @click="addCompetitorToTeam(competitor)">
 									Add Team
+									<template x-if="saveReqInFlight">
+										<span class="loading loading-spinner loading-md" x-show="saveReqInFlight"></span>
+									</template>
 								</button>
 							</template>
 							<button aria-label="remove competitor" class="btn btn-circle btn-neutral btn-xs mb-2" @click="removeCompetitor(competitor.userId)">
@@ -627,7 +630,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					});
 				},
 
-				addCompetitorToTeam(competitor) {
+				async addCompetitorToTeam(competitor) {
 					// Create a clean copy of the competitor object
 					const competitorToAdd = {
 						userId: competitor.userId,
@@ -636,11 +639,25 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 					};
 
 					if (competitorToAdd.team === this.ownTeamId || competitorToAdd.userId?.match(/^tm_/)) {
+						let teamMemberUsersData = null
+						if (competitorToAdd.userId?.match(/^tm_/)) {
+							this.saveReqInFlight = true
+							teamMemberUsersData = await fetch(`/api/users?ids=${competitorToAdd.userId}`, {
+								method: 'GET',
+							})
+							teamMemberUsersData = await teamMemberUsersData.json()
+							teamMemberUsersData = await fetch(`/api/users?ids=${teamMemberUsersData?.[0]?.metadata?.members?.flat()?.join(',')}`, {
+								method: 'GET',
+							})
+							teamMemberUsersData = await teamMemberUsersData.json()
+							this.saveReqInFlight = false
+						}
+
 						// Team creation path...
 						this.teams.push({
 							label:  competitorToAdd.displayName,
 							id: competitorToAdd.userId,
-							competitors: []
+							competitors: teamMemberUsersData ?? []
 						})
 						this.waitingRoom = this.waitingRoom.filter(_competitor => _competitor.userId !== competitorToAdd.userId)
 					} else {
