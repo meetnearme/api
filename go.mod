@@ -74,6 +74,7 @@ require (
 	github.com/imroc/req v0.3.2 // indirect
 	github.com/imroc/req/v3 v3.49.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
