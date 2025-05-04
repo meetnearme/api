@@ -27,9 +27,9 @@ func TestAboutPage(t *testing.T) {
 
 	// Call the AboutPage function
 	aboutPage := AboutPage()
-
+	fakeContext := context.Background()
 	// Create a layout template
-	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, aboutPage, types.Event{}, []string{})
+	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, aboutPage, types.Event{}, fakeContext, []string{})
 
 	// Render the template
 	var buf bytes.Buffer

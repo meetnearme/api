@@ -1,12 +1,25 @@
 #:schema node_modules/wrangler/config-schema.json
 name = "meetnearme-worker"
 main = "worker/index.js"
-compatibility_date = "2023-08-23"
+compatibility_date = "2025-04-02"
 compatibility_flags = ["nodejs_compat"]
 
 # Bind a KV Namespace. Use KV as persistent storage for small key-value pairs.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#kv-namespaces
 
 [[kv_namespaces]]
+binding = "MNM_SUBDOMAIN_KV_NAMESPACE"
+id = "e99a1de88bdb43058c4fe26699b03cd2"
+
+[env.dev]
+name = "meetnearme-worker-dev"
+# Optionally override main, compatibility_date, etc.
+[[env.dev.kv_namespaces]]
+binding = "MNM_SUBDOMAIN_KV_NAMESPACE"
+id = "46c17ef131da325b2258bd13c920442b"
+
+[env.prod]
+name = "meetnearme-worker"
+[[env.prod.kv_namespaces]]
 binding = "MNM_SUBDOMAIN_KV_NAMESPACE"
 id = "e99a1de88bdb43058c4fe26699b03cd2"

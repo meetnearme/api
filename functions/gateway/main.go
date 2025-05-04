@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -178,6 +179,7 @@ func NewApp() *App {
 	}
 	app.Router.Use(stateRedirectMiddleware)
 	app.Router.Use(withContext)
+	app.Router.Use(WithDerivedOptionsFromReq)
 	app.InitializeAuth()
 	log.Printf("App created: %+v", app)
 
@@ -520,6 +522,28 @@ func stateRedirectMiddleware(next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r)
+	})
+}
+
+func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mnmOptions := map[string]string{}
+		mnmOptionsHeaderVal := r.Header.Get("X-Mnm-Options")
+
+		if strings.Contains(mnmOptionsHeaderVal, ";") {
+			parts := strings.Split(mnmOptionsHeaderVal, ";")
+			for _, part := range parts {
+				kv := strings.Split(part, "=")
+				if len(kv) == 2 && slices.Contains(helpers.AllowedMnmOptionsKeys, kv[0]) {
+					mnmOptions[kv[0]] = kv[1]
+				}
+			}
+		} else {
+			// this is for backwards compatibility with old subdomain headers
+			mnmOptions["userId"] = mnmOptionsHeaderVal
+		}
+		ctx := context.WithValue(r.Context(), helpers.DERIVED_THEME_FROM_REQ_KEY, mnmOptions)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
