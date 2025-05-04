@@ -228,7 +228,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 				userChan <- userResult{user, err}
 				// Early return since user data is required
 				searchChan <- searchResult{types.EventSearchResponse{}, err}
-				aboutChan <- aboutResult{"", nil} // Close about channel
+				aboutChan <- aboutResult{"", err} // Close about channel
 				return
 			}
 			// user resolved successfully, push to channel
@@ -322,7 +322,11 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	originalQueryLocation := r.URL.Query().Get("location")
 	events, cfLocation, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), status, err)
+		subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+		if subdomainValue != "" || strings.Contains(r.URL.Path, "/user") {
+			return transport.SendHtmlErrorPage([]byte("User Not Found"), 200, true)
+		}
+		return transport.SendHtmlRes(w, []byte(err.Error()), status, "page", err)
 	}
 
 	homePage := pages.HomePage(

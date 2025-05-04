@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -140,9 +141,16 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 
 		filteredUsersToCreate := make([]map[string]interface{}, 0)
+		filteredUsersToUpdate := make([]map[string]interface{}, 0)
 		for _, team := range teamsData {
-			if !existingUserIds[team.Id] {
+			if !existingUserIds[team.Id] && team.ShouldCreate {
 				filteredUsersToCreate = append(filteredUsersToCreate, map[string]interface{}{
+					"id":          team.Id,
+					"displayName": team.DisplayName,
+					"members":     strings.Join(findTeamMembers(team.Id), ","),
+				})
+			} else if existingUserIds[team.Id] && team.ShouldUpdate {
+				filteredUsersToUpdate = append(filteredUsersToUpdate, map[string]interface{}{
 					"id":          team.Id,
 					"displayName": team.DisplayName,
 					"members":     strings.Join(findTeamMembers(team.Id), ","),
@@ -151,7 +159,7 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 
 		var wg sync.WaitGroup
-		errChan := make(chan error, len(filteredUsersToCreate))
+		errChan := make(chan error, len(filteredUsersToCreate)+len(filteredUsersToUpdate))
 		var users []types.UserSearchResultDangerous
 		for _, user := range filteredUsersToCreate {
 			wg.Add(1)
@@ -170,6 +178,24 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 					errChan <- fmt.Errorf("failed to create team user %s: %w", userData["id"].(string), err)
 				}
 				users = append(users, user)
+			}(user)
+		}
+
+		for _, user := range filteredUsersToUpdate {
+			wg.Add(1)
+			go func(userData map[string]interface{}) {
+				defer wg.Done()
+				err := helpers.UpdateUserMetadataKey(userData["id"].(string),
+					"members",
+					userData["members"].(string),
+				)
+				if err != nil {
+					errChan <- fmt.Errorf("failed to update team user %s: %w", userData["id"].(string), err)
+				}
+				users = append(users, types.UserSearchResultDangerous{
+					UserID:      userData["id"].(string),
+					DisplayName: userData["displayName"].(string),
+				})
 			}(user)
 		}
 
@@ -252,6 +278,26 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 		competitionConfigRes.Rounds = rounds
 	}
+
+	// because we store rounds data in dynamo, there is no relational tables / foreign keys
+	// this means that we don't know if there are existing rounds for this competition that
+	// need to be deleted. Here, we make an API call to get all existing rounds and delete
+	// any that are beyond the last index of `roundsData`
+	defer func() {
+		// delete all rounds of index position greater than or equal to the lenght of `roundsData`
+		service := dynamodb_service.NewCompetitionRoundService()
+		rounds, err := service.GetCompetitionRounds(r.Context(), db, competitionConfigRes.Id)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+		for i, round := range *rounds {
+			if i >= len(roundsData) {
+				log.Printf("Deleting round, competitionId: %s, roundNumber: %s", round.CompetitionId, strconv.Itoa(int(round.RoundNumber)))
+				service.DeleteCompetitionRound(r.Context(), db, round.CompetitionId, strconv.Itoa(int(round.RoundNumber)))
+			}
+		}
+	}()
 
 	response, err := json.Marshal(competitionConfigRes)
 	if err != nil {

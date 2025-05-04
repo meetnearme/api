@@ -740,7 +740,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							});
 
 							// Remove the copied fields from the main registration fields
-							this.registrationFields = this.registrationFields.filter(field => !fieldsToRemove.has(field.name));
+							this.registrationFields = this.registrationFields?.filter?.(field => !fieldsToRemove.has(field.name));
 						}
 					},
 					validateOneField(field, fieldName, includeIdx) {
