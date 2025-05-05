@@ -529,8 +529,11 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mnmOptions := map[string]string{}
 		mnmOptionsHeaderVal := r.Header.Get("X-Mnm-Options")
-
-		if strings.Contains(mnmOptionsHeaderVal, ";") {
+		if mnmOptionsHeaderVal == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if strings.Contains(mnmOptionsHeaderVal, "=") {
 			parts := strings.Split(mnmOptionsHeaderVal, ";")
 			for _, part := range parts {
 				kv := strings.Split(part, "=")

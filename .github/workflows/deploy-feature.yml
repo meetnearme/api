@@ -100,10 +100,10 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '4.14.1'
           command: deploy --env dev
-      - name: Breakpoint if wrangler deploy failed
-        if: failure()
-        uses: namespacelabs/breakpoint-action@v0
-        with:
-          duration: 30m
-          authorized-users: brianfeister
+      # - name: Breakpoint if wrangler deploy failed
+      #   if: failure()
+      #   uses: namespacelabs/breakpoint-action@v0
+      #   with:
+      #     duration: 30m
+      #     authorized-users: brianfeister
 

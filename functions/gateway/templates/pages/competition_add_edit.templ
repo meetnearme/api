@@ -544,7 +544,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, userInfo helpers.UserIn
 				emptyTeamName: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-team-name') ?? null,
 				emptyRoundEventId: document.querySelector('#add-edit-competition').getAttribute('data-round-empty-event-id') ?? null,
 				teamIdPrefix: document.querySelector('#add-edit-competition').getAttribute('data-team-id-prefix') ?? null,
-        userId: document.querySelector('#add-edit-competition').getAttribute('data-user-id') ?? null,
+				userId: document.querySelector('#add-edit-competition').getAttribute('data-user-id') ?? null,
 				ownTeamId: 'OWN_TEAM',
 				formData: {
 					id: document.querySelector('#add-edit-competition').getAttribute('data-competition-id'),
@@ -817,7 +817,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, userInfo helpers.UserIn
 
 						const competitionData = {
 							...this.formData,
-              ...(!this.formData.primaryOwner ? { primaryOwner: this.userId } : {}),
+							...(!this.formData.primaryOwner ? { primaryOwner: this.userId } : {}),
 							// eslint-disable-next-line no-unused-vars
 							auxilaryOwners: Object.entries(this.owners).map(([key, val]) => val.value),
 							competitors,

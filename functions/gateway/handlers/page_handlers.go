@@ -217,9 +217,9 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 
 	ctx := r.Context()
 	mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
-	subdomainValue := mnmOptions["userId"]
-	if subdomainValue != "" {
-		userId = subdomainValue
+	mnmUserId := mnmOptions["userId"]
+	if mnmUserId != "" {
+		userId = mnmUserId
 	}
 	// Start concurrent operations if userId exists
 	if userId != "" {
@@ -257,8 +257,8 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 				return
 			}
 
-			if subdomainValue != "" {
-				ownerIds = []string{subdomainValue}
+			if mnmUserId != "" {
+				ownerIds = []string{mnmUserId}
 			} else {
 				ownerIds = []string{userId}
 			}
@@ -279,9 +279,9 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 
 		ctx := r.Context()
 		mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
-		subdomainValue := mnmOptions["userId"]
-		if subdomainValue != "" {
-			ownerIds = []string{subdomainValue}
+		mnmUserId := mnmOptions["userId"]
+		if mnmUserId != "" {
+			ownerIds = []string{mnmUserId}
 		}
 
 		res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
@@ -322,19 +322,20 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 
 func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
+	mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
 	originalQueryLocation := r.URL.Query().Get("location")
 	events, cfLocation, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
 	if err != nil {
-		ctx := r.Context()
-		mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
-		subdomainValue := mnmOptions["userId"]
-		if subdomainValue != "" || strings.Contains(r.URL.Path, "/user") {
+		mnmUserId := mnmOptions["userId"]
+		if mnmUserId != "" || strings.Contains(r.URL.Path, "/user") {
 			return transport.SendHtmlErrorPage([]byte("User Not Found"), 200, true)
 		}
 		return transport.SendHtmlRes(w, []byte(err.Error()), status, "page", err)
 	}
+
+	log.Printf("pageUser: %v", pageUser)
 
 	homePage := pages.HomePage(
 		events,
