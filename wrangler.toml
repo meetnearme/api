@@ -22,4 +22,4 @@ id = "46c17ef131da325b2258bd13c920442b"
 name = "meetnearme-worker"
 [[env.prod.kv_namespaces]]
 binding = "MNM_SUBDOMAIN_KV_NAMESPACE"
-id = "e99a1de88bdb43058c4fe26699b03cd2"
+id = "46c17ef131da325b2258bd13c920442b"
