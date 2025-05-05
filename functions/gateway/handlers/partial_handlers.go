@@ -110,12 +110,13 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+	mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
+	mnmUserId := mnmOptions["userId"]
 
 	// we override the `owners` query param here, because subdomains should always show only
 	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
-	if subdomainValue != "" {
-		ownerIds = []string{subdomainValue}
+	if mnmUserId != "" {
+		ownerIds = []string{mnmUserId}
 	}
 
 	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)

@@ -34,6 +34,7 @@ const INTERESTS_KEY = "interests"
 const META_ABOUT_KEY = "about"
 const ERR_KV_KEY_EXISTS = "key already exists in KV store"
 const GO_TEST_ENV = "test"
+const MNM_OPTIONS_CTX_KEY = "mnmOptions"
 
 const PKCE_VERIFIER_COOKIE_NAME = "mnm_pkce_verifier"
 const MNM_ACCESS_TOKEN_COOKIE_NAME = "mnm_access_token"
@@ -175,6 +176,12 @@ const (
 var Roles = map[Role]string{
 	SuperAdmin: string(SuperAdmin),
 	OrgAdmin:   string(OrgAdmin),
+}
+
+var AllowedMnmOptionsKeys = []string{
+	"userId",
+	"--p",
+	"themeMode",
 }
 
 type Category struct {

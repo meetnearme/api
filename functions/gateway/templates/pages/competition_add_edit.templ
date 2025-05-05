@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.CompetitionConfig, users []types.UserSearchResultDangerous) {
+templ AddOrEditCompetitionPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, competition types.CompetitionConfig, users []types.UserSearchResultDangerous) {
 	// NOTE: the `owners` portion of `@users-updated-owners` is a namespace and must be unique
 	// also must be connected manually with the value passed to @components.UsersSelect
 	<div
@@ -446,7 +446,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 			</div>
 		</template>
 	</div>
-	<script id="add-edit-competition" data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["competition-detail"].Slug, helpers.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ helpers.COMP_EMPTY_TEAM_NAME } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ helpers.COMP_TEAM_ID_PREFIX } competition-competitors={ string(helpers.ToJSON(competition.Competitors)) } data-competition-start-time={ helpers.GetDatetimePickerFormatted(competition.StartTime, nil) } data-competition-end-time={ helpers.GetDatetimePickerFormatted(competition.EndTime, nil) }>
+	<script id="add-edit-competition" data-user-id={ userInfo.Sub } data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["competition-detail"].Slug, helpers.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ helpers.COMP_EMPTY_TEAM_NAME } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ helpers.COMP_TEAM_ID_PREFIX } competition-competitors={ string(helpers.ToJSON(competition.Competitors)) } data-competition-start-time={ helpers.GetDatetimePickerFormatted(competition.StartTime, nil) } data-competition-end-time={ helpers.GetDatetimePickerFormatted(competition.EndTime, nil) }>
 		function getEditCompetitionState() {
 			return {
 				init() {
@@ -544,6 +544,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 				emptyTeamName: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-team-name') ?? null,
 				emptyRoundEventId: document.querySelector('#add-edit-competition').getAttribute('data-round-empty-event-id') ?? null,
 				teamIdPrefix: document.querySelector('#add-edit-competition').getAttribute('data-team-id-prefix') ?? null,
+				userId: document.querySelector('#add-edit-competition').getAttribute('data-user-id') ?? null,
 				ownTeamId: 'OWN_TEAM',
 				formData: {
 					id: document.querySelector('#add-edit-competition').getAttribute('data-competition-id'),
@@ -816,6 +817,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, competition types.Compe
 
 						const competitionData = {
 							...this.formData,
+							...(!this.formData.primaryOwner ? { primaryOwner: this.userId } : {}),
 							// eslint-disable-next-line no-unused-vars
 							auxilaryOwners: Object.entries(this.owners).map(([key, val]) => val.value),
 							competitors,

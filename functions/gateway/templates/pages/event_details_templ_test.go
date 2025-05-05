@@ -331,9 +331,9 @@ func TestEventDetailsPage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			component := EventDetailsPage(tt.event, helpers.UserInfo{}, tt.canEdit)
-
+			fakeContext := context.Background()
 			// Wrap the component with Layout
-			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event, []string{})
+			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event, fakeContext, []string{})
 
 			// Render the component to a string
 			var buf bytes.Buffer

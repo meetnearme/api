@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -41,6 +42,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			transport.SendHtmlErrorPage([]byte(msg), http.StatusBadRequest, false)(w, r)
 		}
 	}
+	log.Printf("425: Auth URL: %v", authURL)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, authURL.String(), http.StatusFound)
@@ -127,8 +129,14 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	var userRedirectURL string = "/"
+	var cookieDomain string = ""
+	log.Printf("432: cookieDomain: %v", cookieDomain)
 	if appState != "" {
 		userRedirectURL = appState
+		// Parse the redirect URL to get the host
+		if parsedURL, err := url.Parse(appState); err == nil && parsedURL.Host != "" {
+			cookieDomain = parsedURL.Host
+		}
 	}
 
 	// Store tokens in cookies
