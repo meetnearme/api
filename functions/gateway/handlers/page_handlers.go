@@ -214,8 +214,10 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	aboutChan := make(chan aboutResult, 1)
 
 	var pageUser *types.UserSearchResult
-	subdomainValue := r.Header.Get("X-Mnm-Options")
-	subdomainValue = subdomainValue[strings.Index(subdomainValue, "userId=")+7:]
+
+	ctx := r.Context()
+	mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
+	subdomainValue := mnmOptions["userId"]
 	if subdomainValue != "" {
 		userId = subdomainValue
 	}
@@ -275,8 +277,9 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, err
 		}
 
-		subdomainValue := r.Header.Get("X-Mnm-Options")
-		subdomainValue = subdomainValue[strings.Index(subdomainValue, "userId=")+7:]
+		ctx := r.Context()
+		mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
+		subdomainValue := mnmOptions["userId"]
 		if subdomainValue != "" {
 			ownerIds = []string{subdomainValue}
 		}
@@ -324,8 +327,9 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	originalQueryLocation := r.URL.Query().Get("location")
 	events, cfLocation, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
 	if err != nil {
-		subdomainValue := r.Header.Get("X-Mnm-Options")
-		subdomainValue = subdomainValue[strings.Index(subdomainValue, "userId=")+7:]
+		ctx := r.Context()
+		mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
+		subdomainValue := mnmOptions["userId"]
 		if subdomainValue != "" || strings.Contains(r.URL.Path, "/user") {
 			return transport.SendHtmlErrorPage([]byte("User Not Found"), 200, true)
 		}

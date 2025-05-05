@@ -89,7 +89,7 @@ func hexToOklch(hex string) (oklch string) {
 type themeStyleTag struct{}
 
 func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
-	mnmOptions := ctx.Value(helpers.DERIVED_THEME_FROM_REQ_KEY).(map[string]string)
+	mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
 	hexPrimaryColor := mnmOptions["--p"]
 	if hexPrimaryColor != "" {
 

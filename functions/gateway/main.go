@@ -542,7 +542,7 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 			// this is for backwards compatibility with old subdomain headers
 			mnmOptions["userId"] = mnmOptionsHeaderVal
 		}
-		ctx := context.WithValue(r.Context(), helpers.DERIVED_THEME_FROM_REQ_KEY, mnmOptions)
+		ctx := context.WithValue(r.Context(), helpers.MNM_OPTIONS_CTX_KEY, mnmOptions)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
