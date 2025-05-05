@@ -529,14 +529,14 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("WithDerivedOptionsFromReq: %v", r.Header)
 		mnmOptions := map[string]string{}
-		mnmOptionsHeaderVal := r.Header.Get("X-Mnm-Options")
+		mnmOptionsHeaderVal := strings.Trim(r.Header.Get("X-Mnm-Options"), "\"")
 		if strings.Contains(mnmOptionsHeaderVal, "=") {
 			parts := strings.Split(mnmOptionsHeaderVal, ";")
 			for _, part := range parts {
 				kv := strings.SplitN(part, "=", 2)
 				if len(kv) == 2 {
-					key := strings.TrimSpace(kv[0])
-					value := strings.TrimSpace(kv[1])
+					key := strings.Trim(kv[0], " \"") // trim spaces and quotes
+					value := strings.Trim(kv[1], " \"")
 					log.Printf("Parsed key: '%s', value: '%s'", key, value)
 					if slices.Contains(helpers.AllowedMnmOptionsKeys, key) {
 						mnmOptions[key] = value
@@ -546,7 +546,7 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 				}
 			}
 		} else {
-			mnmOptions["userId"] = strings.TrimSpace(mnmOptionsHeaderVal)
+			mnmOptions["userId"] = strings.Trim(mnmOptionsHeaderVal, " \"")
 		}
 		ctx := context.WithValue(r.Context(), helpers.MNM_OPTIONS_CTX_KEY, mnmOptions)
 		next.ServeHTTP(w, r.WithContext(ctx))
