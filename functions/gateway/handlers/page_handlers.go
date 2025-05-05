@@ -217,10 +217,13 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 
 	ctx := r.Context()
 	mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
+	log.Printf("220 >>> mnmOptions: %v", mnmOptions)
 	mnmUserId := mnmOptions["userId"]
+	log.Printf("222 >>> mnmUserId: %v", mnmUserId)
 	if mnmUserId != "" {
 		userId = mnmUserId
 	}
+	log.Printf("225 >>> mnmOptions: %v", mnmOptions)
 	// Start concurrent operations if userId exists
 	if userId != "" {
 		// Single goroutine for all three requests when userId exists
@@ -290,7 +293,9 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 
 	// fetch the `about` metadata for the user
 	var aboutData string
+	log.Printf("296 >>> userId: %v", userId)
 	if userId != "" {
+		log.Printf("298 >>> INSIDE IF userId: %v", userId)
 		// NOTE: here we ignore the error because we allow the page/user to not have an about section
 		aboutData, _ = helpers.GetOtherUserMetaByID(userId, helpers.META_ABOUT_KEY)
 		// Get user result from channel
@@ -316,6 +321,8 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 			pageUser.Metadata[helpers.META_ABOUT_KEY] = aboutData
 		}
 	}
+
+	log.Printf("240 >>> pageUser: %v", pageUser)
 
 	return events, cfLocation, userLocation, pageUser, http.StatusOK, nil
 }
