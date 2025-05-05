@@ -111,6 +111,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	subdomainValue := r.Header.Get("X-Mnm-Options")
+	subdomainValue = subdomainValue[strings.Index(subdomainValue, "userId=")+7:]
 
 	// we override the `owners` query param here, because subdomains should always show only
 	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
