@@ -131,14 +131,37 @@ templ AddEventSource() {
 						id="url"
 						type="hidden"
 					/>
-					<div id="event-candidates-inner" class="mb-8">
+					<div id="event-candidates-inner" class="mb-8" @change="updateMissingFieldsCheck()">
 						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-stretch">
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 						</div>
 					</div>
-					<button type="submit" hx-put="/api/html/seshu/session/events" :disabled="!hasEvents || eventCandidates.length === 0" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Event Data <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+					<!-- Confirm Event Data button -->
+					<button
+						x-show="!missingFieldsCheck"
+						type="submit"
+						hx-put="/api/html/seshu/session/events"
+						:disabled="!hasEvents || eventCandidates.length === 0"
+						class="btn btn-primary"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg> Confirm Event Data
+						<span class="htmx-indicator loading loading-spinner loading-sm"></span>
+					</button>
+					<!-- Recursive Scrape button -->
+					<button
+						x-show="missingFieldsCheck"
+						type="button"
+						@click="handleRecursiveScrape()"
+						class="btn btn-warning"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg> Recursive Scrape
+					</button>
 				</form>
 				<div id="events-valid-confirmation" class="margins-when-children my-8"></div>
 			</div>
@@ -243,6 +266,10 @@ templ AddEventSource() {
 				eventCandidates: [],
 				hasFallbackLocation: true,
 				locationValidated: false,
+				missingFieldsCheck: false,
+				updateMissingFieldsCheck() {
+					this.missingFieldsCheck = this.hasMissingRequiredFields();
+				},
 				updateHasEvents(event) {
 					if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
 						this.hasEvents = true;
@@ -308,6 +335,45 @@ templ AddEventSource() {
 					} else if (this.formStep === 2) {
 						return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
 					}
+				},
+				hasMissingRequiredFields() {
+					const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
+
+					return cards.some(card => {
+						const mainToggle = card.querySelector('input[type="checkbox"].toggle');
+						if (!mainToggle?.checked) return false; // <== NEW: skip disabled cards
+
+						const requiredFields = {
+							event_title: false,
+							event_location: false,
+							event_start_datetime: false,
+							event_url: false,
+						};
+
+						const checkboxes = card.querySelectorAll('.card-body input[type="checkbox"]');
+						checkboxes.forEach(checkbox => {
+							const labelText = checkbox.closest('label')?.querySelector('.label-text')?.innerText || "";
+							const [key] = labelText.split(/:\s(.+)/);
+
+							switch (key.trim()) {
+								case "Title":
+									requiredFields.event_title = checkbox.checked;
+									break;
+								case "Location":
+									requiredFields.event_location = checkbox.checked;
+									break;
+								case "Start Time":
+									requiredFields.event_start_datetime = checkbox.checked;
+									break;
+								case "URL":
+									requiredFields.event_url = checkbox.checked;
+									break;
+							}
+						});
+
+						// If any required field is unchecked
+						return Object.values(requiredFields).some(v => !v);
+					});
 				}
 			}
 		}
