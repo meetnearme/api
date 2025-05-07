@@ -1,0 +1,62 @@
+package components
+
+import (
+	"context"
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"strconv"
+)
+
+templ AdminLeftNavContents(ctx context.Context) {
+	<li>
+		<h3 class="font-bold menu-title my-2">Admin</h3>
+		<ul>
+			<li><a href="/admin/home">Home</a></li>
+			<li><a href="/admin/profile/settings">Interests</a></li>
+		</ul>
+	</li>
+	<li>
+		<h3 class="font-bold menu-title my-2">Events</h3>
+		{{ roleClaims, roleOk := ctx.Value("roleClaims").([]helpers.RoleClaim) }}
+		{{ userInfo, infoOk := ctx.Value("userInfo").(helpers.UserInfo) }}
+		<ul>
+			// <li><a href="/admin/add-event-source">Add an Event</a></li>
+			if roleOk && helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.EventAdmin], helpers.Roles[helpers.SuperAdmin]}) {
+				<li><a href="/admin/event/new">Create Event</a></li>
+				<li>
+					<a
+						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_ADMIN_LIST + "&radius=" + strconv.Itoa(helpers.DEFAULT_MAX_RADIUS) + "&start_time=1971-01-01T10:00:00Z&end_time=2099-10-18T10:00:00Z&owners=" + userInfo.Sub + "&event_source_types=" + helpers.ES_SINGLE_EVENT + "," + helpers.ES_SINGLE_EVENT_UNPUB + "," + helpers.ES_SERIES_PARENT + "," + helpers.ES_SERIES_PARENT_UNPUB }
+						hx-target="#admin-content"
+						hx-indicator="#admin-content-container"
+						hx-swap="innerHTML"
+					>Event Admin</a>
+				</li>
+			} else {
+				<li><a>Add Event (Soon)</a></li>
+			}
+		</ul>
+		<h3 class="font-bold menu-title my-2">Competitions</h3>
+		<ul>
+			if infoOk && helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.CompetitionAdmin], helpers.Roles[helpers.SuperAdmin]}) {
+				<li><a href="/admin/competition/new">Create Competition</a></li>
+				<li>
+					<a
+						hx-get={ "/api/html/competition-config/owner/" + userInfo.Sub }
+						hx-target="#admin-content"
+						hx-indicator="#admin-content-container"
+						hx-swap="innerHTML"
+					>Competition Admin</a>
+				</li>
+			} else {
+				<li><a>Host a Competition (Soon)</a></li>
+			}
+		</ul>
+	</li>
+}
+
+templ AdminNav(ctx context.Context) {
+	<div class="self-start sticky top-0 col-span-2 md:mr-5 mb-5 card border-2 border-base-300 bg-base-200 rounded-box md:place-items-center ">
+		<ul class="menu bg-base-200 rounded-box w-56">
+			@AdminLeftNavContents(ctx)
+		</ul>
+	</div>
+}

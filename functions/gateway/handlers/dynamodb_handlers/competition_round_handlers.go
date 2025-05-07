@@ -65,7 +65,7 @@ func (h *CompetitionRoundHandler) PutCompetitionRounds(w http.ResponseWriter, r 
 	response, err := json.Marshal(res)
 	if err != nil {
 		log.Printf("Handler ERROR: Failed to marshal response: %v", err)
-		transport.SendServerRes(w, []byte("Error marshaling JSON >> 70"), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
 		return
 	}
 
