@@ -295,7 +295,7 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 		</div>
 	</div>
 	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ helpers.PurchaseStatus.Pending } data-status-settled={ helpers.PurchaseStatus.Settled }>
-		function get() {
+		function getAdminState() {
 			return {
 				init() {
 					(async () => {
