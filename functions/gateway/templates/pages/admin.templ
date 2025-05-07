@@ -10,7 +10,7 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 	<h1 class="text-3xl">Admin</h1>
 	<br/>
 	<br/>
-	<div id="admin-content-container" class="md:grid md:grid-cols-7" x-data="getProfileState()">
+	<div id="admin-content-container" class="md:grid md:grid-cols-7" x-data="getAdminState()">
 		@components.AdminNav(ctx)
 		<div class="htmx-show-in-flight col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box">
 			<template x-for="i in Array.from({length: 3}, (_, i) => i)" :key="i">
@@ -295,7 +295,7 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 		</div>
 	</div>
 	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ helpers.PurchaseStatus.Pending } data-status-settled={ helpers.PurchaseStatus.Settled }>
-		function getProfileState() {
+		function get() {
 			return {
 				init() {
 					(async () => {
