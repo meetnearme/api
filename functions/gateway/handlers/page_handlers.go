@@ -391,7 +391,7 @@ func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userSubdomain := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.SUBDOMAIN_KEY)
 	userAboutData, err := helpers.GetOtherUserMetaByID(userInfo.Sub, helpers.META_ABOUT_KEY)
 	adminPage := pages.AdminPage(userInfo, roleClaims, userInterests, userSubdomain, userAboutData, ctx)
-	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, types.Event{}, ctx, []string{})
+	layoutTemplate := pages.Layout(helpers.SitePages["admin"], userInfo, adminPage, types.Event{}, ctx, []string{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {

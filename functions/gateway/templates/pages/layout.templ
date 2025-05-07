@@ -5,7 +5,6 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
-	"log"
 	"os"
 )
 
@@ -16,7 +15,6 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			if event.Id != "" && sitePage.Key == "event-detail" {
 				<title>Meet Near Me - { event.Name }</title>
 			} else {
-				{{ log.Print(sitePage) }}
 				<title>Meet Near Me - { sitePage.Name }</title>
 			}
 			<meta charset="UTF-8"/>
