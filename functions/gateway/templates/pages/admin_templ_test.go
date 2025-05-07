@@ -50,7 +50,7 @@ func TestAdminPage(t *testing.T) {
 	profilePage := AdminPage(mockUserInfo, mockRoleClaims, interests, subdomain, "Test about me text", context.Background())
 
 	// Create a layout template
-	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, profilePage, types.Event{}, context.Background(), []string{})
+	layoutTemplate := Layout(helpers.SitePages["admin"], mockUserInfo, profilePage, types.Event{}, context.Background(), []string{})
 
 	// Render the template
 	var buf bytes.Buffer
