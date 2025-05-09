@@ -1,12 +1,14 @@
 package dynamodb_handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
+	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -140,9 +143,16 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 
 		filteredUsersToCreate := make([]map[string]interface{}, 0)
+		filteredUsersToUpdate := make([]map[string]interface{}, 0)
 		for _, team := range teamsData {
-			if !existingUserIds[team.Id] {
+			if !existingUserIds[team.Id] && team.ShouldCreate {
 				filteredUsersToCreate = append(filteredUsersToCreate, map[string]interface{}{
+					"id":          team.Id,
+					"displayName": team.DisplayName,
+					"members":     strings.Join(findTeamMembers(team.Id), ","),
+				})
+			} else if existingUserIds[team.Id] && team.ShouldUpdate {
+				filteredUsersToUpdate = append(filteredUsersToUpdate, map[string]interface{}{
 					"id":          team.Id,
 					"displayName": team.DisplayName,
 					"members":     strings.Join(findTeamMembers(team.Id), ","),
@@ -151,7 +161,7 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		}
 
 		var wg sync.WaitGroup
-		errChan := make(chan error, len(filteredUsersToCreate))
+		errChan := make(chan error, len(filteredUsersToCreate)+len(filteredUsersToUpdate))
 		var users []types.UserSearchResultDangerous
 		for _, user := range filteredUsersToCreate {
 			wg.Add(1)
@@ -170,6 +180,24 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 					errChan <- fmt.Errorf("failed to create team user %s: %w", userData["id"].(string), err)
 				}
 				users = append(users, user)
+			}(user)
+		}
+
+		for _, user := range filteredUsersToUpdate {
+			wg.Add(1)
+			go func(userData map[string]interface{}) {
+				defer wg.Done()
+				err := helpers.UpdateUserMetadataKey(userData["id"].(string),
+					"members",
+					userData["members"].(string),
+				)
+				if err != nil {
+					errChan <- fmt.Errorf("failed to update team user %s: %w", userData["id"].(string), err)
+				}
+				users = append(users, types.UserSearchResultDangerous{
+					UserID:      userData["id"].(string),
+					DisplayName: userData["displayName"].(string),
+				})
 			}(user)
 		}
 
@@ -253,6 +281,26 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		competitionConfigRes.Rounds = rounds
 	}
 
+	// because we store rounds data in dynamo, there is no relational tables / foreign keys
+	// this means that we don't know if there are existing rounds for this competition that
+	// need to be deleted. Here, we make an API call to get all existing rounds and delete
+	// any that are beyond the last index of `roundsData`
+	defer func() {
+		// delete all rounds of index position greater than or equal to the lenght of `roundsData`
+		service := dynamodb_service.NewCompetitionRoundService()
+		rounds, err := service.GetCompetitionRounds(r.Context(), db, competitionConfigRes.Id)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+		for i, round := range *rounds {
+			if i >= len(roundsData) {
+				log.Printf("Deleting round, competitionId: %s, roundNumber: %s", round.CompetitionId, strconv.Itoa(int(round.RoundNumber)))
+				service.DeleteCompetitionRound(r.Context(), db, round.CompetitionId, strconv.Itoa(int(round.RoundNumber)))
+			}
+		}
+	}()
+
 	response, err := json.Marshal(competitionConfigRes)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
@@ -297,7 +345,7 @@ func (h *CompetitionConfigHandler) GetCompetitionConfigsById(w http.ResponseWrit
 }
 
 // Get all configs that a primaryOwner has
-func (h *CompetitionConfigHandler) GetCompetitionConfigsByPrimaryOwner(w http.ResponseWriter, r *http.Request) {
+func (h *CompetitionConfigHandler) GetCompetitionConfigsByPrimaryOwner(w http.ResponseWriter, r *http.Request, isHtml bool) {
 	ctx := r.Context()
 	userInfo := helpers.UserInfo{}
 	// implicitly we fetch from the `primaryOwner` index if `ownerId` is not provided, if
@@ -331,14 +379,31 @@ func (h *CompetitionConfigHandler) GetCompetitionConfigsByPrimaryOwner(w http.Re
 		configs = &[]internal_types.CompetitionConfig{}
 	}
 
-	response, err := json.Marshal(configs)
-	if err != nil {
-		log.Printf("Handler ERROR: Failed to marshal response: %v", err)
-		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
-		return
+	if isHtml {
+		var buf bytes.Buffer
+		competitionConfigListPartial := partials.CompetitionConfigAdminList(configs)
+
+		err = competitionConfigListPartial.Render(r.Context(), &buf)
+		if err != nil {
+			transport.SendHtmlErrorPartial([]byte("Failed to render competition config admin list: "+err.Error()), http.StatusInternalServerError)
+			return
+		}
+
+		// TODO: this is painfully inconsistent, our `page_handlers.go` is returning
+		// this as a `http.HandlerFunc` but here we are calling the function directly
+		// rather than calling `return transport.SendHtmlRes` because the data handler
+		// needs to simply write to the response buffer rather than returning an
+		// `http.HandlerFunc`
+		transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)(w, r)
+	} else {
+		response, err := json.Marshal(configs)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+			return
+		}
+		transport.SendServerRes(w, response, http.StatusOK, nil)
 	}
 
-	transport.SendServerRes(w, response, http.StatusOK, nil)
 }
 
 func (h *CompetitionConfigHandler) DeleteCompetitionConfig(w http.ResponseWriter, r *http.Request) {
@@ -380,7 +445,15 @@ func GetCompetitionConfigsByPrimaryOwnerHandler(w http.ResponseWriter, r *http.R
 	eventCompetitionConfigService := dynamodb_service.NewCompetitionConfigService()
 	handler := NewCompetitionConfigHandler(eventCompetitionConfigService)
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler.GetCompetitionConfigsByPrimaryOwner(w, r)
+		handler.GetCompetitionConfigsByPrimaryOwner(w, r, false)
+	}
+}
+
+func GetCompetitionConfigsHtmlByPrimaryOwnerHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	eventCompetitionConfigService := dynamodb_service.NewCompetitionConfigService()
+	handler := NewCompetitionConfigHandler(eventCompetitionConfigService)
+	return func(w http.ResponseWriter, r *http.Request) {
+		handler.GetCompetitionConfigsByPrimaryOwner(w, r, true)
 	}
 }
 

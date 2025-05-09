@@ -61,7 +61,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			<br/>
 			<br/>
 			<br/>
-			<h2 class="text-3xl mt-2 text-center">404 - Can't Find That Event</h2>
+			<h1 class="text-3xl mt-2 text-center">404 - Can't Find That Event</h1>
 			<br/>
 			<br/>
 			<br/>
@@ -133,7 +133,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 					}
 				</div>
 			}
-			<h2 class="text-3xl mt-2">{ event.Name }</h2>
+			<h1 class="text-3xl mt-2">{ event.Name }</h1>
 			if event.EventSourceType == helpers.ES_SERIES_PARENT || event.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
 				<h3 class="text-xl mt-2">Event Series</h3>
 				<div
@@ -186,7 +186,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				<template x-if="competitionConfigId && userId">
 					<div class="mt-4" id="voting-section">
 						<h3 class="text-xl">VOTING</h3>
-						<template x-if="!Boolean(rounds?.[0]?.competitorADisplayName)">
+						<template x-if="roundsDataFetching">
 							<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
 						</template>
 						<template x-if="!roundsDataFetching && rounds?.filter(round => round.isVotingOpen).length === 0">
@@ -250,7 +250,13 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			<div class="bottom-drawer">
 				<div class="container mx-auto">
 					if event.StartingPrice > 0 {
-						<button data-umami-event={ "buy-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">BUY TICKETS</button>
+						<button
+							id="buy-tkts"
+							data-umami-event={ "buy-tkts-clk" }
+							data-umami-event-event-id={ event.Id }
+							@click="handleCtaClick('cart')"
+							class="btn btn-block btn-primary"
+						>BUY TICKETS</button>
 					} else if event.HasRegistrationFields && event.StartingPrice == 0 {
 						<button data-umami-event={ "reg-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
 					} else {

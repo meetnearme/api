@@ -167,7 +167,7 @@ func TestSendHtmlErrorPage(t *testing.T) {
 
 	// Test
 	errorBody := []byte("test error message")
-	handler := SendHtmlErrorPage(errorBody, http.StatusBadRequest)
+	handler := SendHtmlErrorPage(errorBody, http.StatusBadRequest, false)
 	handler.ServeHTTP(w, r)
 
 	// Assertions
