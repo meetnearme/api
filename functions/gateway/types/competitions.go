@@ -54,8 +54,8 @@ type CompetitionConfig struct {
 	Status        string             `json:"status" dynamodbav:"status" validate:"required,oneof=DRAFT ACTIVE COMPLETE"`
 	CreatedAt     int64              `json:"createdAt" dynamodbav:"createdAt"`
 	UpdatedAt     int64              `json:"updatedAt" dynamodbav:"updatedAt"`
-	StartTime     int64              `json:"startTime" dynamodbav:"startTime"`
-	EndTime       int64              `json:"endTime" dynamodbav:"endTime"`
+	StartTime     int64              `json:"startTime" dynamodbav:"startTime" validate:"required"`
+	EndTime       int64              `json:"endTime" dynamodbav:"endTime" validate:"required"`
 }
 
 type CompetitionConfigResponse struct {
@@ -70,9 +70,11 @@ type CompetitionConfigUpdatePayload struct {
 }
 
 type CompetitionTeamUpdate struct {
-	Id          string                  `json:"id,omitempty" dynamodbav:"id"`
-	DisplayName string                  `json:"displayName" dynamodbav:"displayName"`
-	Competitors []CompetitionCompetitor `json:"competitors,omitempty" dynamodbav:"competitors"`
+	Id           string                  `json:"id,omitempty" dynamodbav:"id"`
+	DisplayName  string                  `json:"displayName" dynamodbav:"displayName"`
+	Competitors  []CompetitionCompetitor `json:"competitors,omitempty" dynamodbav:"competitors"`
+	ShouldCreate bool                    `json:"shouldCreate,omitempty" dynamodbav:"shouldCreate"`
+	ShouldUpdate bool                    `json:"shouldUpdate,omitempty" dynamodbav:"shouldUpdate"`
 }
 
 type CompetitionCompetitor struct {

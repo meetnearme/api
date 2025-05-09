@@ -1,0 +1,58 @@
+package partials
+
+import (
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
+)
+
+templ CompetitionConfigAdminList(configs *[]internal_types.CompetitionConfig) {
+	<h3 class="text-2xl font-bold my-10">Competition Admin</h3>
+	<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
+		<thead>
+			<tr>
+				<th>Competition</th>
+				<th>Start</th>
+				<th>End</th>
+				<th>Type</th>
+				<th>Created</th>
+				<th>Updated</th>
+			</tr>
+		</thead>
+		<tbody>
+			for _, config := range *configs {
+				<tr class="border-t-2 border-base-300">
+					<td>
+						<a class="link link-primary" href={ templ.URL("/admin/competition/" + config.Id + "/edit") }>{ config.Name }</a>
+					</td>
+					<td>
+						{ helpers.FormatTimeMMDDYYYY(config.StartTime) }
+					</td>
+					<td>
+						{ helpers.FormatTimeMMDDYYYY(config.EndTime) }
+					</td>
+					<td>
+						if config.ModuleType == helpers.ES_SERIES_PARENT || config.ModuleType == helpers.ES_SERIES_PARENT_UNPUB {
+							Series
+						} else {
+							Event
+						}
+					</td>
+					<td>
+						if config.CreatedAt == 0 {
+							Undefined
+						} else {
+							{ helpers.FormatTimeMMDDYYYY(config.CreatedAt) }
+						}
+					</td>
+					<td>
+						if config.UpdatedAt == 0 {
+							Undefined
+						} else {
+							{ helpers.FormatTimeMMDDYYYY(config.UpdatedAt) }
+						}
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+}

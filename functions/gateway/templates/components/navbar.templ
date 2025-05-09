@@ -1,6 +1,7 @@
 package components
 
 import (
+	"context"
 	"fmt"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -9,7 +10,8 @@ import (
 	"time"
 )
 
-templ MiniProfileInNav(userInfo helpers.UserInfo) {
+templ MiniProfileInNav(userInfo helpers.UserInfo, ctx context.Context) {
+	{{ roleClaims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim) }}
 	<strong>{ string(userInfo.Name) }</strong>
 	<br/>
 	{ string(userInfo.Email) }
@@ -18,12 +20,30 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 		class="menu menu-sm"
 	>
 		<li>
-			<a href="/admin/profile" class="justify-between">
-				Profile
+			<a href="/admin/home" class="justify-between">
+				Admin
 				// <span class="badge">New</span>
 			</a>
 		</li>
-		<li><a x-data="" :href={ " '/auth/logout?" + helpers.POST_LOGOUT_REDIRECT_URI_KEY + "=' + window.location.href " }>Logout</a></li>
+		if ok && helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.EventAdmin], helpers.Roles[helpers.SuperAdmin]}) {
+			<li>
+				<a href="/admin/event/new">
+					Create Event
+				</a>
+			</li>
+		}
+		if ok && helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.CompetitionAdmin], helpers.Roles[helpers.SuperAdmin]}) {
+			<li>
+				<a href="/admin/competition/new">
+					Create Competition
+				</a>
+			</li>
+		}
+		<li class="border-t-2 mt-2 pt-2 border-base-300">
+			<a x-data="" :href={ " '/auth/logout?" + helpers.POST_LOGOUT_REDIRECT_URI_KEY + "=' + window.location.href " }>
+				Logout
+			</a>
+		</li>
 	</ul>
 }
 
@@ -205,7 +225,7 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 	</template>
 }
 
-templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) {
+templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, ctx context.Context) {
 	<div class="drawer drawer-end">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content flex flex-col">
@@ -230,8 +250,8 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
 										</div>
 									</div>
-									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
-										@MiniProfileInNav(userInfo)
+									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow-lg border-2 border-base-300">
+										@MiniProfileInNav(userInfo, ctx)
 									</div>
 								</div>
 							}
@@ -315,11 +335,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							tabindex="0"
 							class="menu menu-sm"
 						>
-							@MiniProfileInNav(userInfo)
+							@MiniProfileInNav(userInfo, ctx)
 						</ul>
 					</div>
 				}
-				<div role="tablist" class="tabs tabs-bordered">
+				<div role="tablist" class="tabs tabs-bordered w-full">
 					<input id="flyout-tab-main" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
 					<div role="tabpanel" class="tab-content p-2">
 						<ul class="menu">
@@ -740,7 +760,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							});
 
 							// Remove the copied fields from the main registration fields
-							this.registrationFields = this.registrationFields.filter(field => !fieldsToRemove.has(field.name));
+							this.registrationFields = this.registrationFields?.filter?.(field => !fieldsToRemove.has(field.name));
 						}
 					},
 					validateOneField(field, fieldName, includeIdx) {

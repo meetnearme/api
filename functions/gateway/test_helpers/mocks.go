@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -15,7 +18,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/rdsdata"
 	rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
+	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"github.com/playwright-community/playwright-go"
 )
 
 type MockDynamoDBClient struct {
@@ -205,4 +210,92 @@ func NewMockRdsDataClientWithJSONRecords(records []map[string]interface{}) *Mock
 			}, nil
 		},
 	}
+}
+
+func SetupStaticTestRouter(t *testing.T, staticDir string) *mux.Router {
+	router := mux.NewRouter()
+
+	// Add static file handling
+	router.PathPrefix("/assets/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := "../../../static/assets"
+
+		// Log the absolute path and directory contents
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			log.Printf("Error getting absolute path: %v", err)
+		}
+		log.Printf("Serving assets from directory: %s", absPath)
+
+		fileServer := http.FileServer(http.Dir(path))
+		http.StripPrefix("/assets/", fileServer).ServeHTTP(w, r)
+	})
+
+	return router
+}
+
+func ScreenshotToStandardDir(t *testing.T, page playwright.Page, screenshotName string) {
+	// Get the path to the project root (where go.mod is)
+	moduleRoot, err := os.Getwd()
+	for !fileExists(filepath.Join(moduleRoot, "go.mod")) && moduleRoot != "/" {
+		moduleRoot = filepath.Dir(moduleRoot)
+	}
+	if moduleRoot == "/" {
+		t.Fatal("Could not find project root (go.mod)")
+	}
+
+	// Create the screenshots directory if it doesn't exist
+	screenshotsDir := filepath.Join(moduleRoot, "screenshots")
+	if _, err := os.Stat(screenshotsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(screenshotsDir, 0755)
+		if err != nil {
+			t.Fatalf("could not create screenshots directory: %v\n", err)
+		}
+	}
+
+	screenshotPath := filepath.Join(moduleRoot, "screenshots", screenshotName)
+	_, err = page.Screenshot(
+		playwright.PageScreenshotOptions{
+			Path: &screenshotPath,
+		},
+	)
+	if err != nil {
+		t.Fatalf("could not screenshot: %v\n", err)
+	}
+
+	t.Logf("Screenshot saved to %s", screenshotPath)
+}
+
+func GetPlaywrightBrowser() (*playwright.Browser, error) {
+	pw, err := playwright.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	var launchOptions playwright.BrowserTypeLaunchOptions
+	// Assuming GitHub Actions, CI is always `true`
+	if os.Getenv("CI") == "true" {
+		launchOptions = playwright.BrowserTypeLaunchOptions{
+			Args: []string{"--no-sandbox"},
+		}
+	}
+
+	browser, err := pw.Chromium.Launch(launchOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: we can't stop this because we haven't run tests yet,
+	// but we should probably return `pw` and let the caller stop it
+	// or have some implicit way for something like this `defer` to happen
+
+	// defer browser.Close()
+	// defer pw.Stop()
+
+	return &browser, nil
+}
+
+// Helper function to check if file exists
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
 }

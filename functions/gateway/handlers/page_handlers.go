@@ -228,7 +228,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 				userChan <- userResult{user, err}
 				// Early return since user data is required
 				searchChan <- searchResult{types.EventSearchResponse{}, err}
-				aboutChan <- aboutResult{"", nil} // Close about channel
+				aboutChan <- aboutResult{"", err} // Close about channel
 				return
 			}
 			// user resolved successfully, push to channel
@@ -322,7 +322,11 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	originalQueryLocation := r.URL.Query().Get("location")
 	events, cfLocation, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), status, err)
+		subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+		if subdomainValue != "" || strings.Contains(r.URL.Path, "/user") {
+			return transport.SendHtmlErrorPage([]byte("User Not Found"), 200, true)
+		}
+		return transport.SendHtmlRes(w, []byte(err.Error()), status, "page", err)
 	}
 
 	homePage := pages.HomePage(
@@ -341,7 +345,7 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 
-	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage, types.Event{}, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
+	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage, types.Event{}, ctx, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
 
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
@@ -356,7 +360,7 @@ func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	aboutPage := pages.AboutPage()
 	ctx := r.Context()
 
-	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage, types.Event{}, []string{})
+	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage, types.Event{}, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -365,7 +369,7 @@ func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
-func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	// TODO: add a unit test that verifies each page handler works both WITH and also
 	// WITHOUT a user present in context
@@ -386,8 +390,8 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
 	userSubdomain := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.SUBDOMAIN_KEY)
 	userAboutData, err := helpers.GetOtherUserMetaByID(userInfo.Sub, helpers.META_ABOUT_KEY)
-	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests, userSubdomain, userAboutData)
-	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, types.Event{}, []string{})
+	adminPage := pages.AdminPage(userInfo, roleClaims, userInterests, userSubdomain, userAboutData, ctx)
+	layoutTemplate := pages.Layout(helpers.SitePages["admin"], userInfo, adminPage, types.Event{}, ctx, []string{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -409,8 +413,8 @@ func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.Handler
 		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
 	}
 	parsedInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
-	settingsPage := pages.ProfileSettingsPage(parsedInterests)
-	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, types.Event{}, []string{})
+	settingsPage := pages.ProfileSettingsPage(parsedInterests, ctx)
+	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, types.Event{}, ctx, []string{})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
@@ -432,7 +436,7 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		roleClaims = claims
 	}
 
-	validRoles := []string{"superAdmin", "eventAdmin"}
+	validRoles := []string{helpers.Roles[helpers.SuperAdmin], helpers.Roles[helpers.EventAdmin]}
 	if !helpers.HasRequiredRole(roleClaims, validRoles) {
 		err := errors.New("Only event editors can add or edit events")
 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
@@ -485,7 +489,7 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, userInfo, event, isEditor, cfLocationLat, cfLocationLon, isCompetitionAdmin)
 
-	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/mask@3.x.x/dist/cdn.min.js"})
+	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event, ctx, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/mask@3.x.x/dist/cdn.min.js"})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
@@ -543,7 +547,7 @@ func GetEventAttendeesPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 	addOrEditEventPage := pages.EventAttendeesPage(pageObj, event, isEditor)
 
-	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event, []string{})
+	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event, ctx, []string{})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
@@ -563,7 +567,7 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParameters := apiGwV2Req.QueryStringParameters
 
 	mapEmbedPage := pages.MapEmbedPage(queryParameters["address"])
-	layoutTemplate := pages.Layout(helpers.SitePages["embed"], userInfo, mapEmbedPage, types.Event{}, []string{})
+	layoutTemplate := pages.Layout(helpers.SitePages["embed"], userInfo, mapEmbedPage, types.Event{}, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -580,7 +584,7 @@ func GetPrivacyPolicyPage(w http.ResponseWriter, r *http.Request) http.HandlerFu
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	privacyPolicyPage := pages.PrivacyPolicyPage(helpers.SitePages["privacy-policy"])
-	layoutTemplate := pages.Layout(helpers.SitePages["privacy-policy"], userInfo, privacyPolicyPage, types.Event{}, []string{})
+	layoutTemplate := pages.Layout(helpers.SitePages["privacy-policy"], userInfo, privacyPolicyPage, types.Event{}, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -596,7 +600,7 @@ func GetDataRequestPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	dataRequestPage := pages.DataRequestPage(helpers.SitePages["data-request"])
-	layoutTemplate := pages.Layout(helpers.SitePages["data-request"], userInfo, dataRequestPage, types.Event{}, []string{})
+	layoutTemplate := pages.Layout(helpers.SitePages["data-request"], userInfo, dataRequestPage, types.Event{}, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -612,7 +616,7 @@ func GetTermsOfServicePage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	termsOfServicePage := pages.TermsOfServicePage(helpers.SitePages["terms-of-service"], userInfo)
-	layoutTemplate := pages.Layout(helpers.SitePages["terms-of-service"], userInfo, termsOfServicePage, types.Event{}, []string{})
+	layoutTemplate := pages.Layout(helpers.SitePages["terms-of-service"], userInfo, termsOfServicePage, types.Event{}, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -652,7 +656,7 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	canEdit := helpers.CanEditEvent(event, &userInfo, roleClaims)
 
 	eventDetailsPage := pages.EventDetailsPage(*event, userInfo, canEdit)
-	layoutTemplate := pages.Layout(helpers.SitePages["event-detail"], userInfo, eventDetailsPage, *event, []string{})
+	layoutTemplate := pages.Layout(helpers.SitePages["event-detail"], userInfo, eventDetailsPage, *event, ctx, []string{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -669,7 +673,7 @@ func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
 	adminPage := pages.AddEventSource()
-	layoutTemplate := pages.Layout(helpers.SitePages["add-event-source"], userInfo, adminPage, types.Event{}, []string{})
+	layoutTemplate := pages.Layout(helpers.SitePages["add-event-source"], userInfo, adminPage, types.Event{}, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -736,7 +740,7 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 	}
 
 	competitionPage := pages.AddOrEditCompetitionPage(pageObj, competitionConfig, users)
-	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
+	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, ctx, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)

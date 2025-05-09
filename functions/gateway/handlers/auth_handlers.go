@@ -19,7 +19,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if apexURL == "" {
 		log.Println("APEX_URL not configured")
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SendHtmlErrorPage([]byte("APEX_URL not configured"), http.StatusInternalServerError)
+			transport.SendHtmlErrorPage([]byte("APEX_URL not configured"), http.StatusInternalServerError, false)
 		}
 	}
 
@@ -27,7 +27,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		log.Println("Failed to generate code challenge and verifier", err)
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SendHtmlErrorPage([]byte("Failed to generate code challenge and verifier"), http.StatusInternalServerError)
+			transport.SendHtmlErrorPage([]byte("Failed to generate code challenge and verifier"), http.StatusInternalServerError, false)
 		}
 	}
 
@@ -38,7 +38,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		msg := fmt.Sprintf("Failed to authorize request: %+v", err)
 		log.Println(msg)
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SendHtmlErrorPage([]byte(msg), http.StatusBadRequest)(w, r)
+			transport.SendHtmlErrorPage([]byte(msg), http.StatusBadRequest, false)(w, r)
 		}
 	}
 
@@ -65,14 +65,14 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	verifierCookie, err := r.Cookie(helpers.PKCE_VERIFIER_COOKIE_NAME)
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SendHtmlErrorPage([]byte("Invalid or expired authorization session"), http.StatusBadRequest)(w, r)
+			transport.SendHtmlErrorPage([]byte("Invalid or expired authorization session"), http.StatusBadRequest, false)(w, r)
 		}
 	}
 
 	codeVerifier := verifierCookie.Value
 	if codeVerifier == "" {
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SendHtmlErrorPage([]byte("Invalid or expired authorization session"), http.StatusBadRequest)(w, r)
+			transport.SendHtmlErrorPage([]byte("Invalid or expired authorization session"), http.StatusBadRequest, false)(w, r)
 		}
 	}
 
@@ -83,7 +83,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if code == "" {
 		http.Error(w, "Authorization code is missing", http.StatusBadRequest)
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SendHtmlErrorPage([]byte("Authorization code is missing"), http.StatusBadRequest)(w, r)
+			transport.SendHtmlErrorPage([]byte("Authorization code is missing"), http.StatusBadRequest, false)(w, r)
 		}
 	}
 
@@ -91,7 +91,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		log.Printf("Authentication Failed: %v", err)
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SendHtmlErrorPage([]byte("Authentication failed"), http.StatusUnauthorized)(w, r)
+			transport.SendHtmlErrorPage([]byte("Authentication failed"), http.StatusUnauthorized, false)(w, r)
 		}
 	}
 
@@ -105,12 +105,12 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			}
 			log.Printf(msg)
 			return func(w http.ResponseWriter, r *http.Request) {
-				transport.SendHtmlErrorPage([]byte(msg), http.StatusUnauthorized)(w, r)
+				transport.SendHtmlErrorPage([]byte(msg), http.StatusUnauthorized, false)(w, r)
 			}
 		}
 		log.Printf("Failed to get access tokens, error from zitadel: %+v", zitadelRes)
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SendHtmlErrorPage([]byte("Failed to get access token"), http.StatusInternalServerError)(w, r)
+			transport.SendHtmlErrorPage([]byte("Failed to get access token"), http.StatusInternalServerError, false)(w, r)
 		}
 	}
 
@@ -118,7 +118,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if !ok {
 		log.Printf("Refresh token error: %v", ok)
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SendHtmlErrorPage([]byte("Failed to get refresh token"), http.StatusInternalServerError)(w, r)
+			transport.SendHtmlErrorPage([]byte("Failed to get refresh token"), http.StatusInternalServerError, false)(w, r)
 		}
 	}
 	idTokenHint, ok := zitadelRes["id_token"].(string)

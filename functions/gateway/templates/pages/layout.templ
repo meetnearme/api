@@ -1,13 +1,14 @@
 package pages
 
 import (
+	"context"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
 )
 
-templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event, scripts []string) {
+templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event, ctx context.Context, scripts []string) {
 	<!DOCTYPE html>
 	<html data-theme="cyberpunk">
 		<head>
@@ -23,7 +24,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap" rel="stylesheet"/>
 			// 🚨 WARNING 🚨 This filename is automatically updated by PostCSS
 			// ✅ DO commit it to version control whenever you see it change
-			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.5d23bf80.css") }/>
+			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.49c89a37.css") }/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
@@ -39,7 +40,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 		</head>
 		<body class="h-[calc(100vh)] overflow-y-auto">
 			<div id="top-loading-bar" class="hidden fixed top-0 left-0 w-0 h-[3px] bg-[#00ff00] transition-[width] duration-300 ease-out z-[9999]"></div>
-			@components.Navbar(userInfo, sitePage.SubnavItems, event) {
+			@components.Navbar(userInfo, sitePage.SubnavItems, event, ctx) {
 				<div class="container mx-auto">
 					<div id="content" class="p-4 space-y-4 relative">
 						@pageContent
