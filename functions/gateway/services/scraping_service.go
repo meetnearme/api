@@ -59,7 +59,7 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, timeout int, jsRender 
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("ERR: executing scraping request: %v", err)
+		return "", fmt.Errorf("ERR: executing scraping request: %v for scrapingUrl: %s, with baseURL: %s", err, scrapingUrl, baseURL)
 	}
 	defer res.Body.Close()
 
