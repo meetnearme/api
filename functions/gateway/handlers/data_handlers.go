@@ -1261,7 +1261,6 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
 			return
 		}
-
 		if !helpers.HasRequiredRole(roleClaims, validRoles) {
 			err := errors.New("only event editors can add or edit events")
 			transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)

@@ -50,11 +50,16 @@ func TestAdminPage(t *testing.T) {
 	profilePage := AdminPage(mockUserInfo, mockRoleClaims, interests, subdomain, "Test about me text", context.Background())
 
 	// Create a layout template
+<<<<<<< HEAD:functions/gateway/templates/pages/profile_templ_test.go
+	fakeContext := context.Background()
+	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, profilePage, types.Event{}, fakeContext, []string{})
+=======
 	layoutTemplate := Layout(helpers.SitePages["admin"], mockUserInfo, profilePage, types.Event{}, context.Background(), []string{})
+>>>>>>> develop:functions/gateway/templates/pages/admin_templ_test.go
 
 	// Render the template
 	var buf bytes.Buffer
-	err := layoutTemplate.Render(context.Background(), &buf)
+	err := layoutTemplate.Render(fakeContext, &buf)
 
 	// Check for rendering errors
 	if err != nil {
