@@ -108,8 +108,8 @@ templ AddEventSource() {
 									:style="formData.address?.length ? 'display: block;' : 'display: none;'"
 									:src="getAddress()"
 								></iframe>
-								<br/>
-								<br/>
+								// <br/>
+								// <br/>
 								<button type="submit" :disabled="formData.address?.length < 1 || !formData.url?.length" class="btn btn-primary mt-3">
 									<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Location <span class="htmx-indicator loading loading-spinner loading-sm"></span>
 								</button>
@@ -124,7 +124,16 @@ templ AddEventSource() {
 				<h3 class="text-2xl font-bold">Are these events?</h3>
 				// note that the input[type='checkbox'] items come back in response to the SESHU_FN_URL
 				// call and the checkboxes are not present by default
-				<form id="event-candidates-form" class="group" novalidate hx-patch="/api/html/seshu/session/events" hx-ext="json-enc" hx-target="#events-valid-confirmation" hx-vals="js:{eventValidations: getEventValidationsState()}" hx-disabled-elt="input[type='checkbox'], button[type='submit']" @htmx:after-request="updateEventsValidated(event)">
+				<form
+					x-ref="eventForm"
+					class="group"
+					novalidate
+					hx-ext="json-enc"
+					hx-target="#events-valid-confirmation"
+					hx-vals="js:{eventValidations: getEventValidationsState()}"
+					hx-disabled-elt="input[type='checkbox'], button[type='submit']"
+					@htmx:after-request="updateEventsValidated(event)"
+				>
 					<input
 						x-model="formData.url"
 						name="url"
@@ -138,29 +147,18 @@ templ AddEventSource() {
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 						</div>
 					</div>
-					<!-- Confirm Event Data button -->
 					<button
-						x-show="!missingFieldsCheck"
-						type="submit"
-						hx-put="/api/html/seshu/session/events"
-						:disabled="!hasEvents || eventCandidates.length === 0"
-						class="btn btn-primary"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-						</svg> Confirm Event Data
-						<span class="htmx-indicator loading loading-spinner loading-sm"></span>
-					</button>
-					<!-- Recursive Scrape button -->
-					<button
-						x-show="missingFieldsCheck"
 						type="button"
-						@click="handleRecursiveScrape()"
-						class="btn btn-warning"
+						class="btn"
+						:class="missingFieldsCheck ? 'btn-warning' : 'btn-primary'"
+						:disabled="!hasEvents || eventCandidates.length === 0"
+						@click="submitDynamicForm()"
 					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24">
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-						</svg> Recursive Scrape
+						</svg>
+						Confirm Event Data
+						<span class="htmx-indicator loading loading-spinner loading-sm ml-2"></span>
 					</button>
 				</form>
 				<div id="events-valid-confirmation" class="margins-when-children my-8"></div>
@@ -197,6 +195,18 @@ templ AddEventSource() {
 				</form>
 			</div>
 		</div>
+		<template x-if="showToast === true">
+			<div class="toast m-4 z-50">
+				<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border-2 border-base-300">
+					<span x-text="toastContent.message"></span>
+					<div class="block justify-end">
+						<button class="btn btnevent_candidates.templ-sm btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
+							<svg class="svg-icon" style="width: 1em; height: 1em; vertical-align: middle; fill: currentColor; overflow: hidden;" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg>
+						</button>
+					</div>
+				</div>
+			</div>
+		</template>
 	</div>
 	<script id="alpine-state" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") }>
 	function getEventValidationsState() {
@@ -258,6 +268,11 @@ templ AddEventSource() {
 					url: "",
 					selectedLocationType: "address",
 					address: "",
+				},
+				showToast: false,
+				toastContent: {
+					type: '',
+					message: '',
 				},
 				formStep: 1,
 				hasEvents: false,
@@ -336,12 +351,35 @@ templ AddEventSource() {
 						return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
 					}
 				},
+				submitDynamicForm() {
+					const form = this.$refs.eventForm;
+
+					const hasMissing = this.hasMissingRequiredFields();
+					const endpoint = hasMissing
+						? '/api/html/seshu/session/rs'
+						: '/api/html/seshu/session/events';
+
+					form.removeAttribute('hx-post');
+					form.removeAttribute('hx-put');
+					form.setAttribute('hx-put', endpoint);
+
+					if (hasMissing) {
+						this.showToast = true;
+						this.toastContent = {
+							type: 'info',
+							message: 'Some required fields are missing. Attempting to fetch missing data...',
+						};
+					}
+
+					htmx.process(form);
+					htmx.trigger(form, 'submit');
+				},
 				hasMissingRequiredFields() {
 					const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
 
 					return cards.some(card => {
 						const mainToggle = card.querySelector('input[type="checkbox"].toggle');
-						if (!mainToggle?.checked) return false; // <== NEW: skip disabled cards
+						if (!mainToggle?.checked) return false;
 
 						const requiredFields = {
 							event_title: false,
