@@ -64,7 +64,7 @@ const EventOwnerNameDelimiter = " _|_ "
 const EV_MODE_CAROUSEL = "CAROUSEL"
 const EV_MODE_UPCOMING = "DETAILED"
 const EV_MODE_LIST = "LIST"
-
+const EV_MODE_ADMIN_LIST = "ADMIN_LIST"
 const UNPUB_SUFFIX = "_UNPUB"
 
 // NOTE: used by the frontend dropdown, but not included in the event source type string
@@ -169,13 +169,17 @@ type RoleClaim struct {
 type Role string
 
 const (
-	SuperAdmin Role = "superAdmin"
-	OrgAdmin   Role = "orgAdmin"
+	SuperAdmin       Role = "superAdmin"
+	OrgAdmin         Role = "orgAdmin"
+	CompetitionAdmin Role = "competitionAdmin"
+	EventAdmin       Role = "eventAdmin"
 )
 
 var Roles = map[Role]string{
-	SuperAdmin: string(SuperAdmin),
-	OrgAdmin:   string(OrgAdmin),
+	SuperAdmin:       string(SuperAdmin),
+	OrgAdmin:         string(OrgAdmin),
+	CompetitionAdmin: string(CompetitionAdmin),
+	EventAdmin:       string(EventAdmin),
 }
 
 var AllowedMnmOptionsKeys = []string{
@@ -215,7 +219,7 @@ var SitePages = map[string]SitePage{
 	// solution is from this github comment (see discussion as well) https://github.com/gorilla/mux/issues/30#issuecomment-1666428538
 	"home":               {Key: "home", Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
 	"about":              {Key: "about", Slug: "/about{trailingslash:\\/?}", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
-	"profile":            {Key: "profile", Slug: "/admin/profile{trailingslash:\\/?}", Name: "Profile", SubnavItems: []string{SubnavItems[NvMain]}},
+	"admin":              {Key: "admin", Slug: "/admin/home{trailingslash:\\/?}", Name: "Admin", SubnavItems: []string{SubnavItems[NvMain]}},
 	"add-event-source":   {Key: "add-event-source", Slug: "/admin/add-event-source{trailingslash:\\/?}", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
 	"settings":           {Key: "settings", Slug: "/admin/profile/settings{trailingslash:\\/?}", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
 	"map-embed":          {Key: "map-embed", Slug: "/map-embed{trailingslash:\\/?}", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},

@@ -10,7 +10,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
-func TestProfilePage(t *testing.T) {
+func TestAdminPage(t *testing.T) {
 	// Create mock user info
 	mockUserInfo := helpers.UserInfo{
 		Email:             "test@example.com",
@@ -46,12 +46,16 @@ func TestProfilePage(t *testing.T) {
 	interests := []string{"Concerts", "Photography"}
 	subdomain := "brians-pub"
 
-	// Call the ProfilePage function
-	profilePage := ProfilePage(mockUserInfo, mockRoleClaims, interests, subdomain, "Test about me text")
+	// Call the AdminPage function
+	profilePage := AdminPage(mockUserInfo, mockRoleClaims, interests, subdomain, "Test about me text", context.Background())
 
 	// Create a layout template
+<<<<<<< HEAD:functions/gateway/templates/pages/profile_templ_test.go
 	fakeContext := context.Background()
 	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, profilePage, types.Event{}, fakeContext, []string{})
+=======
+	layoutTemplate := Layout(helpers.SitePages["admin"], mockUserInfo, profilePage, types.Event{}, context.Background(), []string{})
+>>>>>>> develop:functions/gateway/templates/pages/admin_templ_test.go
 
 	// Render the template
 	var buf bytes.Buffer

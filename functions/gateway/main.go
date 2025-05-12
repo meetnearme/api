@@ -57,7 +57,7 @@ func init() {
 		{helpers.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
 		{helpers.SitePages["user"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
 		{helpers.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
-		{helpers.SitePages["profile"].Slug, "GET", handlers.GetProfilePage, Require},
+		{helpers.SitePages["admin"].Slug, "GET", handlers.GetAdminPage, Require},
 		{helpers.SitePages["settings"].Slug, "GET", handlers.GetProfileSettingsPage, Require},
 		{helpers.SitePages["add-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
 		{helpers.SitePages["edit-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
@@ -104,6 +104,7 @@ func init() {
 		{"/api/html/seshu/session/submit{trailingslash:\\/?}", "POST", handlers.SubmitSeshuSession, Require},
 		{"/api/html/seshu/session/location{trailingslash:\\/?}", "PUT", handlers.GeoThenPatchSeshuSession, Require},
 		{"/api/html/seshu/session/events{trailingslash:\\/?}", "PUT", handlers.SubmitSeshuEvents, Require},
+		{"/api/html/competition-config/owner/{" + helpers.USER_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigsHtmlByPrimaryOwnerHandler, None},
 
 		// // Purchasables routes
 		{"/api/purchasables/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, Require},   // Create a new purchasable
@@ -542,7 +543,7 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 						mnmOptions[key] = value
 					}
 				} else {
-					log.Printf("kv length != 2: '%s'", len(kv))
+					log.Printf("kv length != 2: '%d'", len(kv))
 				}
 			}
 		} else {

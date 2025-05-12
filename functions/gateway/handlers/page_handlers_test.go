@@ -224,7 +224,7 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 	}
 }
 
-func TestGetProfilePage(t *testing.T) {
+func TestGetAdminPage(t *testing.T) {
 	req, err := http.NewRequest("GET", "/profile", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -264,7 +264,7 @@ func TestGetProfilePage(t *testing.T) {
 	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
-	handler := GetProfilePage(rr, req)
+	handler := GetAdminPage(rr, req)
 	handler.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 script navigateToSlideHandler(index int) {
@@ -135,6 +136,57 @@ templ EventsInner(events []types.Event, mode string) {
 				</div>
 			}
 		}
+	}
+	if mode == helpers.EV_MODE_ADMIN_LIST {
+		<h3 class="text-2xl font-bold my-10">Event Admin</h3>
+		<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
+			<thead>
+				<tr>
+					<th>Event</th>
+					<th>Status</th>
+					<th>Start</th>
+					<th>End</th>
+					<th>Type</th>
+					<th>Created</th>
+					<th>Updated</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, ev := range events {
+					<tr class="border-t-2 border-base-300">
+						<td>
+							<a class="link link-primary" href={ templ.URL("/admin/event/" + ev.Id + "/edit") }>{ ev.Name }</a>
+						</td>
+						<td>
+							if strings.HasPrefix(ev.EventSourceType, helpers.UNPUB_SUFFIX) {
+								Unpublished
+							} else {
+								Published
+							}
+						</td>
+						<td>
+							{ helpers.FormatTimeMMDDYYYY(ev.StartTime) }
+						</td>
+						<td>
+							{ helpers.FormatTimeMMDDYYYY(ev.EndTime) }
+						</td>
+						<td>
+							if ev.EventSourceType == helpers.ES_SERIES_PARENT || ev.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
+								Series
+							} else {
+								Event
+							}
+						</td>
+						<td>
+							{ helpers.FormatTimeMMDDYYYY(ev.CreatedAt) }
+						</td>
+						<td>
+							{ helpers.FormatTimeMMDDYYYY(ev.UpdatedAt) }
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
 	}
 }
 

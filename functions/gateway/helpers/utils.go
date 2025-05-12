@@ -808,6 +808,11 @@ func FormatTimeRFC3339(unixTimestamp int64) string {
 	return t.Format("20060102T150405Z")
 }
 
+func FormatTimeMMDDYYYY(unixTimestamp int64) string {
+	t := time.Unix(unixTimestamp, 0).UTC()
+	return t.Format("01/02/06 03:04PM")
+}
+
 func FormatTimeForGoogleCalendar(timestamp int64, timezone time.Location) string {
 	loc, err := time.LoadLocation(timezone.String())
 	if err != nil {

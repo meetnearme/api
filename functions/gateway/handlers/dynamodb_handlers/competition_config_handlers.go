@@ -1,6 +1,7 @@
 package dynamodb_handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
+	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -343,7 +345,7 @@ func (h *CompetitionConfigHandler) GetCompetitionConfigsById(w http.ResponseWrit
 }
 
 // Get all configs that a primaryOwner has
-func (h *CompetitionConfigHandler) GetCompetitionConfigsByPrimaryOwner(w http.ResponseWriter, r *http.Request) {
+func (h *CompetitionConfigHandler) GetCompetitionConfigsByPrimaryOwner(w http.ResponseWriter, r *http.Request, isHtml bool) {
 	ctx := r.Context()
 	userInfo := helpers.UserInfo{}
 	// implicitly we fetch from the `primaryOwner` index if `ownerId` is not provided, if
@@ -377,14 +379,31 @@ func (h *CompetitionConfigHandler) GetCompetitionConfigsByPrimaryOwner(w http.Re
 		configs = &[]internal_types.CompetitionConfig{}
 	}
 
-	response, err := json.Marshal(configs)
-	if err != nil {
-		log.Printf("Handler ERROR: Failed to marshal response: %v", err)
-		transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
-		return
+	if isHtml {
+		var buf bytes.Buffer
+		competitionConfigListPartial := partials.CompetitionConfigAdminList(configs)
+
+		err = competitionConfigListPartial.Render(r.Context(), &buf)
+		if err != nil {
+			transport.SendHtmlErrorPartial([]byte("Failed to render competition config admin list: "+err.Error()), http.StatusInternalServerError)
+			return
+		}
+
+		// TODO: this is painfully inconsistent, our `page_handlers.go` is returning
+		// this as a `http.HandlerFunc` but here we are calling the function directly
+		// rather than calling `return transport.SendHtmlRes` because the data handler
+		// needs to simply write to the response buffer rather than returning an
+		// `http.HandlerFunc`
+		transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)(w, r)
+	} else {
+		response, err := json.Marshal(configs)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Error marshaling JSON"), http.StatusInternalServerError, err)
+			return
+		}
+		transport.SendServerRes(w, response, http.StatusOK, nil)
 	}
 
-	transport.SendServerRes(w, response, http.StatusOK, nil)
 }
 
 func (h *CompetitionConfigHandler) DeleteCompetitionConfig(w http.ResponseWriter, r *http.Request) {
@@ -426,7 +445,15 @@ func GetCompetitionConfigsByPrimaryOwnerHandler(w http.ResponseWriter, r *http.R
 	eventCompetitionConfigService := dynamodb_service.NewCompetitionConfigService()
 	handler := NewCompetitionConfigHandler(eventCompetitionConfigService)
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler.GetCompetitionConfigsByPrimaryOwner(w, r)
+		handler.GetCompetitionConfigsByPrimaryOwner(w, r, false)
+	}
+}
+
+func GetCompetitionConfigsHtmlByPrimaryOwnerHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	eventCompetitionConfigService := dynamodb_service.NewCompetitionConfigService()
+	handler := NewCompetitionConfigHandler(eventCompetitionConfigService)
+	return func(w http.ResponseWriter, r *http.Request) {
+		handler.GetCompetitionConfigsByPrimaryOwner(w, r, true)
 	}
 }
 

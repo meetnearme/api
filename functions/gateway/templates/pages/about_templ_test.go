@@ -29,7 +29,7 @@ func TestAboutPage(t *testing.T) {
 	aboutPage := AboutPage()
 	fakeContext := context.Background()
 	// Create a layout template
-	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, aboutPage, types.Event{}, fakeContext, []string{})
+	layoutTemplate := Layout(helpers.SitePages["admin"], mockUserInfo, aboutPage, types.Event{}, fakeContext, []string{})
 
 	// Render the template
 	var buf bytes.Buffer
