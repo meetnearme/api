@@ -215,6 +215,26 @@ For `*.meetnear.me` and `*.devnear.me` there is some custom configuration requir
       for the deployment, which typically looks like
       `ApiEndpoint: https://<alpha-numeric>.execute-api.us-east-1.amazonaws.com`.
       The alpha-numeric characters will not match, and the correct `A` record should be prefixed with `d-`
+
+## Docker Compose For Local Development. 
+
+**note that we build the go binary locally so go must be installed, this allows for our watchGolang.js script to rebuild on changes**
+
+Summary of this workflow:
+
+1. Initial/Full Start (or after changes requiring rebuild):
+
+    - npm run docker:up (builds Go app, creates/starts fresh containers, shows logs)
+    - OR npm run docker:rebuild (cleans everything including data, builds, starts fresh, shows logs)
+
+2. Temporary Pause:
+
+    - npm run docker:stop (or docker compose stop)
+
+3. Quick Resume (from paused state):
+
+    - npm run docker:start (or docker compose start)
+
 ## Legacy Details
 
 ### Running Local SAM DynamoDB Docker Container
