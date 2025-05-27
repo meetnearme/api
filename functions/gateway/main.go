@@ -57,7 +57,7 @@ func init() {
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
 		// TODO: revert home route to check ACT
-		{helpers.SitePages["home"].Slug, "GET", handlers.GetHomeOrUserPage, None},
+		{helpers.SitePages["home"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
 		{helpers.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
 		{helpers.SitePages["user"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
 		{helpers.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
@@ -189,9 +189,7 @@ func NewApp() *App {
 	log.Printf("App created: %+v", app)
 
 	defer func() {
-		log.Print("180")
 		app.InitStripe()
-		log.Print("182")
 	}()
 	return app
 }
@@ -446,9 +444,6 @@ func (app *App) addRoute(route Route) {
 				// Extract roles, metadata, and user information
 				userID := claims["sub"]
 
-				log.Printf("Claims: %v", claims)
-				log.Printf("User ID: %v", userID)
-
 				// Add extracted information to the request context
 				ctx := r.Context()
 				ctx = context.WithValue(ctx, "userID", userID)
@@ -608,4 +603,3 @@ func main() {
 		})
 	}
 }
-
