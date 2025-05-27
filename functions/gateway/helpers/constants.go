@@ -24,6 +24,7 @@ const CompetitionRoundsTablePrefix = "CompetitionRounds"
 const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomParticipant"
 const VotesTablePrefix = "Votes"
 
+const ACT string = "ACT"
 const EVENT_ID_KEY string = "eventId"
 const PRIMARY_OWNER_KEY string = "primaryOwner"
 const COMPETITIONS_ID_KEY string = "competitionId"
