@@ -41,7 +41,6 @@ func GetSeshuService() interfaces.SeshuServiceInterface {
 			seshuService = &RealSeshuService{}
 		}
 	})
-
 	return seshuService
 }
 
