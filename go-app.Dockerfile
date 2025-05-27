@@ -1,16 +1,27 @@
 FROM golang:1.23.8-alpine3.21 AS base
 
 RUN apk add --no-cache \
+  supervisor \
   curl \
   ca-certificates \
   tzdata # this is necessary for the timezone dependencies that are not automatically available in the image
 
 WORKDIR /go-app
 
+RUN mkdir -p /run/supervisor /var/run/supervisor /var/log/supervisor && \
+    chown root:root /run/supervisor /var/run/supervisor /var/log/supervisor && \
+    chmod 755 /var/log/supervisor && \
+    chmod 777 /var/run/supervisor && \
+    chmod 777 /run/supervisor
+
+
 RUN mkdir -p /go-app/docker_build
+
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+COPY  ./docker_build/ ./
 
 # The go binary will be mounted from ./docker_build to continue enabling the watchGolang script
 
-CMD ["/go-app/docker_build/main"]
-
+CMD [ "/bin/sh", "-c", "cp /app-static/.env /go-app/.env && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf -n" ]
 

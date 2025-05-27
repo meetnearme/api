@@ -11,7 +11,7 @@ const GO_MAIN_PACKAGE = './functions/gateway/main.go'; // Adjust if needed
 // Output path for the binary ON THE HOST (maps to /go-app/main in container)
 const OUTPUT_BINARY_PATH = './docker_build/main';
 
-const CONTAINER_NAME = "meetnearme-monolith"; // <<< MUST match the --name flag in your docker:dev:run script
+const CONTAINER_NAME = "meetnearme-go-app"; // <<< MUST match the --name flag in your docker:dev:run script
 const SUPERVISOR_PROGRAM_NAME = "go-app"; // <<< MUST match the [program:...] name in supervisord.dev.conf
 
 dirs.forEach((dir) => {
