@@ -10,50 +10,50 @@ import (
 )
 
 var (
-    geoService interfaces.GeoServiceInterface
-    geoServiceOnce sync.Once
+	geoService     interfaces.GeoServiceInterface
+	geoServiceOnce sync.Once
 
-    seshuService interfaces.SeshuServiceInterface
+	seshuService interfaces.SeshuServiceInterface
 )
 
 func GetGeoService() interfaces.GeoServiceInterface {
-    geoServiceOnce.Do(func() {
-        if os.Getenv("GO_ENV") == "test" {
-            geoService = getMockGeoService()
-        } else {
-            geoService = &RealGeoService{}
-        }
-    })
-    return geoService
+	geoServiceOnce.Do(func() {
+		if os.Getenv("GO_ENV") == "test" {
+			geoService = getMockGeoService()
+		} else {
+			geoService = &RealGeoService{}
+		}
+	})
+	return geoService
 }
 
 func ResetGeoService() {
-    geoService = nil
-    geoServiceOnce = sync.Once{}
+	geoService = nil
+	geoServiceOnce = sync.Once{}
 }
 
 func GetSeshuService() interfaces.SeshuServiceInterface {
-    once.Do(func() {
-        if os.Getenv("GO_ENV") == "test" {
-            seshuService = getMockSeshuService()
-        } else {
-            seshuService = &RealSeshuService{}
-        }
-    })
-    return seshuService
+	once.Do(func() {
+		if os.Getenv("GO_ENV") == "test" {
+			seshuService = getMockSeshuService()
+		} else {
+			seshuService = &RealSeshuService{}
+		}
+	})
+	return seshuService
 }
 
-type RealGeoService struct {}
+type RealGeoService struct{}
 type RealSeshuService struct{}
 
 func (s *RealSeshuService) GetSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionGet) (*internal_types.SeshuSession, error) {
-    return GetSeshuSession(ctx, db, seshuPayload)
+	return GetSeshuSession(ctx, db, seshuPayload)
 }
 
 func (s *RealSeshuService) InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionInput) (*internal_types.SeshuSessionInsert, error) {
-    return InsertSeshuSession(ctx, db, seshuPayload)
+	return InsertSeshuSession(ctx, db, seshuPayload)
 }
 
 func (s *RealSeshuService) UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionUpdate) (*internal_types.SeshuSessionUpdate, error) {
-    return UpdateSeshuSession(ctx, db, seshuPayload)
+	return UpdateSeshuSession(ctx, db, seshuPayload)
 }
