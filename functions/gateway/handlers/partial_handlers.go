@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"reflect"
 	"regexp"
 	"sort"
@@ -231,7 +232,13 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlRes(w, []byte(string("Invalid Body: ")+err.Error()), http.StatusBadRequest, "partial", err)
 	}
 
-	baseUrl := helpers.GetBaseUrlFromReq(r)
+	var baseUrl string
+	deploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
+	if deploymentTarget == helpers.ACT {
+		baseUrl = "http://localhost:8000"
+	} else {
+		baseUrl = helpers.GetBaseUrlFromReq(r)
+	}
 
 	if baseUrl == "" {
 		return transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, "partial", err)
