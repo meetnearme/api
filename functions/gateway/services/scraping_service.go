@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -28,6 +29,14 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, timeout int, jsRender 
 
 	// TODO: Escaping twice, thrice or more is unlikely, but this just makes sure the URL isn't
 	// single or double-encoded when passed as a param
+	targetHostPort := "localhost:8000" // The string we want to replace
+	replacementHost := "devnear.me"
+
+	isLocalAct := os.Getenv("IS_LOCAL_ACT")
+	if isLocalAct == "true" {
+		unescapedURL = strings.ReplaceAll(unescapedURL, targetHostPort, replacementHost)
+	}
+
 	firstPassUrl, err := url.QueryUnescape(unescapedURL)
 	if err != nil {
 		return "", fmt.Errorf(URLEscapedErrorMsg)
