@@ -28,29 +28,13 @@ func init() {
 }
 
 func CreateDbClient() internal_types.DynamoDBAPI {
-
-	// used for local dev via aws sam in docker container
-	dbUrl := "http://localhost:8000"
-
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if service == dynamodb.ServiceID && region == "us-east-1" {
-			return aws.Endpoint{
-				PartitionID:   "aws",
-				URL:           dbUrl,
-				SigningRegion: "us-east-1",
-			}, nil
-		}
-		// returning EndpointNotFoundError will allow the service to fallback to it's default resolution
-		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-	})
-
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 
 	if err != nil {
 		fmt.Println("Error loading default Dynamo client config", err)
 	}
 	accessKeyId := os.Getenv("AWS_ACCESS_KEY")
-	secretAccessKey := os.Getenv("SECRET_ACCESS_KEY")
+	secretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
 
 	if helpers.IsRemoteDB() {
 		optionalCredentials := config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
@@ -59,7 +43,9 @@ func CreateDbClient() internal_types.DynamoDBAPI {
 				Source: ".env file",
 			},
 		})
-		cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
+		// This is being changed to remove clutter from config for the previous early SAM testing
+		// cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
+		cfg, err = config.LoadDefaultConfig(context.TODO(), optionalCredentials)
 	}
 
 	if err != nil {
