@@ -43,8 +43,10 @@ type SeshuSessionEventsPayload struct {
 	EventValidations [][]bool `json:"eventValidations" validate:"required"`
 }
 
-type SetSubdomainRequestPayload struct {
-	Subdomain string `json:"subdomain" validate:"required"`
+type SetMnmOptionsRequestPayload struct {
+	Subdomain    string `json:"subdomain" validate:"required"`
+	PrimaryColor string `json:"primaryColor,omitempty"`
+	ThemeMode    string `json:"themeMode,omitempty"`
 }
 
 type UpdateUserAboutRequestPayload struct {
@@ -61,8 +63,8 @@ type eventParentResult struct {
 	err   error
 }
 
-func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	var inputPayload SetSubdomainRequestPayload
+func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	var inputPayload SetMnmOptionsRequestPayload
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -78,8 +80,9 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userID := userInfo.Sub
 
 	// Call Cloudflare KV store to save the subdomain
+	cfMetadataValue := fmt.Sprintf(`userId:%s;--p:%s;themeMode:%s`, userID, inputPayload.PrimaryColor, inputPayload.ThemeMode)
 	metadata := map[string]string{"": ""}
-	err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
+	err = helpers.SetCloudflareMnmOptions(inputPayload.Subdomain, userID, metadata, cfMetadataValue)
 	if err != nil {
 		if err.Error() == helpers.ERR_KV_KEY_EXISTS {
 			return transport.SendHtmlErrorPartial([]byte("Subdomain already taken"), http.StatusInternalServerError)

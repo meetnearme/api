@@ -162,19 +162,21 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 					</ul>
 				</div>
 			}
-			<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/profile/settings">settings page</a>.</p>
+			<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/profile/settings">interests page</a>.</p>
 			<h3 class="text-2xl font-bold mb-4">My Subdomain</h3>
 			<form
 				class="group"
 				novalidate
-				hx-post="/api/auth/users/set-subdomain"
+				hx-post="/api/auth/users/update-mnm-options"
 				hx-ext="json-enc"
 				hx-target="#subdomain-result"
 				hx-disabled-elt="button[type='submit']"
 				@submit.prevent=""
 				@htmx:after-request="handleSubdomainPostRes(event)"
+				hx-vals="js:{...getMnmOptionsPayload()}"
 			>
 				<input
+					id="subdomain"
 					if userSubdomain != "" {
 						value={ userSubdomain }
 					}
@@ -186,6 +188,43 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 				<button type="submit" class="btn btn-primary mt-4">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 			</form>
 			<div id="subdomain-result" class="margins-when-children my-8"></div>
+			<h3 class="text-2xl font-bold mb-4 mt-4">Custom Theme</h3>
+			<p>
+				Your subdomain will use the theme colors you choose below.
+				<br/>
+				<br/>
+				<div class="mx-auto w-full max-w-xl py-6">
+					<form
+						class="group"
+						novalidate
+						hx-post="/api/auth/users/update-mnm-options"
+						hx-ext="json-enc"
+						hx-target="#theme-result"
+						hx-disabled-elt="button[type='submit']"
+						@submit.prevent=""
+						@htmx:after-request="handleSubdomainPostRes(event)"
+						hx-vals="js:{...getMnmOptionsPayload()}"
+					>
+						@components.ColorPicker("primary", "Primary Brand Color", "primary-color-picker-input")
+						<h4 class="text-lg font-bold mt-2">Theme Mode</h4>
+						<!-- END Input -->
+						// switch toggle for light / vs dark theme
+						<div x-data="{ themeMode: false }" class="form-control">
+							<label class="label cursor-pointer">
+								<span class="label-text" x-text="themeMode ? 'Light Theme' : 'Dark Theme' "></span>
+								<input
+									id="theme-mode"
+									type="checkbox"
+									class="toggle toggle-primary"
+									x-model="themeMode"
+								/>
+							</label>
+						</div>
+						<button type="submit" class="btn btn-primary mt-4">Update Theme<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+					</form>
+				</div>
+			</p>
+			<div id="theme-result" class="margins-when-children my-8"></div>
 			<h3 class="text-2xl font-bold mb-4 mt-4">About / Bio</h3>
 			<form
 				class="group"
@@ -212,89 +251,17 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 				<button type="submit" class="btn btn-primary mt-4">Update About<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 			</form>
 			<div id="about-result" class="margins-when-children my-8"></div>
-			<h2 class="text-2xl font-bold mt-4">Events Owned by Me</h2>
-			// TODO: this is fake data, delete
-			<table class="table table-pin-rows table-pin-cols table-zebra">
-				<thead>
-					<tr>
-						<th>Event Name</th>
-						<th>Date</th>
-						<th>Time</th>
-						<th>Location</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr colspan="6">Add Your Own Events Soon</tr>
-					// <tr>
-					// 	<td>
-					// 		<div class="flex items-center gap-3">
-					// 			<div>
-					// 				<div class="font-bold">Chess Club at Roseland Park</div>
-					// 				<div class="text-sm opacity-50">United States</div>
-					// 			</div>
-					// 		</div>
-					// 	</td>
-					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-					// 	<td>3:07pm</td>
-					// 	<td>15 Chess Street</td>
-					// 	<th><a class="btn btn-primary btn-xs" href="/event/ecefe260-0f6c-41f5-b731-0e9767938f4a">details</a></th>
-					// </tr>
-					// <tr>
-					// 	<td>
-					// 		<div class="flex items-center gap-3">
-					// 			<div>
-					// 				<div class="font-bold">Monthly Permaculture Meetup</div>
-					// 				<div class="text-sm opacity-50">United States</div>
-					// 			</div>
-					// 		</div>
-					// 	</td>
-					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-					// 	<td>3:07pm</td>
-					// 	<td>15 Chess Street</td>
-					// 	<th><a class="btn btn-primary btn-xs" href="/event/7bb12e44-f344-469d-820d-fdff1c060f05">details</a></th>
-					// </tr>
-					// <tr>
-					// 	<td>
-					// 		<div class="flex items-center gap-3">
-					// 			<div>
-					// 				<div class="font-bold">Bocce Club of DC @ Highland Brewing</div>
-					// 				<div class="text-sm opacity-50">United States</div>
-					// 			</div>
-					// 		</div>
-					// 	</td>
-					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-					// 	<td>3:07pm</td>
-					// 	<td>15 Chess Street</td>
-					// 	<th><a class="btn btn-primary btn-xs" href="/event/d44d2dac-f5be-4c83-a0bd-3fa45475b0e7">details</a></th>
-					// </tr>
-					// <tr>
-					// 	<td>
-					// 		<div class="flex items-center gap-3">
-					// 			<div>
-					// 				<div class="font-bold">Karate (Black Belt Level)</div>
-					// 				<div class="text-sm opacity-50">United States</div>
-					// 			</div>
-					// 		</div>
-					// 	</td>
-					// 	<td>Mar 13, 2024 (Wed)<br/><span class="badge badge-ghost badge-sm">Some Metadata</span></td>
-					// 	<td>3:07pm</td>
-					// 	<td>15 Chess Street</td>
-					// 	<th><a class="btn btn-primary btn-xs" href="/event/88784dfd-a8cc-4b15-b65e-f6f47e56e66d">details</a></th>
-					// </tr>
-				</tbody>
-				<tfoot>
-					<tr>
-						<th>Event Name</th>
-						<th>Date</th>
-						<th>Time</th>
-						<th>Location</th>
-						<th></th>
-					</tr>
-				</tfoot>
-			</table>
 		</div>
 	</div>
 	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ helpers.PurchaseStatus.Pending } data-status-settled={ helpers.PurchaseStatus.Settled }>
+		function getMnmOptionsPayload() {
+			const payload = {
+				subdomain: document.getElementById('subdomain')?.value ?? '',
+				primaryColor: document.getElementById('primary-color-picker-input')?.value ?? helpers.DEFAULT_PRIMARY_COLOR,
+				themeMode: document.getElementById('theme-mode')?.checked ? 'dark' : 'light',
+			}
+			return payload;
+		}
 		function getAdminState() {
 			return {
 				init() {

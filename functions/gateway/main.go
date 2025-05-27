@@ -91,7 +91,7 @@ func init() {
 		{"/api/event-reg-purch/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
-		{"/api/auth/users/set-subdomain{trailingslash:\\/?}", "POST", handlers.SetUserSubdomain, Require},
+		{"/api/auth/users/update-mnm-options{trailingslash:\\/?}", "POST", handlers.SetMnmOptions, Require},
 		{"/api/auth/users/update-interests{trailingslash:\\/?}", "POST", handlers.UpdateUserInterests, Require},
 		{"/api/auth/users/update-about{trailingslash:\\/?}", "POST", handlers.UpdateUserAbout, Require},
 		// TODO: delete this comment once user location is implemented in profile,
@@ -528,7 +528,6 @@ func stateRedirectMiddleware(next http.Handler) http.Handler {
 
 func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("WithDerivedOptionsFromReq: %v", r.Header)
 		mnmOptions := map[string]string{}
 		mnmOptionsHeaderVal := strings.Trim(r.Header.Get("X-Mnm-Options"), "\"")
 		if strings.Contains(mnmOptionsHeaderVal, "=") {
@@ -538,7 +537,6 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 				if len(kv) == 2 {
 					key := strings.Trim(kv[0], " \"") // trim spaces and quotes
 					value := strings.Trim(kv[1], " \"")
-					log.Printf("Parsed key: '%s', value: '%s'", key, value)
 					if slices.Contains(helpers.AllowedMnmOptionsKeys, key) {
 						mnmOptions[key] = value
 					}
