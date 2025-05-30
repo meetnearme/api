@@ -211,36 +211,34 @@ func TestSetCloudFlareKV(t *testing.T) {
 		expectedError   error
 	}{
 		{
-			name:            "Successful KV set",
-			subdomainValue:  "test-subdomain",
-			userID:          "test-user-id",
-			userMetadataKey: "test-metadata-key",
-			metadata:        map[string]string{"key": "value"},
-			expectedError:   nil,
+			name:           "Successful KV set",
+			subdomainValue: "test-subdomain",
+			userID:         "test-user-id",
+			metadata:       map[string]string{"key": "value"},
+			expectedError:  nil,
 		},
 		{
-			name:            "Key already exists",
-			subdomainValue:  "existing-subdomain",
-			userID:          "test-user-id",
-			userMetadataKey: "test-metadata-key",
-			metadata:        map[string]string{"key": "value"},
-			expectedError:   fmt.Errorf(ERR_KV_KEY_EXISTS),
+			name:           "Key already exists",
+			subdomainValue: "existing-subdomain",
+			userID:         "test-user-id",
+			metadata:       map[string]string{"key": "value"},
+			expectedError:  fmt.Errorf(ERR_KV_KEY_EXISTS),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := SetCloudflareKV(tt.subdomainValue, tt.userID, tt.userMetadataKey, tt.metadata)
+			err := SetCloudflareMnmOptions(tt.subdomainValue, tt.userID, tt.metadata)
 			if err != nil && tt.expectedError == nil {
-				t.Errorf("SetCloudflareKV() error = %v, expectedError %v", err, tt.expectedError)
+				t.Errorf("SetCloudflareMnmOptions() error = %v, expectedError %v", err, tt.expectedError)
 				return
 			}
 			if err == nil && tt.expectedError != nil {
-				t.Errorf("SetCloudflareKV() error = %v, expectedError %v", err, tt.expectedError)
+				t.Errorf("SetCloudflareMnmOptions() error = %v, expectedError %v", err, tt.expectedError)
 				return
 			}
 			if err != nil && tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
-				t.Errorf("SetCloudflareKV() error = %v, expectedError %v", err, tt.expectedError)
+				t.Errorf("SetCloudflareMnmOptions() error = %v, expectedError %v", err, tt.expectedError)
 				return
 			}
 		})

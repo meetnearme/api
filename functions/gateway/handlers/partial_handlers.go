@@ -80,7 +80,7 @@ func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userID := userInfo.Sub
 
 	// Call Cloudflare KV store to save the subdomain
-	cfMetadataValue := fmt.Sprintf(`userId:%s;--p:%s;themeMode:%s`, userID, inputPayload.PrimaryColor, inputPayload.ThemeMode)
+	cfMetadataValue := fmt.Sprintf(`userId=%s;--p=%s;themeMode=%s`, userID, inputPayload.PrimaryColor, inputPayload.ThemeMode)
 	metadata := map[string]string{"": ""}
 	err = helpers.SetCloudflareMnmOptions(inputPayload.Subdomain, userID, metadata, cfMetadataValue)
 	if err != nil {
