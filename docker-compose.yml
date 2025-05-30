@@ -28,7 +28,10 @@ services:
     restart: unless-stopped
     environment:
       QUERY_DEFAULTS_LIMIT: 25
-      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'false'
+      AUTHENTICATION_APIKEY_ENABLED: 'true'
+      AUTHENTICATION_APIKEY_ALLOWED_KEYS: '${WEAVIATE_API_KEY_ALLOWED_KEYS}'
+      AUTHENTICATION_APIKEY_USERS: '${WEAVIATE_API_KEY_USERS}'
       PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
       DEFAULT_VECTORIZER_MODULE:
       ENABLE_MODULES:
@@ -38,6 +41,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      - ./.env
 
   go-app:
     build:
