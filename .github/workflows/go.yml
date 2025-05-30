@@ -37,7 +37,8 @@ jobs:
         uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Build Go binaries
         run: go build -v ./...
-      - name: Cache Playwrightdrivers
+      - name: Cache Playwright drivers
+        id: playwright-cache
         uses: actions/cache@v4
         with:
           path: |
@@ -53,7 +54,7 @@ jobs:
       - name: Install Playwright-go
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: |
-          go install github.com/playwright-community/playwright-go/cmd/playwright@latest
+          go install github.com/playwright-community/playwright-go/cmd/playwright@v0.5101.0
           playwright install --with-deps ${{ matrix.browser }}
       - name: Run Go tests
         run: go test ./...
