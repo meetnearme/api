@@ -37,7 +37,8 @@ jobs:
         uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Build Go binaries
         run: go build -v ./...
-      - name: Cache Playwrightdrivers
+      - name: Cache Playwright drivers
+        id: playwright-cache
         uses: actions/cache@v4
         with:
           path: |
