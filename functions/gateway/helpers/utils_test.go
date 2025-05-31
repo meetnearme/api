@@ -113,7 +113,7 @@ func TestSetCloudflareMnmOptions(t *testing.T) {
 	originalAccountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	originalNamespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
 	originalAPIToken := os.Getenv("CLOUDFLARE_API_TOKEN")
-	originalCfApiBaseUrl := os.Getenv("CLOUDFLARE_API_BASE_URL")
+	originalCfApiBaseUrl := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
 	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
 
 	// Get initial endpoints
@@ -125,7 +125,7 @@ func TestSetCloudflareMnmOptions(t *testing.T) {
 	os.Setenv("CLOUDFLARE_ACCOUNT_ID", "test-account-id")
 	os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", "test-namespace-id")
 	os.Setenv("CLOUDFLARE_API_TOKEN", "test-api-token")
-	os.Setenv("CLOUDFLARE_API_BASE_URL", cfEndpoint)
+	os.Setenv("CLOUDFLARE_API_CLIENT_BASE_URL", cfEndpoint)
 	os.Setenv("ZITADEL_INSTANCE_HOST", zitadelEndpoint)
 
 	// Defer resetting environment variables
@@ -133,7 +133,7 @@ func TestSetCloudflareMnmOptions(t *testing.T) {
 		os.Setenv("CLOUDFLARE_ACCOUNT_ID", originalAccountID)
 		os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", originalNamespaceID)
 		os.Setenv("CLOUDFLARE_API_TOKEN", originalAPIToken)
-		os.Setenv("CLOUDFLARE_API_BASE_URL", originalCfApiBaseUrl)
+		os.Setenv("CLOUDFLARE_	API_BASE_URL", originalCfApiBaseUrl)
 		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
 	}()
 
@@ -828,12 +828,14 @@ func TestGetCloudflareMnmOptions(t *testing.T) {
 	os.Setenv("CLOUDFLARE_ACCOUNT_ID", "test-account-id")
 	os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", "test-namespace-id")
 	os.Setenv("CLOUDFLARE_API_BASE_URL", cfEndpoint)
+	os.Setenv("CLOUDFLARE_API_CLIENT_BASE_URL", cfEndpoint)
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("CLOUDFLARE_ACCOUNT_ID", originalAccountID)
 		os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", originalNamespaceID)
 		os.Setenv("CLOUDFLARE_API_BASE_URL", originalCfApiBaseUrl)
+		os.Setenv("CLOUDFLARE_API_CLIENT_BASE_URL", originalCfApiBaseUrl)
 	}()
 
 	// Create mock Cloudflare server

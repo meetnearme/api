@@ -143,8 +143,7 @@ func GetImgUrlFromHash(event types.Event) string {
 func GetCloudflareMnmOptions(subdomainValue string) (string, error) {
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
-	baseURL := os.Getenv("CLOUDFLARE_API_BASE_URL")
-
+	baseURL := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
 	cfClient := cloudflare.NewClient(
 		option.WithAPIKey(accountID),
 		option.WithBaseURL(baseURL),
@@ -175,7 +174,7 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 	mnmOptionsKey := SUBDOMAIN_KEY
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
-	baseURL := os.Getenv("CLOUDFLARE_API_BASE_URL")
+	baseURL := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
 
 	cfClient := cloudflare.NewClient(
 		option.WithAPIKey(accountID),
