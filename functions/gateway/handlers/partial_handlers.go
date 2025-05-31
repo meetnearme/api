@@ -15,6 +15,7 @@ import (
 
 	"net/http"
 
+	"github.com/a-h/templ"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -92,7 +93,12 @@ func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	var buf bytes.Buffer
-	successPartial := partials.SuccessBannerHTML(`Subdomain set successfully`)
+	var successPartial templ.Component
+	if r.URL.Query().Has("theme") {
+		successPartial = partials.SuccessBannerHTML(`Theme updated successfully`)
+	} else {
+		successPartial = partials.SuccessBannerHTML(`Subdomain set successfully`)
+	}
 
 	err = successPartial.Render(r.Context(), &buf)
 	if err != nil {

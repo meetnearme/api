@@ -208,7 +208,7 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 					<form
 						class="group"
 						novalidate
-						hx-post="/api/auth/users/update-mnm-options"
+						hx-post="/api/auth/users/update-mnm-options?theme=1"
 						hx-ext="json-enc"
 						hx-target="#theme-result"
 						hx-disabled-elt="button[type='submit']"
