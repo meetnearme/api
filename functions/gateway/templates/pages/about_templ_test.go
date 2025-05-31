@@ -24,16 +24,17 @@ func TestAboutPage(t *testing.T) {
 		UpdatedAt:         1234567890,
 		Metadata:          "",
 	}
+	fakeContext := context.Background()
+	fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123", "--p": "#000000", "themeMode": "dark"})
 
 	// Call the AboutPage function
 	aboutPage := AboutPage()
-	fakeContext := context.Background()
 	// Create a layout template
 	layoutTemplate := Layout(helpers.SitePages["admin"], mockUserInfo, aboutPage, types.Event{}, fakeContext, []string{})
 
-	// Render the template
+	// Render the template using the same context
 	var buf bytes.Buffer
-	err := layoutTemplate.Render(context.Background(), &buf)
+	err := layoutTemplate.Render(fakeContext, &buf)
 
 	// Check for rendering errors
 	if err != nil {

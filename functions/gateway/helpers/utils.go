@@ -140,13 +140,46 @@ func GetImgUrlFromHash(event types.Event) string {
 	return baseUrl + "cat_none" + catNumString + fmt.Sprint(imgNum) + ".jpeg"
 }
 
+func GetCloudflareMnmOptions(subdomainValue string) (string, error) {
+	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
+	baseURL := os.Getenv("CLOUDFLARE_API_BASE_URL")
+
+	cfClient := cloudflare.NewClient(
+		option.WithAPIKey(accountID),
+		option.WithBaseURL(baseURL),
+	)
+
+	resp, err := cfClient.KV.Namespaces.Values.Get(
+		context.TODO(),
+		namespaceID,
+		subdomainValue,
+		kv.NamespaceValueGetParams{
+			AccountID: cloudflare.F(accountID),
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("error getting cloudflare mnm options: %w", err)
+	}
+
+	// return the response body as a string
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading cloudflare mnm options: %w", err)
+	}
+
+	return string(body), nil
+}
+
 func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]string, cfMetadataValue string) error {
 	mnmOptionsKey := SUBDOMAIN_KEY
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
+	baseURL := os.Getenv("CLOUDFLARE_API_BASE_URL")
 
 	cfClient := cloudflare.NewClient(
 		option.WithAPIKey(accountID),
+		option.WithBaseURL(baseURL),
 	)
 
 	// First, check if the key already exists

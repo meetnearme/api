@@ -217,13 +217,10 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 
 	ctx := r.Context()
 	mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
-	log.Printf("220 >>> mnmOptions: %v", mnmOptions)
 	mnmUserId := mnmOptions["userId"]
-	log.Printf("222 >>> mnmUserId: %v", mnmUserId)
 	if mnmUserId != "" {
 		userId = mnmUserId
 	}
-	log.Printf("225 >>> mnmOptions: %v", mnmOptions)
 	// Start concurrent operations if userId exists
 	if userId != "" {
 		// Single goroutine for all three requests when userId exists
@@ -293,9 +290,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 
 	// fetch the `about` metadata for the user
 	var aboutData string
-	log.Printf("296 >>> userId: %v", userId)
 	if userId != "" {
-		log.Printf("298 >>> INSIDE IF userId: %v", userId)
 		// NOTE: here we ignore the error because we allow the page/user to not have an about section
 		aboutData, _ = helpers.GetOtherUserMetaByID(userId, helpers.META_ABOUT_KEY)
 		// Get user result from channel
@@ -322,8 +317,6 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 		}
 	}
 
-	log.Printf("240 >>> pageUser: %v", pageUser)
-
 	return events, cfLocation, userLocation, pageUser, http.StatusOK, nil
 }
 
@@ -341,8 +334,6 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		}
 		return transport.SendHtmlRes(w, []byte(err.Error()), status, "page", err)
 	}
-
-	log.Printf("pageUser: %v", pageUser)
 
 	homePage := pages.HomePage(
 		events,
@@ -405,7 +396,14 @@ func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
 	userSubdomain := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.SUBDOMAIN_KEY)
 	userAboutData, err := helpers.GetOtherUserMetaByID(userInfo.Sub, helpers.META_ABOUT_KEY)
-	adminPage := pages.AdminPage(userInfo, roleClaims, userInterests, userSubdomain, userAboutData, ctx)
+
+	mnmOptions := ""
+	if userSubdomain != "" {
+		mnmOptions, err = helpers.GetCloudflareMnmOptions(userSubdomain)
+		// NOTE: we don't care about an error here
+	}
+
+	adminPage := pages.AdminPage(userInfo, roleClaims, userInterests, userSubdomain, mnmOptions, userAboutData, ctx)
 	layoutTemplate := pages.Layout(helpers.SitePages["admin"], userInfo, adminPage, types.Event{}, ctx, []string{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)

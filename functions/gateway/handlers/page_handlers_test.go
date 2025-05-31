@@ -92,11 +92,17 @@ func TestGetHomeOrUserPage(t *testing.T) {
 	boundAddress := mockMarqoServer.Listener.Addr().String()
 	os.Setenv("DEV_MARQO_API_BASE_URL", fmt.Sprintf("http://%s", boundAddress))
 
+	// Add MNM_OPTIONS_CTX_KEY to context
+	fakeContext := context.Background()
+	fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
+
 	// Create a request
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	req = req.WithContext(fakeContext)
 
 	// Create a ResponseRecorder to record the response
 	rr := httptest.NewRecorder()
@@ -203,6 +209,7 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		Headers: map[string]string{"cf-ray": "8aebbd939a781f45-DEN"},
 	})
+	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
 
 	req = req.WithContext(ctx)
 
@@ -259,8 +266,52 @@ func TestGetAdminPage(t *testing.T) {
 		},
 	}
 
+	// Save original environment variables
+	originalAccountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	originalNamespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
+
+	// Set test environment variables
+	os.Setenv("CLOUDFLARE_ACCOUNT_ID", "test-account-id")
+	os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", "test-namespace-id")
+
+	// Defer resetting environment variables
+	defer func() {
+		os.Setenv("CLOUDFLARE_ACCOUNT_ID", originalAccountID)
+		os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", originalNamespaceID)
+	}()
+
+	// Create mock Cloudflare server
+	mockCloudflareServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the request path and method
+		if r.Method != "GET" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Check if the request is for the correct endpoint
+		if !strings.Contains(r.URL.Path, "/client/v4/accounts/test-account-id/storage/kv/namespaces/test-namespace-id/values/") {
+			http.Error(w, "Invalid endpoint", http.StatusNotFound)
+			return
+		}
+
+		// Mock successful response
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success": true, "result": "test-value"}`))
+	}))
+
+	// Set up the mock server
+	mockCloudflareServer.Listener.Close()
+	listener, err := test_helpers.BindToPort(t, helpers.MOCK_CLOUDFLARE_URL)
+	if err != nil {
+		t.Fatalf("Failed to start mock Cloudflare server: %v", err)
+	}
+	mockCloudflareServer.Listener = listener
+	mockCloudflareServer.Start()
+	defer mockCloudflareServer.Close()
+
 	ctx := context.WithValue(req.Context(), "userInfo", mockUserInfo)
 	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
+	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
 	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
@@ -286,6 +337,8 @@ func TestGetMapEmbedPage(t *testing.T) {
 	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		QueryStringParameters: map[string]string{"address": "New York"},
 	})
+	// Add MNM_OPTIONS_CTX_KEY to context
+	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
 	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
@@ -401,6 +454,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 
 	ctx = context.WithValue(req.Context(), "userInfo", mockUserInfo)
 	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
+	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
 	_ = req.WithContext(ctx)
 
 	// Set up router to extract variables

@@ -14,12 +14,14 @@ func TestAddEventSource(t *testing.T) {
 	// Call the AddEventSource function
 	component := AddEventSource()
 	fakeContext := context.Background()
+	// Add MNM_OPTIONS_CTX_KEY to context
+	fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
 	// Create a layout template
 	layoutTemplate := Layout(helpers.SitePages["add-event-source"], helpers.UserInfo{}, component, types.Event{}, fakeContext, []string{})
 
-	// Render the template
+	// Render the template using the same context
 	var buf bytes.Buffer
-	err := layoutTemplate.Render(context.Background(), &buf)
+	err := layoutTemplate.Render(fakeContext, &buf)
 
 	// Check for rendering errors
 	if err != nil {

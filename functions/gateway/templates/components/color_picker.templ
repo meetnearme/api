@@ -2,7 +2,7 @@ package components
 
 import "github.com/meetnearme/api/functions/gateway/helpers"
 
-templ ColorPicker(defaultColor string, label string, id string) {
+templ ColorPicker(selectedColor string, label string, id string) {
 	<div
 		class="w-full py-6"
 		x-data="getColorPickerState()"
@@ -40,12 +40,14 @@ templ ColorPicker(defaultColor string, label string, id string) {
 				/>
 			</div>
 		</div>
-		<script data-default-color={ helpers.DEFAULT_PRIMARY_COLOR }>
+		<script data-selected-color={ selectedColor } data-default-color={ helpers.DEFAULT_PRIMARY_COLOR }>
+      var selectedColor = document.querySelector('[data-selected-color]').dataset.selectedColor;
+      var defaultColor = document.querySelector('[data-default-color]').dataset.defaultColor;
       function getColorPickerState() {
         return {
           // Options
           // TODO: figure out how to get this from helpers.DEFAULT_PRIMARY_COLOR
-          defaultColor: '#ccc',
+          defaultColor: selectedColor || defaultColor,
 
           // Helpers
           color: null,

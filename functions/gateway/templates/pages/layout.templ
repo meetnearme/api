@@ -89,41 +89,52 @@ func hexToOklch(hex string) (oklch string) {
 type themeStyleTag struct{}
 
 func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
-	mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
-	hexPrimaryColor := mnmOptions["--p"]
-	if hexPrimaryColor != "" {
-
-		// fallbackPrimaryColor := mnmOptions.Theme.FallbackColor
-		oklchPrimaryColor := hexToOklch(hexPrimaryColor)
-		fmt.Println(oklchPrimaryColor)
-
-		oklchFromHex := hexToOklch("#39ff14")
-		log.Printf("color: %s", oklchFromHex)
-
-		maxContrastColorHex, err := maxContrastColor(hexPrimaryColor)
-		if err != nil {
-			log.Printf("error: %s", err)
-		}
-		log.Printf("maxContrastColor: %s", maxContrastColorHex)
-
-		maxContrastColorOklch := hexToOklch(maxContrastColorHex)
-		log.Printf("maxContrastColorOklch: %s", maxContrastColorOklch)
-
-		fmt.Fprintf(w,
-			`<style type="text/css">
-				:root {
-					--p: %s;
-					--fallback-p: %s;
-					--pc: %s;
-					--fallback-pc: %s;
-				}
-			</style>`,
-			oklchPrimaryColor,
-			hexPrimaryColor,
-			maxContrastColorOklch,
-			maxContrastColorHex,
-		)
+	// Safely get the MNM_OPTIONS from context
+	mnmOptionsValue := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY)
+	if mnmOptionsValue == nil {
+		// If no options are set, return without error
+		return nil
 	}
+
+	mnmOptions, ok := mnmOptionsValue.(map[string]string)
+	if !ok {
+		// If type assertion fails, return without error
+		return nil
+	}
+
+	// Get the primary color with a default value
+	hexPrimaryColor := mnmOptions["--p"]
+	if hexPrimaryColor == "" {
+		// If no primary color is set, return without error
+		return nil
+	}
+
+	// Convert colors
+	oklchPrimaryColor := hexToOklch(hexPrimaryColor)
+	maxContrastColorHex, err := maxContrastColor(hexPrimaryColor)
+	if err != nil {
+		// Log error but continue with default contrast color
+		log.Printf("error calculating max contrast color: %s", err)
+		maxContrastColorHex = "#000000" // Default to black
+	}
+
+	maxContrastColorOklch := hexToOklch(maxContrastColorHex)
+
+	// Write the style tag
+	fmt.Fprintf(w,
+		`<style type="text/css">
+			:root {
+				--p: %s;
+				--fallback-p: %s;
+				--pc: %s;
+				--fallback-pc: %s;
+			}
+		</style>`,
+		oklchPrimaryColor,
+		hexPrimaryColor,
+		maxContrastColorOklch,
+		maxContrastColorHex,
+	)
 
 	return nil
 }
