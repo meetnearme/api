@@ -628,7 +628,6 @@ func GetOtherUserMetaByID(userID, key string) (string, error) {
 		return "", err
 	}
 	if res.StatusCode > 400 {
-		log.Printf("res.StatusCode: %v", res.StatusCode)
 		return "", fmt.Errorf("failed to get user metadata: %v", res.StatusCode)
 	}
 

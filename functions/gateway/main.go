@@ -533,8 +533,7 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 
 		mnmOptionsHeaderVal := strings.Trim(r.Header.Get("X-Mnm-Options"), "\"")
 		if mnmOptionsHeaderVal == "" {
-			// Log warning but continue with empty options
-			log.Printf("Warning: X-Mnm-Options header is empty or not set")
+			// do nothing if missing
 		} else if strings.Contains(mnmOptionsHeaderVal, "=") {
 			parts := strings.Split(mnmOptionsHeaderVal, ";")
 			for _, part := range parts {

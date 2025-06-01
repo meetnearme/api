@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
+	"os"
 	"strings"
 )
 
@@ -177,29 +178,52 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 			}
 			<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/profile/settings">interests page</a>.</p>
 			<h3 class="text-2xl font-bold mb-4">My Subdomain</h3>
-			<form
-				class="group"
-				novalidate
-				hx-post="/api/auth/users/update-mnm-options"
-				hx-ext="json-enc"
-				hx-target="#subdomain-result"
-				hx-disabled-elt="button[type='submit']"
-				@submit.prevent=""
-				@htmx:after-request="handleSubdomainPostRes(event)"
-				hx-vals="js:{...getMnmOptionsPayload()}"
-			>
-				<input
-					id="subdomain"
-					if userSubdomain != "" {
-						value={ userSubdomain }
+			{{ baseDomain := strings.TrimPrefix(os.Getenv("APEX_URL"), "https://") }}
+			<div
+				x-data={ `{
+				subdomainPreview: '` + userSubdomain + `',
+				subdomain: '` + userSubdomain + `',
+				baseDomain: '` + baseDomain + `',
+				handleSubdomainPostRes(event) {
+					if (event.detail.successful) {
+						this.subdomainPreview = this.subdomain;
 					}
-					pattern="[a-z0-9]+"
-					name="subdomain"
-					type="text"
-					class="input input-bordered w-full"
-				/>
-				<button type="submit" class="btn btn-primary mt-4">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
-			</form>
+				}
+			}` }
+			>
+				<p class="mb-4">
+					View custom subdomain at
+					<a
+						class="link link-primary"
+						x-bind:href=" 'https://' + subdomainPreview + '.' + baseDomain "
+						x-text=" 'https://' + subdomainPreview + '.' + baseDomain "
+					></a>
+				</p>
+				<form
+					class="group"
+					novalidate
+					hx-post="/api/auth/users/update-mnm-options"
+					hx-ext="json-enc"
+					hx-target="#subdomain-result"
+					hx-disabled-elt="button[type='submit']"
+					@submit.prevent=""
+					@htmx:after-request="handleSubdomainPostRes(event)"
+					hx-vals="js:{...getMnmOptionsPayload()}"
+				>
+					<input
+						id="subdomain"
+						if userSubdomain != "" {
+							value={ userSubdomain }
+						}
+						x-model="subdomain"
+						pattern="[a-z0-9]+"
+						name="subdomain"
+						type="text"
+						class="input input-bordered w-full"
+					/>
+					<button type="submit" class="btn btn-primary mt-4">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+				</form>
+			</div>
 			<div id="subdomain-result" class="margins-when-children my-8"></div>
 			<h3 class="text-2xl font-bold mb-4 mt-4">Custom Theme</h3>
 			<p>
@@ -338,10 +362,10 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 				getPurchasesNextLink() {
 					return window.location.href + '?purch_start_key=' + this.purchasesNextCursor + '_' + this.userId;
 				},
-				handleSubdomainPostRes: function(event) {
-					// eslint-disable-next-line no-console
-					console.log(event)
-				},
+				// handleSubdomainPostRes: function(event) {
+				// 	// eslint-disable-next-line no-console
+				// 	console.log(event)
+				// },
 				getPurchaseStatus(purchase) {
 					return purchase.status.replace(this.statusSettled, 'PAID').replace(this.statusPending, 'INCOMPLETE')
 				}
