@@ -32,6 +32,7 @@ type SeshuSession struct {
 	LocationLongitude float64          `json:"locationLongitude" validate:"optional"`
 	LocationAddress   string           `json:"locationAddress" validate:"optional"`
 	Html              string           `json:"html" validate:"required"`
+	ChildID           string           `json:"childId" dynamodbav:"childId" validate:"optional"`
 	EventCandidates   []EventInfo      `json:"eventCandidates" validate:"optional"`
 	EventValidations  []EventBoolValid `json:"eventValidations" validate:"optional"`
 	Status            string           `json:"status" validate:"optional"`
@@ -62,6 +63,7 @@ type SeshuSessionInsert struct {
 	LocationLongitude float64          `json:"locationLongitude" dynamodbav:"locationLongitude" validate:"optional"`
 	LocationAddress   string           `json:"locationAddress" dynamodbav:"locationAddress" validate:"optional"`
 	Html              string           `json:"html" dynamodbav:"html" validate:"required"`
+	ChildId           string           `json:"childId" dynamodbav:"childId" validate:"optional"`
 	EventCandidates   []EventInfo      `json:"eventCandidates" dynamodbav:"eventCandidates" validate:"optional"`
 	EventValidations  []EventBoolValid `json:"eventValidations" dynamodbav:"eventValidations" validate:"optional"`
 	Status            string           `json:"status" dynamodbav:"status" validate:"optional"`
@@ -79,6 +81,7 @@ type SeshuSessionUpdate struct {
 	LocationLongitude float64          `json:"locationLongitude" dynamodbav:"locationLongitude" validate:"optional"`
 	LocationAddress   string           `json:"locationAddress" dynamodbav:"locationAddress" validate:"optional"`
 	Html              string           `json:"html" dynamodbav:"html" validate:"optional"`
+	ChildID           string           `json:"childId" dynamodbav:"childId" validate:"optional"`
 	EventCandidates   []EventInfo      `json:"eventCandidates" dynamodbav:"eventCandidates" validate:"optional"`
 	EventValidations  []EventBoolValid `json:"eventValidations" dynamodbav:"eventValidations" validate:"optional"`
 	Status            string           `json:"status" dynamodbav:"status" validate:"optional"`
