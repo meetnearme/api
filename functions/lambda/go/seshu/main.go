@@ -62,6 +62,11 @@ type SeshuInputPayload struct {
 	Url string `json:"url" validate:"required"`
 }
 
+type SeshuRecursivePayload struct {
+	ParentUrl string `json:"parent_url" validate:"required"`
+	Url       string `json:"url" validate:"required"`
+}
+
 type SeshuResponseBody struct {
 	SessionID   string            `json:"session_id"`
 	EventsFound []types.EventInfo `json:"events_found"`
@@ -117,7 +122,93 @@ type CompletionTokensDetails struct {
 	RejectedPredictionTokens int `json:"rejected_prediction_tokens"`
 }
 
-var systemPrompt = `You are a helpful LLM capable of accepting an array of strings and reorganizing them according to patterns only an LLM is capable of recognizing.
+var systemPrompt string
+
+// var systemPrompt = `You are a helpful LLM capable of accepting an array of strings and reorganizing them according to patterns only an LLM is capable of recognizing.
+
+// Your goal is to take the javascript array input I will provide, called the ` + "`textStrings`" + `below and return a grouped array of JSON objects. Each object should represent a single event, where it's keys are the event metadata associated with the categories below that are to be searched for. There should be no duplicate keys. Each object consists of no more than one of a given event metadata. When forming these groups, prioritize proximity (meaning, the closer two strings are in array position) in creating the event objects in the returned array of objects. In other words, the closer two strings are together, the higher the likelihood that they are two different event metadata items for the same event.
+
+// If ` + "`textStrings`" + ` is empty, return an empty array.
+
+// Any response you provide must ALWAYS begin with the characters ` + "`[{`" + ` and end with the characters ` + "`}]`" + `.
+
+// Do not provide me with example code to achieve this task. Only an LLM (you are an LLM) is capable of reading the array of text strings and determining which string is a relevance match for which category can resolve this task. Javascript alone cannot resolve this query.
+
+// Do not explain how code might be used to achieve this task. Do not explain how regex might accomplish this task. Only an LLM is capable of this pattern matching task. My expectation is a response from you that is an array of objects, where the keys are the event metadata from the categories below.
+
+// Do not return an ordered list of strings. Return an array of objects, where each object is a single event, and the keys of each object are the event metadata from the categories below.
+
+// It is understood that the strings in the input below are in some cases not a categorical match for the event metadata categories below. This is acceptable. The LLM is capable of determining which strings are a relevance match for which category. It is acceptable to discard strings that are not a relevance match for any category.
+
+// The categories to search for relevance matches in are as follows:
+// =====
+// 1. Event title
+// 2. Event location
+// 3. Event start date / time
+// 4. Event end date / time
+// 5. Event URL
+// 6. Event description
+
+// Note that some keys may be missing, for example, in the example below, the "event description" is missing. This is acceptable. The event metadata keys are not guaranteed to be present in the input array of strings.
+
+// Do not truncate the response with an ellipsis ` + "`...`" + `, list the full event array in it's entirety, unless it exceeds the context window. Your response must be a JSON array of event objects that is valid JSON following this example schema:
+
+// ` + "```" + `
+// [{"event_title": "` + services.FakeEventTitle1 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime1 + `", "event_end_datetime": "` + services.FakeEndTime1 + `", "event_url": "` + services.FakeUrl1 + `"},{"event_title": "` + services.FakeEventTitle2 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime2 + `", "event_end_datetime": "` + services.FakeEndTime2 + `", "event_url": "` + services.FakeUrl2 + `"}]
+// ` + "```" + `
+
+// The input is:
+// =====
+// const textStrings = `
+
+var db types.DynamoDBAPI
+var scrapingService services.ScrapingService
+
+func init() {
+	db = transport.CreateDbClient()
+	scrapingService = &services.RealScrapingService{}
+}
+
+func getSystemPrompt(isRecursive bool) string {
+	if isRecursive {
+		return `You are a helpful LLM capable of accepting an array of strings and reorganizing them according to patterns only an LLM is capable of recognizing.
+
+Your goal is to take the javascript array input I will provide, called the ` + "`textStrings`" + ` below and return a single grouped JSON object representing one event. This object should consist of the event metadata associated with the categories below that are to be searched for. There should be no duplicate keys. The object must contain no more than one of a given event metadata. When forming this object, prioritize proximity (meaning, the closer two strings are in array position) in associating them with the same event.
+
+If ` + "`textStrings`" + ` is empty, return an empty array.
+
+Any response you provide must ALWAYS begin with the characters ` + "`[{`" + ` and end with the characters ` + "`}]`" + `.
+
+Do not provide me with example code to achieve this task. Only an LLM (you are an LLM) is capable of reading the array of text strings and determining which string is a relevance match for which category can resolve this task. Javascript alone cannot resolve this query.
+
+Do not explain how code might be used to achieve this task. Do not explain how regex might accomplish this task. Only an LLM is capable of this pattern matching task. My expectation is a response from you that is an array containing one object, where the keys are the event metadata from the categories below.
+
+Do not return an ordered list of strings. Return a single-element array of one object, where the object represents a single event, and the keys of the object are the event metadata from the categories below.
+
+It is understood that the strings in the input below are in some cases not a categorical match for the event metadata categories below. This is acceptable. The LLM is capable of determining which strings are a relevance match for which category. It is acceptable to discard strings that are not a relevance match for any category.
+
+The categories to search for relevance matches in are as follows:
+=====
+1. Event title
+2. Event location
+3. Event start date / time
+4. Event end date / time
+5. Event URL
+6. Event description
+
+Note that some keys may be missing, for example, in the example below, the "event description" is missing. This is acceptable. The event metadata keys are not guaranteed to be present in the input array of strings.
+
+Do not truncate the response with an ellipsis ` + "`...`" + `, list the full object in its entirety, unless it exceeds the context window. Your response must be a JSON array with one event object that is valid JSON following this example schema:
+
+` + "```" + `
+[{"event_title": "` + services.FakeEventTitle1 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime1 + `", "event_end_datetime": "` + services.FakeEndTime1 + `", "event_url": "` + services.FakeUrl1 + `"}]
+` + "```" + `
+
+The input is:
+=====
+const textStrings = `
+	}
+	return `You are a helpful LLM capable of accepting an array of strings and reorganizing them according to patterns only an LLM is capable of recognizing.
 
 Your goal is to take the javascript array input I will provide, called the ` + "`textStrings`" + `below and return a grouped array of JSON objects. Each object should represent a single event, where it's keys are the event metadata associated with the categories below that are to be searched for. There should be no duplicate keys. Each object consists of no more than one of a given event metadata. When forming these groups, prioritize proximity (meaning, the closer two strings are in array position) in creating the event objects in the returned array of objects. In other words, the closer two strings are together, the higher the likelihood that they are two different event metadata items for the same event.
 
@@ -146,7 +237,6 @@ Note that some keys may be missing, for example, in the example below, the "even
 
 Do not truncate the response with an ellipsis ` + "`...`" + `, list the full event array in it's entirety, unless it exceeds the context window. Your response must be a JSON array of event objects that is valid JSON following this example schema:
 
-
 ` + "```" + `
 [{"event_title": "` + services.FakeEventTitle1 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime1 + `", "event_end_datetime": "` + services.FakeEndTime1 + `", "event_url": "` + services.FakeUrl1 + `"},{"event_title": "` + services.FakeEventTitle2 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime2 + `", "event_end_datetime": "` + services.FakeEndTime2 + `", "event_url": "` + services.FakeUrl2 + `"}]
 ` + "```" + `
@@ -154,13 +244,6 @@ Do not truncate the response with an ellipsis ` + "`...`" + `, list the full eve
 The input is:
 =====
 const textStrings = `
-
-var db types.DynamoDBAPI
-var scrapingService services.ScrapingService
-
-func init() {
-	db = transport.CreateDbClient()
-	scrapingService = &services.RealScrapingService{}
 }
 
 func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
@@ -175,34 +258,73 @@ func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.La
 }
 
 func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scraper services.ScrapingService) (events.LambdaFunctionURLResponse, error) {
-	var inputPayload SeshuInputPayload
-	var eventValidation []types.EventBoolValid
 
-	err := json.Unmarshal([]byte(req.Body), &inputPayload)
-	if err != nil {
-		log.Printf("Invalid JSON payload: %v", err)
-		return clientError(http.StatusUnprocessableEntity)
-	}
+	action := req.QueryStringParameters["action"]
+	var (
+		urlToScrape     string
+		parentUrl       string
+		childID         string
+		eventValidation []types.EventBoolValid
+	)
 
-	err = validate.Struct(&inputPayload)
-	if err != nil {
-		log.Printf("Invalid body: %v", err)
+	switch action {
+	case "init":
+		systemPrompt = getSystemPrompt(false)
+		var payload SeshuInputPayload
+		if err := parseAndValidatePayload(req.Body, &payload); err != nil {
+			return clientError(http.StatusUnprocessableEntity)
+		}
+		urlToScrape = payload.Url
+		childID = ""
+	case "rs":
+		systemPrompt = getSystemPrompt(true)
+		var payload SeshuRecursivePayload
+		if err := parseAndValidatePayload(req.Body, &payload); err != nil {
+			return clientError(http.StatusUnprocessableEntity)
+		}
+		urlToScrape = payload.Url
+		parentUrl = payload.ParentUrl
+		childID = ""
+	default:
 		return clientError(http.StatusBadRequest)
 	}
 
-	htmlString, err := scraper.GetHTMLFromURL(inputPayload.Url, 4500, true, "")
+	// switch actionQueryParam {
+	// case "init":
+	// 	systemPrompt = getSystemPrompt(false)
+	// 	childID = ""
+	// 	err := json.Unmarshal([]byte(req.Body), &inputPayload)
+	// 	if err != nil {
+	// 		log.Printf("Invalid JSON payload: %v", err)
+	// 		return clientError(http.StatusUnprocessableEntity)
+	// 	}
+	// 	err = validate.Struct(&inputPayload)
+	// 	if err != nil {
+	// 		log.Printf("Invalid body: %v", err)
+	// 		return clientError(http.StatusBadRequest)
+	// 	}
+
+	// case "rs":
+	// 	systemPrompt = getSystemPrompt(true)
+	// 	childID = ""
+	// 	err := json.Unmarshal([]byte(req.Body), &inputRecursivePayload)
+	// 	if err != nil {
+	// 		log.Printf("Invalid JSON payload: %v", err)
+	// 		return clientError(http.StatusUnprocessableEntity)
+	// 	}
+	// 	err = validate.Struct(&inputRecursivePayload)
+	// 	if err != nil {
+	// 		log.Printf("Invalid body: %v", err)
+	// 		return clientError(http.StatusBadRequest)
+	// 	}
+	// default:
+	// 	return clientError(http.StatusBadRequest)
+	// }
+
+	htmlString, err := scraper.GetHTMLFromURL(urlToScrape, 4500, true, "")
 	if err != nil {
 		return _SendHtmlErrorPartial(err, ctx, req)
 	}
-
-	// avoid extra parsing work for <head> content outside of <body>
-	// TODO: this doesn't appear to be working
-
-	// re := regexp.MustCompile(`<body>(.*?)<\/body>`)
-	// matches := re.FindStringSubmatch(htmlString)
-	// if len(matches) > 1 {
-	// 	htmlString = matches[1]
-	// }
 
 	// Getting <body> content only
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlString))
@@ -264,7 +386,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 	// we want to save the session AFTER sending an HTML response, since we will already
 	// have the session's `partitionKey` (which is always the full URL) for lookup later
 	defer func() {
-		url, err := url.Parse(inputPayload.Url)
+		url, err := url.Parse(urlToScrape)
 		if err != nil {
 			log.Println("ERR: Error parsing URL:", err)
 		}
@@ -290,11 +412,12 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 			SeshuSession: types.SeshuSession{
 				// TODO: this needs wiring up with Auth
 				OwnerId:        "123",
-				Url:            inputPayload.Url,
+				Url:            urlToScrape,
 				UrlDomain:      domain,
 				UrlPath:        path,
 				UrlQueryParams: queryParams,
 				Html:           truncatedHTMLStr,
+				ChildID:        childID,
 				// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
 				// when we create a new session, we can't allow it to be `0` because that is
 				// a valid value for both latitdue and longitude (see "null island")
@@ -311,6 +434,24 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 		_, err = services.InsertSeshuSession(ctx, db, seshuSessionPayload)
 		if err != nil {
 			log.Println("Error inserting Seshu session:", err)
+		}
+
+		if action == "rs" {
+			parsedParentUrl, err := url.Parse(parentUrl)
+			if err != nil {
+				log.Println("ERR: unable to parse parentUrl for update:", err)
+				return
+			}
+
+			parentUpdatePayload := types.SeshuSessionUpdate{
+				Url:     parsedParentUrl.String(), // primary key
+				ChildID: url.String(),             // new value to update
+			}
+
+			_, err = services.UpdateSeshuSession(ctx, db, parentUpdatePayload)
+			if err != nil {
+				log.Println("ERR: failed to update parent session with childID:", err)
+			}
 		}
 	}()
 
@@ -472,6 +613,18 @@ func serverError(err error) (events.LambdaFunctionURLResponse, error) {
 		Body:       http.StatusText(http.StatusInternalServerError),
 		StatusCode: http.StatusInternalServerError,
 	}, nil
+}
+
+func parseAndValidatePayload(payloadBody string, payload any) error {
+	if err := json.Unmarshal([]byte(payloadBody), payload); err != nil {
+		log.Printf("Invalid JSON payload: %v", err)
+		return fmt.Errorf("unprocessable")
+	}
+	if err := validate.Struct(payload); err != nil {
+		log.Printf("Invalid payload struct: %v", err)
+		return fmt.Errorf("badrequest")
+	}
+	return nil
 }
 
 func main() {
