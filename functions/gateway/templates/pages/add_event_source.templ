@@ -29,7 +29,7 @@ templ AddEventSource() {
 		</div>
 		<div id="event-source-container" class="col-span-5 card border-2 border-base-300 bg-base-200 p-10 rounded-box">
 			<h2 class="text-3xl font-bold">Add a Target URL</h2>
-			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL")) } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? handleURLSubmit() : ''" @htmx:after-request="handleUrlRes(event)">
+			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL") + "?action=init") } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? handleURLSubmit() : ''" @htmx:after-request="handleUrlRes(event)">
 				<label for="url">Enter a URL that lists events and we will check the site and propose some events that might be on that page (this will take some time)</label>
 				<input
 					x-model="formData.url"
@@ -126,24 +126,12 @@ templ AddEventSource() {
 				<h3 class="text-2xl font-bold">Are these events?</h3>
 				// note that the input[type='checkbox'] items come back in response to the SESHU_FN_URL
 				// call and the checkboxes are not present by default
-				<div class="has-toggleable-text">
-					<label class="label cursor-pointer justify-normal">
-						<input
-							type="checkbox"
-							class="toggle toggle-primary mr-4 toggle-controller"
-							onclick="document.querySelectorAll('.checkbox-card input[type=checkbox].main-toggle').forEach(item => { if (item.checked !== this.checked) item.click(); })"
-							checked
-						/>
-						<span class="label-text ml-4 contents">Toggle <strong class="hidden-when-checked">no </strong> events </span>
-					</label>
-				</div>
 				<form
 					x-ref="eventForm"
 					class="group"
 					novalidate
 					hx-ext="json-enc"
 					hx-target="#events-valid-confirmation"
-					hx-vals="js:{eventValidations: getEventValidationsState()}"
 					hx-disabled-elt="input[type='checkbox'], button[type='submit']"
 					@htmx:after-request="updateEventsValidated(event)"
 				>
@@ -221,60 +209,92 @@ templ AddEventSource() {
 			</div>
 		</template>
 	</div>
-	<script id="alpine-state" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") }>
-	function getEventValidationsState() {
-			const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
-			const eventValidations = [];
+	<script id="alpine-state" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") } data-rs-endpoint={ templ.EscapeString(os.Getenv("SESHU_FN_URL") + "?action=rs") }>
+		function getEventValidationsState() {
+					const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
+					const eventValidations = [];
 
-			cards.forEach(card => {
-					const mainToggle = card.querySelector('input[type="checkbox"].toggle');
-					const eventData = {};
+					cards.forEach(card => {
+							const mainToggle = card.querySelector('input[type="checkbox"].toggle');
+							const eventData = {};
 
-					if (!mainToggle.checked) {
-							eventData["event_title"] = false;
-							eventData["event_location"] = false;
-							eventData["event_start_datetime"] = false;
-					} else {
-							const checkboxes = card.querySelectorAll('.card-body input[type="checkbox"]');
-							checkboxes.forEach(checkbox => {
-									const labelText = checkbox.closest('label').querySelector('.label-text');
-									if (labelText) {
-											const [key, value] = labelText.innerText.split(/:\s(.+)/);
-											if (key) {
-													switch (key.trim()) {
-															case "Title":
-																	eventData["event_title"] = checkbox.checked;
-																	break;
-															case "Location":
-																	eventData["event_location"] = checkbox.checked;
-																	break;
-															case "Start Time":
-																	eventData["event_start_datetime"] = checkbox.checked;
-																	break;
-															case "End Time":
-																	eventData["event_end_datetime"] = checkbox.checked;
-																	break;
-															case "URL":
-																	eventData["event_url"] = checkbox.checked;
-																	break;
-															case "Description":
-																	eventData["event_description"] = checkbox.checked;
-																	break;
+							if (!mainToggle.checked) {
+									eventData["event_title"] = false;
+									eventData["event_location"] = false;
+									eventData["event_start_datetime"] = false;
+							} else {
+									const checkboxes = card.querySelectorAll('.card-body input[type="checkbox"]');
+									checkboxes.forEach(checkbox => {
+											const labelText = checkbox.closest('label').querySelector('.label-text');
+											if (labelText) {
+													const [key, value] = labelText.innerText.split(/:\s(.+)/);
+													if (key) {
+															switch (key.trim()) {
+																	case "Title":
+																			eventData["event_title"] = checkbox.checked;
+																			break;
+																	case "Location":
+																			eventData["event_location"] = checkbox.checked;
+																			break;
+																	case "Start Time":
+																			eventData["event_start_datetime"] = checkbox.checked;
+																			break;
+																	case "End Time":
+																			eventData["event_end_datetime"] = checkbox.checked;
+																			break;
+																	case "URL":
+																			eventData["event_url"] = checkbox.checked;
+																			break;
+																	case "Description":
+																			eventData["event_description"] = checkbox.checked;
+																			break;
+															}
 													}
 											}
-									}
-							});
+									});
 
-							eventData["event_title"] = eventData["event_title"] ?? false;
-							eventData["event_location"] = eventData["event_location"] ?? false;
-							eventData["event_start_datetime"] = eventData["event_start_datetime"] ?? false;
+									eventData["event_title"] = eventData["event_title"] ?? false;
+									eventData["event_location"] = eventData["event_location"] ?? false;
+									eventData["event_start_datetime"] = eventData["event_start_datetime"] ?? false;
+							}
+
+							eventValidations.push(eventData);
+					});
+
+					return eventValidations;
+			}
+		function getRecursiveScrapePayload() {
+			const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
+
+			for (let index = 0; index < cards.length; index++) {
+				const card = cards[index];
+				const mainToggle = card.querySelector('input[type="checkbox"].main-toggle');
+				if (!mainToggle?.checked) continue;
+
+				const requiredKeys = ["Title", "Location", "Start Time", "URL"];
+				let hasMissingRequiredField = false;
+
+				for (const key of requiredKeys) {
+					const label = Array.from(card.querySelectorAll('label')).find(l => l.innerText.includes(`${key}:`));
+					const checkbox = label?.querySelector('input[type="checkbox"]');
+					if (!checkbox?.checked) {
+						hasMissingRequiredField = true;
+						break;
 					}
+				}
 
-					eventValidations.push(eventData);
-			});
+				if (!hasMissingRequiredField) continue;
 
-			return eventValidations;
-	}
+				const urlLabel = Array.from(card.querySelectorAll('label')).find(label =>
+					label.innerText.includes("URL:")
+				);
+				const urlText = urlLabel?.innerText.split("URL:")[1]?.trim();
+				if (!urlText) continue;
+
+				// Return only the first matching card's URL
+				return urlText;
+			}
+		}
 		function getWizardState() {
 			return {
 				formData: {
@@ -294,6 +314,7 @@ templ AddEventSource() {
 				eventCandidates: [],
 				hasFallbackLocation: true,
 				locationValidated: false,
+				isDisabling: false,
 				missingFieldsCheck: false,
 				updateMissingFieldsCheck() {
 					this.missingFieldsCheck = this.hasMissingRequiredFields();
@@ -368,13 +389,27 @@ templ AddEventSource() {
 					const form = this.$refs.eventForm;
 
 					const hasMissing = this.hasMissingRequiredFields();
-					const endpoint = hasMissing
-						? '/api/html/seshu/session/rs'
-						: '/api/html/seshu/session/events';
 
-					form.removeAttribute('hx-post');
-					form.removeAttribute('hx-put');
-					form.setAttribute('hx-put', endpoint);
+					const hxVals = hasMissing
+						? {
+							parent_url: this.formData.url,
+							url: getRecursiveScrapePayload(),
+						}
+						: {
+							eventValidations: getEventValidationsState()
+						};
+
+					form.setAttribute('hx-vals', JSON.stringify(hxVals));
+
+					const rsEndpoint = document.querySelector('#alpine-state').getAttribute('data-rs-endpoint')
+					const endpoint = hasMissing ? rsEndpoint : '/api/html/seshu/session/events';
+
+					if (hasMissing){
+						form.setAttribute('hx-post', endpoint);
+					}
+					else{
+						form.setAttribute('hx-put', endpoint);
+					}
 
 					if (hasMissing) {
 						this.showToast = true;
@@ -384,8 +419,55 @@ templ AddEventSource() {
 						};
 					}
 
-					htmx.process(form);
-					htmx.trigger(form, 'submit');
+					requestAnimationFrame(() => {
+						htmx.process(form);
+						htmx.trigger(form, 'submit');
+					});
+				},
+
+				disableTogglesFromRequiredField(el) {
+					const currentCard = el.closest('.checkbox-card');
+					const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
+
+					const isMainToggle = el.classList.contains('main-toggle');
+
+					// Helper to check if a label is for a required field
+					const isRequiredField = (() => {
+						const labelText = el.closest('label')?.querySelector('.label-text')?.innerText || "";
+						return ["Title", "Location", "Start Time"].some(field => labelText.includes(field));
+					})();
+
+					if (isMainToggle) {
+						const isChecked = el.checked;
+						currentCard.querySelectorAll('.card-body input[type="checkbox"]').forEach(cb => {
+							cb.checked = isChecked;
+						});
+						return;
+					}
+
+					const currentMainToggle = currentCard.querySelector('input[type="checkbox"].main-toggle');
+					if (!currentMainToggle?.checked) return;
+
+					if (isRequiredField && !el.checked) {
+						cards.forEach(card => {
+							if (card === currentCard) return;
+
+							const mainToggle = card.querySelector('input[type="checkbox"].main-toggle');
+							if (mainToggle?.checked) {
+								mainToggle.checked = false;
+							}
+
+							card.querySelectorAll('.card-body input[type="checkbox"]').forEach(cb => {
+								cb.checked = false;
+							});
+						});
+					}
+				},
+				// Sync toggles within one card
+				toggleAllWithinCard(mainToggleEl) {
+					const card = mainToggleEl.closest('.checkbox-card');
+					const children = [...card.querySelectorAll('input.toggle')].filter(cb => cb !== mainToggleEl);
+					children.forEach(cb => cb.checked = mainToggleEl.checked);
 				},
 				hasMissingRequiredFields() {
 					const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
@@ -398,7 +480,7 @@ templ AddEventSource() {
 							event_title: false,
 							event_location: false,
 							event_start_datetime: false,
-							event_url: false,
+							// event_url: false,
 						};
 
 						const checkboxes = card.querySelectorAll('.card-body input[type="checkbox"]');
@@ -416,9 +498,9 @@ templ AddEventSource() {
 								case "Start Time":
 									requiredFields.event_start_datetime = checkbox.checked;
 									break;
-								case "URL":
-									requiredFields.event_url = checkbox.checked;
-									break;
+								// case "URL":
+								// 	requiredFields.event_url = checkbox.checked;
+								// 	break;
 							}
 						});
 
