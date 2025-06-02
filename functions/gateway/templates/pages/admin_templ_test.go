@@ -46,15 +46,18 @@ func TestAdminPage(t *testing.T) {
 	interests := []string{"Concerts", "Photography"}
 	subdomain := "brians-pub"
 
-	// Call the AdminPage function
-	profilePage := AdminPage(mockUserInfo, mockRoleClaims, interests, subdomain, "Test about me text", context.Background())
-
 	// Create a layout template
-	layoutTemplate := Layout(helpers.SitePages["admin"], mockUserInfo, profilePage, types.Event{}, context.Background(), []string{})
+	fakeContext := context.Background()
+	fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123", "--p": "#000000", "themeMode": "dark"})
+
+	// Call the AdminPage function
+	profilePage := AdminPage(mockUserInfo, mockRoleClaims, interests, subdomain, "userId=123;--p=#000000;themeMode=dark", "Test about me text", context.Background())
+
+	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, profilePage, types.Event{}, fakeContext, []string{})
 
 	// Render the template
 	var buf bytes.Buffer
-	err := layoutTemplate.Render(context.Background(), &buf)
+	err := layoutTemplate.Render(fakeContext, &buf)
 
 	// Check for rendering errors
 	if err != nil {
@@ -70,6 +73,7 @@ func TestAdminPage(t *testing.T) {
 		mockUserInfo.Locale,
 		"Yes", // mockUserInfo.EmailVerified yields a value "Yes" or "No"
 		"Test about me text",
+		"#000000",
 	}
 
 	for _, element := range expectedContent {

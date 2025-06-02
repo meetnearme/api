@@ -2,15 +2,188 @@ package pages
 
 import (
 	"context"
+	"fmt"
+	"github.com/lucasb-eyer/go-colorful"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"io"
+	"log"
+	"math"
 	"os"
 )
 
+// Returns "#000000" or "#ffffff" depending on which has higher contrast with the input HEX color
+func maxContrastColor(hex string) (string, error) {
+	c, err := colorful.Hex(hex)
+	if err != nil {
+		return "", err
+	}
+	// Calculate luminance (per ITU-R BT.709)
+	luminance := 0.2126*c.R + 0.7152*c.G + 0.0722*c.B
+	if luminance > 0.5 {
+		return "#000000", nil // dark text on light background
+	}
+	return "#ffffff", nil // light text on dark background
+}
+
+func hexToSrgb(hex string) (r, g, b float64) {
+	// Remove # if present
+	if hex[0] == '#' {
+		hex = hex[1:]
+	}
+
+	// Parse hex values
+	r = float64(hexToInt(hex[0:2])) / 255.0
+	g = float64(hexToInt(hex[2:4])) / 255.0
+	b = float64(hexToInt(hex[4:6])) / 255.0
+	return r, g, b
+}
+
+func hexToInt(hex string) int {
+	var result int
+	fmt.Sscanf(hex, "%x", &result)
+	return result
+}
+
+func hexToOklch(hex string) (oklch string) {
+	L_ := 0.0
+	C := 0.0
+	H := 0.0
+	// Convert hex to sRGB
+	r, g, b := hexToSrgb(hex)
+
+	// Convert sRGB to linear RGB
+	// 1. Convert sRGB to linear RGB
+	toLinear := func(c float64) float64 {
+		if c <= 0.04045 {
+			return c / 12.92
+		}
+		return math.Pow((c+0.055)/1.055, 2.4)
+	}
+	rLin, gLin, bLin := toLinear(r), toLinear(g), toLinear(b)
+
+	// 2. Linear RGB to Oklab
+	l := 0.4122214708*rLin + 0.5363325363*gLin + 0.0514459929*bLin
+	m := 0.2119034982*rLin + 0.6806995451*gLin + 0.1073969566*bLin
+	s := 0.0883024619*rLin + 0.2817188376*gLin + 0.6299787005*bLin
+
+	l_ := math.Cbrt(l)
+	m_ := math.Cbrt(m)
+	s_ := math.Cbrt(s)
+
+	L_ = 0.2104542553*l_ + 0.7936177850*m_ - 0.0040720468*s_
+	a_ := 1.9779984951*l_ - 2.4285922050*m_ + 0.4505937099*s_
+	b_ := 0.0259040371*l_ + 0.7827717662*m_ - 0.8086757660*s_
+
+	// 3. Oklab to OKLCH
+	C = math.Sqrt(a_*a_ + b_*b_)
+	H = math.Atan2(b_, a_) * 180 / math.Pi
+	if H < 0 {
+		H += 360
+	}
+	return fmt.Sprintf("%.4f %.4f %.3f", L_, C, H)
+}
+
+type themeStyleTag struct{}
+
+func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
+	// Safely get the MNM_OPTIONS from context
+	mnmOptionsValue := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY)
+	if mnmOptionsValue == nil {
+		// If no options are set, return without error
+		return nil
+	}
+
+	mnmOptions, ok := mnmOptionsValue.(map[string]string)
+	if !ok {
+		// If type assertion fails, return without error
+		return nil
+	}
+
+	// Get the primary color with a default value
+	hexPrimaryColor := mnmOptions["--p"]
+	if hexPrimaryColor == "" {
+		// If no primary color is set, return without error
+		return nil
+	}
+
+	// Convert colors
+	oklchPrimaryColor := hexToOklch(hexPrimaryColor)
+	maxContrastColorHex, err := maxContrastColor(hexPrimaryColor)
+	if err != nil {
+		// Log error but continue with default contrast color
+		log.Printf("error calculating max contrast color: %s", err)
+		maxContrastColorHex = "#000000" // Default to black
+	}
+
+	maxContrastColorOklch := hexToOklch(maxContrastColorHex)
+	colorScheme := mnmOptions["themeMode"]
+	rootLightThemeStyles := ""
+	lightThemeExtraStyles := ""
+	if colorScheme == "light" {
+		colorScheme = "color-scheme: light;"
+		rootLightThemeStyles = `
+			  color-scheme: light;
+	      --b1: 100% 0 0;
+	      --fallback-b1: #ffffff;
+	      --b2: 90% 0 0;
+	      --fallback-b2: #eeeeee;
+	      --b3: 80% 0 0;
+	      --fallback-b3: #cccccc;
+	      --bc: 0% 0 0;
+	      --fallback-bc: #000000;
+	      --n: 85% 0 0;
+	      --fallback-n: #eeeeee;
+	      --nc: 100% 0 0;
+	      --fallback-nc: #ffffff;
+        `
+
+		lightThemeExtraStyles = `
+    @supports (color: oklch(0% 0 0)) {
+	      :where(.menu li:not(.menu-title, .disabled) > *:not(ul, details, .menu-title)):not(.active, .btn):hover, :where(.menu li:not(.menu-title, .disabled) > details > summary:not(.menu-title)):not(.active, .btn):hover {
+	        color: #ffffff;
+	      }
+	  }
+    @supports (color: oklch(0% 0 0)) {
+      .btn-ghost:hover {
+        background-color: oklch(var(--bc));
+        color: oklch(var(--b1));
+      }
+    }
+    .from-black\/70 {
+        --tw-gradient-from: rgb(255 255 255 / 0.7);
+    }
+    `
+	} else {
+		colorScheme = "color-scheme: dark;"
+	}
+	// Write the style tag
+	fmt.Fprintf(w,
+		`<style type="text/css">
+			:root {
+				--p: %s;
+				--fallback-p: %s;
+				--pc: %s;
+				--fallback-pc: %s;
+				%s
+			}
+			%s
+		</style>`,
+		oklchPrimaryColor,
+		hexPrimaryColor,
+		maxContrastColorOklch,
+		maxContrastColorHex,
+		rootLightThemeStyles,
+		lightThemeExtraStyles,
+	)
+
+	return nil
+}
+
 templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event, ctx context.Context, scripts []string) {
 	<!DOCTYPE html>
-	<html data-theme="cyberpunk">
+	<html>
 		<head>
 			if event.Id != "" && sitePage.Key == "event-detail" {
 				<title>Meet Near Me - { event.Name }</title>
@@ -24,7 +197,9 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap" rel="stylesheet"/>
 			// 🚨 WARNING 🚨 This filename is automatically updated by PostCSS
 			// ✅ DO commit it to version control whenever you see it change
-			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.49c89a37.css") }/>
+			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.35358b03.css") }/>
+			{{ styleTag := themeStyleTag{} }}
+			@themeStyleTag(styleTag)
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>

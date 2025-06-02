@@ -84,11 +84,14 @@ jobs:
           npm i && npx sst deploy --stage prod
    # TODO: this mysteriously started failing between Jan 17 ~ Jan 22, 20205
       # https://github.com/meetnearme/api/actions/runs/12915247314
-
+      # TODO: can't figure out how to get this to work with the new version of wrangler
+      # https://discord.com/channels/595317990191398933/1368769100192420010/1368769100192420010
       # - name: Deploy to Cloudflare Workers with Wrangler
-      #   uses: cloudflare/wrangler-action@v3.7.0
+      #   uses: cloudflare/wrangler-action@v3.14.1
       #   env:
       #     CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       #   with:
       #     apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       #     accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      #     wranglerVersion: '4.14.1'
+      #     command: deploy --env dev

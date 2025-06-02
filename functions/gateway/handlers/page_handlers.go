@@ -214,9 +214,12 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	aboutChan := make(chan aboutResult, 1)
 
 	var pageUser *types.UserSearchResult
-	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
-	if subdomainValue != "" {
-		userId = subdomainValue
+
+	ctx := r.Context()
+	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
+	mnmUserId := mnmOptions["userId"]
+	if mnmUserId != "" {
+		userId = mnmUserId
 	}
 	// Start concurrent operations if userId exists
 	if userId != "" {
@@ -254,8 +257,8 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 				return
 			}
 
-			if subdomainValue != "" {
-				ownerIds = []string{subdomainValue}
+			if mnmUserId != "" {
+				ownerIds = []string{mnmUserId}
 			} else {
 				ownerIds = []string{userId}
 			}
@@ -274,9 +277,11 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, err
 		}
 
-		subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
-		if subdomainValue != "" {
-			ownerIds = []string{subdomainValue}
+		ctx := r.Context()
+		mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
+		mnmUserId := mnmOptions["userId"]
+		if mnmUserId != "" {
+			ownerIds = []string{mnmUserId}
 		}
 
 		res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
@@ -317,13 +322,14 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 
 func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
+	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
 	originalQueryLocation := r.URL.Query().Get("location")
 	events, cfLocation, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
 	if err != nil {
-		subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
-		if subdomainValue != "" || strings.Contains(r.URL.Path, "/user") {
+		mnmUserId := mnmOptions["userId"]
+		if mnmUserId != "" || strings.Contains(r.URL.Path, "/user") {
 			return transport.SendHtmlErrorPage([]byte("User Not Found"), 200, true)
 		}
 		return transport.SendHtmlRes(w, []byte(err.Error()), status, "page", err)
@@ -390,7 +396,14 @@ func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
 	userSubdomain := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.SUBDOMAIN_KEY)
 	userAboutData, err := helpers.GetOtherUserMetaByID(userInfo.Sub, helpers.META_ABOUT_KEY)
-	adminPage := pages.AdminPage(userInfo, roleClaims, userInterests, userSubdomain, userAboutData, ctx)
+
+	mnmOptions := ""
+	if userSubdomain != "" {
+		mnmOptions, err = helpers.GetCloudflareMnmOptions(userSubdomain)
+		// NOTE: we don't care about an error here
+	}
+
+	adminPage := pages.AdminPage(userInfo, roleClaims, userInterests, userSubdomain, mnmOptions, userAboutData, ctx)
 	layoutTemplate := pages.Layout(helpers.SitePages["admin"], userInfo, adminPage, types.Event{}, ctx, []string{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
@@ -739,7 +752,7 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 		users = competitionConfigResponse.Owners
 	}
 
-	competitionPage := pages.AddOrEditCompetitionPage(pageObj, competitionConfig, users)
+	competitionPage := pages.AddOrEditCompetitionPage(pageObj, userInfo, competitionConfig, users)
 	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, ctx, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
 
 	var buf bytes.Buffer
