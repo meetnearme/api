@@ -22,7 +22,6 @@ func maxContrastColor(hex string) (string, error) {
 	// Calculate luminance (per ITU-R BT.709)
 	luminance := 0.2126*c.R + 0.7152*c.G + 0.0722*c.B
 	if luminance > 0.5 {
-
 		return "#000000", nil // dark text on light background
 	}
 	return "#ffffff", nil // light text on dark background
@@ -119,7 +118,47 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	}
 
 	maxContrastColorOklch := hexToOklch(maxContrastColorHex)
+	colorScheme := mnmOptions["themeMode"]
+	colorScheme = "light"
+	rootLightThemeStyles := ""
+	lightThemeExtraStyles := ""
+	if colorScheme == "light" {
+		colorScheme = "color-scheme: light;"
+		rootLightThemeStyles = `
+			  color-scheme: light;
+	      --b1: 100% 0 0;
+	      --fallback-b1: #ffffff;
+	      --b2: 90% 0 0;
+	      --fallback-b2: #eeeeee;
+	      --b3: 80% 0 0;
+	      --fallback-b3: #cccccc;
+	      --bc: 0% 0 0;
+	      --fallback-bc: #000000;
+	      --n: 85% 0 0;
+	      --fallback-n: #eeeeee;
+	      --nc: 100% 0 0;
+	      --fallback-nc: #ffffff;
+        `
 
+		lightThemeExtraStyles = `
+    @supports (color: oklch(0% 0 0)) {
+	      :where(.menu li:not(.menu-title, .disabled) > *:not(ul, details, .menu-title)):not(.active, .btn):hover, :where(.menu li:not(.menu-title, .disabled) > details > summary:not(.menu-title)):not(.active, .btn):hover {
+	        color: #ffffff;
+	      }
+	  }
+    @supports (color: oklch(0% 0 0)) {
+      .btn-ghost:hover {
+        background-color: oklch(var(--bc));
+        color: oklch(var(--b1));
+      }
+    }
+    .from-black\/70 {
+        --tw-gradient-from: rgb(255 255 255 / 0.7);
+    }
+    `
+	} else {
+		colorScheme = "color-scheme: dark;"
+	}
 	// Write the style tag
 	fmt.Fprintf(w,
 		`<style type="text/css">
@@ -128,12 +167,16 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 				--fallback-p: %s;
 				--pc: %s;
 				--fallback-pc: %s;
+				%s
 			}
+			%s
 		</style>`,
 		oklchPrimaryColor,
 		hexPrimaryColor,
 		maxContrastColorOklch,
 		maxContrastColorHex,
+		rootLightThemeStyles,
+		lightThemeExtraStyles,
 	)
 
 	return nil
@@ -155,7 +198,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap" rel="stylesheet"/>
 			// 🚨 WARNING 🚨 This filename is automatically updated by PostCSS
 			// ✅ DO commit it to version control whenever you see it change
-			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.7e2fdf2e.css") }/>
+			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.13f122ad.css") }/>
 			{{ styleTag := themeStyleTag{} }}
 			@themeStyleTag(styleTag)
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>

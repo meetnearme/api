@@ -412,8 +412,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						<button
 							type="submit"
 							:class="{
-							'btn-primary': $store.queryParams.start_time === 'this_month',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'this_month'
+							'btn-primary': $store.queryParams.start_time === 'this_month'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_month')"
@@ -423,8 +422,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						<button
 							type="submit"
 							:class="{
-							'btn-primary': $store.queryParams.start_time === 'today',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'today'
+							'btn-primary': $store.queryParams.start_time === 'today'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'today')"
@@ -434,8 +432,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						<button
 							type="submit"
 							:class="{
-							'btn-primary': $store.queryParams.start_time === 'tomorrow',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'tomorrow'
+							'btn-primary': $store.queryParams.start_time === 'tomorrow'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'tomorrow')"
@@ -445,8 +442,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						<button
 							type="submit"
 							:class="{
-							'btn-primary': $store.queryParams.start_time === 'this_week',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'this_week'
+							'btn-primary': $store.queryParams.start_time === 'this_week'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_week')"
