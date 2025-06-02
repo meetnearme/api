@@ -998,3 +998,12 @@ func NormalizeCompetitionRounds(competitionRounds []internal_types.CompetitionRo
 func FormatMatchup(competitorA, competitorB string) string {
 	return fmt.Sprintf("%s_%s", competitorA, competitorB)
 }
+
+// GetMnmOptionsFromContext safely retrieves mnmOptions from context
+// Returns an empty map if not found
+func GetMnmOptionsFromContext(ctx context.Context) map[string]string {
+	if mnmOptions, ok := ctx.Value(MNM_OPTIONS_CTX_KEY).(map[string]string); ok {
+		return mnmOptions
+	}
+	return map[string]string{}
+}

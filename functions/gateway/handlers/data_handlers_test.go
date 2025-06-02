@@ -2000,9 +2000,6 @@ func TestSearchUsersHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/users/search"+tt.queryParams, nil)
-			// Add MNM_OPTIONS_CTX_KEY to context
-			ctx := context.WithValue(req.Context(), helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
-			req = req.WithContext(ctx)
 			w := httptest.NewRecorder()
 
 			// Call the handler

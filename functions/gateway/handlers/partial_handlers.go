@@ -119,7 +119,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
+	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
 	mnmUserId := mnmOptions["userId"]
 
 	// we override the `owners` query param here, because subdomains should always show only

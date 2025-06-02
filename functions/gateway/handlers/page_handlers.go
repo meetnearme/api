@@ -216,7 +216,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	var pageUser *types.UserSearchResult
 
 	ctx := r.Context()
-	mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
+	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
 	mnmUserId := mnmOptions["userId"]
 	if mnmUserId != "" {
 		userId = mnmUserId
@@ -278,7 +278,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 		}
 
 		ctx := r.Context()
-		mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
+		mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
 		mnmUserId := mnmOptions["userId"]
 		if mnmUserId != "" {
 			ownerIds = []string{mnmUserId}
@@ -322,7 +322,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 
 func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	mnmOptions := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string)
+	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
 	originalQueryLocation := r.URL.Query().Get("location")

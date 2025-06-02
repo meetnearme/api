@@ -94,7 +94,7 @@ func TestGetHomeOrUserPage(t *testing.T) {
 
 	// Add MNM_OPTIONS_CTX_KEY to context
 	fakeContext := context.Background()
-	fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
+	// fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
 
 	// Create a request
 	req, err := http.NewRequest("GET", "/", nil)
