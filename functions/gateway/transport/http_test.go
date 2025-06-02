@@ -53,6 +53,8 @@ func TestSendHtmlRes(t *testing.T) {
 					RequestID: "test-request-id",
 				},
 			})
+			// Add MNM_OPTIONS_CTX_KEY to context
+			ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
 			req = req.WithContext(ctx)
 
 			handler.ServeHTTP(rr, req)
@@ -81,6 +83,8 @@ func TestSendHtmlErrorPartial(t *testing.T) {
 			RequestID: "test-request-id",
 		},
 	})
+	// Add MNM_OPTIONS_CTX_KEY to context
+	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
 	req = req.WithContext(ctx)
 
 	handler := SendHtmlErrorPartial(body, status)
@@ -128,6 +132,7 @@ func TestSendServerRes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Set up context with APIGatewayV2HTTPRequest
 			rr := httptest.NewRecorder()
 			handler := SendServerRes(rr, tt.body, tt.status, tt.err)
 			if handler != nil {
@@ -163,6 +168,8 @@ func TestSendHtmlErrorPage(t *testing.T) {
 	// Add values to context
 	ctx := context.WithValue(r.Context(), "userInfo", userInfo)
 	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, apiGwReq)
+	// Add MNM_OPTIONS_CTX_KEY to context
+	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
 	r = r.WithContext(ctx)
 
 	// Test

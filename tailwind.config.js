@@ -127,6 +127,7 @@ export default {
   ],
   daisyui: {
     darkTheme: 'meetnearme',
+    lightTheme: 'meetnearme',
     themes: [
       {
         meetnearme: {
@@ -146,8 +147,8 @@ export default {
           '--btn-bg-inverted-content': '0% 0 0', // Black in OKLCH
           primary: '#39FF14',
           'primary-content': '#011600',
-          secondary: '#FF4500',
-          'secondary-content': '#eeeeee',
+          secondary: '#FF6E3D',
+          'secondary-content': '#000000',
           accent: '#FF69B4',
           'accent-content': '#16040c',
           neutral: '#cccccc',
@@ -162,9 +163,8 @@ export default {
           'success-content': '#000000',
           warning: '#ffc458',
           'warning-content': '#000000',
-          error: '#e11d48',
-          'error-content': '#000000',
-
+          error: '#AE1335',
+          'error-content': '#FFFFFF',
         },
       },
     ],

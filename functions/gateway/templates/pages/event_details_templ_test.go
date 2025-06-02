@@ -331,13 +331,14 @@ func TestEventDetailsPage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			component := EventDetailsPage(tt.event, helpers.UserInfo{}, tt.canEdit)
-
+			fakeContext := context.Background()
+			fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
 			// Wrap the component with Layout
-			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event, context.Background(), []string{})
+			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event, fakeContext, []string{})
 
-			// Render the component to a string
+			// Render the component to a string using the same context
 			var buf bytes.Buffer
-			err := layoutTemplate.Render(context.Background(), &buf)
+			err := layoutTemplate.Render(fakeContext, &buf)
 			if err != nil {
 				t.Fatalf("Error rendering component: %v", err)
 			}
