@@ -289,38 +289,6 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 		return clientError(http.StatusBadRequest)
 	}
 
-	// switch actionQueryParam {
-	// case "init":
-	// 	systemPrompt = getSystemPrompt(false)
-	// 	childID = ""
-	// 	err := json.Unmarshal([]byte(req.Body), &inputPayload)
-	// 	if err != nil {
-	// 		log.Printf("Invalid JSON payload: %v", err)
-	// 		return clientError(http.StatusUnprocessableEntity)
-	// 	}
-	// 	err = validate.Struct(&inputPayload)
-	// 	if err != nil {
-	// 		log.Printf("Invalid body: %v", err)
-	// 		return clientError(http.StatusBadRequest)
-	// 	}
-
-	// case "rs":
-	// 	systemPrompt = getSystemPrompt(true)
-	// 	childID = ""
-	// 	err := json.Unmarshal([]byte(req.Body), &inputRecursivePayload)
-	// 	if err != nil {
-	// 		log.Printf("Invalid JSON payload: %v", err)
-	// 		return clientError(http.StatusUnprocessableEntity)
-	// 	}
-	// 	err = validate.Struct(&inputRecursivePayload)
-	// 	if err != nil {
-	// 		log.Printf("Invalid body: %v", err)
-	// 		return clientError(http.StatusBadRequest)
-	// 	}
-	// default:
-	// 	return clientError(http.StatusBadRequest)
-	// }
-
 	htmlString, err := scraper.GetHTMLFromURL(urlToScrape, 4500, true, "")
 	if err != nil {
 		return _SendHtmlErrorPartial(err, ctx, req)
@@ -405,6 +373,11 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 
 		if exceededLimit {
 			log.Printf("WARN: HTML document exceeded %v byte limit, truncating", maxHtmlDocSize)
+		}
+
+		// Recursive eventsFound workflow (assuming we doing one at a time)
+		if action == "rs" {
+			eventsFound[0].EventURL = urlToScrape
 		}
 
 		currentTime := time.Now()
