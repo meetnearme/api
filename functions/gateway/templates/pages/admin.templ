@@ -4,7 +4,9 @@ import (
 	"context"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
+	"log"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -227,43 +229,44 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 					</div>
 					<button type="submit" class="btn btn-primary mt-4">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 				</form>
+				<div id="subdomain-result" class="margins-when-children my-8"></div>
+				<h3 class="text-2xl font-bold mb-4 mt-4">Custom Theme</h3>
+				<p>
+					Your subdomain will use the theme colors you choose below.
+					<div class="mx-auto w-full max-w-xl">
+						<form
+							class="group"
+							novalidate
+							hx-post="/api/auth/users/update-mnm-options?theme=1"
+							hx-ext="json-enc"
+							hx-target="#theme-result"
+							hx-disabled-elt="button[type='submit']"
+							@submit.prevent=""
+							@htmx:after-request="handleSubdomainPostRes(event)"
+							hx-vals="js:{...getMnmOptionsPayload()}"
+						>
+							{{ primaryColor := extractMnmOptions(mnmOptions)["--p"] }}
+							@components.ColorPicker(primaryColor, "Primary Brand Color", "primary-color-picker-input")
+							<h4 class="text-lg font-bold mt-2">Theme Mode</h4>
+							<!-- END Input -->
+							// switch toggle for light / vs dark theme
+							{{ themeModeLight := extractMnmOptions(mnmOptions)["themeMode"] == "light" }}
+							<div x-data={ `{ themeModeLight: ` + strconv.FormatBool(themeModeLight) + ` }` } class="form-control">
+								<label class="label cursor-pointer">
+									<span class="label-text" x-text="themeModeLight ? 'Light Theme' : 'Dark Theme' "></span>
+									<input
+										id="theme-mode"
+										type="checkbox"
+										class="toggle toggle-primary"
+										x-model="themeModeLight"
+									/>
+								</label>
+							</div>
+							<button type="submit" class="btn btn-primary mt-4">Update Theme<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+						</form>
+					</div>
+				</p>
 			</div>
-			<div id="subdomain-result" class="margins-when-children my-8"></div>
-			<h3 class="text-2xl font-bold mb-4 mt-4">Custom Theme</h3>
-			<p>
-				Your subdomain will use the theme colors you choose below.
-				<div class="mx-auto w-full max-w-xl">
-					<form
-						class="group"
-						novalidate
-						hx-post="/api/auth/users/update-mnm-options?theme=1"
-						hx-ext="json-enc"
-						hx-target="#theme-result"
-						hx-disabled-elt="button[type='submit']"
-						@submit.prevent=""
-						@htmx:after-request="handleSubdomainPostRes(event)"
-						hx-vals="js:{...getMnmOptionsPayload()}"
-					>
-						{{ primaryColor := extractMnmOptions(mnmOptions)["--p"] }}
-						@components.ColorPicker(primaryColor, "Primary Brand Color", "primary-color-picker-input")
-						<h4 class="text-lg font-bold mt-2">Theme Mode</h4>
-						<!-- END Input -->
-						// switch toggle for light / vs dark theme
-						<div x-data="{ themeMode: false }" class="form-control">
-							<label class="label cursor-pointer">
-								<span class="label-text" x-text="themeMode ? 'Light Theme' : 'Dark Theme' "></span>
-								<input
-									id="theme-mode"
-									type="checkbox"
-									class="toggle toggle-primary"
-									x-model="themeMode"
-								/>
-							</label>
-						</div>
-						<button type="submit" class="btn btn-primary mt-4">Update Theme<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
-					</form>
-				</div>
-			</p>
 			<div id="theme-result" class="margins-when-children my-8"></div>
 			<h3 class="text-2xl font-bold mb-4 mt-4">About / Bio</h3>
 			<form
@@ -274,7 +277,6 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 				hx-target="#about-result"
 				hx-disabled-elt="button[type='submit']"
 				@submit.prevent=""
-				@htmx:after-request="handleSubdomainPostRes(event)"
 			>
 				<div class="form-control">
 					<label class="label" for="description">Description</label>
@@ -299,7 +301,7 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 			const payload = {
 				subdomain: document.getElementById('subdomain')?.value ?? '',
 				primaryColor: document.getElementById('primary-color-picker-input')?.value ?? '',
-				themeMode: document.getElementById('theme-mode')?.checked ? 'dark' : 'light',
+				themeMode: document.getElementById('theme-mode')?.checked ? 'light' : 'dark',
 			}
 			return payload;
 		}
