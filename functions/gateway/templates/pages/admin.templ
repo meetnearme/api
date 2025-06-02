@@ -217,10 +217,14 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 						}
 						x-model="subdomain"
 						pattern="[a-z0-9]+"
+						:class="{ 'input-error': subdomain && !subdomain.match(/^[a-z0-9\-]+$/) }"
 						name="subdomain"
 						type="text"
 						class="input input-bordered w-full"
 					/>
+					<div x-show="subdomain && !subdomain.match(/^[a-z0-9\-]+$/)" class="text-error text-sm mt-1">
+						Subdomain must contain only lowercase letters and numbers and/or hyphens
+					</div>
 					<button type="submit" class="btn btn-primary mt-4">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 				</form>
 			</div>
