@@ -290,10 +290,11 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 		</div>
 	</div>
 	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ helpers.PurchaseStatus.Pending } data-status-settled={ helpers.PurchaseStatus.Settled }>
+		// eslint-disable-next-line no-unused-vars
 		function getMnmOptionsPayload() {
 			const payload = {
 				subdomain: document.getElementById('subdomain')?.value ?? '',
-				primaryColor: document.getElementById('primary-color-picker-input')?.value ?? helpers.DEFAULT_PRIMARY_COLOR,
+				primaryColor: document.getElementById('primary-color-picker-input')?.value ?? '',
 				themeMode: document.getElementById('theme-mode')?.checked ? 'dark' : 'light',
 			}
 			return payload;

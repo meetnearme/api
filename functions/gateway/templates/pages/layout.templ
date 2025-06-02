@@ -119,7 +119,6 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 
 	maxContrastColorOklch := hexToOklch(maxContrastColorHex)
 	colorScheme := mnmOptions["themeMode"]
-	colorScheme = "light"
 	rootLightThemeStyles := ""
 	lightThemeExtraStyles := ""
 	if colorScheme == "light" {
@@ -198,7 +197,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap" rel="stylesheet"/>
 			// 🚨 WARNING 🚨 This filename is automatically updated by PostCSS
 			// ✅ DO commit it to version control whenever you see it change
-			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.13f122ad.css") }/>
+			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.22872378.css") }/>
 			{{ styleTag := themeStyleTag{} }}
 			@themeStyleTag(styleTag)
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>

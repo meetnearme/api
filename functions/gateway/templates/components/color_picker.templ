@@ -95,6 +95,7 @@ templ ColorPicker(selectedColor string, label string, id string) {
             // Handle RGB format
             let rgbMatch = color.match(/^rgb\((\d+),(\d+),(\d+)\)$/);
             if (rgbMatch) {
+              // eslint-disable-next-line no-unused-vars
               const [_, r, g, b] = rgbMatch;
               return '#' + [r, g, b].map(x => {
                 const hex = parseInt(x).toString(16);
@@ -105,6 +106,7 @@ templ ColorPicker(selectedColor string, label string, id string) {
             // Handle RGBA format
             let rgbaMatch = color.match(/^rgba\((\d+),(\d+),(\d+),([\d.]+)\)$/);
             if (rgbaMatch) {
+              // eslint-disable-next-line no-unused-vars
               const [_, r, g, b] = rgbaMatch;
               return '#' + [r, g, b].map(x => {
                 const hex = parseInt(x).toString(16);
@@ -115,6 +117,7 @@ templ ColorPicker(selectedColor string, label string, id string) {
             // Handle HSL format
             let hslMatch = color.match(/^hsl\((\d+),(\d+)%,(\d+)%\)$/);
             if (hslMatch) {
+              // eslint-disable-next-line no-unused-vars
               const [_, h, s, l] = hslMatch.map(Number);
               return this.hslToHex(h, s, l);
             }
@@ -122,6 +125,7 @@ templ ColorPicker(selectedColor string, label string, id string) {
             // Handle HSLA format
             let hslaMatch = color.match(/^hsla\((\d+),(\d+)%,(\d+)%,([\d.]+)\)$/);
             if (hslaMatch) {
+              // eslint-disable-next-line no-unused-vars
               const [_, h, s, l] = hslaMatch.map(Number);
               return this.hslToHex(h, s, l);
             }
