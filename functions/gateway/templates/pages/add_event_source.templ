@@ -507,68 +507,6 @@ templ AddEventSource() {
 						// If any required field is unchecked
 						return Object.values(requiredFields).some(v => !v);
 					});
-				},
-				submitDynamicForm() {
-					const form = this.$refs.eventForm;
-
-					const hasMissing = this.hasMissingRequiredFields();
-					const endpoint = hasMissing
-						? '/api/html/seshu/session/rs'
-						: '/api/html/seshu/session/events';
-
-					form.removeAttribute('hx-post');
-					form.removeAttribute('hx-put');
-					form.setAttribute('hx-put', endpoint);
-
-					if (hasMissing) {
-						this.showToast = true;
-						this.toastContent = {
-							type: 'info',
-							message: 'Some required fields are missing. Attempting to fetch missing data...',
-						};
-					}
-
-					htmx.process(form);
-					htmx.trigger(form, 'submit');
-				},
-				hasMissingRequiredFields() {
-					const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
-
-					return cards.some(card => {
-						const mainToggle = card.querySelector('input[type="checkbox"].toggle');
-						if (!mainToggle?.checked) return false;
-
-						const requiredFields = {
-							event_title: false,
-							event_location: false,
-							event_start_datetime: false,
-							event_url: false,
-						};
-
-						const checkboxes = card.querySelectorAll('.card-body input[type="checkbox"]');
-						checkboxes.forEach(checkbox => {
-							const labelText = checkbox.closest('label')?.querySelector('.label-text')?.innerText || "";
-							const [key] = labelText.split(/:\s(.+)/);
-
-							switch (key.trim()) {
-								case "Title":
-									requiredFields.event_title = checkbox.checked;
-									break;
-								case "Location":
-									requiredFields.event_location = checkbox.checked;
-									break;
-								case "Start Time":
-									requiredFields.event_start_datetime = checkbox.checked;
-									break;
-								case "URL":
-									requiredFields.event_url = checkbox.checked;
-									break;
-							}
-						});
-
-						// If any required field is unchecked
-						return Object.values(requiredFields).some(v => !v);
-					});
 				}
 			}
 		}
