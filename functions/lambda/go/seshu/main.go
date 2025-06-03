@@ -351,6 +351,10 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 		return _SendHtmlErrorPartial(err, ctx, req)
 	}
 
+	for i := range eventsFound {
+		eventsFound[i].EventSource = action // either "init" or "rs"
+	}
+
 	// we want to save the session AFTER sending an HTML response, since we will already
 	// have the session's `partitionKey` (which is always the full URL) for lookup later
 	defer func() {
