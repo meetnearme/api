@@ -11,6 +11,7 @@ type EventInfo struct {
 	EventEndTime     string `json:"event_end_datetime"`
 	EventURL         string `json:"event_url"`
 	EventDescription string `json:"event_description"`
+	EventSource      string `json:"event_source"`
 }
 
 type EventBoolValid struct {
