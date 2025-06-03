@@ -82,17 +82,20 @@ func init() {
 
 		// API routes
 
+		// Hello World Test
+		{"/api/hello-service", "POST", handlers.SimpleHelloWorldHandler, None},
+
 		// == START == need to expose these via permanent key for headless clients
-		{"/api/event{trailingslash:\\/?}", "POST", handlers.PostEventHandler, Require},
-		{"/api/events{trailingslash:\\/?}", "POST", handlers.PostBatchEventsHandler, Require},
-		{"/api/events{trailingslash:\\/?}", "GET", handlers.SearchEventsHandler, None},
-		{"/api/events{trailingslash:\\/?}", "PUT", handlers.BulkUpdateEventsHandler, Require},
-		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
-		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, Require},
-		{"/api/events", "DELETE", handlers.BulkDeleteEventsHandler, Require},
-		{"/api/event-reg-purch{trailingslash:\\/?}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
-		{"/api/event-reg-purch/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
-		{"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},
+		// {"/api/event{trailingslash:\\/?}", "POST", handlers.PostEventHandler, Require},
+		// {"/api/events{trailingslash:\\/?}", "POST", handlers.PostBatchEventsHandler, Require},
+		// {"/api/events{trailingslash:\\/?}", "GET", handlers.SearchEventsHandler, None},
+		// {"/api/events{trailingslash:\\/?}", "PUT", handlers.BulkUpdateEventsHandler, Require},
+		// {"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
+		// {"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, Require},
+		// {"/api/events", "DELETE", handlers.BulkDeleteEventsHandler, Require},
+		// {"/api/event-reg-purch{trailingslash:\\/?}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
+		// {"/api/event-reg-purch/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
+		// {"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
 		{"/api/auth/users/set-subdomain{trailingslash:\\/?}", "POST", handlers.SetUserSubdomain, Require},
 		{"/api/auth/users/update-interests{trailingslash:\\/?}", "POST", handlers.UpdateUserInterests, Require},
@@ -100,8 +103,8 @@ func init() {
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo{trailingslash:\\/?}", "POST", handlers.GeoLookup, None},
-		{"/api/user-search{trailingslash:\\/?}", "GET", handlers.SearchUsersHandler, Require},
-		{"/api/users{trailingslash:\\/?}", "GET", handlers.GetUsersHandler, None},
+		// {"/api/user-search{trailingslash:\\/?}", "GET", handlers.SearchUsersHandler, Require},
+		// {"/api/users{trailingslash:\\/?}", "GET", handlers.GetUsersHandler, None},
 		{"/api/html/events{trailingslash:\\/?}", "GET", handlers.GetEventsPartial, None},
 		{"/api/html/event-series-form/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventAdminChildrenPartial, None},
 		{"/api/html/seshu/session/submit{trailingslash:\\/?}", "POST", handlers.SubmitSeshuSession, Require},
@@ -160,8 +163,8 @@ func init() {
 		{"/api/votes", "DELETE", dynamodb_handlers.DeleteCompetitionVoteHandler, Require},
 
 		// Checkout Session
-		{"/api/checkout/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
-		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
+		// {"/api/checkout/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
+		// {"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
 	}
 }
 
