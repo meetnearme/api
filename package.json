@@ -48,7 +48,8 @@
 
     "docker:shell:app": "docker-compose exec go-app sh",
     "docker:shell:db": "docker-compose exec postgres bash",
-    "docker:shell:weaviate": "docker-compose exec weaviate bash"
+    "docker:shell:weaviate": "docker-compose exec weaviate bash",
+    "gen-apikey": "node ./scripts/generateApiKey.js"
 
   },
   "devDependencies": {
