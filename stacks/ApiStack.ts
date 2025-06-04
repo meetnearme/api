@@ -61,9 +61,7 @@ export function ApiStack({ stack, app }: StackContext & { app: any }) {
   } else if (app.stage === 'dev') {
     apexUrl = process.env.APEX_DEV_URL;
   } else {
-    // apexUrl = api.url;
-    // TODO: revert this. temporarily hardcode to `testingnear.me` for testing env experiment
-    apexUrl = "https://testingnear.me";
+    apexUrl = api.url;
   }
 
   // $default route is added separately because we want to get `api.url` which is yielded above among
