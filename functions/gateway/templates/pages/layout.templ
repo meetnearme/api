@@ -108,8 +108,36 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 		return nil
 	}
 
+	colorScheme := mnmOptions["themeMode"]
+	if colorScheme == "" {
+		colorScheme = "dark"
+	}
+
 	// Convert colors
 	oklchPrimaryColor := hexToOklch(hexPrimaryColor)
+
+	primaryLinkColor := hexPrimaryColor
+
+	// Calculate adjusted color with modified luminance for link-primary
+	c, err := colorful.Hex(hexPrimaryColor)
+	if err == nil {
+		// Convert to HSL to modify luminance
+		h, s, l := c.Hsl()
+
+		// Adjust luminance based on color scheme
+		if colorScheme == "dark" {
+			// For dark mode, increase luminance to 75%
+			l = 0.75
+		} else {
+			// For light mode, decrease luminance to 30%
+			l = 0.30
+		}
+
+		// Convert back to RGB and then to hex
+		adjustedColor := colorful.Hsl(h, s, l)
+		primaryLinkColor = adjustedColor.Hex()
+	}
+
 	maxContrastColorHex, err := maxContrastColor(hexPrimaryColor)
 	if err != nil {
 		// Log error but continue with default contrast color
@@ -118,43 +146,42 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	}
 
 	maxContrastColorOklch := hexToOklch(maxContrastColorHex)
-	colorScheme := mnmOptions["themeMode"]
+
 	rootLightThemeStyles := ""
 	lightThemeExtraStyles := ""
 	if colorScheme == "light" {
 		colorScheme = "color-scheme: light;"
 		rootLightThemeStyles = `
-			  color-scheme: light;
-	      --b1: 100% 0 0;
-	      --fallback-b1: #ffffff;
-	      --b2: 90% 0 0;
-	      --fallback-b2: #eeeeee;
-	      --b3: 80% 0 0;
-	      --fallback-b3: #cccccc;
-	      --bc: 0% 0 0;
-	      --fallback-bc: #000000;
-	      --n: 85% 0 0;
-	      --fallback-n: #eeeeee;
-	      --nc: 100% 0 0;
-	      --fallback-nc: #ffffff;
-        `
+				--b1: 100% 0 0;
+				--fallback-b1: #ffffff;
+				--b2: 90% 0 0;
+				--fallback-b2: #eeeeee;
+				--b3: 80% 0 0;
+				--fallback-b3: #cccccc;
+				--bc: 0% 0 0;
+				--fallback-bc: #000000;
+				--n: 85% 0 0;
+				--fallback-n: #eeeeee;
+				--nc: 100% 0 0;
+				--fallback-nc: #ffffff;
+				`
 
 		lightThemeExtraStyles = `
-    @supports (color: oklch(0% 0 0)) {
-	      :where(.menu li:not(.menu-title, .disabled) > *:not(ul, details, .menu-title)):not(.active, .btn):hover, :where(.menu li:not(.menu-title, .disabled) > details > summary:not(.menu-title)):not(.active, .btn):hover {
-	        color: #ffffff;
-	      }
-	  }
-    @supports (color: oklch(0% 0 0)) {
-      .btn-ghost:hover {
-        background-color: oklch(var(--bc));
-        color: oklch(var(--b1));
-      }
-    }
-    .from-black\/70 {
-        --tw-gradient-from: rgb(255 255 255 / 0.7);
-    }
-    `
+		@supports (color: oklch(0% 0 0)) {
+				:where(.menu li:not(.menu-title, .disabled) > *:not(ul, details, .menu-title)):not(.active, .btn):hover, :where(.menu li:not(.menu-title, .disabled) > details > summary:not(.menu-title)):not(.active, .btn):hover {
+					color: #ffffff;
+				}
+		}
+		@supports (color: oklch(0% 0 0)) {
+			.btn-ghost:hover {
+				background-color: oklch(var(--bc));
+				color: oklch(var(--b1));
+			}
+		}
+		.from-black\/70 {
+				--tw-gradient-from: rgb(255 255 255 / 0.7);
+		}
+		`
 	} else {
 		colorScheme = "color-scheme: dark;"
 	}
@@ -162,18 +189,25 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	fmt.Fprintf(w,
 		`<style type="text/css">
 			:root {
+				%s
 				--p: %s;
 				--fallback-p: %s;
 				--pc: %s;
 				--fallback-pc: %s;
+				--link-primary: %s;
 				%s
 			}
 			%s
+			.link-primary {
+				color: var(--link-primary);
+			}
 		</style>`,
+		colorScheme,
 		oklchPrimaryColor,
 		hexPrimaryColor,
 		maxContrastColorOklch,
 		maxContrastColorHex,
+		primaryLinkColor,
 		rootLightThemeStyles,
 		lightThemeExtraStyles,
 	)
