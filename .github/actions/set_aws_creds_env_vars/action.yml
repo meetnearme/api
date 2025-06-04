@@ -53,6 +53,9 @@ inputs:
   CLOUDFLARE_API_BASE_URL:
     description: 'The base URL for the Cloudflare API'
     required: true
+  CLOUDFLARE_API_CLIENT_BASE_URL:
+    description: 'The base URL for the Cloudflare API client'
+    required: true
   CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE:
     description: 'The Namespace key for the project Cloudflare KV Storage'
     required: true
@@ -133,6 +136,7 @@ runs:
         echo CLOUDFLARE_ACCOUNT_ID=${{ inputs.CLOUDFLARE_ACCOUNT_ID }} >> .env
         echo CLOUDFLARE_API_TOKEN=${{ inputs.CLOUDFLARE_API_TOKEN }} >> .env
         echo CLOUDFLARE_API_BASE_URL=${{ inputs.CLOUDFLARE_API_BASE_URL }} >> .env
+        echo CLOUDFLARE_API_CLIENT_BASE_URL=${{ inputs.CLOUDFLARE_API_CLIENT_BASE_URL }} >> .env
         echo CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE=${{ inputs.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE }} >> .env
         echo CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID=${{ inputs.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }} >> .env
         # Below is quote to avoid special character bash issues
