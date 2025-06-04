@@ -494,7 +494,7 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				continue // Skip the numeric validation below for tm_ prefixed IDs
 			}
 			// Check if ID is exactly 18 characters
-			if len(id) != 18 {
+			if len(id) != helpers.ZITADEL_USER_ID_LEN {
 				transport.SendServerRes(w,
 					[]byte(fmt.Sprintf("Invalid ID length: %s. Must be exactly 18 characters", id)),
 					http.StatusBadRequest,
@@ -1261,7 +1261,6 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
 			return
 		}
-
 		if !helpers.HasRequiredRole(roleClaims, validRoles) {
 			err := errors.New("only event editors can add or edit events")
 			transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)

@@ -15,6 +15,7 @@ import (
 
 	"net/http"
 
+	"github.com/a-h/templ"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -43,8 +44,10 @@ type SeshuSessionEventsPayload struct {
 	EventValidations [][]bool `json:"eventValidations" validate:"required"`
 }
 
-type SetSubdomainRequestPayload struct {
-	Subdomain string `json:"subdomain" validate:"required"`
+type SetMnmOptionsRequestPayload struct {
+	Subdomain    string `json:"subdomain" validate:"required"`
+	PrimaryColor string `json:"primaryColor,omitempty"`
+	ThemeMode    string `json:"themeMode,omitempty"`
 }
 
 type UpdateUserAboutRequestPayload struct {
@@ -61,8 +64,8 @@ type eventParentResult struct {
 	err   error
 }
 
-func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	var inputPayload SetSubdomainRequestPayload
+func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	var inputPayload SetMnmOptionsRequestPayload
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -78,8 +81,9 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userID := userInfo.Sub
 
 	// Call Cloudflare KV store to save the subdomain
+	cfMetadataValue := fmt.Sprintf(`userId=%s;--p=%s;themeMode=%s`, userID, inputPayload.PrimaryColor, inputPayload.ThemeMode)
 	metadata := map[string]string{"": ""}
-	err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
+	err = helpers.SetCloudflareMnmOptions(inputPayload.Subdomain, userID, metadata, cfMetadataValue)
 	if err != nil {
 		if err.Error() == helpers.ERR_KV_KEY_EXISTS {
 			return transport.SendHtmlErrorPartial([]byte("Subdomain already taken"), http.StatusInternalServerError)
@@ -89,7 +93,12 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	var buf bytes.Buffer
-	successPartial := partials.SuccessBannerHTML(`Subdomain set successfully`)
+	var successPartial templ.Component
+	if r.URL.Query().Has("theme") {
+		successPartial = partials.SuccessBannerHTML(`Theme updated successfully`)
+	} else {
+		successPartial = partials.SuccessBannerHTML(`Subdomain set successfully`)
+	}
 
 	err = successPartial.Render(r.Context(), &buf)
 	if err != nil {
@@ -110,12 +119,13 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
+	mnmUserId := mnmOptions["userId"]
 
 	// we override the `owners` query param here, because subdomains should always show only
 	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
-	if subdomainValue != "" {
-		ownerIds = []string{subdomainValue}
+	if mnmUserId != "" {
+		ownerIds = []string{mnmUserId}
 	}
 
 	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)

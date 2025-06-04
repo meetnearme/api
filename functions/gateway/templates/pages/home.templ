@@ -47,7 +47,7 @@ templ EventsInner(events []types.Event, mode string) {
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-24 md:pb-4">
-					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) }>
+					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 						<img
 							loading="lazy"
 							src={ helpers.GetImgUrlFromHash(ev) }
@@ -61,7 +61,7 @@ templ EventsInner(events []types.Event, mode string) {
 							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
 						</div>
 						<br/>
-						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 							LEARN MORE
 							&rarr;
 						</a>
@@ -81,7 +81,7 @@ templ EventsInner(events []types.Event, mode string) {
 					<input type="hidden" id="current-slide-index" value="0"/> <!-- Hidden input to track current slide -->
 					for idx, ev := range events {
 						<div id={ "slide-" + strconv.Itoa(idx) } class="carousel-item bg-base-200 flex-shrink-0 w-48 snap-start mr-4 last:mr-0 whitespace-nowrap">
-							<a href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) } class="block p-4 rounded-lg">
+							<a href={ templ.URL("/event/" + ev.Id) } class="block p-4 rounded-lg">
 								<div class="text-lg font-semibold">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) }</div>
 								<div class="text-md">{ helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) }</div>
 							</a>
@@ -110,7 +110,7 @@ templ EventsInner(events []types.Event, mode string) {
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-12 md:pb-4">
-					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) }>
+					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 						<img
 							loading="lazy"
 							src={ helpers.GetImgUrlFromHash(ev) }
@@ -123,7 +123,7 @@ templ EventsInner(events []types.Event, mode string) {
 							<h2 class="text-xl font-bold">{ ev.Name }</h2>
 							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
 						</div>
-						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL(os.Getenv("APEX_URL") + "/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
+						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
 							if ev.HasPurchasable {
 								BUY TICKETS
 								&rarr;
@@ -229,7 +229,7 @@ func GetCitiesAsJsonStr() string {
 
 templ FilterButton() {
 	<button onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
-		FILTERS <svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96" fill="#FFFFFF"></path></svg>
+		FILTER <svg class="svg-icon fill-current" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96"></path></svg>
 	</button>
 }
 
@@ -273,14 +273,14 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					<template x-for="competition in competitions">
 						<div>
 							<h3 x-text="competition.name" class="text-2xl font-bold my-10"></h3>
-							<h4 class="text-xl font-bold my-2 uppercase">Rounds</h4>
+							<h4 class="text-xl font-bold my-2 uppercase">Schedule</h4>
 							<template x-if="rounds && rounds[competition.id]">
 								<div>
 									<template x-for="(eventRounds, eventId) in rounds[competition.id]">
 										<div>
 											<template x-if="eventId !== fakeEventId">
 												<h3 class="text-xl font-bold my-2">
-													<a class="link link-primary" :href="`${apexUrl}/event/${eventId}`">
+													<a class="link link-primary" :href="`/event/${eventId}`">
 														Event #<span x-text="Object.keys(rounds[competition.id]).indexOf(eventId) + 1"></span>
 													</a>
 												</h3>
@@ -311,7 +311,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							<div class="divider my-10"></div>
 							<template x-if="leaderboards && leaderboards[competition.id]">
 								<div>
-									<h3 class="text-xl font-bold my-2 uppercase">Leaderboard</h3>
+									<h3 class="text-xl font-bold my-2 uppercase">Standings</h3>
 									<template x-for="[teamId, score] in Object.entries(leaderboards[competition.id])">
 										<div class="flex justify-between border-b border-gray-700">
 											<div x-text="users?.find?.(user => user?.userId === teamId)?.displayName"></div>
@@ -330,7 +330,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 		class="min-h-screen"
 	>
 		if pageUser == nil {
-			<header class="flex justify-between py-2 bg-base border-b border-gray-700">
+			<header class="flex justify-between p-4">
 				<nav class="flex space-x-4">
 					<button href="#" class="text-sm md:text-xl font-bold border-b-2 border-white">
 						EVENTS
@@ -412,8 +412,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						<button
 							type="submit"
 							:class="{
-							'btn-primary': $store.queryParams.start_time === 'this_month',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'this_month'
+							'btn-primary': $store.queryParams.start_time === 'this_month'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_month')"
@@ -423,8 +422,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						<button
 							type="submit"
 							:class="{
-							'btn-primary': $store.queryParams.start_time === 'today',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'today'
+							'btn-primary': $store.queryParams.start_time === 'today'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'today')"
@@ -434,8 +432,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						<button
 							type="submit"
 							:class="{
-							'btn-primary': $store.queryParams.start_time === 'tomorrow',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'tomorrow'
+							'btn-primary': $store.queryParams.start_time === 'tomorrow'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'tomorrow')"
@@ -445,8 +442,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 						<button
 							type="submit"
 							:class="{
-							'btn-primary': $store.queryParams.start_time === 'this_week',
-							'hover:text-black hover:bg-gray-500 text-black bg-gray-200': $store.queryParams.start_time !== 'this_week'
+							'btn-primary': $store.queryParams.start_time === 'this_week'
 						}"
 							class="btn grow px-2 py-2 text-md md:text-xl "
 							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_week')"

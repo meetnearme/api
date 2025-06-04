@@ -390,7 +390,7 @@ func ConvertEventsToDocuments(events []types.Event) (documents []interface{}) {
 }
 
 func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
-	// Bulk upsert multiple events
+	// For small batches, use the original implementation
 	documents := ConvertEventsToDocuments(events)
 	indexName := GetMarqoIndexName()
 	req := marqo.UpsertDocumentsRequest{

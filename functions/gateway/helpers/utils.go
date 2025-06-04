@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
@@ -11,11 +12,17 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
+	"github.com/cloudflare/cloudflare-go/v3"
+	"github.com/cloudflare/cloudflare-go/v3/kv"
+	"github.com/cloudflare/cloudflare-go/v3/option"
 	"github.com/go-playground/validator"
 	"github.com/google/uuid"
+	_ "github.com/imroc/req"
+
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
@@ -98,7 +105,7 @@ func GetImgUrlFromHash(event types.Event) string {
 	noneCatImgCount := 18
 	catNumString := "_"
 	if len(event.Categories) > 0 {
-		firstCat := ArrFindFirst(event.Categories, []string{"Karaoke", "Karaoke Quirky", "Bocce Ball", "Trivia Night"})
+		firstCat := ArrFindFirst(event.Categories, []string{"Karaoke", "Karaoke Quirky", "Bocce Ball", "Trivia Night", "Soccer"})
 		firstCat = strings.ToLower(strings.ReplaceAll(firstCat, " ", "-"))
 		if firstCat == "" {
 			firstCat = "none"
@@ -115,6 +122,8 @@ func GetImgUrlFromHash(event types.Event) string {
 			catImgCountRange = 4
 		case "trivia-night":
 			catImgCountRange = 4
+		case "soccer":
+			catImgCountRange = 10
 		}
 		imgNum := HashIDtoImgRange(event.Id, catImgCountRange)
 		if imgNum < 10 {
@@ -131,33 +140,94 @@ func GetImgUrlFromHash(event types.Event) string {
 	return baseUrl + "cat_none" + catNumString + fmt.Sprint(imgNum) + ".jpeg"
 }
 
-func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata map[string]string) error {
+func GetCloudflareMnmOptions(subdomainValue string) (string, error) {
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
+	baseURL := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
+	cfClient := cloudflare.NewClient(
+		option.WithAPIKey(accountID),
+		option.WithBaseURL(baseURL),
+	)
+
+	resp, err := cfClient.KV.Namespaces.Values.Get(
+		context.TODO(),
+		namespaceID,
+		subdomainValue,
+		kv.NamespaceValueGetParams{
+			AccountID: cloudflare.F(accountID),
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("error getting cloudflare mnm options: %w", err)
+	}
+
+	// return the response body as a string
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading cloudflare mnm options: %w", err)
+	}
+
+	return string(body), nil
+}
+
+func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]string, cfMetadataValue string) error {
+	mnmOptionsKey := SUBDOMAIN_KEY
+	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
+	baseURL := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
+
+	cfClient := cloudflare.NewClient(
+		option.WithAPIKey(accountID),
+		option.WithBaseURL(baseURL),
+	)
 
 	// First, check if the key already exists
-	readURL := fmt.Sprintf("%s/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s",
-		os.Getenv("CLOUDFLARE_API_BASE_URL"), accountID, namespaceID, subdomainValue)
+	resp, err := cfClient.KV.Namespaces.Values.Get(
+		context.TODO(),
+		namespaceID,
+		subdomainValue,
+		kv.NamespaceValueGetParams{
+			AccountID: cloudflare.F(accountID),
+		},
+	)
 
-	req, err := http.NewRequest("GET", readURL, nil)
-	if err != nil {
-		return fmt.Errorf("error creating read request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+os.Getenv("CLOUDFLARE_API_TOKEN"))
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("error sending read request: %w", err)
-	}
-	defer resp.Body.Close()
-
+	kvValueExists := false
 	if resp.StatusCode == http.StatusOK {
+		kvValueExists = true
+	}
+
+	existingValueStr := ""
+	existingRespBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading existing user subdomain body request: %+v", err.Error())
+	}
+	existingRespBodyStr := string(existingRespBody)
+	if resp.StatusCode == http.StatusOK {
+		existingValueStr = existingRespBodyStr
+	}
+
+	// check for pattern [0-9]{18} => Zitadel UserID pattern
+	hasLegacyUserID := false
+	if !regexp.MustCompile(`^[0-9]{` + fmt.Sprint(ZITADEL_USER_ID_LEN) + `}$`).MatchString(userID) {
+		hasLegacyUserID = true
+	}
+
+	// from the `existingValueStr` `<key1>=<val1>;<key2>=<val2>;...`
+	// parse the userId from the string, don't assume position, instead
+	// search for `userId=` and get the value after it
+
+	// also handle for the case where the value is simply `123` lacking
+	// colons `=` and `;`
+	if !hasLegacyUserID && strings.Contains(existingValueStr, "userId=") {
+		existingValueStr = strings.Split(existingValueStr, "userId=")[1]
+		existingValueStr = strings.Split(existingValueStr, ";")[0]
+	}
+
+	if existingValueStr != userID && resp.StatusCode == http.StatusOK {
 		return fmt.Errorf(ERR_KV_KEY_EXISTS)
 	}
 
-	existingUserSubdomain, err := GetUserMetadataByKey(userID, userMetadataKey)
+	existingUserSubdomain, err := GetUserMetadataByKey(userID, mnmOptionsKey)
 	if err != nil {
 		return fmt.Errorf("error getting user metadata key: %w", err)
 	}
@@ -168,13 +238,15 @@ func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata ma
 	}
 	existingUserSubdomain = string(decodedValue)
 
-	// Next check if the user already has a subdomain set
-	err = UpdateUserMetadataKey(userID, userMetadataKey, subdomainValue)
+	// Write the new subdomain value to the user's metadata in zitadel
+	err = UpdateUserMetadataKey(userID, mnmOptionsKey, subdomainValue)
 	if err != nil {
 		return fmt.Errorf("error updating user metadata: %w", err)
 	}
 
-	// If the key doesn't exist, proceed with writing
+	// If the user metadata write was successful, write the new subdomain value to the KV store in Cloudflare
+	// NOTE: importantly, we write directly rather than using the cloudflare client
+	// because the client does not allow raw stings, but enforces JSON in the field value
 	writeURL := fmt.Sprintf("%s/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s",
 		os.Getenv("CLOUDFLARE_API_BASE_URL"), accountID, namespaceID, subdomainValue)
 
@@ -182,7 +254,7 @@ func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata ma
 	writer := multipart.NewWriter(body)
 
 	// Add value
-	_ = writer.WriteField("value", userID)
+	_ = writer.WriteField("value", cfMetadataValue)
 
 	// Add metadata
 	metadataJSON, err := json.Marshal(metadata)
@@ -190,29 +262,28 @@ func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata ma
 		return fmt.Errorf("error marshaling metadata: %w", err)
 	}
 	_ = writer.WriteField("metadata", string(metadataJSON))
-
 	writer.Close()
 
-	req, err = http.NewRequest("PUT", writeURL, body)
+	req, err := http.NewRequest("PUT", writeURL, body)
 	if err != nil {
 		return fmt.Errorf("error creating write request: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+os.Getenv("CLOUDFLARE_API_TOKEN"))
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-
+	client := &http.Client{}
 	resp, err = client.Do(req)
 	if err != nil {
 		return fmt.Errorf("error sending write request: %w", err)
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to set KV: %s", resp.Status)
 	}
 
 	defer func() {
-		if existingUserSubdomain != "" {
+		// if the key already exists, and the userID is different, delete the existing key
+		if kvValueExists && existingUserSubdomain != "" && existingValueStr != userID {
 			DeleteCloudflareKV(existingUserSubdomain, userID)
 		}
 	}()
@@ -557,7 +628,6 @@ func GetOtherUserMetaByID(userID, key string) (string, error) {
 		return "", err
 	}
 	if res.StatusCode > 400 {
-		log.Printf("res.StatusCode: %v", res.StatusCode)
 		return "", fmt.Errorf("failed to get user metadata: %v", res.StatusCode)
 	}
 
@@ -927,4 +997,13 @@ func NormalizeCompetitionRounds(competitionRounds []internal_types.CompetitionRo
 
 func FormatMatchup(competitorA, competitorB string) string {
 	return fmt.Sprintf("%s_%s", competitorA, competitorB)
+}
+
+// GetMnmOptionsFromContext safely retrieves mnmOptions from context
+// Returns an empty map if not found
+func GetMnmOptionsFromContext(ctx context.Context) map[string]string {
+	if mnmOptions, ok := ctx.Value(MNM_OPTIONS_CTX_KEY).(map[string]string); ok {
+		return mnmOptions
+	}
+	return map[string]string{}
 }
