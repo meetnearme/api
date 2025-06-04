@@ -60,10 +60,16 @@ func TestLayout(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			component := Layout(tc.sitePage, helpers.UserInfo{}, templ.Raw("hello world!"), tc.event, context.Background(), []string{})
+			fakeContext := context.Background()
+			// Add MNM_OPTIONS_CTX_KEY to context
+			fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{
+				"userId": "123",
+				"--p":    "#000000",
+			})
+			component := Layout(tc.sitePage, helpers.UserInfo{}, templ.Raw("hello world!"), tc.event, fakeContext, []string{})
 
 			var buf bytes.Buffer
-			err := component.Render(context.Background(), &buf)
+			err := component.Render(fakeContext, &buf)
 			if err != nil {
 				t.Fatalf("Error rendering Layout: %v", err)
 			}

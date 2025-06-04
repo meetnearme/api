@@ -18,9 +18,9 @@ templ NestedCheckboxList(isInDropdown bool, interests []string) {
 	<div class="collapse-content p-0 bg-base-200 peer-checked:bg-base-200">
 		<ul
 			if isInDropdown {
-				class="shadow menu dropdown-content z-[1] bg-base-100 rounded-box"
+				class="shadow dropdown-content z-[1] bg-base-100 rounded-box"
 			} else {
-				class="p-2 shadow menu bg-base-100 rounded-box"
+				class="p-2 shadow bg-base-100 rounded-box"
 			}
 		>
 			for idx, cat := range helpers.Categories {

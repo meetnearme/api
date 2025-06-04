@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ganeshdipdumbare/marqo-go" // marqo-go is an unofficial Go client library for Marqo
@@ -389,8 +390,63 @@ func ConvertEventsToDocuments(events []types.Event) (documents []interface{}) {
 	return documents
 }
 
+// BatchUpsertEventsToMarqo handles batching events into groups of 5 and processes them in parallel
+func BatchUpsertEventsToMarqo(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
+	const batchSize = 5
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(events))
+	resultsChan := make(chan *marqo.UpsertDocumentsResponse, len(events))
+
+	// Split events into batches
+	for i := 0; i < len(events); i += batchSize {
+		end := i + batchSize
+		if end > len(events) {
+			end = len(events)
+		}
+		batch := events[i:end]
+
+		wg.Add(1)
+		go func(batch []types.Event) {
+			defer wg.Done()
+			res, err := BulkUpsertEventToMarqo(client, batch)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			resultsChan <- res
+		}(batch)
+	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
+	close(errChan)
+	close(resultsChan)
+
+	// Check for errors
+	if len(errChan) > 0 {
+		return nil, <-errChan
+	}
+
+	// Combine results
+	var combinedItems []marqo.Item
+	for res := range resultsChan {
+		combinedItems = append(combinedItems, res.Items...)
+	}
+
+	return &marqo.UpsertDocumentsResponse{
+		Errors:    false,
+		IndexName: GetMarqoIndexName(),
+		Items:     combinedItems,
+	}, nil
+}
+
 func BulkUpsertEventToMarqo(client *marqo.Client, events []types.Event) (*marqo.UpsertDocumentsResponse, error) {
-	// Bulk upsert multiple events
+	// If we have more than 5 events, use the batched version
+	if len(events) > 5 {
+		return BatchUpsertEventsToMarqo(client, events)
+	}
+
+	// For small batches, use the original implementation
 	documents := ConvertEventsToDocuments(events)
 	indexName := GetMarqoIndexName()
 	req := marqo.UpsertDocumentsRequest{

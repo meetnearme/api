@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -90,7 +91,7 @@ func init() {
 		{"/api/event-reg-purch/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
-		{"/api/auth/users/set-subdomain{trailingslash:\\/?}", "POST", handlers.SetUserSubdomain, Require},
+		{"/api/auth/users/update-mnm-options{trailingslash:\\/?}", "POST", handlers.SetMnmOptions, Require},
 		{"/api/auth/users/update-interests{trailingslash:\\/?}", "POST", handlers.UpdateUserInterests, Require},
 		{"/api/auth/users/update-about{trailingslash:\\/?}", "POST", handlers.UpdateUserAbout, Require},
 		// TODO: delete this comment once user location is implemented in profile,
@@ -161,9 +162,16 @@ func init() {
 	}
 }
 
+type AuthConfig struct {
+	AuthDomain     string
+	AllowedDomains []string
+	CookieDomain   string
+}
+
 type App struct {
-	Router *mux.Router
-	AuthZ  *authorization.Authorizer[*oauth.IntrospectionContext]
+	Router     *mux.Router
+	AuthZ      *authorization.Authorizer[*oauth.IntrospectionContext]
+	AuthConfig *AuthConfig
 }
 
 func NewApp() *App {
@@ -172,6 +180,7 @@ func NewApp() *App {
 	}
 	app.Router.Use(stateRedirectMiddleware)
 	app.Router.Use(withContext)
+	app.Router.Use(WithDerivedOptionsFromReq)
 	app.InitializeAuth()
 	log.Printf("App created: %+v", app)
 
@@ -184,6 +193,11 @@ func NewApp() *App {
 func (app *App) InitializeAuth() {
 	services.InitAuth()
 	app.AuthZ = services.GetAuthMw()
+	app.AuthConfig = &AuthConfig{
+		AuthDomain:     os.Getenv("ZITADEL_INSTANCE_HOST"),
+		AllowedDomains: []string{strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1), strings.Replace(os.Getenv("APEX_URL"), "https://", "*.", 1)},
+		CookieDomain:   strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1),
+	}
 }
 
 func (app *App) SetupRoutes(routes []Route) {
@@ -211,6 +225,7 @@ func (app *App) addRoute(route Route) {
 			// First check Authorization header
 			authHeader := r.Header.Get("Authorization")
 			redirectUrl := r.URL.String()
+
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				accessToken = strings.TrimPrefix(authHeader, "Bearer ")
 			} else {
@@ -308,6 +323,39 @@ func (app *App) addRoute(route Route) {
 				ctx = context.WithValue(ctx, "userMetaClaims", userMetaClaims)
 			}
 			r = r.WithContext(ctx)
+
+			// After successful auth, check for state parameter to handle subdomain redirect
+			state := r.URL.Query().Get("state")
+			if state != "" {
+				decodedState, err := base64.URLEncoding.DecodeString(state)
+				if err == nil {
+					parts := strings.Split(string(decodedState), "|")
+					if len(parts) == 2 {
+						originalHost := parts[0]
+						originalURL := parts[1]
+
+						// Extract subdomain from original host
+						hostParts := strings.Split(originalHost, ".")
+						apexDomain := strings.Join(hostParts[len(hostParts)-2:], ".")
+						subdomain := ""
+						if len(hostParts) > 2 {
+							subdomain = strings.Join(hostParts[:len(hostParts)-2], ".")
+						}
+
+						// Build the final URL with subdomain
+						var finalURL string
+						if subdomain != "" {
+							finalURL = fmt.Sprintf("https://%s.%s%s", subdomain, apexDomain, originalURL)
+						} else {
+							finalURL = fmt.Sprintf("https://%s%s", apexDomain, originalURL)
+						}
+
+						http.Redirect(w, r, finalURL, http.StatusFound)
+						return
+					}
+				}
+			}
+
 			route.Handler(w, r).ServeHTTP(w, r)
 		}
 	case Check:
@@ -475,6 +523,41 @@ func stateRedirectMiddleware(next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r)
+	})
+}
+
+func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Initialize with empty map to prevent nil interface conversion
+		mnmOptions := map[string]string{}
+
+		mnmOptionsHeaderVal := strings.Trim(r.Header.Get("X-Mnm-Options"), "\"")
+		if mnmOptionsHeaderVal == "" {
+			// do nothing if missing
+		} else if strings.Contains(mnmOptionsHeaderVal, "=") {
+			parts := strings.Split(mnmOptionsHeaderVal, ";")
+			for _, part := range parts {
+				kv := strings.SplitN(part, "=", 2)
+				if len(kv) == 2 {
+					key := strings.Trim(kv[0], " \"") // trim spaces and quotes
+					value := strings.Trim(kv[1], " \"")
+					if slices.Contains(helpers.AllowedMnmOptionsKeys, key) {
+						mnmOptions[key] = value
+					} else {
+						log.Printf("Warning: Invalid option key '%s' (not in allowed keys)", key)
+					}
+				} else {
+					log.Printf("Warning: Invalid option format '%s' (expected key=value)", part)
+				}
+			}
+		} else {
+			// Handle legacy format where header value is just the userId
+			mnmOptions["userId"] = strings.Trim(mnmOptionsHeaderVal, " \"")
+		}
+
+		// Always set the context with at least an empty map
+		ctx := context.WithValue(r.Context(), helpers.MNM_OPTIONS_CTX_KEY, mnmOptions)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 

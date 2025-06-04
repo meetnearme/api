@@ -233,9 +233,9 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 			<div id="main-nav" class="navbar fixed z-50 top-0 w-full bg-base-100 bg-opacity-75 shadow-md mb-5">
 				<div class="container mx-auto flex items-center">
 					<div class="flex flex-1">
-						<a href="/" class="brand btn btn-ghost pl-2 text-xl flex flex-col">
+						<a href="/" class="btn btn-ghost pl-2 text-xl flex flex-col bg-black">
 							<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
-							<img class="brand-type" style="width: 8.2rem" alt="Meet Near Me" class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
+							<img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
 						</a>
 					</div>
 					<div class="navbar-end flex">
@@ -267,7 +267,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 			{ children... }
 			<footer class="footer footer-center p-10 mt-20 bg-primary text-primary-content">
 				<aside>
-					<a href="/" class="btn h-auto text-xl bg-base-200 hover:bg-opacity-80">
+					<a href="/" class="btn h-auto text-xl bg-black hover:bg-opacity-80">
 						<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 					</a>
 					<p>
