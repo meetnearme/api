@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
+	"github.com/playwright-community/playwright-go"
 )
 
 func TestGetHomeOrUserPage(t *testing.T) {
@@ -90,11 +92,17 @@ func TestGetHomeOrUserPage(t *testing.T) {
 	boundAddress := mockMarqoServer.Listener.Addr().String()
 	os.Setenv("DEV_MARQO_API_BASE_URL", fmt.Sprintf("http://%s", boundAddress))
 
+	// Add MNM_OPTIONS_CTX_KEY to context
+	fakeContext := context.Background()
+	// fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
+
 	// Create a request
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	req = req.WithContext(fakeContext)
 
 	// Create a ResponseRecorder to record the response
 	rr := httptest.NewRecorder()
@@ -201,6 +209,7 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		Headers: map[string]string{"cf-ray": "8aebbd939a781f45-DEN"},
 	})
+	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
 
 	req = req.WithContext(ctx)
 
@@ -222,7 +231,7 @@ func TestGetHomePageWithCFLocationHeaders(t *testing.T) {
 	}
 }
 
-func TestGetProfilePage(t *testing.T) {
+func TestGetAdminPage(t *testing.T) {
 	req, err := http.NewRequest("GET", "/profile", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -257,12 +266,56 @@ func TestGetProfilePage(t *testing.T) {
 		},
 	}
 
+	// Save original environment variables
+	originalAccountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	originalNamespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
+
+	// Set test environment variables
+	os.Setenv("CLOUDFLARE_ACCOUNT_ID", "test-account-id")
+	os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", "test-namespace-id")
+
+	// Defer resetting environment variables
+	defer func() {
+		os.Setenv("CLOUDFLARE_ACCOUNT_ID", originalAccountID)
+		os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", originalNamespaceID)
+	}()
+
+	// Create mock Cloudflare server
+	mockCloudflareServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the request path and method
+		if r.Method != "GET" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Check if the request is for the correct endpoint
+		if !strings.Contains(r.URL.Path, "/client/v4/accounts/test-account-id/storage/kv/namespaces/test-namespace-id/values/") {
+			http.Error(w, "Invalid endpoint", http.StatusNotFound)
+			return
+		}
+
+		// Mock successful response
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success": true, "result": "test-value"}`))
+	}))
+
+	// Set up the mock server
+	mockCloudflareServer.Listener.Close()
+	listener, err := test_helpers.BindToPort(t, helpers.MOCK_CLOUDFLARE_URL)
+	if err != nil {
+		t.Fatalf("Failed to start mock Cloudflare server: %v", err)
+	}
+	mockCloudflareServer.Listener = listener
+	mockCloudflareServer.Start()
+	defer mockCloudflareServer.Close()
+
 	ctx := context.WithValue(req.Context(), "userInfo", mockUserInfo)
 	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
+	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
 	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
-	handler := GetProfilePage(rr, req)
+	handler := GetAdminPage(rr, req)
 	handler.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
@@ -284,6 +337,8 @@ func TestGetMapEmbedPage(t *testing.T) {
 	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		QueryStringParameters: map[string]string{"address": "New York"},
 	})
+	// Add MNM_OPTIONS_CTX_KEY to context
+	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
 	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
@@ -329,11 +384,15 @@ func TestGetEventDetailsPage(t *testing.T) {
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
-					"_id":            "123",
-					"eventOwners":    []interface{}{"789"},
-					"eventOwnerName": "Event Host Test",
-					"name":           "Test Event",
-					"description":    "This is a test event",
+					"_id":                   "123",
+					"eventOwners":           []interface{}{"789"},
+					"eventOwnerName":        "Event Host Test",
+					"name":                  "Test Event",
+					"description":           "This is a test event",
+					"address":               "123 Main St, Anytown, USA",
+					"hasPurchasable":        true,
+					"hasRegistrationFields": true,
+					"startingPrice":         50,
 				},
 			},
 		}
@@ -395,31 +454,133 @@ func TestGetEventDetailsPage(t *testing.T) {
 
 	ctx = context.WithValue(req.Context(), "userInfo", mockUserInfo)
 	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
-	req = req.WithContext(ctx)
+	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
+	_ = req.WithContext(ctx)
 
 	// Set up router to extract variables
-	router := mux.NewRouter()
+	router := test_helpers.SetupStaticTestRouter(t, "./assets")
+
 	router.HandleFunc("/event/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
 	})
 
-	rr := httptest.NewRecorder()
-	router.ServeHTTP(rr, req)
+	router.HandleFunc("/api/purchasables/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+		json, _ := json.Marshal(map[string]interface{}{
+			"purchasable_items": []map[string]interface{}{
+				{
+					"name":              "Test Ticket",
+					"cost":              1000,
+					"inventory":         10,
+					"description":       "Test Description",
+					"currency":          "USD",
+					"registration_type": "text",
+					"registration_fields": []string{
+						"Test Field",
+					},
+				},
+			},
+		})
+		w.Write(json)
+	})
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	router.HandleFunc("/api/registration-fields/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+		json, _ := json.Marshal(map[string]interface{}{
+			"registration_fields": []map[string]interface{}{
+				{
+					"name": "Test Field",
+				},
+			},
+		})
+		w.Write(json)
+	})
+
+	router.HandleFunc("/api/checkout/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+		json, _ := json.Marshal(map[string]interface{}{
+			"checkout_url": "https://checkout.stripe.com/test_checkout_url",
+		})
+		w.Write(json)
+	})
+
+	// Create a real HTTP server using the router
+	port = test_helpers.GetNextPort()
+	testServer := httptest.NewUnstartedServer(router)
+	listener, err = test_helpers.BindToPort(t, port)
+	if err != nil {
+		t.Fatalf("Failed to start test server: %v", err)
+	}
+	testServer.Listener = listener
+	testServer.Start()
+	defer testServer.Close()
+
+	browser, err := test_helpers.GetPlaywrightBrowser()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if rr.Body.String() == "" {
-		t.Errorf("Handler returned empty body")
+	if browser == nil || err != nil {
+		log.Fatalf("could not launch browser: %v\n", err)
+		return
+	}
+	page, err := (*browser).NewPage()
+	if err != nil {
+		log.Fatalf("could not create page: %v\n", err)
 	}
 
-	if !strings.Contains(rr.Body.String(), ">Test Event") {
-		t.Errorf("Event title is missing from the page")
+	// Now use testServer.URL to access the server
+	if _, err = page.Goto(fmt.Sprintf("%s/event/123", testServer.URL)); err != nil {
+		log.Fatalf("could not goto: %v\n", err)
 	}
 
-	if !strings.Contains(rr.Body.String(), ">This is a test event") {
-		t.Errorf("Event description is missing from the page")
+	// Check if the event title is visible
+	if _, err := page.Locator("h1").IsVisible(); err != nil {
+		t.Errorf("Event title is not visible")
+	}
+
+	title, err := page.Locator("h1").AllTextContents()
+	if err != nil {
+		t.Errorf("Error getting event title: %v", err)
+	}
+
+	if title[0] != string("Test Event") {
+		t.Errorf("Failed to find event title, found: %s", title[0])
+	}
+
+	page.Locator("#buy-tkts").Click()
+
+	page.Locator("[data-input-counter-increment]").Click()
+	page.Locator("[data-input-counter-increment]").Click()
+	wasCheckoutCalled := false
+	// Expect API call to checkout endpoint
+	page.OnRequest(func(request playwright.Request) {
+		if strings.Contains(request.URL(), "api/checkout") {
+			wasCheckoutCalled = true
+			body, err := request.PostData()
+			if err != nil {
+				t.Fatalf("Failed to get request body: %v", err)
+			}
+			expectedBody := `{"event_name":"Test Event","purchased_items":[{"name":"Test Ticket","cost":1000,"quantity":2,"currency":"USD","reg_responses":[]}],"total":2000,"currency":"USD"}`
+			if body != expectedBody {
+				t.Errorf("Expected request body %s, got %s", expectedBody, body)
+			}
+			wasCheckoutCalled = true
+		}
+	})
+
+	// Click the checkout button
+	page.Locator("button:has-text('Checkout')").Click()
+	_, err = page.ExpectRequest("**/api/checkout/**", func() error {
+		return page.Locator("button:has-text('Checkout')").Click()
+	})
+	if err != nil {
+		t.Fatalf("Checkout request not observed: %v", err)
+	}
+	// Verify the request was made to the mock server
+	// The mock server will handle the request and we can verify its response
+	// in the mock server handler above
+	if !wasCheckoutCalled {
+		t.Errorf("Checkout API call was not made")
+		screenshotName := fmt.Sprintf("event_details_%s.png", eventID)
+		test_helpers.ScreenshotToStandardDir(t, page, screenshotName)
 	}
 }
 
@@ -485,7 +646,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			cfRay:          "",
 			expectedQuery:  "",
 			expectedLoc:    []float64{40.7128, -74.0060},
-			expectedRadius: 150,
+			expectedRadius: helpers.DEFAULT_SEARCH_RADIUS,
 			expectedStart:  4070908800,
 			expectedEnd:    4071808800,
 			expectedCfLoc:  helpers.CdnLocation{},
@@ -495,7 +656,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			queryParams:    map[string]string{},
 			cfRay:          "",
 			expectedQuery:  "",
-			expectedLoc:    []float64{39.8283, -98.5795},
+			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
 			expectedEnd:    0, // This will be one month from now in Unix seconds
@@ -524,7 +685,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
-			expectedLoc:    []float64{39.8283, -98.5795},
+			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
 			expectedEnd:    0, // This will be 7 days from now in Unix seconds
@@ -536,7 +697,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			cfRay:          "1234567890000-LAX",
 			expectedLoc:    []float64{helpers.CfLocationMap["LAX"].Lat, helpers.CfLocationMap["LAX"].Lon}, // Los Angeles coordinates
 			expectedCfLoc:  helpers.CfLocationMap["LAX"],
-			expectedRadius: 150.0,
+			expectedRadius: helpers.DEFAULT_SEARCH_RADIUS,
 		},
 	}
 
@@ -613,6 +774,7 @@ func floatSliceEqual(a, b []float64, epsilon float64) bool {
 }
 
 func TestGetAddOrEditEventPage(t *testing.T) {
+
 	// Save original environment variables
 	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
 	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
@@ -705,7 +867,7 @@ func TestGetAddOrEditEventPage(t *testing.T) {
 				Name:  "Test User",
 			},
 			roleClaims: []helpers.RoleClaim{
-				{Role: "eventEditor", ProjectID: "project-id"},
+				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody:   "Edit Event",
@@ -853,7 +1015,7 @@ func TestGetEventAttendeesPage(t *testing.T) {
 				Name:  "Authorized User",
 			},
 			roleClaims: []helpers.RoleClaim{
-				{Role: "eventEditor", ProjectID: "project-id"},
+				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody:   "Test Event", // Or some other expected content from the attendees page
@@ -867,7 +1029,7 @@ func TestGetEventAttendeesPage(t *testing.T) {
 				Name:  "Unauthorized User",
 			},
 			roleClaims: []helpers.RoleClaim{
-				{Role: "eventEditor", ProjectID: "project-id"},
+				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody:   "You are not authorized to edit this event",

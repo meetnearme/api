@@ -29,6 +29,7 @@ type Event struct {
 	UpdatedBy             string        `json:"updatedBy,omitempty"`
 	RefUrl                string        `json:"refUrl,omitempty"`
 	HideCrossPromo        bool          `json:"hideCrossPromo,omitempty"`
+	CompetitionConfigId   string        `json:"competitionConfigId,omitempty"`
 
 	// New fields for UI use only
 	LocalizedStartDate string `json:"localStartDate,omitempty"`
