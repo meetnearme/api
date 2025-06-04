@@ -278,6 +278,7 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("failed to set KV: %s: %s", resp.Status, resp.Body)
 		return fmt.Errorf("failed to set KV: %s", resp.Status)
 	}
 
