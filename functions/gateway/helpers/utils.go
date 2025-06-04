@@ -283,7 +283,7 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 			log.Printf("failed to read error response body: %v", err)
 			return fmt.Errorf("failed to set KV: %s", resp.Status)
 		}
-		log.Printf("failed to set KV: %s: %s", resp.Status, string(bodyBytes))
+		log.Printf("failed to set KV, writing to %s: response: %s: %s", writeURL, resp.Status, string(bodyBytes))
 		return fmt.Errorf("failed to set KV: %s", resp.Status)
 	}
 
