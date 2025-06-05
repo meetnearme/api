@@ -11,7 +11,7 @@ export function StaticSiteStack({ stack }: StackContext) {
     dev: {
       deploy: true,
     },
-    buildCommand: 'set NODE_ENV=production && npm run tailwind:prod',
+    buildCommand: 'NODE_ENV=production npm run tailwind:prod',
   });
   stack.addOutputs({
     StaticEndpoint: staticSite?.url,
