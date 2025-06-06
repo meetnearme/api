@@ -394,7 +394,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 				UrlPath:        path,
 				UrlQueryParams: queryParams,
 				Html:           truncatedHTMLStr,
-				ChildID:        childID,
+				ChildId:        childID,
 				// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
 				// when we create a new session, we can't allow it to be `0` because that is
 				// a valid value for both latitdue and longitude (see "null island")
@@ -422,7 +422,7 @@ func handlePost(ctx context.Context, req events.LambdaFunctionURLRequest, scrape
 
 			parentUpdatePayload := types.SeshuSessionUpdate{
 				Url:     parsedParentUrl.String(), // primary key
-				ChildID: url.String(),             // new value to update
+				ChildId: url.String(),             // new value to update
 			}
 
 			_, err = services.UpdateSeshuSession(ctx, db, parentUpdatePayload)
