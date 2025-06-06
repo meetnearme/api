@@ -40,8 +40,9 @@ type SeshuSessionSubmitPayload struct {
 }
 
 type SeshuSessionEventsPayload struct {
-	Url            string                          `json:"url" validate:"required"` // URL is the DB key in SeshuSession
-	EventBoolValid []internal_types.EventBoolValid `json:"eventValidations" validate:"required"`
+	Url                     string                          `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+	EventBoolValid          []internal_types.EventBoolValid `json:"eventValidations" validate:"required"`
+	EventRecursiveBoolValid []internal_types.EventBoolValid `json:"eventValidationRecursive" validate:"omitempty"`
 }
 
 type SetMnmOptionsRequestPayload struct {
@@ -387,17 +388,36 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, "partial", err)
 	}
 
-	updateSeshuSession.Url = inputPayload.Url
 	// Note that only OpenAI can push events as candidates, `eventValidations` is an array of
 	// arrays that confirms the subfields, but avoids a scenario where users can push string data
 	// that is prone to manipulation
-	updateSeshuSession.EventValidations = inputPayload.EventBoolValid
+	updateSeshuSession = internal_types.SeshuSessionUpdate{
+		Url:              inputPayload.Url,
+		EventValidations: inputPayload.EventBoolValid,
+	}
 
 	seshuService := services.GetSeshuService()
 	_, err = seshuService.UpdateSeshuSession(ctx, db, updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
+	}
+
+	// Updating the children
+	if len(inputPayload.EventRecursiveBoolValid) > 0 {
+
+		parentSession, _ := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{Url: inputPayload.Url})
+
+		childUpdate := internal_types.SeshuSessionUpdate{
+			Url:              parentSession.ChildId,
+			EventValidations: []internal_types.EventBoolValid{inputPayload.EventRecursiveBoolValid[0]},
+		}
+
+		_, err := seshuService.UpdateSeshuSession(ctx, db, childUpdate)
+
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
+		}
 	}
 
 	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`)
