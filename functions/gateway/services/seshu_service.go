@@ -74,7 +74,7 @@ func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		LocationLongitude: seshuPayload.LocationLongitude,
 		LocationAddress:   seshuPayload.LocationAddress,
 		Html:              seshuPayload.Html,
-		ChildId:           seshuPayload.ChildID,
+		ChildId:           seshuPayload.ChildId,
 		EventCandidates:   seshuPayload.EventCandidates,
 		// TODO: this needs to become a map to avoid regressions pertaining
 		// to key ordering in the future
@@ -188,9 +188,9 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		*input.UpdateExpression += " #html = :html,"
 	}
 
-	if seshuPayload.ChildID != "" {
+	if seshuPayload.ChildId != "" {
 		input.ExpressionAttributeNames["#childId"] = "childId"
-		input.ExpressionAttributeValues[":childId"] = &types.AttributeValueMemberS{Value: seshuPayload.ChildID}
+		input.ExpressionAttributeValues[":childId"] = &types.AttributeValueMemberS{Value: seshuPayload.ChildId}
 		*input.UpdateExpression += " #childId = :childId,"
 	}
 
