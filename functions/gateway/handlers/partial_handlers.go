@@ -45,6 +45,15 @@ type SeshuSessionEventsPayload struct {
 	EventRecursiveBoolValid []internal_types.EventBoolValid `json:"eventValidationRecursive" validate:"omitempty"`
 }
 
+type EventDomPaths struct {
+	EventTitle       string `json:"event_title_dom"`
+	EventLocation    string `json:"event_location_dom"`
+	EventStartTime   string `json:"event_start_time_dom"`
+	EventEndTime     string `json:"event_end_time_dom"`
+	EventURL         string `json:"event_url"`
+	EventDescription string `json:"event_description_dom"`
+}
+
 type SetMnmOptionsRequestPayload struct {
 	Subdomain    string `json:"subdomain" validate:"required"`
 	PrimaryColor string `json:"primaryColor,omitempty"`
@@ -403,17 +412,61 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
 	}
 
-	// Updating the children
+	// Updating the parent and child
 	if len(inputPayload.EventRecursiveBoolValid) > 0 {
 
-		parentSession, _ := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{Url: inputPayload.Url})
+		parentSession, err := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
+			Url: inputPayload.Url,
+		})
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to get parent session"), http.StatusInternalServerError, "partial", err)
+		}
+
+		childSession, err := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
+			Url: parentSession.ChildId,
+		})
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to get child session"), http.StatusInternalServerError, "partial", err)
+		}
+
+		updatedCandidates := parentSession.EventCandidates
+		updatedValidations := parentSession.EventValidations
+
+		childCandidate := childSession.EventCandidates[0]
+		childValidation := inputPayload.EventRecursiveBoolValid[0]
+
+		updated := false
+		for i, parentCandidate := range parentSession.EventCandidates {
+			if parentCandidate.EventURL == childCandidate.EventURL {
+				updatedCandidates[i] = childCandidate
+				updatedValidations[i] = childValidation
+				updated = true
+				break
+			}
+		}
+
+		if !updated {
+			return transport.SendHtmlRes(w, []byte("Unable to find child session"), http.StatusInternalServerError, "partial", err)
+		}
+
+		parentUpdate := internal_types.SeshuSessionUpdate{
+			Url:              parentSession.Url,
+			EventCandidates:  updatedCandidates,
+			EventValidations: updatedValidations,
+		}
+
+		_, err = seshuService.UpdateSeshuSession(ctx, db, parentUpdate)
+
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to update parent session with child data"), http.StatusBadRequest, "partial", err)
+		}
 
 		childUpdate := internal_types.SeshuSessionUpdate{
 			Url:              parentSession.ChildId,
 			EventValidations: []internal_types.EventBoolValid{inputPayload.EventRecursiveBoolValid[0]},
 		}
 
-		_, err := seshuService.UpdateSeshuSession(ctx, db, childUpdate)
+		_, err = seshuService.UpdateSeshuSession(ctx, db, childUpdate)
 
 		if err != nil {
 			return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
@@ -602,18 +655,31 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// TODO: search `session.Html` for the items in the `validatedEvents` array
 		//Loop through eventTitle
 
-		doc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
+		// doc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
+		// if err != nil {
+		// 	print("Error for doc conversion")
+		// }
+
+		parentDoc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
 		if err != nil {
-			print("Error for doc conversion")
+			log.Println("Error parsing parent HTML:", err)
 		}
 
-		// Create a map to store DOM path as key and event titles as values
-		validationMap := make(map[string][]string)
-		for i := range validatedEvents {
-			domPath := findEventDomPath(doc, validatedEvents[i].EventTitle)
-			validationMap[domPath] = append(validationMap[domPath], validatedEvents[i].EventTitle)
+		// Optionally parse child HTML if child session exists
+		var childDoc *goquery.Document
+		if session.ChildId != "" {
+			childSession, err := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
+				Url: session.ChildId,
+			})
+			if err != nil {
+				log.Println("Could not retrieve child session:", err)
+			} else {
+				childDoc, err = goquery.NewDocumentFromReader(strings.NewReader(childSession.Html))
+				if err != nil {
+					log.Println("Failed to parse child HTML:", err)
+				}
+			}
 		}
-		log.Println("Extracted DOM Paths:", validationMap)
 
 		//URL as a key --
 
@@ -643,6 +709,43 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// }
 
 		// TODO: delete this `SeshuSession` once the handoff to the `SeshuJobs` table is complete
+
+		// Map to hold DOM paths for each event by its title
+		validationMap := make(map[string]EventDomPaths)
+
+		for _, event := range validatedEvents {
+			var docToUse *goquery.Document
+			var url string
+
+			// Use childDoc if this event matches the last child candidate (child is always only one)
+			if childDoc != nil && event.EventSource == "rs" {
+				docToUse = childDoc
+				url = session.ChildId
+			} else {
+				docToUse = parentDoc
+				url = inputPayload.Url
+			}
+
+			// Extract DOM paths for all fields
+			paths := EventDomPaths{
+				EventTitle:       findEventDomPath(docToUse, event.EventTitle),
+				EventLocation:    findEventDomPath(docToUse, event.EventLocation),
+				EventStartTime:   findEventDomPath(docToUse, event.EventStartTime),
+				EventEndTime:     findEventDomPath(docToUse, event.EventEndTime),
+				EventURL:         url,
+				EventDescription: findEventDomPath(docToUse, event.EventDescription),
+			}
+
+			// Use EventTitle as the key to keep it unique per event
+			validationMap[event.EventTitle] = paths
+		}
+
+		jsonOutput, err := json.MarshalIndent(validationMap, "", "  ")
+		if err != nil {
+			fmt.Print("Failed to marshal DOM path map:", err)
+		} else {
+			fmt.Print("Extracted DOM Paths:\n" + string(jsonOutput))
+		}
 	}()
 
 	updateSeshuSession.Url = inputPayload.Url
@@ -654,8 +757,14 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
 	}
 
-	// TODO: this sets the session to `submitted`, in a follow-up PR this will call a function
-	// that manages the handoff to the event scraping queue to do the real ingestion work
+	updateSeshuSession.Url = session.ChildId
+	updateSeshuSession.Status = "submitted"
+
+	_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
+
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
+	}
 
 	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added. We will put it in the queue and let you know when it's imported.`)
 
@@ -775,7 +884,7 @@ func getFullDomPath(element *goquery.Selection) string {
 	return strings.Join(path, " > ") // Return full selector path
 }
 
-func findEventDomPath(doc *goquery.Document, eventTitle string) string {
+func findEventDomPath(doc *goquery.Document, eventText string) string {
 
 	var domPath string
 
@@ -784,7 +893,7 @@ func findEventDomPath(doc *goquery.Document, eventTitle string) string {
 		text := strings.TrimSpace(element.Text())
 
 		// Check if this element contains the event title
-		if strings.Contains(text, eventTitle) {
+		if strings.Contains(text, eventText) {
 			domPath = getFullDomPath(element)
 		}
 	})
