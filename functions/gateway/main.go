@@ -85,12 +85,15 @@ func init() {
 
 		// == START == need to expose these via permanent key for headless clients
 		{"/api/event{trailingslash:\\/?}", "POST", handlers.PostEventHandler, Require},
+		// These below are public apis somewhat legacy for Adalo
 		{"/api/events{trailingslash:\\/?}", "POST", handlers.PostBatchEventsHandler, Require},
 		{"/api/events{trailingslash:\\/?}", "GET", handlers.SearchEventsHandler, None},
 		{"/api/events{trailingslash:\\/?}", "PUT", handlers.BulkUpdateEventsHandler, Require},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, Require},
+		// This is to delete directly which we do not do in the UI
 		{"/api/events", "DELETE", handlers.BulkDeleteEventsHandler, Require},
+
 		{"/api/event-reg-purch{trailingslash:\\/?}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/event-reg-purch/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},
