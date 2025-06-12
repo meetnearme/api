@@ -7,14 +7,13 @@ services:
     restart: unless-stopped
     volumes:
       - weaviate_test_data:/var/lib/weaviate
-    environment:
-      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
-      ENABLE_MODULES: 'text2vec-transformers'
-      DEFAULT_VECTORIZER_MODULE: 'text2vec-transformers'
-      TRANSFORMERS_INFERENCE_API: 'http://t2v-transformers-test:8080'
-      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true' # Easiest for isolated testing
-      CLUSTER_HOSTNAME: 'node1'
-      LOG_LEVEL: 'warning'
+    env_file:
+      - ./.env.teste
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/v1/.well-known/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   t2v-transformers-test:
     image: cr.weaviate.io/semitechnologies/text2vec-transformers:msmarco-distilbert-base-v4
@@ -28,20 +27,13 @@ services:
       context: .
       dockerfile: go-app.Dockerfile # Use the same Dockerfile as your dev app
     container_name: meetnearme-go-app-tester
-    # This command overrides the default server start command from your Dockerfile
-    # It runs your entire test suite.
     command: ["go", "test", "-v", "-race", "-cover", "./..."]
-    environment:
-      # Point your Go app to the test database containers by their service names
-      WEAVIATE_HOST: "weaviate-test"
-      WEAVIATE_PORT: "8080"
-      WEAVIATE_SCHEME: "http"
-      # Add any other environment variables your application needs to run tests
-      # e.g., POSTGRES_HOST, ZITADEL_CLIENT_ID etc.
+    env_file:
+      -./.env.test
     depends_on:
       weaviate-test:
         # It's better to wait for health/readiness if you can define a healthcheck
-        condition: service_started
+        condition: service_healthy
       t2v-transformers-test:
         condition: service_started
 

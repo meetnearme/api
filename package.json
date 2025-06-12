@@ -46,6 +46,8 @@
     "docker:rebuild": "npm run docker:clean && npm run docker:build && npm run docker:up",
     "docker:restart": "npm run docker:stop && npm run docker:start",
 
+    "docker:weaviate:create-schema": "go run cmd/weaviate-setup/main.go",
+
     "docker:shell:app": "docker-compose exec go-app sh",
     "docker:shell:db": "docker-compose exec postgres bash",
     "docker:shell:weaviate": "docker-compose exec weaviate bash"
