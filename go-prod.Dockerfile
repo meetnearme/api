@@ -1,0 +1,42 @@
+FROM golang:1.23.8-alpine3.21 AS base
+
+RUN apk add --no-cache \
+  supervisor \
+  curl \
+  ca-certificates \
+  tzdata # this is necessary for the timezone dependencies that are not automatically available in the image
+
+WORKDIR /go-app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# -ldflags="-w -s" strips debug symbols, making the binary smaller.
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./docker_build/main ./functions/gateway/main.go
+
+# The go binary will be mounted from ./docker_build to continue enabling the watchGolang script
+FROM alpine:latest
+
+RUN apk add --no-cache \
+  supervisor \
+  curl \
+  ca-certificates \
+  tzdata # this is necessary for the timezone dependencies that are not automatically available in the image
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /go-app
+
+COPY --from=builder /server /app/server
+
+USER appuser
+
+
+CMD ["/app/server"]
+
+
+CMD [ "/bin/sh", "-c", "cp /app-static/.env /go-app/.env && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf -n" ]
+
+
