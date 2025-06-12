@@ -28,10 +28,22 @@
     "docker:run": "docker run -it --name meetnearme-monolith -p 8000:8000 -p 5433:5432 -p 8080:8080 meetnearme-monolith",
     "docker:start": "docker start -a meetnearme-monolith",
     "docker:stop": "docker stop meetnearme-monolith",
-    "docker:logs": "docker logs -f meetnearme-monolith",
-    "docker:clean": "docker rm -f meetnearme-monolith",
-    "docker:rebuild": "npm run docker:clean && npm run docker:build && npm run docker:run",
-    "docker:restart": "npm run docker:stop && npm run docker:start"
+
+    "docker:logs": "docker compose logs -f",
+    "docker:logs:app": "docker compose logs -f go-app",
+    "docker:logs:postgres": "docker compose logs -f postgres",
+    "docker:logs:weaviate": "docker compose logs -f weaviate",
+    "docker:clean": "docker compose down -v --remove-orphans",
+    "docker:up": "npm run go:build:linux && docker compose up --force-recreate --abort-on-container-exit",
+    "docker:rebuild": "npm run docker:clean && npm run docker:build && npm run docker:up",
+    "docker:restart": "npm run docker:stop && npm run docker:start",
+
+    "docker:weaviate:create-schema": "go run cmd/weaviate-setup/main.go",
+
+    "docker:shell:app": "docker-compose exec go-app sh",
+    "docker:shell:db": "docker-compose exec postgres bash",
+    "docker:shell:weaviate": "docker-compose exec weaviate bash"
+
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.14",
