@@ -25,9 +25,13 @@ services:
   go-app-tester:
     build:
       context: .
-      dockerfile: go-app.Dockerfile # Use the same Dockerfile as your dev app
+      dockerfile: Dockerfile.go.test # Use the same Dockerfile as your dev app
     container_name: meetnearme-go-app-tester
-    command: ["go", "test", "-v", "-race", "-cover", "./..."]
+    volumes:
+      - .:/app
+    working_dir: /app
+    # command: ["go", "test", "-v", "-race", "-cover", "./functions/..."]
+    command: sh -c "set -o pipefail && go test -v -race -cover ./functions/... 2>&1 | tee test-results.log"
     env_file:
       -./.env.test
     depends_on:
