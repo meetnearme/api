@@ -51,10 +51,8 @@
     "docker:shell:app": "docker-compose exec go-app sh",
     "docker:shell:db": "docker-compose exec postgres bash",
     "docker:shell:weaviate": "docker-compose exec weaviate bash",
-
     "test": "echo \"Error: no test specified, run test:integration instead\" && exit 1",
     "test:integration": "docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit; EXIT_CODE=$?; docker-compose -f docker-compose.test.yml down -v; exit $EXIT_CODE"
-
 
   },
   "devDependencies": {
