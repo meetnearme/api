@@ -483,8 +483,6 @@ func TestGetWeaviateEventByID(t *testing.T) {
 	}
 }
 
-// TEST these for weaviate for better coverage
-
 func TestBulkGetWeaviateEventsByID(t *testing.T) {
 	ctx := context.Background()
 
@@ -533,7 +531,6 @@ func TestBulkGetWeaviateEventsByID(t *testing.T) {
 		}
 	}
 
-	// Check Event 2
 	event2, ok := resultsMap["bulk-get-id-456"]
 	if !ok {
 		t.Error("Expected to find event with ID 'bulk-get-id-456', but it was not returned.")

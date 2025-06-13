@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	// "github.com/go-openapi/strfmt"
-	// "github.com/google/uuid"
 	"github.com/go-openapi/strfmt"
 	"github.com/golang/geo/s2"
 	"github.com/google/uuid"
@@ -25,9 +23,6 @@ import (
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/filters"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/graphql"
 
-	// "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/object"
-
-	// "github.com/weaviate/weaviate-go-client/v4/weaviate/data/replication"
 	"github.com/weaviate/weaviate/entities/models"
 )
 
