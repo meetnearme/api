@@ -47,7 +47,7 @@ services:
   go-app:
     build:
       context: .
-      dockerfile: go-app.Dockerfile
+      dockerfile: go-prod.Dockerfile
     container_name: meetnearme-go-app
     ports:
       - "${APP_PORT_HOST:-8000}:${APP_PORT:-8000}"
