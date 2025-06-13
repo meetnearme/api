@@ -33,21 +33,30 @@ services:
       AUTHENTICATION_APIKEY_ALLOWED_KEYS: '${WEAVIATE_API_KEY_ALLOWED_KEYS}'
       AUTHENTICATION_APIKEY_USERS: '${WEAVIATE_API_KEY_USERS}'
       PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
-      DEFAULT_VECTORIZER_MODULE:
-      ENABLE_MODULES:
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-transformers' # Use sentence transformers
+      ENABLE_MODULES: 'text2vec-transformers'
+      TRANSFORMERS_INFERENCE_API: 'http://t2v-transformers:8080' # Address of the vectorizer container
       CLUSTER_HOSTNAME: 'node1'
     volumes:
       - weaviate_data:/var/lib/weaviate
     depends_on:
       postgres:
         condition: service_healthy
+      t2v-transformers:
+        condition: service_started
     env_file:
       - ./.env
+
+  t2v-transformers:
+    image: cr.weaviate.io/semitechnologies/transformers-inference:sentence-transformers-multi-qa-MiniLM-L6-cos-v1 # A good default model
+    environment:
+      ENABLE_CUDA: '0' # Set to '1' if you have a compatible GPU and NVIDIA drivers installed
 
   go-app:
     build:
       context: .
-      dockerfile: go-app.Dockerfile
+      dockerfile: Dockerfile.go.dev
+      # dockerfile: Dockerfile.go.prod
     container_name: meetnearme-go-app
     ports:
       - "${APP_PORT_HOST:-8000}:${APP_PORT:-8000}"
