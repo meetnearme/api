@@ -209,12 +209,12 @@ func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.R
 		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
 	}
 	// Validate event ownership
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get Marqo client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
-	event, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+	event, err := services.GetWeaviateEventByID(ctx, weaviateClient, eventId, "")
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
 		return

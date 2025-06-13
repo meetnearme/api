@@ -194,6 +194,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	// Extract parameter values from the request query parameters
 	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 	userId := mux.Vars(r)[helpers.USER_ID_KEY]
+	ctx := r.Context()
 
 	// Setup channels for concurrent operations
 	type userResult struct {
@@ -248,9 +249,9 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 			}
 
 			// Get search results
-			marqoClient, err := services.GetMarqoClient()
+			weaviateClient, err := services.GetWeaviateClient()
 			if err != nil {
-				searchChan <- searchResult{types.EventSearchResponse{}, errors.New("failed to get marqo client: " + err.Error())}
+				searchChan <- searchResult{types.EventSearchResponse{}, errors.New("failed to get weaviate client: " + err.Error())}
 				return
 			}
 
@@ -260,7 +261,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 				ownerIds = []string{userId}
 			}
 
-			res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+			res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 			searchChan <- searchResult{res, err}
 		}()
 	} else {
@@ -268,9 +269,9 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 		close(userChan)
 		close(aboutChan)
 
-		marqoClient, err := services.GetMarqoClient()
+		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
-			searchChan <- searchResult{types.EventSearchResponse{}, errors.New("failed to get marqo client: " + err.Error())}
+			searchChan <- searchResult{types.EventSearchResponse{}, errors.New("failed to get weaviate client: " + err.Error())}
 			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, err
 		}
 
@@ -279,7 +280,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 			ownerIds = []string{subdomainValue}
 		}
 
-		res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+		res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 		searchChan <- searchResult{res, err}
 	}
 
@@ -450,11 +451,11 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		pageObj = helpers.SitePages["add-event"]
 	} else {
 		pageObj = helpers.SitePages["edit-event"]
-		marqoClient, err := services.GetMarqoClient()
+		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
-			return transport.SendHtmlRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, "page", err)
+			return transport.SendHtmlRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, "page", err)
 		}
-		eventPtr, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+		eventPtr, err := services.GetWeaviateEventByID(ctx, weaviateClient, eventId, "")
 		if err != nil {
 			return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, "page", err)
 		}
@@ -523,11 +524,11 @@ func GetEventAttendeesPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 	var event types.Event
 	var isEditor bool = false
 	if eventId != "" {
-		marqoClient, err := services.GetMarqoClient()
+		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
-			return transport.SendHtmlRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, "page", err)
+			return transport.SendHtmlRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, "page", err)
 		}
-		eventPtr, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+		eventPtr, err := services.GetWeaviateEventByID(ctx, weaviateClient, eventId, "")
 		if err != nil {
 			return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, "page", err)
 		}
@@ -637,11 +638,11 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	ctx := r.Context()
 	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
 	parseDates := r.URL.Query().Get("parse_dates")
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 	}
-	event, err := services.GetMarqoEventByID(marqoClient, eventId, parseDates)
+	event, err := services.GetWeaviateEventByID(ctx, weaviateClient, eventId, parseDates)
 	if err != nil || event.Id == "" {
 		event = &internal_types.Event{}
 	}
