@@ -126,9 +126,9 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
@@ -140,7 +140,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		ownerIds = []string{mnmUserId}
 	}
 
-	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+	res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 	}
@@ -172,9 +172,9 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 	farFutureTime, _ := time.Parse(time.RFC3339, "2099-01-01T00:00:00Z")
 	endTimeUnix = farFutureTime.Unix()
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
@@ -192,13 +192,13 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 
 	// Launch parent event fetch in goroutine
 	go func() {
-		parent, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+		parent, err := services.GetWeaviateEventByID(ctx, weaviateClient, eventId, "")
 		parentChan <- eventParentResult{event: parent, err: err}
 	}()
 
 	// Launch search in parallel
 	go func() {
-		res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+		res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 		if err != nil {
 			searchChan <- eventSearchResult{err: err}
 			return
