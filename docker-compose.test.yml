@@ -3,12 +3,12 @@ version: '3.8'
 services:
   weaviate-test:
     image: cr.weaviate.io/semitechnologies/weaviate:1.30.1
-    containter_name: meetnearme-weaviate-test
+    container_name: meetnearme-weaviate-test
     restart: unless-stopped
     volumes:
       - weaviate_test_data:/var/lib/weaviate
     env_file:
-      - ./.env.teste
+      - ./.env.test
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/v1/.well-known/ready || exit 1"]
       interval: 10s
@@ -16,7 +16,7 @@ services:
       retries: 5
 
   t2v-transformers-test:
-    image: cr.weaviate.io/semitechnologies/text2vec-transformers:msmarco-distilbert-base-v4
+    image: cr.weaviate.io/semitechnologies/transformers-inference:sentence-transformers-multi-qa-MiniLM-L6-cos-v1 # A good default model
     container_name: meetnearme-t2v-transformers-test
     environment:
       ENABLE_CUDA: '0' # Run on CPU for CI/local dev
@@ -33,7 +33,7 @@ services:
     # command: ["go", "test", "-v", "-race", "-cover", "./functions/..."]
     command: sh -c "set -o pipefail && go test -v -race -cover ./functions/... 2>&1 | tee test-results.log"
     env_file:
-      -./.env.test
+      - ./.env.test
     depends_on:
       weaviate-test:
         # It's better to wait for health/readiness if you can define a healthcheck
