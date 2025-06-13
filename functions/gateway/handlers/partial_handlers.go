@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"net/http"
 
@@ -659,7 +660,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// if err != nil {
 		// 	print("Error for doc conversion")
 		// }
-
 		parentDoc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
 		if err != nil {
 			log.Println("Error parsing parent HTML:", err)
@@ -716,6 +716,8 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		for _, event := range validatedEvents {
 			var docToUse *goquery.Document
 			var url string
+			var endTag string
+			var descriptionTag string
 
 			// Use childDoc if this event matches the last child candidate (child is always only one)
 			if childDoc != nil && event.EventSource == "rs" {
@@ -726,26 +728,34 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				url = inputPayload.Url
 			}
 
-			// Extract DOM paths for all fields
-			paths := EventDomPaths{
-				EventTitle:       findEventDomPath(docToUse, event.EventTitle),
-				EventLocation:    findEventDomPath(docToUse, event.EventLocation),
-				EventStartTime:   findEventDomPath(docToUse, event.EventStartTime),
-				EventEndTime:     findEventDomPath(docToUse, event.EventEndTime),
-				EventURL:         url,
-				EventDescription: findEventDomPath(docToUse, event.EventDescription),
+			startTag := findTagByPartialText(docToUse, event.EventStartTime)
+
+			if event.EventEndTime == "" {
+				endTag = ""
+			} else {
+				endTag = findTagByPartialText(docToUse, event.EventEndTime)
 			}
 
-			// Use EventTitle as the key to keep it unique per event
+			if event.EventDescription == "" {
+				descriptionTag = ""
+			} else {
+				descriptionTag = findTagByPartialText(docToUse, event.EventDescription[:utf8.RuneCountInString(event.EventDescription)/2])
+			}
+
+			paths := EventDomPaths{
+				EventTitle:       findTagByExactText(docToUse, event.EventTitle),
+				EventLocation:    findTagByExactText(docToUse, event.EventLocation),
+				EventStartTime:   startTag,
+				EventEndTime:     endTag,
+				EventURL:         url,
+				EventDescription: descriptionTag,
+			}
+
 			validationMap[event.EventTitle] = paths
 		}
 
-		jsonOutput, err := json.MarshalIndent(validationMap, "", "  ")
-		if err != nil {
-			fmt.Print("Failed to marshal DOM path map:", err)
-		} else {
-			fmt.Print("Extracted DOM Paths:\n" + string(jsonOutput))
-		}
+		b, _ := json.MarshalIndent(validationMap, "", "  ")
+		fmt.Println(string(b))
 	}()
 
 	updateSeshuSession.Url = inputPayload.Url
@@ -884,19 +894,53 @@ func getFullDomPath(element *goquery.Selection) string {
 	return strings.Join(path, " > ") // Return full selector path
 }
 
-func findEventDomPath(doc *goquery.Document, eventText string) string {
+func findTagByExactText(doc *goquery.Document, targetText string) string {
+	var exactMatch *goquery.Selection
 
-	var domPath string
+	doc.Find("*").Each(func(i int, s *goquery.Selection) {
+		// Get only the element's own text (exclude children)
+		nodeText := strings.TrimSpace(s.Clone().Children().Remove().End().Text())
 
-	// Search for the element containing the event title
-	doc.Find("*").Each(func(index int, element *goquery.Selection) {
-		text := strings.TrimSpace(element.Text())
-
-		// Check if this element contains the event title
-		if strings.Contains(text, eventText) {
-			domPath = getFullDomPath(element)
+		if nodeText == targetText {
+			exactMatch = s
 		}
 	})
 
-	return domPath
+	if exactMatch != nil {
+		return getFullDomPath(exactMatch)
+	}
+	return ""
+}
+
+func findTagByPartialText(doc *goquery.Document, targetSubstring string) string {
+	var bestMatch *goquery.Selection
+
+	doc.Find("*").Each(func(i int, s *goquery.Selection) {
+		// Normalize and preserve space between children
+		text := strings.Join(s.Contents().Map(func(i int, c *goquery.Selection) string {
+			return strings.TrimSpace(c.Text()) // → "Wednesday7pm"
+		}), " ") // → "Wednesday 7pm"
+
+		if strings.Contains(text, targetSubstring) {
+			hasChildMatch := false
+
+			s.Children().Each(func(i int, child *goquery.Selection) {
+				childText := strings.Join(child.Contents().Map(func(i int, c *goquery.Selection) string {
+					return strings.TrimSpace(c.Text())
+				}), " ")
+				if strings.Contains(childText, targetSubstring) {
+					hasChildMatch = true
+				}
+			})
+
+			if !hasChildMatch {
+				bestMatch = s
+			}
+		}
+	})
+
+	if bestMatch != nil {
+		return getFullDomPath(bestMatch)
+	}
+	return ""
 }
