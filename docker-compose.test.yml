@@ -10,23 +10,23 @@ services:
     env_file:
       - ./.env.test
     healthcheck:
+      # This is a robust way to check if Weaviate is truly ready to accept requests
       test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/v1/.well-known/ready || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   t2v-transformers-test:
-    image: cr.weaviate.io/semitechnologies/transformers-inference:sentence-transformers-multi-qa-MiniLM-L6-cos-v1 # A good default model
+    image: cr.weaviate.io/semitechnologies/transformers-inference:sentence-transformers-multi-qa-MiniLM-L6-cos-v1
     container_name: meetnearme-t2v-transformers-test
     environment:
-      ENABLE_CUDA: '0' # Run on CPU for CI/local dev
+      ENABLE_CUDA: '0' # Set to '1' if you have a compatible GPU and NVIDIA drivers installed
 
-  # 3. Go Application Test Runner Service
   go-app-tester:
+    container_name: meetnearme-go-app-tester
     build:
       context: .
-      dockerfile: Dockerfile.go.test # Use the same Dockerfile as your dev app
-    container_name: meetnearme-go-app-tester
+      dockerfile: Dockerfile.go.test
     volumes:
       - .:/app
     working_dir: /app
@@ -34,9 +34,11 @@ services:
     command: sh -c "set -o pipefail && go test -v -race -cover ./functions/... 2>&1 | tee test-results.log"
     env_file:
       - ./.env.test
+    environment:
+      CGO_ENABLED: '1'
     depends_on:
       weaviate-test:
-        # It's better to wait for health/readiness if you can define a healthcheck
+        # Now we can wait for the service to be healthy, which is more reliable
         condition: service_healthy
       t2v-transformers-test:
         condition: service_started
