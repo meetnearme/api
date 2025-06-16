@@ -9,15 +9,29 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/transport"
+	"github.com/weaviate/weaviate-go-client/v4/weaviate"
 	// rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
 )
+
+var testClient *weaviate.Client
 
 func TestMain(m *testing.M) {
 	log.Println("Setting up test environment for handlers package")
 
-	// Set GO_ENV to "test" to trigger test-specific behavior
+	// This connects to the real Weaviate container from your docker-compose.test.yml
+	os.Setenv("WEAVIATE_HOST", "localhost")
+	os.Setenv("WEAVIATE_PORT", "8080")
+	os.Setenv("WEAVIATE_SCHEME", "http")
+
+	var err error
+	testClient, err = services.GetWeaviateClient()
+	if err != nil {
+		log.Fatalf("FATAL: Could not create Weaviate client for handler tests: %v", err)
+	}
+
 	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
 
 	mockDB := &test_helpers.MockDynamoDBClient{
@@ -34,8 +48,8 @@ func TestMain(m *testing.M) {
 							"address":     &types.AttributeValueMemberS{Value: "123 Test St"},
 							"zip_code":    &types.AttributeValueMemberS{Value: "12345"},
 							"country":     &types.AttributeValueMemberS{Value: "Test Country"},
-							"lat":    &types.AttributeValueMemberN{Value: "51.5074"},
-							"long":   &types.AttributeValueMemberN{Value: "-0.1278"},
+							"lat":         &types.AttributeValueMemberN{Value: "51.5074"},
+							"long":        &types.AttributeValueMemberN{Value: "-0.1278"},
 						},
 					},
 				}, nil

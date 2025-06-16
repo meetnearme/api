@@ -44,13 +44,6 @@ func TestMain(m *testing.M) {
 		log.Fatalf("FATAL: Could not create Weaviate client for tests: %v", err)
 	}
 
-	err = DefineWeaviateSchema(context.Background(), testClient)
-	if err != nil {
-		log.Fatalf("FATAL: Could not set up Weaviate schema for tests: %v", err)
-	}
-
-	log.Println("Weaviate client connected and schema is ready. Running Tests.")
-
 	exitCode := m.Run()
 
 	log.Println("Tests have completed. Doing tear down.")
