@@ -216,7 +216,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 
 	var pageUser *types.UserSearchResult
 
-	ctx := r.Context()
+	// ctx := r.Context()
 	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
 	mnmUserId := mnmOptions["userId"]
 	if mnmUserId != "" {
