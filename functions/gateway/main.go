@@ -21,6 +21,7 @@ import (
 	"github.com/awslabs/aws-lambda-go-api-proxy/gorillamux"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
 
@@ -179,6 +180,7 @@ type App struct {
 	Router     *mux.Router
 	AuthZ      *authorization.Authorizer[*oauth.IntrospectionContext]
 	AuthConfig *AuthConfig
+	PostGresDB *pgxpool.Pool
 }
 
 func NewApp() *App {
@@ -189,6 +191,7 @@ func NewApp() *App {
 	app.Router.Use(withContext)
 	app.Router.Use(WithDerivedOptionsFromReq)
 	app.InitializeAuth()
+	app.InitDataBase()
 	log.Printf("App created: %+v", app)
 
 	defer func() {
@@ -474,6 +477,14 @@ func (app *App) SetupNotFoundHandler() {
 	})
 }
 
+func (app *App) InitDataBase() {
+	db, err := services.GetPostgresClient()
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	app.PostGresDB = db
+}
+
 // Middleware to inject context into the request
 func withContext(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -577,6 +588,8 @@ func main() {
 	_ = transport.GetDB()
 
 	app.SetupRoutes(Routes)
+
+	defer app.PostGresDB.Close()
 
 	if deploymentTarget == "ACT" {
 		// Start serving
