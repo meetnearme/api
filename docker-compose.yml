@@ -11,6 +11,7 @@ services:
       PGDATA: /var/lib/postgresql/data
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./seshujobs_init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "${POSTGRES_PORT_HOST:-5433}:5432"
     restart: unless-stopped
@@ -19,6 +20,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    entrypoint: ["/bin/sh", "-c", "
+      echo 'local all all trust' > /var/lib/postgresql/custom_pg_hba.conf && \
+      echo 'host all all 0.0.0.0/0 md5' >> /var/lib/postgresql/custom_pg_hba.conf && \
+      exec docker-entrypoint.sh postgres -c listen_addresses='*' -c hba_file=/var/lib/postgresql/custom_pg_hba.conf"] #For local check
 
   weaviate:
     image: cr.weaviate.io/semitechnologies/weaviate:1.30.1
