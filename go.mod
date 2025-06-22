@@ -6,6 +6,7 @@ toolchain go1.24.3
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.5.0
+	github.com/PuerkitoBio/goquery v1.10.1
 	github.com/a-h/templ v0.2.793
 	github.com/aws/aws-cdk-go/awscdk/v2 v2.133.0
 	github.com/aws/aws-lambda-go v1.46.0
@@ -19,6 +20,7 @@ require (
 	github.com/aws/constructs-go/constructs/v10 v10.3.0
 	github.com/aws/jsii-runtime-go v1.96.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.16.2
+	github.com/cloudflare/cloudflare-go/v3 v3.1.0
 	github.com/ganeshdipdumbare/marqo-go v1.0.1
 	github.com/go-openapi/strfmt v0.23.0
 	github.com/go-playground/validator v9.31.0+incompatible
@@ -26,7 +28,10 @@ require (
 	github.com/golang/geo v0.0.0-20250404181303-07d601f131f3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
+	github.com/imroc/req v0.3.2
+	github.com/jackc/pgx/v5 v5.7.5
 	github.com/joho/godotenv v1.5.1
+	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/playwright-community/playwright-go v0.5101.0
 	github.com/stripe/stripe-go/v80 v80.2.0
 	github.com/weaviate/weaviate v1.28.8
@@ -37,7 +42,6 @@ require (
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
-	github.com/PuerkitoBio/goquery v1.10.1 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
@@ -57,7 +61,6 @@ require (
 	github.com/cdklabs/awscdk-asset-kubectl-go/kubectlv20/v2 v2.1.2 // indirect
 	github.com/cdklabs/awscdk-asset-node-proxy-agent-go/nodeproxyagentv6/v2 v2.0.1 // indirect
 	github.com/cloudflare/circl v1.5.0 // indirect
-	github.com/cloudflare/cloudflare-go/v3 v3.1.0 // indirect
 	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
@@ -83,17 +86,14 @@ require (
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/imroc/req v0.3.2 // indirect
 	github.com/imroc/req/v3 v3.49.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.7.5 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
-	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

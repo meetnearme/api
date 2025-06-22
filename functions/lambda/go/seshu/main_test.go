@@ -112,9 +112,9 @@ func TestRouter(t *testing.T) {
 				case "POST":
 					req.Headers["Access-Control-Allow-Origin"] = "*"
 					req.Headers["Access-Control-Allow-Credentials"] = "true"
-					return handlePost(ctx, req, &actualService)
+					return handleLambdaPost(ctx, req, &actualService)
 				default:
-					return clientError(http.StatusMethodNotAllowed)
+					return clientLambdaError(http.StatusMethodNotAllowed)
 				}
 			}
 
