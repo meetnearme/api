@@ -24,7 +24,11 @@
     "lint:templ:prod": "eslint --ext .templ --max-warnings 0 .",
     "marqo:local": "docker ps -a --format '{{.Names}}' | grep -w marqo && docker start -a marqo || (docker pull marqoai/marqo:latest && docker rm -f marqo && docker run --name marqo -it -p 8882:8882 -e MARQO_STORAGE_TYPE=local -e MARQO_STORAGE_PATH=/data -e MARQO_STORAGE_SIZE=10GB -e MARQO_STORAGE_ENABLED=true -e MARQO_STORAGE_PERSIST=true -e MARQO_STORAGE_CLEANUP=false -v marqo_data:/data marqoai/marqo:latest)",
     "marqo:local:migrate": "LOCAL_MARQO=true go run ./internal/database/marqo/migration -env prod -schema ./internal/database/marqo/migration/schema.json -source-index prod-events-2025-02-06-1826 -source-endpoint https://prod-events-2025-02-06-1826-hxz5vw-g2amp25x.dp1.marqo.ai",
+
+    "go:build:linux": "cross-env CGO_ENABLED=0 GOOS=linux go build -o ./docker_build/main ./functions/gateway/main.go",
     "docker:build": "docker build -t meetnearme-monolith .",
+    "docker:build:nocache": "npm run go:build:linux && docker compose build --no-cache",
+
     "docker:run": "docker run -it --name meetnearme-monolith -p 8000:8000 -p 5433:5432 -p 8080:8080 meetnearme-monolith",
     "docker:start": "docker start -a meetnearme-monolith",
     "docker:stop": "docker stop meetnearme-monolith",
