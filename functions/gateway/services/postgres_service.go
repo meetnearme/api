@@ -54,7 +54,5 @@ func GetPostgresClient() (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("Unable to create connection pool: %v\n", err)
 	}
 
-	fmt.Println("Connected to PostgreSQL database!")
-
 	return dbpool, nil
 }
