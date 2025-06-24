@@ -237,7 +237,7 @@ func Router(ctx context.Context, req events.LambdaFunctionURLRequest) (events.La
 	}
 }
 
-func routerHandler(scraper services.ScrapingService) http.HandlerFunc {
+func RouterNonLambda() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Handle only POST
 		if r.Method != http.MethodPost {
@@ -261,7 +261,7 @@ func routerHandler(scraper services.ScrapingService) http.HandlerFunc {
 			Headers: map[string]string{}, // You can populate this if needed
 		}
 
-		resp, err := handlePost(r.Context(), internalReq, scraper)
+		resp, err := handlePost(r.Context(), internalReq, scrapingService)
 		if err != nil {
 			log.Printf("Internal error: %v", err)
 			http.Error(w, resp.Body, resp.StatusCode)
@@ -715,7 +715,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf(fmt.Sprint(resp.StatusCode) + ": Completion API request not successful")
+		return "", "", fmt.Errorf("%d: Completion API request not successful", resp.StatusCode)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -808,7 +808,7 @@ func clientError(status int) (InternalResponse, error) {
 	return InternalResponse{
 		Body:       http.StatusText(status),
 		StatusCode: status,
-	}, fmt.Errorf(http.StatusText(status))
+	}, nil
 }
 
 // // TODO: this should share with the gateway handler
@@ -826,7 +826,7 @@ func serverError(err error) (InternalResponse, error) {
 	return InternalResponse{
 		Body:       http.StatusText(http.StatusInternalServerError),
 		StatusCode: http.StatusInternalServerError,
-	}, err
+	}, nil
 }
 
 func parseAndValidatePayload(payloadBody string, payload any) error {
@@ -850,7 +850,7 @@ func main() {
 
 	if deploymentTarget == "ACT" {
 		mux := http.NewServeMux()
-		mux.HandleFunc("/", routerHandler(scrapingService))
+		mux.HandleFunc("/", RouterNonLambda())
 
 		port := os.Getenv("PORT")
 		if port == "" {
