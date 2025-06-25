@@ -9,7 +9,11 @@
   "scripts": {
     "dev": "concurrently \"npm:dev:*\"",
     "build": "sst build",
+<<<<<<< HEAD
     "dev:sst": "sst dev",
+=======
+    "_dev:sst": "sst dev",
+>>>>>>> feature/WIP-weaviate-postgres
     "dev:serve-static": "npx http-server -o /static -a localhost -p 8001 --cors",
     "dev:tailwind": "tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --watch",
     "dev:templ": "node scripts/watchTempl.js ./functions/gateway/templates ./functions/lambda/go/seshu/templates",
@@ -25,18 +29,21 @@
     "marqo:local": "docker ps -a --format '{{.Names}}' | grep -w marqo && docker start -a marqo || (docker pull marqoai/marqo:latest && docker rm -f marqo && docker run --name marqo -it -p 8882:8882 -e MARQO_STORAGE_TYPE=local -e MARQO_STORAGE_PATH=/data -e MARQO_STORAGE_SIZE=10GB -e MARQO_STORAGE_ENABLED=true -e MARQO_STORAGE_PERSIST=true -e MARQO_STORAGE_CLEANUP=false -v marqo_data:/data marqoai/marqo:latest)",
     "marqo:local:migrate": "LOCAL_MARQO=true go run ./internal/database/marqo/migration -env prod -schema ./internal/database/marqo/migration/schema.json -source-index prod-events-2025-02-06-1826 -source-endpoint https://prod-events-2025-02-06-1826-hxz5vw-g2amp25x.dp1.marqo.ai",
 
-    "go:build:linux": "cross-env CGO_ENABLED=0 GOOS=linux go build -o ./docker_build/main ./functions/gateway/main.go",
-    "docker:build": "docker build -t meetnearme-monolith .",
+
+    "go:build:linux": "CGO_ENABLED=0 GOOS=linux go build -o ./docker_build/main ./functions/gateway/main.go",
+    "docker:build": "npm run go:build:linux && docker compose build",
     "docker:build:nocache": "npm run go:build:linux && docker compose build --no-cache",
 
-    "docker:run": "docker run -it --name meetnearme-monolith -p 8000:8000 -p 5433:5432 -p 8080:8080 meetnearme-monolith",
+    " These need to be updated": "missing compose setup",
+    "docker:run": "docker run -i --name meetnearme-monolith -p 8000:8000 -p 5433:5432 -p 8080:8080 -v \"$(pwd)/docker_build:/go-app\" meetnearme-monolith",
     "docker:start": "docker start -a meetnearme-monolith",
     "docker:stop": "docker stop meetnearme-monolith",
 
     "docker:logs": "docker compose logs -f",
     "docker:logs:app": "docker compose logs -f go-app",
     "docker:logs:postgres": "docker compose logs -f postgres",
-    "docker:logs:weaviate": "docker compose logs -f weaviate",
+    "docker:logs:weaviate": "docker compose logs -f weaviate",   "docker:logs": "docker logs -f meetnearme-monolith",
+
     "docker:clean": "docker compose down -v --remove-orphans",
     "docker:up": "npm run go:build:linux && docker compose up --force-recreate --abort-on-container-exit",
     "docker:rebuild": "npm run docker:clean && npm run docker:build && npm run docker:up",
@@ -46,7 +53,9 @@
 
     "docker:shell:app": "docker-compose exec go-app sh",
     "docker:shell:db": "docker-compose exec postgres bash",
-    "docker:shell:weaviate": "docker-compose exec weaviate bash"
+    "docker:shell:weaviate": "docker-compose exec weaviate bash",
+    "test": "echo \"Error: no test specified, run test:integration instead\" && exit 1",
+    "test:integration": "docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit; EXIT_CODE=$?; docker-compose -f docker-compose.test.yml down -v; exit $EXIT_CODE"
 
   },
   "devDependencies": {

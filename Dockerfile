@@ -23,3 +23,4 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /go-app/main ./fu
 # EXPOSE 8000
 ENTRYPOINT ["./main"]
 
+
