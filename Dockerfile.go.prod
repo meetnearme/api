@@ -1,10 +1,11 @@
-FROM golang:1.23.8-alpine3.21 AS base
+FROM golang:1.24-alpine3.21 AS base
 
 RUN apk add --no-cache \
   supervisor \
   curl \
   ca-certificates \
-  tzdata # this is necessary for the timezone dependencies that are not automatically available in the image
+  tzdata
+
 
 WORKDIR /go-app
 
