@@ -9,11 +9,7 @@
   "scripts": {
     "dev": "concurrently \"npm:dev:*\"",
     "build": "sst build",
-<<<<<<< HEAD
-    "dev:sst": "sst dev",
-=======
     "_dev:sst": "sst dev",
->>>>>>> feature/WIP-weaviate-postgres
     "dev:serve-static": "npx http-server -o /static -a localhost -p 8001 --cors",
     "dev:tailwind": "tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --watch",
     "dev:templ": "node scripts/watchTempl.js ./functions/gateway/templates ./functions/lambda/go/seshu/templates",
@@ -55,7 +51,8 @@
     "docker:shell:db": "docker-compose exec postgres bash",
     "docker:shell:weaviate": "docker-compose exec weaviate bash",
     "test": "echo \"Error: no test specified, run test:integration instead\" && exit 1",
-    "test:integration": "docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit; EXIT_CODE=$?; docker-compose -f docker-compose.test.yml down -v; exit $EXIT_CODE"
+    "test:integration": "docker-compose -f docker-compose.test.yml up --abort-on-container-exit; EXIT_CODE=$?; docker-compose -f docker-compose.test.yml down -v; exit $EXIT_CODE",
+    "integration": "docker compose -f docker-compose.test.yml up --build"
 
   },
   "devDependencies": {
