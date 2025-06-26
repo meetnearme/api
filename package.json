@@ -50,10 +50,10 @@
     "docker:shell:app": "docker-compose exec go-app sh",
     "docker:shell:db": "docker-compose exec postgres bash",
     "docker:shell:weaviate": "docker-compose exec weaviate bash",
-    "test": "echo \"Error: no test specified, run test:integration instead\" && exit 1",
-    "test:integration": "docker-compose -f docker-compose.test.yml up --abort-on-container-exit; EXIT_CODE=$?; docker-compose -f docker-compose.test.yml down -v; exit $EXIT_CODE",
-    "integration": "docker compose -f docker-compose.test.yml up --build"
-
+    "test:build": "docker compose -f docker-compose.test.yml build",
+    "test:start": "docker compose -f docker-compose.test.yml up -d",
+    "test:exec": "docker compose -f docker-compose.test.yml exec go-app-tester sh -c 'go test -v -race -cover -run ^TestSearchWeaviateEvents$ ./functions/gateway/services/... 2>&1 | tee test-results.log'",
+    "test:stop": "docker compose -f docker-compose.test.yml down -v"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.14",

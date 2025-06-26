@@ -4,7 +4,7 @@
 FROM golang:1.24-alpine
 
 # Install git for fetching Go modules and any C-compilers needed for 'go test -race'
-RUN apk add --no-cache git build-base
+RUN apk add --no-cache git build-base tzdata
 
 # Set the working directory
 WORKDIR /app
