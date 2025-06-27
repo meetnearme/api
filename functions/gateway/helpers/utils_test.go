@@ -115,6 +115,7 @@ func TestSetCloudflareMnmOptions(t *testing.T) {
 	originalAPIToken := os.Getenv("CLOUDFLARE_API_TOKEN")
 	originalCfApiBaseUrl := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
 	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
+	originalZitadelBotAdminToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
 
 	// Get initial endpoints
 	port := test_helpers.GetNextPort()
@@ -127,27 +128,37 @@ func TestSetCloudflareMnmOptions(t *testing.T) {
 	os.Setenv("CLOUDFLARE_API_TOKEN", "test-api-token")
 	os.Setenv("CLOUDFLARE_API_CLIENT_BASE_URL", cfEndpoint)
 	os.Setenv("ZITADEL_INSTANCE_HOST", zitadelEndpoint)
+	os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-bot-admin-token")
 
 	// Defer resetting environment variables
 	defer func() {
 		os.Setenv("CLOUDFLARE_ACCOUNT_ID", originalAccountID)
 		os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", originalNamespaceID)
 		os.Setenv("CLOUDFLARE_API_TOKEN", originalAPIToken)
-		os.Setenv("CLOUDFLARE_	API_BASE_URL", originalCfApiBaseUrl)
+		os.Setenv("CLOUDFLARE_API_BASE_URL", originalCfApiBaseUrl)
 		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
+		os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalZitadelBotAdminToken)
 	}()
 
 	// Create mock servers
 	mockCloudflareServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Mock the GET request to check if the key exists
 		if r.Method == "GET" {
+			// For test-nonexistent-subdomain, return 404 (key doesn't exist yet)
+			if strings.Contains(r.URL.Path, "test-nonexistent-subdomain") {
+				w.WriteHeader(http.StatusNotFound)
+				w.Write([]byte(`{"success": false, "errors": [{"code": 10009, "message": "Not Found"}]}`))
+				return
+			}
+			// For existing-subdomain, return 200 (key exists)
 			if strings.Contains(r.URL.Path, "existing-subdomain") {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{"success": true}`))
 				return
 			}
+			// Default to 404 for any other subdomain
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"success": false}`))
+			w.Write([]byte(`{"success": false, "errors": [{"code": 10009, "message": "Not Found"}]}`))
 			return
 		}
 
@@ -213,7 +224,7 @@ func TestSetCloudflareMnmOptions(t *testing.T) {
 	}{
 		{
 			name:            "Successful KV set",
-			subdomainValue:  "test-subdomain",
+			subdomainValue:  "test-nonexistent-subdomain",
 			userID:          "test-user-id",
 			metadata:        map[string]string{"key": "value"},
 			cfMetadataValue: "test-cf-metadata-value",
@@ -857,7 +868,7 @@ func TestGetCloudflareMnmOptions(t *testing.T) {
 		subdomainValue := strings.TrimPrefix(r.URL.Path, expectedPath)
 
 		// Mock successful response for existing subdomain
-		if subdomainValue == "test-subdomain" {
+		if subdomainValue == "test-nonexistent-subdomain" {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"success": true, "result": "test-value"}`))
 			return
@@ -886,7 +897,7 @@ func TestGetCloudflareMnmOptions(t *testing.T) {
 	}{
 		{
 			name:           "Successful KV get",
-			subdomainValue: "test-subdomain",
+			subdomainValue: "test-nonexistent-subdomain",
 			expectedValue:  `{"success": true, "result": "test-value"}`,
 			expectedError:  nil,
 		},
