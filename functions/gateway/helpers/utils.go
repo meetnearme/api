@@ -191,19 +191,25 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		},
 	)
 
+	if err != nil {
+		return fmt.Errorf("error checking if key exists: %w", err)
+	}
+
 	kvValueExists := false
-	if resp.StatusCode == http.StatusOK {
+	if resp != nil && resp.StatusCode == http.StatusOK {
 		kvValueExists = true
 	}
 
 	existingValueStr := ""
-	existingRespBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("error reading existing user subdomain body request: %+v", err.Error())
-	}
-	existingRespBodyStr := string(existingRespBody)
-	if resp.StatusCode == http.StatusOK {
-		existingValueStr = existingRespBodyStr
+	if resp != nil && resp.Body != nil {
+		existingRespBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("error reading existing user subdomain body request: %+v", err.Error())
+		}
+		existingRespBodyStr := string(existingRespBody)
+		if resp.StatusCode == http.StatusOK {
+			existingValueStr = existingRespBodyStr
+		}
 	}
 
 	// check for pattern [0-9]{18} => Zitadel UserID pattern
@@ -223,7 +229,7 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		existingValueStr = strings.Split(existingValueStr, ";")[0]
 	}
 
-	if existingValueStr != userID && resp.StatusCode == http.StatusOK {
+	if existingValueStr != userID && resp != nil && resp.StatusCode == http.StatusOK {
 		return fmt.Errorf(ERR_KV_KEY_EXISTS)
 	}
 
