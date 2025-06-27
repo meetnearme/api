@@ -191,8 +191,15 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		},
 	)
 
+	// Handle the case where the key doesn't exist (404 is expected)
 	if err != nil {
-		return fmt.Errorf("error checking if key exists: %w", err)
+		// Check if the error is due to a 404 (key not found)
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
+			// This is expected for new subdomains, continue with the flow
+			resp = nil
+		} else {
+			return fmt.Errorf("error checking if key exists: %w", err)
+		}
 	}
 
 	kvValueExists := false
