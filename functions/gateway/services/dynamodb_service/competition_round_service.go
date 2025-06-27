@@ -86,7 +86,9 @@ func (s *CompetitionRoundService) BatchPatchCompetitionRounds(ctx context.Contex
 	// Create error channel for goroutines
 	errChan := make(chan error, len(updates))
 	var wg sync.WaitGroup
-
+	log.Printf("~ BatchPatchCompetitionRounds ~ keysToUpdate: %+v", keysToUpdate)
+	log.Printf("~ BatchPatchCompetitionRounds ~ updates: %+v", updates)
+	
 	// Process each update in parallel
 	for _, update := range updates {
 		wg.Add(1)
@@ -174,6 +176,9 @@ func (s *CompetitionRoundService) BatchPatchCompetitionRounds(ctx context.Contex
 			*input.UpdateExpression += " #updatedAt = :updatedAt"
 
 			// Execute the update
+			// TODO: this logging is temporary for debugging
+			log.Printf("Updating round %s-%d", update.CompetitionId, update.RoundNumber)
+			log.Printf("Input: %+v", input)
 			_, err := dynamodbClient.UpdateItem(ctx, input)
 			if err != nil {
 				errChan <- fmt.Errorf("failed to update round %s-%d: %w", update.CompetitionId, update.RoundNumber, err)
