@@ -706,7 +706,6 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	}
 	defer res.Body.Close()
 
-	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Println(err)
 		return err
