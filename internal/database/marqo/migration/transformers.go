@@ -18,6 +18,19 @@ type TimestampInfo struct {
 
 // TransformerRegistry holds all available transformers
 var TransformerRegistry = map[string]TransformFunc{
+	"add_competition_config_id_2025_01": func(doc map[string]interface{}) (map[string]interface{}, error) {
+		// Check if competitionConfigId already exists
+		if _, exists := doc["competitionConfigId"]; !exists {
+			// You can set a default value or derive it from other fields
+			doc["competitionConfigId"] = "" // or any other default value you prefer
+
+			// Log the addition for debugging
+			if name, ok := doc["name"].(string); ok {
+				fmt.Printf("Added competitionConfigId for event: %s\n", name)
+			}
+		}
+		return doc, nil
+	},
 	"name_transformer": func(doc map[string]interface{}) (map[string]interface{}, error) {
 		// Check if the "name" field exists and is a string
 		if name, ok := doc["name"].(string); ok {

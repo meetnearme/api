@@ -11,9 +11,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"net/http"
 
+	"github.com/a-h/templ"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -42,8 +44,10 @@ type SeshuSessionEventsPayload struct {
 	EventValidations [][]bool `json:"eventValidations" validate:"required"`
 }
 
-type SetSubdomainRequestPayload struct {
-	Subdomain string `json:"subdomain" validate:"required"`
+type SetMnmOptionsRequestPayload struct {
+	Subdomain    string `json:"subdomain" validate:"required"`
+	PrimaryColor string `json:"primaryColor,omitempty"`
+	ThemeMode    string `json:"themeMode,omitempty"`
 }
 
 type UpdateUserAboutRequestPayload struct {
@@ -60,8 +64,8 @@ type eventParentResult struct {
 	err   error
 }
 
-func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	var inputPayload SetSubdomainRequestPayload
+func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	var inputPayload SetMnmOptionsRequestPayload
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -77,8 +81,9 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userID := userInfo.Sub
 
 	// Call Cloudflare KV store to save the subdomain
+	cfMetadataValue := fmt.Sprintf(`userId=%s;--p=%s;themeMode=%s`, userID, inputPayload.PrimaryColor, inputPayload.ThemeMode)
 	metadata := map[string]string{"": ""}
-	err = helpers.SetCloudflareKV(inputPayload.Subdomain, userID, helpers.SUBDOMAIN_KEY, metadata)
+	err = helpers.SetCloudflareMnmOptions(inputPayload.Subdomain, userID, metadata, cfMetadataValue)
 	if err != nil {
 		if err.Error() == helpers.ERR_KV_KEY_EXISTS {
 			return transport.SendHtmlErrorPartial([]byte("Subdomain already taken"), http.StatusInternalServerError)
@@ -88,7 +93,12 @@ func SetUserSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	var buf bytes.Buffer
-	successPartial := partials.SuccessBannerHTML(`Subdomain set successfully`)
+	var successPartial templ.Component
+	if r.URL.Query().Has("theme") {
+		successPartial = partials.SuccessBannerHTML(`Theme updated successfully`)
+	} else {
+		successPartial = partials.SuccessBannerHTML(`Subdomain set successfully`)
+	}
 
 	err = successPartial.Render(r.Context(), &buf)
 	if err != nil {
@@ -109,12 +119,13 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
+	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
+	mnmUserId := mnmOptions["userId"]
 
 	// we override the `owners` query param here, because subdomains should always show only
 	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
-	if subdomainValue != "" {
-		ownerIds = []string{subdomainValue}
+	if mnmUserId != "" {
+		ownerIds = []string{mnmUserId}
 	}
 
 	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
@@ -124,7 +135,6 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	events := res.Events
 	listMode := r.URL.Query().Get("list_mode")
-
 	// Sort events by StartTime
 	sort.Slice(events, func(i, j int) bool {
 		return events[i].StartTime < events[j].StartTime
@@ -146,6 +156,10 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 
 	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
+	radius = helpers.DEFAULT_MAX_RADIUS
+	farFutureTime, _ := time.Parse(time.RFC3339, "2099-01-01T00:00:00Z")
+	endTimeUnix = farFutureTime.Unix()
+
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
@@ -155,7 +169,7 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 
 	// NOTE: we want the children AND the parent event, empty string gets the parent
 	eventSourceIds = []string{eventId}
-	eventSourceTypes = []string{helpers.ES_EVENT_SERIES}
+	eventSourceTypes = []string{helpers.ES_EVENT_SERIES, helpers.ES_EVENT_SERIES_UNPUB}
 
 	// Separate parent and children events
 	var eventParent *internal_types.Event
@@ -238,13 +252,11 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, "partial", err)
 	}
-	log.Println("241")
 	// Convert lat and lon to float64
 	latFloat, err := strconv.ParseFloat(lat, 64)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusInternalServerError, "partial", err)
 	}
-	log.Println("243")
 	lonFloat, err := strconv.ParseFloat(lon, 64)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusInternalServerError, "partial", err)

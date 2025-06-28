@@ -70,6 +70,7 @@ type rawEvent struct {
 	StartingPrice         *int32      `json:"startingPrice,omitempty"`
 	Currency              *string     `json:"currency,omitempty"`
 	PayeeId               *string     `json:"payeeId,omitempty"`
+	CompetitionConfigId   *string     `json:"competitionConfigId,omitempty"`
 	HasRegistrationFields *bool       `json:"hasRegistrationFields,omitempty"`
 	HasPurchasable        *bool       `json:"hasPurchasable,omitempty"`
 	ImageUrl              *string     `json:"imageUrl,omitempty"`
@@ -85,6 +86,21 @@ type rawEvent struct {
 type PurchaseResponse struct {
 	internal_types.PurchaseInsert
 	StripeCheckoutURL string `json:"stripe_checkout_url"`
+}
+
+type BulkDeleteEventsPayload struct {
+	Events []string `json:"events" validate:"required,min=1"`
+}
+
+type userMetaResult struct {
+	id      string
+	members []string
+	err     error
+}
+
+type searchResult struct {
+	foundUsers []internal_types.UserSearchResultDangerous
+	err        error
 }
 
 func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
@@ -144,6 +160,9 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	}
 	if raw.EventSourceId != nil {
 		event.EventSourceId = *raw.EventSourceId
+	}
+	if raw.CompetitionConfigId != nil {
+		event.CompetitionConfigId = *raw.CompetitionConfigId
 	}
 	if raw.StartTime == nil {
 		return types.Event{}, fmt.Errorf("startTime is required")
@@ -456,13 +475,26 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			return
 		}
 
+		throwOnMissing := r.URL.Query().Get("throw") == "1"
+
 		// Parse the comma-separated ids
 		ids := strings.Split(idsParam, ",")
 
 		// Validate each ID
 		for _, id := range ids {
+			if strings.HasPrefix(id, "tm_") {
+				err := helpers.ValidateTeamUUID(id)
+				if err != nil {
+					transport.SendServerRes(w,
+						[]byte(fmt.Sprintf(err.Error())),
+						http.StatusBadRequest,
+						nil)
+					return
+				}
+				continue // Skip the numeric validation below for tm_ prefixed IDs
+			}
 			// Check if ID is exactly 18 characters
-			if len(id) != 18 {
+			if len(id) != helpers.ZITADEL_USER_ID_LEN {
 				transport.SendServerRes(w,
 					[]byte(fmt.Sprintf("Invalid ID length: %s. Must be exactly 18 characters", id)),
 					http.StatusBadRequest,
@@ -480,23 +512,81 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			}
 		}
 
-		// Search for matching users
-		matches, err := helpers.SearchUsersByIDs(ids)
-		log.Println("matches: ", matches)
-		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to search users: "+err.Error()), http.StatusInternalServerError, err)
-			return
+		metaChan := make(chan userMetaResult)
+		searchChan := make(chan searchResult)
+
+		// Launch goroutine for SearchUsersByIDs
+		go func() {
+			matches, err := helpers.SearchUsersByIDs(ids, false)
+			searchChan <- searchResult{foundUsers: matches, err: err}
+		}()
+
+		// Launch goroutines for each team ID
+		activeRequests := 0
+		for _, id := range ids {
+			if strings.HasPrefix(id, "tm_") {
+				activeRequests++
+				go func(id string) {
+					membersString, err := helpers.GetOtherUserMetaByID(id, "members")
+					if throwOnMissing && err != nil {
+						metaChan <- userMetaResult{id: id, members: nil, err: err}
+						return
+					}
+					members := []string{}
+					if membersString != "" {
+						members = strings.Split(membersString, ",")
+					}
+					metaChan <- userMetaResult{id: id, members: members, err: nil}
+				}(id)
+			}
+		}
+
+		// Collect results
+		allUserMeta := make(map[string][]string)
+		var foundUsers []internal_types.UserSearchResultDangerous
+		// Handle all responses
+		for i := 0; i <= activeRequests; i++ {
+			select {
+			case metaRes := <-metaChan:
+				if metaRes.err != nil {
+					if throwOnMissing {
+						transport.SendServerRes(w, []byte("Failed to get user meta: "+metaRes.err.Error()), http.StatusInternalServerError, metaRes.err)
+						return
+					}
+					allUserMeta[metaRes.id] = []string{}
+				}
+				allUserMeta[metaRes.id] = metaRes.members
+			case res := <-searchChan:
+				if res.err != nil {
+					transport.SendServerRes(w, []byte("Failed to search users: "+res.err.Error()), http.StatusInternalServerError, res.err)
+					return
+				}
+				foundUsers = res.foundUsers
+			}
+		}
+
+		// Merge the metadata with foundUsers
+		for i, user := range foundUsers {
+			if members, exists := allUserMeta[user.UserID]; exists {
+				// Initialize the Metadata map if it's nil
+				if foundUsers[i].Metadata == nil {
+					foundUsers[i].Metadata = make(map[string]interface{})
+				}
+				// Add the members to the metadata as a comma-separated string
+				foundUsers[i].Metadata["members"] = members
+			}
 		}
 
 		var jsonResponse []byte
-		if len(matches) < 1 {
+		if len(foundUsers) < 1 {
 			jsonResponse = []byte("[]")
 		} else {
-			jsonResponse, err = json.Marshal(matches)
+			_jsonResponse, err := json.Marshal(foundUsers)
 			if err != nil {
 				transport.SendServerRes(w, []byte("Failed to create JSON response"), http.StatusInternalServerError, err)
 				return
 			}
+			jsonResponse = _jsonResponse
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -689,7 +779,6 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// is an event that does not have `RegistrationFields` or `PurchasableItems`
 	if len(createPurchase.PurchasedItems) == 0 {
 		db := transport.GetDB()
-		log.Printf("createPurchase: %+v", createPurchase)
 		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to insert free purchase into database: "+err.Error()), http.StatusInternalServerError, err)
@@ -774,7 +863,6 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		createPurchase.Status = helpers.PurchaseStatus.Registered // Mark as registered immediately since it's free
 
 		db := transport.GetDB()
-		log.Printf("createPurchase: %+v", createPurchase)
 		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
 			needsRevert = true
@@ -794,7 +882,6 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 			transport.SendServerRes(w, []byte("Failed to marshal purchase response: "+err.Error()), http.StatusInternalServerError, err)
 			return err
 		}
-		log.Printf("purchaseJSON: %s", string(purchaseJSON)) // Conve
 		transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
 		return nil
 	}
@@ -850,17 +937,22 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// Now that the checks are in place, we defer the transaction creation in the database
 	// to respond to the client as quickly as possible
 	defer func() {
+		purchaseService := dynamodb_service.NewPurchaseService()
+		h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
 		createPurchase.Status = helpers.PurchaseStatus.Pending
 
-		log.Printf("db payload `createPurchase`: %+v", createPurchase)
+		// Create the composite key
+		compositeKey := fmt.Sprintf("%s_%s_%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
+
+		// Add the composite key and createdAt to the purchase object
+		createPurchase.CompositeKey = compositeKey
+
 		db := transport.GetDB()
-		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
+		_, err := h.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
 			log.Printf("ERR: failed to insert purchase into purchases database for stripe session ID: %+v, err: %+v", stripeCheckoutResult.ID, err)
 		}
 	}()
-
-	log.Printf("\nstripe result: %+v", stripeCheckoutResult)
 
 	// Create the response object
 	response := PurchaseResponse{
@@ -972,7 +1064,7 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			purchaseUpdate.StripeTransactionId = checkoutSession.PaymentIntent.ID
 		}
 
-		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, createdAt, purchaseUpdate)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to update purchase status to SETTLED: "), http.StatusInternalServerError, err)
 			return err
@@ -1054,7 +1146,7 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
 		purchaseUpdate.Status = helpers.PurchaseStatus.Canceled
 
-		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, createdAt, purchaseUpdate)
 		if err != nil {
 			msg := fmt.Sprintf("ERR: Failed to update purchase status to CANCELED: %v", err)
 			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
@@ -1143,130 +1235,259 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 
 type UpdateEventRegPurchPayload struct {
 	Events                   []rawEvent                              `json:"events" validate:"required"`
-	RegistrationFieldsUpdate internal_types.RegistrationFieldsUpdate `json:"registration_fields"`
-	PurchasableUpdate        internal_types.PurchasableUpdate        `json:"purchasables"`
+	RegistrationFieldsUpdate internal_types.RegistrationFieldsUpdate `json:"registrationFieldsUpdate"`
+	PurchasableUpdate        internal_types.PurchasableUpdate        `json:"purchasableUpdate"`
+	Rounds                   []internal_types.CompetitionRoundUpdate `json:"rounds"`
 }
 
 func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		UpdateEventRegPurch(w, r)
+		ctx := r.Context()
+		vars := mux.Vars(r)
+		eventId := vars[helpers.EVENT_ID_KEY]
+
+		userInfo := helpers.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+		}
+		roleClaims := []helpers.RoleClaim{}
+		if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+			roleClaims = claims
+		}
+
+		validRoles := []string{"superAdmin", "eventAdmin"}
+		userId := userInfo.Sub
+		if userId == "" {
+			transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
+			return
+		}
+		if !helpers.HasRequiredRole(roleClaims, validRoles) {
+			err := errors.New("only event editors can add or edit events")
+			transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)
+			return
+		}
+
+		var updateEventRegPurchPayload UpdateEventRegPurchPayload
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
+			return
+		}
+
+		err = json.Unmarshal(body, &updateEventRegPurchPayload)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
+			return
+		}
+
+		// we should use goroutines to parallelize the three distinct database update operations here
+		db := transport.GetDB()
+
+		var createdAt int64
+		updatedAt := time.Now().Unix()
+		if updateEventRegPurchPayload.Events[0].CreatedAt != nil {
+			createdAt = *updateEventRegPurchPayload.Events[0].CreatedAt
+		} else {
+			createdAt = time.Now().Unix()
+		}
+
+		if eventId == "" {
+			eventId = uuid.NewString()
+			updateEventRegPurchPayload.Events[0].Id = eventId
+			updateEventRegPurchPayload.RegistrationFieldsUpdate.EventId = eventId
+			updateEventRegPurchPayload.PurchasableUpdate.EventId = eventId
+			if helpers.ES_SERIES_PARENT == updateEventRegPurchPayload.Events[0].EventSourceType {
+				updateEventRegPurchPayload.Events[0].EventSourceId = nil
+				for i, event := range updateEventRegPurchPayload.Events {
+					if i == 0 {
+						event.EventSourceId = nil
+						updateEventRegPurchPayload.Events[i] = event
+					} else {
+						event.EventSourceId = &eventId
+						event.EventSourceType = helpers.ES_SINGLE_EVENT
+					}
+				}
+			}
+		}
+
+		// Call patch on rounds for eventId only
+		if len(updateEventRegPurchPayload.Rounds) > 0 {
+			// Define which fields to update (excluding eventId)
+			keysToUpdate := []string{
+				"eventId",
+			}
+
+			service := dynamodb_service.NewCompetitionRoundService()
+			err = service.BatchPatchCompetitionRounds(ctx, db, updateEventRegPurchPayload.Rounds, keysToUpdate)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to update existing competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+				return
+			}
+		}
+
+		// Update purchasable
+		if updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.IsZero() {
+			updateEventRegPurchPayload.PurchasableUpdate.CreatedAt = time.Unix(createdAt, 0)
+		}
+		updateEventRegPurchPayload.PurchasableUpdate.UpdatedAt = time.Unix(updatedAt, 0)
+
+		purchService := dynamodb_service.NewPurchasableService()
+		purchHandler := dynamodb_handlers.NewPurchasableHandler(purchService)
+		purchRes, err := purchHandler.PurchasableService.UpdatePurchasable(r.Context(), db, updateEventRegPurchPayload.PurchasableUpdate)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to update purchasable: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		// Update registration fields
+		updateEventRegPurchPayload.RegistrationFieldsUpdate.UpdatedBy = userId
+		if updateEventRegPurchPayload.RegistrationFieldsUpdate.CreatedAt.IsZero() {
+			updateEventRegPurchPayload.RegistrationFieldsUpdate.CreatedAt = time.Unix(createdAt, 0)
+		}
+		updateEventRegPurchPayload.RegistrationFieldsUpdate.UpdatedAt = time.Unix(updatedAt, 0)
+		regFieldsService := dynamodb_service.NewRegistrationFieldsService()
+		regFieldsHandler := dynamodb_handlers.NewRegistrationFieldsHandler(regFieldsService)
+		regFieldsRes, err := regFieldsHandler.RegistrationFieldsService.UpdateRegistrationFields(r.Context(), db, eventId, updateEventRegPurchPayload.RegistrationFieldsUpdate)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to update registration fields: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		// Update events
+		marqoClient, err := services.GetMarqoClient()
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		events := make([]types.Event, len(updateEventRegPurchPayload.Events))
+		if updateEventRegPurchPayload.Events[0].Id == "" {
+			events[0].Id = eventId
+		}
+		for i, rawEvent := range updateEventRegPurchPayload.Events {
+			if rawEvent.CreatedAt == nil {
+				rawEvent.CreatedAt = &createdAt
+			}
+			rawEvent.UpdatedAt = &updatedAt
+			rawEvent.Description = updateEventRegPurchPayload.Events[0].Description
+			if updateEventRegPurchPayload.Events[0].EventSourceType == helpers.ES_SERIES_PARENT {
+				rawEvent.EventSourceId = &eventId
+			}
+
+			event, statusCode, err := HandleSingleEventValidation(rawEvent, false)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to validate events: "+err.Error()), statusCode, err)
+				return
+			}
+			events[i] = event
+		}
+
+		// Before pushing the new events, check for outdated child events, we need to search them prior to
+		// the new event upsert because the new events will have unkown IDs and would get deleted by the
+		// delete "sweeper" we do in the `defer` function below
+
+		farFutureTime, _ := time.Parse(time.RFC3339, "2099-05-01T12:00:00Z")
+		childEventsToDelete, err := services.SearchMarqoEvents(marqoClient, "", []float64{0, 0}, 1000000, 0, farFutureTime.Unix(), []string{}, "", "", "", []string{helpers.ES_EVENT_SERIES, helpers.ES_EVENT_SERIES_UNPUB}, []string{eventId})
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to search for existing child events: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		// If events being upserted have an ID, they are known and we deny-list them here so they
+		// are NOT deleted by the delete "sweeper" we do in the `defer` function below
+		deleteDenyList := make(map[string]bool)
+		for _, event := range events {
+			deleteDenyList[event.Id] = true
+		}
+
+		// Filter out events we want to keep
+		var eventsToDelete []types.Event
+		for _, event := range childEventsToDelete.Events {
+			if !deleteDenyList[event.Id] {
+				eventsToDelete = append(eventsToDelete, event)
+			}
+		}
+
+		// After pushing the new events, check for outdated child events, we need to search them
+		defer func() {
+			if len(eventsToDelete) > 0 {
+				deleteEventsArr := make([]string, len(eventsToDelete))
+				for i, event := range eventsToDelete {
+					deleteEventsArr[i] = event.Id
+				}
+
+				_, err = services.BulkDeleteEventsFromMarqo(marqoClient, deleteEventsArr)
+				if err != nil {
+					transport.SendServerRes(w, []byte("Failed to delete old child events: "+err.Error()), http.StatusInternalServerError, err)
+					return
+				}
+			}
+		}()
+
+		eventsRes, err := services.BulkUpsertEventToMarqo(marqoClient, events)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to upsert events to marqo: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		// Create response object
+		response := map[string]interface{}{
+			"status":  "success",
+			"message": "Event(s), registration fields, and purchasable(s) updated successfully",
+			"data": map[string]interface{}{
+				"parentEvent": eventsRes.Items[0],
+				"events":      eventsRes,
+				"regFields":   regFieldsRes,
+				"purchasable": purchRes,
+			},
+		}
+
+		// Marshal the response
+		jsonResponse, err := json.Marshal(response)
+		if err != nil {
+			transport.SendServerRes(w, []byte(`{"error": "Failed to create response"}`), http.StatusInternalServerError, err)
+			return
+		}
+
+		transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
 	}
 }
 
-func UpdateEventRegPurch(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	vars := mux.Vars(r)
-	eventId := vars[helpers.EVENT_ID_KEY]
-
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+func BulkDeleteEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		BulkDeleteEvents(w, r)
 	}
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
-		roleClaims = claims
-	}
+}
 
-	validRoles := []string{"superAdmin", "eventEditor"}
-	userId := userInfo.Sub
-	if userId == "" {
-		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
-		return
-	}
+func BulkDeleteEvents(w http.ResponseWriter, r *http.Request) {
+	var bulkDeleteEventsPayload BulkDeleteEventsPayload
 
-	if !helpers.HasRequiredRole(roleClaims, validRoles) {
-		err := errors.New("only event editors can add or edit events")
-		transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)
-		return
-	}
-
-	if eventId == "" {
-		eventId = uuid.NewString()
-	}
-
-	var updateEventRegPurchPayload UpdateEventRegPurchPayload
-	updateEventRegPurchPayload.RegistrationFieldsUpdate.UpdatedBy = userId
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
 
-	err = json.Unmarshal(body, &updateEventRegPurchPayload)
+	err = json.Unmarshal(body, &bulkDeleteEventsPayload)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	// we should use goroutines to parallelize the three distinct database update operations here
-	db := transport.GetDB()
-
-	// Update purchasable
-	var updatePurchasable internal_types.PurchasableUpdate
-	updatePurchasable.EventId = eventId
-	updatePurchasable.PurchasableItems = updateEventRegPurchPayload.PurchasableUpdate.PurchasableItems
-
-	purchService := dynamodb_service.NewPurchasableService()
-	purchHandler := dynamodb_handlers.NewPurchasableHandler(purchService)
-	purchRes, err := purchHandler.PurchasableService.UpdatePurchasable(r.Context(), db, updatePurchasable)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to update purchasable: "+err.Error()), http.StatusInternalServerError, err)
-		return
-	}
-
-	// Update registration fields
-	updateEventRegPurchPayload.RegistrationFieldsUpdate.EventId = eventId
-	regFieldsService := dynamodb_service.NewRegistrationFieldsService()
-	regFieldsHandler := dynamodb_handlers.NewRegistrationFieldsHandler(regFieldsService)
-	regFieldsRes, err := regFieldsHandler.RegistrationFieldsService.UpdateRegistrationFields(r.Context(), db, eventId, updateEventRegPurchPayload.RegistrationFieldsUpdate)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to update registration fields: "+err.Error()), http.StatusInternalServerError, err)
-		return
-	}
-
-	// Update events
 	marqoClient, err := services.GetMarqoClient()
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	// events, status, err := HandleBatchEventValidation(w, r, false)
+	// TODO: check that the event user has permission to delete via `eventOwners` array
 
-	events := make([]types.Event, len(updateEventRegPurchPayload.Events))
-	for i, rawEvent := range updateEventRegPurchPayload.Events {
-		event, statusCode, err := HandleSingleEventValidation(rawEvent, false)
-		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to validate events: "+err.Error()), statusCode, err)
-			return
-		}
-		events[i] = event
-	}
-
-	eventsRes, err := services.BulkUpsertEventToMarqo(marqoClient, events)
+	_, err = services.BulkDeleteEventsFromMarqo(marqoClient, bulkDeleteEventsPayload.Events)
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to upsert events to marqo: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to delete events from marqo: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	// Create response object
-	response := map[string]interface{}{
-		"status":  "success",
-		"message": "Event(s), registration fields, and purchasable(s) updated successfully",
-		"data": map[string]interface{}{
-			"parentEvent": eventsRes.Items[0],
-			"events":      eventsRes,
-			"regFields":   regFieldsRes,
-			"purchasable": purchRes,
-		},
-	}
-
-	// Marshal the response
-	jsonResponse, err := json.Marshal(response)
-	if err != nil {
-		transport.SendServerRes(w, []byte(`{"error": "Failed to create response"}`), http.StatusInternalServerError, err)
-		return
-	}
-
-	transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
+	transport.SendServerRes(w, []byte("Events deleted successfully"), http.StatusOK, nil)
 }
