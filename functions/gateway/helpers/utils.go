@@ -191,19 +191,32 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		},
 	)
 
+	// Handle the case where the key doesn't exist (404 is expected)
+	if err != nil {
+		// Check if the error is due to a 404 (key not found)
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
+			// This is expected for new subdomains, continue with the flow
+			resp = nil
+		} else {
+			return fmt.Errorf("error checking if key exists: %w", err)
+		}
+	}
+
 	kvValueExists := false
-	if resp.StatusCode == http.StatusOK {
+	if resp != nil && resp.StatusCode == http.StatusOK {
 		kvValueExists = true
 	}
 
 	existingValueStr := ""
-	existingRespBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("error reading existing user subdomain body request: %+v", err.Error())
-	}
-	existingRespBodyStr := string(existingRespBody)
-	if resp.StatusCode == http.StatusOK {
-		existingValueStr = existingRespBodyStr
+	if resp != nil && resp.Body != nil {
+		existingRespBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("error reading existing user subdomain body request: %+v", err.Error())
+		}
+		existingRespBodyStr := string(existingRespBody)
+		if resp.StatusCode == http.StatusOK {
+			existingValueStr = existingRespBodyStr
+		}
 	}
 
 	// check for pattern [0-9]{18} => Zitadel UserID pattern
@@ -223,7 +236,7 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		existingValueStr = strings.Split(existingValueStr, ";")[0]
 	}
 
-	if existingValueStr != userID && resp.StatusCode == http.StatusOK {
+	if existingValueStr != userID && resp != nil && resp.StatusCode == http.StatusOK {
 		return fmt.Errorf(ERR_KV_KEY_EXISTS)
 	}
 
@@ -278,6 +291,12 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Printf("failed to read error response body: %v", err)
+			return fmt.Errorf("failed to set KV: %s", resp.Status)
+		}
+		log.Printf("failed to set KV, writing to %s: response: %s: %s", writeURL, resp.Status, string(bodyBytes))
 		return fmt.Errorf("failed to set KV: %s", resp.Status)
 	}
 
@@ -687,12 +706,10 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	}
 	defer res.Body.Close()
 
-	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
-	log.Println("saved user metadata body response: ", string(body))
 	return nil
 }
 
