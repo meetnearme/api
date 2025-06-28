@@ -711,7 +711,6 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 		log.Println(err)
 		return err
 	}
-	log.Println("saved user metadata body response: ", string(body))
 	return nil
 }
 
