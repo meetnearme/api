@@ -77,8 +77,6 @@ func (s *CompetitionRoundService) PutCompetitionRounds(ctx context.Context, dyna
 		log.Printf("Service: Successfully processed all items")
 	}
 
-	log.Printf("BatchItemOUtput: %+v", result)
-
 	return *result, nil
 }
 
@@ -86,9 +84,7 @@ func (s *CompetitionRoundService) BatchPatchCompetitionRounds(ctx context.Contex
 	// Create error channel for goroutines
 	errChan := make(chan error, len(updates))
 	var wg sync.WaitGroup
-	log.Printf("~ BatchPatchCompetitionRounds ~ keysToUpdate: %+v", keysToUpdate)
-	log.Printf("~ BatchPatchCompetitionRounds ~ updates: %+v", updates)
-	
+
 	// Process each update in parallel
 	for _, update := range updates {
 		wg.Add(1)
@@ -176,9 +172,6 @@ func (s *CompetitionRoundService) BatchPatchCompetitionRounds(ctx context.Contex
 			*input.UpdateExpression += " #updatedAt = :updatedAt"
 
 			// Execute the update
-			// TODO: this logging is temporary for debugging
-			log.Printf("Updating round %s-%d", update.CompetitionId, update.RoundNumber)
-			log.Printf("Input: %+v", input)
 			_, err := dynamodbClient.UpdateItem(ctx, input)
 			if err != nil {
 				errChan <- fmt.Errorf("failed to update round %s-%d: %w", update.CompetitionId, update.RoundNumber, err)
@@ -357,7 +350,6 @@ func (s *CompetitionRoundService) DeleteCompetitionRound(ctx context.Context, dy
 		return err
 	}
 
-	log.Printf("competition round successfully deleted")
 	return nil
 }
 
