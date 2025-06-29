@@ -582,22 +582,14 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 func main() {
 	deploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
 	instanceHost := os.Getenv("ZITADEL_INSTANCE_HOST")
-	log.Print("new env")
-	log.Printf("env var: %v", deploymentTarget)
-	log.Printf("env var: %v", instanceHost)
 
 	flag.Parse()
-	log.Print("441 ")
 	app := NewApp()
-	log.Print("443 ")
 	app.InitializeAuth()
-	log.Print("445 ")
 	app.SetupNotFoundHandler()
-	log.Print("450 ")
 
 	// This is the package level instance of Db in handlers
 	_ = transport.GetDB()
-	log.Print("451 ")
 	defer app.PostGresDB.Close()
 
 	app.SetupRoutes(Routes)
