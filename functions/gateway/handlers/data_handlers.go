@@ -1438,8 +1438,6 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			transport.SendServerRes(w, []byte("No event data was processed."), http.StatusInternalServerError, errors.New("no event data processed"))
 		}
 
-		log.Printf("parentEventData: %v", parentEventData)
-
 		// Create response object
 		response := map[string]interface{}{
 			"status":  "success",
