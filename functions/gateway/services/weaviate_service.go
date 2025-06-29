@@ -7,8 +7,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -298,6 +296,7 @@ func BulkUpsertEventsToWeaviate(ctx context.Context, client *weaviate.Client, ev
 	var weaviateResp []models.ObjectsGetResponse
 
 	for i, event := range events {
+
 		obj := &models.Object{
 			Class:      className,
 			Properties: EventStructToMap(event),
@@ -360,20 +359,18 @@ func SearchWeaviateEvents(
 	var gqlQueryStringForResponse string
 	var whereFilterForResponse string
 
+	// --- Step 1: Build Hybrid Search Argument ---
 	var hybridArgument *graphql.HybridArgumentBuilder
 	fullTextQueryParts := []string{}
 	if query != "" {
 		fullTextQueryParts = append(fullTextQueryParts, query)
 	}
-
 	if categories != "" {
 		fullTextQueryParts = append(fullTextQueryParts, categories)
 	}
-
 	if address != "" {
 		fullTextQueryParts = append(fullTextQueryParts, address)
 	}
-
 	finalHybridQuery := strings.Join(fullTextQueryParts, " ")
 	gqlQueryStringForResponse = finalHybridQuery
 
@@ -385,24 +382,22 @@ func SearchWeaviateEvents(
 
 	whereOperands := []*filters.WhereBuilder{}
 
-	now := time.Now().Unix()
-	loc, _ := time.LoadLocation("America/New_York")
-	endOfTime, _ := helpers.UtcToUnix64("2099-12-31T11:59:59Z", loc)
-	timeCondition1 := (&filters.WhereBuilder{}).
-		WithOperator(filters.And).
-		WithOperands([]*filters.WhereBuilder{
-			(&filters.WhereBuilder{}).WithPath([]string{"startTime"}).WithOperator(filters.GreaterThanEqual).WithValueInt(startTime),
-			(&filters.WhereBuilder{}).WithPath([]string{"startTime"}).WithOperator(filters.LessThanEqual).WithValueInt(endTime),
-		})
-	timeCondition2 := (&filters.WhereBuilder{}).
-		WithOperator(filters.And).
-		WithOperands([]*filters.WhereBuilder{
-			(&filters.WhereBuilder{}).WithPath([]string{"startTime"}).WithOperator(filters.GreaterThanEqual).WithValueInt(now),
-			(&filters.WhereBuilder{}).WithPath([]string{"startTime"}).WithOperator(filters.LessThanEqual).WithValueInt(endOfTime),
-		})
-	whereOperands = append(whereOperands, (&filters.WhereBuilder{}).WithOperator(filters.Or).WithOperands([]*filters.WhereBuilder{timeCondition1, timeCondition2}))
+	// Will usually be unix now
+	searchStart := startTime
+	searchEnd := endTime
 
+	// Time Filter
+	timeFilter := (&filters.WhereBuilder{}).
+		WithOperator(filters.And).
+		WithOperands([]*filters.WhereBuilder{
+			(&filters.WhereBuilder{}).WithPath([]string{"startTime"}).WithOperator(filters.GreaterThanEqual).WithValueInt(searchStart),
+			(&filters.WhereBuilder{}).WithPath([]string{"startTime"}).WithOperator(filters.LessThanEqual).WithValueInt(searchEnd),
+		})
+	whereOperands = append(whereOperands, timeFilter)
+
+	// Location Filter (Uncommented and integrated)
 	if len(userLocation) == 2 && maxDistance > 0 {
+		// minLat, maxLat, minLong1, maxLong1, _, maxLong2, needsSplit := calculateSearchBounds(userLocation, maxDistance)
 		minLat, maxLat, minLong1, maxLong1, minLong2, maxLong2, needsSplit := calculateSearchBounds(userLocation, maxDistance)
 
 		latFilter := (&filters.WhereBuilder{}).
@@ -428,6 +423,7 @@ func SearchWeaviateEvents(
 					(&filters.WhereBuilder{}).WithPath([]string{"long"}).WithOperator(filters.LessThanEqual).WithValueNumber(maxLong2),
 				})
 			longFilter = (&filters.WhereBuilder{}).WithOperator(filters.Or).WithOperands([]*filters.WhereBuilder{longCondition1, longCondition2})
+			log.Printf("~~ 432: longFilter for split: %v", longFilter)
 		} else {
 			longFilter = (&filters.WhereBuilder{}).
 				WithOperator(filters.And).
@@ -437,62 +433,78 @@ func SearchWeaviateEvents(
 				})
 		}
 		whereOperands = append(whereOperands, longFilter)
+		log.Printf("~~ 442 whereOperands: %v", whereOperands)
 	}
 
+	// Owner Filter (Uncommented and integrated)
 	if len(ownerIds) > 0 {
-		whereOperands = append(whereOperands, (&filters.WhereBuilder{}).
+		ownerFilter := (&filters.WhereBuilder{}).
 			WithPath([]string{"eventOwners"}).
 			WithOperator(filters.ContainsAny).
-			WithValueText(ownerIds...))
+			WithValueText(ownerIds...)
+		whereOperands = append(whereOperands, ownerFilter)
 	}
 
+	// Type Filter (Integrated)
 	typesToSearch := eventSourceTypes
 	if len(typesToSearch) == 0 && len(helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES) > 0 {
 		typesToSearch = helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES
 	}
 	if len(typesToSearch) > 0 {
-		whereOperands = append(whereOperands, (&filters.WhereBuilder{}).
+		typeFilter := (&filters.WhereBuilder{}).
 			WithPath([]string{"eventSourceType"}).
 			WithOperator(filters.ContainsAny).
-			WithValueText(typesToSearch...))
+			WithValueText(typesToSearch...)
+		whereOperands = append(whereOperands, typeFilter)
 	}
 
+	// Event Source ID Filter (Uncommented and integrated)
 	if len(eventSourceIds) > 0 {
-		whereOperands = append(whereOperands, (&filters.WhereBuilder{}).
+		sourceIdFilter := (&filters.WhereBuilder{}).
 			WithPath([]string{"eventSourceId"}).
 			WithOperator(filters.ContainsAny).
-			WithValueText(eventSourceIds...))
+			WithValueText(eventSourceIds...)
+		whereOperands = append(whereOperands, sourceIdFilter)
 	}
 
+	// Combine all operands into a single final filter
 	var finalWhereFilter *filters.WhereBuilder
 	if len(whereOperands) > 0 {
 		finalWhereFilter = (&filters.WhereBuilder{}).WithOperator(filters.And).WithOperands(whereOperands)
-		filterBytes, _ := json.Marshal(finalWhereFilter)
-		whereFilterForResponse = string(filterBytes)
+		log.Printf("~~ 480: finalWhereFilter: %+v", finalWhereFilter)
+		// filterBytes, _ := json.MarshalIndent(finalWhereFilter, "", "  ")
+		// whereFilterForResponse = string(filterBytes)
+	} else {
+		log.Printf("DEBUG: No 'where' filter operands were added.")
 	}
 
+	// --- Step 3: Define Response Fields ---
 	fields := []graphql.Field{
 		{Name: "name"}, {Name: "description"}, {Name: "eventOwners"}, {Name: "eventOwnerName"},
 		{Name: "eventSourceType"}, {Name: "startTime"}, {Name: "endTime"}, {Name: "address"},
-		{Name: "lat"}, {Name: "long"}, {Name: "eventSourceId"}, //... and all your other fields ...
+		{Name: "lat"}, {Name: "long"}, {Name: "eventSourceId"}, {Name: "timezone"},
 		{Name: "_additional", Fields: []graphql.Field{
 			{Name: "id"},
-			{Name: "score"}, // Populated if hybrid search is used
+			{Name: "score"},
 		}},
 	}
 
 	// --- Step 4: Construct and Execute Query ---
 	queryBuilder := client.GraphQL().Get().
-		WithClassName(className).
-		WithFields(fields...).
-		WithLimit(limit)
+		WithClassName(className)
 
 	if hybridArgument != nil {
 		queryBuilder.WithHybrid(hybridArgument)
 	}
+	log.Printf("~~ 522 queryBuilder: %v", queryBuilder)
+
+	// Apply the single, consolidated filter
 	if finalWhereFilter != nil {
 		queryBuilder.WithWhere(finalWhereFilter)
 	}
+	// Apply hybrid search if applicable
+	queryBuilder.
+		WithFields(fields...).WithLimit(limit)
 
 	searchResult, err := queryBuilder.Do(ctx)
 	if err != nil {
@@ -507,14 +519,17 @@ func SearchWeaviateEvents(
 	var events []types.Event
 
 	if searchResult.Data == nil {
+		log.Printf("search result data returned nil")
 	}
 
 	getMap, ok := searchResult.Data["Get"].(map[string]interface{})
 	if !ok {
+		log.Printf("Could not get the GET field on data in search result")
 	}
 
 	classData, ok := getMap[className].([]interface{})
 	if !ok {
+		log.Printf("Could not get the ClassName field on data in search result")
 	}
 
 	rawHits := make([]map[string]interface{}, 0, len(classData))
@@ -523,14 +538,13 @@ func SearchWeaviateEvents(
 			rawHits = append(rawHits, objMap)
 		}
 	}
-	groupedEvents := groupAndSortEvents(rawHits)
+	// groupedEvents := groupAndSortEvents(rawHits)
 
 	// Interleave the grouped events
-	interleavedEvents := interleaveEvents(groupedEvents)
+	// interleavedEvents := interleaveEvents(groupedEvents)
 
 	// (Your full normalization and date parsing logic goes here)
-	for _, doc := range interleavedEvents {
-
+	for _, doc := range rawHits {
 		event, err := NormalizeWeaviateResultToEvent(doc)
 		if err != nil {
 			log.Printf("Warning: Could not normalize Weaviate result: %v", err)
@@ -689,119 +703,6 @@ func BulkUpdateWeaviateEventsByID(ctx context.Context, client *weaviate.Client, 
 
 	log.Printf("All %d events have IDs. Proceeding with Weaviate bulk update.", len(events))
 	return BulkUpsertEventsToWeaviate(ctx, client, events)
-}
-
-// HELPERS
-
-func interleaveEvents(groupedEvents map[string][]map[string]interface{}) []map[string]interface{} {
-	groupA := groupedEvents["A"]
-	groupB := groupedEvents["B"]
-
-	result := make([]map[string]interface{}, 0, len(groupA)+len(groupB))
-
-	i, j := 0, 0
-	for i < len(groupA) || j < len(groupB) {
-		if i < len(groupA) {
-			result = append(result, groupA[i])
-			i++
-		}
-
-		if j < len(groupB) {
-			insertIndex := len(result) * (j + 1) / (len(groupB) + 1)
-			result = append(result, nil)
-			copy(result[insertIndex+1:], result[insertIndex:])
-			result[insertIndex] = groupB[j]
-			j++
-		}
-	}
-
-	return result
-}
-
-func groupAndSortEvents(hits []map[string]interface{}) map[string][]map[string]interface{} {
-	groupA := []map[string]interface{}{}
-	groupB := make(map[float64][]map[string]interface{})
-
-	for _, doc := range hits {
-		var score float64
-		var scoreFound bool
-
-		if additional, ok := doc["_additional"].(map[string]interface{}); ok {
-			// The score can come back as a string or float64 from GraphQL/JSON unmarshaling
-			if scoreVal, ok := additional["score"]; ok && scoreVal != nil {
-				if scoreStr, ok := scoreVal.(string); ok {
-					// If it's a string, parse it
-					parsedScore, err := strconv.ParseFloat(scoreStr, 64)
-					if err == nil {
-						score = parsedScore
-						scoreFound = true
-					}
-				} else if scoreFloat, ok := scoreVal.(float64); ok {
-					// If it's already a float64, use it
-					score = scoreFloat
-					scoreFound = true
-				}
-			}
-		}
-
-		if !scoreFound {
-			// If no score is found, it goes to Group A, same as before
-			groupA = append(groupA, doc)
-			continue
-		}
-
-		grouped := false
-		for baseScore := range groupB {
-			if math.Abs(score-baseScore) <= 0.002 {
-				groupB[baseScore] = append(groupB[baseScore], doc)
-				grouped = true
-				break
-			}
-		}
-
-		if !grouped {
-			if len(groupB) == 0 || math.Abs(score-getClosestBaseScore(groupB, score)) > 0.002 {
-				groupB[score] = []map[string]interface{}{doc}
-			} else {
-				groupA = append(groupA, doc)
-			}
-		}
-	}
-
-	// Sort each group in groupB by startTime
-	for _, group := range groupB {
-		sort.Slice(group, func(i, j int) bool {
-			timeI, _ := group[i]["startTime"].(float64)
-			timeJ, _ := group[j]["startTime"].(float64)
-			return timeI < timeJ
-		})
-	}
-
-	return map[string][]map[string]interface{}{
-		"A": groupA,
-		"B": flattenGroupB(groupB),
-	}
-}
-
-func flattenGroupB(groupB map[float64][]map[string]interface{}) []map[string]interface{} {
-	var flattened []map[string]interface{}
-	for _, group := range groupB {
-		flattened = append(flattened, group...)
-	}
-	return flattened
-}
-
-func getClosestBaseScore(groupB map[float64][]map[string]interface{}, score float64) float64 {
-	var closest float64
-	minDiff := math.Inf(1)
-	for baseScore := range groupB {
-		diff := math.Abs(score - baseScore)
-		if diff < minDiff {
-			minDiff = diff
-			closest = baseScore
-		}
-	}
-	return closest
 }
 
 func NormalizeWeaviateResultToEvent(objMap map[string]interface{}) (*types.Event, error) {
