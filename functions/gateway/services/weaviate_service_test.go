@@ -124,6 +124,7 @@ func TestBulkUpsertEventsToWeaviate(t *testing.T) {
 	os.Setenv("WEAVIATE_HOST", host)
 	os.Setenv("WEAVIATE_PORT", port)
 	os.Setenv("WEAVIATE_SCHEME", "http")
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
 
 	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/batch/objects" {
@@ -232,6 +233,7 @@ func TestSearchWeaviateEvents(t *testing.T) {
 	os.Setenv("WEAVIATE_HOST", host)
 	os.Setenv("WEAVIATE_PORT", port)
 	os.Setenv("WEAVIATE_SCHEME", "http")
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
 
 	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -323,56 +325,122 @@ func TestSearchWeaviateEvents(t *testing.T) {
 	}
 }
 
-//
-// func TestBulkDeleteEventsFromWeaviate(t *testing.T) {
-// 	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
-// 	defer os.Unsetenv("GO_ENV")
-//
-// 	// Save original environment variables
-// 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
-// 	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
-// 	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
-// 	// ... add any other vars you need to save and restore
-//
-// 	// Get a unique port for THIS test
-// 	port := test_helpers.GetNextPort()
-//
-// 	// Set the environment variables correctly
-// 	os.Setenv("WEAVIATE_HOST", "localhost")
-// 	os.Setenv("WEAVIATE_PORT", string(port))
-// 	os.Setenv("WEAVIATE_SCHEME", "http")
-//
-// 	// Defer the cleanup to restore original env vars
-// 	defer func() {
-// 		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
-// 		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
-// 		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
-// 		// ... restore other vars
-// 	}()
-//
-// 	// Create and start the mock server for this test
-// 	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		// ... (Your mock response logic here) ...
-// 	}))
-// 	listenAddress := fmt.Sprintf("localhost:%s", port)
-// 	listener, err := test_helpers.BindToPort(t, listenAddress)
-// 	if err != nil {
-// 		t.Fatalf("Failed to start mock Weaviate server for test: %v", err)
-// 	}
-// 	mockWeaviateServer.Listener = listener
-// 	mockWeaviateServer.Start()
-// 	defer mockWeaviateServer.Close()
-//
-// 	client, err := GetWeaviateClient()
-// 	if err != nil {
-// 		t.Fatalf("Failed to get Weaviate client: %v", err)
-// 	}
-//
-// 	_, err = BulkDeleteEventsFromWeaviate(context.Background(), client, []string{"123"})
-// 	if err != nil {
-// 		t.Errorf("Unexpected error: %v", err)
-// 	}
-// }
+func TestBulkDeleteEventsFromWeaviate(t *testing.T) {
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	defer os.Unsetenv("GO_ENV")
+
+	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+	defer func() {
+		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+	}()
+
+	hostAndPort := test_helpers.GetNextPort()
+	parts := strings.Split(hostAndPort, ":")
+	if len(parts) != 2 {
+		t.Fatalf("GetNextPort should return host:port, got: %s", hostAndPort)
+	}
+	host, port := parts[0], parts[1]
+
+	os.Setenv("WEAVIATE_HOST", host)
+	os.Setenv("WEAVIATE_PORT", port)
+	os.Setenv("WEAVIATE_SCHEME", "http")
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
+
+	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+
+		// FIX 1: Handle the initial "handshake" call from the client.
+		case "/v1/meta":
+			metaResponse := `{"version":"1.23.4"}`
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(metaResponse))
+
+		case "/v1/batch/objects":
+			if r.Method != "DELETE" {
+				t.Errorf("expected method DELETE, got %s", r.Method)
+			}
+
+			var requestBody map[string]interface{}
+			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+
+			// ~~ Delete me
+			prettyJSON, _ := json.MarshalIndent(requestBody, "", "  ")
+			t.Logf("RECEIVED REQUEST BODY:\n%s", string(prettyJSON))
+			/// ~~
+			matchObject, ok := requestBody["match"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("expected delete request body to contain a 'match' object")
+			}
+
+			if _, ok := matchObject["where"]; !ok {
+				t.Error("expected delete request body to contain a 'where' filter")
+			}
+
+			mockResponse := models.BatchDeleteResponse{
+				Results: &models.BatchDeleteResponseResults{
+					Matches:    1,
+					Successful: 1,
+					Failed:     0,
+				}}
+
+			responseBytes, err := json.Marshal(mockResponse)
+			if err != nil {
+				t.Fatalf("failed to marshal mock response: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+		default:
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+		}
+	}))
+
+	listenAddress := fmt.Sprintf("localhost:%s", port)
+	listener, err := test_helpers.BindToPort(t, listenAddress)
+	if err != nil {
+		t.Fatalf("Failed to start mock Weaviate server for test: %v", err)
+	}
+	mockWeaviateServer.Listener = listener
+	mockWeaviateServer.Start()
+	defer mockWeaviateServer.Close()
+
+	// Actual test section
+
+	client, err := GetWeaviateClient()
+	if err != nil {
+		t.Fatalf("Failed to get Weaviate client: %v", err)
+	}
+
+	res, err := BulkDeleteEventsFromWeaviate(context.Background(), client, []string{"123"})
+
+	if err != nil {
+		t.Errorf("Unexpected error from BulkDeleteEventsFromWeaviate: %v", err)
+	}
+
+	if res == nil {
+		t.Fatalf("Expected a response but got nil")
+	}
+
+	if res.Results == nil {
+		t.Fatalf("expected response to have a non-nil Results fields")
+	}
+
+	if res.Results.Matches != 1 {
+		t.Errorf("expected Matches to be 1, got %d", res.Results.Matches)
+	}
+
+	if res.Results.Successful != 1 {
+		t.Errorf("expected Successful to be 1, got %d", res.Results.Successful)
+	}
+}
+
 //
 // func TestGetWeaviateEventByID(t *testing.T) {
 // 	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
