@@ -196,9 +196,7 @@ func NewApp() *App {
 	log.Printf("App created: %+v", app)
 
 	defer func() {
-		log.Print("180")
 		app.InitStripe()
-		log.Print("182")
 	}()
 	return app
 }
