@@ -22,9 +22,9 @@ func TestMain(m *testing.M) {
 	log.Println("Setting up test environment for handlers package")
 
 	// This connects to the real Weaviate container from your docker-compose.test.yml
-	os.Setenv("WEAVIATE_HOST", "localhost")
-	os.Setenv("WEAVIATE_PORT", "8080")
-	os.Setenv("WEAVIATE_SCHEME", "http")
+	// os.Setenv("WEAVIATE_HOST", "localhost")
+	// os.Setenv("WEAVIATE_PORT", "8080")
+	// os.Setenv("WEAVIATE_SCHEME", "http")
 
 	var err error
 	testClient, err = services.GetWeaviateClient()

@@ -1,18 +1,11 @@
 package services
 
 import (
-	"context"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
-
-	"github.com/weaviate/weaviate-go-client/v4/weaviate"
-)
-
-var (
-	testClient *weaviate.Client
 )
 
 const basicHTMLresp = `<html><body><h1>Test Page</h1></body></html>`
@@ -37,12 +30,6 @@ func TestMain(m *testing.M) {
 		w.Write([]byte(basicHTMLresp))
 	}))
 	defer mockScrapingServer.Close()
-
-	var err error
-	testClient, err = GetWeaviateClient()
-	if err != nil {
-		log.Fatalf("FATAL: Could not create Weaviate client for tests: %v", err)
-	}
 
 	exitCode := m.Run()
 
