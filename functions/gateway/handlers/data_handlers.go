@@ -486,7 +486,8 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				err := helpers.ValidateTeamUUID(id)
 				if err != nil {
 					transport.SendServerRes(w,
-						[]byte(fmt.Sprintf(err.Error())),
+						// []byte(fmt.Sprintf(err.Error())),
+						[]byte(err.Error()),
 						http.StatusBadRequest,
 						nil)
 					return
