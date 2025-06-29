@@ -579,7 +579,6 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 
 func main() {
 	deploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
-	instanceHost := os.Getenv("ZITADEL_INSTANCE_HOST")
 
 	flag.Parse()
 	app := NewApp()
