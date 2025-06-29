@@ -423,7 +423,6 @@ func SearchWeaviateEvents(
 					(&filters.WhereBuilder{}).WithPath([]string{"long"}).WithOperator(filters.LessThanEqual).WithValueNumber(maxLong2),
 				})
 			longFilter = (&filters.WhereBuilder{}).WithOperator(filters.Or).WithOperands([]*filters.WhereBuilder{longCondition1, longCondition2})
-			log.Printf("~~ 432: longFilter for split: %v", longFilter)
 		} else {
 			longFilter = (&filters.WhereBuilder{}).
 				WithOperator(filters.And).
@@ -433,7 +432,6 @@ func SearchWeaviateEvents(
 				})
 		}
 		whereOperands = append(whereOperands, longFilter)
-		log.Printf("~~ 442 whereOperands: %v", whereOperands)
 	}
 
 	// Owner Filter (Uncommented and integrated)
@@ -471,7 +469,6 @@ func SearchWeaviateEvents(
 	var finalWhereFilter *filters.WhereBuilder
 	if len(whereOperands) > 0 {
 		finalWhereFilter = (&filters.WhereBuilder{}).WithOperator(filters.And).WithOperands(whereOperands)
-		log.Printf("~~ 480: finalWhereFilter: %+v", finalWhereFilter)
 		// filterBytes, _ := json.MarshalIndent(finalWhereFilter, "", "  ")
 		// whereFilterForResponse = string(filterBytes)
 	} else {
@@ -496,7 +493,6 @@ func SearchWeaviateEvents(
 	if hybridArgument != nil {
 		queryBuilder.WithHybrid(hybridArgument)
 	}
-	log.Printf("~~ 522 queryBuilder: %v", queryBuilder)
 
 	// Apply the single, consolidated filter
 	if finalWhereFilter != nil {
