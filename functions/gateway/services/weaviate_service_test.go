@@ -140,51 +140,21 @@ func TestBulkUpsertEventsToWeaviate(t *testing.T) {
 
 		// The client expects a response of type '[]*bmodels.ObjectsGetResponse'
 		// We will build this response structure correctly.
-		response := make([]*bmodels.ObjectsGetResponse, len(batchObjects))
+		response := make([]*models.ObjectsGetResponse, len(batchObjects))
 		for i, obj := range batchObjects {
 
 			// The status is a pointer to a string.
 			status := "SUCCESS"
 
 			// This is the correct structure for each item in the response array.
-			response[i] = &bmodels.ObjectsGetResponse{
-				ID: obj.ID,
-				Result: &bmodels.ObjectGetResponse{
+			response[i] = &models.ObjectsGetResponse{
+				Object: models.Object{
+					ID:    obj.ID,
+					Class: obj.Class,
+				},
+				Result: &models.ObjectsGetResponseAO2Result{
 					Status: &status, // Status is inside the Result object
 					Errors: nil,
-				},
-			}
-		}
-
-		responseBytes, err := json.Marshal(response)
-		if err != nil {
-			t.Fatalf("failed to marshal mock response: %v", err)
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write(responseBytes)
-	}))
-
-	// --- Mock Server Logic ---
-	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/batch/objects" {
-			t.Errorf("expected path /v1/batch/objects, got %s", r.URL.Path)
-		}
-		if r.Method != "POST" {
-			t.Errorf("expected method POST, got %s", r.Method)
-		}
-
-		var batchObjects []*models.Object
-		if err := json.NewDecoder(r.Body).Decode(&batchObjects); err != nil {
-			t.Fatalf("failed to decode request body: %v", err)
-		}
-
-		response := make([]models.ObjectsGetResponse, len(batchObjects))
-		for i, obj := range batchObjects {
-			status := "SUCCESS"
-			response[i] = &models.ObjectsGetResponse{
-				ID: obj.ID,
-				Result: &models.ObjectsGetResponse{
-					Status: &status,
 				},
 			}
 		}
@@ -236,7 +206,7 @@ func TestBulkUpsertEventsToWeaviate(t *testing.T) {
 	if len(res) != 1 {
 		t.Errorf("expected response length 1, got %d", len(res))
 	}
-	if *(res)[0].Result.Status != models.ObjectCreateResultStatusSUCCESS {
+	if *(res)[0].Result.Status != models.ObjectsGetResponseAO2ResultStatusSUCCESS {
 		t.Errorf("expected status SUCCESS, got %s", *(res)[0].Result.Status)
 	}
 }
