@@ -337,7 +337,6 @@ func BulkUpsertEventsToWeaviate(ctx context.Context, client *weaviate.Client, ev
 				return nil, fmt.Errorf("encountered %d errors in batch execution: %v", len(batchErrors), batchErrors)
 			}
 
-			log.Printf("Successfully flushed batch. %d objects processed in this batch.", objectsInCurrentBatch)
 			objectsInCurrentBatch = 0
 
 		}

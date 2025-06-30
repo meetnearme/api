@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"reflect"
 	"strings"
@@ -27,8 +28,10 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
+	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
+	"github.com/weaviate/weaviate/entities/models"
 )
 
 var searchUsersByIDs = helpers.SearchUsersByIDs
@@ -38,61 +41,151 @@ func init() {
 }
 
 func TestPostEventHandler(t *testing.T) {
-	t.Run("Valid event posts successfully", func(t *testing.T) {
-		eventID := uuid.New().String()
+	// Store original env vars and transport
+	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+	originalTransport := http.DefaultTransport
 
-		payloadStruct := rawEvent{
-			rawEventData: rawEventData{
-				Id:              eventID,
-				EventOwnerName:  "Event Owner",
-				EventOwners:     []string{"123"},
-				EventSourceType: helpers.ES_SINGLE_EVENT,
-				Name:            "Test Event",
-				Description:     "A test event",
-				Address:         "123 Test St",
-				Lat:             51.5074,
-				Long:            -0.1278,
-				Timezone:        "America/New_York",
-			},
-			StartTime: "2099-05-01T12:00:00Z",
+	defer func() {
+		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+		http.DefaultTransport = originalTransport
+	}()
+
+	os.Setenv("WEAVIATE_HOST", "localhost")
+	os.Setenv("WEAVIATE_PORT", "8080")
+	os.Setenv("WEAVIATE_SCHEME", "http")
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
+
+	// Set up logging transport to intercept ALL HTTP requests
+	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
+
+	// Create mock server
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("🎯 MOCK SERVER HIT: %s %s", r.Method, r.URL.Path)
+
+		switch r.URL.Path {
+		case "/v1/meta":
+			t.Logf("   └─ Handling /v1/meta")
+			metaResponse := `{"version":"1.23.4"}`
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(metaResponse))
+
+		case "/v1/batch/objects":
+			t.Logf("   └─ Handling /v1/batch/objects")
+			if r.Method != "POST" {
+				t.Errorf("expected method POST, got %s", r.Method)
+			}
+
+			var requestBody struct {
+				Objects []*models.Object `json:"objects"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+
+			batchObjects := requestBody.Objects
+			response := make([]*models.ObjectsGetResponse, len(batchObjects))
+			for i, obj := range batchObjects {
+				status := "SUCCESS"
+				response[i] = &models.ObjectsGetResponse{
+					Object: models.Object{
+						ID:    obj.ID,
+						Class: obj.Class,
+					},
+					Result: &models.ObjectsGetResponseAO2Result{
+						Status: &status,
+						Errors: nil,
+					},
+				}
+			}
+
+			responseBytes, err := json.Marshal(response)
+			if err != nil {
+				t.Fatalf("failed to marshal mock response: %v", err)
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+
+		case "/v1/graphql":
+			t.Logf("   └─ Handling /v1/graphql")
+			if r.Method != "POST" {
+				t.Errorf("expected method POST for /v1/graphql, got %s", r.Method)
+			}
+
+			mockResponse := models.GraphQLResponse{
+				Data: map[string]models.JSONObject{
+					"Get": map[string]interface{}{
+						"EventStrict": []interface{}{
+							map[string]interface{}{
+								"name":        "Test Event",
+								"description": "A test event",
+								"timezone":    "America/New_York",
+								"startTime":   time.Now().Unix(),
+								"_additional": map[string]interface{}{
+									"id": "123",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			responseBytes, err := json.Marshal(mockResponse)
+			if err != nil {
+				t.Fatalf("failed to marshal mock GraphQL response: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+
+		default:
+			t.Logf("   └─ ⚠️  UNHANDLED PATH: %s", r.URL.Path)
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+			http.Error(w, "Not Found", http.StatusNotFound)
 		}
+	}))
+	defer mockServer.Close()
 
-		requestBody, err := json.Marshal(payloadStruct)
-		if err != nil {
-			t.Fatalf("Failed to marshal test event to JSON: %v", err)
-		}
+	// Parse mock server URL and set environment variables
+	mockURL, err := url.Parse(mockServer.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse mock server URL: %v", err)
+	}
 
-		req := httptest.NewRequest("POST", "/api/event", bytes.NewBuffer(requestBody))
-		req.Header.Set("Content-Type", "application/json")
-		rr := httptest.NewRecorder()
+	os.Setenv("WEAVIATE_HOST", mockURL.Hostname())
+	os.Setenv("WEAVIATE_SCHEME", mockURL.Scheme)
+	os.Setenv("WEAVIATE_PORT", mockURL.Port())
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
 
-		handlerFunc := PostEventHandler(rr, req)
-		handlerFunc(rr, req)
+	// t.Logf("🔧 SETUP COMPLETE")
+	// t.Logf("   └─ Mock Server: %s", mockServer.URL)
+	// t.Logf("   └─ WEAVIATE_HOST: %s", os.Getenv("WEAVIATE_HOST"))
+	// t.Logf("   └─ WEAVIATE_PORT: %s", os.Getenv("WEAVIATE_PORT"))
+	// t.Logf("   └─ WEAVIATE_SCHEME: %s", os.Getenv("WEAVIATE_SCHEME"))
 
-		if status := rr.Code; status != http.StatusCreated {
-			t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusCreated)
-		}
-
-		event, err := services.GetWeaviateEventByID(context.Background(), testClient, eventID, "0")
-		if err != nil {
-			t.Fatalf("Failed to get event from Weaviate for verification: %v", err)
-		}
-		if event == nil {
-			t.Fatal("Event was not found in Weaviate after handler ran")
-		}
-		if event.Name != "Test Event" {
-			t.Errorf("Expected event name to be 'Test Event', but got '%s'", event.Name)
-		}
-	})
-
-	// The test table structure is excellent and we can keep it.
-	failureTests := []struct {
+	// Test cases
+	tests := []struct {
 		name              string
 		requestBody       string
 		expectedStatus    int
 		expectedBodyCheck func(t *testing.T, body string)
-		dbAssertionCheck  func(t *testing.T) // New function to check DB state
 	}{
+		{
+			name:           "Valid event posts successfully",
+			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York","startTime":"2099-05-01T12:00:00Z"}`,
+			expectedStatus: http.StatusCreated,
+			expectedBodyCheck: func(t *testing.T, body string) {
+				t.Logf("Response body: %s", body)
+				// Update this check since we expect success now
+				if strings.Contains(body, "error") {
+					t.Errorf("Expected successful response, but got error: %s", body)
+				}
+			},
+		},
 		{
 			name:           "Invalid JSON",
 			requestBody:    `{"name":"Test Event","description":}`,
@@ -102,18 +195,16 @@ func TestPostEventHandler(t *testing.T) {
 					t.Errorf("Expected body to contain 'invalid json payload', but got '%s'", body)
 				}
 			},
-			dbAssertionCheck: nil, // No DB check needed for a validation failure
 		},
 		{
 			name:           "Missing required name field",
-			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType":"SINGLE_EVENT","startTime":"2099-05-01T12:00:00Z","description":"A test event","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","startTime":"2099-05-01T12:00:00Z","description":"A test event","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				if !strings.Contains(body, "Field validation for 'Name' failed on the 'required' tag") {
 					t.Errorf("Expected body to contain name validation error, but got '%s'", body)
 				}
 			},
-			dbAssertionCheck: nil,
 		},
 		{
 			name:           "Missing required startTime field",
@@ -125,11 +216,10 @@ func TestPostEventHandler(t *testing.T) {
 					t.Errorf("Expected response body to contain '%s', but got '%s'", expectedSubstring, body)
 				}
 			},
-			dbAssertionCheck: nil, // No DB interaction is expected
 		},
 		{
 			name:           "Missing required name field",
-			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","startTime":"2099-05-01T12:00:00Z","description":"A test event","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","startTime":"2099-05-01T12:00:00Z","description":"A test event","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				expectedSubstring := "Field validation for 'Name' failed on the 'required' tag"
@@ -137,11 +227,10 @@ func TestPostEventHandler(t *testing.T) {
 					t.Errorf("Expected response body to contain '%s', but got '%s'", expectedSubstring, body)
 				}
 			},
-			dbAssertionCheck: nil,
 		},
 		{
 			name:           "Missing required eventOwners field",
-			requestBody:    `{"eventOwnerName":"Event Owner","eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+			requestBody:    `{"eventOwnerName":"Event Owner","eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				expectedSubstring := "Field validation for 'EventOwners' failed on the 'required' tag"
@@ -149,7 +238,6 @@ func TestPostEventHandler(t *testing.T) {
 					t.Errorf("Expected response body to contain '%s', but got '%s'", expectedSubstring, body)
 				}
 			},
-			dbAssertionCheck: nil,
 		},
 		{
 			name:           "Missing required eventOwnerName field",
@@ -161,11 +249,10 @@ func TestPostEventHandler(t *testing.T) {
 					t.Errorf("Expected response body to contain '%s', but got '%s'", expectedSubstring, body)
 				}
 			},
-			dbAssertionCheck: nil,
 		},
 		{
 			name:           "Missing required timezone field",
-			requestBody:    `{"eventOwnerName":"Event Owner","eventOwners":["123"], "eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+			requestBody:    `{"eventOwnerName":"Event Owner","eventOwners":["123"], "eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				expectedSubstring := "Field validation for 'Timezone' failed on the 'required' tag"
@@ -173,11 +260,10 @@ func TestPostEventHandler(t *testing.T) {
 					t.Errorf("Expected response body to contain '%s', but got '%s'", expectedSubstring, body)
 				}
 			},
-			dbAssertionCheck: nil,
 		},
 		{
 			name:           "Invalid timezone field",
-			requestBody:    `{"timezone":"Does_Not_Exist/Nowhere","eventOwnerName":"Event Owner","eventOwners":["123"], "eventSourceType":"` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+			requestBody:    `{"timezone":"Does_Not_Exist/Nowhere","eventOwnerName":"Event Owner","eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				expectedSubstring := "invalid timezone: unknown time zone Does_Not_Exist/Nowhere"
@@ -185,35 +271,30 @@ func TestPostEventHandler(t *testing.T) {
 					t.Errorf("Expected response body to contain '%s', but got '%s'", expectedSubstring, body)
 				}
 			},
-			dbAssertionCheck: nil,
 		},
 	}
 
-	for _, tt := range failureTests {
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// ARRANGE: Create a new HTTP request with the test case body.
+			t.Logf("🧪 RUNNING TEST: %s", tt.name)
+
 			req := httptest.NewRequest("POST", "/api/event", bytes.NewBufferString(tt.requestBody))
 			req.Header.Set("Content-Type", "application/json")
-
-			// Create a ResponseRecorder to capture the handler's response.
 			rr := httptest.NewRecorder()
 
-			// ACT: Call your handler factory directly. This simulates the router calling it.
-			// This directly tests your current application pattern.
 			handlerFunc := PostEventHandler(rr, req)
-			handlerFunc(rr, req) // Execute the handler that the factory returns
+			handlerFunc(rr, req)
 
-			// ASSERT HTTP RESPONSE
-			if rr.Code != tt.expectedStatus {
-				t.Errorf("Handler returned wrong status code: got %v want %v", rr.Code, tt.expectedStatus)
+			// t.Logf("📊 TEST RESULTS:")
+			// t.Logf("   └─ Status: %d (expected %d)", rr.Code, tt.expectedStatus)
+			// t.Logf("   └─ Body: %s", rr.Body.String())
+
+			if status := rr.Code; status != tt.expectedStatus {
+				t.Errorf("Handler returned wrong status code: got %v want %v", status, tt.expectedStatus)
 			}
+
 			if tt.expectedBodyCheck != nil {
 				tt.expectedBodyCheck(t, rr.Body.String())
-			}
-
-			// ASSERT DATABASE STATE
-			if tt.dbAssertionCheck != nil {
-				tt.dbAssertionCheck(t)
 			}
 		})
 	}

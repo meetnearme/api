@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -298,4 +299,51 @@ func GetPlaywrightBrowser() (*playwright.Browser, error) {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return !os.IsNotExist(err)
+}
+
+// Custom HTTP transport that logs all requests
+type LoggingTransport struct {
+	base http.RoundTripper
+	t    *testing.T
+}
+
+// NewLoggingTransport creates a new LoggingTransport
+func NewLoggingTransport(base http.RoundTripper, t *testing.T) *LoggingTransport {
+	return &LoggingTransport{
+		base: base,
+		t:    t,
+	}
+}
+
+func (lt *LoggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Log the outgoing request
+	lt.t.Logf("🌐 HTTP REQUEST: %s %s", req.Method, req.URL.String())
+	lt.t.Logf("   └─ Host: %s", req.URL.Host)
+	lt.t.Logf("   └─ Path: %s", req.URL.Path)
+	if req.Body != nil {
+		// Read body for logging (need to restore it after)
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err == nil && len(bodyBytes) > 0 {
+			// Restore the body for the actual request
+			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			// Log first 200 chars of body
+			bodyStr := string(bodyBytes)
+			if len(bodyStr) > 200 {
+				bodyStr = bodyStr[:200] + "..."
+			}
+			lt.t.Logf("   └─ Body: %s", bodyStr)
+		}
+	}
+
+	// Make the actual request
+	resp, err := lt.base.RoundTrip(req)
+
+	// Log the response
+	if err != nil {
+		lt.t.Logf("❌ HTTP ERROR: %v", err)
+	} else {
+		lt.t.Logf("✅ HTTP RESPONSE: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	return resp, err
 }
