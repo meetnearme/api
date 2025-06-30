@@ -431,7 +431,9 @@ templ AddEventSource() {
 					}
 
 					requestAnimationFrame(() => {
+						// eslint-disable-next-line no-undef
 						htmx.process(form);
+						// eslint-disable-next-line no-undef
 						htmx.trigger(form, 'submit');
 					});
 				},
