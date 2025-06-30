@@ -127,46 +127,53 @@ func TestBulkUpsertEventsToWeaviate(t *testing.T) {
 	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
 
 	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/batch/objects" {
-			t.Errorf("expected path /v1/batch/objects, got %s", r.URL.Path)
-		}
-		if r.Method != "POST" {
-			t.Errorf("expected method POST, got %s", r.Method)
-		}
+		switch r.URL.Path {
 
-		// The client sends an array of 'models.Object'
-		var batchObjects []*models.Object
-		if err := json.NewDecoder(r.Body).Decode(&batchObjects); err != nil {
-			t.Fatalf("failed to decode request body: %v", err)
-		}
+		case "/v1/meta":
+			metaResponse := `{"version":"1.23.4"}`
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(metaResponse))
 
-		// The client expects a response of type '[]*bmodels.ObjectsGetResponse'
-		// We will build this response structure correctly.
-		response := make([]*models.ObjectsGetResponse, len(batchObjects))
-		for i, obj := range batchObjects {
-
-			// The status is a pointer to a string.
-			status := "SUCCESS"
-
-			// This is the correct structure for each item in the response array.
-			response[i] = &models.ObjectsGetResponse{
-				Object: models.Object{
-					ID:    obj.ID,
-					Class: obj.Class,
-				},
-				Result: &models.ObjectsGetResponseAO2Result{
-					Status: &status, // Status is inside the Result object
-					Errors: nil,
-				},
+		case "/v1/batch/objects":
+			if r.Method != "POST" {
+				t.Errorf("expected method POST, got %s", r.Method)
 			}
-		}
 
-		responseBytes, err := json.Marshal(response)
-		if err != nil {
-			t.Fatalf("failed to marshal mock response: %v", err)
+			var requestBody struct {
+				Objects []*models.Object `json:"objects"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+
+			batchObjects := requestBody.Objects
+
+			response := make([]*models.ObjectsGetResponse, len(batchObjects))
+			for i, obj := range batchObjects {
+				status := "SUCCESS"
+
+				response[i] = &models.ObjectsGetResponse{
+					Object: models.Object{
+						ID:    obj.ID,
+						Class: obj.Class,
+					},
+					Result: &models.ObjectsGetResponseAO2Result{
+						Status: &status, // Status is inside the Result object
+						Errors: nil,
+					},
+				}
+			}
+
+			responseBytes, err := json.Marshal(response)
+			if err != nil {
+				t.Fatalf("failed to marshal mock response: %v", err)
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+		default:
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
 		}
-		w.WriteHeader(http.StatusOK)
-		w.Write(responseBytes)
 	}))
 
 	listener, err := test_helpers.BindToPort(t, hostAndPort)
@@ -177,7 +184,6 @@ func TestBulkUpsertEventsToWeaviate(t *testing.T) {
 	mockWeaviateServer.Start()
 	defer mockWeaviateServer.Close()
 
-	// --- Test Execution ---
 	loc, _ := time.LoadLocation("America/New_York")
 	startTime1, err := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
 	if err != nil {
@@ -513,6 +519,8 @@ func TestGetWeaviateEventByID(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			w.Write(responseBytes)
+		default:
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
 		}
 	}))
 
@@ -550,57 +558,133 @@ func TestGetWeaviateEventByID(t *testing.T) {
 	}
 }
 
-//
-// func TestBulkGetWeaviateEventByID(t *testing.T) {
-// 	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
-// 	defer os.Unsetenv("GO_ENV")
-// 	// Save original environment variables
-// 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
-// 	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
-// 	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
-//
-// 	hostAndPort := test_helpers.GetNextPort()
-//
-// 	parts := strings.Split(hostAndPort, ":")
-// 	if len(parts) != 2 {
-// 		t.Fatalf("Expected GetNextPort to return 'host:port', but got: %s", hostAndPort)
-// 	}
-//
-// 	host := parts[0]
-// 	port := parts[1]
-//
-// 	os.Setenv("WEAVIATE_HOST", host)
-// 	os.Setenv("WEAVIATE_PORT", port)
-// 	os.Setenv("WEAVIATE_SCHEME", "http")
-// 	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
-//
-// 	defer func() {
-// 		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
-// 		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
-// 		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
-// 		// ... restore other vars
-// 	}()
-//
-// 	// Create and start the mock server for this test
-// 	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		// ... (Your mock response logic here) ...
-// 	}))
-// 	listenAddress := fmt.Sprintf("localhost:%s", port)
-// 	listener, err := test_helpers.BindToPort(t, listenAddress)
-// 	if err != nil {
-// 		t.Fatalf("Failed to start mock Weaviate server for test: %v", err)
-// 	}
-// 	mockWeaviateServer.Listener = listener
-// 	mockWeaviateServer.Start()
-// 	defer mockWeaviateServer.Close()
-//
-// 	client, err := GetWeaviateClient()
-// 	if err != nil {
-// 		t.Fatalf("Failed to get Weaviate client: %v", err)
-// 	}
-//
-// 	_, err = BulkGetWeaviateEventByID(context.Background(), client, []string{"123", "456"}, "0")
-// 	if err != nil {
-// 		t.Errorf("Unexpected error: %v", err)
-// 	}
-// }
+func TestBulkGetWeaviateEventByID(t *testing.T) {
+	// --- Standard Test Setup ---
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	defer os.Unsetenv("GO_ENV")
+
+	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+	defer func() {
+		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+	}()
+
+	hostAndPort := test_helpers.GetNextPort()
+	parts := strings.Split(hostAndPort, ":")
+	if len(parts) != 2 {
+		t.Fatalf("Expected GetNextPort to return 'host:port', but got: %s", hostAndPort)
+	}
+	host, port := parts[0], parts[1]
+
+	os.Setenv("WEAVIATE_HOST", host)
+	os.Setenv("WEAVIATE_PORT", port)
+	os.Setenv("WEAVIATE_SCHEME", "http")
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
+
+	// --- Mock Server Logic for Bulk Get By ID ---
+	idsToFetch := []string{
+		"00000000-0000-0000-0000-000000000123",
+		"00000000-0000-0000-0000-000000000456",
+	}
+
+	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A "Bulk Get by ID" uses a GraphQL query.
+		switch r.URL.Path {
+		case "/v1/meta":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"version":"1.24.1"}`))
+
+		case "/v1/graphql":
+			if r.Method != "POST" {
+				t.Errorf("expected method POST for /v1/graphql, got %s", r.Method)
+			}
+
+			// Create a canned successful response containing multiple events.
+			mockResponse := models.GraphQLResponse{
+				Data: map[string]models.JSONObject{
+					"Get": map[string]interface{}{
+						// The key is the Class Name, likely "EventStrict"
+						"EventStrict": []interface{}{
+							// First event object
+							map[string]interface{}{
+								"name":        "First Mock Event",
+								"description": "This is the first event.",
+								"timezone":    "America/Denver",
+								"_additional": map[string]interface{}{
+									"id": strfmt.UUID(idsToFetch[0]),
+								},
+							},
+							// Second event object
+							map[string]interface{}{
+								"name":        "Second Mock Event",
+								"description": "This is the second event.",
+								"timezone":    "America/Denver",
+								"_additional": map[string]interface{}{
+									"id": strfmt.UUID(idsToFetch[1]),
+								},
+							},
+						},
+					},
+				},
+			}
+
+			responseBytes, err := json.Marshal(mockResponse)
+			if err != nil {
+				t.Fatalf("failed to marshal mock response: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+		default:
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+		}
+	}))
+
+	listenAddress := fmt.Sprintf("localhost:%s", port)
+	listener, err := test_helpers.BindToPort(t, listenAddress)
+	if err != nil {
+		t.Fatalf("Failed to start mock Weaviate server for test: %v", err)
+	}
+	mockWeaviateServer.Listener = listener
+	mockWeaviateServer.Start()
+	defer mockWeaviateServer.Close()
+
+	// --- Test Execution ---
+	client, err := GetWeaviateClient()
+	if err != nil {
+		t.Fatalf("Failed to get Weaviate client: %v", err)
+	}
+
+	res, err := BulkGetWeaviateEventByID(context.Background(), client, idsToFetch, "0")
+
+	// --- Assertions ---
+	if err != nil {
+		t.Errorf("Unexpected error from BulkGetWeaviateEventByID: %v", err)
+	}
+	if res == nil {
+		t.Fatalf("Expected a slice of events but got nil")
+	}
+
+	// Check that the correct number of events were returned.
+	if len(res) != 2 {
+		t.Fatalf("Expected 2 events in the response, but got %d", len(res))
+	}
+
+	// Check the details of each returned event.
+	if res[0].Id != idsToFetch[0] {
+		t.Errorf("Expected first event ID to be %s, but got %s", idsToFetch[0], res[0].Id)
+	}
+	if res[0].Name != "First Mock Event" {
+		t.Errorf("Expected first event name to be 'First Mock Event', but got '%s'", res[0].Name)
+	}
+
+	if res[1].Id != idsToFetch[1] {
+		t.Errorf("Expected second event ID to be %s, but got %s", idsToFetch[1], res[1].Id)
+	}
+	if res[1].Name != "Second Mock Event" {
+		t.Errorf("Expected second event name to be 'Second Mock Event', but got '%s'", res[1].Name)
+	}
+}

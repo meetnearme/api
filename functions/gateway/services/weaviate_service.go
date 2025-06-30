@@ -293,7 +293,8 @@ func BulkUpsertEventsToWeaviate(ctx context.Context, client *weaviate.Client, ev
 
 	batcher := client.Batch().ObjectsBatcher()
 	var objectsInCurrentBatch int = 0
-	var weaviateResp []models.ObjectsGetResponse
+
+	var finalResponse []models.ObjectsGetResponse
 
 	for i, event := range events {
 
@@ -315,29 +316,34 @@ func BulkUpsertEventsToWeaviate(ctx context.Context, client *weaviate.Client, ev
 
 		if objectsInCurrentBatch >= batchSize || i == len(events)-1 {
 			log.Printf("Flushing batch. Current batch size: %d. Total events processed so far: %d", objectsInCurrentBatch, i+1)
-			weaviateResp, err := batcher.WithConsistencyLevel(replication.ConsistencyLevel.ONE).Do(ctx)
+
+			responseForBatch, err := batcher.WithConsistencyLevel(replication.ConsistencyLevel.ONE).Do(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("failed to execute batch for events around index %d: %w", i, err)
 			}
 
+			finalResponse = append(finalResponse, responseForBatch...)
+
 			var batchErrors []string
-			for _, res := range weaviateResp {
+			for _, res := range responseForBatch {
 				if res.Result != nil && res.Result.Status != nil && *res.Result.Status == models.ObjectsGetResponseAO2ResultStatusFAILED {
 					errMsg := fmt.Sprintf("object with ID %s failed: %v", res.ID, res.Result.Errors.Error)
 					log.Printf("ERROR: Weaviate batch object error: %s", errMsg)
 					batchErrors = append(batchErrors, errMsg)
 				}
-				if len(batchErrors) > 0 {
-					return nil, fmt.Errorf("encountered %d errors in batch execution: %v", len(batchErrors), batchErrors)
-				}
-				log.Printf("Successfully flushed batch. %d objects processed in this batch.", objectsInCurrentBatch)
-				// Reset counter for the next batch. The batcher itself is reset by the .Do() call.
-				objectsInCurrentBatch = 0
 			}
+
+			if len(batchErrors) > 0 {
+				return nil, fmt.Errorf("encountered %d errors in batch execution: %v", len(batchErrors), batchErrors)
+			}
+
+			log.Printf("Successfully flushed batch. %d objects processed in this batch.", objectsInCurrentBatch)
+			objectsInCurrentBatch = 0
+
 		}
 	}
 
-	return weaviateResp, nil
+	return finalResponse, nil
 }
 
 func SearchWeaviateEvents(
