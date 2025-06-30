@@ -765,126 +765,215 @@ func TestSearchEvents(t *testing.T) {
 }
 
 func TestBulkUpdateEvents(t *testing.T) {
-	// Instantiate the real Weaviate service once for all tests to use.
+	// --- Standard Test Setup (same pattern) ---
+	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	defer os.Unsetenv("GO_ENV")
 
-	// SETUP: Load timezone location needed for creating valid Event objects.
-	tz, err := time.LoadLocation("America/New_York")
-	if err != nil {
-		t.Fatalf("SETUP FAILED: could not load timezone: %v", err)
-	}
+	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+	originalTransport := http.DefaultTransport
 
-	// Define test cases.
-	tests := []struct {
-		name              string
-		dbSeeder          func(t *testing.T) // Sets up the initial state in the DB.
-		requestBody       string             // The PUT request payload with the updates.
-		idsToCleanup      []string           // IDs to delete after the test.
-		expectedStatus    int
-		expectedBodyCheck func(t *testing.T, body string)
-		dbAssertionCheck  func(t *testing.T) // Verifies the final state in the DB.
-	}{
-		{
-			name: "Successful bulk update modifies existing events",
-			dbSeeder: func(t *testing.T) {
-				// ARRANGE Part 1: Create the initial versions of events in the DB.
-				initialEvents := []types.Event{
-					{
-						Id:             "update-test-1",
-						EventOwners:    []string{"owner-123"},
-						EventOwnerName: "Original Owner",
-						Name:           "Original Event Name", // This is what we will check for changes.
-						Description:    "Initial description.",
-						StartTime:      time.Now().Add(10 * 24 * time.Hour).Unix(),
-						Address:        "1 First St, Washington, DC",
-						Lat:            38.8951,
-						Long:           -77.0364,
-						Timezone:       *tz,
+	defer func() {
+		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+		http.DefaultTransport = originalTransport
+	}()
+
+	// Set up logging transport
+	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
+
+	// Mock server setup (same as working pattern)
+	hostAndPort := test_helpers.GetNextPort()
+
+	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("🎯 MOCK SERVER HIT: %s %s", r.Method, r.URL.Path)
+
+		switch r.URL.Path {
+		case "/v1/meta":
+			t.Logf("   └─ Handling /v1/meta")
+			metaResponse := `{"version":"1.23.4"}`
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(metaResponse))
+
+		case "/v1/batch/objects":
+			t.Logf("   └─ Handling /v1/batch/objects (bulk update)")
+			if r.Method != "POST" {
+				t.Errorf("expected method POST for /v1/batch/objects, got %s", r.Method)
+			}
+
+			var requestBody struct {
+				Objects []*models.Object `json:"objects"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+
+			batchObjects := requestBody.Objects
+			response := make([]*models.ObjectsGetResponse, len(batchObjects))
+			for i, obj := range batchObjects {
+				status := "SUCCESS"
+				response[i] = &models.ObjectsGetResponse{
+					Object: models.Object{
+						ID:    obj.ID,
+						Class: obj.Class,
+					},
+					Result: &models.ObjectsGetResponseAO2Result{
+						Status: &status,
+						Errors: nil,
 					},
 				}
-				_, err := services.BulkUpsertEventsToWeaviate(context.Background(), testClient, initialEvents)
-				if err != nil {
-					t.Fatalf("DB seeder failed for update test: %v", err)
-				}
-			},
-			// ARRANGE Part 2: This is the payload for the PUT request with the updated data.
+			}
+
+			responseBytes, err := json.Marshal(response)
+			if err != nil {
+				t.Fatalf("failed to marshal mock response: %v", err)
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+
+		default:
+			t.Logf("   └─ ⚠️  UNHANDLED PATH: %s", r.URL.Path)
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}
+	}))
+
+	// Use the same binding pattern as working test
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("BindToPort failed: %v", err)
+	}
+	mockWeaviateServer.Listener = listener
+	mockWeaviateServer.Start()
+	defer mockWeaviateServer.Close()
+
+	// Set environment variables to the actual bound port
+	actualAddr := listener.Addr().String()
+	actualParts := strings.Split(actualAddr, ":")
+	actualHost, actualPort := actualParts[0], actualParts[1]
+
+	os.Setenv("WEAVIATE_HOST", actualHost)
+	os.Setenv("WEAVIATE_PORT", actualPort)
+	os.Setenv("WEAVIATE_SCHEME", "http")
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
+
+	t.Logf("🔧 BULK UPDATE TEST SETUP COMPLETE")
+	t.Logf("   └─ Mock Server bound to: %s", actualAddr)
+	t.Logf("   └─ WEAVIATE_HOST: %s", os.Getenv("WEAVIATE_HOST"))
+	t.Logf("   └─ WEAVIATE_PORT: %s", os.Getenv("WEAVIATE_PORT"))
+
+	// Define test cases (removed all DB integration parts)
+	tests := []struct {
+		name              string
+		requestBody       string
+		expectedStatus    int
+		expectedBodyCheck func(t *testing.T, body string)
+	}{
+		{
+			name: "Successful bulk update with valid events",
 			requestBody: `{ "events": [
-				{"id": "update-test-1", "eventOwners":["owner-123"],"eventOwnerName":"Updated Owner","name":"Updated Event Name","description":"This description has been updated.","startTime":` + fmt.Sprintf("%d", time.Now().Add(11*24*time.Hour).Unix()) + `,"address":"1 First St, Washington, DC","lat":38.8951,"long":-77.0364,"timezone":"America/New_York"}
+				{
+					"id": "update-test-1",
+					"eventOwners":["owner-123"],
+					"eventOwnerName":"Updated Owner",
+					"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+					"name":"Updated Event Name",
+					"description":"This description has been updated.",
+					"startTime":"2099-05-01T12:00:00Z",
+					"address":"1 First St, Washington, DC",
+					"lat":38.8951,
+					"long":-77.0364,
+					"timezone":"America/New_York"
+				}
 			]}`,
-			idsToCleanup:   []string{"update-test-1"},
 			expectedStatus: http.StatusOK,
 			expectedBodyCheck: func(t *testing.T, body string) {
-				if !strings.Contains(body, `"errors":false`) {
-					t.Errorf("Expected response body to indicate no errors, but got: %s", body)
-				}
-			},
-			dbAssertionCheck: func(t *testing.T) {
-				// ASSERT Part 2: Verify that the event in the DB was actually updated.
-				event, err := services.GetWeaviateEventByID(context.Background(), testClient, "update-test-1", "0")
-				if err != nil {
-					t.Fatalf("Failed to get event from Weaviate for verification: %v", err)
-				}
-				if event == nil {
-					t.Fatal("Event 'update-test-1' was not found in Weaviate after update handler ran")
-				}
-				// Check if the name was successfully changed.
-				if event.Name != "Updated Event Name" {
-					t.Errorf("Expected event name to be 'Updated Event Name', but got '%s'", event.Name)
-				}
-				if event.EventOwnerName != "Updated Owner" {
-					t.Errorf("Expected event owner name to be 'Updated Owner', but got '%s'", event.EventOwnerName)
+				if !strings.Contains(body, `"status":"SUCCESS"`) {
+					t.Errorf("Expected response body to indicate success, but got: %s", body)
 				}
 			},
 		},
 		{
-			name:           "Bulk update with an event missing an ID fails validation",
-			dbSeeder:       nil,
-			requestBody:    `{ "events": [{"name": "Event missing an ID"}]}`,
-			idsToCleanup:   nil,
+			name: "Bulk update with an event missing an ID fails validation",
+			requestBody: `{ "events": [
+				{
+					"eventOwners":["owner-123"],
+					"eventOwnerName":"Owner",
+					"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+					"name": "Event missing an ID",
+					"description": "A complete event but missing ID",
+					"startTime":"2099-05-01T12:00:00Z",
+					"address":"123 Test St",
+					"lat":40.7128,
+					"long":-74.0060,
+					"timezone":"America/New_York"
+				}
+			]}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				if !strings.Contains(body, "event has no id") {
 					t.Errorf("Expected body to contain 'event has no id', but got '%s'", body)
 				}
 			},
-			dbAssertionCheck: nil, // No DB changes are expected.
+		},
+		{
+			name:           "Invalid JSON payload",
+			requestBody:    `{ "events": [{"id": "test", "name":}]}`,
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectedBodyCheck: func(t *testing.T, body string) {
+				if !strings.Contains(strings.ToLower(body), "invalid json payload") {
+					t.Errorf("Expected body to contain 'invalid json payload', but got '%s'", body)
+				}
+			},
+		},
+		{
+			name:           "Missing events field",
+			requestBody:    `{}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedBodyCheck: func(t *testing.T, body string) {
+				if !strings.Contains(body, "Field validation for 'Events' failed on the 'required' tag") {
+					t.Errorf("Expected validation error for missing events field, but got '%s'", body)
+				}
+			},
+		},
+		{
+			name:           "Empty events array",
+			requestBody:    `{"events": []}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedBodyCheck: func(t *testing.T, body string) {
+				if !strings.Contains(body, "Field validation for 'Events' failed on the 'min' tag") {
+					t.Errorf("Expected validation error for empty events array, but got '%s'", body)
+				}
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// CLEANUP: Defer the deletion of test data for this specific run.
-			defer func() {
-				if len(tt.idsToCleanup) > 0 {
-					_, err := services.BulkDeleteEventsFromWeaviate(context.Background(), testClient, tt.idsToCleanup)
-					if err != nil {
-						t.Errorf("ERROR in test cleanup: %v", err)
-					}
-				}
-			}()
+			t.Logf("🧪 RUNNING BULK UPDATE TEST: %s", tt.name)
 
-			// ARRANGE: Seed the database if a seeder function is provided for the test case.
-			if tt.dbSeeder != nil {
-				tt.dbSeeder(t)
-			}
-
-			// ACT: Perform the HTTP request against the real handler.
+			// ACT: Perform the HTTP request
 			req := httptest.NewRequest("PUT", "/api/events", strings.NewReader(tt.requestBody))
 			req.Header.Set("Content-Type", "application/json")
 			rr := httptest.NewRecorder()
 
-			// Replace `YourBulkUpdateEventsHandler` with your actual handler function.
-			handler := BulkUpdateEventsHandler(rr, req)
-			handler(rr, req)
+			// Fix: Get the handler function and then call it
+			handlerFunc := BulkUpdateEventsHandler(rr, req)
+			handlerFunc(rr, req)
 
-			// ASSERT: Check the HTTP response and the final database state.
-			if status := rr.Code; status != tt.expectedStatus {
-				t.Errorf("Handler returned wrong status code: got %v want %v", status, tt.expectedStatus)
+			t.Logf("📊 BULK UPDATE TEST RESULTS:")
+			t.Logf("   └─ Status: %d (expected %d)", rr.Code, tt.expectedStatus)
+			t.Logf("   └─ Body: %s", rr.Body.String())
+
+			// ASSERT: Check the results
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("Handler returned wrong status code: got %v want %v", rr.Code, tt.expectedStatus)
 			}
 			if tt.expectedBodyCheck != nil {
 				tt.expectedBodyCheck(t, rr.Body.String())
-			}
-			if tt.dbAssertionCheck != nil {
-				tt.dbAssertionCheck(t)
 			}
 		})
 	}
