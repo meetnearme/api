@@ -105,7 +105,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			if zitadelRes["error_description"] != "" {
 				msg += fmt.Sprintf(", error_description: %+v", zitadelRes["error_description"])
 			}
-			log.Printf(msg)
+			log.Printf("%s", msg)
 			return func(w http.ResponseWriter, r *http.Request) {
 				transport.SendHtmlErrorPage([]byte(msg), http.StatusUnauthorized, false)(w, r)
 			}

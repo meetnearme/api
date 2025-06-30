@@ -4,36 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 )
-
-const basicHTMLresp = "<html><body>Test HTML</body></html>"
-
-func TestMain(m *testing.M) {
-
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(basicHTMLresp))
-	}))
-	defer mockServer.Close()
-
-	// Set mock values for flags
-	*domain = "meet-near-me-production-8baqim.ch1.zitadel.cloud"
-	*key = "test-key"
-	*clientID = "test-client-id"
-	*clientSecret = "test-client-secret"
-	*redirectURI = "https://test-redirect.com"
-
-	// Initialize auth with mock values
-	InitAuth()
-
-	// Run the tests
-	code := m.Run()
-
-	// Exit with the test status code
-	os.Exit(code)
-}
 
 func TestGetHTMLFromURL(t *testing.T) {
 	testCases := []struct {

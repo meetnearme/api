@@ -246,16 +246,19 @@ body:has(.bottom-drawer) {
   padding: 20px;
 }
 
-.btn.carousel-control-left:active:hover, .btn.carousel-control-left:active:focus {
-  transform: translate(-100%, -50%)
+.btn.carousel-control-left:active:hover,
+.btn.carousel-control-left:active:focus {
+  transform: translate(-100%, -50%);
 }
 
-.btn.carousel-control-right:active:hover, .btn.carousel-control-right:active:focus {
-  transform: translate(100%, -50%)
+.btn.carousel-control-right:active:hover,
+.btn.carousel-control-right:active:focus {
+  transform: translate(100%, -50%);
 }
 
 .btn.btn-bold-outline {
   border: 5px solid oklch(var(--p));
+  color: oklch(var(--pc)) !important;
 }
 
 .btn.btn-primary.btn-bg-inverted {

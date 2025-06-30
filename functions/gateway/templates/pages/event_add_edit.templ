@@ -1733,9 +1733,9 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 								}
 								// NOTE: this API path should come from a data-* attribute
 								// that uses the `SitePages` constant for this API path
-								const newUrl = `/admin/event/${json.data.parentEvent._id}/edit`;
+								const newUrl = `/admin/event/${json.data.parentEvent.id}/edit`;
 								window.history.pushState({ path: newUrl }, '', newUrl);
-								this.formData.event.id = json.data.parentEvent._id
+								this.formData.event.id = json.data.parentEvent.id
 							} else {
 								throw new Error(`Failed to update event ${ json?.error?.message ? ": " + json.error.message : ''}`)
 								}
