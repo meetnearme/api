@@ -36,10 +36,6 @@ import (
 
 var searchUsersByIDs = helpers.SearchUsersByIDs
 
-func init() {
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
-}
-
 func TestPostEventHandler(t *testing.T) {
 	// Store original env vars and transport
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
@@ -304,9 +300,6 @@ func TestPostEventHandler(t *testing.T) {
 
 func TestPostBatchEvents(t *testing.T) {
 	// --- Standard Test Setup (same pattern) ---
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
-	defer os.Unsetenv("GO_ENV")
-
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
 	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
 	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
@@ -542,9 +535,6 @@ func createValidRawEvent(id, name string) rawEvent {
 
 func TestSearchEvents(t *testing.T) {
 	// --- Standard Test Setup (same pattern) ---
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
-	defer os.Unsetenv("GO_ENV")
-
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
 	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
 	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
@@ -765,9 +755,6 @@ func TestSearchEvents(t *testing.T) {
 
 func TestBulkUpdateEvents(t *testing.T) {
 	// --- Standard Test Setup (same pattern) ---
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
-	defer os.Unsetenv("GO_ENV")
-
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
 	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
 	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
@@ -979,9 +966,6 @@ func TestBulkUpdateEvents(t *testing.T) {
 }
 
 func TestUpdateOneEvent(t *testing.T) {
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
-	defer os.Unsetenv("GO_ENV")
-
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
 	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
 	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
@@ -1483,12 +1467,10 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 }
 
 func TestGetUsersHandler(t *testing.T) {
-	helpers.InitDefaultProtocol()
 	// Save original environment variables
 	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
 
 	// Set test environment variables
-
 	os.Setenv("ZITADEL_INSTANCE_HOST", helpers.MOCK_ZITADEL_HOST)
 	// Defer resetting environment variables
 	defer func() {
@@ -1843,7 +1825,6 @@ func TestGetUsersHandler(t *testing.T) {
 }
 
 func TestSearchUsersHandler(t *testing.T) {
-	helpers.InitDefaultProtocol()
 	// Save original environment variables
 	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
 

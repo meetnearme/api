@@ -55,22 +55,53 @@ func TestGetWeaviateClient(t *testing.T) {
 
 	// Create a mock HTTP server for Weaviate
 	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Mock the response for the /.well-known/ready endpoint
-		if r.URL.Path == "/v1/.well-known/ready" {
+		switch r.URL.Path {
+		case "/v1/.well-known/ready":
 			w.WriteHeader(http.StatusOK)
 			return
-		}
 
-		// Mock the response for other endpoints
-		response := &models.GraphQLResponse{}
-		responseBytes, err := json.Marshal(response)
-		if err != nil {
-			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-			return
-		}
+		case "/v1/meta":
+			if r.Method != "GET" {
+				t.Errorf("expected method GET for /v1/meta, got %s", r.Method)
+			}
+			metaResponse := `{"version":"1.23.4"}`
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(metaResponse))
 
-		w.WriteHeader(http.StatusOK)
-		w.Write(responseBytes)
+		case "/v1/graphql":
+			if r.Method != "POST" {
+				t.Errorf("expected method POST for /v1/graphql, got %s", r.Method)
+			}
+
+			mockResponse := models.GraphQLResponse{
+				Data: map[string]models.JSONObject{
+					"Get": map[string]interface{}{
+						"Test": []interface{}{
+							map[string]interface{}{
+								"name": "Test Object",
+								"_additional": map[string]interface{}{
+									"id": "test-id-123",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			responseBytes, err := json.Marshal(mockResponse)
+			if err != nil {
+				http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+
+		default:
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}
 	}))
 
 	// Set the mock Weaviate server URL
@@ -82,6 +113,14 @@ func TestGetWeaviateClient(t *testing.T) {
 	}
 	mockWeaviateServer.Listener = listener
 	mockWeaviateServer.Start()
+
+	// Update environment variables to match the actual bound port
+	actualAddr := listener.Addr().String()
+	actualParts := strings.Split(actualAddr, ":")
+	actualHost, actualPort := actualParts[0], actualParts[1]
+
+	os.Setenv("WEAVIATE_HOST", actualHost)
+	os.Setenv("WEAVIATE_PORT", actualPort)
 	defer mockWeaviateServer.Close()
 
 	// --- ADD THESE TWO DEBUG LINES ---

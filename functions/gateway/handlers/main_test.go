@@ -33,6 +33,7 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	helpers.InitDefaultProtocol() // Re-initialize protocol after setting GO_ENV
 
 	mockDB := &test_helpers.MockDynamoDBClient{
 		ScanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
