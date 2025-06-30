@@ -303,7 +303,7 @@ func HandleSingleEventValidation(rawEvent rawEvent, requireId bool) (types.Event
 
 func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireIds bool) ([]types.Event, int, error) {
 	var payload struct {
-		Events []rawEvent `json:"events"`
+		Events []rawEvent `json:"events" validate:"required,min=1"`
 	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -318,6 +318,11 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
 	err = validate.Struct(&payload)
 	if err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("invalid body: %w", err)
+	}
+
+	// Additional check with custom message
+	if len(payload.Events) == 0 {
+		return nil, http.StatusBadRequest, fmt.Errorf("events array must contain at least one event")
 	}
 
 	events := make([]types.Event, len(payload.Events))
