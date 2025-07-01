@@ -58,7 +58,6 @@ func init() {
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
-		// TODO: revert home route to check ACT
 		{helpers.SitePages["home"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
 		{helpers.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
 		{helpers.SitePages["user"].Slug, "GET", handlers.GetHomeOrUserPage, Check},

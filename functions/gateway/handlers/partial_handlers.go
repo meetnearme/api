@@ -606,8 +606,15 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	}
 
 	var seshuSessionGet internal_types.SeshuSessionGet
-	// TODO: this needs to use Auth
-	seshuSessionGet.OwnerId = "123"
+	// get user id from context
+
+	// make this safe for prop drilling
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userId := userInfo.Sub
+	if userId == "" {
+		return transport.SendHtmlRes(w, []byte("You must be logged in to submit an event source"), http.StatusUnauthorized, "partial", err)
+	}
+	seshuSessionGet.OwnerId = userId
 	seshuSessionGet.Url = payload.Url
 	seshuService := services.GetSeshuService()
 
