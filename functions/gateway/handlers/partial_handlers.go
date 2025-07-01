@@ -605,15 +605,13 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		log.Fatal("Failed to parse JSON:", err)
 	}
 
-	var seshuSessionGet internal_types.SeshuSessionGet
-	// get user id from context
-
-	// make this safe for prop drilling
 	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
 	userId := userInfo.Sub
 	if userId == "" {
 		return transport.SendHtmlRes(w, []byte("You must be logged in to submit an event source"), http.StatusUnauthorized, "partial", err)
 	}
+
+	var seshuSessionGet internal_types.SeshuSessionGet
 	seshuSessionGet.OwnerId = userId
 	seshuSessionGet.Url = payload.Url
 	seshuService := services.GetSeshuService()
@@ -670,10 +668,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// TODO: search `session.Html` for the items in the `validatedEvents` array
 		//Loop through eventTitle
 
-		// doc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
-		// if err != nil {
-		// 	print("Error for doc conversion")
-		// }
 		parentDoc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
 		if err != nil {
 			log.Println("Error parsing parent HTML:", err)
