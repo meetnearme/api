@@ -71,8 +71,7 @@ jobs:
           PROD_MARQO_INDEX_NAME: ${{ secrets.PROD_MARQO_INDEX_NAME }}
           DEV_MARQO_INDEX_NAME: ${{ secrets.DEV_MARQO_INDEX_NAME }}
           PROD_STRIPE_SECRET_KEY: ${{ secrets.PROD_STRIPE_SECRET_KEY }}
-          PROD_STRIPE_PUBLISHABLE_KEY:
-            ${{ secrets.PROD_STRIPE_PUBLISHABLE_KEY }}
+          PROD_STRIPE_PUBLISHABLE_KEY: ${{ secrets.PROD_STRIPE_PUBLISHABLE_KEY }}
           DEV_STRIPE_SECRET_KEY: ${{ secrets.DEV_STRIPE_SECRET_KEY }}
           DEV_STRIPE_PUBLISHABLE_KEY: ${{ secrets.DEV_STRIPE_PUBLISHABLE_KEY }}
           DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET: ${{ secrets.DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
@@ -130,6 +129,10 @@ jobs:
           images: |
             ${{ env.IMG_REGISTRY }}/${{ env.IMG_NAME }}/go-app-dev
           tags: |
+            # Human-readable tags with ISO date/time and short SHA
+            type=raw,value={{branch}}-{{date 'YYYY-MM-DDTHH-mm-ss'}}-{{sha}}
+            type=raw,value={{branch}}-{{date 'YYYY-MM-DD'}}-{{sha}}
+            # Verbose tags
             type=ref,event=branch
             type=ref,event=pr
             type=sha,prefix={{branch}}-
@@ -143,6 +146,7 @@ jobs:
           context: .
           file: ./Dockerfile.go.dev
           push: true
+          # add
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
