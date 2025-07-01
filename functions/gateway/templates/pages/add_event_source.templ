@@ -199,7 +199,7 @@ templ AddEventSource() {
 				<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border-2 border-base-300">
 					<span x-text="toastContent.message"></span>
 					<div class="block justify-end">
-						<button class="btn btnevent_candidates.templ-sm btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
+						<button class="btn btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
 							<svg class="svg-icon" style="width: 1em; height: 1em; vertical-align: middle; fill: currentColor; overflow: hidden;" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg>
 						</button>
 					</div>
