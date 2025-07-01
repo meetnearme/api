@@ -132,7 +132,7 @@ jobs:
             # Human-readable tags with ISO date/time and short SHA
             type=raw,value={{branch}}-{{date 'YYYY-MM-DDTHH-mm-ss'}}-{{sha}}
             type=raw,value={{branch}}-{{date 'YYYY-MM-DD'}}-{{sha}}
-            # Keep existing useful tags for compatibility
+            # Verbose tags
             type=ref,event=branch
             type=ref,event=pr
             type=sha,prefix={{branch}}-
