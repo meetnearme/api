@@ -129,6 +129,10 @@ jobs:
           images: |
             ${{ env.IMG_REGISTRY }}/${{ env.IMG_NAME }}/go-app-dev
           tags: |
+            # Human-readable tags with ISO date/time and short SHA
+            type=raw,value={{branch}}-{{date 'YYYY-MM-DDTHH-mm-ss'}}-{{sha}}
+            type=raw,value={{branch}}-{{date 'YYYY-MM-DD'}}-{{sha}}
+            # Keep existing useful tags for compatibility
             type=ref,event=branch
             type=ref,event=pr
             type=sha,prefix={{branch}}-
@@ -142,6 +146,7 @@ jobs:
           context: .
           file: ./Dockerfile.go.dev
           push: true
+          # add
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
