@@ -12,6 +12,13 @@ permissions:
   id-token: write # This is required for requesting the JWT
   contents: write # This is required for actions/checkout
   pull-requests: write # This is required for comitting templ generated code
+  packages: write # This is required for publishing Docker images to GitHub Packages
+  attestations: write # This is required for artifact attestations
+
+env:
+  IMG_REGISTRY: ghcr.io
+  IMG_NAME: ${{ github.repository }}
+
 jobs:
   DeployDevSST:
     runs-on: ubuntu-latest
@@ -89,6 +96,7 @@ jobs:
         with:
           duration: 30m
           authorized-users: brianfeister
+
       # TODO: can't figure out how to get this to work with the new version of wrangler
       # https://discord.com/channels/595317990191398933/1368769100192420010/1368769100192420010
       # - name: Deploy to Cloudflare Workers with Wrangler
@@ -100,3 +108,48 @@ jobs:
       #     accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       #     wranglerVersion: '4.14.1'
       #     command: deploy --env dev
+
+  # Build and publish `dev` version of Docker image to GitHub Packages
+  BuildAndPublishDockerImages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.IMG_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: |
+            ${{ env.IMG_REGISTRY }}/${{ env.IMG_NAME }}/go-app-dev
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Build and push development image
+      - name: Build and push development Docker image
+        id: push-dev
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: .
+          file: ./Dockerfile.go.dev
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # Generate artifact attestations for security
+      - name: Generate artifact attestation for dev image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMG_REGISTRY }}/${{ env.IMG_NAME }}/go-app-dev
+          subject-digest: ${{ steps.push-dev.outputs.digest }}
+          push-to-registry: true

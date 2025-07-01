@@ -14,14 +14,19 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/awslabs/aws-lambda-go-api-proxy/gorillamux"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
+
+	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
@@ -81,12 +86,15 @@ func init() {
 
 		// == START == need to expose these via permanent key for headless clients
 		{"/api/event{trailingslash:\\/?}", "POST", handlers.PostEventHandler, Require},
+		// These below are public apis somewhat legacy for Adalo
 		{"/api/events{trailingslash:\\/?}", "POST", handlers.PostBatchEventsHandler, Require},
 		{"/api/events{trailingslash:\\/?}", "GET", handlers.SearchEventsHandler, None},
 		{"/api/events{trailingslash:\\/?}", "PUT", handlers.BulkUpdateEventsHandler, Require},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
 		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, Require},
+		// This is to delete directly which we do not do in the UI
 		{"/api/events", "DELETE", handlers.BulkDeleteEventsHandler, Require},
+
 		{"/api/event-reg-purch{trailingslash:\\/?}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/event-reg-purch/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},
@@ -172,6 +180,7 @@ type App struct {
 	Router     *mux.Router
 	AuthZ      *authorization.Authorizer[*oauth.IntrospectionContext]
 	AuthConfig *AuthConfig
+	PostGresDB *pgxpool.Pool
 }
 
 func NewApp() *App {
@@ -182,6 +191,7 @@ func NewApp() *App {
 	app.Router.Use(withContext)
 	app.Router.Use(WithDerivedOptionsFromReq)
 	app.InitializeAuth()
+	app.InitDataBase()
 	log.Printf("App created: %+v", app)
 
 	defer func() {
@@ -440,9 +450,6 @@ func (app *App) addRoute(route Route) {
 				// Extract roles, metadata, and user information
 				userID := claims["sub"]
 
-				log.Printf("Claims: %v", claims)
-				log.Printf("User ID: %v", userID)
-
 				// Add extracted information to the request context
 				ctx := r.Context()
 				ctx = context.WithValue(ctx, "userID", userID)
@@ -468,6 +475,14 @@ func (app *App) SetupNotFoundHandler() {
 		log.Println("Not found", r.RequestURI)
 		http.Error(w, fmt.Sprintf("Not found: %s", r.RequestURI), http.StatusNotFound)
 	})
+}
+
+func (app *App) InitDataBase() {
+	db, err := services.GetPostgresClient()
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	app.PostGresDB = db
 }
 
 // Middleware to inject context into the request
@@ -562,6 +577,8 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 }
 
 func main() {
+	deploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
+
 	flag.Parse()
 	app := NewApp()
 	app.InitializeAuth()
@@ -569,13 +586,35 @@ func main() {
 
 	// This is the package level instance of Db in handlers
 	_ = transport.GetDB()
+	defer app.PostGresDB.Close()
 
 	app.SetupRoutes(Routes)
 
-	adapter := gorillamux.NewV2(app.Router)
+	if deploymentTarget == "ACT" {
+		// Start serving
+		loggingRouter := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+			app.Router.ServeHTTP(w, r)
+			log.Printf("Completed %s %s in %v", r.Method, r.URL, time.Since(start))
+		})
+		srv := &http.Server{
+			Handler: loggingRouter,
+			Addr:    "0.0.0.0:8000",
+			// Good practice: enforce timeouts for servers you create!
+			WriteTimeout: 15 * time.Second,
+			ReadTimeout:  15 * time.Second,
+		}
 
-	lambda.Start(func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-		ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, request)
-		return adapter.ProxyWithContext(ctx, request)
-	})
+		if err := srv.ListenAndServe(); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		adapter := gorillamux.NewV2(app.Router)
+
+		lambda.Start(func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+			ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, request)
+			return adapter.ProxyWithContext(ctx, request)
+		})
+	}
 }

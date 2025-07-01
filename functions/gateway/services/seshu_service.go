@@ -61,6 +61,9 @@ func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 	if len(seshuPayload.EventCandidates) < 1 {
 		seshuPayload.EventCandidates = []internal_types.EventInfo{}
 	}
+	if len(seshuPayload.EventValidations) < 1 {
+		seshuPayload.EventValidations = []internal_types.EventBoolValid{}
+	}
 	newSeshuSession := internal_types.SeshuSessionInsert{
 		OwnerId:           seshuPayload.OwnerId,
 		Url:               seshuPayload.Url,
@@ -71,10 +74,11 @@ func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		LocationLongitude: seshuPayload.LocationLongitude,
 		LocationAddress:   seshuPayload.LocationAddress,
 		Html:              seshuPayload.Html,
+		ChildId:           seshuPayload.ChildId,
 		EventCandidates:   seshuPayload.EventCandidates,
 		// TODO: this needs to become a map to avoid regressions pertaining
 		// to key ordering in the future
-		EventValidations: [][]bool{},
+		EventValidations: seshuPayload.EventValidations,
 		Status:           "draft",
 		ExpireAt:         currentTime + 3600*24, // 24 hrs expiration
 		CreatedAt:        currentTime,
@@ -182,6 +186,12 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		input.ExpressionAttributeNames["#html"] = "html"
 		input.ExpressionAttributeValues[":html"] = &types.AttributeValueMemberS{Value: seshuPayload.Html}
 		*input.UpdateExpression += " #html = :html,"
+	}
+
+	if seshuPayload.ChildId != "" {
+		input.ExpressionAttributeNames["#childId"] = "childId"
+		input.ExpressionAttributeValues[":childId"] = &types.AttributeValueMemberS{Value: seshuPayload.ChildId}
+		*input.UpdateExpression += " #childId = :childId,"
 	}
 
 	if seshuPayload.EventCandidates != nil {

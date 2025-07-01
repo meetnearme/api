@@ -6,15 +6,17 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"reflect"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"net/http"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/a-h/templ"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -40,8 +42,18 @@ type SeshuSessionSubmitPayload struct {
 }
 
 type SeshuSessionEventsPayload struct {
-	Url              string   `json:"url" validate:"required"` // URL is the DB key in SeshuSession
-	EventValidations [][]bool `json:"eventValidations" validate:"required"`
+	Url                     string                          `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+	EventBoolValid          []internal_types.EventBoolValid `json:"eventValidations" validate:"required"`
+	EventRecursiveBoolValid []internal_types.EventBoolValid `json:"eventValidationRecursive" validate:"omitempty"`
+}
+
+type EventDomPaths struct {
+	EventTitle       string `json:"event_title_dom"`
+	EventLocation    string `json:"event_location_dom"`
+	EventStartTime   string `json:"event_start_time_dom"`
+	EventEndTime     string `json:"event_end_time_dom"`
+	EventURL         string `json:"event_url"`
+	EventDescription string `json:"event_description_dom"`
 }
 
 type SetMnmOptionsRequestPayload struct {
@@ -114,9 +126,9 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
@@ -128,7 +140,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		ownerIds = []string{mnmUserId}
 	}
 
-	res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+	res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 	}
@@ -160,9 +172,9 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 	farFutureTime, _ := time.Parse(time.RFC3339, "2099-01-01T00:00:00Z")
 	endTimeUnix = farFutureTime.Unix()
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
 	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
@@ -180,13 +192,13 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 
 	// Launch parent event fetch in goroutine
 	go func() {
-		parent, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+		parent, err := services.GetWeaviateEventByID(ctx, weaviateClient, eventId, "")
 		parentChan <- eventParentResult{event: parent, err: err}
 	}()
 
 	// Launch search in parallel
 	go func() {
-		res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+		res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 		if err != nil {
 			searchChan <- eventSearchResult{err: err}
 			return
@@ -241,7 +253,13 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlRes(w, []byte(string("Invalid Body: ")+err.Error()), http.StatusBadRequest, "partial", err)
 	}
 
-	baseUrl := helpers.GetBaseUrlFromReq(r)
+	var baseUrl string
+	deploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
+	if deploymentTarget == helpers.ACT {
+		baseUrl = "http://localhost:8000"
+	} else {
+		baseUrl = helpers.GetBaseUrlFromReq(r)
+	}
 
 	if baseUrl == "" {
 		return transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, "partial", err)
@@ -283,26 +301,26 @@ func GeoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 	var inputPayload GeoThenSeshuPatchInputPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, "partial", err)
+		transport.SendHtmlRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, "partial", err)(w, r)
 		return
 	}
 	err = json.Unmarshal([]byte(body), &inputPayload)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, "partial", err)
+		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, "partial", err)(w, r)
 		return
 	}
 
 	err = validate.Struct(&inputPayload)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid Body: "+err.Error()), http.StatusBadRequest, "partial", err)
+		transport.SendHtmlRes(w, []byte("Invalid Body: "+err.Error()), http.StatusBadRequest, "partial", err)(w, r)
 		return
 	}
 
 	baseUrl := helpers.GetBaseUrlFromReq(r)
 
 	if baseUrl == "" {
-		transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, "partial", err)
+		transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, "partial", err)(w, r)
 		return
 	}
 
@@ -310,7 +328,7 @@ func GeoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 	lat, lon, address, err := geoService.GetGeo(inputPayload.Location, baseUrl)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Failed to get geocoordinates: "+err.Error()), http.StatusInternalServerError, "partial", err)
+		transport.SendHtmlRes(w, []byte("Failed to get geocoordinates: "+err.Error()), http.StatusInternalServerError, "partial", err)(w, r)
 		return
 	}
 
@@ -318,27 +336,27 @@ func GeoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, "partial", err)
+		transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusUnprocessableEntity, "partial", err)(w, r)
 		return
 	}
 
 	latFloat, err := strconv.ParseFloat(lat, 64)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusUnprocessableEntity, "partial", err)
+		transport.SendHtmlRes(w, []byte("Invalid latitude value"), http.StatusUnprocessableEntity, "partial", err)(w, r)
 		return
 	}
 
 	updateSeshuSession.LocationLatitude = latFloat
 	lonFloat, err := strconv.ParseFloat(lon, 64)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusUnprocessableEntity, "partial", err)
+		transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusUnprocessableEntity, "partial", err)(w, r)
 		return
 	}
 	updateSeshuSession.LocationLongitude = lonFloat
 	updateSeshuSession.LocationAddress = address
 
 	if updateSeshuSession.Url == "" {
-		transport.SendHtmlRes(w, []byte("ERR: Invalid body: url is required"), http.StatusBadRequest, "partial", nil)
+		transport.SendHtmlRes(w, []byte("ERR: Invalid body: url is required"), http.StatusBadRequest, "partial", nil)(w, r)
 		return
 	}
 	geoLookupPartial := partials.GeoLookup(latFloat, lonFloat, address, "badge")
@@ -346,17 +364,17 @@ func GeoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 	_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
 
 	if err != nil {
-		transport.SendHtmlRes(w, []byte("Failed to update target URL session"), http.StatusNotFound, "partial", err)
+		transport.SendHtmlRes(w, []byte("Failed to update target URL session"), http.StatusNotFound, "partial", err)(w, r)
 		return
 	}
 
 	var buf bytes.Buffer
 	err = geoLookupPartial.Render(ctx, &buf)
 	if err != nil {
-		transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
+		transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)(w, r)
 		return
 	}
-	transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+	transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)(w, r)
 }
 
 func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -387,17 +405,80 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, "partial", err)
 	}
 
-	updateSeshuSession.Url = inputPayload.Url
 	// Note that only OpenAI can push events as candidates, `eventValidations` is an array of
 	// arrays that confirms the subfields, but avoids a scenario where users can push string data
 	// that is prone to manipulation
-	updateSeshuSession.EventValidations = inputPayload.EventValidations
+	updateSeshuSession = internal_types.SeshuSessionUpdate{
+		Url:              inputPayload.Url,
+		EventValidations: inputPayload.EventBoolValid,
+	}
 
 	seshuService := services.GetSeshuService()
 	_, err = seshuService.UpdateSeshuSession(ctx, db, updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
+	}
+
+	// Updating the parent and child
+	if len(inputPayload.EventRecursiveBoolValid) > 0 {
+
+		parentSession, err := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
+			Url: inputPayload.Url,
+		})
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to get parent session"), http.StatusInternalServerError, "partial", err)
+		}
+
+		childSession, err := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
+			Url: parentSession.ChildId,
+		})
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to get child session"), http.StatusInternalServerError, "partial", err)
+		}
+
+		updatedCandidates := parentSession.EventCandidates
+		updatedValidations := parentSession.EventValidations
+
+		childCandidate := childSession.EventCandidates[0]
+		childValidation := inputPayload.EventRecursiveBoolValid[0]
+
+		updated := false
+		for i, parentCandidate := range parentSession.EventCandidates {
+			if parentCandidate.EventURL == childCandidate.EventURL {
+				updatedCandidates[i] = childCandidate
+				updatedValidations[i] = childValidation
+				updated = true
+				break
+			}
+		}
+
+		if !updated {
+			return transport.SendHtmlRes(w, []byte("Unable to find child session"), http.StatusInternalServerError, "partial", err)
+		}
+
+		parentUpdate := internal_types.SeshuSessionUpdate{
+			Url:              parentSession.Url,
+			EventCandidates:  updatedCandidates,
+			EventValidations: updatedValidations,
+		}
+
+		_, err = seshuService.UpdateSeshuSession(ctx, db, parentUpdate)
+
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to update parent session with child data"), http.StatusBadRequest, "partial", err)
+		}
+
+		childUpdate := internal_types.SeshuSessionUpdate{
+			Url:              parentSession.ChildId,
+			EventValidations: []internal_types.EventBoolValid{inputPayload.EventRecursiveBoolValid[0]},
+		}
+
+		_, err = seshuService.UpdateSeshuSession(ctx, db, childUpdate)
+
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
+		}
 	}
 
 	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`)
@@ -409,20 +490,6 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	}
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
-}
-
-func getFieldIndices() map[string]int {
-	indices := make(map[string]int)
-	eventType := reflect.TypeOf(internal_types.EventInfo{})
-
-	for i := 0; i < eventType.NumField(); i++ {
-		fieldName := eventType.Field(i).Name
-		switch fieldName {
-		case "EventTitle", "EventLocation", "EventStartTime", "EventEndTime", "EventURL", "EventDescription":
-			indices[fieldName] = i
-		}
-	}
-	return indices
 }
 
 func isFakeData(val string) bool {
@@ -449,28 +516,34 @@ func isFakeData(val string) bool {
 	return false
 }
 
-func getValidatedEvents(candidates []internal_types.EventInfo, validations [][]bool, hasDefaultLocation bool) []internal_types.EventInfo {
+func getValidatedEvents(candidates []internal_types.EventInfo, validations []internal_types.EventBoolValid, hasDefaultLocation bool) []internal_types.EventInfo {
 	var validatedEvents []internal_types.EventInfo
-	indiceMap := getFieldIndices()
 
 	for i := range candidates {
 		isValid := true
 
-		if candidates[i].EventTitle == "" || !validations[i][indiceMap["EventTitle"]] || isFakeData(candidates[i].EventTitle) {
-			isValid = false
-		}
-		if hasDefaultLocation {
-			isValid = true
-		} else if candidates[i].EventLocation == "" || !validations[i][indiceMap["EventLocation"]] || isFakeData(candidates[i].EventLocation) {
-			isValid = false
-		}
-		if candidates[i].EventStartTime == "" || !validations[i][indiceMap["EventStartTime"]] || isFakeData(candidates[i].EventTitle) {
+		// Validate Event Title
+		if candidates[i].EventTitle == "" || isFakeData(candidates[i].EventTitle) || !validations[i].EventValidateTitle {
 			isValid = false
 		}
 
+		// Validate Event Location (Only if no default location is provided)
+		if !hasDefaultLocation {
+			if candidates[i].EventLocation == "" || isFakeData(candidates[i].EventLocation) || !validations[i].EventValidateLocation {
+				isValid = false
+			}
+		}
+
+		// Validate Event Start Time
+		if candidates[i].EventStartTime == "" || isFakeData(candidates[i].EventStartTime) || !validations[i].EventValidateStartTime {
+			isValid = false
+		}
+
+		// If valid, add event to list
 		if isValid {
 			validatedEvents = append(validatedEvents, candidates[i])
 		}
+
 	}
 	return validatedEvents
 }
@@ -526,7 +599,30 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
+	var payload SeshuSessionEventsPayload
+	err = json.Unmarshal([]byte(body), &payload)
+	if err != nil {
+		log.Fatal("Failed to parse JSON:", err)
+	}
+
+	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userId := userInfo.Sub
+	if userId == "" {
+		return transport.SendHtmlRes(w, []byte("You must be logged in to submit an event source"), http.StatusUnauthorized, "partial", err)
+	}
+
+	var seshuSessionGet internal_types.SeshuSessionGet
+	seshuSessionGet.OwnerId = userId
+	seshuSessionGet.Url = payload.Url
+	seshuService := services.GetSeshuService()
+
+	session, err := seshuService.GetSeshuSession(ctx, db, seshuSessionGet)
+	if err != nil {
+		log.Println("Failed to get SeshuSession. ID: ", session, err)
+	}
+
 	err = json.Unmarshal([]byte(body), &inputPayload)
+	inputPayload.EventBoolValid = session.EventValidations
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusInternalServerError, "partial", err)
@@ -545,16 +641,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	}
 
 	defer func() {
-		var seshuSessionGet internal_types.SeshuSessionGet
-		seshuSessionGet.Url = inputPayload.Url
-		// TODO: this needs to use Auth
-		seshuSessionGet.OwnerId = "123"
-		session, err := services.GetSeshuSession(ctx, db, seshuSessionGet)
-
-		if err != nil {
-			log.Println("Failed to get SeshuSession. ID: ", session, err)
-		}
-
 		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLong`
 		// which is an intentionally invalid placeholder
 
@@ -580,6 +666,30 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		log.Println("Validated Events, length: ", len(validatedEvents), " | events: ", validatedEvents)
 
 		// TODO: search `session.Html` for the items in the `validatedEvents` array
+		//Loop through eventTitle
+
+		parentDoc, err := goquery.NewDocumentFromReader(strings.NewReader(session.Html))
+		if err != nil {
+			log.Println("Error parsing parent HTML:", err)
+		}
+
+		// Optionally parse child HTML if child session exists
+		var childDoc *goquery.Document
+		if session.ChildId != "" {
+			childSession, err := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
+				Url: session.ChildId,
+			})
+			if err != nil {
+				log.Println("Could not retrieve child session:", err)
+			} else {
+				childDoc, err = goquery.NewDocumentFromReader(strings.NewReader(childSession.Html))
+				if err != nil {
+					log.Println("Failed to parse child HTML:", err)
+				}
+			}
+		}
+
+		//URL as a key --
 
 		// TODO: [0] is just a placeholder, should be a loop over `validatedEvents` array and search for each
 		// or maybe once it finds the first one that's good enough? Walking a long array might be wasted compute
@@ -607,6 +717,53 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// }
 
 		// TODO: delete this `SeshuSession` once the handoff to the `SeshuJobs` table is complete
+
+		// Map to hold DOM paths for each event by its title
+		validationMap := make(map[string]EventDomPaths)
+
+		for _, event := range validatedEvents {
+			var docToUse *goquery.Document
+			var url string
+			var endTag string
+			var descriptionTag string
+
+			// Use childDoc if this event matches the last child candidate (child is always only one)
+			if childDoc != nil && event.EventSource == "rs" {
+				docToUse = childDoc
+				url = session.ChildId
+			} else {
+				docToUse = parentDoc
+				url = inputPayload.Url
+			}
+
+			startTag := findTagByPartialText(docToUse, event.EventStartTime)
+
+			if event.EventEndTime == "" {
+				endTag = ""
+			} else {
+				endTag = findTagByPartialText(docToUse, event.EventEndTime)
+			}
+
+			if event.EventDescription == "" {
+				descriptionTag = ""
+			} else {
+				descriptionTag = findTagByPartialText(docToUse, event.EventDescription[:utf8.RuneCountInString(event.EventDescription)/2])
+			}
+
+			paths := EventDomPaths{
+				EventTitle:       findTagByExactText(docToUse, event.EventTitle),
+				EventLocation:    findTagByExactText(docToUse, event.EventLocation),
+				EventStartTime:   startTag,
+				EventEndTime:     endTag,
+				EventURL:         url,
+				EventDescription: descriptionTag,
+			}
+
+			validationMap[event.EventTitle] = paths
+		}
+
+		b, _ := json.MarshalIndent(validationMap, "", "  ")
+		fmt.Println(string(b))
 	}()
 
 	updateSeshuSession.Url = inputPayload.Url
@@ -618,8 +775,14 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
 	}
 
-	// TODO: this sets the session to `submitted`, in a follow-up PR this will call a function
-	// that manages the handoff to the event scraping queue to do the real ingestion work
+	updateSeshuSession.Url = session.ChildId
+	updateSeshuSession.Status = "submitted"
+
+	_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
+
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
+	}
 
 	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added. We will put it in the queue and let you know when it's imported.`)
 
@@ -707,4 +870,85 @@ func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func getFullDomPath(element *goquery.Selection) string {
+	var path []string
+
+	// Traverse up the parent elements
+	for node := element; node.Length() > 0; node = node.Parent() {
+		tag := goquery.NodeName(node)
+
+		// Get unique identifiers (ID or first class)
+		id, existsID := node.Attr("id")
+		if existsID {
+			path = append([]string{fmt.Sprintf("%s#%s", tag, id)}, path...)
+			break // IDs are unique, stop traversal
+		}
+
+		class, existsClass := node.Attr("class")
+		if existsClass {
+			classes := strings.Fields(class)
+			if len(classes) > 0 {
+				path = append([]string{fmt.Sprintf("%s.%s", tag, classes[0])}, path...)
+				continue
+			}
+		}
+
+		// If no ID or class, just append the tag
+		path = append([]string{tag}, path...)
+	}
+
+	return strings.Join(path, " > ") // Return full selector path
+}
+
+func findTagByExactText(doc *goquery.Document, targetText string) string {
+	var exactMatch *goquery.Selection
+
+	doc.Find("*").Each(func(i int, s *goquery.Selection) {
+		// Get only the element's own text (exclude children)
+		nodeText := strings.TrimSpace(s.Clone().Children().Remove().End().Text())
+
+		if nodeText == targetText {
+			exactMatch = s
+		}
+	})
+
+	if exactMatch != nil {
+		return getFullDomPath(exactMatch)
+	}
+	return ""
+}
+
+func findTagByPartialText(doc *goquery.Document, targetSubstring string) string {
+	var bestMatch *goquery.Selection
+
+	doc.Find("*").Each(func(i int, s *goquery.Selection) {
+		// Normalize and preserve space between children
+		text := strings.Join(s.Contents().Map(func(i int, c *goquery.Selection) string {
+			return strings.TrimSpace(c.Text()) // → "Wednesday7pm"
+		}), " ") // → "Wednesday 7pm"
+
+		if strings.Contains(text, targetSubstring) {
+			hasChildMatch := false
+
+			s.Children().Each(func(i int, child *goquery.Selection) {
+				childText := strings.Join(child.Contents().Map(func(i int, c *goquery.Selection) string {
+					return strings.TrimSpace(c.Text())
+				}), " ")
+				if strings.Contains(childText, targetSubstring) {
+					hasChildMatch = true
+				}
+			})
+
+			if !hasChildMatch {
+				bestMatch = s
+			}
+		}
+	})
+
+	if bestMatch != nil {
+		return getFullDomPath(bestMatch)
+	}
+	return ""
 }
