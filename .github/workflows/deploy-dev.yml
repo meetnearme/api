@@ -143,9 +143,7 @@ jobs:
           context: .
           file: ./Dockerfile.go.dev
           push: true
-          tags:
-            ${{ env.IMG_REGISTRY }}/${{ env.IMG_NAME }}/go-app-dev:${{
-            github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
       # Generate artifact attestations for security
