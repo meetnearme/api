@@ -225,7 +225,7 @@ templ AddEventSource() {
 					checkboxes.forEach(checkbox => {
 						const labelText = checkbox.closest('label')?.querySelector('.label-text');
 						if (labelText) {
-              // eslint-disable-next-line no-unused-vars
+							// eslint-disable-next-line no-unused-vars
 							const [key, value] = labelText.innerText.split(/:\s(.+)/);
 							if (key) {
 								switch (key.trim()) {
