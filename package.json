@@ -26,7 +26,7 @@
     "marqo:local:migrate": "LOCAL_MARQO=true go run ./internal/database/marqo/migration -env prod -schema ./internal/database/marqo/migration/schema.json -source-index prod-events-2025-02-06-1826 -source-endpoint https://prod-events-2025-02-06-1826-hxz5vw-g2amp25x.dp1.marqo.ai",
 
 
-    "go:build:linux": "CGO_ENABLED=0 GOOS=linux go build -o ./docker_build/main ./functions/gateway/main.go",
+    "go:build:linux": "cross-env CGO_ENABLED=0 GOOS=linux go build -o ./docker_build/main ./functions/gateway/main.go",
     "docker:build": "npm run go:build:linux && docker compose build",
     "docker:build:nocache": "npm run go:build:linux && docker compose build --no-cache",
 
@@ -38,7 +38,7 @@
     "docker:logs": "docker compose logs -f",
     "docker:logs:app": "docker compose logs -f go-app",
     "docker:logs:postgres": "docker compose logs -f postgres",
-    "docker:logs:weaviate": "docker compose logs -f weaviate",   "docker:logs": "docker logs -f meetnearme-monolith",
+    "docker:logs:weaviate": "docker compose logs -f weaviate",
 
     "docker:clean": "docker compose down -v --remove-orphans",
     "docker:up": "npm run go:build:linux && docker compose up --force-recreate --abort-on-container-exit",
