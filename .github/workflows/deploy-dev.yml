@@ -138,6 +138,7 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
+
       # Build and push development image
       - name: Build and push development Docker image
         id: push-dev
