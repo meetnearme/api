@@ -593,6 +593,7 @@ func getValidatedEvents(candidates []internal_types.EventInfo, validations []int
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	db := transport.GetDB()
+
 	var inputPayload SeshuSessionEventsPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -759,8 +760,53 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			}
 
 			validationMap[event.EventTitle] = paths
-		}
 
+			seshuJob := internal_types.SeshuJob{
+				NormalizedURLKey:         url,
+				LocationLatitude:         0.0,
+				LocationLongitude:        0.0,
+				LocationAddress:          "",
+				ScheduledScrapeTime:      0,
+				TargetNameCSSPath:        findTagByExactText(docToUse, event.EventTitle),
+				TargetLocationCSSPath:    findTagByExactText(docToUse, event.EventLocation),
+				TargetStartTimeCSSPath:   startTag,
+				TargetDescriptionCSSPath: descriptionTag, // optional
+				TargetHrefCSSPath:        url,            // optional
+				Status:                   "HEALTHY",      // assume healthy if parse succeeded
+				LastScrapeSuccess:        time.Now().Unix(),
+				LastScrapeFailure:        0,
+				LastScrapeFailureCount:   0,
+				OwnerID:                  "123",    // ideally from auth context
+				KnownScrapeSource:        "MEETUP", // or infer from URL pattern/domain
+			}
+
+			payloadBytes, err := json.Marshal(seshuJob)
+			if err != nil {
+				log.Println("Error marshaling SeshuJob:", err)
+				return
+			}
+
+			// POST to internal handler
+			req, err := http.NewRequest(http.MethodPost, os.Getenv("SESHUJOBS_URL")+"/api/seshujob", bytes.NewReader(payloadBytes))
+			if err != nil {
+				log.Println("Error creating HTTP request for seshuJob:", err)
+				continue
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			client := &http.Client{Timeout: 10 * time.Second}
+			res, err := client.Do(req)
+			if err != nil {
+				log.Println("Failed to send seshuJob to handler:", err)
+				continue
+			}
+			defer res.Body.Close()
+
+			if res.StatusCode >= 400 {
+				body, _ := io.ReadAll(res.Body)
+				log.Printf("Handler responded with status %d: %s", res.StatusCode, string(body))
+			}
+		}
 		b, _ := json.MarshalIndent(validationMap, "", "  ")
 		fmt.Println(string(b))
 	}()
@@ -774,13 +820,14 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
 	}
 
-	updateSeshuSession.Url = session.ChildId
-	updateSeshuSession.Status = "submitted"
+	if session.ChildId != "" {
+		updateSeshuSession.Url = session.ChildId
+		updateSeshuSession.Status = "submitted"
 
-	_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
-
-	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
+		_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
+		}
 	}
 
 	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added. We will put it in the queue and let you know when it's imported.`)
