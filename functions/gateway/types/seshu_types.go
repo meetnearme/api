@@ -90,3 +90,22 @@ type SeshuSessionUpdate struct {
 	UpdatedAt         int64            `json:"updatedAt" dynamodbav:"updatedAt" validate:"optional"`
 	ExpireAt          int64            `json:"expireAt" dynamodbav:"expireAt" validate:"optional"`
 }
+
+type SeshuJob struct {
+	NormalizedURLKey         string  `json:"normalized_url_key"`
+	LocationLatitude         float64 `json:"location_latitude,omitempty"`
+	LocationLongitude        float64 `json:"location_longitude,omitempty"`
+	LocationAddress          string  `json:"location_address,omitempty"`
+	ScheduledScrapeTime      int64   `json:"scheduled_scrape_time"`
+	TargetNameCSSPath        string  `json:"target_name_css_path"`
+	TargetLocationCSSPath    string  `json:"target_location_css_path"`
+	TargetStartTimeCSSPath   string  `json:"target_start_time_css_path"`
+	TargetDescriptionCSSPath string  `json:"target_description_css_path,omitempty"`
+	TargetHrefCSSPath        string  `json:"target_href_css_path,omitempty"`
+	Status                   string  `json:"status"` // e.g. "HEALTHY", "WARNING", "FAILING"
+	LastScrapeSuccess        int64   `json:"last_scrape_success,omitempty"`
+	LastScrapeFailure        int64   `json:"last_scrape_failure,omitempty"`
+	LastScrapeFailureCount   int     `json:"last_scrape_failure_count"`
+	OwnerID                  string  `json:"owner_id"`
+	KnownScrapeSource        string  `json:"known_scrape_source"` // e.g. "MEETUP", "EVENTBRITE", etc.
+}
