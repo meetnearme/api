@@ -141,7 +141,7 @@ jobs:
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: .
-          file: ./Dockerfile.go.dev
+          file: ./Dockerfile.go.prod
           push: true
           tags:
             ${{ env.IMG_REGISTRY }}/${{ env.IMG_NAME }}/go-app-dev:${{
