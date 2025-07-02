@@ -21,12 +21,9 @@ import (
 	"github.com/awslabs/aws-lambda-go-api-proxy/gorillamux"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/joho/godotenv/autoload"
+	"github.com/joho/godotenv"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
-
-	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
@@ -54,6 +51,9 @@ type Route struct {
 var Routes []Route
 
 func init() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("Could not load .env file (skipping):", err)
+	}
 	Routes = []Route{
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
@@ -167,6 +167,15 @@ func init() {
 		// Checkout Session
 		{"/api/checkout/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
 		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
+
+		//SeshuSession
+		{"/api/html/session/submit/", "POST", handlers.RouterNonLambda, None},
+
+		// SeshuJobs
+		{"/api/seshujob", "GET", handlers.GetSeshuJobs, None},
+		{"/api/seshujob", "POST", handlers.CreateSeshuJob, None},
+		{"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, None},
+		{"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, None},
 	}
 }
 
@@ -180,7 +189,7 @@ type App struct {
 	Router     *mux.Router
 	AuthZ      *authorization.Authorizer[*oauth.IntrospectionContext]
 	AuthConfig *AuthConfig
-	PostGresDB *pgxpool.Pool
+	PostGresDB *services.PostgresService
 }
 
 func NewApp() *App {
@@ -205,7 +214,7 @@ func (app *App) InitializeAuth() {
 	app.AuthZ = services.GetAuthMw()
 	app.AuthConfig = &AuthConfig{
 		AuthDomain:     os.Getenv("ZITADEL_INSTANCE_HOST"),
-		AllowedDomains: []string{strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1), strings.Replace(os.Getenv("APEX_URL"), "https://", "*.", 1)},
+		AllowedDomains: []string{strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1), strings.Replace(os.Getenv("APEX_URL"), "https://", "*.", 1), os.Getenv("SESHU_FN_URL")},
 		CookieDomain:   strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1),
 	}
 }
@@ -478,11 +487,12 @@ func (app *App) SetupNotFoundHandler() {
 }
 
 func (app *App) InitDataBase() {
-	db, err := services.GetPostgresClient()
+	ctx := context.Background()
+	db, err := services.GetPostgresClient(ctx)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	app.PostGresDB = db
+	app.PostGresDB = services.NewPostgresService(db)
 }
 
 // Middleware to inject context into the request
@@ -586,7 +596,8 @@ func main() {
 
 	// This is the package level instance of Db in handlers
 	_ = transport.GetDB()
-	defer app.PostGresDB.Close()
+	log.Print("451 ")
+	defer app.PostGresDB.DB.Close()
 
 	app.SetupRoutes(Routes)
 
