@@ -21,7 +21,7 @@ import (
 	"github.com/awslabs/aws-lambda-go-api-proxy/gorillamux"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
-	"github.com/joho/godotenv"
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
 
@@ -51,9 +51,6 @@ type Route struct {
 var Routes []Route
 
 func init() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("Could not load .env file (skipping):", err)
-	}
 	Routes = []Route{
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
