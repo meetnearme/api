@@ -17,9 +17,9 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	partials "github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
-	partials "github.com/meetnearme/api/functions/lambda/go/seshu/templates"
 )
 
 // TODO: make sure all of these edge cases are covered for / explained / documented
@@ -478,19 +478,19 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", err
 	}
 
-	api := os.Getenv("OPENAI_API_BASE_URL")
-	log.Println(fmt.Sprintf(api + "/chat/completions"))
-	log.Println(fmt.Sprintf(os.Getenv("OPENAI_API_KEY")))
+	log.Println(fmt.Sprintf(os.Getenv("OPENAI_API_BASE_URL") + "/chat/completions"))
 
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequest("POST", os.Getenv("OPENAI_API_BASE_URL")+"/chat/completions", bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return "", "", err
 	}
 
-	log.Println("Pass")
+	log.Println("490~")
 
 	req.Header.Add("Authorization", "Bearer "+os.Getenv("OPENAI_API_KEY"))
 	req.Header.Add("Content-Type", "application/json")
+
+	log.Println(req)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -498,9 +498,14 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	}
 	defer resp.Body.Close()
 
+	log.Println(resp)
+
+	log.Println("501~")
+
 	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("%d: Completion API request not successful", resp.StatusCode)
 	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", "", err
