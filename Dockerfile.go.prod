@@ -29,7 +29,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /go-app
 
-COPY --from=builder /server /app/server
+COPY --from=base /server /app/server
 
 USER appuser
 
