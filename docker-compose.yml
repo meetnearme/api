@@ -84,6 +84,7 @@ services:
     env_file:
       - .env
     volumes:
+      - ./scripts/seshu_loop_check.sh:/go-app/seshu_loop_check.sh
       - ./docker_build/:/go-app
       - ./supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
       - ./.env:/app-static/.env
