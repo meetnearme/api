@@ -24,4 +24,3 @@ COPY  ./docker_build/ ./
 # The go binary will be mounted from ./docker_build to continue enabling the watchGolang script
 
 CMD [ "/bin/sh", "-c", "cp /app-static/.env /go-app/.env && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf -n" ]
-CMD [ "go", "run", "./functions/gateway/main.go" ]
