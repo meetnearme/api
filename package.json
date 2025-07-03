@@ -25,6 +25,7 @@
     "lint:templ:prod": "eslint --ext .templ --max-warnings 0 .",
 
     "docker:weaviate:create-schema": "go run cmd/weaviate-setup/main.go",
+    "docker:weaviate:seed-json": "go run cmd/seed-weaviate-db/main.go",
 
     "docker:shell:app": "docker-compose exec go-app sh",
     "docker:shell:db": "docker-compose exec postgres bash",
