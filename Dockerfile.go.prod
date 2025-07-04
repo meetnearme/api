@@ -13,7 +13,9 @@ RUN go mod download
 
 COPY . .
 
-RUN go install github.com/a-h/templ/cmd/templ@latest
+# TODO: find a way to globally pint templ binary version
+RUN go install github.com/a-h/templ/cmd/templ@v0.2.793
+
 RUN /go/bin/templ generate
 # print a list of all files that end with *templ.go
 RUN find . -name "*templ.go"
