@@ -13,6 +13,24 @@ RUN go mod download
 
 COPY . .
 
+# TODO: extract this into a script, it needs to be
+# run for both `Dockerfile.go.dev` and `Dockerfile.go.prod`
+
+RUN |
+# Fetch Cloudflare locations data
+cf_locations=$(curl -s -f -X GET https://speed.cloudflare.com/locations)
+
+if [ $? -ne 0 ] || [ -z "$cf_locations" ]; then
+  echo "Failed to fetch Cloudflare locations or received empty response"
+  exit 1
+fi
+
+# Escape special characters in JSON
+escaped_locations=$(echo "$cf_locations" | sed 's/`/\\`/g' | sed 's/$/\\n/' | tr -d '\n')
+
+# Replace the placeholder in the template file
+sed "s|<replace me>|$escaped_locations|" functions/gateway/helpers/cloudflare_locations_template > functions/gateway/helpers/cloudflare_locations.go
+
 # TODO: find a way to globally pint templ binary version
 RUN go install github.com/a-h/templ/cmd/templ@v0.2.793
 
