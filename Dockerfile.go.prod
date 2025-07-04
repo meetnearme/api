@@ -13,6 +13,15 @@ RUN go mod download
 
 COPY . .
 
+# The go binary will be mounted from ./docker_build to continue enabling the watchGolang script
+FROM alpine:latest
+
+RUN apk add --no-cache \
+  supervisor \
+  curl \
+  ca-certificates \
+  tzdata # this is necessary for the timezone dependencies that are not automatically available in the image
+
 # TODO: extract this into a script, it needs to be
 # run for both `Dockerfile.go.dev` and `Dockerfile.go.prod`
 
@@ -40,15 +49,6 @@ RUN find . -name "*templ.go"
 
 # -ldflags="-w -s" strips debug symbols, making the binary smaller.
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./docker_build/main ./functions/gateway/main.go
-
-# The go binary will be mounted from ./docker_build to continue enabling the watchGolang script
-FROM alpine:latest
-
-RUN apk add --no-cache \
-  supervisor \
-  curl \
-  ca-certificates \
-  tzdata # this is necessary for the timezone dependencies that are not automatically available in the image
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
