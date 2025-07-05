@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -180,12 +181,6 @@ func DefineWeaviateSchema(ctx context.Context, client *weaviate.Client) error {
 			{Name: "tags", DataType: []string{"text[]"}, Description: "Optional list of tags",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
-			{Name: "createdAt", DataType: []string{"int"}, Description: "Creation timestamp (Unix epoch)",
-				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
-			},
-			{Name: "updatedAt", DataType: []string{"int"}, Description: "Last update timestamp (Unix epoch)",
-				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
-			},
 			{Name: "updatedBy", DataType: []string{"text"}, Description: "User ID of last updater",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
@@ -267,12 +262,6 @@ func EventStructToMap(e types.Event) map[string]interface{} {
 	}
 	if len(e.Tags) > 0 {
 		props["tags"] = e.Tags
-	}
-	if e.CreatedAt != 0 {
-		props["createdAt"] = e.CreatedAt
-	}
-	if e.UpdatedAt != 0 {
-		props["updatedAt"] = e.UpdatedAt
 	}
 	if e.UpdatedBy != "" {
 		props["updatedBy"] = e.UpdatedBy
@@ -488,6 +477,8 @@ func SearchWeaviateEvents(
 		{Name: "_additional", Fields: []graphql.Field{
 			{Name: "id"},
 			{Name: "score"},
+			{Name: "creationTimeUnix"},
+			{Name: "lastUpdateTimeUnix"},
 		}},
 	}
 
@@ -539,11 +530,6 @@ func SearchWeaviateEvents(
 			rawHits = append(rawHits, objMap)
 		}
 	}
-	// groupedEvents := groupAndSortEvents(rawHits)
-
-	// Interleave the grouped events
-	// interleavedEvents := interleaveEvents(groupedEvents)
-
 	// (Your full normalization and date parsing logic goes here)
 	for _, doc := range rawHits {
 		event, err := NormalizeWeaviateResultToEvent(doc)
@@ -640,10 +626,12 @@ func BulkGetWeaviateEventByID(ctx context.Context, client *weaviate.Client, docI
 		{Name: "lat"}, {Name: "long"}, {Name: "eventSourceId"}, {Name: "startingPrice"},
 		{Name: "currency"}, {Name: "payeeId"}, {Name: "hasRegistrationFields"}, {Name: "hasPurchasable"},
 		{Name: "imageUrl"}, {Name: "timezone"}, {Name: "categories"}, {Name: "tags"},
-		{Name: "createdAt"}, {Name: "updatedAt"}, {Name: "updatedBy"}, {Name: "refUrl"},
+		{Name: "updatedBy"}, {Name: "refUrl"},
 		{Name: "hideCrossPromo"}, {Name: "competitionConfigId"},
 		{Name: "_additional", Fields: []graphql.Field{
-			{Name: "id"}, // We always need the ID
+			{Name: "id"},                 // We always need the ID
+			{Name: "creationTimeUnix"},   // creationTimeUnix is implicit in Weaviate
+			{Name: "lastUpdateTimeUnix"}, // lastUpdateTimeUnix is implicit in Weaviate
 		}},
 	}
 
@@ -719,6 +707,27 @@ func NormalizeWeaviateResultToEvent(objMap map[string]interface{}) (*types.Event
 	var timezoneStr string
 	if tz, ok := objMap["timezone"].(string); ok {
 		timezoneStr = tz
+	}
+
+	// Extract timestamps from _additional field - all values are strings
+	if additional, ok := objMap["_additional"].(map[string]interface{}); ok {
+		if idStr, idOk := additional["id"].(string); idOk {
+			eventID = idStr
+		}
+
+		// Handle creationTimeUnix - convert string to int64 and convert from milliseconds to seconds
+		if creationTimeStr, exists := additional["creationTimeUnix"].(string); exists {
+			if creationTimeMs, err := strconv.ParseInt(creationTimeStr, 10, 64); err == nil && creationTimeMs > 0 {
+				event.CreatedAt = creationTimeMs / 1000 // Convert milliseconds to seconds
+			}
+		}
+
+		// Handle lastUpdateTimeUnix - convert string to int64 and convert from milliseconds to seconds
+		if lastUpdateTimeStr, exists := additional["lastUpdateTimeUnix"].(string); exists {
+			if lastUpdateTimeMs, err := strconv.ParseInt(lastUpdateTimeStr, 10, 64); err == nil && lastUpdateTimeMs > 0 {
+				event.UpdatedAt = lastUpdateTimeMs / 1000 // Convert milliseconds to seconds
+			}
+		}
 	}
 
 	// We remove _additional so it doesn't interfere with mapping the actual properties.
