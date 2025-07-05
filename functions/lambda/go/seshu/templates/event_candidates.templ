@@ -15,7 +15,7 @@ templ EventCandidatesPartial(eventCandidates []types.EventInfo) {
 				<div class="checkbox-card card card-compact shadow-lg">
 					<div class="checkbox-card-header bg-success content-success has-toggleable-text">
 						<label class="label cursor-pointer justify-normal">
-							<input value={"candidate-" + fmt.Sprint(index)} x-model.fill="eventCandidates" id={ "main-toggle-" + fmt.Sprint(index) } type="checkbox" class="toggle mr-4" onclick="this.parentNode.parentNode.parentNode.querySelectorAll('input.toggle').forEach(item => item.checked = this.checked)" checked />
+							<input value={ "candidate-" + candidate.EventSource + "-" + fmt.Sprint(index) } x-model.fill="eventCandidates" id={ "main-toggle-" + candidate.EventSource + "-" + fmt.Sprint(index) } type="checkbox" class="toggle main-toggle mr-4" @change="disableTogglesFromRequiredField($el)" checked/>
 							<span class="label-text flex contents">This is <strong class="hidden-when-checked">not </strong>an event</span>
 						</label>
 					</div>
@@ -30,6 +30,7 @@ templ EventCandidatesPartial(eventCandidates []types.EventInfo) {
 									if len(candidate.EventTitle) > 0 {
 										checked
 									}
+									@change="!$data.isDisabling && disableTogglesFromRequiredField($el)"
 								/><span class="label-text"><strong>Title:</strong> { candidate.EventTitle }</span>
 							</label>
 						</p>
@@ -42,6 +43,7 @@ templ EventCandidatesPartial(eventCandidates []types.EventInfo) {
 									if len(candidate.EventLocation) > 0 {
 										checked
 									}
+									@change="!$data.isDisabling && disableTogglesFromRequiredField($el)"
 								/><span class="label-text"><strong>Location:</strong> { candidate.EventLocation }</span>
 							</label>
 						</p>
@@ -54,6 +56,7 @@ templ EventCandidatesPartial(eventCandidates []types.EventInfo) {
 									if len(candidate.EventStartTime) > 0 {
 										checked
 									}
+									@change="!$data.isDisabling && disableTogglesFromRequiredField($el)"
 								/><span class="label-text"><strong>Start Time:</strong> { candidate.EventStartTime }</span>
 							</label>
 						</p>
@@ -78,7 +81,7 @@ templ EventCandidatesPartial(eventCandidates []types.EventInfo) {
 									if len(candidate.EventURL) > 0 {
 										checked
 									}
-								/><span class="label-text"><strong>URL:</strong> { candidate.EventURL }</span>
+								/><span class="label-text break-all"><strong>URL:</strong> { candidate.EventURL }</span>
 							</label>
 						</p>
 						<p>

@@ -5,8 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -15,16 +19,20 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/rdsdata"
 	rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
+	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"github.com/playwright-community/playwright-go"
 )
 
 type MockDynamoDBClient struct {
-	ScanFunc       func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
-	PutItemFunc    func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
-	GetItemFunc    func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
-	DeleteItemFunc func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
-	UpdateItemFunc func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
-	QueryFunc      func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) // New Query method
+	ScanFunc             func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
+	PutItemFunc          func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
+	GetItemFunc          func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
+	DeleteItemFunc       func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
+	UpdateItemFunc       func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	QueryFunc            func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)                   // New Query method
+	BatchWriteItemFunc   func(ctx context.Context, params *dynamodb.BatchWriteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error) // New Query method
+	ExecuteStatementFunc func(ctx context.Context, params *dynamodb.ExecuteStatementInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ExecuteStatementOutput, error)
 }
 
 func (m *MockDynamoDBClient) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
@@ -58,6 +66,21 @@ func (m *MockDynamoDBClient) DeleteItem(ctx context.Context, params *dynamodb.De
 		return m.DeleteItemFunc(ctx, params, optFns...)
 	}
 	return &dynamodb.DeleteItemOutput{}, nil
+}
+
+func (m *MockDynamoDBClient) BatchWriteItem(ctx context.Context, params *dynamodb.BatchWriteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error) {
+	if m.BatchWriteItemFunc != nil {
+		return m.BatchWriteItemFunc(ctx, params, optFns...)
+	}
+	// Return empty success response if no mock function is provided
+	return &dynamodb.BatchWriteItemOutput{}, nil
+}
+
+func (m *MockDynamoDBClient) ExecuteStatement(ctx context.Context, params *dynamodb.ExecuteStatementInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ExecuteStatementOutput, error) {
+	if m.ExecuteStatementFunc != nil {
+		return m.ExecuteStatementFunc(ctx, params, optFns...)
+	}
+	return &dynamodb.ExecuteStatementOutput{}, nil
 }
 
 // MockGeoService
@@ -190,5 +213,137 @@ func NewMockRdsDataClientWithJSONRecords(records []map[string]interface{}) *Mock
 	}
 }
 
-// Ensure MockRdsDataClient implements the RDSDataAPI interface
-var _ types.RDSDataAPI = (*MockRdsDataClient)(nil)
+func SetupStaticTestRouter(t *testing.T, staticDir string) *mux.Router {
+	router := mux.NewRouter()
+
+	// Add static file handling
+	router.PathPrefix("/assets/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := "../../../static/assets"
+
+		// Log the absolute path and directory contents
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			log.Printf("Error getting absolute path: %v", err)
+		}
+		log.Printf("Serving assets from directory: %s", absPath)
+
+		fileServer := http.FileServer(http.Dir(path))
+		http.StripPrefix("/assets/", fileServer).ServeHTTP(w, r)
+	})
+
+	return router
+}
+
+func ScreenshotToStandardDir(t *testing.T, page playwright.Page, screenshotName string) {
+	// Get the path to the project root (where go.mod is)
+	moduleRoot, err := os.Getwd()
+	for !fileExists(filepath.Join(moduleRoot, "go.mod")) && moduleRoot != "/" {
+		moduleRoot = filepath.Dir(moduleRoot)
+	}
+	if moduleRoot == "/" {
+		t.Fatal("Could not find project root (go.mod)")
+	}
+
+	// Create the screenshots directory if it doesn't exist
+	screenshotsDir := filepath.Join(moduleRoot, "screenshots")
+	if _, err := os.Stat(screenshotsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(screenshotsDir, 0755)
+		if err != nil {
+			t.Fatalf("could not create screenshots directory: %v\n", err)
+		}
+	}
+
+	screenshotPath := filepath.Join(moduleRoot, "screenshots", screenshotName)
+	_, err = page.Screenshot(
+		playwright.PageScreenshotOptions{
+			Path: &screenshotPath,
+		},
+	)
+	if err != nil {
+		t.Fatalf("could not screenshot: %v\n", err)
+	}
+
+	t.Logf("Screenshot saved to %s", screenshotPath)
+}
+
+func GetPlaywrightBrowser() (*playwright.Browser, error) {
+	pw, err := playwright.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	var launchOptions playwright.BrowserTypeLaunchOptions
+	// Assuming GitHub Actions, CI is always `true`
+	if os.Getenv("CI") == "true" {
+		launchOptions = playwright.BrowserTypeLaunchOptions{
+			Args: []string{"--no-sandbox"},
+		}
+	}
+
+	browser, err := pw.Chromium.Launch(launchOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: we can't stop this because we haven't run tests yet,
+	// but we should probably return `pw` and let the caller stop it
+	// or have some implicit way for something like this `defer` to happen
+
+	// defer browser.Close()
+	// defer pw.Stop()
+
+	return &browser, nil
+}
+
+// Helper function to check if file exists
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
+}
+
+// Custom HTTP transport that logs all requests
+type LoggingTransport struct {
+	base http.RoundTripper
+	t    *testing.T
+}
+
+// NewLoggingTransport creates a new LoggingTransport
+func NewLoggingTransport(base http.RoundTripper, t *testing.T) *LoggingTransport {
+	return &LoggingTransport{
+		base: base,
+		t:    t,
+	}
+}
+
+func (lt *LoggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Log the outgoing request
+	lt.t.Logf("🌐 HTTP REQUEST: %s %s", req.Method, req.URL.String())
+	lt.t.Logf("   └─ Host: %s", req.URL.Host)
+	lt.t.Logf("   └─ Path: %s", req.URL.Path)
+	if req.Body != nil {
+		// Read body for logging (need to restore it after)
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err == nil && len(bodyBytes) > 0 {
+			// Restore the body for the actual request
+			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			// Log first 200 chars of body
+			bodyStr := string(bodyBytes)
+			if len(bodyStr) > 200 {
+				bodyStr = bodyStr[:200] + "..."
+			}
+			lt.t.Logf("   └─ Body: %s", bodyStr)
+		}
+	}
+
+	// Make the actual request
+	resp, err := lt.base.RoundTrip(req)
+
+	// Log the response
+	if err != nil {
+		lt.t.Logf("❌ HTTP ERROR: %v", err)
+	} else {
+		lt.t.Logf("✅ HTTP RESPONSE: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	return resp, err
+}

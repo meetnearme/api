@@ -1,0 +1,51 @@
+package pages
+
+import "github.com/meetnearme/api/functions/gateway/helpers"
+
+templ DataRequestPage(page helpers.SitePage) {
+	<div class="data-request">
+		<h1 class="text-3xl font-bold my-4">{ page.Name }</h1>
+		<div class="intro mb-6">
+			<p class="mb-4">Under various privacy laws and regulations, you have the right to:</p>
+			<ul class="list-disc pl-6 mb-4">
+				<li>Request access to your personal data</li>
+				<li>Request correction of your personal data</li>
+				<li>Request deletion of your personal data</li>
+				<li>Withdraw your consent for data processing</li>
+			</ul>
+		</div>
+		<div class="instructions mb-8">
+			<h2 class="text-xl font-bold mb-4">How to Submit a Request</h2>
+			<p class="mb-4">To submit a data request, please email <a href="mailto:brian+data-request@meetnear.me" class="link link-primary">brian+data-request@meetnear.me</a> with the following information:</p>
+			<div class="bg-base-200 p-4 rounded-lg">
+				<h3 class="font-bold mb-2">Please include in your email:</h3>
+				<ol class="list-decimal pl-6">
+					<li class="mb-2">Your full name</li>
+					<li class="mb-2">The email address associated with your Meet Near Me account</li>
+					<li class="mb-2">
+						Type of request (choose one):
+						<ul class="list-disc pl-6 mt-1">
+							<li>Access my data</li>
+							<li>Correct my data</li>
+							<li>Delete my data</li>
+							<li>Withdraw consent</li>
+						</ul>
+					</li>
+					<li class="mb-2">Any additional details relevant to your request</li>
+				</ol>
+			</div>
+		</div>
+		<div class="process mb-8">
+			<h2 class="text-xl font-bold mb-4">What happens next?</h2>
+			<ol class="list-decimal pl-6">
+				<li class="mb-2">We will confirm receipt of your request via email within 1 business day</li>
+				<li class="mb-2">Our team will verify your identity to ensure the security of your data</li>
+				<li class="mb-2">We will process your request within 30 days</li>
+				<li class="mb-2">You will receive a final confirmation when your request has been completed</li>
+			</ol>
+		</div>
+		<div class="mt-8 p-4 bg-base-200 rounded-lg">
+			<p class="text-sm">For any questions about data requests or their status, please contact us at <a href="mailto:brian+data-request@meetnear.me" class="link link-primary">brian+data-request@meetnear.me</a></p>
+		</div>
+	</div>
+}

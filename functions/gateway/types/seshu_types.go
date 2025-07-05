@@ -11,24 +11,35 @@ type EventInfo struct {
 	EventEndTime     string `json:"event_end_datetime"`
 	EventURL         string `json:"event_url"`
 	EventDescription string `json:"event_description"`
+	EventSource      string `json:"event_source"`
+}
+
+type EventBoolValid struct {
+	EventValidateTitle       bool `json:"event_title" validate:"required"`
+	EventValidateLocation    bool `json:"event_location" validate:"required"`
+	EventValidateStartTime   bool `json:"event_start_datetime" validate:"required"`
+	EventValidateEndTime     bool `json:"event_end_datetime" validate:"optional"`
+	EventValidateURL         bool `json:"event_url" validate:"required"`
+	EventValidateDescription bool `json:"event_description" validate:"optional"`
 }
 
 type SeshuSession struct {
-	OwnerId           string      `json:"ownerId" validate:"required"`
-	Url               string      `json:"url" validate:"required"`
-	UrlDomain         string      `json:"urlDomain" validate:"required"`
-	UrlPath           string      `json:"urlPath" validate:"optional"`
-	UrlQueryParams    url.Values  `json:"urlQueryParams" validate:"optional"`
-	LocationLatitude  float64     `json:"locationLatitude" validate:"optional"`
-	LocationLongitude float64     `json:"locationLongitude" validate:"optional"`
-	LocationAddress   string      `json:"locationAddress" validate:"optional"`
-	Html              string      `json:"html" validate:"required"`
-	EventCandidates   []EventInfo `json:"eventCandidates" validate:"optional"`
-	EventValidations  [][]bool    `json:"eventValidations" validate:"optional"`
-	Status            string      `json:"status" validate:"optional"`
-	CreatedAt         int64       `json:"createdAt" validate:"required"`
-	UpdatedAt         int64       `json:"updatedAt" validate:"required"`
-	ExpireAt          int64       `json:"expireAt" validate:"required"`
+	OwnerId           string           `json:"ownerId" validate:"required"`
+	Url               string           `json:"url" validate:"required"`
+	UrlDomain         string           `json:"urlDomain" validate:"required"`
+	UrlPath           string           `json:"urlPath" validate:"optional"`
+	UrlQueryParams    url.Values       `json:"urlQueryParams" validate:"optional"`
+	LocationLatitude  float64          `json:"locationLatitude" validate:"optional"`
+	LocationLongitude float64          `json:"locationLongitude" validate:"optional"`
+	LocationAddress   string           `json:"locationAddress" validate:"optional"`
+	Html              string           `json:"html" validate:"required"`
+	ChildId           string           `json:"childId" dynamodbav:"childId" validate:"optional"`
+	EventCandidates   []EventInfo      `json:"eventCandidates" validate:"optional"`
+	EventValidations  []EventBoolValid `json:"eventValidations" validate:"optional"`
+	Status            string           `json:"status" validate:"optional"`
+	CreatedAt         int64            `json:"createdAt" validate:"required"`
+	UpdatedAt         int64            `json:"updatedAt" validate:"required"`
+	ExpireAt          int64            `json:"expireAt" validate:"required"`
 }
 
 type SeshuSessionGet struct {
@@ -44,36 +55,38 @@ type SeshuSessionInput struct {
 }
 
 type SeshuSessionInsert struct {
-	OwnerId           string      `json:"ownerId" dynamodbav:"ownerId" validate:"required"`
-	Url               string      `json:"url" dynamodbav:"url" validate:"required"`
-	UrlDomain         string      `json:"urlDomain" dynamodbav:"urlDomain" validate:"required"`
-	UrlPath           string      `json:"urlPath" dynamodbav:"urlPath" validate:"optional"`
-	UrlQueryParams    url.Values  `json:"urlQueryParams" dynamodbav:"urlQueryParams" validate:"optional"`
-	LocationLatitude  float64     `json:"locationLatitude" dynamodbav:"locationLatitude" validate:"optional"`
-	LocationLongitude float64     `json:"locationLongitude" dynamodbav:"locationLongitude" validate:"optional"`
-	LocationAddress   string      `json:"locationAddress" dynamodbav:"locationAddress" validate:"optional"`
-	Html              string      `json:"html" dynamodbav:"html" validate:"required"`
-	EventCandidates   []EventInfo `json:"eventCandidates" dynamodbav:"eventCandidates" validate:"optional"`
-	EventValidations  [][]bool    `json:"eventValidations" dynamodbav:"eventValidations" validate:"optional"`
-	Status            string      `json:"status" dynamodbav:"status" validate:"optional"`
-	CreatedAt         int64       `json:"createdAt" dynamodbav:"createdAt" validate:"required"`
-	UpdatedAt         int64       `json:"updatedAt" dynamodbav:"updatedAt" validate:"required"`
-	ExpireAt          int64       `json:"expireAt" dynamodbav:"expireAt" validate:"required"`
+	OwnerId           string           `json:"ownerId" dynamodbav:"ownerId" validate:"required"`
+	Url               string           `json:"url" dynamodbav:"url" validate:"required"`
+	UrlDomain         string           `json:"urlDomain" dynamodbav:"urlDomain" validate:"required"`
+	UrlPath           string           `json:"urlPath" dynamodbav:"urlPath" validate:"optional"`
+	UrlQueryParams    url.Values       `json:"urlQueryParams" dynamodbav:"urlQueryParams" validate:"optional"`
+	LocationLatitude  float64          `json:"locationLatitude" dynamodbav:"locationLatitude" validate:"optional"`
+	LocationLongitude float64          `json:"locationLongitude" dynamodbav:"locationLongitude" validate:"optional"`
+	LocationAddress   string           `json:"locationAddress" dynamodbav:"locationAddress" validate:"optional"`
+	Html              string           `json:"html" dynamodbav:"html" validate:"required"`
+	ChildId           string           `json:"childId" dynamodbav:"childId" validate:"optional"`
+	EventCandidates   []EventInfo      `json:"eventCandidates" dynamodbav:"eventCandidates" validate:"optional"`
+	EventValidations  []EventBoolValid `json:"eventValidations" dynamodbav:"eventValidations" validate:"optional"`
+	Status            string           `json:"status" dynamodbav:"status" validate:"optional"`
+	CreatedAt         int64            `json:"createdAt" dynamodbav:"createdAt" validate:"required"`
+	UpdatedAt         int64            `json:"updatedAt" dynamodbav:"updatedAt" validate:"required"`
+	ExpireAt          int64            `json:"expireAt" dynamodbav:"expireAt" validate:"required"`
 }
 type SeshuSessionUpdate struct {
-	OwnerId           string      `json:"ownerId" dynamodbav:"ownerId" validate:"optional"`
-	Url               string      `json:"url" dynamodbav:"url" validate:"required"`
-	UrlDomain         string      `json:"urlDomain" dynamodbav:"urlDomain" validate:"optional"`
-	UrlPath           string      `json:"urlPath" dynamodbav:"urlPath" validate:"optional"`
-	UrlQueryParams    url.Values  `json:"urlQueryParams" dynamodbav:"urlQueryParams" validate:"optional"`
-	LocationLatitude  float64     `json:"locationLatitude" dynamodbav:"locationLatitude" validate:"optional"`
-	LocationLongitude float64     `json:"locationLongitude" dynamodbav:"locationLongitude" validate:"optional"`
-	LocationAddress   string      `json:"locationAddress" dynamodbav:"locationAddress" validate:"optional"`
-	Html              string      `json:"html" dynamodbav:"html" validate:"optional"`
-	EventCandidates   []EventInfo `json:"eventCandidates" dynamodbav:"eventCandidates" validate:"optional"`
-	EventValidations  [][]bool    `json:"eventValidations" dynamodbav:"eventValidations" validate:"optional"`
-	Status            string      `json:"status" dynamodbav:"status" validate:"optional"`
-	CreatedAt         int64       `json:"createdAt" dynamodbav:"createdAt" validate:"optional"`
-	UpdatedAt         int64       `json:"updatedAt" dynamodbav:"updatedAt" validate:"optional"`
-	ExpireAt          int64       `json:"expireAt" dynamodbav:"expireAt" validate:"optional"`
+	OwnerId           string           `json:"ownerId" dynamodbav:"ownerId" validate:"optional"`
+	Url               string           `json:"url" dynamodbav:"url" validate:"required"`
+	UrlDomain         string           `json:"urlDomain" dynamodbav:"urlDomain" validate:"optional"`
+	UrlPath           string           `json:"urlPath" dynamodbav:"urlPath" validate:"optional"`
+	UrlQueryParams    url.Values       `json:"urlQueryParams" dynamodbav:"urlQueryParams" validate:"optional"`
+	LocationLatitude  float64          `json:"locationLatitude" dynamodbav:"locationLatitude" validate:"optional"`
+	LocationLongitude float64          `json:"locationLongitude" dynamodbav:"locationLongitude" validate:"optional"`
+	LocationAddress   string           `json:"locationAddress" dynamodbav:"locationAddress" validate:"optional"`
+	Html              string           `json:"html" dynamodbav:"html" validate:"optional"`
+	ChildId           string           `json:"childId" dynamodbav:"childId" validate:"optional"`
+	EventCandidates   []EventInfo      `json:"eventCandidates" dynamodbav:"eventCandidates" validate:"optional"`
+	EventValidations  []EventBoolValid `json:"eventValidations" dynamodbav:"eventValidations" validate:"optional"`
+	Status            string           `json:"status" dynamodbav:"status" validate:"optional"`
+	CreatedAt         int64            `json:"createdAt" dynamodbav:"createdAt" validate:"optional"`
+	UpdatedAt         int64            `json:"updatedAt" dynamodbav:"updatedAt" validate:"optional"`
+	ExpireAt          int64            `json:"expireAt" dynamodbav:"expireAt" validate:"optional"`
 }
