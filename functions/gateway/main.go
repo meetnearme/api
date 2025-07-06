@@ -30,6 +30,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/transport"
+	"github.com/nats-io/nats.go"
 )
 
 type AuthType string
@@ -188,6 +189,7 @@ type App struct {
 	AuthZ      *authorization.Authorizer[*oauth.IntrospectionContext]
 	AuthConfig *AuthConfig
 	PostGresDB *services.PostgresService
+	NatClient  *nats.Conn
 }
 
 func NewApp() *App {
@@ -199,6 +201,7 @@ func NewApp() *App {
 	app.Router.Use(WithDerivedOptionsFromReq)
 	app.InitializeAuth()
 	app.InitDataBase()
+	app.InitNat()
 	log.Printf("App created: %+v", app)
 
 	defer func() {
@@ -491,6 +494,15 @@ func (app *App) InitDataBase() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	app.PostGresDB = services.NewPostgresService(db)
+}
+
+func (app *App) InitNat() {
+	nc, err := nats.Connect(os.Getenv("NATS_URL"))
+	if err != nil {
+		log.Fatalf("Failed to connect to NATS: %v", err)
+	}
+
+	app.NatClient = nc
 }
 
 // Middleware to inject context into the request
