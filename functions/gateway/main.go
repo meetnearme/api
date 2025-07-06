@@ -173,6 +173,7 @@ func init() {
 		{"/api/seshujob", "POST", handlers.CreateSeshuJob, None},
 		{"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, None},
 		{"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, None},
+		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, None},
 	}
 }
 

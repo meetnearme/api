@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -12,6 +13,12 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
+
+type TriggerRequest struct {
+	Time int64 `json:"time"`
+}
+
+var lastExecutionTime int64 = 0
 
 func GetSeshuJobs(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
@@ -109,6 +116,40 @@ func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+
+	var req TriggerRequest
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	err = json.Unmarshal(body, &req)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusBadRequest)
+	}
+
+	log.Printf("Received request to gather seshu jobs at time: %d", req.Time)
+	log.Printf("Last execution time: %d", lastExecutionTime)
+
+	if req.Time-lastExecutionTime <= 120 {
+		return transport.SendHtmlRes(w, []byte(""), http.StatusOK, "partial", nil)
+	}
+
+	lastExecutionTime = req.Time
+
+	// Call NATS to look at the top of the queue for jobs
+
+	// If the top of the queue is not within the last 60 seconds or query is empty, do a full DB scan of seshu jobs
+
+	// The scan will be index scan on index seshu_jobs.scheduled_scrape_time
+
+	// Push Found DB items onto the NATS queue
+
+	return transport.SendHtmlRes(w, []byte("successful"), http.StatusOK, "partial", nil)
 }
 
 func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary
