@@ -52,6 +52,15 @@ services:
     env_file:
       - ./.env
 
+  nats-server:
+    image: nats:latest
+    container_name: meetnearme-nats
+    ports:
+      - "4222:4222" # Client port
+      - "8222:8222" # Monitoring port
+      - "6222:6222" # Clustering port (if applicable)
+    command: ["-js", "-p", "4222"]
+
   t2v-transformers:
     image: cr.weaviate.io/semitechnologies/transformers-inference:sentence-transformers-multi-qa-MiniLM-L6-cos-v1 # A good default model
     environment:
@@ -92,6 +101,8 @@ services:
       postgres:
         condition: service_healthy
       weaviate:
+        condition: service_started
+      nats-server:
         condition: service_started
     restart: unless-stopped
 
