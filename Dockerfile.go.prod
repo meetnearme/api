@@ -68,8 +68,6 @@ COPY --from=base /go-app/docker_build/main /go-app/main
 # Ensure proper permissions for appuser
 RUN chown -R appuser:appgroup /go-app /app-static
 
-USER appuser
-
 CMD [ "/bin/sh", "-c", "cp /app-static/.env /go-app/.env && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf -n" ]
 
 

@@ -3,6 +3,8 @@ import watch from 'node-watch';
 import { spawn, exec } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+
+// eslint-disable-next-line no-undef
 const dirs = process.argv.slice(2);
 
 const WATCH_DIRECTORIES = ['./functions']; // Adjust as needed
@@ -31,6 +33,7 @@ dirs.forEach((dir) => {
 
         // Environment variables for cross-compilation
         const buildEnv = {
+          // eslint-disable-next-line no-undef
           ...process.env, // Inherit existing host environment variables
           CGO_ENABLED: '0', // Disable CGO
           GOOS: 'linux', // Target Linux OS
@@ -45,10 +48,12 @@ dirs.forEach((dir) => {
         console.log(`Running restart command for Go App in Docker`);
 
         childProcess.stdout.on('data', (data) => {
+          // eslint-disable-next-line no-undef
           process.stdout.write(data);
         });
 
         childProcess.stderr.on('data', (data) => {
+          // eslint-disable-next-line no-undef
           process.stderr.write(data);
         });
 
