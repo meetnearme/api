@@ -13,6 +13,31 @@ RUN go mod download
 
 COPY . .
 
+# TODO: extract this into a script, it needs to be
+# run for both `Dockerfile.go.dev` and `Dockerfile.go.prod`
+
+RUN set -e && \
+# Fetch Cloudflare locations data
+cf_locations=$(curl -s -f -X GET https://speed.cloudflare.com/locations) && \
+\
+if [ $? -ne 0 ] || [ -z "$cf_locations" ]; then \
+  echo "Failed to fetch Cloudflare locations or received empty response" && \
+  exit 1; \
+fi && \
+\
+# Escape special characters in JSON
+escaped_locations=$(echo "$cf_locations" | sed 's/`/\\`/g' | sed 's/$/\\n/' | tr -d '\n') && \
+\
+# Replace the placeholder in the template file
+sed "s|<replace me>|$escaped_locations|" functions/gateway/helpers/cloudflare_locations_template > functions/gateway/helpers/cloudflare_locations.go
+
+# TODO: find a way to globally pint templ binary version
+RUN go install github.com/a-h/templ/cmd/templ@v0.2.793
+
+RUN /go/bin/templ generate
+# print a list of all files that end with *templ.go
+RUN find . -name "*templ.go"
+
 # -ldflags="-w -s" strips debug symbols, making the binary smaller.
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./docker_build/main ./functions/gateway/main.go
 
@@ -27,15 +52,21 @@ RUN apk add --no-cache \
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
+# Copy supervisord configuration
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Create necessary directories for supervisord
+RUN mkdir -p /var/log/supervisor /var/run/supervisor /run/supervisor
+
+# Create a default .env file if it doesn't exist
+RUN mkdir -p /app-static && touch /app-static/.env
+
 WORKDIR /go-app
 
-COPY --from=builder /server /app/server
+COPY --from=base /go-app/docker_build/main /go-app/main
 
-USER appuser
-
-
-CMD ["/app/server"]
-
+# Ensure proper permissions for appuser
+RUN chown -R appuser:appgroup /go-app /app-static
 
 CMD [ "/bin/sh", "-c", "cp /app-static/.env /go-app/.env && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf -n" ]
 

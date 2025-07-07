@@ -76,8 +76,6 @@ type rawEvent struct {
 	ImageUrl              *string     `json:"imageUrl,omitempty"`
 	Categories            *[]string   `json:"categories,omitempty"`
 	Tags                  *[]string   `json:"tags,omitempty"`
-	CreatedAt             *int64      `json:"createdAt,omitempty"`
-	UpdatedAt             *int64      `json:"updatedAt,omitempty"`
 	UpdatedBy             *string     `json:"updatedBy,omitempty"`
 	HideCrossPromo        *bool       `json:"hideCrossPromo,omitempty"`
 }
@@ -145,12 +143,6 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	}
 	if raw.Tags != nil {
 		event.Tags = *raw.Tags
-	}
-	if raw.CreatedAt != nil {
-		event.CreatedAt = *raw.CreatedAt
-	}
-	if raw.UpdatedAt != nil {
-		event.UpdatedAt = *raw.UpdatedAt
 	}
 	if raw.UpdatedBy != nil {
 		event.UpdatedBy = *raw.UpdatedBy
@@ -1292,8 +1284,8 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 
 		var createdAt int64
 		updatedAt := time.Now().Unix()
-		if updateEventRegPurchPayload.Events[0].CreatedAt != nil {
-			createdAt = *updateEventRegPurchPayload.Events[0].CreatedAt
+		if updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.Unix() > 0 {
+			createdAt = updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.Unix()
 		} else {
 			createdAt = time.Now().Unix()
 		}
@@ -1372,10 +1364,6 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			events[0].Id = eventId
 		}
 		for i, rawEvent := range updateEventRegPurchPayload.Events {
-			if rawEvent.CreatedAt == nil {
-				rawEvent.CreatedAt = &createdAt
-			}
-			rawEvent.UpdatedAt = &updatedAt
 			rawEvent.Description = updateEventRegPurchPayload.Events[0].Description
 			if updateEventRegPurchPayload.Events[0].EventSourceType == helpers.ES_SERIES_PARENT {
 				rawEvent.EventSourceId = &eventId
