@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  weaviate-test:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.30.1
+    container_name: meetnearme-weaviate-test
+    restart: unless-stopped
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'false'
+      AUTHENTICATION_APIKEY_ENABLED: 'true'
+      AUTHENTICATION_APIKEY_ALLOWED_KEYS: '${WEAVIATE_API_KEY_ALLOWED_KEYS}'
+      AUTHENTICATION_APIKEY_USERS: '${WEAVIATE_API_KEY_USERS}'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-transformers' # Use sentence transformers
+      ENABLE_MODULES: 'text2vec-transformers'
+      TRANSFORMERS_INFERENCE_API: 'http://t2v-transformers-test:8080' # Address of the vectorizer container
+      CLUSTER_HOSTNAME: 'node1'
+    volumes:
+      - weaviate_test_data:/var/lib/weaviate
+    env_file:
+      - ./.env.test
+    healthcheck:
+      # This is a robust way to check if Weaviate is truly ready to accept requests
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/v1/.well-known/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  t2v-transformers-test:
+    image: cr.weaviate.io/semitechnologies/transformers-inference:sentence-transformers-multi-qa-MiniLM-L6-cos-v1
+    container_name: meetnearme-t2v-transformers-test
+    environment:
+      ENABLE_CUDA: '0' # Set to '1' if you have a compatible GPU and NVIDIA drivers installed
+
+  go-app-tester:
+    container_name: meetnearme-go-app-tester
+    build:
+      context: .
+      dockerfile: Dockerfile.go.test
+    volumes:
+      - .:/app
+    working_dir: /app
+    # command: >
+    #   sh -c "
+    #     set -o pipefail &&
+    #     echo '--- Setting up Weaviate schema...' &&
+    #     go run ./cmd/weaviate-setup/main.go &&
+    #     echo '--- Schema setup and now running tests...' &&
+    #     go test -v -race -cover -run ^TestSearchWeaviateEvents/Today.s_events$$ ./functions/gateway/services/... 2>&1 | tee test-results.log
+    #   "
+    command: >
+      sh -c "
+        set -o pipefail &&
+        echo '--- Setting up Weaviate schema...' &&
+        go run ./cmd/weaviate-setup/main.go &&
+        echo '--- Environment is ready. Waiting for test commands... ---' &&
+        tail -f /dev/null
+      "
+    env_file:
+      - ./.env.test
+    environment:
+      CGO_ENABLED: '1'
+    depends_on:
+      weaviate-test:
+        # Now we can wait for the service to be healthy, which is more reliable
+        condition: service_healthy
+      t2v-transformers-test:
+        condition: service_started
+
+volumes:
+  weaviate_test_data:

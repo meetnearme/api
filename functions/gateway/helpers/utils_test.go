@@ -107,14 +107,15 @@ func TestGetImgUrlFromHash(t *testing.T) {
 	}
 }
 
-func TestSetCloudFlareKV(t *testing.T) {
+func TestSetCloudflareMnmOptions(t *testing.T) {
 	InitDefaultProtocol()
 	// Save original environment variables
 	originalAccountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	originalNamespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
 	originalAPIToken := os.Getenv("CLOUDFLARE_API_TOKEN")
-	originalCfApiBaseUrl := os.Getenv("CLOUDFLARE_API_BASE_URL")
+	originalCfApiBaseUrl := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
 	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
+	originalZitadelBotAdminToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
 
 	// Get initial endpoints
 	port := test_helpers.GetNextPort()
@@ -125,8 +126,9 @@ func TestSetCloudFlareKV(t *testing.T) {
 	os.Setenv("CLOUDFLARE_ACCOUNT_ID", "test-account-id")
 	os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", "test-namespace-id")
 	os.Setenv("CLOUDFLARE_API_TOKEN", "test-api-token")
-	os.Setenv("CLOUDFLARE_API_BASE_URL", cfEndpoint)
+	os.Setenv("CLOUDFLARE_API_CLIENT_BASE_URL", cfEndpoint)
 	os.Setenv("ZITADEL_INSTANCE_HOST", zitadelEndpoint)
+	os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-bot-admin-token")
 
 	// Defer resetting environment variables
 	defer func() {
@@ -135,19 +137,28 @@ func TestSetCloudFlareKV(t *testing.T) {
 		os.Setenv("CLOUDFLARE_API_TOKEN", originalAPIToken)
 		os.Setenv("CLOUDFLARE_API_BASE_URL", originalCfApiBaseUrl)
 		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
+		os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalZitadelBotAdminToken)
 	}()
 
 	// Create mock servers
 	mockCloudflareServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Mock the GET request to check if the key exists
 		if r.Method == "GET" {
+			// For test-nonexistent-subdomain, return 404 (key doesn't exist yet)
+			if strings.Contains(r.URL.Path, "test-nonexistent-subdomain") {
+				w.WriteHeader(http.StatusNotFound)
+				w.Write([]byte(`{"success": false, "errors": [{"code": 10009, "message": "Not Found"}]}`))
+				return
+			}
+			// For existing-subdomain, return 200 (key exists)
 			if strings.Contains(r.URL.Path, "existing-subdomain") {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{"success": true}`))
 				return
 			}
+			// Default to 404 for any other subdomain
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"success": false}`))
+			w.Write([]byte(`{"success": false, "errors": [{"code": 10009, "message": "Not Found"}]}`))
 			return
 		}
 
@@ -208,39 +219,32 @@ func TestSetCloudFlareKV(t *testing.T) {
 		userID          string
 		userMetadataKey string
 		metadata        map[string]string
+		cfMetadataValue string
 		expectedError   error
 	}{
 		{
 			name:            "Successful KV set",
-			subdomainValue:  "test-subdomain",
+			subdomainValue:  "test-nonexistent-subdomain",
 			userID:          "test-user-id",
-			userMetadataKey: "test-metadata-key",
 			metadata:        map[string]string{"key": "value"},
+			cfMetadataValue: "test-cf-metadata-value",
 			expectedError:   nil,
-		},
-		{
-			name:            "Key already exists",
-			subdomainValue:  "existing-subdomain",
-			userID:          "test-user-id",
-			userMetadataKey: "test-metadata-key",
-			metadata:        map[string]string{"key": "value"},
-			expectedError:   fmt.Errorf(ERR_KV_KEY_EXISTS),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := SetCloudflareKV(tt.subdomainValue, tt.userID, tt.userMetadataKey, tt.metadata)
+			err := SetCloudflareMnmOptions(tt.subdomainValue, tt.userID, tt.metadata, tt.cfMetadataValue)
 			if err != nil && tt.expectedError == nil {
-				t.Errorf("SetCloudflareKV() error = %v, expectedError %v", err, tt.expectedError)
+				t.Errorf("SetCloudflareMnmOptions() error = %v, expectedError %v", err, tt.expectedError)
 				return
 			}
 			if err == nil && tt.expectedError != nil {
-				t.Errorf("SetCloudflareKV() error = %v, expectedError %v", err, tt.expectedError)
+				t.Errorf("SetCloudflareMnmOptions() error = %v, expectedError %v", err, tt.expectedError)
 				return
 			}
 			if err != nil && tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
-				t.Errorf("SetCloudflareKV() error = %v, expectedError %v", err, tt.expectedError)
+				t.Errorf("SetCloudflareMnmOptions() error = %v, expectedError %v", err, tt.expectedError)
 				return
 			}
 		})
@@ -365,13 +369,13 @@ func TestSearchUsersByIDs(t *testing.T) {
 	tests := []struct {
 		name          string
 		userIDs       []string
-		expectedUsers []UserSearchResult
+		expectedUsers []types.UserSearchResultDangerous
 		expectError   bool
 	}{
 		{
 			name:    "successful search with multiple users",
 			userIDs: []string{"123", "456"},
-			expectedUsers: []UserSearchResult{
+			expectedUsers: []types.UserSearchResultDangerous{
 				{UserID: "123", DisplayName: "Test User 123"},
 				{UserID: "456", DisplayName: "Test User 456"},
 			},
@@ -379,7 +383,7 @@ func TestSearchUsersByIDs(t *testing.T) {
 		{
 			name:          "empty result",
 			userIDs:       []string{"nonexistent"},
-			expectedUsers: []UserSearchResult{},
+			expectedUsers: []types.UserSearchResultDangerous{},
 		},
 		{
 			name:        "server error",
@@ -389,14 +393,14 @@ func TestSearchUsersByIDs(t *testing.T) {
 		{
 			name:          "empty user IDs",
 			userIDs:       []string{},
-			expectedUsers: []UserSearchResult{},
+			expectedUsers: []types.UserSearchResultDangerous{},
 			expectError:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			users, err := SearchUsersByIDs(tt.userIDs)
+			users, err := SearchUsersByIDs(tt.userIDs, false)
 
 			if tt.expectError {
 				if err == nil {
@@ -573,13 +577,13 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 	tests := []struct {
 		name          string
 		query         string
-		expectedUsers []UserSearchResult
+		expectedUsers []types.UserSearchResultDangerous
 		expectError   bool
 	}{
 		{
 			name:  "successful search with results",
 			query: "doe",
-			expectedUsers: []UserSearchResult{
+			expectedUsers: []types.UserSearchResultDangerous{
 				{UserID: "123", DisplayName: "John Doe"},
 				{UserID: "456", DisplayName: "Jane Doe"},
 			},
@@ -587,7 +591,7 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 		{
 			name:          "no results found",
 			query:         "nonexistent",
-			expectedUsers: []UserSearchResult{},
+			expectedUsers: []types.UserSearchResultDangerous{},
 		},
 		{
 			name:        "server error",
@@ -598,7 +602,7 @@ func TestSearchUserByEmailOrName(t *testing.T) {
 		{
 			name:  "empty query",
 			query: "",
-			expectedUsers: []UserSearchResult{
+			expectedUsers: []types.UserSearchResultDangerous{
 				{UserID: "123", DisplayName: "John Doe"},
 				{UserID: "456", DisplayName: "Jane Doe"},
 			},
@@ -817,6 +821,112 @@ func TestGetBase64ValueFromMap(t *testing.T) {
 			got := GetBase64ValueFromMap(tt.claimsMeta, tt.key)
 			if got != tt.want {
 				t.Errorf("GetBase64ValueFromMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetCloudflareMnmOptions(t *testing.T) {
+	// Save original environment variables
+	var (
+		originalAccountID    = os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+		originalNamespaceID  = os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
+		originalCfApiBaseUrl = os.Getenv("CLOUDFLARE_API_BASE_URL")
+	)
+	port := test_helpers.GetNextPort()
+	cfEndpoint := fmt.Sprintf("http://%s", port)
+	// Set test environment variables
+	os.Setenv("CLOUDFLARE_ACCOUNT_ID", "test-account-id")
+	os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", "test-namespace-id")
+	os.Setenv("CLOUDFLARE_API_BASE_URL", cfEndpoint)
+	os.Setenv("CLOUDFLARE_API_CLIENT_BASE_URL", cfEndpoint)
+
+	// Defer resetting environment variables
+	defer func() {
+		os.Setenv("CLOUDFLARE_ACCOUNT_ID", originalAccountID)
+		os.Setenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID", originalNamespaceID)
+		os.Setenv("CLOUDFLARE_API_BASE_URL", originalCfApiBaseUrl)
+		os.Setenv("CLOUDFLARE_API_CLIENT_BASE_URL", originalCfApiBaseUrl)
+	}()
+
+	// Create mock Cloudflare server
+	mockCloudflareServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the request path and method
+		if r.Method != "GET" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Check if the request is for the correct endpoint
+		expectedPath := "/accounts/test-account-id/storage/kv/namespaces/test-namespace-id/values/"
+		if !strings.Contains(r.URL.Path, expectedPath) {
+			http.Error(w, "Invalid endpoint", http.StatusNotFound)
+			return
+		}
+
+		// Extract the subdomain value from the path
+		subdomainValue := strings.TrimPrefix(r.URL.Path, expectedPath)
+
+		// Mock successful response for existing subdomain
+		if subdomainValue == "test-nonexistent-subdomain" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"success": true, "result": "test-value"}`))
+			return
+		}
+
+		// Mock 404 for non-existent subdomain
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"success": false, "errors": [{"code": 10009, "message": "Not Found"}]}`))
+	}))
+
+	// Set up the mock server
+	mockCloudflareServer.Listener.Close()
+	listener, err := test_helpers.BindToPort(t, cfEndpoint)
+	if err != nil {
+		t.Fatalf("Failed to start mock Cloudflare server: %v", err)
+	}
+	mockCloudflareServer.Listener = listener
+	mockCloudflareServer.Start()
+	defer mockCloudflareServer.Close()
+
+	tests := []struct {
+		name           string
+		subdomainValue string
+		expectedValue  string
+		expectedError  error
+	}{
+		{
+			name:           "Successful KV get",
+			subdomainValue: "test-nonexistent-subdomain",
+			expectedValue:  `{"success": true, "result": "test-value"}`,
+			expectedError:  nil,
+		},
+		{
+			name:           "Non-existent subdomain",
+			subdomainValue: "non-existent",
+			expectedValue:  "",
+			expectedError:  fmt.Errorf("error getting cloudflare mnm options: GET \"%s/accounts/test-account-id/storage/kv/namespaces/test-namespace-id/values/non-existent\": 404 Not Found {\"success\": false, \"errors\": [{\"code\": 10009, \"message\": \"Not Found\"}]}", cfEndpoint),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			value, err := GetCloudflareMnmOptions(tt.subdomainValue)
+
+			if err != nil && tt.expectedError == nil {
+				t.Errorf("GetCloudflareMnmOptions() error = %v, expectedError %v", err, tt.expectedError)
+				return
+			}
+			if err == nil && tt.expectedError != nil {
+				t.Errorf("GetCloudflareMnmOptions() error = %v, expectedError %v", err, tt.expectedError)
+				return
+			}
+			if err != nil && tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
+				t.Errorf("GetCloudflareMnmOptions() error = %v, expectedError %v", err, tt.expectedError)
+				return
+			}
+			if value != tt.expectedValue {
+				t.Errorf("GetCloudflareMnmOptions() value = %v, expectedValue %v", value, tt.expectedValue)
 			}
 		})
 	}

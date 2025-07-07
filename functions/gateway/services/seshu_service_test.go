@@ -55,12 +55,12 @@ func TestInsertSeshuSession(t *testing.T) {
 			Url:               "https://test.com",
 			UrlDomain:         "test.com",
 			Html:              "<html></html>",
-			EventValidations:  [][]bool{{true, false}, {true, false}},
-			EventCandidates: []internal_types.EventInfo{{EventTitle: "Test Event", EventLocation: "Nowhere", EventStartTime: "1234567890"}},
-			LocationAddress: "1234 Nowhere St",
-			LocationLatitude: 39.8616981506,
+			EventValidations:  []internal_types.EventBoolValid{{EventValidateTitle: true, EventValidateLocation: true, EventValidateStartTime: true}},
+			EventCandidates:   []internal_types.EventInfo{{EventTitle: "Test Event", EventLocation: "Nowhere", EventStartTime: "1234567890"}},
+			LocationAddress:   "1234 Nowhere St",
+			LocationLatitude:  39.8616981506,
 			LocationLongitude: -104.672996521,
-			UrlQueryParams: 	map[string][]string{"test": {"value"}},
+			UrlQueryParams:    map[string][]string{"test": {"value"}},
 		},
 	}
 
@@ -92,14 +92,14 @@ func TestUpdateSeshuSession(t *testing.T) {
 
 	ctx := context.Background()
 	seshuPayload := internal_types.SeshuSessionUpdate{
-		Url:    "https://test.com",
-		Status: "completed",
-		EventValidations:  [][]bool{{true, false}, {true, false}},
-		EventCandidates: []internal_types.EventInfo{{EventTitle: "Test Event", EventLocation: "Nowhere", EventStartTime: "1234567890"}},
-		LocationAddress: "1234 Nowhere St",
-		LocationLatitude: 39.8616981506,
+		Url:               "https://test.com",
+		Status:            "completed",
+		EventValidations:  []internal_types.EventBoolValid{{EventValidateTitle: true, EventValidateLocation: true, EventValidateStartTime: true}},
+		EventCandidates:   []internal_types.EventInfo{{EventTitle: "Test Event", EventLocation: "Nowhere", EventStartTime: "1234567890"}},
+		LocationAddress:   "1234 Nowhere St",
+		LocationLatitude:  39.8616981506,
 		LocationLongitude: -104.672996521,
-		UrlQueryParams: 	map[string][]string{"test": {"value"}},
+		UrlQueryParams:    map[string][]string{"test": {"value"}},
 	}
 
 	_, err := UpdateSeshuSession(ctx, mockDB, seshuPayload)

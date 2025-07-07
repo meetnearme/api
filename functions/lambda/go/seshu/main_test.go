@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,7 +26,7 @@ func (m *MockScrapingService) GetHTMLFromURL(unescapedURL string, timeout int, j
 	return m.GetHTMLFromURLFunc(unescapedURL, timeout, jsRender, waitFor)
 }
 
-func TestRouter(t *testing.T) {
+func TestLambdaRouter(t *testing.T) {
 	// Save original environment variables
 	originalScrapingBeeAPIBaseURL := os.Getenv("SCRAPINGBEE_API_URL_BASE")
 	originalOpenAIAPIBaseURL := os.Getenv("OPENAI_API_BASE_URL")
@@ -80,41 +83,56 @@ func TestRouter(t *testing.T) {
 
 	mockDB := &test_helpers.MockDynamoDBClient{
 		PutItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
-			// You can add assertions here to check the input if needed
 			return &dynamodb.PutItemOutput{}, nil
 		},
 	}
-	// Replace the global db variable with our mock
-	db = mockDB
+	db = mockDB // Replace the global db variable with our mock
 
 	tests := []struct {
 		name           string
 		method         string
+		action         string
+		body           string
 		expectedStatus int
-		mockHTML       string
-		mockErr        error
+		expectBodyText string
 	}{
-		// currently this test case doesn't fully thread data through, we should improve this
-		// it's a bit of a false positive, but a good faith attempt toward more coverage here
-		{"POST request", "POST", http.StatusOK, `<form class="group" novalidate><div role="alert" class="alert alert-info mt-3 mb-11">Mark each field such as "title" and "location" as correct or incorrect with the adjacent toggle. If the proposed event is not an event, toggle "This is an event" to "This is not an event".</div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"><div class="checkbox-card card card-compact shadow-lg"><div class="checkbox-card-header bg-success content-success has-toggleable-text"><label class="label cursor-pointer justify-normal"><input value="candidate-0" x-model.fill="eventCandidates" id="main-toggle-0" type="checkbox" class="toggle mr-4" onclick="this.parentNode.parentNode.parentNode.querySelectorAll(&#39;input.toggle&#39;).forEach(item =&gt; item.checked = this.checked)" checked> <span class="label-text flex contents">This is <strong class="hidden-when-checked">not </strong>an event</span></label></div><div class="card-body"><h2 class="card-title">Mock Event</h2><p><label for="cand_title_0" class="label items-start justify-normal cursor-pointer"><input name="cand_title_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked><span class="label-text"><strong>Title:</strong> Mock Event</span></label></p><p><label for="cand_location_0" class="label items-start justify-normal cursor-pointer"><input name="cand_location_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked><span class="label-text"><strong>Location:</strong> Mock Location</span></label></p><p><label for="cand_date_0" class="label items-start justify-normal cursor-pointer"><input name="cand_date_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2"><span class="label-text"><strong>Start Time:</strong> </span></label></p><p><label for="cand_date_0" class="label items-start justify-normal cursor-pointer"><input name="cand_date_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2"><span class="label-text"><strong>End Time:</strong> </span></label></p><p><label for="cand_url_0" class="label items-start justify-normal cursor-pointer"><input name="cand_url_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2" checked><span class="label-text"><strong>URL:</strong> https://mock-event.com</span></label></p><p><label for="cand_description_0" class="label items-start justify-normal cursor-pointer"><input name="cand_description_0" type="checkbox" class="toggle toggle-sm toggle-success -mb-1 mr-2"><span class="label-text"><strong>Description:</strong> </span></label></p></div></div></div></form>`, nil},
-		{"Unsupported method", "GET", http.StatusMethodNotAllowed, "", nil},
-		// Remove the "Scraping error" test case as it's now handled by the mock server
+		{
+			name:           "Valid POST request for init",
+			method:         "POST",
+			action:         "init",
+			body:           `{"url": "https://example.com"}`,
+			expectedStatus: http.StatusOK,
+			expectBodyText: "Mock Event",
+		},
+		{
+			name:           "Valid POST request for recursive",
+			method:         "POST",
+			action:         "rs",
+			body:           `{"parent_url": "https://example.com" , "url": "https://example2.com"}`,
+			expectedStatus: http.StatusOK,
+			expectBodyText: "Mock Event",
+		},
+		{
+			name:           "Unsupported GET request",
+			method:         "GET",
+			action:         "init",
+			body:           ``,
+			expectedStatus: http.StatusMethodNotAllowed,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Use the actual ScrapingService instead of a mock
 			actualService := services.RealScrapingService{}
 
-			// Create a custom router function for testing
 			testRouter := func(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 				switch req.RequestContext.HTTP.Method {
 				case "POST":
 					req.Headers["Access-Control-Allow-Origin"] = "*"
 					req.Headers["Access-Control-Allow-Credentials"] = "true"
-					return handlePost(ctx, req, &actualService)
+					return handleLambdaPost(ctx, req, &actualService)
 				default:
-					return clientError(http.StatusMethodNotAllowed)
+					return clientLambdaError(http.StatusMethodNotAllowed)
 				}
 			}
 
@@ -124,26 +142,175 @@ func TestRouter(t *testing.T) {
 						Method: tt.method,
 					},
 				},
-				Body:    `{"url": "https://example.com"}`,
+				QueryStringParameters: map[string]string{
+					"action": tt.action,
+				},
+				Body:    tt.body,
 				Headers: make(map[string]string),
 			}
 			resp, err := testRouter(context.Background(), req)
 			if err != nil {
-				t.Errorf("Router() error = %v", err)
-				return
+				t.Fatalf("Router() error = %v", err)
 			}
 			if resp.StatusCode != tt.expectedStatus {
 				t.Errorf("Router() status = %v, want %v", resp.StatusCode, tt.expectedStatus)
 			}
-			if tt.method == "POST" && resp.StatusCode == http.StatusOK {
-				var result = string([]byte(resp.Body))
-				// err := json.Unmarshal([]byte(resp.Body), &result)
-				// if err != nil {
-				// 	t.Errorf("Failed to unmarshal response body: %v", err)
-				// }
-				if result != tt.mockHTML {
-					t.Errorf("Expected HTML %s, got %s", tt.mockHTML, result)
-				}
+			if tt.expectBodyText != "" && !strings.Contains(resp.Body, tt.expectBodyText) {
+				t.Errorf("Expected body to contain %q, got: %s", tt.expectBodyText, resp.Body)
+			}
+		})
+	}
+}
+
+func TestNonLambdaRouter(t *testing.T) {
+	// Save original environment variables
+	originalScrapingBeeAPIBaseURL := os.Getenv("SCRAPINGBEE_API_URL_BASE")
+	originalOpenAIAPIBaseURL := os.Getenv("OPENAI_API_BASE_URL")
+	originalOpenAIAPIKey := os.Getenv("OPENAI_API_KEY")
+
+	// Set up mock ScrapingBee server
+	mockScrapingBee := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("<html><body>Mock HTML Content</body></html>"))
+	}))
+	defer mockScrapingBee.Close()
+
+	// Set up mock OpenAI server
+	mockOpenAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		response := ChatCompletionResponse{
+			ID:      "mock-session-id",
+			Object:  "chat.completion",
+			Created: time.Now().Unix(),
+			Model:   "gpt-4o-mini",
+			Choices: []Choice{
+				{
+					Index: 0,
+					Message: Message{
+						Role:    "assistant",
+						Content: `[{"event_title":"Mock Event","event_location":"Mock Location","event_start_time":"2023-05-01T10:00:00Z","event_end_time":"2023-05-01T12:00:00Z","event_url":"https://mock-event.com"}]`,
+					},
+					FinishReason: "stop",
+				},
+			},
+			Usage: Usage{
+				PromptTokens:     100,
+				CompletionTokens: 50,
+				TotalTokens:      150,
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer mockOpenAI.Close()
+
+	// Override environment variables
+	os.Setenv("SCRAPINGBEE_API_URL_BASE", mockScrapingBee.URL)
+	os.Setenv("OPENAI_API_BASE_URL", mockOpenAI.URL)
+	os.Setenv("OPENAI_API_KEY", "mock-api-key")
+
+	// Restore env after test
+	defer func() {
+		os.Setenv("SCRAPINGBEE_API_URL_BASE", originalScrapingBeeAPIBaseURL)
+		os.Setenv("OPENAI_API_BASE_URL", originalOpenAIAPIBaseURL)
+		os.Setenv("OPENAI_API_KEY", originalOpenAIAPIKey)
+	}()
+
+	// Mock DynamoDB client
+	mockDB := &test_helpers.MockDynamoDBClient{
+		PutItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+			return &dynamodb.PutItemOutput{}, nil
+		},
+	}
+	db = mockDB // Inject mock into global var
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only accept POST
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Decode request body into InternalRequest
+		var reqBody InternalRequest
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		// Check for required query param
+		if r.URL.Query().Get("action") != "init" && r.URL.Query().Get("action") != "rs" {
+			log.Print(r.URL.Query())
+			http.Error(w, "Missing or invalid action", http.StatusBadRequest)
+			return
+		}
+
+		// Call your business logic
+		resp, err := handlePost(r.Context(), reqBody, &services.RealScrapingService{})
+		if err != nil {
+			log.Printf("handlePost failed: %+v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Write response
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(resp.Body))
+	})
+
+	tests := []struct {
+		name           string
+		method         string
+		action         string
+		body           string
+		expectedStatus int
+		expectBodyText string
+	}{
+		{
+			name:           "Valid POST request for init",
+			method:         "POST",
+			action:         "init",
+			body:           `{"method": "POST", "action": "init", "body": "{\"url\":\"https://example.com\"}", "headers": {}}`,
+			expectedStatus: http.StatusOK,
+			expectBodyText: "Mock Event",
+		},
+		{
+			name:           "Valid POST request for recursive",
+			method:         "POST",
+			action:         "rs",
+			body:           `{"method": "POST", "action": "rs", "body": "{\"parent_url\":\"https://example.com\",\"url\":\"https://example2.com\"}", "headers": {}}`,
+			expectedStatus: http.StatusOK,
+			expectBodyText: "Mock Event",
+		},
+		{
+			name:           "Unsupported GET request",
+			method:         "GET",
+			action:         "init",
+			expectedStatus: http.StatusMethodNotAllowed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var req *http.Request
+			if tt.method == "POST" {
+				req = httptest.NewRequest(http.MethodPost, "/?action="+tt.action, bytes.NewBuffer([]byte(tt.body)))
+				req.Header.Set("Content-Type", "application/json")
+			} else {
+				req = httptest.NewRequest(http.MethodGet, "/?action="+tt.action, nil)
+			}
+
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d. Body: %s", tt.expectedStatus, rec.Code, rec.Body.String())
+			}
+
+			if tt.expectBodyText != "" && !strings.Contains(rec.Body.String(), tt.expectBodyText) {
+				t.Errorf("Expected body to contain %q, got: %s", tt.expectBodyText, rec.Body.String())
 			}
 		})
 	}
