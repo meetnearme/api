@@ -57,8 +57,6 @@ services:
     container_name: meetnearme-nats
     ports:
       - "4222:4222" # Client port
-      - "8222:8222" # Monitoring port
-      - "6222:6222" # Clustering port (if applicable)
     command: ["-js", "-p", "4222"]
 
   t2v-transformers:
@@ -69,7 +67,7 @@ services:
   go-app:
     build:
       context: .
-      dockerfile: Dockerfile.go.prod
+      dockerfile: Dockerfile.go.dev
     container_name: meetnearme-go-app
     ports:
       - "${APP_PORT_HOST:-8000}:${APP_PORT:-8000}"
