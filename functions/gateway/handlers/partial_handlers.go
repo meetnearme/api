@@ -767,7 +767,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				LocationLatitude:         0.0,
 				LocationLongitude:        0.0,
 				LocationAddress:          "",
-				ScheduledScrapeTime:      0,
+				ScheduledHour:            0,
 				TargetNameCSSPath:        findTagByExactText(docToUse, event.EventTitle),
 				TargetLocationCSSPath:    findTagByExactText(docToUse, event.EventLocation),
 				TargetStartTimeCSSPath:   startTag,

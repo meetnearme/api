@@ -96,7 +96,7 @@ type SeshuJob struct {
 	LocationLatitude         float64 `json:"location_latitude,omitempty"`
 	LocationLongitude        float64 `json:"location_longitude,omitempty"`
 	LocationAddress          string  `json:"location_address,omitempty"`
-	ScheduledScrapeTime      int64   `json:"scheduled_scrape_time"`
+	ScheduledHour            int     `json:"scheduled_hour,omitempty"` // Hour of the day (0-23)
 	TargetNameCSSPath        string  `json:"target_name_css_path"`
 	TargetLocationCSSPath    string  `json:"target_location_css_path"`
 	TargetStartTimeCSSPath   string  `json:"target_start_time_css_path"`
