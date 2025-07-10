@@ -30,7 +30,6 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/transport"
-	"github.com/nats-io/nats.go"
 )
 
 type AuthType string
@@ -49,10 +48,12 @@ type Route struct {
 	Auth    AuthType
 }
 
-var Routes []Route
+// func init() {
 
-func init() {
-	Routes = []Route{
+// }
+
+func (app *App) InitRoutes() []Route {
+	return []Route{
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
@@ -170,11 +171,11 @@ func init() {
 		{"/api/html/session/submit/", "POST", handlers.RouterNonLambda, None},
 
 		// SeshuJobs
-		{"/api/seshujob", "GET", handlers.GetSeshuJobs, None},
-		{"/api/seshujob", "POST", handlers.CreateSeshuJob, None},
-		{"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, None},
-		{"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, None},
-		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, None},
+		{"/api/seshujob", "GET", app.InjectDB(handlers.GetSeshuJobs), None},
+		{"/api/seshujob", "POST", app.InjectDB(handlers.CreateSeshuJob), None},
+		{"/api/seshujob/{key}", "PUT", app.InjectDB(handlers.UpdateSeshuJob), None},
+		{"/api/seshujob/{key}", "DELETE", app.InjectDB(handlers.DeleteSeshuJob), None},
+		{"/api/gather-seshu-jobs", "POST", app.Inject(handlers.GatherSeshuJobsHandler), None},
 	}
 }
 
@@ -189,7 +190,7 @@ type App struct {
 	AuthZ      *authorization.Authorizer[*oauth.IntrospectionContext]
 	AuthConfig *AuthConfig
 	PostGresDB *services.PostgresService
-	NatClient  *nats.Conn
+	Nats       *services.NatsService
 }
 
 func NewApp() *App {
@@ -201,7 +202,7 @@ func NewApp() *App {
 	app.Router.Use(WithDerivedOptionsFromReq)
 	app.InitializeAuth()
 	app.InitDataBase()
-	app.InitNat()
+	app.InitNats()
 	log.Printf("App created: %+v", app)
 
 	defer func() {
@@ -496,13 +497,32 @@ func (app *App) InitDataBase() {
 	app.PostGresDB = services.NewPostgresService(db)
 }
 
-func (app *App) InitNat() {
-	nc, err := nats.Connect(os.Getenv("NATS_URL"))
+func (app *App) InitNats() {
+	ctx := context.Background()
+	conn, err := services.GetNatsClient()
 	if err != nil {
-		log.Fatalf("Failed to connect to NATS: %v", err)
+		log.Fatalf("Failed to initialize NATS: %v", err)
 	}
+	app.Nats, err = services.NewNatsService(ctx, conn)
+	if err != nil {
+		log.Fatalf("Failed to create NATS service: %v", err)
+	}
+}
 
-	app.NatClient = nc
+func (app *App) Inject(
+	handler func(*services.PostgresService, *services.NatsService) func(http.ResponseWriter, *http.Request) http.HandlerFunc,
+) func(http.ResponseWriter, *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+		return handler(app.PostGresDB, app.Nats)(w, r)
+	}
+}
+
+func (app *App) InjectDB(
+	handler func(*services.PostgresService) func(http.ResponseWriter, *http.Request) http.HandlerFunc,
+) func(http.ResponseWriter, *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+		return handler(app.PostGresDB)(w, r)
+	}
 }
 
 // Middleware to inject context into the request
@@ -607,9 +627,11 @@ func main() {
 	// This is the package level instance of Db in handlers
 	_ = transport.GetDB()
 	log.Print("451 ")
-	defer app.PostGresDB.DB.Close()
+	defer app.PostGresDB.Close()
+	defer app.Nats.Close()
 
-	app.SetupRoutes(Routes)
+	routes := app.InitRoutes()
+	app.SetupRoutes(routes)
 
 	if deploymentTarget == "ACT" {
 		// Start serving
