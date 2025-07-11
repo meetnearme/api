@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -252,3 +255,168 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 //    db index (the URL itself is the index) collision / duplicates
 // 8. Delete the session from the `SeshuSessions` table once it's confirmed to be
 //    successfully committed to the "Scraping Jobs" table
+
+// cleanUnicodeText removes problematic Unicode characters while preserving readable text
+func cleanUnicodeText(text string) string {
+	// Remove specific problematic Unicode characters
+	text = strings.ReplaceAll(text, string([]byte{226, 128, 175}), "") // Remove bytes 226 128 175
+	text = strings.ReplaceAll(text, "\u202f", " ")                     // Replace narrow no-break space with regular space
+	text = strings.ReplaceAll(text, "\u00a0", " ")                     // Replace non-breaking space with regular space
+
+	// Remove other non-printable characters but preserve middle dot and normal punctuation
+	var result strings.Builder
+	for _, r := range text {
+		if unicode.IsPrint(r) || r == '·' || unicode.IsSpace(r) {
+			result.WriteRune(r)
+		}
+	}
+
+	// Clean up extra whitespace
+	return strings.TrimSpace(regexp.MustCompile(`\s+`).ReplaceAllString(result.String(), " "))
+}
+
+// findEventData extracts event data from Facebook events pages
+func FindEventData(htmlContent string) ([]internal_types.EventInfo, error) {
+	// First, check if the HTML contains event data
+	if !strings.Contains(htmlContent, `"__typename":"Event"`) {
+		return nil, fmt.Errorf("no Facebook event data found (no __typename: Event)")
+	}
+
+	// Find script tags containing event data
+	scriptPattern := regexp.MustCompile(`<script[^>]*>(.*?)</script>`)
+	scriptMatches := scriptPattern.FindAllStringSubmatch(htmlContent, -1)
+
+	var eventScriptContent string
+	for _, match := range scriptMatches {
+		if len(match) >= 2 {
+			scriptContent := match[1]
+			if strings.Contains(scriptContent, `"__typename":"Event"`) {
+				eventScriptContent = scriptContent
+				break
+			}
+		}
+	}
+
+	if eventScriptContent == "" {
+		return nil, fmt.Errorf("no script tag found containing event data")
+	}
+
+	// Clean up the script content (remove extra whitespace)
+	eventScriptContent = strings.TrimSpace(eventScriptContent)
+
+	// Log the JSON for debugging
+	fmt.Printf("DEBUG: Found event script content (first 1000 chars):\n%s\n", eventScriptContent[:min(1000, len(eventScriptContent))])
+
+	// Extract events from the JSON content
+	events := extractEventsFromJSON(eventScriptContent)
+
+	if len(events) == 0 {
+		return nil, fmt.Errorf("no valid events extracted from JSON content")
+	}
+
+	return events, nil
+}
+
+// extractEventsFromJSON extracts events from JSON content
+func extractEventsFromJSON(jsonContent string) []internal_types.EventInfo {
+	var events []internal_types.EventInfo
+	eventID := 1
+
+	// Look for event objects in the JSON
+	eventPattern := regexp.MustCompile(`"__typename":"Event"[^}]*?"name":"([^"]+)"[^}]*?"url":"([^"]+)"`)
+	eventMatches := eventPattern.FindAllStringSubmatch(jsonContent, -1)
+
+	for _, match := range eventMatches {
+		if len(match) >= 3 {
+			title := cleanUnicodeText(match[1])
+			url := unescapeJSON(match[2]) // Unescape the URL
+
+			// Extract date pattern
+			datePattern := regexp.MustCompile(`"day_time_sentence":"([^"]+)"`)
+			dateMatches := datePattern.FindStringSubmatch(jsonContent)
+			var date string
+			if len(dateMatches) >= 2 {
+				date = cleanUnicodeText(unescapeJSON(dateMatches[1])) // Unescape date
+			}
+
+			// Extract location pattern
+			locationPattern := regexp.MustCompile(`"contextual_name":"([^"]+)"`)
+			locationMatches := locationPattern.FindStringSubmatch(jsonContent)
+			var location string
+			if len(locationMatches) >= 2 {
+				location = cleanUnicodeText(unescapeJSON(locationMatches[1])) // Unescape location
+			}
+
+			// Extract organizer pattern
+			organizerPattern := regexp.MustCompile(`"event_creator"[^}]*?"name":"([^"]+)"`)
+			organizerMatches := organizerPattern.FindStringSubmatch(jsonContent)
+			var organizer string
+			if len(organizerMatches) >= 2 {
+				organizer = cleanUnicodeText(unescapeJSON(organizerMatches[1])) // Unescape organizer
+			}
+
+			fmt.Printf("DEBUG: Event %d - Title: %s, URL: %s, Date: %s, Location: %s, Organizer: %s\n",
+				eventID, title, url, date, location, organizer)
+
+			// Only add events with required fields
+			if title != "" && url != "" {
+				// events = append(events, EventFb{
+				// 	ID:        eventID,
+				// 	Date:      date,
+				// 	Title:     title,
+				// 	URL:       url,
+				// 	Location:  location,
+				// 	Organizer: organizer,
+				// })
+
+				// TODO: can golang `time` package handle loose dates like
+				// this one `Fri, Jul 25 - Jul 26`
+
+				dateTime, err := time.Parse("Mon, Jan 2, 2006 15:04", date)
+				if err != nil {
+					continue
+				}
+
+				log.Printf("DEBUG: Parsed date: %s", dateTime)
+
+				events = append(events, internal_types.EventInfo{
+					EventTitle:       title,
+					EventLocation:    location,
+					EventStartTime:   date,
+					EventEndTime:     date,
+					EventURL:         url,
+					EventDescription: "",
+					EventSource:      "facebook",
+				})
+				eventID++
+			}
+		}
+	}
+
+	return events
+}
+
+// unescapeJSON unescapes JSON-encoded strings (removes \\/ and other escape sequences)
+func unescapeJSON(s string) string {
+	// Replace escaped forward slashes
+	s = strings.ReplaceAll(s, `\/`, `/`)
+	// Replace escaped backslashes
+	s = strings.ReplaceAll(s, `\\`, `\`)
+	// Replace escaped quotes
+	s = strings.ReplaceAll(s, `\"`, `"`)
+	// Replace escaped newlines
+	s = strings.ReplaceAll(s, `\n`, "\n")
+	// Replace escaped tabs
+	s = strings.ReplaceAll(s, `\t`, "\t")
+	// Replace Unicode escape sequences
+	s = strings.ReplaceAll(s, `\u202f`, " ") // Narrow no-break space
+	s = strings.ReplaceAll(s, `\u00a0`, " ") // Non-breaking space
+	return s
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

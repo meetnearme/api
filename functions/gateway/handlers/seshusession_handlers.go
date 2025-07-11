@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -293,6 +294,29 @@ func HandlePost(ctx context.Context, req InternalRequest, scraper services.Scrap
 	htmlString, err := scraper.GetHTMLFromURL(urlToScrape, 4500, true, "")
 	if err != nil {
 		return _SendHtmlErrorPartial(err, ctx)
+	}
+
+	// if regex matches fb.com/(.*)/events we return early as the data
+	// is already known and we don't need to pass to an LLM or convert
+	// to markdown
+	if regexp.MustCompile(`facebook\.com\/(.*)\/events`).MatchString(urlToScrape) {
+		events, err := services.FindEventData(htmlString)
+		if err != nil {
+			return _SendHtmlErrorPartial(err, ctx)
+		}
+
+		fmt.Println(events)
+		layoutTemplate := partials.EventCandidatesPartial(events)
+		var buf bytes.Buffer
+		err = layoutTemplate.Render(ctx, &buf)
+		if err != nil {
+			return serverError(err)
+		}
+		return InternalResponse{
+			Headers:    map[string]string{"Content-Type": "text/html"},
+			StatusCode: http.StatusOK,
+			Body:       buf.String(),
+		}, nil
 	}
 
 	// Getting <body> content only
