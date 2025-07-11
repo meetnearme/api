@@ -10,10 +10,9 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-// reminder to replace with environment variable
 var (
-	streamName  = os.Getenv("NATS_STREAM_NAME")
-	subjectName = os.Getenv("NATS_STREAM_SUBJECT")
+	streamName  = os.Getenv("NATS_SESHU_STREAM_NAME")
+	subjectName = os.Getenv("NATS_SESHU_STREAM_SUBJECT")
 )
 
 type NatsService struct {
