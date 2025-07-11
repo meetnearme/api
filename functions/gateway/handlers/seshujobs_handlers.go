@@ -20,6 +20,7 @@ type TriggerRequest struct {
 }
 
 var lastExecutionTime int64 = 0
+var HOUR int64 = 3600 // 1 hour in seconds
 
 func GetSeshuJobs(db *services.PostgresService) func(http.ResponseWriter, *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -162,7 +163,7 @@ func GatherSeshuJobsHandler(db *services.PostgresService, nats *services.NatsSer
 			log.Printf("Received request to gather seshu jobs at time: %d", req.Time)
 			log.Printf("Last execution time: %d", lastExecutionTime)
 
-			if req.Time-lastExecutionTime <= 60 {
+			if req.Time-lastExecutionTime <= HOUR {
 				transport.SendHtmlRes(w, []byte(""), http.StatusOK, "partial", nil)(w, r)
 				return
 			}
@@ -202,6 +203,8 @@ func GatherSeshuJobsHandler(db *services.PostgresService, nats *services.NatsSer
 				if err != nil {
 					log.Println("Failed to unmarshal job from NATS queue:", err)
 				}
+
+				log.Printf("Top job: %+v", job)
 
 				if currentHour-job.ScheduledHour > 0 {
 					log.Println("Top job is older than 60 minutes.")
