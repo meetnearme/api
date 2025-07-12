@@ -27,6 +27,7 @@ func NewNatsService(ctx context.Context, conn *nats.Conn) (*NatsService, error) 
 		return nil, fmt.Errorf("failed to create JetStream context: %w", err)
 	}
 
+	//Create stream if it does not exist
 	_, err = js.Stream(ctx, streamName)
 
 	if err != nil {
