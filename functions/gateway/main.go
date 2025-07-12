@@ -3,6 +3,7 @@ package main
 // TODO: test "endTime" and add to UI
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -593,6 +594,55 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 	})
 }
 
+// go routine
+func startSeshuLoop(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		log.SetOutput(os.Stdout)
+
+		lastUpdate := time.Now().UTC().Unix()
+
+		for {
+			select {
+			case <-ctx.Done():
+				log.Println("[INFO] Seshu loop stopped by context.")
+				return
+
+			case <-ticker.C:
+				if os.Getenv("IS_ACT_LEADER") != "true" {
+					log.Printf("[INFO] Not the leader (IS_ACT_LEADER=%s). Skipping.", os.Getenv("IS_ACT_LEADER"))
+					continue
+				}
+
+				// Build payload with lastUpdate time
+				payload := map[string]interface{}{
+					"time": lastUpdate,
+				}
+				jsonData, _ := json.Marshal(payload)
+
+				resp, err := http.Post("http://localhost:8000/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
+				if err != nil {
+					log.Printf("[ERROR] Failed to send request: %v", err)
+					continue
+				}
+				defer resp.Body.Close()
+
+				var body bytes.Buffer
+				body.ReadFrom(resp.Body)
+				if bytes.Contains(body.Bytes(), []byte("successful")) {
+					log.Println("[INFO] Job triggered successfully.")
+				} else {
+					log.Println("[INFO] Skipped.")
+				}
+
+				lastUpdate = time.Now().UTC().Unix() // update in-memory timestamp
+			}
+		}
+	}()
+}
+
 func main() {
 	deploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
 
@@ -611,6 +661,10 @@ func main() {
 	app.SetupRoutes(routes)
 
 	if deploymentTarget == "ACT" {
+
+		seshuCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		// Start serving
 		loggingRouter := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -626,9 +680,15 @@ func main() {
 			ReadTimeout:  15 * time.Second,
 		}
 
-		if err := srv.ListenAndServe(); err != nil {
-			log.Fatal(err)
-		}
+		go func() {
+			if err := srv.ListenAndServe(); err != nil {
+				log.Fatal(err)
+			}
+		}()
+
+		startSeshuLoop(seshuCtx)
+		select {}
+
 	} else {
 		adapter := gorillamux.NewV2(app.Router)
 
