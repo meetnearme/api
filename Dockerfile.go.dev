@@ -21,9 +21,6 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 COPY  ./docker_build/ ./
 
-COPY ./scripts/seshu_loop_check.sh /go-app/seshu_loop_check.sh
-RUN chmod +x seshu_loop_check.sh
-
 # The go binary will be mounted from ./docker_build to continue enabling the watchGolang script
 
 CMD [ "/bin/sh", "-c", "cp /app-static/.env /go-app/.env && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf -n" ]
