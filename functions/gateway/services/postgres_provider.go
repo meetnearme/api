@@ -13,7 +13,7 @@ var (
 	postgresServiceOnce sync.Once
 )
 
-func GetPostgresService(ctx context.Context) interfaces.PostgresServiceInterface {
+func GetPostgresService(ctx context.Context) (interfaces.PostgresServiceInterface, error) {
 	postgresServiceOnce.Do(func() {
 		if os.Getenv("GO_ENV") == "test" {
 			// postgresService = getMockPostgresService()
@@ -25,5 +25,5 @@ func GetPostgresService(ctx context.Context) interfaces.PostgresServiceInterface
 			postgresService = NewPostgresService(db)
 		}
 	})
-	return postgresService
+	return postgresService, nil
 }
