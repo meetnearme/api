@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/meetnearme/api/functions/gateway/types"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 type GeoServiceInterface interface {
@@ -22,6 +23,14 @@ type PostgresServiceInterface interface {
 	CreateSeshuJob(ctx context.Context, job types.SeshuJob) error
 	UpdateSeshuJob(ctx context.Context, job types.SeshuJob) error
 	DeleteSeshuJob(ctx context.Context, id string) error
+	ScanSeshuJobsWithInHour(ctx context.Context, hours int) ([]types.SeshuJob, error)
+	Close() error
+}
+
+type NatsServiceInterface interface {
+	GetTopOfQueue(ctx context.Context) (*jetstream.RawStreamMsg, error)
+	PublishMsg(ctx context.Context, job interface{}) error
+	Close() error
 }
 
 var ErrInvalidLocation = errors.New("location is not valid")
