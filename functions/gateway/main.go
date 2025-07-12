@@ -48,10 +48,6 @@ type Route struct {
 	Auth    AuthType
 }
 
-// func init() {
-
-// }
-
 func (app *App) InitRoutes() []Route {
 	return []Route{
 		{"/auth/login", "GET", handlers.HandleLogin, None},
@@ -171,11 +167,11 @@ func (app *App) InitRoutes() []Route {
 		{"/api/html/session/submit/", "POST", handlers.RouterNonLambda, None},
 
 		// SeshuJobs
-		{"/api/seshujob", "GET", app.InjectDB(handlers.GetSeshuJobs), None},
-		{"/api/seshujob", "POST", app.InjectDB(handlers.CreateSeshuJob), None},
-		{"/api/seshujob/{key}", "PUT", app.InjectDB(handlers.UpdateSeshuJob), None},
-		{"/api/seshujob/{key}", "DELETE", app.InjectDB(handlers.DeleteSeshuJob), None},
-		{"/api/gather-seshu-jobs", "POST", app.Inject(handlers.GatherSeshuJobsHandler), None},
+		{"/api/seshujob", "GET", handlers.GetSeshuJobs, None},
+		{"/api/seshujob", "POST", handlers.CreateSeshuJob, None},
+		{"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, None},
+		{"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, None},
+		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, None},
 	}
 }
 
@@ -490,39 +486,20 @@ func (app *App) SetupNotFoundHandler() {
 
 func (app *App) InitDataBase() {
 	ctx := context.Background()
-	db, err := services.GetPostgresClient(ctx)
+	postgres, err := services.GetPostgresService(ctx)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	app.PostGresDB = services.NewPostgresService(db)
+	app.PostGresDB = postgres.(*services.PostgresService)
 }
 
 func (app *App) InitNats() {
 	ctx := context.Background()
-	conn, err := services.GetNatsClient()
+	nats, err := services.GetNatsService(ctx)
 	if err != nil {
 		log.Fatalf("Failed to initialize NATS: %v", err)
 	}
-	app.Nats, err = services.NewNatsService(ctx, conn)
-	if err != nil {
-		log.Fatalf("Failed to create NATS service: %v", err)
-	}
-}
-
-func (app *App) Inject(
-	handler func(*services.PostgresService, *services.NatsService) func(http.ResponseWriter, *http.Request) http.HandlerFunc,
-) func(http.ResponseWriter, *http.Request) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-		return handler(app.PostGresDB, app.Nats)(w, r)
-	}
-}
-
-func (app *App) InjectDB(
-	handler func(*services.PostgresService) func(http.ResponseWriter, *http.Request) http.HandlerFunc,
-) func(http.ResponseWriter, *http.Request) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-		return handler(app.PostGresDB)(w, r)
-	}
+	app.Nats = nats.(*services.NatsService)
 }
 
 // Middleware to inject context into the request
