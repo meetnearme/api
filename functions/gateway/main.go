@@ -40,6 +40,7 @@ const (
 	Check              AuthType = "check"
 	Require            AuthType = "require"
 	RequireServiceUser AuthType = "require_service_user"
+	seshulooptime               = 30 * time.Second
 )
 
 type Route struct {
@@ -173,6 +174,9 @@ func (app *App) InitRoutes() []Route {
 		{"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, None},
 		{"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, None},
 		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, None},
+
+		// Health check Seshu Loop
+		{"/api/seshu-loop-health", "GET", handlers.GetSeshuLoopHealth, None},
 	}
 }
 
@@ -597,7 +601,7 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 // go routine
 func startSeshuLoop(ctx context.Context) {
 	go func() {
-		ticker := time.NewTicker(30 * time.Second)
+		ticker := time.NewTicker(seshulooptime)
 		defer ticker.Stop()
 
 		log.SetOutput(os.Stdout)
@@ -615,6 +619,8 @@ func startSeshuLoop(ctx context.Context) {
 					log.Printf("[INFO] Not the leader (IS_ACT_LEADER=%s). Skipping.", os.Getenv("IS_ACT_LEADER"))
 					continue
 				}
+
+				helpers.MarkSeshuLoopAlive() // Mark the loop as alive
 
 				// Build payload with lastUpdate time
 				payload := map[string]interface{}{
