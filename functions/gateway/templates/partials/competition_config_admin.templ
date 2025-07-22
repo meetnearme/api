@@ -22,7 +22,7 @@ templ CompetitionConfigAdminList(configs *[]internal_types.CompetitionConfig) {
 			for _, config := range *configs {
 				<tr class="border-t-2 border-base-300">
 					<td>
-						<a class="link link-primary" href={ templ.URL("/admin/competition/" + config.Id + "/edit") }>{ config.Name }</a>
+						<a class="link link-text" href={ templ.URL("/admin/competition/" + config.Id + "/edit") }>{ config.Name }</a>
 					</td>
 					<td>
 						{ helpers.FormatTimeMMDDYYYY(config.StartTime) }

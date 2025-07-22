@@ -90,6 +90,7 @@ type themeStyleTag struct{}
 func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	// Safely get the MNM_OPTIONS from context
 	mnmOptionsValue := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY)
+
 	if mnmOptionsValue == nil {
 		// If no options are set, return without error
 		return nil
@@ -118,7 +119,7 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 
 	primaryLinkColor := hexPrimaryColor
 
-	// Calculate adjusted color with modified luminance for link-primary
+	// Calculate adjusted color with modified luminance for link-text
 	c, err := colorful.Hex(hexPrimaryColor)
 	if err == nil {
 		// Convert to HSL to modify luminance
@@ -178,9 +179,6 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 				color: oklch(var(--b1));
 			}
 		}
-		.from-black\/70 {
-				--tw-gradient-from: rgb(255 255 255 / 0.7);
-		}
 		`
 	} else {
 		colorScheme = "color-scheme: dark;"
@@ -194,12 +192,12 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 				--fallback-p: %s;
 				--pc: %s;
 				--fallback-pc: %s;
-				--link-primary: %s;
+				--link-text: %s;
 				%s
 			}
 			%s
-			.link-primary {
-				color: var(--link-primary);
+			.link-text {
+				color: var(--link-text);
 			}
 		</style>`,
 		colorScheme,
@@ -217,7 +215,7 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 
 templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event, ctx context.Context, scripts []string) {
 	<!DOCTYPE html>
-	<html>
+	<html data-theme="auto">
 		<head>
 			if event.Id != "" && sitePage.Key == "event-detail" {
 				<title>Meet Near Me - { event.Name }</title>
@@ -231,7 +229,11 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap" rel="stylesheet"/>
 			// 🚨 WARNING 🚨 This filename is automatically updated by PostCSS
 			// ✅ DO commit it to version control whenever you see it change
-			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.fe5f3ce3.css") }/>
+			if os.Getenv("SST_STAGE") == "prod" {
+				<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.c3d38bd4.css") }/>
+			} else {
+				<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.css") }/>
+			}
 			{{ styleTag := themeStyleTag{} }}
 			@themeStyleTag(styleTag)
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>

@@ -665,7 +665,6 @@ func BulkGetWeaviateEventByID(ctx context.Context, client *weaviate.Client, docI
 			continue
 		}
 
-		log.Printf("ObjMap: %+v", objMap)
 		event, normalizeErr := NormalizeWeaviateResultToEvent(objMap)
 		if normalizeErr != nil {
 			log.Printf("Warning: Could not normalize Weaviate result: %v", normalizeErr)

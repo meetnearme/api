@@ -246,11 +246,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 							if userInfo.Email != "" {
 								<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
-										<div class="border-2 w-24 rounded-full">
+										<div class="border w-24 rounded-full">
 											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
 										</div>
 									</div>
-									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow-lg border-2 border-base-300">
+									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-4 shadow-lg border border-base-300">
 										@MiniProfileInNav(userInfo, ctx)
 									</div>
 								</div>
@@ -315,14 +315,14 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-			<div class="border-2 border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
+			<div class="border border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
 				<div class="block justify-end pb-5">
 					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click();"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
 				</div>
 				if userInfo.Email != "" {
 					<div class="p-2 m-1 card bg-base-200 lg:hidden">
 						<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
-							<div class="border-2 w-24 rounded-full">
+							<div class="border w-24 rounded-full">
 								<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
 							</div>
 							// <div class="w-10 rounded-full">
@@ -363,6 +363,27 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 							class="tab-content pt-4 relative"
 							@location-dropdown.window="locationDropdown = $event.detail.option;"
 						>
+							<h3 class="text-xl my-3">Search</h3>
+							<form id="query-search-form" novalidate>
+								<div class="join w-full">
+									<div class="w-full">
+										<input
+											id="search-input"
+											class="input join-item input-bordered w-full"
+											type="text"
+											placeholder="I want to exercise with a group"
+											x-model="Alpine.store('filters').q"
+											required
+										/>
+									</div>
+									<button
+										type="submit"
+										id="search-submit-btn"
+										@click.prevent="Alpine.store('filters').handleSearchSubmit($event, true)"
+										class="btn btn-primary join-item"
+									>Search</button>
+								</div>
+							</form>
 							<form
 								id="category-search-form"
 								novalidate
@@ -378,8 +399,6 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 								>
 									Apply Filters
 								</button>
-								<br/>
-								<br/>
 								// Source: https://www.penguinui.com/components/combobox
 								<div x-data="getLocationSearchState()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
 									<h3 class="text-xl my-3">
@@ -443,14 +462,15 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 												</svg>
 												<input
 													type="text"
-													class="w-full border-b py-2.5 pl-11 pr-4 text-sm focus:outline-none focus-visible:border-green-700 disabled:cursor-not-allowed disabled:opacity-75   dark:focus-visible:border-green-600"
+													class="w-full border-b py-2.5 pl-11 pr-4 text-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-75"
 													name="loc_search"
-													aria-label="Search"
+													aria-label="Search Locations"
 													@input.throttle="fetchLocations($event.target.value)"
 													x-ref="loc_search"
 													placeholder="Search"
 												/>
 											</div>
+											<progress :class="{ 'opacity-0': !isLoading }" class="progress absolute input-bottom h-2 w-full -m-[5px]"></progress>
 											<!-- Options  -->
 											<ul class="flex max-h-44 flex-col overflow-y-auto">
 												<li class="hidden px-4 py-2 text-sm" x-ref="noResultsMessage">
@@ -479,8 +499,6 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 										</div>
 									</div>
 								</div>
-								<br/>
-								<br/>
 								<h3 class="text-xl my-3">Distance</h3>
 								<div class="flex items-center">
 									<label class="form-control w-full max-w-xs">
@@ -500,8 +518,6 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 										</select>
 									</label>
 								</div>
-								<br/>
-								<br/>
 								<h3 class="text-xl my-3">Categories</h3>
 								@NestedCheckboxList(false, []string{})
 							</form>

@@ -147,10 +147,13 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	events := res.Events
 	listMode := r.URL.Query().Get("list_mode")
-	// Sort events by StartTime
-	sort.Slice(events, func(i, j int) bool {
-		return events[i].StartTime < events[j].StartTime
-	})
+
+	// Only sort by StartTime if there's no search query (preserve Weaviate's relevance order)
+	if q == "" {
+		sort.Slice(events, func(i, j int) bool {
+			return events[i].StartTime < events[j].StartTime
+		})
+	}
 
 	eventListPartial := pages.EventsInner(events, listMode)
 

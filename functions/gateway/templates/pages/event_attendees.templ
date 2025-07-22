@@ -32,7 +32,7 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 				<a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>Edit Event</a>
 			</header>
 			<h2 class="card-title sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Purchases</h2>
-			<div id="tickets-sales" class="card border-2 border-base-300 bg-base-200 p-10 rounded-box overflow-scroll">
+			<div id="tickets-sales" class="card border border-base-300 bg-base-200 p-10 rounded-box overflow-scroll">
 				<div>
 					<template x-if="!hasPurchasesResults && hasPurchasable">
 						<div class="flex w-full flex-col gap-4">
@@ -64,7 +64,7 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 												<p x-text="purchase.user_display_name"></p>
 												<p x-text="purchase.user_email"></p>
 												<p>
-													<a class="link link-primary" :href="`/user/${purchase.user_id}`" x-text="purchase.user_id"></a>
+													<a class="link link-text" :href="`/user/${purchase.user_id}`" x-text="purchase.user_id"></a>
 												</p>
 											</td>
 											<td x-text="purchase.status"></td>
