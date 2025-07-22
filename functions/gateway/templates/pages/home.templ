@@ -668,7 +668,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							}))
 						})
 						.catch(error => {
-              // eslint-disable-next-line no-console
+							// eslint-disable-next-line no-console
 							console.error('Error fetching locations:', error);
 							return [];
 						})
