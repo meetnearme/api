@@ -465,8 +465,6 @@ func SearchWeaviateEvents(
 		finalWhereFilter = (&filters.WhereBuilder{}).WithOperator(filters.And).WithOperands(whereOperands)
 		// filterBytes, _ := json.MarshalIndent(finalWhereFilter, "", "  ")
 		// whereFilterForResponse = string(filterBytes)
-	} else {
-		log.Printf("DEBUG: No 'where' filter operands were added.")
 	}
 
 	// --- Step 3: Define Response Fields ---

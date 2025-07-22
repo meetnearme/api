@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 
+	"github.com/araddon/dateparse"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -275,8 +276,250 @@ func cleanUnicodeText(text string) string {
 	return strings.TrimSpace(regexp.MustCompile(`\s+`).ReplaceAllString(result.String(), " "))
 }
 
-// findEventData extracts event data from Facebook events pages
-func FindEventData(htmlContent string) ([]internal_types.EventInfo, error) {
+// Check if URL is a Facebook events page
+func IsFacebookEventsURL(targetURL string) bool {
+	// Pattern: facebook.com/<any string>/events
+	pattern := regexp.MustCompile(`facebook\.com\/[^\/]+\/events`)
+	return pattern.MatchString(targetURL)
+}
+
+// ParseFlexibleDatetime attempts to parse a date string using various formats and timezone detection
+// Returns unix timestamp and error. If the string doesn't look date-like, returns an error.
+func ParseFlexibleDatetime(dateStr string, fallbackTimezone *time.Location) (int64, error) {
+
+	if dateStr == "" {
+		return 0, fmt.Errorf("empty date string")
+	}
+
+	// Set fallback timezone if not provided
+	if fallbackTimezone == nil {
+		fallbackTimezone = time.UTC
+	} else {
+	}
+
+	// Try to parse with dateparse library which handles many formats and validation
+	parsedTime, err := dateparse.ParseAny(dateStr)
+	if err != nil {
+		// If dateparse fails, try some Facebook-specific patterns
+		return tryFacebookDateFormats(dateStr, fallbackTimezone)
+	}
+
+	// If dateparse succeeded but the time has no timezone info (Local),
+	// assume it's in the fallback timezone
+	if parsedTime.Location() == time.Local {
+		// Re-interpret the time components in the fallback timezone
+		adjustedTime := time.Date(
+			parsedTime.Year(),
+			parsedTime.Month(),
+			parsedTime.Day(),
+			parsedTime.Hour(),
+			parsedTime.Minute(),
+			parsedTime.Second(),
+			parsedTime.Nanosecond(),
+			fallbackTimezone,
+		)
+		return adjustedTime.Unix(), nil
+	}
+
+	return parsedTime.Unix(), nil
+}
+
+// tryFacebookDateFormats attempts to parse Facebook-specific date formats
+func tryFacebookDateFormats(dateStr string, fallbackTimezone *time.Location) (int64, error) {
+
+	// Facebook formats we've seen:
+	// "Sat, Jul 26 at 3:00 PM CDT"
+	// "Fri, Jul 25 - Jul 26"
+	// "Saturday, July 26 at 3:00 PM"
+
+	// Handle timezone abbreviations that Go doesn't recognize by default
+	// Note: Some abbreviations are ambiguous (e.g., CST can mean Central/China/Cuba Standard Time)
+	// This mapping prioritizes the most commonly used interpretation
+	timezoneMap := map[string]string{
+		// North America - United States
+		"CDT":  "America/Chicago",     // Central Daylight Time
+		"CST":  "America/Chicago",     // Central Standard Time (US - most common usage)
+		"EDT":  "America/New_York",    // Eastern Daylight Time
+		"EST":  "America/New_York",    // Eastern Standard Time
+		"PDT":  "America/Los_Angeles", // Pacific Daylight Time
+		"PST":  "America/Los_Angeles", // Pacific Standard Time
+		"MDT":  "America/Denver",      // Mountain Daylight Time
+		"MST":  "America/Denver",      // Mountain Standard Time
+		"AKDT": "America/Anchorage",   // Alaska Daylight Time
+		"AKST": "America/Anchorage",   // Alaska Standard Time
+		"HDT":  "America/Adak",        // Hawaii-Aleutian Daylight Time
+		"HST":  "Pacific/Honolulu",    // Hawaii Standard Time (most common usage)
+
+		// North America - Canada
+		"ADT": "America/Halifax",  // Atlantic Daylight Time
+		"AST": "America/Halifax",  // Atlantic Standard Time (most common usage)
+		"NDT": "America/St_Johns", // Newfoundland Daylight Time
+		"NST": "America/St_Johns", // Newfoundland Standard Time
+
+		// Europe
+		"CET":  "Europe/Paris",  // Central European Time
+		"CEST": "Europe/Paris",  // Central European Summer Time
+		"EET":  "Europe/Athens", // Eastern European Time
+		"EEST": "Europe/Athens", // Eastern European Summer Time
+		"WET":  "Europe/Lisbon", // Western European Time
+		"WEST": "Europe/Lisbon", // Western European Summer Time
+		"GMT":  "Europe/London", // Greenwich Mean Time
+		"BST":  "Europe/London", // British Summer Time (most common usage)
+		"IST":  "Asia/Kolkata",  // India Standard Time (most common usage - large population)
+		"MSK":  "Europe/Moscow", // Moscow Standard Time
+
+		// Asia - China/East Asia
+		"JST": "Asia/Tokyo",     // Japan Standard Time
+		"KST": "Asia/Seoul",     // Korea Standard Time
+		"HKT": "Asia/Hong_Kong", // Hong Kong Time
+		"CTT": "Asia/Shanghai",  // China Standard Time (using CTT to avoid CST conflict)
+
+		// Asia - South/Southeast Asia
+		"PKT":  "Asia/Karachi",      // Pakistan Standard Time
+		"NPT":  "Asia/Kathmandu",    // Nepal Time
+		"ICT":  "Asia/Bangkok",      // Indochina Time
+		"WIB":  "Asia/Jakarta",      // Western Indonesian Time
+		"WITA": "Asia/Makassar",     // Central Indonesian Time
+		"WIT":  "Asia/Jayapura",     // Eastern Indonesian Time
+		"PHT":  "Asia/Manila",       // Philippine Time
+		"SGT":  "Asia/Singapore",    // Singapore Time
+		"MYT":  "Asia/Kuala_Lumpur", // Malaysia Time
+
+		// Asia - Middle East
+		"GST":  "Asia/Dubai",  // Gulf Standard Time
+		"IRST": "Asia/Tehran", // Iran Standard Time
+		"IRDT": "Asia/Tehran", // Iran Daylight Time
+
+		// Asia - Central Asia
+		"UZT":  "Asia/Tashkent", // Uzbekistan Time
+		"TMT":  "Asia/Ashgabat", // Turkmenistan Time
+		"TJT":  "Asia/Dushanbe", // Tajikistan Time
+		"KGT":  "Asia/Bishkek",  // Kyrgyzstan Time
+		"ALMT": "Asia/Almaty",   // Alma-Ata Time
+
+		// Asia - Russia
+		"YEKT": "Asia/Yekaterinburg", // Yekaterinburg Time
+		"OMST": "Asia/Omsk",          // Omsk Time
+		"KRAT": "Asia/Krasnoyarsk",   // Krasnoyarsk Time
+		"IRKT": "Asia/Irkutsk",       // Irkutsk Time
+		"YAKT": "Asia/Yakutsk",       // Yakutsk Time
+		"VLAT": "Asia/Vladivostok",   // Vladivostok Time
+		"MAGT": "Asia/Magadan",       // Magadan Time
+		"PETT": "Asia/Kamchatka",     // Kamchatka Time
+		"ANAT": "Asia/Anadyr",        // Anadyr Time
+
+		// Africa
+		"CAT":  "Africa/Maputo",       // Central Africa Time
+		"EAT":  "Africa/Nairobi",      // East Africa Time
+		"WAT":  "Africa/Lagos",        // West Africa Time
+		"SAST": "Africa/Johannesburg", // South African Standard Time
+
+		// Australia/Oceania
+		"AEST": "Australia/Sydney",   // Australian Eastern Standard Time
+		"AEDT": "Australia/Sydney",   // Australian Eastern Daylight Time
+		"ACST": "Australia/Adelaide", // Australian Central Standard Time
+		"ACDT": "Australia/Adelaide", // Australian Central Daylight Time
+		"AWST": "Australia/Perth",    // Australian Western Standard Time
+		"NZST": "Pacific/Auckland",   // New Zealand Standard Time
+		"NZDT": "Pacific/Auckland",   // New Zealand Daylight Time
+		"CHST": "Pacific/Guam",       // Chamorro Standard Time
+
+		// South America
+		"ART":  "America/Argentina/Buenos_Aires", // Argentina Time
+		"BRT":  "America/Sao_Paulo",              // Brasília Time
+		"BRST": "America/Sao_Paulo",              // Brasília Summer Time
+		"CLT":  "America/Santiago",               // Chile Standard Time
+		"CLST": "America/Santiago",               // Chile Summer Time
+		"COT":  "America/Bogota",                 // Colombia Time
+		"PET":  "America/Lima",                   // Peru Time
+		"VET":  "America/Caracas",                // Venezuelan Standard Time
+		"UYT":  "America/Montevideo",             // Uruguay Standard Time
+		"UYST": "America/Montevideo",             // Uruguay Summer Time
+		"PYT":  "America/Asuncion",               // Paraguay Time
+		"PYST": "America/Asuncion",               // Paraguay Summer Time
+		"BOT":  "America/La_Paz",                 // Bolivia Time
+		"ECT":  "America/Guayaquil",              // Ecuador Time
+		"GYT":  "America/Guyana",                 // Guyana Time
+		"SRT":  "America/Paramaribo",             // Suriname Time
+		"GFT":  "America/Cayenne",                // French Guiana Time
+
+		// Additional common abbreviations
+		"UTC":  "UTC",                // Coordinated Universal Time
+		"CADT": "Australia/Adelaide", // Central Australia Daylight Time (deprecated)
+		"CAST": "Australia/Adelaide", // Central Australia Standard Time (deprecated)
+		"EAST": "Australia/Sydney",   // Eastern Australia Standard Time (deprecated)
+		"EADT": "Australia/Sydney",   // Eastern Australia Daylight Time (deprecated)
+		"NZT":  "Pacific/Auckland",   // New Zealand Time (deprecated)
+	}
+
+	// Build regex pattern dynamically from all timezone abbreviations in the map
+	var tzAbbreviations []string
+	for abbr := range timezoneMap {
+		tzAbbreviations = append(tzAbbreviations, abbr)
+	}
+	tzPatternStr := `\b(` + strings.Join(tzAbbreviations, "|") + `)\b`
+	tzPattern := regexp.MustCompile(tzPatternStr)
+
+	// Try to extract timezone from the string
+	tzMatch := tzPattern.FindString(dateStr)
+
+	targetTimezone := fallbackTimezone
+	if tzMatch != "" {
+		if tzName, exists := timezoneMap[tzMatch]; exists {
+			if loc, err := time.LoadLocation(tzName); err == nil {
+				targetTimezone = loc
+			}
+		}
+		// Remove timezone from string for parsing
+		dateStr = tzPattern.ReplaceAllString(dateStr, "")
+	}
+
+	// Current year for dates that don't specify year
+	currentYear := time.Now().Year()
+
+	cleanedDateStr := strings.TrimSpace(dateStr)
+
+	// Handle date ranges by splitting on '-' or '|' and keeping only the left side
+	// Examples: "Fri, Jul 25 - Jul 26" -> "Fri, Jul 25"
+	if strings.Contains(cleanedDateStr, " - ") {
+		cleanedDateStr = strings.TrimSpace(strings.Split(cleanedDateStr, " - ")[0])
+	} else if strings.Contains(cleanedDateStr, " | ") {
+		cleanedDateStr = strings.TrimSpace(strings.Split(cleanedDateStr, " | ")[0])
+	}
+
+	// Try various Facebook-style formats
+	formats := []string{
+		"Mon, Jan 2 at 3:04 PM",        // "Sat, Jul 26 at 3:00 PM"
+		"Monday, January 2 at 3:04 PM", // "Saturday, July 26 at 3:00 PM"
+		"Mon, Jan 2",                   // "Sat, Jul 26"
+		"Monday, January 2",            // "Saturday, July 26"
+		"Jan 2 at 3:04 PM",             // "Jul 26 at 3:00 PM"
+		"January 2 at 3:04 PM",         // "July 26 at 3:00 PM"
+		// New formats for day-month order and 24-hour time
+		"Mon, 2 Jan at 15:04",        // "Sat, 26 Jul at 15:00"
+		"Monday, 2 January at 15:04", // "Saturday, 26 July at 15:00"
+		"Mon, 2 Jan",                 // "Sat, 26 Jul"
+		"Monday, 2 January",          // "Saturday, 26 January"
+		"2 Jan at 15:04",             // "26 Jul at 15:00"
+		"2 January at 15:04",         // "26 July at 15:00"
+	}
+
+	for _, format := range formats {
+		if parsedTime, err := time.ParseInLocation(format, cleanedDateStr, targetTimezone); err == nil {
+			// If no year was parsed, assume current year
+			if parsedTime.Year() == 0 {
+				parsedTime = parsedTime.AddDate(currentYear, 0, 0)
+			}
+			return parsedTime.Unix(), nil
+		}
+	}
+
+	return 0, fmt.Errorf("unable to parse date format: %s", dateStr)
+}
+
+// FindFacebookEventData extracts event data from Facebook events pages specifically
+func FindFacebookEventData(htmlContent string) ([]internal_types.EventInfo, error) {
+
 	// First, check if the HTML contains event data
 	if !strings.Contains(htmlContent, `"__typename":"Event"`) {
 		return nil, fmt.Errorf("no Facebook event data found (no __typename: Event)")
@@ -304,11 +547,8 @@ func FindEventData(htmlContent string) ([]internal_types.EventInfo, error) {
 	// Clean up the script content (remove extra whitespace)
 	eventScriptContent = strings.TrimSpace(eventScriptContent)
 
-	// Log the JSON for debugging
-	fmt.Printf("DEBUG: Found event script content (first 1000 chars):\n%s\n", eventScriptContent[:min(1000, len(eventScriptContent))])
-
 	// Extract events from the JSON content
-	events := extractEventsFromJSON(eventScriptContent)
+	events := ExtractEventsFromJSON(eventScriptContent)
 
 	if len(events) == 0 {
 		return nil, fmt.Errorf("no valid events extracted from JSON content")
@@ -317,8 +557,9 @@ func FindEventData(htmlContent string) ([]internal_types.EventInfo, error) {
 	return events, nil
 }
 
-// extractEventsFromJSON extracts events from JSON content
-func extractEventsFromJSON(jsonContent string) []internal_types.EventInfo {
+// ExtractEventsFromJSON extracts events from JSON content - exported for use as callback
+func ExtractEventsFromJSON(jsonContent string) []internal_types.EventInfo {
+
 	var events []internal_types.EventInfo
 	eventID := 1
 
@@ -327,6 +568,7 @@ func extractEventsFromJSON(jsonContent string) []internal_types.EventInfo {
 	eventMatches := eventPattern.FindAllStringSubmatch(jsonContent, -1)
 
 	for _, match := range eventMatches {
+
 		if len(match) >= 3 {
 			title := cleanUnicodeText(match[1])
 			url := unescapeJSON(match[2]) // Unescape the URL
@@ -355,41 +597,35 @@ func extractEventsFromJSON(jsonContent string) []internal_types.EventInfo {
 				organizer = cleanUnicodeText(unescapeJSON(organizerMatches[1])) // Unescape organizer
 			}
 
-			fmt.Printf("DEBUG: Event %d - Title: %s, URL: %s, Date: %s, Location: %s, Organizer: %s\n",
-				eventID, title, url, date, location, organizer)
-
 			// Only add events with required fields
 			if title != "" && url != "" {
-				// events = append(events, EventFb{
-				// 	ID:        eventID,
-				// 	Date:      date,
-				// 	Title:     title,
-				// 	URL:       url,
-				// 	Location:  location,
-				// 	Organizer: organizer,
-				// })
+				fmt.Printf("DEBUG: Event %d - Title: %s, URL: %s, Date: %s, Location: %s, Organizer: %s\n",
+					eventID, title, url, date, location, organizer)
 
-				// TODO: can golang `time` package handle loose dates like
-				// this one `Fri, Jul 25 - Jul 26`
+				// Try to parse the date with flexible parsing
+				// Default to Central Time for Facebook events (most US events)
+				centralTZ, _ := time.LoadLocation("America/Chicago")
+				_, dateErr := ParseFlexibleDatetime(date, centralTZ)
 
-				dateTime, err := time.Parse("Mon, Jan 2, 2006 15:04", date)
-				if err != nil {
+				// Only include events where we can parse the date successfully
+				// This validates that the date string contains actual date information
+				if dateErr != nil {
 					continue
 				}
-
-				log.Printf("DEBUG: Parsed date: %s", dateTime)
 
 				events = append(events, internal_types.EventInfo{
 					EventTitle:       title,
 					EventLocation:    location,
-					EventStartTime:   date,
-					EventEndTime:     date,
+					EventStartTime:   date, // Keep raw date for display
+					EventEndTime:     date, // Keep raw date for display
 					EventURL:         url,
 					EventDescription: "",
 					EventSource:      "facebook",
+					// TODO: Add parsed timestamp field to EventInfo struct for proper time handling
 				})
 				eventID++
 			}
+		} else {
 		}
 	}
 
