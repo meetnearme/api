@@ -3,43 +3,35 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-let previousHash = '';
-let previousTemplateHash = '';
-
 function updateCSSFiles(css, result) {
-  const resultString = JSON.stringify(result.messages);
-  const combinedContent = css + resultString;
-  const newHash = crypto.createHash('md5').update(combinedContent).digest('hex').slice(0, 8);
-
   // Define paths
   const baseStylesPath = './static/assets/styles';
-  const tempFile = `${baseStylesPath}.css`;
-
-  // Add initial file creation
-  if (!fs.existsSync(tempFile)) {
-    console.log('Creating initial styles.css file');
-    fs.writeFileSync(tempFile, css);
-  }
-
-  const newFileName = `${baseStylesPath}.${newHash}.css`;
   const templatePath = 'functions/gateway/templates/pages/layout.templ';
-  // Always copy the file in production mode
-  // eslint-disable-next-line no-undef
-  if (process.env.NODE_ENV === 'production') {
-    if (fs.existsSync(tempFile)) {
-      fs.copyFileSync(tempFile, newFileName);
 
-      // Update template with new hash
-      if (fs.existsSync(templatePath)) {
-        const template = fs.readFileSync(templatePath, 'utf8');
-        const pattern = /styles\..*?\.css/;
-        const updatedTemplate = template.replace(pattern, `styles.${newHash}.css`);
-        fs.writeFileSync(templatePath, updatedTemplate);
-      }
+  // if (process.env.NODE_ENV === 'production') {
+  if (process.env.SST_STAGE === 'prod') {
+    const resultString = JSON.stringify(result.messages);
+    const combinedContent = css + resultString;
+    const newHash = crypto.createHash('md5').update(combinedContent).digest('hex').slice(0, 8);
 
-      console.log(`📦 Production CSS generated: ${newFileName}`);
-      return;
+    const newFileName = `${baseStylesPath}.${newHash}.css`;
+    fs.writeFileSync(tempFile, css);
+
+    // Update template with new hash
+    if (fs.existsSync(templatePath)) {
+      const template = fs.readFileSync(templatePath, 'utf8');
+      const pattern = /styles\..*?\.css/;
+      const updatedTemplate = template.replace(pattern, `styles.${newHash}.css`);
+      fs.writeFileSync(templatePath, updatedTemplate);
     }
+
+    console.log(`Production CSS generated: ${newFileName}`);
+    return;
+  } else {
+    const devFile = `${baseStylesPath}.css`;
+    fs.writeFileSync(devFile, css);
+    console.log(`Development CSS updated: ${devFile}`);
+    return;
   }
 
   // Rest of the watch mode logic

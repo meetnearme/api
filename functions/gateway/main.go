@@ -605,10 +605,12 @@ func main() {
 			WriteTimeout: 15 * time.Second,
 			ReadTimeout:  15 * time.Second,
 		}
+		log.Println("~~111")
 
 		if err := srv.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
+
 	} else {
 		adapter := gorillamux.NewV2(app.Router)
 

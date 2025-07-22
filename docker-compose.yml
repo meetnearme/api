@@ -60,13 +60,15 @@ services:
   go-app:
     build:
       context: .
-      dockerfile: Dockerfile.go.dev
-      # dockerfile: Dockerfile.go.prod
+      dockerfile: Dockerfile
+      target: development
+    image: meetnearme-go-app:dev
     container_name: meetnearme-go-app
     ports:
       - "${APP_PORT_HOST:-8000}:${APP_PORT:-8000}"
     environment:
       SST_STAGE: ${SST_STAGE:-DEV}
+      NODE_ENV: development
       DEPLOYMENT_TARGET: ${DEPLOYMENT_TARGET:-ACT}
       _LAMBDA_SERVER_PORT: ""
       AWS_LAMBDA_RUNTIME_API: ""
@@ -81,12 +83,22 @@ services:
       WEAVIATE_SCHEME: http
       WEAVIATE_HOST: weaviate
       WEAVIATE_PORT: 8080
+
+      # for debugging air
+      AIR_DEBUG: 1
     env_file:
       - .env
     volumes:
-      - ./docker_build/:/go-app
-      - ./supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
-      - ./.env:/app-static/.env
+      # Mount entire project for development
+      - .:/go-app
+      # Exclude build artifacts and dependencies
+      - /go-app/node_modules
+      - /go-app/docker_build
+      - /go-app/.git
+      - /go-app/.sst
+      # Cache Go modules
+      - go-mod-cache:/go/pkg/mod
+      # - go-build-cache:/root/.cache/go-build
     depends_on:
       postgres:
         condition: service_healthy
@@ -97,3 +109,6 @@ services:
 volumes:
   postgres_data:
   weaviate_data:
+  # New volumes for caching go mod and build
+  go-mod-cache:
+  # go-build-cache:
