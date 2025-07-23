@@ -28,8 +28,9 @@ type PostgresServiceInterface interface {
 }
 
 type NatsServiceInterface interface {
-	GetTopOfQueue(ctx context.Context) (*jetstream.RawStreamMsg, error)
+	PeekTopOfQueue(ctx context.Context) (*jetstream.RawStreamMsg, error)
 	PublishMsg(ctx context.Context, job interface{}) error
+	ConsumeMsg(ctx context.Context, workers int) error
 	Close() error
 }
 
