@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -32,7 +34,7 @@ func NewNatsService(ctx context.Context, conn *nats.Conn) (*NatsService, error) 
 
 	if err != nil {
 
-		fmt.Printf("Stream %s does not exist, creating it...\n", "SESJU_JOBS_STREAM")
+		fmt.Printf("Stream %s does not exist, creating it...\n", streamName)
 
 		_, err = js.CreateStream(ctx, jetstream.StreamConfig{ // create stream if it does not exist
 			Name:     streamName,
@@ -58,10 +60,55 @@ func GetNatsClient() (*nats.Conn, error) {
 	return nats.Connect(url)
 }
 
-func (s *NatsService) GetTopOfQueue(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+// func (s *NatsService) PeekTopOfQueue(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+// 	stream, err := s.js.Stream(ctx, streamName)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to get stream: %w", err)
+// 	}
 
-	stream, _ := s.js.Stream(ctx, streamName)
-	msg, _ := stream.GetLastMsgForSubject(ctx, subjectName)
+// 	msg, _ := stream.GetLastMsgForSubject(ctx, streamName)
+
+// 	return msg, nil
+// }
+
+func (s *NatsService) PeekTopOfQueue(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+	stream, err := s.js.Stream(ctx, streamName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stream: %w", err)
+	}
+
+	// Use a dedicated durable for peeking
+	consumer, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
+		Durable:       "peek-durable",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		DeliverPolicy: jetstream.DeliverAllPolicy,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create consumer: %w", err)
+	}
+
+	// Step 1: check if the queue is empty
+	info, err := consumer.Info(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get consumer info: %w", err)
+	}
+
+	infoBytes, err := json.MarshalIndent(info, "", "  ")
+	if err != nil {
+		log.Printf("Failed to marshal consumer info: %v\n", err)
+		return nil, err
+	}
+
+	log.Printf("Consumer Info:\n%s\n", string(infoBytes))
+
+	if info.NumPending == 0 {
+		return nil, nil
+	}
+
+	msg, err := stream.GetLastMsgForSubject(ctx, subjectName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get last message: %w", err)
+	}
 
 	return msg, nil
 }
@@ -73,15 +120,26 @@ func (s *NatsService) PublishMsg(ctx context.Context, job interface{}) error {
 		return fmt.Errorf("failed to marshal job: %w", err)
 	}
 
-	_, err = s.js.PublishMsg(ctx, &nats.Msg{
-		Data:    data,
-		Subject: subjectName,
-	})
-
+	_, err = s.js.Publish(ctx, subjectName, data)
 	if err != nil {
 		return fmt.Errorf("failed to publish message: %w", err)
 	}
 
+	return nil
+}
+
+func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
+
+	consumer, err := s.js.CreateOrUpdateConsumer(ctx, streamName, jetstream.ConsumerConfig{
+		Name:        "consumer",
+		Durable:     "seshu-consumer",
+		Description: "Consumer for processing jobs",
+		BackOff: []time.Duration{
+			5 * time.Second,
+		},
+		FilterSubject: subjectName,
+		AckPolicy:     jetstream.AckExplicitPolicy,
+	})
 	return nil
 }
 
