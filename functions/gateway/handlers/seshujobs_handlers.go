@@ -153,7 +153,7 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 
 	// Call NATS to look at the top of the queue for jobs
 	log.Println("Checking top of NATS queue...")
-	topOfQueue, err := nats.GetTopOfQueue(r.Context())
+	topOfQueue, err := nats.PeekTopOfQueue(r.Context())
 
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to get top of NATS queue:"+err.Error()), http.StatusBadRequest)
