@@ -813,15 +813,9 @@ func main() {
 		srv := &http.Server{
 			Handler: loggingRouter,
 			Addr:    "0.0.0.0:8000",
-<<<<<<< HEAD
-			// Good practice: enforce timeouts for servers you create!
-			WriteTimeout: 60 * time.Second,
-			ReadTimeout:  60 * time.Second,
-=======
 			// Increased timeouts to accommodate Facebook scraping (can take up to 60s)
 			WriteTimeout: 120 * time.Second, // 2 minutes for response writing
 			ReadTimeout:  120 * time.Second, // 2 minutes for request reading
->>>>>>> 9d5e27061d1144999738033ff3e86e8106ca1c6a
 		}
 
 		go func() {
