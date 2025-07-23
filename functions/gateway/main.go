@@ -3,6 +3,7 @@ package main
 // TODO: test "endTime" and add to UI
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -14,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,12 +37,19 @@ import (
 
 type AuthType string
 
+var (
+	seshulooptimecount int
+)
+
 const (
 	None               AuthType = "none"
 	Check              AuthType = "check"
 	Require            AuthType = "require"
 	RequireServiceUser AuthType = "require_service_user"
 	seshulooptime               = 30 * time.Second
+	maxseshuloopcount           = 10
+	seshuCronWorkers            = 1
+	timestampFile               = "last_update.txt"
 )
 
 type Route struct {
@@ -598,55 +607,176 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 	})
 }
 
-// go routine
+// // go routine
+// func startSeshuLoop(ctx context.Context) {
+// 	go func() {
+// 		ticker := time.NewTicker(seshulooptime)
+// 		defer ticker.Stop()
+
+// 		log.SetOutput(os.Stdout)
+
+// 		lastUpdate := time.Now().UTC().Unix()
+
+// 		for {
+// 			select {
+// 			case <-ctx.Done():
+// 				log.Println("[INFO] Seshu loop stopped by context.")
+// 				return
+
+// 			case <-ticker.C:
+// 				if os.Getenv("IS_ACT_LEADER") != "true" {
+// 					log.Printf("[INFO] Not the leader (IS_ACT_LEADER=%s). Skipping.", os.Getenv("IS_ACT_LEADER"))
+// 					continue
+// 				}
+
+// 				helpers.MarkSeshuLoopAlive() // Mark the loop as alive
+
+// 				// Build payload with lastUpdate time
+// 				payload := map[string]interface{}{
+// 					"time": lastUpdate,
+// 				}
+// 				jsonData, _ := json.Marshal(payload)
+
+// 				resp, err := http.Post("http://localhost:8000/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
+// 				if err != nil {
+// 					log.Printf("[ERROR] Failed to send request: %v", err)
+// 					continue
+// 				}
+// 				defer resp.Body.Close()
+
+// 				var body bytes.Buffer
+// 				body.ReadFrom(resp.Body)
+// 				if bytes.Contains(body.Bytes(), []byte("successful")) {
+// 					log.Println("[INFO] Job triggered successfully.")
+// 				} else {
+// 					log.Println("[INFO] Skipped.")
+// 				}
+
+// 				lastUpdate = time.Now().UTC().Unix() // update in-memory timestamp
+// 			}
+// 		}
+// 	}()
+// }
+
 func startSeshuLoop(ctx context.Context) {
-	go func() {
-		ticker := time.NewTicker(seshulooptime)
-		defer ticker.Stop()
+	ticker := time.NewTicker(seshulooptime)
+	defer ticker.Stop()
 
-		log.SetOutput(os.Stdout)
+	log.SetOutput(os.Stdout)
 
-		lastUpdate := time.Now().UTC().Unix()
+	lastUpdate := readLastLine(timestampFile)
+	seshulooptimecount = 0
 
-		for {
-			select {
-			case <-ctx.Done():
-				log.Println("[INFO] Seshu loop stopped by context.")
-				return
-
-			case <-ticker.C:
-				if os.Getenv("IS_ACT_LEADER") != "true" {
-					log.Printf("[INFO] Not the leader (IS_ACT_LEADER=%s). Skipping.", os.Getenv("IS_ACT_LEADER"))
-					continue
-				}
-
-				helpers.MarkSeshuLoopAlive() // Mark the loop as alive
-
-				// Build payload with lastUpdate time
-				payload := map[string]interface{}{
-					"time": lastUpdate,
-				}
-				jsonData, _ := json.Marshal(payload)
-
-				resp, err := http.Post("http://localhost:8000/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
-				if err != nil {
-					log.Printf("[ERROR] Failed to send request: %v", err)
-					continue
-				}
-				defer resp.Body.Close()
-
-				var body bytes.Buffer
-				body.ReadFrom(resp.Body)
-				if bytes.Contains(body.Bytes(), []byte("successful")) {
-					log.Println("[INFO] Job triggered successfully.")
-				} else {
-					log.Println("[INFO] Skipped.")
-				}
-
-				lastUpdate = time.Now().UTC().Unix() // update in-memory timestamp
-			}
-		}
+	defer func() {
+		appendTimestamp("last_update.txt", lastUpdate) // Write on graceful shutdown
 	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("[INFO] Seshu loop stopped by context.")
+			return
+
+		case <-ticker.C:
+			if os.Getenv("IS_ACT_LEADER") != "true" {
+				log.Printf("[INFO] Not the leader (IS_ACT_LEADER=%s). Skipping.", os.Getenv("IS_ACT_LEADER"))
+				continue
+			}
+
+			// helpers.MarkSeshuLoopAlive()
+
+			payload := map[string]interface{}{
+				"time": lastUpdate,
+			}
+			jsonData, _ := json.Marshal(payload)
+
+			resp, err := http.Post("http://localhost:8000/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
+			if err != nil {
+				log.Printf("[ERROR] Failed to send request: %v", err)
+				continue
+			}
+			defer resp.Body.Close()
+
+			var body bytes.Buffer
+			body.ReadFrom(resp.Body)
+
+			if bytes.Contains(body.Bytes(), []byte("successful")) {
+				log.Println("[INFO] Job triggered successfully.")
+				log.Printf("[INFO] counter: %d", seshulooptimecount)
+				seshulooptimecount++
+				if seshulooptimecount >= maxseshuloopcount { // limit write frequency
+					appendTimestamp("last_update.txt", lastUpdate)
+					seshulooptimecount = 0
+				}
+			} else {
+				log.Println("[INFO] Skipped.")
+			}
+
+			lastUpdate = time.Now().UTC().Unix()
+		}
+	}
+}
+
+func ensureTimestampFileExists(file string) error {
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		log.Printf("[INFO] File %s does not exist. Creating it...", file)
+		f, err := os.Create(file)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		//write initial value (e.g., current timestamp)
+		_, err = f.WriteString(fmt.Sprintf("%d\n", time.Now().UTC().Unix()))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Helper to read the last non-empty line (last timestamp) from a file
+func readLastLine(path string) int64 {
+	file, err := os.Open(path)
+	if err != nil {
+		log.Printf("[WARN] Could not open timestamp file. Using current time. Error: %v", err)
+		return time.Now().UTC().Unix()
+	}
+	defer file.Close()
+
+	var lastLine string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			lastLine = line
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Printf("[WARN] Error reading timestamp file. Using current time. Error: %v", err)
+		return time.Now().UTC().Unix()
+	}
+
+	timestamp, err := strconv.ParseInt(lastLine, 10, 64)
+	if err != nil {
+		log.Printf("[WARN] Invalid last line in timestamp file. Using current time. Error: %v", err)
+		return time.Now().UTC().Unix()
+	}
+	return timestamp
+}
+
+// Helper to append a new timestamp line to the file
+func appendTimestamp(path string, timestamp int64) {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Printf("[ERROR] Could not open timestamp file for writing: %v", err)
+		return
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(fmt.Sprintf("%d\n", timestamp)); err != nil {
+		log.Printf("[ERROR] Failed to append timestamp to file: %v", err)
+	}
 }
 
 func main() {
@@ -656,6 +786,8 @@ func main() {
 	app := NewApp()
 	app.InitializeAuth()
 	app.SetupNotFoundHandler()
+
+	ensureTimestampFileExists(timestampFile)
 
 	// This is the package level instance of Db in handlers
 	_ = transport.GetDB()
@@ -682,8 +814,8 @@ func main() {
 			Handler: loggingRouter,
 			Addr:    "0.0.0.0:8000",
 			// Good practice: enforce timeouts for servers you create!
-			WriteTimeout: 15 * time.Second,
-			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 60 * time.Second,
+			ReadTimeout:  60 * time.Second,
 		}
 
 		go func() {
@@ -692,7 +824,17 @@ func main() {
 			}
 		}()
 
-		startSeshuLoop(seshuCtx)
+		app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers)
+		// go func() {
+		// 	if err := app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers); err != nil {
+		// 		log.Printf("[ERROR] ConsumeMsg failed: %v", err)
+		// 	}
+		// }()
+
+		go func() {
+			startSeshuLoop(seshuCtx)
+		}()
+
 		select {}
 
 	} else {
