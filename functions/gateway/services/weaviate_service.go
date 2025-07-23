@@ -465,8 +465,6 @@ func SearchWeaviateEvents(
 		finalWhereFilter = (&filters.WhereBuilder{}).WithOperator(filters.And).WithOperands(whereOperands)
 		// filterBytes, _ := json.MarshalIndent(finalWhereFilter, "", "  ")
 		// whereFilterForResponse = string(filterBytes)
-	} else {
-		log.Printf("DEBUG: No 'where' filter operands were added.")
 	}
 
 	// --- Step 3: Define Response Fields ---
@@ -665,7 +663,6 @@ func BulkGetWeaviateEventByID(ctx context.Context, client *weaviate.Client, docI
 			continue
 		}
 
-		log.Printf("ObjMap: %+v", objMap)
 		event, normalizeErr := NormalizeWeaviateResultToEvent(objMap)
 		if normalizeErr != nil {
 			log.Printf("Warning: Could not normalize Weaviate result: %v", normalizeErr)

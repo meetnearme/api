@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -246,8 +245,6 @@ func RouterNonLambda(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlErrorPartial([]byte("Internal error: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	fmt.Println(resp)
-
 	return transport.SendHtmlRes(w, []byte(resp.Body), resp.StatusCode, "partial", nil)
 }
 
@@ -291,27 +288,43 @@ func HandlePost(ctx context.Context, req InternalRequest, scraper services.Scrap
 		return clientError(http.StatusBadRequest)
 	}
 
-	htmlString, err := scraper.GetHTMLFromURL(urlToScrape, 4500, true, "")
+	isFacebookEventsURL := services.IsFacebookEventsURL(urlToScrape)
+
+	var htmlString string
+	var err error
+
+	if isFacebookEventsURL {
+		// Create validation function for Facebook events
+		facebookEventValidation := func(htmlContent string) bool {
+			return strings.Contains(htmlContent, `"__typename":"Event"`)
+		}
+
+		htmlString, err = scraper.GetHTMLFromURLWithRetries(urlToScrape, 7500, true, "script[data-sjs][data-content-len]", 5, facebookEventValidation)
+	} else {
+		htmlString, err = scraper.GetHTMLFromURL(urlToScrape, 4500, true, "")
+	}
+
 	if err != nil {
 		return _SendHtmlErrorPartial(err, ctx)
 	}
 
-	// if regex matches fb.com/(.*)/events we return early as the data
+	// if regex matches facebook.com/(.*)/events we return early as the data
 	// is already known and we don't need to pass to an LLM or convert
 	// to markdown
-	if regexp.MustCompile(`facebook\.com\/(.*)\/events`).MatchString(urlToScrape) {
-		events, err := services.FindEventData(htmlString)
+	if isFacebookEventsURL {
+		events, err := services.FindFacebookEventData(htmlString)
 		if err != nil {
 			return _SendHtmlErrorPartial(err, ctx)
 		}
 
-		fmt.Println(events)
 		layoutTemplate := partials.EventCandidatesPartial(events)
+
 		var buf bytes.Buffer
 		err = layoutTemplate.Render(ctx, &buf)
 		if err != nil {
 			return serverError(err)
 		}
+
 		return InternalResponse{
 			Headers:    map[string]string{"Content-Type": "text/html"},
 			StatusCode: http.StatusOK,

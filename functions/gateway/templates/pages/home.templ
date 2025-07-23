@@ -3,6 +3,7 @@ package pages
 import (
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"log"
 	"os"
@@ -55,7 +56,7 @@ templ EventsInner(events []types.Event, mode string) {
 							class="object-cover object-position-25-25 w-full aspect-[4/3] md:aspect-[16/9] opacity-50 md:opacity-30 md:hover:opacity-75 transition-all"
 						/>
 					</a>
-					<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
+					<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-base-100/70 from-80% to-transparent absolute bottom-0 left-0">
 						<div class="mb-2">
 							<h2 class="text-2xl md:text-3xl">{ ev.Name }</h2>
 							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
@@ -118,7 +119,7 @@ templ EventsInner(events []types.Event, mode string) {
 							class="object-cover object-position-25-25 w-full aspect-[4/1] md:aspect-[4/1] opacity-30 md:hover:opacity-75 transition-all"
 						/>
 					</a>
-					<div class="flex justify-between w-full p-4 md:py-8 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
+					<div class="flex justify-between w-full p-4 md:py-8 bg-gradient-to-t from-base-100/70 from-80% to-transparent absolute bottom-0 left-0">
 						<div class="mb-2">
 							<h2 class="text-xl font-bold">{ ev.Name }</h2>
 							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
@@ -155,7 +156,7 @@ templ EventsInner(events []types.Event, mode string) {
 				for _, ev := range events {
 					<tr class="border-t-2 border-base-300">
 						<td>
-							<a class="link link-primary" href={ templ.URL("/admin/event/" + ev.Id + "/edit") }>{ ev.Name }</a>
+							<a class="link link-text" href={ templ.URL("/admin/event/" + ev.Id + "/edit") }>{ ev.Name }</a>
 						</td>
 						<td>
 							if strings.HasPrefix(ev.EventSourceType, helpers.UNPUB_SUFFIX) {
@@ -228,8 +229,8 @@ func GetCitiesAsJsonStr() string {
 }
 
 templ FilterButton() {
-	<button onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
-		FILTER <svg class="svg-icon fill-current" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96"></path></svg>
+	<button type="button" onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
+		@components.Icon("filter")
 	</button>
 }
 
@@ -280,7 +281,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 										<div>
 											<template x-if="eventId !== fakeEventId">
 												<h3 class="text-xl font-bold my-2">
-													<a class="link link-primary" :href="`/event/${eventId}`">
+													<a class="link link-text" :href="`/event/${eventId}`">
 														Event #<span x-text="Object.keys(rounds[competition.id]).indexOf(eventId) + 1"></span>
 													</a>
 												</h3>
@@ -329,37 +330,48 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 	<div
 		class="min-h-screen"
 	>
-		if pageUser == nil {
-			<header class="flex justify-between p-4">
-				<nav class="flex space-x-4">
-					<button href="#" class="text-sm md:text-xl font-bold border-b-2 border-white">
-						EVENTS
-					</button>
-					// <button href="#" class="text-sm md:text-xl">
-					// 	GROUPS
-					// </button>
-					// <button href="#" class="text-sm md:text-xl">
-					// 	ORGANIZERS
-					// </button>
-				</nav>
-				//
-				@FilterButton()
-			</header>
-		} else {
-			<header class="flex justify-between items-center">
-				<h2 class="text-3xl font-bold uppercase my-10">Events</h2>
-				@FilterButton()
-			</header>
-		}
 		<div x-data="getHomeState()">
-			<div class="text-sm md:text-base mt-4 mb-2">
-				Showing events within <span class="font-bold" x-text="$store.filters.radius"></span> miles of
-				<a
-					class="link link-primary font-bold"
-					:href=" $store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${$store.location?.selected?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${$store.location?.selected?.label}` "
-				>
-					<span x-text="$store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + $store.location?.selected?.label : $store.location?.selected?.label"></span>
-				</a> <button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
+			<div class="card border border-base-300 bg-base-200 p-4 pb-2 md:p-10 md:pb-6 rounded-box mb-4">
+				<div class="mb-4 relative">
+					<div class="flex gap-2 items-center overflow-x-auto pb-3">
+						<template x-for="(example, index) in $store.filters.getSearchExamples()" :key="index">
+							<button
+								@click="handleSearchSuggestionChipClick(event, example)"
+								class="btn btn-sm btn-outline font-thin flex-shrink-0 whitespace-nowrap"
+								x-text="example"
+							></button>
+						</template>
+					</div>
+					<!-- Fade indicator for more content -->
+					<div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-base-200 to-transparent pointer-events-none"></div>
+				</div>
+				// full width search bar
+				<form class="join w-full" @submit.prevent="Alpine.store('filters').handleSearchSubmit($event, false)">
+					<label class="input input-bordered flex join-item items-center gap-2 w-full">
+						<input
+							id="search-input"
+							class="w-full grow"
+							type="text"
+							placeholder="I want to exercise with a group"
+							x-model="Alpine.store('filters').q"
+						/>
+						@FilterButton()
+					</label>
+					<button
+						type="submit"
+						id="search-submit-btn"
+						class="btn btn-primary join-item"
+					>Search</button>
+				</form>
+				<div class="text-sm md:text-base mt-6 mb-2">
+					Showing events within <span class="font-bold" x-text="$store.filters.radius"></span> miles of
+					<a
+						class="link link-text font-bold"
+						:href=" $store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${$store.location?.selected?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${$store.location?.selected?.label}` "
+					>
+						<span x-text="$store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + $store.location?.selected?.label : $store.location?.selected?.label"></span>
+					</a> <button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
+				</div>
 			</div>
 			<div class="pb-4">
 				<form
@@ -504,6 +516,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				lat: urlParams.get('lat') ?? document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
 				lon: urlParams.get('lon') ?? document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
 				categories: categories,
+				q: urlParams.get('q') ?? '',
 				setRadius(value) {
 					this.radius = value;
 				},
@@ -512,6 +525,54 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				},
 				setLon(value) {
 					this.lon = value;
+				},
+				setQ(value) {
+					this.q = value;
+				},
+				handleSearchSubmit(e, toggleDrawer = true) {
+					e.preventDefault()
+					// this is not extremely precise, we can data bind the input if we need to
+					const inputText = e.currentTarget.parentElement.querySelector('input[type="text"]').value
+					if (inputText.length > 0) {
+						Alpine.store('filters').setQ(inputText)
+						Alpine.store('queryParams').pushToQueryParams('q', inputText)
+						if (toggleDrawer) {
+							document.getElementById('main-drawer').click();
+						}
+					}
+				},
+				getSearchExamples() {
+					const searchPlaceholderExamples = [
+							'I want to meet people who enjoy theater',
+							'I want to meet active people',
+							'I want to exercise with a group',
+							'I want to find a running group',
+							'I want to find a hiking group',
+							'I want to find a biking group',
+							'I want to find a yoga group',
+							'I want to find a dance group',
+							'I want to find a cooking group',
+							'I want to find a book club',
+							'I want to find a wine tasting group',
+							'I want to meet people interested in nature',
+							'I want to meet people interested in natural living',
+							'I want to meet people interested in healthy eating',
+							'I want to meet people interested in sustainable living',
+							'I want to meet people interested in alternative medicine',
+							'I want to meet people interested in spirituality',
+							'I want to meet people interested in personal development',
+							'I want to meet people interested in personal growth',
+
+						]
+					const shuffleArray = array => {
+						for (let i = array.length - 1; i > 0; i--) {
+							const j = Math.floor(Math.random() * (i + 1));
+							[array[i], array[j]] = [array[j], array[i]];
+						}
+						return array;
+					}
+					const shuffledExamples = shuffleArray([...searchPlaceholderExamples])
+					return shuffledExamples
 				}
 			});
 
@@ -587,6 +648,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				options: [],
 				isOpen: false,
 				openedWithKeyboard: false,
+				isLoading: false,
 				selectedOption: {
 					label: Alpine.store('location').selected.label,
 					latitude: Alpine.store('location').selected.latitude,
@@ -594,6 +656,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				},
 				async fetchLocations(query) {
 					if (query.length >= 3) {
+						this.isLoading = true;
 						this.options = await fetch(`/api/locations?q=${query}`).then(res => {
 							return res.json()
 						}).then(json => {
@@ -603,6 +666,14 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 								latitude: city.latitude,
 								longitude: city.longitude,
 							}))
+						})
+						.catch(error => {
+							// eslint-disable-next-line no-console
+							console.error('Error fetching locations:', error);
+							return [];
+						})
+						.finally(() => {
+							this.isLoading = false;
 						});
 					}
 				},
@@ -710,6 +781,11 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					} else {
 						this.hasEvents = false;
 					}
+				},
+				handleSearchSuggestionChipClick(e, text) {
+					e.preventDefault()
+					Alpine.store('filters').setQ(text)
+					Alpine.store('queryParams').pushToQueryParams('q', text)
 				}
 			}
 		}
@@ -728,6 +804,56 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 								itm.checked = true
 							}
 						})
+
+						const searchPlaceholderExamples = [
+							'I want to meet people who enjoy theater',
+							'I want to meet active people',
+							'I want to exercise with a group',
+							'I want to find a running group',
+							'I want to find a hiking group',
+							'I want to find a biking group',
+							'I want to find a yoga group',
+							'I want to find a dance group',
+							'I want to find a cooking group',
+							'I want to find a book club',
+							'I want to find a wine tasting group',
+							'I want to meet people interested in nature',
+							'I want to meet people interested in natural living',
+							'I want to meet people interested in healthy eating',
+							'I want to meet people interested in sustainable living',
+							'I want to meet people interested in alternative medicine',
+							'I want to meet people interested in spirituality',
+							'I want to meet people interested in personal development',
+							'I want to meet people interested in personal growth',
+
+						]
+
+						const searchInput = document.querySelector('#search-input')
+						if (searchInput) {
+							// Fisher-Yates shuffle algorithm
+							const shuffleArray = array => {
+								for (let i = array.length - 1; i > 0; i--) {
+									const j = Math.floor(Math.random() * (i + 1));
+									[array[i], array[j]] = [array[j], array[i]];
+								}
+								return array;
+							}
+
+							// Shuffle the array once
+							const shuffledExamples = shuffleArray([...searchPlaceholderExamples])
+							let currentIndex = 0
+
+							const updatePlaceholder = () => {
+								searchInput.placeholder = shuffledExamples[currentIndex]
+								currentIndex = (currentIndex + 1) % shuffledExamples.length
+							}
+
+							// Set initial placeholder
+							updatePlaceholder()
+
+							// Update every 5 seconds
+							setInterval(updatePlaceholder, 2500)
+						}
 					},
 					radius: null,
 					locationDropdown: null,

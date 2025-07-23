@@ -84,7 +84,7 @@ const COMP_EMPTY_TEAM_NAME = "___|~~EMPTY TEAM NAME~~|___"
 const COMP_UNASSIGNED_ROUND_EVENT_ID = "fake-event-id-123"
 const COMP_TEAM_ID_PREFIX = "tm_"
 
-const DEFAULT_PRIMARY_COLOR = "#39ff14"
+const DEFAULT_PRIMARY_COLOR = "#6004e0"
 const ZITADEL_USER_ID_LEN = 18
 
 // NOTE: these are the default searchable event source types that show up in the home event list view
