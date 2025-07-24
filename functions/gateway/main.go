@@ -183,9 +183,6 @@ func (app *App) InitRoutes() []Route {
 		{"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, None},
 		{"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, None},
 		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, None},
-
-		// Health check Seshu Loop
-		{"/api/seshu-loop-health", "GET", handlers.GetSeshuLoopHealth, None},
 	}
 }
 
@@ -607,57 +604,6 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 	})
 }
 
-// // go routine
-// func startSeshuLoop(ctx context.Context) {
-// 	go func() {
-// 		ticker := time.NewTicker(seshulooptime)
-// 		defer ticker.Stop()
-
-// 		log.SetOutput(os.Stdout)
-
-// 		lastUpdate := time.Now().UTC().Unix()
-
-// 		for {
-// 			select {
-// 			case <-ctx.Done():
-// 				log.Println("[INFO] Seshu loop stopped by context.")
-// 				return
-
-// 			case <-ticker.C:
-// 				if os.Getenv("IS_ACT_LEADER") != "true" {
-// 					log.Printf("[INFO] Not the leader (IS_ACT_LEADER=%s). Skipping.", os.Getenv("IS_ACT_LEADER"))
-// 					continue
-// 				}
-
-// 				helpers.MarkSeshuLoopAlive() // Mark the loop as alive
-
-// 				// Build payload with lastUpdate time
-// 				payload := map[string]interface{}{
-// 					"time": lastUpdate,
-// 				}
-// 				jsonData, _ := json.Marshal(payload)
-
-// 				resp, err := http.Post("http://localhost:8000/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
-// 				if err != nil {
-// 					log.Printf("[ERROR] Failed to send request: %v", err)
-// 					continue
-// 				}
-// 				defer resp.Body.Close()
-
-// 				var body bytes.Buffer
-// 				body.ReadFrom(resp.Body)
-// 				if bytes.Contains(body.Bytes(), []byte("successful")) {
-// 					log.Println("[INFO] Job triggered successfully.")
-// 				} else {
-// 					log.Println("[INFO] Skipped.")
-// 				}
-
-// 				lastUpdate = time.Now().UTC().Unix() // update in-memory timestamp
-// 			}
-// 		}
-// 	}()
-// }
-
 func startSeshuLoop(ctx context.Context) {
 	ticker := time.NewTicker(seshulooptime)
 	defer ticker.Stop()
@@ -824,10 +770,9 @@ func main() {
 			}
 		}()
 
-		// app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers)
 		go func() {
 			if err := app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers); err != nil {
-				log.Printf("[ERROR] ConsumeMsg failed: %v", err)
+				log.Fatal(err)
 			}
 		}()
 

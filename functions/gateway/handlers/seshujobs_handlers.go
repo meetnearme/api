@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -207,21 +206,6 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 
 	return transport.SendHtmlRes(w, []byte("successful"), http.StatusOK, "partial", nil)
 
-}
-
-func GetSeshuLoopHealth(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	if !helpers.IsSeshuLoopAlive() {
-		return transport.SendHtmlErrorPartial([]byte("Seshu loop not running"), http.StatusServiceUnavailable)
-	}
-
-	stats := helpers.GetHealthStats()
-
-	statsBytes, err := json.Marshal(stats)
-	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Error encoding health stats"), http.StatusInternalServerError)
-	}
-
-	return transport.SendHtmlRes(w, statsBytes, http.StatusOK, "partial", nil)
 }
 
 func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary
