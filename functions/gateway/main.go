@@ -824,12 +824,12 @@ func main() {
 			}
 		}()
 
-		app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers)
-		// go func() {
-		// 	if err := app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers); err != nil {
-		// 		log.Printf("[ERROR] ConsumeMsg failed: %v", err)
-		// 	}
-		// }()
+		// app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers)
+		go func() {
+			if err := app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers); err != nil {
+				log.Printf("[ERROR] ConsumeMsg failed: %v", err)
+			}
+		}()
 
 		go func() {
 			startSeshuLoop(seshuCtx)
