@@ -6,12 +6,6 @@ BEGIN
     END IF;
 END$$;
 
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'scrape_source') THEN
-        CREATE TYPE scrape_source AS ENUM ('MEETUP', 'EVENTBRITE', 'other structured');
-    END IF;
-END$$;
 
 CREATE TABLE IF NOT EXISTS seshujobs (
     normalized_url_key TEXT PRIMARY KEY,
@@ -22,6 +16,7 @@ CREATE TABLE IF NOT EXISTS seshujobs (
     target_name_css_path TEXT NOT NULL,
     target_location_css_path TEXT NOT NULL,
     target_start_time_css_path TEXT NOT NULL,
+    target_end_time_css_path TEXT,
     target_description_css_path TEXT,
     target_href_css_path TEXT,
     status scrape_status NOT NULL,
@@ -29,5 +24,5 @@ CREATE TABLE IF NOT EXISTS seshujobs (
     last_scrape_failure BIGINT,
     last_scrape_failure_count INTEGER NOT NULL DEFAULT 0,
     owner_id TEXT NOT NULL,
-    known_scrape_source scrape_source NOT NULL
+    known_scrape_source TEXT NOT NULL
 );
