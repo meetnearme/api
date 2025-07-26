@@ -13,7 +13,7 @@ func TestPublishMsg(t *testing.T) {
 	mockQueue := test_helpers.NewMockNatsService()
 
 	payload := internal_types.SeshuJob{
-		NormalizedURLKey:         "example-event-1",
+		NormalizedUrlKey:         "example-event-1",
 		LocationLatitude:         1.352222231,
 		LocationLongitude:        103.8198,
 		LocationAddress:          "123 Orchard Road, Singapore",
@@ -21,6 +21,7 @@ func TestPublishMsg(t *testing.T) {
 		TargetNameCSSPath:        ".event-title",
 		TargetLocationCSSPath:    ".event-location",
 		TargetStartTimeCSSPath:   ".start-time",
+		TargetEndTimeCSSPath:     ".end-time",
 		TargetDescriptionCSSPath: ".description",
 		TargetHrefCSSPath:        "a.more-info",
 		Status:                   "HEALTHY",
@@ -46,7 +47,7 @@ func TestPeekTopOfQueue(t *testing.T) {
 	mockQueue := test_helpers.NewMockNatsService()
 
 	payload := internal_types.SeshuJob{
-		NormalizedURLKey: "example-event-1",
+		NormalizedUrlKey: "example-event-1",
 	}
 
 	_ = mockQueue.PublishMsg(ctx, payload)
@@ -78,7 +79,7 @@ func TestConsumeMsg(t *testing.T) {
 	mockQueue := test_helpers.NewMockNatsService()
 
 	payload := internal_types.SeshuJob{
-		NormalizedURLKey: "example-event-1",
+		NormalizedUrlKey: "example-event-1",
 	}
 
 	_ = mockQueue.PublishMsg(ctx, payload)
