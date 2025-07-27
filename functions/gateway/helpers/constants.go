@@ -24,6 +24,8 @@ const CompetitionRoundsTablePrefix = "CompetitionRounds"
 const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomParticipant"
 const VotesTablePrefix = "Votes"
 
+const WeaviateEventClassName = "EventStrict"
+
 const ACT string = "ACT"
 const EVENT_ID_KEY string = "eventId"
 const PRIMARY_OWNER_KEY string = "primaryOwner"
@@ -345,6 +347,8 @@ func humanizeFieldName(field string) string {
 		return "Localized Start Time"
 	case "CompetitionConfigId":
 		return "Competition Config ID"
+	case "ShadowOwners":
+		return "Shadow Owners"
 	default:
 		panic(fmt.Sprintf("No display name mapping for field: %s", field))
 	}

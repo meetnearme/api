@@ -33,6 +33,7 @@ type Event struct {
 	RefUrl                string        `json:"refUrl,omitempty"`
 	HideCrossPromo        bool          `json:"hideCrossPromo,omitempty"`
 	CompetitionConfigId   string        `json:"competitionConfigId,omitempty"`
+	ShadowOwners          []string      `json:"shadowOwners,omitempty"`
 
 	// New fields for UI use only
 	LocalizedStartDate string `json:"localStartDate,omitempty"`

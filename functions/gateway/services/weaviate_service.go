@@ -31,7 +31,7 @@ const (
 )
 
 const vectorizer = "text2vec-transformers"
-const eventClassName = "EventStrict" //
+const eventClassName = helpers.WeaviateEventClassName
 
 func GetWeaviateClient() (*weaviate.Client, error) {
 	weaviateHost := os.Getenv("WEAVIATE_HOST")
@@ -133,6 +133,9 @@ func DefineWeaviateSchema(ctx context.Context, client *weaviate.Client) error {
 			{Name: "eventOwners", DataType: []string{"text[]"}, Description: "List of owner IDs", // Use "text[]" for string arrays
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
+			{Name: "shadowOwners", DataType: []string{"text[]"}, Description: "Optional list of shadow owners",
+				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
+			},
 			{Name: "eventOwnerName", DataType: []string{"text"}, Description: "Primary owner name",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
@@ -216,6 +219,7 @@ func EventStructToMap(e types.Event) map[string]interface{} {
 	props := map[string]interface{}{
 		// Required fields mapping directly
 		"eventOwners":     e.EventOwners,
+		"shadowOwners":    e.ShadowOwners,
 		"eventOwnerName":  e.EventOwnerName,
 		"eventSourceType": e.EventSourceType,
 		"name":            e.Name,
@@ -428,12 +432,22 @@ func SearchWeaviateEvents(
 		whereOperands = append(whereOperands, longFilter)
 	}
 
-	// Owner Filter (Uncommented and integrated)
+	// Owner Filter - Search both eventOwners and shadowOwners fields
 	if len(ownerIds) > 0 {
-		ownerFilter := (&filters.WhereBuilder{}).
+		eventOwnersFilter := (&filters.WhereBuilder{}).
 			WithPath([]string{"eventOwners"}).
 			WithOperator(filters.ContainsAny).
 			WithValueText(ownerIds...)
+
+		shadowOwnersFilter := (&filters.WhereBuilder{}).
+			WithPath([]string{"shadowOwners"}).
+			WithOperator(filters.ContainsAny).
+			WithValueText(ownerIds...)
+
+		ownerFilter := (&filters.WhereBuilder{}).
+			WithOperator(filters.Or).
+			WithOperands([]*filters.WhereBuilder{eventOwnersFilter, shadowOwnersFilter})
+
 		whereOperands = append(whereOperands, ownerFilter)
 	}
 
@@ -472,6 +486,7 @@ func SearchWeaviateEvents(
 		{Name: "name"}, {Name: "description"}, {Name: "eventOwners"}, {Name: "eventOwnerName"},
 		{Name: "eventSourceType"}, {Name: "startTime"}, {Name: "endTime"}, {Name: "address"},
 		{Name: "lat"}, {Name: "long"}, {Name: "eventSourceId"}, {Name: "timezone"},
+		{Name: "shadowOwners"},
 		{Name: "_additional", Fields: []graphql.Field{
 			{Name: "id"},
 			{Name: "score"},
@@ -626,6 +641,7 @@ func BulkGetWeaviateEventByID(ctx context.Context, client *weaviate.Client, docI
 		{Name: "imageUrl"}, {Name: "timezone"}, {Name: "categories"}, {Name: "tags"},
 		{Name: "updatedBy"}, {Name: "refUrl"},
 		{Name: "hideCrossPromo"}, {Name: "competitionConfigId"},
+		{Name: "shadowOwners"},
 		{Name: "_additional", Fields: []graphql.Field{
 			{Name: "id"},                 // We always need the ID
 			{Name: "creationTimeUnix"},   // creationTimeUnix is implicit in Weaviate

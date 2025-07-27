@@ -385,7 +385,7 @@ func HandlePost(ctx context.Context, req InternalRequest, scraper services.Scrap
 
 	err = json.Unmarshal([]byte(openAIjson), &eventsFound)
 	if err != nil {
-		log.Println("Error unmarshaling OpenAI response into types.EventInfo slice:", err)
+		log.Println("Error in LLM response, failed to convert to types.EventInfo slice:", err)
 		return _SendHtmlErrorPartial(err, ctx)
 	}
 
@@ -515,7 +515,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", err
 	}
 
-	log.Println(fmt.Sprintf(os.Getenv("OPENAI_API_BASE_URL") + "/chat/completions"))
+	log.Println(os.Getenv("OPENAI_API_BASE_URL") + "/chat/completions")
 
 	req, err := http.NewRequest("POST", os.Getenv("OPENAI_API_BASE_URL")+"/chat/completions", bytes.NewBuffer(payloadBytes))
 	if err != nil {

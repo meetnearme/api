@@ -37,16 +37,16 @@ script navigateToSlideHandler(index int) {
 		}
 }
 
-templ ReShareButton() {
+templ ReShareButton(ev types.Event) {
 	// add top right fixed icon for re-share
 	<div class="dropdown dropdown-end absolute top-4 right-4 z-40">
 		<div tabindex="0" role="button" class="btn   btn-circle"><svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z"></path></svg></div>
 		<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-32 p-2 shadow">
 			<li>
-				<a>
+				<button id={ "re-share-" + ev.Id } @click="reShareEvent(event)">
 					<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"></path></svg>
 					&nbsp;Re share
-				</a>
+				</button>
 			</li>
 		</ul>
 	</div>
@@ -65,7 +65,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 			for _, ev := range events {
 				<div class="flex w-full relative pb-24 md:pb-4">
 					if helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.SuperAdmin], helpers.Roles[helpers.SyndicateAdmin]}) {
-						@ReShareButton()
+						@ReShareButton(ev)
 					}
 					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 						<img
@@ -131,7 +131,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 			for _, ev := range events {
 				<div class="flex w-full relative pb-12 md:pb-4">
 					if userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.SuperAdmin], helpers.Roles[helpers.SyndicateAdmin]}) {
-						@ReShareButton()
+						@ReShareButton(ev)
 					}
 					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 						<img
@@ -514,44 +514,56 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					</div>
 				</form>
 			</div>
-		</div>
-		<main id="events-container">
-			if pageUser == nil {
-				<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
-					<span class="loading loading-spinner loading-lg text-primary"></span>
-				</div>
-				<div id="events-container-inner">
-					@EventsInner(events, "", roleClaims, userId, pageUser)
-				</div>
-			} else {
-				<div role="tablist" class="tabs tabs-bordered">
-					<input
-						type="radio"
-						name="org-events-tabs"
-						role="tab"
-						class="tab text-lg leading-5 uppercase"
-						aria-label="Upcoming"
-						checked="checked"
-					/>
-					<div role="tabpanel" class="tab-content py-10">
-						<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
-							<span class="loading loading-spinner loading-lg text-primary"></span>
+			<main id="events-container">
+				if pageUser == nil {
+					<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
+						<span class="loading loading-spinner loading-lg text-primary"></span>
+					</div>
+					<div id="events-container-inner">
+						@EventsInner(events, "", roleClaims, userId, pageUser)
+					</div>
+				} else {
+					<div role="tablist" class="tabs tabs-bordered">
+						<input
+							type="radio"
+							name="org-events-tabs"
+							role="tab"
+							class="tab text-lg leading-5 uppercase"
+							aria-label="Upcoming"
+							checked="checked"
+						/>
+						<div role="tabpanel" class="tab-content py-10">
+							<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
+								<span class="loading loading-spinner loading-lg text-primary"></span>
+							</div>
+							<div id="events-container-inner">
+								@EventsInner(events, helpers.EV_MODE_LIST, roleClaims, userId, pageUser)
+							</div>
 						</div>
-						<div id="events-container-inner">
-							@EventsInner(events, helpers.EV_MODE_LIST, roleClaims, userId, pageUser)
+						<input
+							type="radio"
+							name="org-events-tabs"
+							role="tab"
+							class="tab text-lg leading-5 uppercase"
+							aria-label="Past"
+						/>
+						<div role="tabpanel" class="tab-content p-10">(Coming Soon...)</div>
+					</div>
+				}
+			</main>
+			<template x-if="showToast === true">
+				<div class="toast m-4 z-50">
+					<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border border-base-300">
+						<span x-text="toastContent.message"></span>
+						<div class="block justify-end">
+							<button class="btn btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
+								<svg class="svg-icon" style="width: 1em; height: 1em; vertical-align: middle; fill: currentColor; overflow: hidden;" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg>
+							</button>
 						</div>
 					</div>
-					<input
-						type="radio"
-						name="org-events-tabs"
-						role="tab"
-						class="tab text-lg leading-5 uppercase"
-						aria-label="Past"
-					/>
-					<div role="tabpanel" class="tab-content p-10">(Coming Soon...)</div>
 				</div>
-			}
-		</main>
+			</template>
+		</div>
 	</div>
 	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) }>
 		document.addEventListener('alpine:init', () => {
@@ -782,10 +794,53 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
 				defaultRadius: document.querySelector('#alpine-state').getAttribute('data-default-radius'),
+				showToast: false,
+				toastContent: {
+					type: '',
+					message: '',
+				},
+				async reShareEvent(event) {
+          const eventId = event.currentTarget.id.split('re-share-')[1]
+					// send a post request to the re-share endpoint
+          if (!eventId) {
+						this.showToast = true;
+						this.toastContent = {
+							type: 'error',
+							message: 'Cannot locate event ID for re-sharing.',
+						};
+            return
+          }
 
-				handleSearchSuggestionChipClick(e, text) {
-					e.preventDefault();
-					Alpine.store('urlState').setParam('q', text);
+					try {
+						const res = await fetch(`/api/data/re-share?event_id=${eventId}`, {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+						})
+
+						if (res.ok) {
+							this.showToast = true;
+							this.toastContent = {
+								type: 'success',
+								message: 'Event re-shared successfully!',
+							};
+						} else {
+							this.showToast = true;
+							this.toastContent = {
+								type: 'error',
+								message: `Failed to re-share event. Status: ${res.status}`,
+							};
+						}
+					} catch (error) {
+						this.showToast = true;
+						this.toastContent = {
+							type: 'error',
+							message: 'An error occurred while re-sharing the event.',
+						};
+            // eslint-disable-next-line no-console
+						console.error('Re-share error:', error);
+					}
 				}
 			}
 		}
