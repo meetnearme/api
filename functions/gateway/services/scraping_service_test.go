@@ -40,7 +40,7 @@ func TestGetHTMLFromURL(t *testing.T) {
 			// Use the mock server URL for testing
 			baseURL := mockServer.URL
 
-			html, err := GetHTMLFromURLWithBase(baseURL, tc.value, 10, true, "")
+			html, err := GetHTMLFromURLWithBase(baseURL, tc.value, 10, true, "", 0, nil)
 
 			if html != tc.expectedHTML {
 				t.Fatalf("Expected %v, got %v", tc.expectedHTML, html)

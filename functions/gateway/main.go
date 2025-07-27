@@ -610,11 +610,11 @@ func startSeshuLoop(ctx context.Context) {
 
 	log.SetOutput(os.Stdout)
 
-	lastUpdate := readLastLine(timestampFile)
+	lastUpdate := readFirstLine(timestampFile)
 	seshulooptimecount = 0
 
 	defer func() {
-		appendTimestamp("last_update.txt", lastUpdate) // Write on graceful shutdown
+		overwriteTimestamp("last_update.txt", lastUpdate) // Write on graceful shutdown
 	}()
 
 	for {
@@ -651,7 +651,7 @@ func startSeshuLoop(ctx context.Context) {
 				log.Printf("[INFO] counter: %d", seshulooptimecount)
 				seshulooptimecount++
 				if seshulooptimecount >= maxseshuloopcount { // limit write frequency
-					appendTimestamp("last_update.txt", lastUpdate)
+					overwriteTimestamp("last_update.txt", lastUpdate)
 					seshulooptimecount = 0
 				}
 			} else {
@@ -681,8 +681,7 @@ func ensureTimestampFileExists(file string) error {
 	return nil
 }
 
-// Helper to read the last non-empty line (last timestamp) from a file
-func readLastLine(path string) int64 {
+func readFirstLine(path string) int64 {
 	file, err := os.Open(path)
 	if err != nil {
 		log.Printf("[WARN] Could not open timestamp file. Using current time. Error: %v", err)
@@ -690,38 +689,37 @@ func readLastLine(path string) int64 {
 	}
 	defer file.Close()
 
-	var lastLine string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" {
-			lastLine = line
+			timestamp, err := strconv.ParseInt(line, 10, 64)
+			if err != nil {
+				log.Printf("[WARN] Invalid timestamp format in first line. Using current time. Error: %v", err)
+				return time.Now().UTC().Unix()
+			}
+			return timestamp
 		}
 	}
+
 	if err := scanner.Err(); err != nil {
 		log.Printf("[WARN] Error reading timestamp file. Using current time. Error: %v", err)
-		return time.Now().UTC().Unix()
 	}
 
-	timestamp, err := strconv.ParseInt(lastLine, 10, 64)
-	if err != nil {
-		log.Printf("[WARN] Invalid last line in timestamp file. Using current time. Error: %v", err)
-		return time.Now().UTC().Unix()
-	}
-	return timestamp
+	// If file is empty
+	return time.Now().UTC().Unix()
 }
 
-// Helper to append a new timestamp line to the file
-func appendTimestamp(path string, timestamp int64) {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+func overwriteTimestamp(path string, timestamp int64) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		log.Printf("[ERROR] Could not open timestamp file for writing: %v", err)
+		log.Printf("[ERROR] Could not open timestamp file for overwriting: %v", err)
 		return
 	}
 	defer f.Close()
 
 	if _, err := f.WriteString(fmt.Sprintf("%d\n", timestamp)); err != nil {
-		log.Printf("[ERROR] Failed to append timestamp to file: %v", err)
+		log.Printf("[ERROR] Failed to write timestamp to file: %v", err)
 	}
 }
 

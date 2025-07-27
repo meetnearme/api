@@ -723,13 +723,13 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// TODO: delete this `SeshuSession` once the handoff to the `SeshuJobs` table is complete
 
 		// Map to hold DOM paths for each event by its title
-		validationMap := make(map[string]EventDomPaths)
 
 		for _, event := range validatedEvents {
 			var docToUse *goquery.Document
 			var url string
 			var endTag string
 			var descriptionTag string
+			var eventTitleTag string
 
 			// Use childDoc if this event matches the last child candidate (child is always only one)
 			if childDoc != nil && event.EventSource == "rs" {
@@ -738,6 +738,13 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			} else {
 				docToUse = parentDoc
 				url = inputPayload.Url
+			}
+
+			//normalise url for consistency
+			normalizedUrl, err := helpers.NormalizeURL(url)
+			if err != nil {
+				log.Println("Error normalizing URL:", err)
+				continue
 			}
 
 			startTag := findTagByPartialText(docToUse, event.EventStartTime)
@@ -754,34 +761,38 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				descriptionTag = findTagByPartialText(docToUse, event.EventDescription[:utf8.RuneCountInString(event.EventDescription)/2])
 			}
 
-			paths := EventDomPaths{
-				EventTitle:       findTagByExactText(docToUse, event.EventTitle),
-				EventLocation:    findTagByExactText(docToUse, event.EventLocation),
-				EventStartTime:   startTag,
-				EventEndTime:     endTag,
-				EventURL:         url,
-				EventDescription: descriptionTag,
+			if event.EventURL == "" {
+				eventTitleTag = ""
+			} else {
+				eventTitleTag = findTagByPartialText(docToUse, event.EventTitle)
 			}
 
-			validationMap[event.EventTitle] = paths
+			scrapeSource, err := helpers.ExtractBaseDomain(url)
+			if err != nil {
+				log.Println("Error extracting base domain:", err)
+				continue
+			}
+
+			scheduledHour := time.Now().UTC().Hour()
 
 			seshuJob := internal_types.SeshuJob{
-				NormalizedURLKey:         url,
-				LocationLatitude:         0.0,
-				LocationLongitude:        0.0,
-				LocationAddress:          "",
-				ScheduledHour:            0,
+				NormalizedUrlKey:         normalizedUrl,
+				LocationLatitude:         session.LocationLatitude,
+				LocationLongitude:        session.LocationLongitude,
+				LocationAddress:          session.LocationAddress,
+				ScheduledHour:            scheduledHour,
 				TargetNameCSSPath:        findTagByExactText(docToUse, event.EventTitle),
 				TargetLocationCSSPath:    findTagByExactText(docToUse, event.EventLocation),
 				TargetStartTimeCSSPath:   startTag,
+				TargetEndTimeCSSPath:     endTag,         // optional
 				TargetDescriptionCSSPath: descriptionTag, // optional
-				TargetHrefCSSPath:        url,            // optional
-				Status:                   "HEALTHY",      // assume healthy if parse succeeded
+				TargetHrefCSSPath:        eventTitleTag,
+				Status:                   "HEALTHY", // assume healthy if parse succeeded
 				LastScrapeSuccess:        time.Now().Unix(),
 				LastScrapeFailure:        0,
 				LastScrapeFailureCount:   0,
-				OwnerID:                  "123",    // ideally from auth context
-				KnownScrapeSource:        "MEETUP", // or infer from URL pattern/domain
+				OwnerID:                  seshuSessionGet.OwnerId, // ideally from auth context
+				KnownScrapeSource:        scrapeSource,            // or infer from URL pattern/domain
 			}
 
 			payloadBytes, err := json.Marshal(seshuJob)
@@ -789,6 +800,9 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				log.Println("Error marshaling SeshuJob:", err)
 				return
 			}
+
+			// Log the payload for debugging
+			log.Printf("Submitting SeshuJob: %s", string(payloadBytes))
 
 			// POST to internal handler
 			req, err := http.NewRequest(http.MethodPost, os.Getenv("SESHUJOBS_URL")+"/api/seshujob", bytes.NewReader(payloadBytes))
@@ -811,8 +825,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				log.Printf("Handler responded with status %d: %s", res.StatusCode, string(body))
 			}
 		}
-		b, _ := json.MarshalIndent(validationMap, "", "  ")
-		fmt.Println(string(b))
 	}()
 
 	updateSeshuSession.Url = inputPayload.Url

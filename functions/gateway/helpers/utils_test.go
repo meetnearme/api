@@ -931,3 +931,66 @@ func TestGetCloudflareMnmOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		wantErr  bool
+	}{
+		{"Basic HTTP", "http://example.com", "https://example.com", false},
+		{"Basic HTTPS", "https://example.com", "https://example.com", false},
+		{"Uppercase Scheme and Host", "HTTP://EXAMPLE.COM", "https://example.com", false},
+		{"URL with fragment", "http://example.com#section", "https://example.com", false},
+		{"URL with user info", "http://user:pass@example.com", "https://example.com", false},
+		{"URL with default port 80", "http://example.com:80", "https://example.com", false},
+		{"URL with default port 443", "https://example.com:443", "https://example.com", false},
+		{"URL with non-default port", "https://example.com:8443", "https://example.com:8443", false},
+		{"HTTPS with sorted query", "https://example.com?b=2&a=1", "https://example.com?a=1&b=2", false},
+		{"Query with multiple values", "https://example.com?b=2&b=1", "https://example.com?b=1&b=2", false},
+		{"Query with encoded characters", "https://example.com?q=a+b", "https://example.com?q=a%2Bb", false},
+		{"Missing scheme (defaults to HTTPS)", "example.com", "https://example.com", false},
+		{"Unsupported scheme", "ftp://example.com", "", true},
+		{"Malformed URL", "http://%41", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NormalizeURL(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NormalizeURL(%q) error = %v, wantErr = %v", tt.input, err, tt.wantErr)
+			}
+			if got != tt.expected && !tt.wantErr {
+				t.Errorf("NormalizeURL(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDomainFromURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		wantErr  bool
+	}{
+		{"Valid URL", "https://example.com/path", "example.com", false},
+		{"URL with subdomain", "https://sub.example.com/path", "sub.example.com", false},
+		{"URL with port", "https://example.com:8080/path", "example.com:8080", false},
+		{"URL with query", "https://example.com/path?query=1", "example.com", false},
+		{"Invalid URL format", "not-a-url", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ExtractBaseDomain(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ExtractBaseDomain(%q) error = %v, wantErr = %v", tt.input, err, tt.wantErr)
+			}
+			if got != tt.expected && !tt.wantErr {
+				t.Errorf("ExtractBaseDomain(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}

@@ -200,7 +200,7 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 	// Push Found DB items onto the NATS queue
 	for _, job := range jobs {
 		if err := nats.PublishMsg(r.Context(), job); err != nil {
-			log.Printf("Failed to push job %s to NATS: %v", job.NormalizedURLKey, err)
+			log.Printf("Failed to push job %s to NATS: %v", job.NormalizedUrlKey, err)
 		}
 	}
 
@@ -220,6 +220,7 @@ func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary
 				<p><strong>Target Name Selector:</strong> %s</p>
 				<p><strong>Target Location Selector:</strong> %s</p>
 				<p><strong>Target Start Time Selector:</strong> %s</p>
+				<p><strong>Target End Time Selector:</strong> %s</p>
 				<p><strong>Target Description Selector:</strong> %s</p>
 				<p><strong>Target Href Selector:</strong> %s</p>
 				<p><strong>Status:</strong> %s</p>
@@ -232,7 +233,7 @@ func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary
 				<hr/>
 			</div>
 		`,
-			job.NormalizedURLKey,
+			job.NormalizedUrlKey,
 			job.LocationLatitude,
 			job.LocationLongitude,
 			job.LocationAddress,
@@ -240,6 +241,7 @@ func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary
 			job.TargetLocationCSSPath,
 			job.TargetStartTimeCSSPath,
 			job.TargetDescriptionCSSPath,
+			job.TargetEndTimeCSSPath,
 			job.TargetHrefCSSPath,
 			job.Status,
 			job.LastScrapeSuccess,
