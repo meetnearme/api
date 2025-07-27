@@ -747,6 +747,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			var endTag string
 			var descriptionTag string
 			var eventTitleTag string
+			var location string
 
 			// Use childDoc if this event matches the last child candidate (child is always only one)
 			if childDoc != nil && event.EventSource == "rs" {
@@ -775,6 +776,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			if event.EventDescription == "" {
 				descriptionTag = ""
 			} else {
+				// Use half the length of the description to find a partial match
 				descriptionTag = findTagByPartialText(docToUse, event.EventDescription[:utf8.RuneCountInString(event.EventDescription)/2])
 			}
 
@@ -792,11 +794,17 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 			scheduledHour := time.Now().UTC().Hour()
 
+			if session.LocationAddress == "" {
+				location = event.EventLocation
+			} else {
+				location = session.LocationAddress
+			}
+
 			seshuJob := internal_types.SeshuJob{
 				NormalizedUrlKey:         normalizedUrl,
 				LocationLatitude:         session.LocationLatitude,
 				LocationLongitude:        session.LocationLongitude,
-				LocationAddress:          session.LocationAddress,
+				LocationAddress:          location,
 				ScheduledHour:            scheduledHour,
 				TargetNameCSSPath:        findTagByExactText(docToUse, event.EventTitle),
 				TargetLocationCSSPath:    findTagByExactText(docToUse, event.EventLocation),
