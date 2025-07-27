@@ -372,14 +372,14 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 											class="input join-item input-bordered w-full"
 											type="text"
 											placeholder="I want to exercise with a group"
-											x-model="Alpine.store('filters').q"
+											:value="$store.urlState.q || ''"
 											required
 										/>
 									</div>
 									<button
 										type="submit"
 										id="search-submit-btn"
-										@click.prevent="Alpine.store('filters').handleSearchSubmit($event, true)"
+										@click.prevent="$store.urlState.setParam('q', $event.target.closest('form').querySelector('input[type=text]').value); document.getElementById('main-drawer').click();"
 										class="btn btn-primary join-item"
 									>Search</button>
 								</div>

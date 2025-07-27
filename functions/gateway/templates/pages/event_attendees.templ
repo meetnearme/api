@@ -27,7 +27,7 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 		<br/>
 	} else {
 		<div x-data="getAttendeeEventState()">
-			<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
+			<header class="page-header bg-base-100 sticky sticky-under-top-nav z-40 py-4">
 				<h1 class="text-3xl mb-4">{ pageObj.Name }</h1>
 				<a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>Edit Event</a>
 			</header>

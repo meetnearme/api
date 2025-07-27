@@ -27,7 +27,7 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 	<br/>
 	<div id="admin-content-container" class="md:grid md:grid-cols-7" x-data="getAdminState()">
 		@components.AdminNav(ctx)
-		<div class="htmx-show-in-flight col-span-5 card border border-base-300 bg-base-100 p-10 rounded-box">
+		<div class="htmx-show-in-flight col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box">
 			<template x-for="i in Array.from({length: 3}, (_, i) => i)" :key="i">
 				<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
 					<tr class="border-t-2 border-base-300">
@@ -49,7 +49,7 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 		</div>
 		<div
 			id="admin-content"
-			class="htmx-hide-in-flight col-span-5 card border border-base-300 bg-base-100 p-10 rounded-box"
+			class="htmx-hide-in-flight overflow-scroll col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box"
 		>
 			<h2 id="registration-history" class="text-2xl font-bold mt-4">Event Purchases &amp; Registrations</h2>
 			<div>
@@ -93,7 +93,7 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 								>
 									<td x-text="getPurchaseStatus(purchase)"></td>
 									<td colspan="6">
-										<a class="link link-text" :href="`/event/${purchase.event_id}`" x-text="purchase.event_name"></a>
+										<a class="link link-primary" :href="`/event/${purchase.event_id}`" x-text="purchase.event_name"></a>
 										<template x-for="(item, idx) in purchase.purchased_items" :key="item.name">
 											<div>
 												<template x-if="idx >= 1">
@@ -195,7 +195,7 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 				<p class="mb-4">
 					View custom subdomain at
 					<a
-						class="link link-text"
+						class="link link-primary"
 						x-bind:href=" 'https://' + subdomainPreview + '.' + baseDomain "
 						x-text=" 'https://' + subdomainPreview + '.' + baseDomain "
 					></a>

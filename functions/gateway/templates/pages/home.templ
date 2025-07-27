@@ -36,6 +36,21 @@ script navigateToSlideHandler(index int) {
 		}
 }
 
+templ ReShareButton() {
+	// add top right fixed icon for re-share
+	<div class="dropdown dropdown-end absolute top-4 right-4 z-40">
+		<div tabindex="0" role="button" class="btn   btn-circle"><svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z"></path></svg></div>
+		<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-32 p-2 shadow">
+			<li>
+				<a>
+					<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"></path></svg>
+					&nbsp;Re share
+				</a>
+			</li>
+		</ul>
+	</div>
+}
+
 templ EventsInner(events []types.Event, mode string) {
 	if mode == helpers.EV_MODE_UPCOMING || mode == "" {
 		if (len(events) < 1) {
@@ -48,6 +63,7 @@ templ EventsInner(events []types.Event, mode string) {
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-24 md:pb-4">
+					@ReShareButton()
 					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 						<img
 							loading="lazy"
@@ -111,6 +127,7 @@ templ EventsInner(events []types.Event, mode string) {
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-12 md:pb-4">
+					@ReShareButton()
 					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 						<img
 							loading="lazy"
@@ -140,49 +157,58 @@ templ EventsInner(events []types.Event, mode string) {
 	}
 	if mode == helpers.EV_MODE_ADMIN_LIST {
 		<h3 class="text-2xl font-bold my-10">Event Admin</h3>
-		<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
+		<table class="table table-fixed top-align bg-base-100 table-pin-rows table-zebra">
 			<thead>
 				<tr>
-					<th>Event</th>
-					<th>Status</th>
-					<th>Start</th>
-					<th>End</th>
-					<th>Type</th>
-					<th>Created</th>
-					<th>Updated</th>
+					<th></th>
+					<th colspan="6">Event</th>
+					<th colspan="2">Status</th>
+					<th colspan="2">Start</th>
+					<th colspan="2">End</th>
 				</tr>
 			</thead>
 			<tbody>
-				for _, ev := range events {
+				for idx, ev := range events {
 					<tr class="border-t-2 border-base-300">
 						<td>
-							<a class="link link-text" href={ templ.URL("/admin/event/" + ev.Id + "/edit") }>{ ev.Name }</a>
+							if idx % 2 == 0 {
+								<div class="tooltip" data-tip="Re Shared">
+									<svg
+										class="w-6 h-6 flex-none shrink-0 grow-0 fill-current"
+										xmlns="http://www.w3.org/2000/svg"
+										height="24px"
+										viewBox="0 -960 960 960"
+										width="24px"
+										fill="#currentColor"
+									><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"></path></svg>
+								</div>
+							}
 						</td>
-						<td>
+						<td colspan="6">
+							<a class="link link-primary" href={ templ.URL("/admin/event/" + ev.Id + "/edit") }>{ ev.Name }</a>
+							if ev.EventSourceType == helpers.ES_SERIES_PARENT || ev.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
+								<br/>
+								<strong>Event Series</strong>
+							}
+							<br/>
+							Created: { helpers.FormatTimeMMDDYYYY(ev.CreatedAt) }
+							<br/>
+							Updated: { helpers.FormatTimeMMDDYYYY(ev.UpdatedAt) }
+						</td>
+						<td colspan="2">
 							if strings.HasPrefix(ev.EventSourceType, helpers.UNPUB_SUFFIX) {
 								Unpublished
 							} else {
 								Published
 							}
 						</td>
-						<td>
+						<td colspan="2">
 							{ helpers.FormatTimeMMDDYYYY(ev.StartTime) }
 						</td>
-						<td>
-							{ helpers.FormatTimeMMDDYYYY(ev.EndTime) }
-						</td>
-						<td>
-							if ev.EventSourceType == helpers.ES_SERIES_PARENT || ev.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
-								Series
-							} else {
-								Event
+						<td colspan="2">
+							if ev.EndTime > 0 {
+								{ helpers.FormatTimeMMDDYYYY(ev.EndTime) }
 							}
-						</td>
-						<td>
-							{ helpers.FormatTimeMMDDYYYY(ev.CreatedAt) }
-						</td>
-						<td>
-							{ helpers.FormatTimeMMDDYYYY(ev.UpdatedAt) }
 						</td>
 					</tr>
 				}
@@ -251,7 +277,7 @@ func GetDefaultRadius(cfLocation helpers.CdnLocation) string {
 templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
 	// we assume this is "home" and not a community / user profile page
 	if pageUser == nil {
-		<div class="header-hero bg-[#00ffzz]">
+		<div class="header-hero">
 			<h1 class="text-xl md:text-4xl text-center mb-5">
 				<span class="opener">People Over Screens!</span>
 				<br/>
@@ -336,7 +362,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					<div class="flex gap-2 items-center overflow-x-auto pb-3">
 						<template x-for="(example, index) in $store.filters.getSearchExamples()" :key="index">
 							<button
-								@click="handleSearchSuggestionChipClick(event, example)"
+								@click="$store.urlState.setParam('q', example)"
 								class="btn btn-sm btn-outline font-thin flex-shrink-0 whitespace-nowrap"
 								x-text="example"
 							></button>
@@ -346,14 +372,14 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					<div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-base-200 to-transparent pointer-events-none"></div>
 				</div>
 				// full width search bar
-				<form class="join w-full" @submit.prevent="Alpine.store('filters').handleSearchSubmit($event, false)">
+				<form class="join w-full" @submit.prevent="$store.urlState.setParam('q', $event.target.querySelector('input[type=text]').value)">
 					<label class="input input-bordered flex join-item items-center gap-2 w-full">
 						<input
 							id="search-input"
 							class="w-full grow"
 							type="text"
 							placeholder="I want to exercise with a group"
-							x-model="Alpine.store('filters').q"
+							:value="$store.urlState.q || ''"
 						/>
 						@FilterButton()
 					</label>
@@ -364,13 +390,18 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					>Search</button>
 				</form>
 				<div class="text-sm md:text-base mt-6 mb-2">
-					Showing events within <span class="font-bold" x-text="$store.filters.radius"></span> miles of
-					<a
-						class="link link-text font-bold"
-						:href=" $store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${$store.location?.selected?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${$store.location?.selected?.label}` "
-					>
-						<span x-text="$store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + $store.location?.selected?.label : $store.location?.selected?.label"></span>
-					</a> <button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
+					Showing events within <span class="font-bold" x-text="$store.urlState.radius || '25'"></span> miles of
+					<a class="link link-text font-bold" :href="`https://google.com/maps?q=${$store.urlState.location || 'Current Location'}`">
+						<span x-text="$store.urlState.location || 'Current Location'"></span>
+					</a>
+					<template x-if="$store.urlState.q">
+						<span>&nbsp;searching for "<strong x-text="$store.urlState.q"></strong>"</span>
+					</template>
+					<template x-if="$store.urlState.start_time">
+						<span>&nbsp;starting <strong x-text="$store.urlState.queryParamToReadableTime($store.urlState.start_time)"></strong></span>
+					</template>
+					&nbsp;
+					<button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
 				</div>
 			</div>
 			<div class="pb-4">
@@ -391,73 +422,71 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					hx-vals="js:{...sendParmsFromQs()}"
 				>
 					<input
-						x-model="start_time"
+						:value="$store.urlState.start_time || ''"
 						id="start_time"
 						type="hidden"
+						name="start_time"
 					/>
 					<input
-						x-model="end_time"
+						:value="$store.urlState.end_time || ''"
 						id="end_time"
 						type="hidden"
+						name="end_time"
 					/>
 					<input
-						x-model="q"
+						:value="$store.urlState.q || ''"
 						id="q"
 						type="hidden"
+						name="q"
 					/>
 					<input
-						x-model="$store.filters.radius"
+						:value="$store.urlState.radius || ''"
 						id="radius"
 						type="hidden"
+						name="radius"
 					/>
 					<input
-						x-model="lat"
+						:value="$store.urlState.lat || ''"
 						id="lat"
 						type="hidden"
+						name="lat"
 					/>
 					<input
-						x-model="lon"
+						:value="$store.urlState.lon || ''"
 						id="lon"
 						type="hidden"
+						name="lon"
 					/>
 					<div class="flex flex-auto space-x-2">
 						<button
-							type="submit"
-							:class="{
-							'btn-primary': $store.queryParams.start_time === 'this_month'
-						}"
-							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_month')"
+							type="button"
+							:class="{ 'btn-primary': $store.urlState.start_time === 'this_month' }"
+							class="btn grow px-2 py-2 text-md md:text-xl"
+							@click="$store.urlState.setParam('start_time', 'this_month')"
 						>
 							THIS MONTH
 						</button>
 						<button
-							type="submit"
-							:class="{
-							'btn-primary': $store.queryParams.start_time === 'today'
-						}"
-							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'today')"
+							type="button"
+							:class="{ 'btn-primary': $store.urlState.start_time === 'today' }"
+							class="btn grow px-2 py-2 text-md md:text-xl"
+							@click="$store.urlState.setParam('start_time', 'today')"
 						>
 							TODAY
 						</button>
 						<button
-							type="submit"
-							:class="{
-							'btn-primary': $store.queryParams.start_time === 'tomorrow'
-						}"
-							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'tomorrow')"
+							type="button"
+							:class="{ 'btn-primary': $store.urlState.start_time === 'tomorrow' }"
+							class="btn grow px-2 py-2 text-md md:text-xl"
+							@click="$store.urlState.setParam('start_time', 'tomorrow')"
 						>
 							TOMORROW
 						</button>
 						<button
-							type="submit"
-							:class="{
-							'btn-primary': $store.queryParams.start_time === 'this_week'
-						}"
-							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_week')"
+							type="button"
+							:class="{ 'btn-primary': $store.urlState.start_time === 'this_week' }"
+							class="btn grow px-2 py-2 text-md md:text-xl"
+							@click="$store.urlState.setParam('start_time', 'this_week')"
 						>
 							THIS WEEK
 						</button>
@@ -505,77 +534,117 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 	</div>
 	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) }>
 		document.addEventListener('alpine:init', () => {
+			// Reactive URL store - single source of truth with reactivity
+			Alpine.store('urlState', {
+				// Initialize from URL
+				...Object.fromEntries(new URLSearchParams(window.location.search)),
 
-			const urlParams = new URLSearchParams(window.location.search);
+				// Helper to update both store and URL
+				setParam(param, value) {
+					const url = new URL(window.location.href);
+					const params = new URLSearchParams(url.search);
 
-			const categoriesParam = urlParams.get('categories');
-			const categories = categoriesParam ? decodeURIComponent(categoriesParam).split(' | ') : '';
-
-			Alpine.store('filters', {
-				radius: urlParams.get('radius') ?? document.querySelector('#alpine-state').getAttribute('data-default-radius'),
-				lat: urlParams.get('lat') ?? document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
-				lon: urlParams.get('lon') ?? document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
-				categories: categories,
-				q: urlParams.get('q') ?? '',
-				setRadius(value) {
-					this.radius = value;
-				},
-				setLat(value) {
-					this.lat = value;
-				},
-				setLon(value) {
-					this.lon = value;
-				},
-				setQ(value) {
-					this.q = value;
-				},
-				handleSearchSubmit(e, toggleDrawer = true) {
-					e.preventDefault()
-					// this is not extremely precise, we can data bind the input if we need to
-					const inputText = e.currentTarget.parentElement.querySelector('input[type="text"]').value
-					if (inputText.length > 0) {
-						Alpine.store('filters').setQ(inputText)
-						Alpine.store('queryParams').pushToQueryParams('q', inputText)
-						if (toggleDrawer) {
-							document.getElementById('main-drawer').click();
+					if (param === 'categories') {
+						const categoryString = Array.isArray(value) ? value.join(' | ') : value;
+						if (categoryString && categoryString !== '') {
+							params.set('categories', categoryString);
+							this.categories = categoryString;
+						} else {
+							params.delete('categories');
+							this.categories = '';
+						}
+					} else {
+						if (value && value !== '') {
+							params.set(param, value);
+							this[param] = value;
+						} else {
+							params.delete(param);
+							this[param] = '';
 						}
 					}
+
+					// Update URL
+					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
+
+					// Trigger form submission
+					const form = document.getElementById('event-search-form');
+					if (form) {
+						setTimeout(() => {
+							form.requestSubmit();
+						}, 50);
+					}
 				},
+
+				// Helper to sync from URL (for popstate events)
+				syncFromURL() {
+					const urlParams = new URLSearchParams(window.location.search);
+
+					// Update all known parameters
+					['start_time', 'end_time', 'q', 'radius', 'lat', 'lon', 'categories', 'location'].forEach(param => {
+						const value = urlParams.get(param) || '';
+						this[param] = value;
+					});
+				},
+
+				queryParamToReadableTime(param) {
+					if (param === 'this_month') return 'this month';
+					if (param === 'today') return 'today';
+					if (param === 'tomorrow') return 'tomorrow';
+					if (param === 'this_week') return 'this week';
+					if (param === 'this_year') return 'this year';
+					if (param === '') return 'within 90 days';
+					return '';
+				}
+			});
+
+			// Filters store - ONLY for sidebar draft state
+			Alpine.store('filters', {
+				// Draft state properties
+				radius: '',
+				categories: [],
+
+				// Initialize draft state from current URL
+				initFromUrl() {
+					this.radius = Alpine.store('urlState').radius || document.querySelector('#alpine-state').getAttribute('data-default-radius');
+					const categoriesString = Alpine.store('urlState').categories || '';
+					this.categories = categoriesString ? categoriesString.split(' | ') : [];
+				},
+
+				// Utility functions
 				getSearchExamples() {
 					const searchPlaceholderExamples = [
-							'I want to meet people who enjoy theater',
-							'I want to meet active people',
-							'I want to exercise with a group',
-							'I want to find a running group',
-							'I want to find a hiking group',
-							'I want to find a biking group',
-							'I want to find a yoga group',
-							'I want to find a dance group',
-							'I want to find a cooking group',
-							'I want to find a book club',
-							'I want to find a wine tasting group',
-							'I want to meet people interested in nature',
-							'I want to meet people interested in natural living',
-							'I want to meet people interested in healthy eating',
-							'I want to meet people interested in sustainable living',
-							'I want to meet people interested in alternative medicine',
-							'I want to meet people interested in spirituality',
-							'I want to meet people interested in personal development',
-							'I want to meet people interested in personal growth',
-
-						]
+						'I want to meet people who enjoy theater',
+						'I want to meet active people',
+						'I want to exercise with a group',
+						'I want to find a running group',
+						'I want to find a hiking group',
+						'I want to find a biking group',
+						'I want to find a yoga group',
+						'I want to find a dance group',
+						'I want to find a cooking group',
+						'I want to find a book club',
+						'I want to find a wine tasting group',
+						'I want to meet people interested in nature',
+						'I want to meet people interested in natural living',
+						'I want to meet people interested in healthy eating',
+						'I want to meet people interested in sustainable living',
+						'I want to meet people interested in alternative medicine',
+						'I want to meet people interested in spirituality',
+						'I want to meet people interested in personal development',
+						'I want to meet people interested in personal growth',
+					];
 					const shuffleArray = array => {
 						for (let i = array.length - 1; i > 0; i--) {
 							const j = Math.floor(Math.random() * (i + 1));
 							[array[i], array[j]] = [array[j], array[i]];
 						}
 						return array;
-					}
-					const shuffledExamples = shuffleArray([...searchPlaceholderExamples])
-					return shuffledExamples
+					};
+					return shuffleArray([...searchPlaceholderExamples]);
 				}
 			});
 
+			// Keep location store
 			Alpine.store('location', {
 				selected: {
 					label: document.querySelector('#alpine-state').getAttribute('data-city-label-initial'),
@@ -584,36 +653,6 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				},
 				setSelectedLocation(location) {
 					this.selected = location
-				},
-			});
-
-			Alpine.store('queryParams', {
-				allParams: [
-					'start_time',
-					'end_time',
-					'q',
-					'radius',
-					'lat',
-					'lon',
-					'categories',
-					'location'
-				],
-				pushToQueryParams(param, selected) {
-					const url = new URL(window.location.href);
-					const params = new URLSearchParams(url.search);
-
-					this.allParams.forEach(key => {
-						if ( key && param && (key !== param && ( this[key] !== (null || '') ) ) ) {
-							if (this[key]) {
-								params.set(key, this[key])
-							}
-						}
-					})
-
-					this[param] = selected;
-					params.set(param, selected);
-
-					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
 				},
 			});
 		});
@@ -708,95 +747,36 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 		function getHomeState() {
 			return {
 				async init() {
-					this.updateParamsFromUrl(false);
-
-					// enhance history.pushState with a listener and call it on every
-					// change of query params so that our URL can be the real source
-					// of truth while JS state simply follows that
-					((history) => {
-						var pushState = history.pushState;
-						history.pushState = function(state) {
-							if (typeof history.onpushstate == "function") {
-								history.onpushstate({state: state});
-							}
-							// whatever else you want to do
-							// maybe call onhashchange e.handler
-							return pushState.apply(history, arguments);
-						}
-					})(window.history);
-
-					window.onpopstate = history.onpushstate = () => {
-						this.updateParamsFromUrl();
-					};
-
-					// Also listen for popstate events for back/forward navigation
+					// Handle browser back/forward navigation
 					window.addEventListener('popstate', () => {
-						this.updateParamsFromUrl();
+						// Sync Alpine store from URL
+						Alpine.store('urlState').syncFromURL();
+
+						// Trigger form submission
+						const form = document.getElementById('event-search-form');
+						if (form) {
+							form.requestSubmit();
+						}
 					});
 				},
 				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
 				defaultRadius: document.querySelector('#alpine-state').getAttribute('data-default-radius'),
-				start_time: null,
-				end_time: null,
-				q: null,
-				radius: null,
-				lat: null,
-				lon: null,
-				categories: null,
-				locationDropdown: null,
-				updateParamsFromUrl (triggerSearch = true) {
-					const urlParams = new URLSearchParams(window.location.search);
 
-					this.start_time = urlParams.get('start_time') || '';
-					this.end_time = urlParams.get('end_time') || '';
-					this.q = urlParams.get('q') || '';
-					if (urlParams.get('radius')) {
-						Alpine.store('filters').setRadius(urlParams.get('radius'));
-					}
-					this.lat = urlParams.get('lat') || '';
-					this.lon = urlParams.get('lon') || '';
-					// these come from the sidebar
-					this.categories = urlParams.get('categories') || '';
-
-					// avoid re-triggering search for scenarios like initial page load
-					if (!triggerSearch) {
-						return;
-					}
-					// Submit the form
-					const form = document.getElementById('event-search-form')
-
-					// this is unforunately just to allow alpine to propagate the form with
-					// updated values prior to submitting
-					setTimeout(()=> {
-						form?.requestSubmit()
-					}, 250)
-				},
-				handleLocationSelected(event) {
-					this.lat = event.detail.lat
-					this.lon = event.detail.lon
-				},
-				updateHasEvents(event) {
-					if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
-						this.hasEvents = true;
-					} else {
-						this.hasEvents = false;
-					}
-				},
 				handleSearchSuggestionChipClick(e, text) {
-					e.preventDefault()
-					Alpine.store('filters').setQ(text)
-					Alpine.store('queryParams').pushToQueryParams('q', text)
+					e.preventDefault();
+					Alpine.store('urlState').setParam('q', text);
 				}
 			}
 		}
 
-		// NOTE: this maintains an intentionally independent state from Alpine.store('filters').radius
-		// because the sidebar stores a "draft" state that is committed to URL params
-		// and Alpine global state only when the user clicks "Apply Filters"
+		// NOTE: this maintains an intentionally independent state for sidebar draft state
+		// that is committed to URL params via Alpine.store('urlState') when "Apply Filters" is clicked
 		function getFilterFormState() {
 				return {
 					init() {
-						this.radius = Alpine.store('filters').radius
+						// Initialize draft state from URL state
+						Alpine.store('filters').initFromUrl();
+						this.radius = Alpine.store('filters').radius;
 
 						const form = document.getElementById('category-search-form')
 						form.querySelectorAll('input[type="checkbox"]').forEach(itm => {
@@ -805,28 +785,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							}
 						})
 
-						const searchPlaceholderExamples = [
-							'I want to meet people who enjoy theater',
-							'I want to meet active people',
-							'I want to exercise with a group',
-							'I want to find a running group',
-							'I want to find a hiking group',
-							'I want to find a biking group',
-							'I want to find a yoga group',
-							'I want to find a dance group',
-							'I want to find a cooking group',
-							'I want to find a book club',
-							'I want to find a wine tasting group',
-							'I want to meet people interested in nature',
-							'I want to meet people interested in natural living',
-							'I want to meet people interested in healthy eating',
-							'I want to meet people interested in sustainable living',
-							'I want to meet people interested in alternative medicine',
-							'I want to meet people interested in spirituality',
-							'I want to meet people interested in personal development',
-							'I want to meet people interested in personal growth',
-
-						]
+						const searchPlaceholderExamples = Alpine.store('filters').getSearchExamples()
 
 						const searchInput = document.querySelector('#search-input')
 						if (searchInput) {
@@ -868,23 +827,27 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 								formVals.push(formValues?.[itm])
 							}
 						})
-						formVals = formVals.join(' | ')
-						Alpine.store('queryParams').pushToQueryParams('categories', formVals)
+						const categoriesString = formVals.join(' | ')
+
+						// Commit categories to URL (triggers syncFromURL automatically)
+						Alpine.store('urlState').setParam('categories', categoriesString)
 					},
 					handleFilterSubmit() {
+						// Commit all draft changes to URL state
 						this.sendCategoriesToQueryParams();
-						if (this.radius) {
-							Alpine.store('filters').setRadius(this.radius)
-							Alpine.store('queryParams').pushToQueryParams('radius', this.radius)
-						}
-						if (this.locationDropdown) {
-							Alpine.store('filters').setLat(this.locationDropdown.latitude)
-							Alpine.store('filters').setLon(this.locationDropdown.longitude)
-							Alpine.store('location').setSelectedLocation(this.locationDropdown)
 
-							Alpine.store('queryParams').pushToQueryParams('lat', this.locationDropdown.latitude)
-							Alpine.store('queryParams').pushToQueryParams('lon', this.locationDropdown.longitude)
-							Alpine.store('queryParams').pushToQueryParams('location', this.locationDropdown.label)
+						if (this.radius) {
+							Alpine.store('urlState').setParam('radius', this.radius)
+						}
+
+						if (this.locationDropdown) {
+							// Commit location changes to URL
+							Alpine.store('urlState').setParam('lat', this.locationDropdown.latitude)
+							Alpine.store('urlState').setParam('lon', this.locationDropdown.longitude)
+							Alpine.store('urlState').setParam('location', this.locationDropdown.label)
+
+							// Also update the location store for the display
+							Alpine.store('location').setSelectedLocation(this.locationDropdown)
 						}
 
 						// close the drawer

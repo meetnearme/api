@@ -210,7 +210,7 @@ func NewApp() *App {
 	app.InitializeAuth()
 	app.InitDataBase()
 	app.InitNats()
-	log.Printf("App created: %+v", app)
+	log.Printf("New Go App created at %s", time.Now().Format(time.RFC3339))
 
 	defer func() {
 		app.InitStripe()
@@ -737,7 +737,6 @@ func main() {
 
 	// This is the package level instance of Db in handlers
 	_ = transport.GetDB()
-	log.Print("451 ")
 	defer app.PostGresDB.Close()
 	defer app.Nats.Close()
 

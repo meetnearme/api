@@ -11,7 +11,7 @@ import (
 
 templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64, isCompetitionAdmin bool) {
 	if event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB {
-		<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
+		<header class="page-header bg-base-100 sticky sticky-under-top-nav z-40 py-4">
 			<h1 class="text-3xl mb-4 truncate whitespace-nowrap overflow-hidden max-w-full">
 				This is a series event, you must edit it's parent
 			</h1>
@@ -25,7 +25,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 			@address-updated.window="formData.event.address = $event.detail.value"
 		>
 			// NOTE: intentionally hidden fields that users can't affect directly
-			<header class="page-header bg-base-100 shadow-md sticky sticky-under-top-nav z-40 py-4">
+			<header class="page-header bg-base-100 sticky sticky-under-top-nav z-40 py-4">
 				<h1 class="text-3xl mb-4 truncate whitespace-nowrap overflow-hidden max-w-full">
 					{ pageObj.Name }
 					<template x-if="formData.event.id">
@@ -36,7 +36,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 						<span x-text=" ': ' + formData.event.name"></span>
 					</template>
 				</h1>
-				<a class="btn btn-sm" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["attendees-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>View Attendees</a>
+				<a class="btn btn-sm flex-start" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["attendees-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>View Attendees</a>
 			</header>
 			<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Overview</h2>
 			<div id="basic" class="card border border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">

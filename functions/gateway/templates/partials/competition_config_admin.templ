@@ -10,7 +10,7 @@ templ CompetitionConfigAdminList(configs *[]internal_types.CompetitionConfig) {
 	<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
 		<thead>
 			<tr>
-				<th>Competition</th>
+				<th colspan="5">Competition</th>
 				<th>Start</th>
 				<th>End</th>
 				<th>Type</th>
@@ -21,8 +21,8 @@ templ CompetitionConfigAdminList(configs *[]internal_types.CompetitionConfig) {
 		<tbody>
 			for _, config := range *configs {
 				<tr class="border-t-2 border-base-300">
-					<td>
-						<a class="link link-text" href={ templ.URL("/admin/competition/" + config.Id + "/edit") }>{ config.Name }</a>
+					<td colspan="5">
+						<a class="link link-primary" href={ templ.URL("/admin/competition/" + config.Id + "/edit") }>{ config.Name }</a>
 					</td>
 					<td>
 						{ helpers.FormatTimeMMDDYYYY(config.StartTime) }
