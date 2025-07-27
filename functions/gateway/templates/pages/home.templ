@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"context"
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
@@ -51,7 +52,7 @@ templ ReShareButton() {
 	</div>
 }
 
-templ EventsInner(events []types.Event, mode string) {
+templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleClaim, userId string, pageUser *types.UserSearchResult) {
 	if mode == helpers.EV_MODE_UPCOMING || mode == "" {
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
@@ -63,7 +64,9 @@ templ EventsInner(events []types.Event, mode string) {
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-24 md:pb-4">
-					@ReShareButton()
+					if helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.SuperAdmin], helpers.Roles[helpers.SyndicateAdmin]}) {
+						@ReShareButton()
+					}
 					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 						<img
 							loading="lazy"
@@ -127,7 +130,9 @@ templ EventsInner(events []types.Event, mode string) {
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-12 md:pb-4">
-					@ReShareButton()
+					if userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.SuperAdmin], helpers.Roles[helpers.SyndicateAdmin]}) {
+						@ReShareButton()
+					}
 					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 						<img
 							loading="lazy"
@@ -274,7 +279,23 @@ func GetDefaultRadius(cfLocation helpers.CdnLocation) string {
 	return strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64)
 }
 
-templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
+templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
+	{{
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
+	}}
+	{{
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	userId := ""
+	if userInfo.Sub != "" {
+		userId = userInfo.Sub
+	}
+	}}
 	// we assume this is "home" and not a community / user profile page
 	if pageUser == nil {
 		<div class="header-hero">
@@ -390,9 +411,9 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					>Search</button>
 				</form>
 				<div class="text-sm md:text-base mt-6 mb-2">
-					Showing events within <span class="font-bold" x-text="$store.urlState.radius || '25'"></span> miles of
-					<a class="link link-text font-bold" :href="`https://google.com/maps?q=${$store.urlState.location || 'Current Location'}`">
-						<span x-text="$store.urlState.location || 'Current Location'"></span>
+					Showing events within <span class="font-bold" x-text="$store.urlState.radius || defaultRadius"></span> miles of
+					<a class="link link-text font-bold" :href="`https://google.com/maps?q=${$store.urlState.location || document.querySelector('#alpine-state').getAttribute('data-city-label-initial') }`">
+						<span x-text="$store.urlState.location || document.querySelector('#alpine-state').getAttribute('data-city-label-initial')"></span>
 					</a>
 					<template x-if="$store.urlState.q">
 						<span>&nbsp;searching for "<strong x-text="$store.urlState.q"></strong>"</span>
@@ -500,7 +521,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					<span class="loading loading-spinner loading-lg text-primary"></span>
 				</div>
 				<div id="events-container-inner">
-					@EventsInner(events, "")
+					@EventsInner(events, "", roleClaims, userId, pageUser)
 				</div>
 			} else {
 				<div role="tablist" class="tabs tabs-bordered">
@@ -517,7 +538,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 							<span class="loading loading-spinner loading-lg text-primary"></span>
 						</div>
 						<div id="events-container-inner">
-							@EventsInner(events, helpers.EV_MODE_LIST)
+							@EventsInner(events, helpers.EV_MODE_LIST, roleClaims, userId, pageUser)
 						</div>
 					</div>
 					<input

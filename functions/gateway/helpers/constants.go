@@ -177,6 +177,7 @@ const (
 	OrgAdmin         Role = "orgAdmin"
 	CompetitionAdmin Role = "competitionAdmin"
 	EventAdmin       Role = "eventAdmin"
+	SyndicateAdmin   Role = "syndicateAdmin"
 )
 
 var Roles = map[Role]string{
@@ -184,6 +185,7 @@ var Roles = map[Role]string{
 	OrgAdmin:         string(OrgAdmin),
 	CompetitionAdmin: string(CompetitionAdmin),
 	EventAdmin:       string(EventAdmin),
+	SyndicateAdmin:   string(SyndicateAdmin),
 }
 
 var AllowedMnmOptionsKeys = []string{

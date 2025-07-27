@@ -155,7 +155,24 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		})
 	}
 
-	eventListPartial := pages.EventsInner(events, listMode)
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	userId := ""
+	if userInfo.Sub != "" {
+		userId = userInfo.Sub
+	}
+	pageUser := &internal_types.UserSearchResult{
+		UserID: userId,
+	}
+
+	eventListPartial := pages.EventsInner(events, listMode, roleClaims, userId, pageUser)
 
 	var buf bytes.Buffer
 	err = eventListPartial.Render(ctx, &buf)
