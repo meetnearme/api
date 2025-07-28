@@ -37,8 +37,6 @@ func (s *RealScrapingService) GetHTMLFromURLWithRetries(unescapedURL string, wai
 
 func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender bool, waitFor string, maxRetries int, validationFunc ContentValidationFunc) (string, error) {
 
-	// TODO: Escaping twice, thrice or more is unlikely, but this just makes sure the URL isn't
-	// single or double-encoded when passed as a param
 	targetHostPort := "localhost:8000" // The string we want to replace
 	replacementHost := "devnear.me"
 
@@ -47,6 +45,8 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 		unescapedURL = strings.ReplaceAll(unescapedURL, targetHostPort, replacementHost)
 	}
 
+	// TODO: Escaping twice, thrice or more is unlikely, but this just makes sure the URL isn't
+	// single or double-encoded when passed as a param
 	firstPassUrl, err := url.QueryUnescape(unescapedURL)
 	if err != nil {
 		return "", fmt.Errorf(URLEscapedErrorMsg)

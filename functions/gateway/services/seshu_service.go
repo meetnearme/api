@@ -548,7 +548,7 @@ func FindFacebookEventData(htmlContent string) ([]internal_types.EventInfo, erro
 	eventScriptContent = strings.TrimSpace(eventScriptContent)
 
 	// Extract events from the JSON content
-	events := ExtractEventsFromJSON(eventScriptContent)
+	events := ExtractFbEventsFromJSON(eventScriptContent)
 
 	if len(events) == 0 {
 		return nil, fmt.Errorf("no valid events extracted from JSON content")
@@ -557,8 +557,8 @@ func FindFacebookEventData(htmlContent string) ([]internal_types.EventInfo, erro
 	return events, nil
 }
 
-// ExtractEventsFromJSON extracts events from JSON content - exported for use as callback
-func ExtractEventsFromJSON(jsonContent string) []internal_types.EventInfo {
+// ExtractFbEventsFromJSON extracts events from JSON content - exported for use as callback
+func ExtractFbEventsFromJSON(jsonContent string) []internal_types.EventInfo {
 
 	var events []internal_types.EventInfo
 	eventID := 1
