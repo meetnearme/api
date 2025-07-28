@@ -299,7 +299,7 @@ func HandlePost(ctx context.Context, req InternalRequest, scraper services.Scrap
 			return strings.Contains(htmlContent, `"__typename":"Event"`)
 		}
 
-		htmlString, err = scraper.GetHTMLFromURLWithRetries(urlToScrape, 7500, true, "script[data-sjs][data-content-len]", 5, facebookEventValidation)
+		htmlString, err = scraper.GetHTMLFromURLWithRetries(urlToScrape, 7500, true, "script[data-sjs][data-content-len]", 7, facebookEventValidation)
 	} else {
 		htmlString, err = scraper.GetHTMLFromURL(urlToScrape, 4500, true, "")
 	}
