@@ -66,8 +66,6 @@ func (h *CompetitionVoteHandler) PutCompetitionVote(w http.ResponseWriter, r *ht
 		return
 	}
 
-	log.Printf("Vote struct for vote: %+v", createCompetitionVote)
-
 	db := transport.GetDB()
 	res, err := h.CompetitionVoteService.PutCompetitionVote(r.Context(), db, createCompetitionVote)
 	if err != nil {

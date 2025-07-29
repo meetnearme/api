@@ -572,8 +572,6 @@ func BulkDeleteEventsFromWeaviate(ctx context.Context, client *weaviate.Client, 
 		WithOperator(filters.ContainsAny).
 		WithValueText(eventIds...)
 
-	log.Printf("Attempting to bulk delete %d events from Weaviate class '%s'", len(eventIds), className)
-
 	resp, err := client.Batch().ObjectsBatchDeleter().
 		WithClassName(className).
 		WithWhere(whereFilter).
@@ -665,7 +663,6 @@ func BulkGetWeaviateEventByID(ctx context.Context, client *weaviate.Client, docI
 			continue
 		}
 
-		log.Printf("ObjMap: %+v", objMap)
 		event, normalizeErr := NormalizeWeaviateResultToEvent(objMap)
 		if normalizeErr != nil {
 			log.Printf("Warning: Could not normalize Weaviate result: %v", normalizeErr)
@@ -690,7 +687,6 @@ func BulkUpdateWeaviateEventsByID(ctx context.Context, client *weaviate.Client, 
 		}
 	}
 
-	log.Printf("All %d events have IDs. Proceeding with Weaviate bulk update.", len(events))
 	return BulkUpsertEventsToWeaviate(ctx, client, events)
 }
 

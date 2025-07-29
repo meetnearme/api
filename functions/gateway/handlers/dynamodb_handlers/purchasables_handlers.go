@@ -53,7 +53,6 @@ func (h *PurchasableHandler) CreatePurchasable(w http.ResponseWriter, r *http.Re
 	createPurchasable.UpdatedAt = now
 
 	db := transport.GetDB()
-	log.Printf("createPurchasable: %+v", createPurchasable)
 	res, err := h.PurchasableService.InsertPurchasable(r.Context(), db, createPurchasable)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to create purchasable: "+err.Error()), http.StatusInternalServerError, err)

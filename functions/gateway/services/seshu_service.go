@@ -230,8 +230,6 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		return nil, err
 	}
 
-	log.Printf("Updated seshu session: %+v", seshuPayload.Url)
-
 	return nil, nil
 }
 

@@ -130,7 +130,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	var userRedirectURL string = "/"
 	var cookieDomain string = ""
-	log.Printf("432: cookieDomain: %v", cookieDomain)
+	log.Printf("Leaving for compile issue at 138: cookieDomain: %v", cookieDomain)
 	if appState != "" {
 		userRedirectURL = appState
 		// Parse the redirect URL to get the host
