@@ -620,7 +620,7 @@ func ExtractFbEventsFromJSON(jsonContent string) []internal_types.EventInfo {
 					EventEndTime:     date, // Keep raw date for display
 					EventURL:         url,
 					EventDescription: "",
-					EventSource:      "facebook",
+					EventSource:      "",
 					// TODO: Add parsed timestamp field to EventInfo struct for proper time handling
 				})
 				eventID++

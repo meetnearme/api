@@ -740,13 +740,18 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// TODO: delete this `SeshuSession` once the handoff to the `SeshuJobs` table is complete
 
 		// Map to hold DOM paths for each event by its title
+		hasInitEvent := false
 
 		for _, event := range validatedEvents {
 			var docToUse *goquery.Document
 			var url string
+
+			var titlePath string
+			var locationTag string
+			var startTag string
 			var endTag string
 			var descriptionTag string
-			var eventTitleTag string
+			var eventURLTag string
 			var location string
 
 			// Use childDoc if this event matches the last child candidate (child is always only one)
@@ -754,41 +759,18 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				docToUse = childDoc
 				url = session.ChildId
 			} else {
+				if hasInitEvent { // grab the first init event
+					continue
+				}
 				docToUse = parentDoc
 				url = inputPayload.Url
+				hasInitEvent = true
 			}
 
 			//normalise url for consistency
 			normalizedUrl, err := helpers.NormalizeURL(url)
 			if err != nil {
 				log.Println("Error normalizing URL:", err)
-				continue
-			}
-
-			startTag := findTagByPartialText(docToUse, event.EventStartTime)
-
-			if event.EventEndTime == "" {
-				endTag = ""
-			} else {
-				endTag = findTagByPartialText(docToUse, event.EventEndTime)
-			}
-
-			if event.EventDescription == "" {
-				descriptionTag = ""
-			} else {
-				// Use half the length of the description to find a partial match
-				descriptionTag = findTagByPartialText(docToUse, event.EventDescription[:utf8.RuneCountInString(event.EventDescription)/2])
-			}
-
-			if event.EventURL == "" {
-				eventTitleTag = ""
-			} else {
-				eventTitleTag = findTagByPartialText(docToUse, event.EventTitle)
-			}
-
-			scrapeSource, err := helpers.ExtractBaseDomain(url)
-			if err != nil {
-				log.Println("Error extracting base domain:", err)
 				continue
 			}
 
@@ -800,24 +782,63 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				location = session.LocationAddress
 			}
 
+			scrapeSource, err := helpers.ExtractBaseDomain(url)
+			if err != nil {
+				log.Println("Error extracting base domain:", err)
+				continue
+			}
+
+			switch scrapeSource {
+			case "www.facebook.com":
+				titlePath = "_BYPASS_"
+				locationTag = "_BYPASS_"
+				startTag = "_BYPASS_"
+				endTag = "_BYPASS_"
+				descriptionTag = "_BYPASS_"
+				eventURLTag = "_BYPASS_"
+			default:
+				titlePath = findTagByExactText(docToUse, event.EventTitle)
+				locationTag = findTagByExactText(docToUse, event.EventLocation)
+				startTag = findTagByExactText(docToUse, event.EventStartTime)
+
+				if event.EventEndTime == "" {
+					endTag = ""
+				} else {
+					endTag = findTagByPartialText(docToUse, event.EventEndTime)
+				}
+
+				if event.EventDescription == "" {
+					descriptionTag = ""
+				} else {
+					// Use half the length of the description to find a partial match
+					descriptionTag = findTagByPartialText(docToUse, event.EventDescription[:utf8.RuneCountInString(event.EventDescription)/2])
+				}
+
+				if event.EventURL == "" {
+					eventURLTag = ""
+				} else {
+					eventURLTag = findTagByPartialText(docToUse, event.EventURL)
+				}
+			}
+
 			seshuJob := internal_types.SeshuJob{
 				NormalizedUrlKey:         normalizedUrl,
 				LocationLatitude:         session.LocationLatitude,
 				LocationLongitude:        session.LocationLongitude,
 				LocationAddress:          location,
 				ScheduledHour:            scheduledHour,
-				TargetNameCSSPath:        findTagByExactText(docToUse, event.EventTitle),
-				TargetLocationCSSPath:    findTagByExactText(docToUse, event.EventLocation),
+				TargetNameCSSPath:        titlePath,
+				TargetLocationCSSPath:    locationTag,
 				TargetStartTimeCSSPath:   startTag,
 				TargetEndTimeCSSPath:     endTag,         // optional
 				TargetDescriptionCSSPath: descriptionTag, // optional
-				TargetHrefCSSPath:        eventTitleTag,
+				TargetHrefCSSPath:        eventURLTag,
 				Status:                   "HEALTHY", // assume healthy if parse succeeded
 				LastScrapeSuccess:        time.Now().Unix(),
 				LastScrapeFailure:        0,
 				LastScrapeFailureCount:   0,
-				OwnerID:                  seshuSessionGet.OwnerId, // ideally from auth context
-				KnownScrapeSource:        scrapeSource,            // or infer from URL pattern/domain
+				OwnerID:                  session.OwnerId, // ideally from auth context
+				KnownScrapeSource:        scrapeSource,    // or infer from URL pattern/domain
 			}
 
 			payloadBytes, err := json.Marshal(seshuJob)
