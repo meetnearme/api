@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -248,240 +249,387 @@ func RouterNonLambda(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, []byte(resp.Body), resp.StatusCode, "partial", nil)
 }
 
-// func RouterNonLambda(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		w.Header().Set("Content-Type", "text/plain")
-// 		w.WriteHeader(http.StatusOK)
-// 		_, _ = w.Write([]byte("v"))
-// 	}
-// }
-
-func HandlePost(ctx context.Context, req InternalRequest, scraper services.ScrapingService) (InternalResponse, error) {
-
-	action := req.Action
-	var (
-		urlToScrape     string
-		parentUrl       string
-		childID         string
-		eventValidation []types.EventBoolValid
-	)
-
+func parsePayload(action string, body string) (urlToScrape, parentUrl, childID string, err error) {
 	switch action {
 	case "init":
 		systemPrompt = getSystemPrompt(false)
 		var payload SeshuInputPayload
-		if err := parseAndValidatePayload(req.Body, &payload); err != nil {
-			return clientError(http.StatusUnprocessableEntity)
-		}
-		urlToScrape = payload.Url
-		childID = ""
+		err = parseAndValidatePayload(body, &payload)
+		return payload.Url, "", "", err
 	case "rs":
 		systemPrompt = getSystemPrompt(true)
 		var payload SeshuRecursivePayload
-		if err := parseAndValidatePayload(req.Body, &payload); err != nil {
-			return clientError(http.StatusUnprocessableEntity)
-		}
-		urlToScrape = payload.Url
-		parentUrl = payload.ParentUrl
-		childID = ""
+		err = parseAndValidatePayload(body, &payload)
+		return payload.Url, payload.ParentUrl, "", err
 	default:
-		return clientError(http.StatusBadRequest)
+		return "", "", "", errors.New("invalid action")
 	}
+}
 
-	isFacebookEventsURL := services.IsFacebookEventsURL(urlToScrape)
-
-	var htmlString string
-	var err error
-
-	if isFacebookEventsURL {
-		// Create validation function for Facebook events
-		facebookEventValidation := func(htmlContent string) bool {
-			return strings.Contains(htmlContent, `"__typename":"Event"`)
+func fetchHTML(url string, isFacebook bool, scraper services.ScrapingService) (string, error) {
+	if isFacebook {
+		validate := func(content string) bool {
+			return strings.Contains(content, `"__typename":"Event"`)
 		}
+		return scraper.GetHTMLFromURLWithRetries(url, 7500, true, "script[data-sjs][data-content-len]", 7, validate)
+	}
+	return scraper.GetHTMLFromURL(url, 4500, true, "")
+}
 
-		htmlString, err = scraper.GetHTMLFromURLWithRetries(urlToScrape, 7500, true, "script[data-sjs][data-content-len]", 7, facebookEventValidation)
-	} else {
-		htmlString, err = scraper.GetHTMLFromURL(urlToScrape, 4500, true, "")
+func extractEventsFromHTML(html string, isFacebook bool, action string) ([]types.EventInfo, error) {
+	if isFacebook {
+		return services.FindFacebookEventData(html)
 	}
 
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
-		return _SendHtmlErrorPartial(err, ctx)
+		return nil, err
 	}
-
-	// if regex matches facebook.com/(.*)/events we return early as the data
-	// is already known and we don't need to pass to an LLM or convert
-	// to markdown
-	if isFacebookEventsURL {
-		events, err := services.FindFacebookEventData(htmlString)
-		if err != nil {
-			return _SendHtmlErrorPartial(err, ctx)
-		}
-
-		layoutTemplate := partials.EventCandidatesPartial(events)
-
-		var buf bytes.Buffer
-		err = layoutTemplate.Render(ctx, &buf)
-		if err != nil {
-			return serverError(err)
-		}
-
-		return InternalResponse{
-			Headers:    map[string]string{"Content-Type": "text/html"},
-			StatusCode: http.StatusOK,
-			Body:       buf.String(),
-		}, nil
-	}
-
-	// Getting <body> content only
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlString))
+	bodyHtml, err := doc.Find("body").Html()
 	if err != nil {
-		return _SendHtmlErrorPartial(err, ctx)
-	}
-	// Goquery usage to get the <body> tag
-	htmlString, err = doc.Find("body").Html()
-	if err != nil {
-		return _SendHtmlErrorPartial(err, ctx)
+		return nil, err
 	}
 
-	markdown, err := converter.ConvertString(htmlString)
+	markdown, err := converter.ConvertString(bodyHtml)
 	if err != nil {
-		log.Println("ERR: ", err)
-		return _SendHtmlErrorPartial(err, ctx)
+		return nil, err
 	}
 
 	lines := strings.Split(markdown, "\n")
-	// Filter out empty lines
-	var nonEmptyLines []string
+	var filtered []string
 	for i, line := range lines {
-		// 30,000 as a line limit helps stay under the OpenAI API token limit of 16k, but this is not at all precise
 		if line != "" && i < 1500 {
-			nonEmptyLines = append(nonEmptyLines, line)
+			filtered = append(filtered, line)
 		}
 	}
 
-	// Convert to JSON
-	jsonStringBytes, err := json.Marshal(nonEmptyLines)
+	jsonPayload, err := json.Marshal(filtered)
 	if err != nil {
-		log.Println("Error converting to JSON:", err)
-		return _SendHtmlErrorPartial(err, ctx)
+		return nil, err
 	}
-	jsonString := string(jsonStringBytes)
 
-	// TODO: consider log levels / log volume
-	_, messageContent, err := CreateChatSession(jsonString)
+	_, response, err := CreateChatSession(string(jsonPayload))
 	if err != nil {
-		log.Println("Error creating chat session:", err)
-		return _SendHtmlErrorPartial(err, ctx)
+		return nil, err
 	}
 
-	// TODO: `CreateChatSession` returns `SessionID` which should be stored in session data
-	// which is a separate DynamoDB table that is keyed with the `SessionID` and can be used for
-	// follow up internally when we detect invalidity in the OpenAI response and need to re-prompt
-	// for correct output
+	var events []types.EventInfo
+	err = json.Unmarshal([]byte(response), &events)
+	for i := range events {
+		events[i].EventSource = action
+	}
+	return events, err
+}
 
-	openAIjson := messageContent
+func saveSession(ctx context.Context, htmlString string, urlToScrape, childID, parentUrl string, events []types.EventInfo, action string) {
+	if len(events) == 0 {
+		return
+	}
 
-	var eventsFound []types.EventInfo
-
-	err = json.Unmarshal([]byte(openAIjson), &eventsFound)
+	url, err := url.Parse(urlToScrape)
 	if err != nil {
-		log.Println("Error in LLM response, failed to convert to types.EventInfo slice:", err)
-		return _SendHtmlErrorPartial(err, ctx)
+		log.Println("ERR: Error parsing URL:", err)
 	}
 
-	for i := range eventsFound {
-		eventsFound[i].EventSource = action // either "init" or "rs"
+	truncatedHTMLStr, exceededLimit := helpers.TruncateStringByBytes(htmlString, maxHtmlDocSize)
+	if exceededLimit {
+		log.Printf("WARN: HTML document exceeded %v byte limit, truncating", maxHtmlDocSize)
 	}
 
-	// we want to save the session AFTER sending an HTML response, since we will already
-	// have the session's `partitionKey` (which is always the full URL) for lookup later
-	defer func() {
-		url, err := url.Parse(urlToScrape)
-		if err != nil {
-			log.Println("ERR: Error parsing URL:", err)
-		}
+	if action == "rs" {
+		events[0].EventURL = urlToScrape
+	}
 
-		domain := url.Host
-		path := url.Path
-		queryParams := url.Query()
+	now := time.Now()
+	payload := types.SeshuSessionInput{
+		SeshuSession: types.SeshuSession{
+			OwnerId:           "123",
+			Url:               urlToScrape,
+			UrlDomain:         url.Host,
+			UrlPath:           url.Path,
+			UrlQueryParams:    url.Query(),
+			Html:              truncatedHTMLStr,
+			ChildId:           childID,
+			LocationLatitude:  services.InitialEmptyLatLong,
+			LocationLongitude: services.InitialEmptyLatLong,
+			EventCandidates:   events,
+			CreatedAt:         now.Unix(),
+			UpdatedAt:         now.Unix(),
+			ExpireAt:          now.Add(24 * time.Hour).Unix(),
+		},
+	}
 
-		// we opt for a truncation rather than error here as a tough UX decision. If an HTML document
-		// violates the 400KB dynamo doc size limit, there's really nothing we can do aside from
-		// "hope for the best" and use the first 400KB of the document and  hope it's enough to get
-		// the event data that's being sought after in the HTML doc output
-		// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html
+	if _, err := services.InsertSeshuSession(ctx, db, payload); err != nil {
+		log.Println("Error inserting Seshu session:", err)
+	}
 
-		truncatedHTMLStr, exceededLimit := helpers.TruncateStringByBytes(htmlString, maxHtmlDocSize)
-
-		if exceededLimit {
-			log.Printf("WARN: HTML document exceeded %v byte limit, truncating", maxHtmlDocSize)
-		}
-
-		// Recursive eventsFound workflow (assuming we doing one at a time)
-		if action == "rs" {
-			eventsFound[0].EventURL = urlToScrape
-		}
-
-		currentTime := time.Now()
-		seshuSessionPayload := types.SeshuSessionInput{
-			SeshuSession: types.SeshuSession{
-				// TODO: this needs wiring up with Auth
-				OwnerId:        "123",
-				Url:            urlToScrape,
-				UrlDomain:      domain,
-				UrlPath:        path,
-				UrlQueryParams: queryParams,
-				Html:           truncatedHTMLStr,
-				ChildId:        childID,
-				// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
-				// when we create a new session, we can't allow it to be `0` because that is
-				// a valid value for both latitdue and longitude (see "null island")
-				LocationLatitude:  services.InitialEmptyLatLong,
-				LocationLongitude: services.InitialEmptyLatLong,
-				EventCandidates:   eventsFound,
-				EventValidations:  eventValidation,
-				CreatedAt:         currentTime.Unix(),
-				UpdatedAt:         currentTime.Unix(),
-				ExpireAt:          currentTime.Add(time.Hour * 24).Unix(),
-			},
-		}
-
-		_, err = services.InsertSeshuSession(ctx, db, seshuSessionPayload)
-		if err != nil {
-			log.Println("Error inserting Seshu session:", err)
-		}
-
-		if action == "rs" {
-			parsedParentUrl, err := url.Parse(parentUrl)
-			if err != nil {
-				log.Println("ERR: unable to parse parentUrl for update:", err)
-				return
-			}
-
-			parentUpdatePayload := types.SeshuSessionUpdate{
-				Url:     parsedParentUrl.String(), // primary key
-				ChildId: url.String(),             // new value to update
-			}
-
-			_, err = services.UpdateSeshuSession(ctx, db, parentUpdatePayload)
+	if action == "rs" {
+		if parsedParentUrl, err := url.Parse(parentUrl); err == nil {
+			_, err := services.UpdateSeshuSession(ctx, db, types.SeshuSessionUpdate{
+				Url:     parsedParentUrl.String(),
+				ChildId: url.String(),
+			})
 			if err != nil {
 				log.Println("ERR: failed to update parent session with childID:", err)
 			}
 		}
-	}()
+	}
+}
 
-	layoutTemplate := partials.EventCandidatesPartial(eventsFound)
-	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
+func HandlePost(ctx context.Context, req InternalRequest, scraper services.ScrapingService) (InternalResponse, error) {
+	action := req.Action
+
+	urlToScrape, parentUrl, childID, err := parsePayload(action, req.Body)
 	if err != nil {
+		return clientError(http.StatusUnprocessableEntity)
+	}
+
+	isFacebook := services.IsFacebookEventsURL(urlToScrape)
+
+	htmlString, err := fetchHTML(urlToScrape, isFacebook, scraper)
+	if err != nil {
+		return _SendHtmlErrorPartial(err, ctx)
+	}
+
+	var events []types.EventInfo
+	events, err = extractEventsFromHTML(htmlString, isFacebook, action)
+	if err != nil {
+		log.Println("Event extraction error:", err)
+		return _SendHtmlErrorPartial(err, ctx)
+	}
+
+	defer saveSession(ctx, htmlString, urlToScrape, childID, parentUrl, events, action)
+
+	tmpl := partials.EventCandidatesPartial(events)
+	var buf bytes.Buffer
+	if err := tmpl.Render(ctx, &buf); err != nil {
 		return serverError(err)
 	}
+
 	return InternalResponse{
 		Headers:    map[string]string{"Content-Type": "text/html"},
 		StatusCode: http.StatusOK,
 		Body:       buf.String(),
 	}, nil
 }
+
+// func HandlePost(ctx context.Context, req InternalRequest, scraper services.ScrapingService) (InternalResponse, error) {
+
+// 	action := req.Action
+// 	var (
+// 		urlToScrape     string
+// 		parentUrl       string
+// 		childID         string
+// 		eventValidation []types.EventBoolValid
+// 	)
+
+// 	switch action {
+// 	case "init":
+// 		systemPrompt = getSystemPrompt(false)
+// 		var payload SeshuInputPayload
+// 		if err := parseAndValidatePayload(req.Body, &payload); err != nil {
+// 			return clientError(http.StatusUnprocessableEntity)
+// 		}
+// 		urlToScrape = payload.Url
+// 		childID = ""
+// 	case "rs":
+// 		systemPrompt = getSystemPrompt(true)
+// 		var payload SeshuRecursivePayload
+// 		if err := parseAndValidatePayload(req.Body, &payload); err != nil {
+// 			return clientError(http.StatusUnprocessableEntity)
+// 		}
+// 		urlToScrape = payload.Url
+// 		parentUrl = payload.ParentUrl
+// 		childID = ""
+// 	default:
+// 		return clientError(http.StatusBadRequest)
+// 	}
+
+// 	isFacebookEventsURL := services.IsFacebookEventsURL(urlToScrape)
+
+// 	var htmlString string
+// 	var err error
+// 	var eventsFound []types.EventInfo
+
+// 	if isFacebookEventsURL {
+// 		// Create validation function for Facebook events
+// 		facebookEventValidation := func(htmlContent string) bool {
+// 			return strings.Contains(htmlContent, `"__typename":"Event"`)
+// 		}
+
+// 		htmlString, err = scraper.GetHTMLFromURLWithRetries(urlToScrape, 7500, true, "script[data-sjs][data-content-len]", 7, facebookEventValidation)
+// 	} else {
+// 		htmlString, err = scraper.GetHTMLFromURL(urlToScrape, 4500, true, "")
+// 	}
+
+// 	if err != nil {
+// 		return _SendHtmlErrorPartial(err, ctx)
+// 	}
+
+// 	// if regex matches facebook.com/(.*)/events we return early as the data
+// 	// is already known and we don't need to pass to an LLM or convert
+// 	// to markdown
+// 	if isFacebookEventsURL {
+// 		events, err := services.FindFacebookEventData(htmlString)
+// 		if err != nil {
+// 			return _SendHtmlErrorPartial(err, ctx)
+// 		}
+
+// 		eventsFound = events
+
+// 	} else {
+
+// 		// Getting <body> content only
+// 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlString))
+// 		if err != nil {
+// 			return _SendHtmlErrorPartial(err, ctx)
+// 		}
+// 		// Goquery usage to get the <body> tag
+// 		htmlString, err = doc.Find("body").Html()
+// 		if err != nil {
+// 			return _SendHtmlErrorPartial(err, ctx)
+// 		}
+
+// 		markdown, err := converter.ConvertString(htmlString)
+// 		if err != nil {
+// 			log.Println("ERR: ", err)
+// 			return _SendHtmlErrorPartial(err, ctx)
+// 		}
+
+// 		lines := strings.Split(markdown, "\n")
+// 		// Filter out empty lines
+// 		var nonEmptyLines []string
+// 		for i, line := range lines {
+// 			// 30,000 as a line limit helps stay under the OpenAI API token limit of 16k, but this is not at all precise
+// 			if line != "" && i < 1500 {
+// 				nonEmptyLines = append(nonEmptyLines, line)
+// 			}
+// 		}
+
+// 		// Convert to JSON
+// 		jsonStringBytes, err := json.Marshal(nonEmptyLines)
+// 		if err != nil {
+// 			log.Println("Error converting to JSON:", err)
+// 			return _SendHtmlErrorPartial(err, ctx)
+// 		}
+// 		jsonString := string(jsonStringBytes)
+
+// 		// TODO: consider log levels / log volume
+// 		_, messageContent, err := CreateChatSession(jsonString)
+// 		if err != nil {
+// 			log.Println("Error creating chat session:", err)
+// 			return _SendHtmlErrorPartial(err, ctx)
+// 		}
+
+// 		// TODO: `CreateChatSession` returns `SessionID` which should be stored in session data
+// 		// which is a separate DynamoDB table that is keyed with the `SessionID` and can be used for
+// 		// follow up internally when we detect invalidity in the OpenAI response and need to re-prompt
+// 		// for correct output
+
+// 		openAIjson := messageContent
+
+// 		var eventsFound []types.EventInfo
+
+// 		err = json.Unmarshal([]byte(openAIjson), &eventsFound)
+// 		if err != nil {
+// 			log.Println("Error in LLM response, failed to convert to types.EventInfo slice:", err)
+// 			return _SendHtmlErrorPartial(err, ctx)
+// 		}
+// 	}
+
+// 	for i := range eventsFound {
+// 		eventsFound[i].EventSource = action // either "init" or "rs"
+// 	}
+
+// 	// we want to save the session AFTER sending an HTML response, since we will already
+// 	// have the session's `partitionKey` (which is always the full URL) for lookup later
+// 	defer func() {
+// 		url, err := url.Parse(urlToScrape)
+// 		if err != nil {
+// 			log.Println("ERR: Error parsing URL:", err)
+// 		}
+
+// 		domain := url.Host
+// 		path := url.Path
+// 		queryParams := url.Query()
+
+// 		// we opt for a truncation rather than error here as a tough UX decision. If an HTML document
+// 		// violates the 400KB dynamo doc size limit, there's really nothing we can do aside from
+// 		// "hope for the best" and use the first 400KB of the document and  hope it's enough to get
+// 		// the event data that's being sought after in the HTML doc output
+// 		// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html
+
+// 		truncatedHTMLStr, exceededLimit := helpers.TruncateStringByBytes(htmlString, maxHtmlDocSize)
+
+// 		if exceededLimit {
+// 			log.Printf("WARN: HTML document exceeded %v byte limit, truncating", maxHtmlDocSize)
+// 		}
+
+// 		// Recursive eventsFound workflow (assuming we doing one at a time)
+// 		if action == "rs" {
+// 			eventsFound[0].EventURL = urlToScrape
+// 		}
+
+// 		currentTime := time.Now()
+// 		seshuSessionPayload := types.SeshuSessionInput{
+// 			SeshuSession: types.SeshuSession{
+// 				// TODO: this needs wiring up with Auth
+// 				OwnerId:        "123",
+// 				Url:            urlToScrape,
+// 				UrlDomain:      domain,
+// 				UrlPath:        path,
+// 				UrlQueryParams: queryParams,
+// 				Html:           truncatedHTMLStr,
+// 				ChildId:        childID,
+// 				// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
+// 				// when we create a new session, we can't allow it to be `0` because that is
+// 				// a valid value for both latitdue and longitude (see "null island")
+// 				LocationLatitude:  services.InitialEmptyLatLong,
+// 				LocationLongitude: services.InitialEmptyLatLong,
+// 				EventCandidates:   eventsFound,
+// 				EventValidations:  eventValidation,
+// 				CreatedAt:         currentTime.Unix(),
+// 				UpdatedAt:         currentTime.Unix(),
+// 				ExpireAt:          currentTime.Add(time.Hour * 24).Unix(),
+// 			},
+// 		}
+
+// 		_, err = services.InsertSeshuSession(ctx, db, seshuSessionPayload)
+// 		if err != nil {
+// 			log.Println("Error inserting Seshu session:", err)
+// 		}
+
+// 		if action == "rs" {
+// 			parsedParentUrl, err := url.Parse(parentUrl)
+// 			if err != nil {
+// 				log.Println("ERR: unable to parse parentUrl for update:", err)
+// 				return
+// 			}
+
+// 			parentUpdatePayload := types.SeshuSessionUpdate{
+// 				Url:     parsedParentUrl.String(), // primary key
+// 				ChildId: url.String(),             // new value to update
+// 			}
+
+// 			_, err = services.UpdateSeshuSession(ctx, db, parentUpdatePayload)
+// 			if err != nil {
+// 				log.Println("ERR: failed to update parent session with childID:", err)
+// 			}
+// 		}
+// 	}()
+
+// 	layoutTemplate := partials.EventCandidatesPartial(eventsFound)
+// 	var buf bytes.Buffer
+// 	err = layoutTemplate.Render(ctx, &buf)
+// 	if err != nil {
+// 		return serverError(err)
+// 	}
+// 	return InternalResponse{
+// 		Headers:    map[string]string{"Content-Type": "text/html"},
+// 		StatusCode: http.StatusOK,
+// 		Body:       buf.String(),
+// 	}, nil
+// }
 
 func _SendHtmlErrorPartial(err error, ctx context.Context) (InternalResponse, error) {
 	layoutTemplate := partials.ErrorHTML(err, "web-handler")
