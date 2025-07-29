@@ -52,6 +52,11 @@ templ ReShareButton(ev types.Event) {
 	</div>
 }
 
+const eventTitleDataId = "event-title"
+const eventLocationDataId = "event-location"
+const eventStartTimeDataId = "event-start-time"
+const eventUrlDataId = "data-url"
+
 templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleClaim, userId string, pageUser *types.UserSearchResult) {
 	if mode == helpers.EV_MODE_UPCOMING || mode == "" {
 		if (len(events) < 1) {
@@ -77,11 +82,11 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 					</a>
 					<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-base-100/70 from-80% to-transparent absolute bottom-0 left-0">
 						<div class="mb-2">
-							<h2 class="text-2xl md:text-3xl">{ ev.Name }</h2>
-							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
+							<h2 data-id={ eventTitleDataId } class="text-2xl md:text-3xl">{ ev.Name }</h2>
+							<p data-id={ eventStartTimeDataId } class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } - { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } | { ev.Address }</p>
 						</div>
 						<br/>
-						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+						<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 							LEARN MORE
 							&rarr;
 						</a>
@@ -133,6 +138,24 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 					if userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.SuperAdmin], helpers.Roles[helpers.SyndicateAdmin]}) {
 						@ReShareButton(ev)
 					}
+					if userId == pageUser.UserID {
+						<div class="absolute top-2 right-2 bg-base-100 rounded-box p-2 z-10 leading-none">
+							<div class="form-control">
+								<label class="cursor-pointer label">
+									<span class="label-text mr-2" x-text={ "selectedEvents['" + ev.Id + "'] ? 'Remove' : 'Select'" }></span>
+									<input
+										id={ ev.Id }
+										name={ "event-" + ev.Id }
+										value={ ev.Id }
+										type="checkbox"
+										class="checkbox checkbox-sm checkbox-primary"
+										@change={ "selectEvent('" + ev.Id + "')" }
+										:checked={ "selectedEvents['" + ev.Id + "'] || false" }
+									/>
+								</label>
+							</div>
+						</div>
+					}
 					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 						<img
 							loading="lazy"
@@ -141,12 +164,12 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 							class="object-cover object-position-25-25 w-full aspect-[4/1] md:aspect-[4/1] opacity-30 md:hover:opacity-75 transition-all"
 						/>
 					</a>
-					<div class="flex justify-between w-full p-4 md:py-8 bg-gradient-to-t from-base-100/70 from-80% to-transparent absolute bottom-0 left-0">
+					<div class="flex justify-between w-full p-2 md:py-8 bg-gradient-to-t from-base-100/70 from-80% to-transparent absolute bottom-0 left-0">
 						<div class="mb-2">
-							<h2 class="text-xl font-bold">{ ev.Name }</h2>
-							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
+							<h2 data-id={ eventTitleDataId } class="text-xl font-bold">{ ev.Name }</h2>
+							<p data-id={ eventStartTimeDataId } class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } - { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } | { ev.Address }</p>
 						</div>
-						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
+						<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
 							if ev.HasPurchasable {
 								BUY TICKETS
 								&rarr;
@@ -523,31 +546,53 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						@EventsInner(events, "", roleClaims, userId, pageUser)
 					</div>
 				} else {
-					<div role="tablist" class="tabs tabs-bordered">
-						<input
-							type="radio"
-							name="org-events-tabs"
-							role="tab"
-							class="tab text-lg leading-5 uppercase"
-							aria-label="Upcoming"
-							checked="checked"
-						/>
-						<div role="tabpanel" class="tab-content py-10">
-							<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
-								<span class="loading loading-spinner loading-lg text-primary"></span>
-							</div>
-							<div id="events-container-inner">
-								@EventsInner(events, helpers.EV_MODE_LIST, roleClaims, userId, pageUser)
-							</div>
+					<div class="relative">
+						<div class="absolute top-0 right-0">
+							<template x-if="Object.keys(selectedEvents).length > 0">
+								<div class="indicator">
+									<span x-text="Object.keys(selectedEvents).length" class="indicator-item badge badge-primary"></span>
+									<div class="dropdown dropdown-end">
+										<div tabindex="0" role="button" class="btn">Export</div>
+										<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-48 p-2 shadow">
+											<li><a @click="exportSelectedEvents('rich')">Rich Text</a></li>
+											<li><a @click="exportSelectedEvents('html')">HTML</a></li>
+										</ul>
+									</div>
+								</div>
+							</template>
+							<button class="btn btn-ghost" @click="clearAllSelections()">
+								Clear
+							</button>
+							<button class="btn btn-primary" @click="selectAllEvents()">
+								Select All Events
+							</button>
 						</div>
-						<input
-							type="radio"
-							name="org-events-tabs"
-							role="tab"
-							class="tab text-lg leading-5 uppercase"
-							aria-label="Past"
-						/>
-						<div role="tabpanel" class="tab-content p-10">(Coming Soon...)</div>
+						<div role="tablist" class="tabs tabs-bordered">
+							<input
+								type="radio"
+								name="org-events-tabs"
+								role="tab"
+								class="tab text-lg leading-5 uppercase"
+								aria-label="Upcoming"
+								checked="checked"
+							/>
+							<div role="tabpanel" class="tab-content py-10">
+								<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
+									<span class="loading loading-spinner loading-lg text-primary"></span>
+								</div>
+								<div id="events-container-inner">
+									@EventsInner(events, helpers.EV_MODE_LIST, roleClaims, userId, pageUser)
+								</div>
+							</div>
+							<input
+								type="radio"
+								name="org-events-tabs"
+								role="tab"
+								class="tab text-lg leading-5 uppercase"
+								aria-label="Past"
+							/>
+							<div role="tabpanel" class="tab-content p-10">(Coming Soon...)</div>
+						</div>
 					</div>
 				}
 			</main>
@@ -565,7 +610,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 			</template>
 		</div>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId }>
 		document.addEventListener('alpine:init', () => {
 			// Reactive URL store - single source of truth with reactivity
 			Alpine.store('urlState', {
@@ -799,6 +844,29 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					type: '',
 					message: '',
 				},
+				selectedEvents: {}, // Changed from array to object/map
+				selectEvent(eventId) {
+					// Toggle the selection state for this event
+					if (this.selectedEvents[eventId]) {
+						delete this.selectedEvents[eventId];
+					} else {
+						this.selectedEvents[eventId] = true;
+					}
+				},
+				selectAllEvents() {
+					// Select all event checkboxes that are currently visible
+					const eventCheckboxes = document.querySelectorAll('input[type="checkbox"][name^="event-"]');
+					eventCheckboxes.forEach(checkbox => {
+						const eventId = checkbox.value;
+						this.selectedEvents[eventId] = true;
+					});
+				},
+				clearAllSelections() {
+					this.selectedEvents = {};
+				},
+				getSelectedEventIds() {
+					return Object.keys(this.selectedEvents).filter(id => this.selectedEvents[id]);
+				},
 				async reShareEvent(event) {
           const eventId = event.currentTarget.id.split('re-share-')[1]
 					// send a post request to the re-share endpoint
@@ -840,6 +908,140 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						};
             // eslint-disable-next-line no-console
 						console.error('Re-share error:', error);
+					}
+				},
+				async exportSelectedEvents(format) {
+					const selectedEventIds = this.getSelectedEventIds();
+					if (selectedEventIds.length === 0) {
+						this.showToast = true;
+						this.toastContent = {
+							type: 'error',
+							message: 'No events selected for export.',
+						};
+						return;
+					}
+
+					try {
+						let content = '';
+						const eventData = [];
+
+						// Get data-id attribute values from the alpine-state element
+						const alpineState = document.querySelector('#alpine-state');
+						const eventTitleId = alpineState.getAttribute('data-event-title-id');
+						const eventStartTimeId = alpineState.getAttribute('data-event-start-time-id');
+						const eventUrlId = alpineState.getAttribute('data-event-url-id');
+
+						// Collect data from selected events using data-id attributes
+						selectedEventIds.forEach(eventId => {
+							const eventContainer = document.querySelector(`input[value="${eventId}"]`)?.closest('.flex.w-full.relative');
+							if (eventContainer) {
+								const titleElement = eventContainer.querySelector(`[data-id="${eventTitleId}"]`);
+								const timeElement = eventContainer.querySelector(`[data-id="${eventStartTimeId}"]`);
+								const urlElement = eventContainer.querySelector(`[data-id="${eventUrlId}"]`);
+
+								if (titleElement && timeElement && urlElement) {
+									eventData.push({
+										title: titleElement.textContent.trim(),
+										time: timeElement.textContent.trim(),
+										url: urlElement.href
+									});
+								}
+							}
+						});
+
+						if (eventData.length === 0) {
+							this.showToast = true;
+							this.toastContent = {
+								type: 'error',
+								message: 'Could not collect event data for export.',
+							};
+							return;
+						}
+
+												// Create temporary off-screen element for copying
+						const tempElement = document.createElement('div');
+						tempElement.style.position = 'absolute';
+						tempElement.style.left = '-9999px';
+						tempElement.style.top = '-9999px';
+						tempElement.style.opacity = '0';
+						tempElement.style.pointerEvents = 'none';
+						document.body.appendChild(tempElement);
+
+						// Create content based on format
+						if (format === 'rich') {
+							// Rich text format with actual bold styling
+							eventData.forEach((event, index) => {
+								if (index > 0) {
+									tempElement.appendChild(document.createElement('br'));
+									tempElement.appendChild(document.createElement('br'));
+								}
+
+								// Create bold title
+								const titleElement = document.createElement('strong');
+								titleElement.textContent = event.title;
+								tempElement.appendChild(titleElement);
+
+								// Add line break
+								tempElement.appendChild(document.createElement('br'));
+
+								// Add time/location
+								const timeElement = document.createTextNode(event.time);
+								tempElement.appendChild(timeElement);
+
+								// Add line break
+								tempElement.appendChild(document.createElement('br'));
+
+								// Add URL
+								const urlElement = document.createTextNode(event.url);
+								tempElement.appendChild(urlElement);
+							});
+
+							// Select the content to preserve formatting
+							const range = document.createRange();
+							range.selectNode(tempElement);
+							const selection = window.getSelection();
+							selection.removeAllRanges();
+							selection.addRange(range);
+
+							// Copy with formatting
+							await navigator.clipboard.write([
+								new ClipboardItem({
+									'text/html': new Blob([tempElement.innerHTML], { type: 'text/html' }),
+									'text/plain': new Blob([tempElement.textContent], { type: 'text/plain' })
+								})
+							]);
+
+							// Clear selection
+							selection.removeAllRanges();
+
+																								} else if (format === 'html') {
+							// HTML format - copy actual HTML markup as plain text
+							const htmlContent = `<ul>\n${eventData.map(event =>
+								`  <li><strong><a href="${event.url}">${event.title}</a></strong><br/>${event.time}</li>`
+							).join('\n')}\n</ul>`;
+
+							// Copy HTML markup as plain text so the tags are visible
+							await navigator.clipboard.writeText(htmlContent);
+						}
+
+						// Clean up
+						document.body.removeChild(tempElement);
+
+						// Show success message
+						this.showToast = true;
+						this.toastContent = {
+							type: 'success',
+							message: `${eventData.length} event(s) exported to clipboard as ${format === 'rich' ? 'Rich Text' : 'HTML'}.`,
+						};
+
+					} catch (error) {
+						this.showToast = true;
+						this.toastContent = {
+							type: 'error',
+							message: 'Failed to copy events to clipboard. Please try again.',
+						};
+						// eslint-disable-next-line no-console
+						console.error('Export error:', error);
 					}
 				}
 			}
