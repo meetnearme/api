@@ -7,7 +7,7 @@
     "node": ">=21.6.0"
   },
   "scripts": {
-    "dev": "concurrently --kill-others-on-fail --handle-input --graceful-kill \"npm:dev:watchers\" \"npm:dev:docker\"",
+    "dev": "concurrently --kill-others-on-fail --handle-input --graceful-kill --prefix-colors \"red,blue\" \"npm:dev:watchers\" \"npm:dev:docker\"",
     "dev:watchers": "concurrently --kill-others-on-fail --handle-input --graceful-kill --prefix-colors \"blue,green,yellow\" \"npm:dev:templ\" \"npm:dev:serve-static\" \"npm:dev:tailwind\"",
     "dev:docker": "docker compose up --remove-orphans",
 
