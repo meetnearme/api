@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"log"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,11 +18,20 @@ import (
 )
 
 type MockScrapingService struct {
-	GetHTMLFromURLFunc func(unescapedURL string, timeout int, jsRender bool, waitFor string) (string, error)
+	GetHTMLFromURLFunc            func(unescapedURL string, timeout int, jsRender bool, waitFor string) (string, error)
+	GetHTMLFromURLWithRetriesFunc func(unescapedURL string, timeout int, jsRender bool, waitFor string, retries int, validate services.ContentValidationFunc) (string, error)
 }
 
 func (m *MockScrapingService) GetHTMLFromURL(unescapedURL string, timeout int, jsRender bool, waitFor string) (string, error) {
 	return m.GetHTMLFromURLFunc(unescapedURL, timeout, jsRender, waitFor)
+}
+
+func (m *MockScrapingService) GetHTMLFromURLWithRetries(unescapedURL string, timeout int, jsRender bool, waitFor string, retries int, validate services.ContentValidationFunc) (string, error) {
+	if m.GetHTMLFromURLWithRetriesFunc != nil {
+		return m.GetHTMLFromURLWithRetriesFunc(unescapedURL, timeout, jsRender, waitFor, retries, validate)
+	}
+	// Fallback behavior: call GetHTMLFromURL directly (you can enhance this logic)
+	return m.GetHTMLFromURL(unescapedURL, timeout, jsRender, waitFor)
 }
 
 func TestNonLambdaRouter(t *testing.T) {
@@ -88,41 +97,6 @@ func TestNonLambdaRouter(t *testing.T) {
 	}
 	db = mockDB // Inject mock into global var
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Only accept POST
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		// Decode request body into InternalRequest
-		var reqBody InternalRequest
-		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-
-		// Check for required query param
-		if r.URL.Query().Get("action") != "init" && r.URL.Query().Get("action") != "rs" {
-			log.Print(r.URL.Query())
-			http.Error(w, "Missing or invalid action", http.StatusBadRequest)
-			return
-		}
-
-		// Call your business logic
-		resp, err := HandlePost(r.Context(), reqBody, &services.RealScrapingService{})
-		if err != nil {
-			log.Printf("handlePost failed: %+v", err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Write response
-		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(resp.Body))
-	})
-
 	tests := []struct {
 		name           string
 		method         string
@@ -132,26 +106,43 @@ func TestNonLambdaRouter(t *testing.T) {
 		expectBodyText string
 	}{
 		{
-			name:           "Valid POST request for init",
+			name:           "Valid POST init",
 			method:         "POST",
 			action:         "init",
-			body:           `{"method": "POST", "action": "init", "body": "{\"url\":\"https://example.com\"}", "headers": {}}`,
+			body:           `{"url":"https://example.com"}`,
 			expectedStatus: http.StatusOK,
 			expectBodyText: "Mock Event",
 		},
 		{
-			name:           "Valid POST request for recursive",
+			name:           "Valid POST recursive",
 			method:         "POST",
 			action:         "rs",
-			body:           `{"method": "POST", "action": "rs", "body": "{\"parent_url\":\"https://example.com\",\"url\":\"https://example2.com\"}", "headers": {}}`,
+			body:           `{"url":"https://child.com","parent_url":"https://parent.com"}`,
 			expectedStatus: http.StatusOK,
 			expectBodyText: "Mock Event",
 		},
 		{
-			name:           "Unsupported GET request",
+			name:           "Invalid method GET",
 			method:         "GET",
 			action:         "init",
+			body:           ``,
 			expectedStatus: http.StatusMethodNotAllowed,
+		},
+		{
+			name:           "Invalid action param",
+			method:         "POST",
+			action:         "invalid",
+			body:           `{}`,
+			expectedStatus: http.StatusInternalServerError,
+			expectBodyText: "Internal error",
+		},
+		{
+			name:           "Malformed JSON",
+			method:         "POST",
+			action:         "init",
+			body:           `{"url":}`,
+			expectedStatus: http.StatusInternalServerError,
+			expectBodyText: "Internal error",
 		},
 	}
 
@@ -165,18 +156,102 @@ func TestNonLambdaRouter(t *testing.T) {
 				req = httptest.NewRequest(http.MethodGet, "/?action="+tt.action, nil)
 			}
 
+			// Call RouterNonLambda and get the resulting handler
+			handler := RouterNonLambda(httptest.NewRecorder(), req)
+
+			// Call the returned handler
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, req)
 
 			if rec.Code != tt.expectedStatus {
-				t.Errorf("Expected status %d, got %d. Body: %s", tt.expectedStatus, rec.Code, rec.Body.String())
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rec.Code)
 			}
-
 			if tt.expectBodyText != "" && !strings.Contains(rec.Body.String(), tt.expectBodyText) {
-				t.Errorf("Expected body to contain %q, got: %s", tt.expectBodyText, rec.Body.String())
+				t.Errorf("Expected response to contain %q, got %q", tt.expectBodyText, rec.Body.String())
 			}
 		})
 	}
+}
+
+func TestParsePayload(t *testing.T) {
+	t.Run("init", func(t *testing.T) {
+		body := `{"url":"https://example.com"}`
+		url, parent, child, err := parsePayload("init", body)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if url != "https://example.com" {
+			t.Errorf("expected url https://example.com, got %s", url)
+		}
+		if parent != "" {
+			t.Errorf("expected parent empty, got %s", parent)
+		}
+		if child != "" {
+			t.Errorf("expected child empty, got %s", child)
+		}
+	})
+
+	t.Run("rs", func(t *testing.T) {
+		body := `{"url":"https://child.com", "parent_url":"https://parent.com"}`
+		url, parent, child, err := parsePayload("rs", body)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if url != "https://child.com" {
+			t.Errorf("expected url https://child.com, got %s", url)
+		}
+		if parent != "https://parent.com" {
+			t.Errorf("expected parent https://parent.com, got %s", parent)
+		}
+		if child != "" {
+			t.Errorf("expected child empty, got %s", child)
+		}
+	})
+
+	t.Run("invalid action", func(t *testing.T) {
+		_, _, _, err := parsePayload("unknown", `{}`)
+		if err == nil {
+			t.Error("expected error for unknown action, got nil")
+		}
+	})
+}
+
+func TestFetchHTML(t *testing.T) {
+	mock := &MockScrapingService{
+		GetHTMLFromURLFunc: func(url string, timeout int, js bool, wait string) (string, error) {
+			if strings.Contains(url, "fail") {
+				return "", errors.New("mock failure")
+			}
+			return "<html><body>Success</body></html>", nil
+		},
+	}
+
+	t.Run("facebook URL", func(t *testing.T) {
+		html, err := fetchHTML("https://facebook.com/event", true, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if !strings.Contains(html, "Success") {
+			t.Errorf("expected 'Success' in HTML, got %s", html)
+		}
+	})
+
+	t.Run("non-facebook URL", func(t *testing.T) {
+		html, err := fetchHTML("https://example.com", false, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if !strings.Contains(html, "Success") {
+			t.Errorf("expected 'Success' in HTML, got %s", html)
+		}
+	})
+
+	t.Run("error case", func(t *testing.T) {
+		_, err := fetchHTML("https://fail.com", false, mock)
+		if err == nil {
+			t.Error("expected error from mock, got nil")
+		}
+	})
 }
 
 // func TestCreateChatSession(t *testing.T) {
