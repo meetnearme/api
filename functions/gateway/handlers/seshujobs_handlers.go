@@ -151,7 +151,6 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 	currentHour := time.Unix(req.Time, 0).UTC().Hour()
 
 	// Call NATS to look at the top of the queue for jobs
-	log.Println("Checking top of NATS queue...")
 	topOfQueue, err := nats.PeekTopOfQueue(r.Context())
 
 	if err != nil {
@@ -163,14 +162,11 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 	// If the top of the queue is not within the last 60 minutes or query is empty, do a full DB scan of seshu jobs
 	if topOfQueue == nil || len(topOfQueue.Data) == 0 {
 
-		log.Println("NATS queue is empty or top message has no data.")
-
 		// The scan will be index scan on index seshu_jobs.scheduled_scrape_time
 		jobs, err = db.ScanSeshuJobsWithInHour(r.Context(), currentHour)
 		if err != nil {
 			return transport.SendHtmlErrorPartial([]byte("Unable to obtain Jobs: "+err.Error()), http.StatusBadRequest)
 		}
-		log.Printf("Retrieved %d jobs from DB - 193 ", len(jobs))
 
 	} else if topOfQueue != nil {
 
@@ -178,23 +174,17 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 
 		err := json.Unmarshal(topOfQueue.Data, &job)
 		if err != nil {
-			log.Println("Failed to unmarshal job from NATS queue:", err)
 			return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusBadRequest)
 		}
 
-		log.Printf("Top job: %+v", job)
-
 		if currentHour-job.ScheduledHour > 0 {
-			log.Println("Top job is older than 60 minutes.")
 
 			// The scan will be index scan on index seshu_jobs.scheduled_scrape_time
 			jobs, err = db.ScanSeshuJobsWithInHour(r.Context(), currentHour)
 			if err != nil {
-				log.Printf("DB scan failed: %v  - 201", err)
 				return transport.SendHtmlErrorPartial([]byte("Unable to obtain Jobs: "+err.Error()), http.StatusBadRequest)
 			}
 		}
-		log.Printf("Retrieved %d jobs from DB - 215", len(jobs))
 	}
 
 	// Push Found DB items onto the NATS queue
