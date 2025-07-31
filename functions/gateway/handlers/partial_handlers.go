@@ -613,6 +613,7 @@ func getValidatedEvents(candidates []internal_types.EventInfo, validations []int
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	db := transport.GetDB()
+	natsService, _ := services.GetNatsService(ctx)
 
 	var inputPayload SeshuSessionEventsPayload
 	body, err := io.ReadAll(r.Body)
@@ -774,7 +775,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				continue
 			}
 
-			scheduledHour := time.Now().UTC().Hour()
+			scheduledHour := time.Now().UTC().Hour() - 1 // will not immediately scrape, wait for a day after
 
 			if session.LocationAddress == "" {
 				location = event.EventLocation
@@ -869,6 +870,11 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			if res.StatusCode >= 400 {
 				body, _ := io.ReadAll(res.Body)
 				log.Printf("Handler responded with status %d: %s", res.StatusCode, string(body))
+			}
+
+			err = natsService.PublishMsg(ctx, seshuJob)
+			if err != nil {
+				log.Println("Failed to publish seshuJob to NATS:", err)
 			}
 		}
 	}()
