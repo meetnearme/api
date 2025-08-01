@@ -40,6 +40,7 @@ RUN find . -name "*templ.go"
 
 # -ldflags="-w -s" strips debug symbols, making the binary smaller.
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./docker_build/main ./functions/gateway/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./create_weaviate_schema ./cmd/weaviate-setup/main.go
 
 # The go binary will be mounted from ./docker_build to continue enabling the watchGolang script
 FROM alpine:latest
