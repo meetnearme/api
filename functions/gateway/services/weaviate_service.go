@@ -96,11 +96,7 @@ func DefineWeaviateSchema(ctx context.Context, client *weaviate.Client) error {
 		return fmt.Errorf("failed checking class existence: %w", err)
 	}
 	if exists {
-		log.Printf("WARN: Class '%s' exists. Deleting.", eventClassName)
-		if err = client.Schema().ClassDeleter().WithClassName(eventClassName).Do(ctx); err != nil {
-			return fmt.Errorf("failed deleting class '%s': %w", eventClassName, err)
-		}
-		log.Printf("INFO: Class '%s' deleted.", eventClassName)
+		log.Fatalf("FATAL: Class '%s' exists.", eventClassName)
 	}
 
 	// Define class structure using models.Property and string data types
