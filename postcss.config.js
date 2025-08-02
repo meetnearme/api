@@ -47,6 +47,8 @@ async function updateCSSFiles(finalCSS, result) {
       console.log(
         `✅ Updated layout.templ with new CSS filename: ${hashedFilename}`,
       );
+    } else {
+      console.log('>> No layout.templ update needed');
     }
   } catch (error) {
     console.warn(
