@@ -160,11 +160,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Send .env file to ACT
-        uses: './.github/actions/send_env_to_act'
-        with:
-          env-file: .env
-
       - name: Log in to the Container registry
         uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
         with:
