@@ -115,10 +115,10 @@ jobs:
       - name: Add StaticEndpoint to .env file
         run: |
           # Extract StaticEndpoint value from SST output
-          STATIC_ENDPOINT=$(grep "StaticEndpoint:" sst-output.log | sed 's/.*StaticEndpoint: //')
+          STATIC_BASE_URL=$(grep "StaticEndpoint:" sst-output.log | sed 's/.*StaticEndpoint: //')
 
           # Add StaticEndpoint to the existing .env file
-          echo "STATIC_ENDPOINT=$STATIC_ENDPOINT" >> .env
+          echo "STATIC_BASE_URL=$STATIC_BASE_URL" >> .env
 
           # Create a copy with the tag name for the ACT server
           cp .env ${{ steps.generate-tag.outputs.tag }}.env

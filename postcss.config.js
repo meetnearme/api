@@ -26,15 +26,20 @@ function updateCSSFiles(css, result) {
   // Always copy the file in production mode
   // eslint-disable-next-line no-undef
   if (process.env.NODE_ENV === 'production') {
+    console.log('executing production mode css generation');
     if (fs.existsSync(tempFile)) {
+      console.log('temp file exists');
       fs.copyFileSync(tempFile, newFileName);
 
       // Update template with new hash
       if (fs.existsSync(templatePath)) {
+        console.log('templatePath', templatePath);
         const template = fs.readFileSync(templatePath, 'utf8');
         const pattern = /styles\..*?\.css/;
         const updatedTemplate = template.replace(pattern, `styles.${newHash}.css`);
         fs.writeFileSync(templatePath, updatedTemplate);
+      } else {
+        console.log('template path file does not exist', templatePath)
       }
 
       console.log(`📦 Production CSS generated: ${newFileName}`);
