@@ -47,7 +47,7 @@ jobs:
           setup-go: 'false'
           commit: 'false'
       - name: Breakpoint if `templ` generate failed
-        if: failure()
+        if: true
         uses: namespacelabs/breakpoint-action@v0
         with:
           duration: 30m
