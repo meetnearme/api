@@ -150,7 +150,13 @@ func saveSession(ctx context.Context, htmlContent string, urlToScrape, childID, 
 		log.Println("ERR: Error parsing URL:", err)
 	}
 
-	truncatedHTMLStr, exceededLimit := helpers.TruncateStringByBytes(htmlContent, maxHtmlDocSize)
+	// we opt for a truncation rather than error here as a tough UX decision. If an HTML document
+	// violates the 400KB dynamo doc size limit, there's really nothing we can do aside from
+	// "hope for the best" and use the first 400KB of the document and  hope it's enough to get
+	// the event data that's being sought after in the HTML doc output
+	// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html
+
+	truncatedHTMLStr, exceededLimit := helpers.TruncateStringByBytes(htmlString, maxHtmlDocSize)
 	if exceededLimit {
 		log.Printf("WARN: HTML document exceeded %v byte limit, truncating", maxHtmlDocSize)
 	}
@@ -162,13 +168,16 @@ func saveSession(ctx context.Context, htmlContent string, urlToScrape, childID, 
 	now := time.Now()
 	payload := types.SeshuSessionInput{
 		SeshuSession: types.SeshuSession{
-			OwnerId:           "123",
-			Url:               urlToScrape,
-			UrlDomain:         url.Host,
-			UrlPath:           url.Path,
-			UrlQueryParams:    url.Query(),
-			Html:              truncatedHTMLStr,
-			ChildId:           childID,
+			OwnerId:        "123",
+			Url:            urlToScrape,
+			UrlDomain:      url.Host,
+			UrlPath:        url.Path,
+			UrlQueryParams: url.Query(),
+			Html:           truncatedHTMLStr,
+			ChildId:        childID,
+			// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
+			// when we create a new session, we can't allow it to be `0` because that is
+			// a valid value for both latitude and longitude (see "null island")
 			LocationLatitude:  services.InitialEmptyLatLong,
 			LocationLongitude: services.InitialEmptyLatLong,
 			EventCandidates:   events,
@@ -195,6 +204,46 @@ func saveSession(ctx context.Context, htmlContent string, urlToScrape, childID, 
 	}
 }
 
+<<<<<<< HEAD
+=======
+func HandlePost(ctx context.Context, req InternalRequest, scraper services.ScrapingService) (InternalResponse, error) {
+	action := req.Action
+
+	urlToScrape, parentUrl, childID, err := parsePayload(action, req.Body)
+	if err != nil {
+		return clientError(http.StatusUnprocessableEntity)
+	}
+
+	isFacebook := services.IsFacebookEventsURL(urlToScrape)
+
+	htmlString, err := fetchHTML(urlToScrape, isFacebook, scraper)
+	if err != nil {
+		return _SendHtmlErrorPartial(err, ctx)
+	}
+
+	var events []types.EventInfo
+	events, err = extractEventsFromHTML(htmlString, isFacebook, action)
+	if err != nil {
+		log.Println("Event extraction error:", err)
+		return _SendHtmlErrorPartial(err, ctx)
+	}
+
+	defer saveSession(ctx, htmlString, urlToScrape, childID, parentUrl, events, action)
+
+	tmpl := partials.EventCandidatesPartial(events)
+	var buf bytes.Buffer
+	if err := tmpl.Render(ctx, &buf); err != nil {
+		return serverError(err)
+	}
+
+	return InternalResponse{
+		Headers:    map[string]string{"Content-Type": "text/html"},
+		StatusCode: http.StatusOK,
+		Body:       buf.String(),
+	}, nil
+}
+
+>>>>>>> f46fd74fa7087ec7314159e73469678a6cb12674
 func _SendHtmlErrorPartial(err error, ctx context.Context) (InternalResponse, error) {
 	layoutTemplate := partials.ErrorHTML(err, "web-handler")
 	var buf bytes.Buffer
