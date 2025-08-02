@@ -98,7 +98,10 @@ jobs:
       - name: Generate deployment tag
         id: generate-tag
         run: |
-          echo "tag=dev-$(date +%Y-%m-%dT%H-%M-%S)-${{ github.sha }}" >> $GITHUB_OUTPUT
+          # Get short SHA (first 7 characters)
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          # Generate tag in format: {branch}-YYYY-MM-DD-{SHORT SHA}
+          echo "tag=develop-$(date +%Y-%m-%d)-$SHORT_SHA" >> $GITHUB_OUTPUT
       - name: Deploy AWS resources via SST
         id: deploy-sst
         run: |
