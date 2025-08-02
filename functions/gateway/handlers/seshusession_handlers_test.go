@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -52,7 +51,7 @@ func TestNonLambdaRouter(t *testing.T) {
 	mockOpenAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		response := ChatCompletionResponse{
+		response := services.ChatCompletionResponse{
 			ID:      "mock-session-id",
 			Object:  "chat.completion",
 			Created: time.Now().Unix(),
@@ -60,14 +59,14 @@ func TestNonLambdaRouter(t *testing.T) {
 			Choices: []Choice{
 				{
 					Index: 0,
-					Message: Message{
+					Message: services.Message{
 						Role:    "assistant",
 						Content: `[{"event_title":"Mock Event","event_location":"Mock Location","event_start_time":"2023-05-01T10:00:00Z","event_end_time":"2023-05-01T12:00:00Z","event_url":"https://mock-event.com"}]`,
 					},
 					FinishReason: "stop",
 				},
 			},
-			Usage: Usage{
+			Usage: services.Usage{
 				PromptTokens:     100,
 				CompletionTokens: 50,
 				TotalTokens:      150,
@@ -157,7 +156,7 @@ func TestNonLambdaRouter(t *testing.T) {
 			}
 
 			// Call RouterNonLambda and get the resulting handler
-			handler := RouterNonLambda(httptest.NewRecorder(), req)
+			handler := HandleSeshuJobSubmit(httptest.NewRecorder(), req)
 
 			// Call the returned handler
 			rec := httptest.NewRecorder()
@@ -212,44 +211,6 @@ func TestParsePayload(t *testing.T) {
 		_, _, _, err := parsePayload("unknown", `{}`)
 		if err == nil {
 			t.Error("expected error for unknown action, got nil")
-		}
-	})
-}
-
-func TestFetchHTML(t *testing.T) {
-	mock := &MockScrapingService{
-		GetHTMLFromURLFunc: func(url string, timeout int, js bool, wait string) (string, error) {
-			if strings.Contains(url, "fail") {
-				return "", errors.New("mock failure")
-			}
-			return "<html><body>Success</body></html>", nil
-		},
-	}
-
-	t.Run("facebook URL", func(t *testing.T) {
-		html, err := fetchHTML("https://facebook.com/event", true, mock)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if !strings.Contains(html, "Success") {
-			t.Errorf("expected 'Success' in HTML, got %s", html)
-		}
-	})
-
-	t.Run("non-facebook URL", func(t *testing.T) {
-		html, err := fetchHTML("https://example.com", false, mock)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if !strings.Contains(html, "Success") {
-			t.Errorf("expected 'Success' in HTML, got %s", html)
-		}
-	})
-
-	t.Run("error case", func(t *testing.T) {
-		_, err := fetchHTML("https://fail.com", false, mock)
-		if err == nil {
-			t.Error("expected error from mock, got nil")
 		}
 	})
 }
@@ -348,7 +309,7 @@ func TestUnpadJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := UnpadJSON(tt.input)
+			result := services.UnpadJSON(tt.input)
 			if result != tt.expected {
 				t.Errorf("UnpadJSON() = %v, want %v", result, tt.expected)
 			}
