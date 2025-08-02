@@ -40,6 +40,7 @@ RUN find . -name "*templ.go"
 
 # -ldflags="-w -s" strips debug symbols, making the binary smaller.
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./docker_build/main ./functions/gateway/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o ./docker_build/create_weaviate_schema ./cmd/weaviate-setup/main.go
 
 # The go binary will be mounted from ./docker_build to continue enabling the watchGolang script
 FROM alpine:latest
@@ -64,9 +65,12 @@ RUN mkdir -p /app-static && touch /app-static/.env
 WORKDIR /go-app
 
 COPY --from=base /go-app/docker_build/main /go-app/main
+COPY --from=base /go-app/docker_build/create_weaviate_schema /go-app/create_weaviate_schema
 
 # Ensure proper permissions for appuser
 RUN chown -R appuser:appgroup /go-app /app-static
+RUN chown -R appuser:appgroup /go-app /app-static && \
+    chmod +x /go-app/main /go-app/create_weaviate_schema
 
 CMD [ "/bin/sh", "-c", "cp /app-static/.env /go-app/.env && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf -n" ]
 
