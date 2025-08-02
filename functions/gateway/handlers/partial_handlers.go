@@ -147,12 +147,32 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	events := res.Events
 	listMode := r.URL.Query().Get("list_mode")
-	// Sort events by StartTime
-	sort.Slice(events, func(i, j int) bool {
-		return events[i].StartTime < events[j].StartTime
-	})
 
-	eventListPartial := pages.EventsInner(events, listMode)
+	// Only sort by StartTime if there's no search query (preserve Weaviate's relevance order)
+	if q == "" {
+		sort.Slice(events, func(i, j int) bool {
+			return events[i].StartTime < events[j].StartTime
+		})
+	}
+
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	userId := ""
+	if userInfo.Sub != "" {
+		userId = userInfo.Sub
+	}
+	pageUser := &internal_types.UserSearchResult{
+		UserID: userId,
+	}
+
+	eventListPartial := pages.EventsInner(events, listMode, roleClaims, userId, pageUser)
 
 	var buf bytes.Buffer
 	err = eventListPartial.Render(ctx, &buf)
@@ -593,6 +613,8 @@ func getValidatedEvents(candidates []internal_types.EventInfo, validations []int
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	db := transport.GetDB()
+	natsService, _ := services.GetNatsService(ctx)
+
 	var inputPayload SeshuSessionEventsPayload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -719,51 +741,146 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// TODO: delete this `SeshuSession` once the handoff to the `SeshuJobs` table is complete
 
 		// Map to hold DOM paths for each event by its title
-		validationMap := make(map[string]EventDomPaths)
+		hasInitEvent := false
 
 		for _, event := range validatedEvents {
 			var docToUse *goquery.Document
 			var url string
+
+			var titlePath string
+			var locationTag string
+			var startTag string
 			var endTag string
 			var descriptionTag string
+			var eventURLTag string
+			var location string
 
 			// Use childDoc if this event matches the last child candidate (child is always only one)
 			if childDoc != nil && event.EventSource == "rs" {
 				docToUse = childDoc
 				url = session.ChildId
 			} else {
+				if hasInitEvent { // grab the first init event
+					continue
+				}
 				docToUse = parentDoc
 				url = inputPayload.Url
+				hasInitEvent = true
 			}
 
-			startTag := findTagByPartialText(docToUse, event.EventStartTime)
+			//normalise url for consistency
+			normalizedUrl, err := helpers.NormalizeURL(url)
+			if err != nil {
+				log.Println("Error normalizing URL:", err)
+				continue
+			}
 
-			if event.EventEndTime == "" {
-				endTag = ""
+			scheduledHour := time.Now().UTC().Hour() - 1 // will not immediately scrape, wait for a day after
+
+			if session.LocationAddress == "" {
+				location = event.EventLocation
 			} else {
-				endTag = findTagByPartialText(docToUse, event.EventEndTime)
+				location = session.LocationAddress
 			}
 
-			if event.EventDescription == "" {
-				descriptionTag = ""
-			} else {
-				descriptionTag = findTagByPartialText(docToUse, event.EventDescription[:utf8.RuneCountInString(event.EventDescription)/2])
+			scrapeSource, err := helpers.ExtractBaseDomain(url)
+			if err != nil {
+				log.Println("Error extracting base domain:", err)
+				continue
 			}
 
-			paths := EventDomPaths{
-				EventTitle:       findTagByExactText(docToUse, event.EventTitle),
-				EventLocation:    findTagByExactText(docToUse, event.EventLocation),
-				EventStartTime:   startTag,
-				EventEndTime:     endTag,
-				EventURL:         url,
-				EventDescription: descriptionTag,
+			switch scrapeSource {
+			case "www.facebook.com":
+				titlePath = "_BYPASS_"
+				locationTag = "_BYPASS_"
+				startTag = "_BYPASS_"
+				endTag = "_BYPASS_"
+				descriptionTag = "_BYPASS_"
+				eventURLTag = "_BYPASS_"
+			default:
+				titlePath = findTagByExactText(docToUse, event.EventTitle)
+				locationTag = findTagByExactText(docToUse, event.EventLocation)
+				startTag = findTagByExactText(docToUse, event.EventStartTime)
+
+				if event.EventEndTime == "" {
+					endTag = ""
+				} else {
+					endTag = findTagByPartialText(docToUse, event.EventEndTime)
+				}
+
+				if event.EventDescription == "" {
+					descriptionTag = ""
+				} else {
+					// Use half the length of the description to find a partial match
+					descriptionTag = findTagByPartialText(docToUse, event.EventDescription[:utf8.RuneCountInString(event.EventDescription)/2])
+				}
+
+				if event.EventURL == "" {
+					eventURLTag = ""
+				} else {
+					eventURLTag = findTagByPartialText(docToUse, event.EventURL)
+				}
 			}
 
-			validationMap[event.EventTitle] = paths
+			seshuJob := internal_types.SeshuJob{
+				NormalizedUrlKey:         normalizedUrl,
+				LocationLatitude:         session.LocationLatitude,
+				LocationLongitude:        session.LocationLongitude,
+				LocationAddress:          location,
+				ScheduledHour:            scheduledHour,
+				TargetNameCSSPath:        titlePath,
+				TargetLocationCSSPath:    locationTag,
+				TargetStartTimeCSSPath:   startTag,
+				TargetEndTimeCSSPath:     endTag,         // optional
+				TargetDescriptionCSSPath: descriptionTag, // optional
+				TargetHrefCSSPath:        eventURLTag,
+				Status:                   "HEALTHY", // assume healthy if parse succeeded
+				LastScrapeSuccess:        time.Now().Unix(),
+				LastScrapeFailure:        0,
+				LastScrapeFailureCount:   0,
+				OwnerID:                  session.OwnerId, // ideally from auth context
+				KnownScrapeSource:        scrapeSource,    // or infer from URL pattern/domain
+			}
+
+			payloadBytes, err := json.Marshal(seshuJob)
+			if err != nil {
+				log.Println("Error marshaling SeshuJob:", err)
+				return
+			}
+
+			// Log the payload for debugging
+			log.Printf("Submitting SeshuJob: %s", string(payloadBytes))
+
+			// POST to internal handler
+			req, err := http.NewRequest(http.MethodPost, os.Getenv("SESHUJOBS_URL")+"/api/seshujob", bytes.NewReader(payloadBytes))
+			if err != nil {
+				log.Println("Error creating HTTP request for seshuJob:", err)
+				continue
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			client := &http.Client{Timeout: 10 * time.Second}
+			// log the request url, body, and headers for debugging
+			log.Println("Sending seshuJob to handler:", req.URL.String())
+			log.Println("seshuJob:", string(payloadBytes))
+			log.Println("headers:", req.Header)
+			res, err := client.Do(req)
+			if err != nil {
+				log.Println("Failed to send seshuJob to handler:", err)
+				continue
+			}
+			defer res.Body.Close()
+
+			if res.StatusCode >= 400 {
+				body, _ := io.ReadAll(res.Body)
+				log.Printf("Handler responded with status %d: %s", res.StatusCode, string(body))
+			}
+
+			err = natsService.PublishMsg(ctx, seshuJob)
+			if err != nil {
+				log.Println("Failed to publish seshuJob to NATS:", err)
+			}
 		}
-
-		b, _ := json.MarshalIndent(validationMap, "", "  ")
-		fmt.Println(string(b))
 	}()
 
 	updateSeshuSession.Url = inputPayload.Url
@@ -775,13 +892,14 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
 	}
 
-	updateSeshuSession.Url = session.ChildId
-	updateSeshuSession.Status = "submitted"
+	if session.ChildId != "" {
+		updateSeshuSession.Url = session.ChildId
+		updateSeshuSession.Status = "submitted"
 
-	_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
-
-	if err != nil {
-		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
+		_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
+		}
 	}
 
 	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added. We will put it in the queue and let you know when it's imported.`)

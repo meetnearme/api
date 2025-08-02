@@ -69,7 +69,7 @@ func TestCompetitionConfigAdminList(t *testing.T) {
 		"<thead>",
 		"<tbody>",
 		"<tr",
-		"<th>Competition</th>",
+		"<th colspan=\"5\">Competition</th>",
 		"<th>Start</th>",
 		"<th>End</th>",
 		"<th>Type</th>",

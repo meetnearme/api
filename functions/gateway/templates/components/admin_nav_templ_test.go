@@ -156,7 +156,7 @@ func TestAdminNav(t *testing.T) {
 	renderedContent := buf.String()
 
 	// Check for proper container structure
-	expectedContainer := `<div class="self-start sticky top-0 col-span-2 md:mr-5 mb-5 card border-2 border-base-300 bg-base-200 rounded-box md:place-items-center ">`
+	expectedContainer := `<div class="self-start sticky top-0 col-span-2 md:mr-5 mb-5 card border border-base-300 bg-base-200 rounded-box md:place-items-center ">`
 	if !strings.Contains(renderedContent, expectedContainer) {
 		t.Error("Expected proper container structure with correct classes")
 	}

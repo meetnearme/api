@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -123,12 +122,6 @@ func TestGetWeaviateClient(t *testing.T) {
 	os.Setenv("WEAVIATE_PORT", actualPort)
 	defer mockWeaviateServer.Close()
 
-	// --- ADD THESE TWO DEBUG LINES ---
-	log.Printf("DEBUG: WEAVIATE_HOST is set to: '%s'", os.Getenv("WEAVIATE_HOST"))
-	log.Printf("DEBUG: WEAVIATE_PORT is set to: '%s'", os.Getenv("WEAVIATE_PORT"))
-	// --- END OF DEBUG LINES ---
-
-	// Call the handler
 	client, err := GetWeaviateClient()
 	if err != nil {
 		t.Errorf("error getting weaviate client %v", err)
@@ -415,10 +408,6 @@ func TestBulkDeleteEventsFromWeaviate(t *testing.T) {
 				t.Fatalf("failed to decode request body: %v", err)
 			}
 
-			// ~~ Delete me
-			prettyJSON, _ := json.MarshalIndent(requestBody, "", "  ")
-			t.Logf("RECEIVED REQUEST BODY:\n%s", string(prettyJSON))
-			/// ~~
 			matchObject, ok := requestBody["match"].(map[string]interface{})
 			if !ok {
 				t.Fatalf("expected delete request body to contain a 'match' object")

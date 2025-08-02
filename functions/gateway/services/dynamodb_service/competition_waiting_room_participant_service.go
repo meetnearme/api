@@ -46,8 +46,6 @@ func (s *CompetitionWaitingRoomParticipantService) PutCompetitionWaitingRoomPart
 		TableName: aws.String(competitionWaitingRoomParticipantTableName),
 	}
 
-	log.Printf("Item before Item put waiting: %+v", input)
-
 	res, err := dynamodbClient.PutItem(ctx, input)
 	if err != nil {
 		log.Print("error in put item dynamo")
@@ -83,8 +81,6 @@ func (s *CompetitionWaitingRoomParticipantService) GetCompetitionWaitingRoomPart
 		return nil, fmt.Errorf("failed to query rounds: %w", err)
 	}
 
-	log.Printf("Query returned %d items", len(result.Items))
-
 	// If no items found, return empty slice
 	if len(result.Items) == 0 {
 		log.Printf("No items found for competitionId: %s", competitionId)
@@ -115,6 +111,5 @@ func (s *CompetitionWaitingRoomParticipantService) DeleteCompetitionWaitingRoomP
 		return err
 	}
 
-	log.Printf("competition round successfully deleted")
 	return nil
 }

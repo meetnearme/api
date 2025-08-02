@@ -13,7 +13,7 @@ func TestErrorHTML(t *testing.T) {
 	reqID := "12345"
 
 	// Call the ErrorHTML function to render the template
-	component := ErrorHTML(body, reqID)
+	component := ErrorHTMLAlert(body, reqID)
 
 	// Create a buffer to store the rendered output
 	var buf bytes.Buffer
@@ -29,11 +29,11 @@ func TestErrorHTML(t *testing.T) {
 
 	// Define the expected content that should appear in the rendered HTML
 	expectedContent := []string{
-		"An unexpected error occurred",         // The body content
-		"This error has been logged",           // Static text
-		"Request ID: <strong>12345</strong>",   // The reqID content
-		"alert alert-error",                    // The alert class
-		"svg",                                  // The SVG tag for the icon
+		"An unexpected error occurred",       // The body content
+		"This error has been logged",         // Static text
+		"Request ID: <strong>12345</strong>", // The reqID content
+		"alert alert-error",                  // The alert class
+		"svg",                                // The SVG tag for the icon
 	}
 
 	// Check if each expected string is present in the rendered content
@@ -43,4 +43,3 @@ func TestErrorHTML(t *testing.T) {
 		}
 	}
 }
-

@@ -7,7 +7,7 @@ templ AddEventSource() {
 	<br/>
 	<br/>
 	<div class="grid grid-cols-7" x-data="getWizardState()">
-		<div class="self-start sticky top-0 col-span-2 mr-5 card border-2 border-base-300 bg-base-200 rounded-box place-items-center ">
+		<div class="self-start sticky top-0 col-span-2 mr-5 card border border-base-300 bg-base-200 rounded-box place-items-center ">
 			<ul id="event-source-steps" class="steps steps-vertical">
 				<li
 					class="step"
@@ -27,9 +27,9 @@ templ AddEventSource() {
 			</ul>
 			<button @click="incrementFormStep()">Increment Step</button>
 		</div>
-		<div id="event-source-container" class="col-span-5 card border-2 border-base-300 bg-base-200 p-10 rounded-box">
+		<div id="event-source-container" class="col-span-5 card border border-base-300 bg-base-200 p-10 rounded-box">
 			<h2 class="text-3xl font-bold">Add a Target URL</h2>
-			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL") + "?action=init") } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? handleURLSubmit() : ''" @htmx:after-request="handleUrlRes(event)">
+			<form class="group" novalidate hx-post={ templ.EscapeString("/api/html/session/submit/?action=init") } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? handleURLSubmit() : ''" @htmx:after-request="handleUrlRes(event)">
 				<label for="url">Enter a URL that lists events and we will check the site and propose some events that might be on that page (this will take some time)</label>
 				<input
 					x-model="formData.url"
@@ -196,7 +196,7 @@ templ AddEventSource() {
 		</div>
 		<template x-if="showToast === true">
 			<div class="toast m-4 z-50">
-				<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border-2 border-base-300">
+				<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border border-base-300">
 					<span x-text="toastContent.message"></span>
 					<div class="block justify-end">
 						<button class="btn btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
@@ -207,7 +207,7 @@ templ AddEventSource() {
 			</div>
 		</template>
 	</div>
-	<script id="alpine-state" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") } data-rs-endpoint={ templ.EscapeString(os.Getenv("SESHU_FN_URL") + "?action=rs") }>
+	<script id="alpine-state" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") } data-rs-endpoint={ templ.EscapeString("/api/html/session/submit/?action=rs") }>
 		function getEventValidationsFromContainer(selector) {
 			const cards = Array.from(document.querySelectorAll(`${selector} .checkbox-card`));
 			const eventValidations = [];
@@ -226,9 +226,10 @@ templ AddEventSource() {
 						const labelText = checkbox.closest('label')?.querySelector('.label-text');
 						if (labelText) {
 							// eslint-disable-next-line no-unused-vars
-							const [key, value] = labelText.innerText.split(/:\s(.+)/);
-							if (key) {
-								switch (key.trim()) {
+							const parts = labelText.innerText.split(/:\s(.+)/);
+							if (parts && parts.length > 0) {
+								const key = parts[0].trim();
+								switch (key) {
 									case "Title":
 										eventData["event_title"] = checkbox.checked;
 										break;

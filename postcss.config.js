@@ -22,14 +22,11 @@ async function updateCSSFiles(finalCSS, result) {
     return;
   }
 
-  console.log('>> Production mode');
-
   // Production mode: apply hashing
   const hash = generateHash(finalCSS);
   const hashedFilename = `styles.${hash}.css`;
   const hashedPath = outputPath.replace(/styles\.css$/, hashedFilename);
-  console.log('>> hashedPath', hashedPath);
-  console.log('>> hashedFilename', hashedFilename);
+
   try {
     // Write the new hashed file
     await writeFile(hashedPath, finalCSS);

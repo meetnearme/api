@@ -1,8 +1,10 @@
 package pages
 
 import (
+	"context"
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"log"
 	"os"
@@ -35,7 +37,27 @@ script navigateToSlideHandler(index int) {
 		}
 }
 
-templ EventsInner(events []types.Event, mode string) {
+templ ReShareButton(ev types.Event) {
+	// add top right fixed icon for re-share
+	<div class="dropdown dropdown-end absolute top-4 right-4 z-40">
+		<div tabindex="0" role="button" class="btn   btn-circle"><svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z"></path></svg></div>
+		<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-32 p-2 shadow">
+			<li>
+				<button id={ "re-share-" + ev.Id } @click="reShareEvent(event)">
+					<svg class="w-6 h-6 flex-none shrink-0 grow-0 fill-current" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#currentColor"><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"></path></svg>
+					&nbsp;Re share
+				</button>
+			</li>
+		</ul>
+	</div>
+}
+
+const eventTitleDataId = "event-title"
+const eventLocationDataId = "event-location"
+const eventStartTimeDataId = "event-start-time"
+const eventUrlDataId = "data-url"
+
+templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleClaim, userId string, pageUser *types.UserSearchResult) {
 	if mode == helpers.EV_MODE_UPCOMING || mode == "" {
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
@@ -47,6 +69,9 @@ templ EventsInner(events []types.Event, mode string) {
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-24 md:pb-4">
+					if helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.SuperAdmin], helpers.Roles[helpers.SyndicateAdmin]}) {
+						@ReShareButton(ev)
+					}
 					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 						<img
 							loading="lazy"
@@ -55,13 +80,13 @@ templ EventsInner(events []types.Event, mode string) {
 							class="object-cover object-position-25-25 w-full aspect-[4/3] md:aspect-[16/9] opacity-50 md:opacity-30 md:hover:opacity-75 transition-all"
 						/>
 					</a>
-					<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
+					<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-base-100/70 from-80% to-transparent absolute bottom-0 left-0">
 						<div class="mb-2">
-							<h2 class="text-2xl md:text-3xl">{ ev.Name }</h2>
-							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
+							<h2 data-id={ eventTitleDataId } class="text-2xl md:text-3xl">{ ev.Name }</h2>
+							<p data-id={ eventStartTimeDataId } class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } - { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } | { ev.Address }</p>
 						</div>
 						<br/>
-						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+						<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 							LEARN MORE
 							&rarr;
 						</a>
@@ -110,6 +135,27 @@ templ EventsInner(events []types.Event, mode string) {
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-12 md:pb-4">
+					if userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.SuperAdmin], helpers.Roles[helpers.SyndicateAdmin]}) {
+						@ReShareButton(ev)
+					}
+					if userId == pageUser.UserID {
+						<div class="absolute top-2 right-2 bg-base-100 rounded-full px-2 z-10 leading-none">
+							<div class="form-control">
+								<label class="cursor-pointer label">
+									<span class="label-text mr-2" x-text={ "selectedEvents['" + ev.Id + "'] ? 'Remove' : 'Select'" }></span>
+									<input
+										id={ ev.Id }
+										name={ "event-" + ev.Id }
+										value={ ev.Id }
+										type="checkbox"
+										class="checkbox checkbox-sm checkbox-primary"
+										@change={ "selectEvent('" + ev.Id + "')" }
+										:checked={ "selectedEvents['" + ev.Id + "'] || false" }
+									/>
+								</label>
+							</div>
+						</div>
+					}
 					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
 						<img
 							loading="lazy"
@@ -118,12 +164,12 @@ templ EventsInner(events []types.Event, mode string) {
 							class="object-cover object-position-25-25 w-full aspect-[4/1] md:aspect-[4/1] opacity-30 md:hover:opacity-75 transition-all"
 						/>
 					</a>
-					<div class="flex justify-between w-full p-4 md:py-8 bg-gradient-to-t from-black/70 from-80% to-transparent absolute bottom-0 left-0">
+					<div class="flex justify-between w-full p-2 md:py-8 bg-gradient-to-t from-base-100/70 from-80% to-transparent absolute bottom-0 left-0">
 						<div class="mb-2">
-							<h2 class="text-xl font-bold">{ ev.Name }</h2>
-							<p class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } | { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } &commat; { ev.Address }</p>
+							<h2 data-id={ eventTitleDataId } class="text-xl font-bold">{ ev.Name }</h2>
+							<p data-id={ eventStartTimeDataId } class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } - { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } | { ev.Address }</p>
 						</div>
-						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
+						<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
 							if ev.HasPurchasable {
 								BUY TICKETS
 								&rarr;
@@ -139,49 +185,58 @@ templ EventsInner(events []types.Event, mode string) {
 	}
 	if mode == helpers.EV_MODE_ADMIN_LIST {
 		<h3 class="text-2xl font-bold my-10">Event Admin</h3>
-		<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
+		<table class="table table-fixed top-align bg-base-100 table-pin-rows table-zebra">
 			<thead>
 				<tr>
-					<th>Event</th>
-					<th>Status</th>
-					<th>Start</th>
-					<th>End</th>
-					<th>Type</th>
-					<th>Created</th>
-					<th>Updated</th>
+					<th></th>
+					<th colspan="6">Event</th>
+					<th colspan="2">Status</th>
+					<th colspan="2">Start</th>
+					<th colspan="2">End</th>
 				</tr>
 			</thead>
 			<tbody>
-				for _, ev := range events {
+				for idx, ev := range events {
 					<tr class="border-t-2 border-base-300">
 						<td>
-							<a class="link link-primary" href={ templ.URL("/admin/event/" + ev.Id + "/edit") }>{ ev.Name }</a>
+							if idx % 2 == 0 {
+								<div class="tooltip" data-tip="Re Shared">
+									<svg
+										class="w-6 h-6 flex-none shrink-0 grow-0 fill-current"
+										xmlns="http://www.w3.org/2000/svg"
+										height="24px"
+										viewBox="0 -960 960 960"
+										width="24px"
+										fill="#currentColor"
+									><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"></path></svg>
+								</div>
+							}
 						</td>
-						<td>
+						<td colspan="6">
+							<a class="link link-primary" href={ templ.URL("/admin/event/" + ev.Id + "/edit") }>{ ev.Name }</a>
+							if ev.EventSourceType == helpers.ES_SERIES_PARENT || ev.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
+								<br/>
+								<strong>Event Series</strong>
+							}
+							<br/>
+							Created: { helpers.FormatTimeMMDDYYYY(ev.CreatedAt) }
+							<br/>
+							Updated: { helpers.FormatTimeMMDDYYYY(ev.UpdatedAt) }
+						</td>
+						<td colspan="2">
 							if strings.HasPrefix(ev.EventSourceType, helpers.UNPUB_SUFFIX) {
 								Unpublished
 							} else {
 								Published
 							}
 						</td>
-						<td>
+						<td colspan="2">
 							{ helpers.FormatTimeMMDDYYYY(ev.StartTime) }
 						</td>
-						<td>
-							{ helpers.FormatTimeMMDDYYYY(ev.EndTime) }
-						</td>
-						<td>
-							if ev.EventSourceType == helpers.ES_SERIES_PARENT || ev.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
-								Series
-							} else {
-								Event
+						<td colspan="2">
+							if ev.EndTime > 0 {
+								{ helpers.FormatTimeMMDDYYYY(ev.EndTime) }
 							}
-						</td>
-						<td>
-							{ helpers.FormatTimeMMDDYYYY(ev.CreatedAt) }
-						</td>
-						<td>
-							{ helpers.FormatTimeMMDDYYYY(ev.UpdatedAt) }
 						</td>
 					</tr>
 				}
@@ -228,8 +283,8 @@ func GetCitiesAsJsonStr() string {
 }
 
 templ FilterButton() {
-	<button onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
-		FILTER <svg class="svg-icon fill-current" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden; display: inline-block;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M640 288a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 288z m123.456-96c-14.304-55.04-64-96-123.456-96s-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896V192h-132.544zM640 864a64 64 0 1 1 0.032-128.032A64 64 0 0 1 640 864m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h388.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64h-132.544c-14.304-55.04-64-96-123.456-96M384 576a64 64 0 1 1 0.032-128.032A64 64 0 0 1 384 576m0-192c-59.456 0-109.152 40.96-123.456 96H128v64h132.544c14.304 55.04 64 96 123.456 96s109.152-40.96 123.456-96H896v-64H507.456c-14.304-55.04-64-96-123.456-96"></path></svg>
+	<button type="button" onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
+		@components.Icon("filter")
 	</button>
 }
 
@@ -247,10 +302,26 @@ func GetDefaultRadius(cfLocation helpers.CdnLocation) string {
 	return strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64)
 }
 
-templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
+templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
+	{{
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
+	}}
+	{{
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+	userId := ""
+	if userInfo.Sub != "" {
+		userId = userInfo.Sub
+	}
+	}}
 	// we assume this is "home" and not a community / user profile page
 	if pageUser == nil {
-		<div class="header-hero bg-[#00ffzz]">
+		<div class="header-hero">
 			<h1 class="text-xl md:text-4xl text-center mb-5">
 				<span class="opener">_People_ Over Screens!</span>
 				<br/>
@@ -280,7 +351,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 										<div>
 											<template x-if="eventId !== fakeEventId">
 												<h3 class="text-xl font-bold my-2">
-													<a class="link link-primary" :href="`/event/${eventId}`">
+													<a class="link link-text" :href="`/event/${eventId}`">
 														Event #<span x-text="Object.keys(rounds[competition.id]).indexOf(eventId) + 1"></span>
 													</a>
 												</h3>
@@ -329,37 +400,53 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 	<div
 		class="min-h-screen"
 	>
-		if pageUser == nil {
-			<header class="flex justify-between p-4">
-				<nav class="flex space-x-4">
-					<button href="#" class="text-sm md:text-xl font-bold border-b-2 border-white">
-						EVENTS
-					</button>
-					// <button href="#" class="text-sm md:text-xl">
-					// 	GROUPS
-					// </button>
-					// <button href="#" class="text-sm md:text-xl">
-					// 	ORGANIZERS
-					// </button>
-				</nav>
-				//
-				@FilterButton()
-			</header>
-		} else {
-			<header class="flex justify-between items-center">
-				<h2 class="text-3xl font-bold uppercase my-10">Events</h2>
-				@FilterButton()
-			</header>
-		}
 		<div x-data="getHomeState()">
-			<div class="text-sm md:text-base mt-4 mb-2">
-				Showing events within <span class="font-bold" x-text="$store.filters.radius"></span> miles of
-				<a
-					class="link link-primary font-bold"
-					:href=" $store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length ? `https://google.com/maps/@${$store.location?.selected?.label?.replace(' ', '')},15z` : `https://google.com/maps?q=${$store.location?.selected?.label}` "
-				>
-					<span x-text="$store.location?.selected?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? 'Geocoordinates ' + $store.location?.selected?.label : $store.location?.selected?.label"></span>
-				</a> <button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
+			<div class="card border border-base-300 bg-base-200 p-4 pb-2 md:p-10 md:pb-6 rounded-box mb-4">
+				<div class="mb-4 relative">
+					<div class="flex gap-2 items-center overflow-x-auto pb-3">
+						<template x-for="(example, index) in $store.filters.getSearchExamples()" :key="index">
+							<button
+								@click="$store.urlState.setParam('q', example)"
+								class="btn btn-sm btn-outline font-thin flex-shrink-0 whitespace-nowrap"
+								x-text="example"
+							></button>
+						</template>
+					</div>
+					<!-- Fade indicator for more content -->
+					<div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-base-200 to-transparent pointer-events-none"></div>
+				</div>
+				// full width search bar
+				<form class="join w-full" @submit.prevent="$store.urlState.setParam('q', $event.target.querySelector('input[type=text]').value)">
+					<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
+						<input
+							id="search-input"
+							class="w-full grow"
+							type="text"
+							placeholder="I want to exercise with a group"
+							:value="$store.urlState.q || ''"
+						/>
+						@FilterButton()
+					</label>
+					<button
+						type="submit"
+						id="search-submit-btn"
+						class="btn btn-primary join-item"
+					>Search</button>
+				</form>
+				<div class="text-sm md:text-base mt-6 mb-2">
+					Showing events within <span class="font-bold" x-text="$store.urlState.radius || defaultRadius"></span> miles of
+					<a class="link link-text font-bold" :href="`https://google.com/maps?q=${$store.urlState.location || document.querySelector('#alpine-state').getAttribute('data-city-label-initial') }`">
+						<span x-text="$store.urlState.location || document.querySelector('#alpine-state').getAttribute('data-city-label-initial')"></span>
+					</a>
+					<template x-if="$store.urlState.q">
+						<span>&nbsp;searching for "<strong x-text="$store.urlState.q"></strong>"</span>
+					</template>
+					<template x-if="$store.urlState.start_time">
+						<span>&nbsp;starting <strong x-text="$store.urlState.queryParamToReadableTime($store.urlState.start_time)"></strong></span>
+					</template>
+					&nbsp;
+					<button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
+				</div>
 			</div>
 			<div class="pb-4">
 				<form
@@ -379,142 +466,270 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 					hx-vals="js:{...sendParmsFromQs()}"
 				>
 					<input
-						x-model="start_time"
+						:value="$store.urlState.start_time || ''"
 						id="start_time"
 						type="hidden"
+						name="start_time"
 					/>
 					<input
-						x-model="end_time"
+						:value="$store.urlState.end_time || ''"
 						id="end_time"
 						type="hidden"
+						name="end_time"
 					/>
 					<input
-						x-model="q"
+						:value="$store.urlState.q || ''"
 						id="q"
 						type="hidden"
+						name="q"
 					/>
 					<input
-						x-model="$store.filters.radius"
+						:value="$store.urlState.radius || ''"
 						id="radius"
 						type="hidden"
+						name="radius"
 					/>
 					<input
-						x-model="lat"
+						:value="$store.urlState.lat || ''"
 						id="lat"
 						type="hidden"
+						name="lat"
 					/>
 					<input
-						x-model="lon"
+						:value="$store.urlState.lon || ''"
 						id="lon"
 						type="hidden"
+						name="lon"
 					/>
 					<div class="flex flex-auto space-x-2">
 						<button
-							type="submit"
-							:class="{
-							'btn-primary': $store.queryParams.start_time === 'this_month'
-						}"
-							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_month')"
+							type="button"
+							:class="{ 'btn-primary': $store.urlState.start_time === 'this_month' }"
+							class="btn grow px-2 py-2 text-md md:text-xl"
+							@click="$store.urlState.setParam('start_time', 'this_month')"
 						>
 							THIS MONTH
 						</button>
 						<button
-							type="submit"
-							:class="{
-							'btn-primary': $store.queryParams.start_time === 'today'
-						}"
-							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'today')"
+							type="button"
+							:class="{ 'btn-primary': $store.urlState.start_time === 'today' }"
+							class="btn grow px-2 py-2 text-md md:text-xl"
+							@click="$store.urlState.setParam('start_time', 'today')"
 						>
 							TODAY
 						</button>
 						<button
-							type="submit"
-							:class="{
-							'btn-primary': $store.queryParams.start_time === 'tomorrow'
-						}"
-							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'tomorrow')"
+							type="button"
+							:class="{ 'btn-primary': $store.urlState.start_time === 'tomorrow' }"
+							class="btn grow px-2 py-2 text-md md:text-xl"
+							@click="$store.urlState.setParam('start_time', 'tomorrow')"
 						>
 							TOMORROW
 						</button>
 						<button
-							type="submit"
-							:class="{
-							'btn-primary': $store.queryParams.start_time === 'this_week'
-						}"
-							class="btn grow px-2 py-2 text-md md:text-xl "
-							@click="Alpine.store('queryParams').pushToQueryParams('start_time', 'this_week')"
+							type="button"
+							:class="{ 'btn-primary': $store.urlState.start_time === 'this_week' }"
+							class="btn grow px-2 py-2 text-md md:text-xl"
+							@click="$store.urlState.setParam('start_time', 'this_week')"
 						>
 							THIS WEEK
 						</button>
 					</div>
 				</form>
 			</div>
-		</div>
-		<main id="events-container">
-			if pageUser == nil {
-				<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
-					<span class="loading loading-spinner loading-lg text-primary"></span>
-				</div>
-				<div id="events-container-inner">
-					@EventsInner(events, "")
-				</div>
-			} else {
-				<div role="tablist" class="tabs tabs-bordered">
-					<input
-						type="radio"
-						name="org-events-tabs"
-						role="tab"
-						class="tab text-lg leading-5 uppercase"
-						aria-label="Upcoming"
-						checked="checked"
-					/>
-					<div role="tabpanel" class="tab-content py-10">
-						<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
-							<span class="loading loading-spinner loading-lg text-primary"></span>
-						</div>
-						<div id="events-container-inner">
-							@EventsInner(events, helpers.EV_MODE_LIST)
+			<main id="events-container">
+				if pageUser == nil {
+					<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
+						<span class="loading loading-spinner loading-lg text-primary"></span>
+					</div>
+					<div id="events-container-inner">
+						@EventsInner(events, "", roleClaims, userId, pageUser)
+					</div>
+				} else {
+					<div class="relative">
+						// share / export buttons for users viewing their own events
+						if pageUser.UserID == userId {
+							// shim for preventing floating buttons from covering the content
+							<div class="flex md:hidden leading-5">
+								<br/>
+							</div>
+							<div class="absolute top-0 right-0">
+								<template x-if="Object.keys(selectedEvents).length > 0">
+									<div class="indicator">
+										<span x-text="Object.keys(selectedEvents).length" class="indicator-item badge badge-primary"></span>
+										<div class="dropdown dropdown-end">
+											<div tabindex="0" role="button" class="btn">Export</div>
+											<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-48 p-2 shadow">
+												<li><a @click="exportSelectedEvents('rich')">Rich Text</a></li>
+												<li><a @click="exportSelectedEvents('html')">HTML</a></li>
+											</ul>
+										</div>
+									</div>
+								</template>
+								<button class="btn btn-ghost" @click="clearAllSelections()">
+									Clear
+								</button>
+								<button class="btn btn-primary" @click="selectAllEvents()">
+									Select All Events
+								</button>
+							</div>
+						}
+						<div role="tablist" class="tabs tabs-bordered">
+							<input
+								type="radio"
+								name="org-events-tabs"
+								role="tab"
+								class="tab text-lg leading-5 uppercase hidden md:flex"
+								aria-label="Upcoming"
+								checked="checked"
+							/>
+							<div role="tabpanel" class="tab-content py-10">
+								<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
+									<span class="loading loading-spinner loading-lg text-primary"></span>
+								</div>
+								<div id="events-container-inner">
+									@EventsInner(events, helpers.EV_MODE_LIST, roleClaims, userId, pageUser)
+								</div>
+							</div>
+							<input
+								type="radio"
+								name="org-events-tabs"
+								role="tab"
+								class="tab text-lg leading-5 uppercase hidden md:flex"
+								aria-label="Past"
+							/>
+							<div role="tabpanel" class="tab-content p-10">(Coming Soon...)</div>
 						</div>
 					</div>
-					<input
-						type="radio"
-						name="org-events-tabs"
-						role="tab"
-						class="tab text-lg leading-5 uppercase"
-						aria-label="Past"
-					/>
-					<div role="tabpanel" class="tab-content p-10">(Coming Soon...)</div>
+				}
+			</main>
+			<template x-if="showToast === true">
+				<div class="toast m-4 z-50">
+					<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border border-base-300">
+						<span x-text="toastContent.message"></span>
+						<div class="block justify-end">
+							<button class="btn btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
+								<svg class="svg-icon" style="width: 1em; height: 1em; vertical-align: middle; fill: currentColor; overflow: hidden;" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg>
+							</button>
+						</div>
+					</div>
 				</div>
-			}
-		</main>
+			</template>
+		</div>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId }>
 		document.addEventListener('alpine:init', () => {
+			// Reactive URL store - single source of truth with reactivity
+			Alpine.store('urlState', {
+				// Initialize from URL
+				...Object.fromEntries(new URLSearchParams(window.location.search)),
 
-			const urlParams = new URLSearchParams(window.location.search);
+				// Helper to update both store and URL
+				setParam(param, value) {
+					const url = new URL(window.location.href);
+					const params = new URLSearchParams(url.search);
 
-			const categoriesParam = urlParams.get('categories');
-			const categories = categoriesParam ? decodeURIComponent(categoriesParam).split(' | ') : '';
+					if (param === 'categories') {
+						const categoryString = Array.isArray(value) ? value.join(' | ') : value;
+						if (categoryString && categoryString !== '') {
+							params.set('categories', categoryString);
+							this.categories = categoryString;
+						} else {
+							params.delete('categories');
+							this.categories = '';
+						}
+					} else {
+						if (value && value !== '') {
+							params.set(param, value);
+							this[param] = value;
+						} else {
+							params.delete(param);
+							this[param] = '';
+						}
+					}
 
-			Alpine.store('filters', {
-				radius: urlParams.get('radius') ?? document.querySelector('#alpine-state').getAttribute('data-default-radius'),
-				lat: urlParams.get('lat') ?? document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
-				lon: urlParams.get('lon') ?? document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
-				categories: categories,
-				setRadius(value) {
-					this.radius = value;
+					// Update URL
+					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
+
+					// Trigger form submission
+					const form = document.getElementById('event-search-form');
+					if (form) {
+						setTimeout(() => {
+							form.requestSubmit();
+						}, 50);
+					}
 				},
-				setLat(value) {
-					this.lat = value;
+
+				// Helper to sync from URL (for popstate events)
+				syncFromURL() {
+					const urlParams = new URLSearchParams(window.location.search);
+
+					// Update all known parameters
+					['start_time', 'end_time', 'q', 'radius', 'lat', 'lon', 'categories', 'location'].forEach(param => {
+						const value = urlParams.get(param) || '';
+						this[param] = value;
+					});
 				},
-				setLon(value) {
-					this.lon = value;
+
+				queryParamToReadableTime(param) {
+					if (param === 'this_month') return 'this month';
+					if (param === 'today') return 'today';
+					if (param === 'tomorrow') return 'tomorrow';
+					if (param === 'this_week') return 'this week';
+					if (param === 'this_year') return 'this year';
+					if (param === '') return 'within 90 days';
+					return '';
 				}
 			});
 
+			// Filters store - ONLY for sidebar draft state
+			Alpine.store('filters', {
+				// Draft state properties
+				radius: '',
+				categories: [],
+
+				// Initialize draft state from current URL
+				initFromUrl() {
+					this.radius = Alpine.store('urlState').radius || document.querySelector('#alpine-state').getAttribute('data-default-radius');
+					const categoriesString = Alpine.store('urlState').categories || '';
+					this.categories = categoriesString ? categoriesString.split(' | ') : [];
+				},
+
+				// Utility functions
+				getSearchExamples() {
+					const searchPlaceholderExamples = [
+						'I want to meet people who enjoy theater',
+						'I want to meet active people',
+						'I want to exercise with a group',
+						'I want to find a running group',
+						'I want to find a hiking group',
+						'I want to find a biking group',
+						'I want to find a yoga group',
+						'I want to find a dance group',
+						'I want to find a cooking group',
+						'I want to find a book club',
+						'I want to find a wine tasting group',
+						'I want to meet people interested in nature',
+						'I want to meet people interested in natural living',
+						'I want to meet people interested in healthy eating',
+						'I want to meet people interested in sustainable living',
+						'I want to meet people interested in alternative medicine',
+						'I want to meet people interested in spirituality',
+						'I want to meet people interested in personal development',
+						'I want to meet people interested in personal growth',
+					];
+					const shuffleArray = array => {
+						for (let i = array.length - 1; i > 0; i--) {
+							const j = Math.floor(Math.random() * (i + 1));
+							[array[i], array[j]] = [array[j], array[i]];
+						}
+						return array;
+					};
+					return shuffleArray([...searchPlaceholderExamples]);
+				}
+			});
+
+			// Keep location store
 			Alpine.store('location', {
 				selected: {
 					label: document.querySelector('#alpine-state').getAttribute('data-city-label-initial'),
@@ -523,36 +738,6 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				},
 				setSelectedLocation(location) {
 					this.selected = location
-				},
-			});
-
-			Alpine.store('queryParams', {
-				allParams: [
-					'start_time',
-					'end_time',
-					'q',
-					'radius',
-					'lat',
-					'lon',
-					'categories',
-					'location'
-				],
-				pushToQueryParams(param, selected) {
-					const url = new URL(window.location.href);
-					const params = new URLSearchParams(url.search);
-
-					this.allParams.forEach(key => {
-						if ( key && param && (key !== param && ( this[key] !== (null || '') ) ) ) {
-							if (this[key]) {
-								params.set(key, this[key])
-							}
-						}
-					})
-
-					this[param] = selected;
-					params.set(param, selected);
-
-					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
 				},
 			});
 		});
@@ -587,6 +772,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				options: [],
 				isOpen: false,
 				openedWithKeyboard: false,
+				isLoading: false,
 				selectedOption: {
 					label: Alpine.store('location').selected.label,
 					latitude: Alpine.store('location').selected.latitude,
@@ -594,6 +780,7 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 				},
 				async fetchLocations(query) {
 					if (query.length >= 3) {
+						this.isLoading = true;
 						this.options = await fetch(`/api/locations?q=${query}`).then(res => {
 							return res.json()
 						}).then(json => {
@@ -603,6 +790,14 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 								latitude: city.latitude,
 								longitude: city.longitude,
 							}))
+						})
+						.catch(error => {
+							// eslint-disable-next-line no-console
+							console.error('Error fetching locations:', error);
+							return [];
+						})
+						.finally(() => {
+							this.isLoading = false;
 						});
 					}
 				},
@@ -637,90 +832,235 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 		function getHomeState() {
 			return {
 				async init() {
-					this.updateParamsFromUrl(false);
-
-					// enhance history.pushState with a listener and call it on every
-					// change of query params so that our URL can be the real source
-					// of truth while JS state simply follows that
-					((history) => {
-						var pushState = history.pushState;
-						history.pushState = function(state) {
-							if (typeof history.onpushstate == "function") {
-								history.onpushstate({state: state});
-							}
-							// whatever else you want to do
-							// maybe call onhashchange e.handler
-							return pushState.apply(history, arguments);
-						}
-					})(window.history);
-
-					window.onpopstate = history.onpushstate = () => {
-						this.updateParamsFromUrl();
-					};
-
-					// Also listen for popstate events for back/forward navigation
+					// Handle browser back/forward navigation
 					window.addEventListener('popstate', () => {
-						this.updateParamsFromUrl();
+						// Sync Alpine store from URL
+						Alpine.store('urlState').syncFromURL();
+
+						// Trigger form submission
+						const form = document.getElementById('event-search-form');
+						if (form) {
+							form.requestSubmit();
+						}
 					});
 				},
 				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
 				defaultRadius: document.querySelector('#alpine-state').getAttribute('data-default-radius'),
-				start_time: null,
-				end_time: null,
-				q: null,
-				radius: null,
-				lat: null,
-				lon: null,
-				categories: null,
-				locationDropdown: null,
-				updateParamsFromUrl (triggerSearch = true) {
-					const urlParams = new URLSearchParams(window.location.search);
-
-					this.start_time = urlParams.get('start_time') || '';
-					this.end_time = urlParams.get('end_time') || '';
-					this.q = urlParams.get('q') || '';
-					if (urlParams.get('radius')) {
-						Alpine.store('filters').setRadius(urlParams.get('radius'));
+				showToast: false,
+				toastContent: {
+					type: '',
+					message: '',
+				},
+				selectedEvents: {}, // Changed from array to object/map
+				selectEvent(eventId) {
+					// Toggle the selection state for this event
+					if (this.selectedEvents[eventId]) {
+						delete this.selectedEvents[eventId];
+					} else {
+						this.selectedEvents[eventId] = true;
 					}
-					this.lat = urlParams.get('lat') || '';
-					this.lon = urlParams.get('lon') || '';
-					// these come from the sidebar
-					this.categories = urlParams.get('categories') || '';
+				},
+				selectAllEvents() {
+					// Select all event checkboxes that are currently visible
+					const eventCheckboxes = document.querySelectorAll('input[type="checkbox"][name^="event-"]');
+					eventCheckboxes.forEach(checkbox => {
+						const eventId = checkbox.value;
+						this.selectedEvents[eventId] = true;
+					});
+				},
+				clearAllSelections() {
+					this.selectedEvents = {};
+				},
+				getSelectedEventIds() {
+					return Object.keys(this.selectedEvents).filter(id => this.selectedEvents[id]);
+				},
+				async reShareEvent(event) {
+					const eventId = event.currentTarget.id.split('re-share-')[1]
+					// send a post request to the re-share endpoint
+					if (!eventId) {
+						this.showToast = true;
+						this.toastContent = {
+							type: 'error',
+							message: 'Cannot locate event ID for re-sharing.',
+						};
+						return
+					}
 
-					// avoid re-triggering search for scenarios like initial page load
-					if (!triggerSearch) {
+					try {
+						const res = await fetch(`/api/data/re-share?event_id=${eventId}`, {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+						})
+
+						if (res.ok) {
+							this.showToast = true;
+							this.toastContent = {
+								type: 'success',
+								message: 'Event re-shared successfully!',
+							};
+						} else {
+							this.showToast = true;
+							this.toastContent = {
+								type: 'error',
+								message: `Failed to re-share event. Status: ${res.status}`,
+							};
+						}
+					} catch (error) {
+						this.showToast = true;
+						this.toastContent = {
+							type: 'error',
+							message: 'An error occurred while re-sharing the event.',
+						};
+						// eslint-disable-next-line no-console
+						console.error('Re-share error:', error);
+					}
+				},
+				async exportSelectedEvents(format) {
+					const selectedEventIds = this.getSelectedEventIds();
+					if (selectedEventIds.length === 0) {
+						this.showToast = true;
+						this.toastContent = {
+							type: 'error',
+							message: 'No events selected for export.',
+						};
 						return;
 					}
-					// Submit the form
-					const form = document.getElementById('event-search-form')
 
-					// this is unforunately just to allow alpine to propagate the form with
-					// updated values prior to submitting
-					setTimeout(()=> {
-						form?.requestSubmit()
-					}, 250)
-				},
-				handleLocationSelected(event) {
-					this.lat = event.detail.lat
-					this.lon = event.detail.lon
-				},
-				updateHasEvents(event) {
-					if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
-						this.hasEvents = true;
-					} else {
-						this.hasEvents = false;
+					try {
+						const eventData = [];
+
+						// Get data-id attribute values from the alpine-state element
+						const alpineState = document.querySelector('#alpine-state');
+						const eventTitleId = alpineState.getAttribute('data-event-title-id');
+						const eventStartTimeId = alpineState.getAttribute('data-event-start-time-id');
+						const eventUrlId = alpineState.getAttribute('data-event-url-id');
+
+						// Collect data from selected events using data-id attributes
+						selectedEventIds.forEach(eventId => {
+							const eventContainer = document.querySelector(`input[value="${eventId}"]`)?.closest('.flex.w-full.relative');
+							if (eventContainer) {
+								const titleElement = eventContainer.querySelector(`[data-id="${eventTitleId}"]`);
+								const timeElement = eventContainer.querySelector(`[data-id="${eventStartTimeId}"]`);
+								const urlElement = eventContainer.querySelector(`[data-id="${eventUrlId}"]`);
+
+								if (titleElement && timeElement && urlElement) {
+									eventData.push({
+										title: titleElement.textContent.trim(),
+										time: timeElement.textContent.trim(),
+										url: urlElement.href
+									});
+								}
+							}
+						});
+
+						if (eventData.length === 0) {
+							this.showToast = true;
+							this.toastContent = {
+								type: 'error',
+								message: 'Could not collect event data for export.',
+							};
+							return;
+						}
+
+												// Create temporary off-screen element for copying
+						const tempElement = document.createElement('div');
+						tempElement.style.position = 'absolute';
+						tempElement.style.left = '-9999px';
+						tempElement.style.top = '-9999px';
+						tempElement.style.opacity = '0';
+						tempElement.style.pointerEvents = 'none';
+						document.body.appendChild(tempElement);
+
+						// Create content based on format
+						if (format === 'rich') {
+							// Rich text format with actual bold styling
+							eventData.forEach((event, index) => {
+								if (index > 0) {
+									tempElement.appendChild(document.createElement('br'));
+									tempElement.appendChild(document.createElement('br'));
+								}
+
+								// Create bold title
+								const titleElement = document.createElement('strong');
+								titleElement.textContent = event.title;
+								tempElement.appendChild(titleElement);
+
+								// Add line break
+								tempElement.appendChild(document.createElement('br'));
+
+								// Add time/location
+								const timeElement = document.createTextNode(event.time);
+								tempElement.appendChild(timeElement);
+
+								// Add line break
+								tempElement.appendChild(document.createElement('br'));
+
+								// Add URL
+								const urlElement = document.createTextNode(event.url);
+								tempElement.appendChild(urlElement);
+							});
+
+							// Select the content to preserve formatting
+							const range = document.createRange();
+							range.selectNode(tempElement);
+							const selection = window.getSelection();
+							selection.removeAllRanges();
+							selection.addRange(range);
+
+							// Copy with formatting
+							await navigator.clipboard.write([
+								new ClipboardItem({
+									'text/html': new Blob([tempElement.innerHTML], { type: 'text/html' }),
+									'text/plain': new Blob([tempElement.textContent], { type: 'text/plain' })
+								})
+							]);
+
+							// Clear selection
+							selection.removeAllRanges();
+
+																								} else if (format === 'html') {
+							// HTML format - copy actual HTML markup as plain text
+							const htmlContent = `<ul>\n${eventData.map(event =>
+								`  <li><strong><a href="${event.url}">${event.title}</a></strong><br/>${event.time}</li>`
+							).join('\n')}\n</ul>`;
+
+							// Copy HTML markup as plain text so the tags are visible
+							await navigator.clipboard.writeText(htmlContent);
+						}
+
+						// Clean up
+						document.body.removeChild(tempElement);
+
+						// Show success message
+						this.showToast = true;
+						this.toastContent = {
+							type: 'success',
+							message: `${eventData.length} event(s) exported to clipboard as ${format === 'rich' ? 'Rich Text' : 'HTML'}.`,
+						};
+
+					} catch (error) {
+						this.showToast = true;
+						this.toastContent = {
+							type: 'error',
+							message: 'Failed to copy events to clipboard. Please try again.',
+						};
+						// eslint-disable-next-line no-console
+						console.error('Export error:', error);
 					}
 				}
 			}
 		}
 
-		// NOTE: this maintains an intentionally independent state from Alpine.store('filters').radius
-		// because the sidebar stores a "draft" state that is committed to URL params
-		// and Alpine global state only when the user clicks "Apply Filters"
+		// NOTE: this maintains an intentionally independent state for sidebar draft state
+		// that is committed to URL params via Alpine.store('urlState') when "Apply Filters" is clicked
 		function getFilterFormState() {
 				return {
 					init() {
-						this.radius = Alpine.store('filters').radius
+						// Initialize draft state from URL state
+						Alpine.store('filters').initFromUrl();
+						this.radius = Alpine.store('filters').radius;
 
 						const form = document.getElementById('category-search-form')
 						form.querySelectorAll('input[type="checkbox"]').forEach(itm => {
@@ -728,6 +1068,35 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 								itm.checked = true
 							}
 						})
+
+						const searchPlaceholderExamples = Alpine.store('filters').getSearchExamples()
+
+						const searchInput = document.querySelector('#search-input')
+						if (searchInput) {
+							// Fisher-Yates shuffle algorithm
+							const shuffleArray = array => {
+								for (let i = array.length - 1; i > 0; i--) {
+									const j = Math.floor(Math.random() * (i + 1));
+									[array[i], array[j]] = [array[j], array[i]];
+								}
+								return array;
+							}
+
+							// Shuffle the array once
+							const shuffledExamples = shuffleArray([...searchPlaceholderExamples])
+							let currentIndex = 0
+
+							const updatePlaceholder = () => {
+								searchInput.placeholder = shuffledExamples[currentIndex]
+								currentIndex = (currentIndex + 1) % shuffledExamples.length
+							}
+
+							// Set initial placeholder
+							updatePlaceholder()
+
+							// Update every 5 seconds
+							setInterval(updatePlaceholder, 2500)
+						}
 					},
 					radius: null,
 					locationDropdown: null,
@@ -742,23 +1111,27 @@ templ HomePage(events []types.Event, pageUser *types.UserSearchResult, cfLocatio
 								formVals.push(formValues?.[itm])
 							}
 						})
-						formVals = formVals.join(' | ')
-						Alpine.store('queryParams').pushToQueryParams('categories', formVals)
+						const categoriesString = formVals.join(' | ')
+
+						// Commit categories to URL (triggers syncFromURL automatically)
+						Alpine.store('urlState').setParam('categories', categoriesString)
 					},
 					handleFilterSubmit() {
+						// Commit all draft changes to URL state
 						this.sendCategoriesToQueryParams();
-						if (this.radius) {
-							Alpine.store('filters').setRadius(this.radius)
-							Alpine.store('queryParams').pushToQueryParams('radius', this.radius)
-						}
-						if (this.locationDropdown) {
-							Alpine.store('filters').setLat(this.locationDropdown.latitude)
-							Alpine.store('filters').setLon(this.locationDropdown.longitude)
-							Alpine.store('location').setSelectedLocation(this.locationDropdown)
 
-							Alpine.store('queryParams').pushToQueryParams('lat', this.locationDropdown.latitude)
-							Alpine.store('queryParams').pushToQueryParams('lon', this.locationDropdown.longitude)
-							Alpine.store('queryParams').pushToQueryParams('location', this.locationDropdown.label)
+						if (this.radius) {
+							Alpine.store('urlState').setParam('radius', this.radius)
+						}
+
+						if (this.locationDropdown) {
+							// Commit location changes to URL
+							Alpine.store('urlState').setParam('lat', this.locationDropdown.latitude)
+							Alpine.store('urlState').setParam('lon', this.locationDropdown.longitude)
+							Alpine.store('urlState').setParam('location', this.locationDropdown.label)
+
+							// Also update the location store for the display
+							Alpine.store('location').setSelectedLocation(this.locationDropdown)
 						}
 
 						// close the drawer

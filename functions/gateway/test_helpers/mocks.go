@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -346,4 +347,61 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 
 	return resp, err
+}
+
+type MockNatsService struct {
+	mu             sync.Mutex
+	PublishedMsgs  [][]byte // all published messages
+	SimulatedQueue [][]byte // messages waiting to be consumed
+}
+
+// NewMockNatsService initializes a new mock
+func NewMockNatsService() *MockNatsService {
+	return &MockNatsService{
+		PublishedMsgs:  make([][]byte, 0),
+		SimulatedQueue: make([][]byte, 0),
+	}
+}
+
+// PublishMsg simulates pushing a message to the queue
+func (m *MockNatsService) PublishMsg(ctx context.Context, payload interface{}) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal error: %w", err)
+	}
+
+	m.PublishedMsgs = append(m.PublishedMsgs, data)
+	m.SimulatedQueue = append(m.SimulatedQueue, data)
+	return nil
+}
+
+// PeekTopOfQueue returns the first message without removing it
+func (m *MockNatsService) PeekTopOfQueue(ctx context.Context) ([]byte, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.SimulatedQueue) == 0 {
+		return nil, nil
+	}
+	return m.SimulatedQueue[0], nil
+}
+
+// ConsumeMsg processes each message one by one (no concurrency)
+func (m *MockNatsService) ConsumeMsg(ctx context.Context) error {
+	for {
+		m.mu.Lock()
+		if len(m.SimulatedQueue) == 0 {
+			m.mu.Unlock()
+			break
+		}
+		msg := m.SimulatedQueue[0]
+		m.SimulatedQueue = m.SimulatedQueue[1:]
+		m.mu.Unlock()
+
+		fmt.Printf("Processing: %s\n", string(msg))
+	}
+	return nil
 }

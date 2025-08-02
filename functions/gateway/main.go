@@ -3,6 +3,8 @@ package main
 // TODO: test "endTime" and add to UI
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -13,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,12 +24,9 @@ import (
 	"github.com/awslabs/aws-lambda-go-api-proxy/gorillamux"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
-
-	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
@@ -37,11 +37,19 @@ import (
 
 type AuthType string
 
+var (
+	seshulooptimecount int
+)
+
 const (
 	None               AuthType = "none"
 	Check              AuthType = "check"
 	Require            AuthType = "require"
 	RequireServiceUser AuthType = "require_service_user"
+	seshulooptime               = 30 * time.Second
+	maxseshuloopcount           = 10
+	seshuCronWorkers            = 1
+	timestampFile               = "last_update.txt"
 )
 
 type Route struct {
@@ -51,10 +59,8 @@ type Route struct {
 	Auth    AuthType
 }
 
-var Routes []Route
-
-func init() {
-	Routes = []Route{
+func (app *App) InitRoutes() []Route {
+	return []Route{
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
@@ -167,6 +173,19 @@ func init() {
 		// Checkout Session
 		{"/api/checkout/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
 		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
+
+		//SeshuSession
+		{"/api/html/session/submit/", "POST", handlers.HandleSeshuJobSubmit, None},
+
+		// SeshuJobs
+		{"/api/seshujob", "GET", handlers.GetSeshuJobs, None},
+		{"/api/seshujob", "POST", handlers.CreateSeshuJob, None},
+		{"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, None},
+		{"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, None},
+		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, None},
+
+		// Re-share
+		{"/api/data/re-share", "POST", handlers.PostReShareHandler, Require},
 	}
 }
 
@@ -180,7 +199,8 @@ type App struct {
 	Router     *mux.Router
 	AuthZ      *authorization.Authorizer[*oauth.IntrospectionContext]
 	AuthConfig *AuthConfig
-	PostGresDB *pgxpool.Pool
+	PostGresDB *services.PostgresService
+	Nats       *services.NatsService
 }
 
 func NewApp() *App {
@@ -192,7 +212,8 @@ func NewApp() *App {
 	app.Router.Use(WithDerivedOptionsFromReq)
 	app.InitializeAuth()
 	app.InitDataBase()
-	log.Printf("App created: %+v", app)
+	app.InitNats()
+	log.Printf("New Go App created at %s", time.Now().Format(time.RFC3339))
 
 	defer func() {
 		app.InitStripe()
@@ -205,7 +226,7 @@ func (app *App) InitializeAuth() {
 	app.AuthZ = services.GetAuthMw()
 	app.AuthConfig = &AuthConfig{
 		AuthDomain:     os.Getenv("ZITADEL_INSTANCE_HOST"),
-		AllowedDomains: []string{strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1), strings.Replace(os.Getenv("APEX_URL"), "https://", "*.", 1)},
+		AllowedDomains: []string{strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1), strings.Replace(os.Getenv("APEX_URL"), "https://", "*.", 1), os.Getenv("SESHU_FN_URL")},
 		CookieDomain:   strings.Replace(os.Getenv("APEX_URL"), "https://", "", 1),
 	}
 }
@@ -478,11 +499,21 @@ func (app *App) SetupNotFoundHandler() {
 }
 
 func (app *App) InitDataBase() {
-	db, err := services.GetPostgresClient()
+	ctx := context.Background()
+	postgres, err := services.GetPostgresService(ctx)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	app.PostGresDB = db
+	app.PostGresDB = postgres.(*services.PostgresService)
+}
+
+func (app *App) InitNats() {
+	ctx := context.Background()
+	nats, err := services.GetNatsService(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize NATS: %v", err)
+	}
+	app.Nats = nats.(*services.NatsService)
 }
 
 // Middleware to inject context into the request
@@ -576,6 +607,125 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 	})
 }
 
+func startSeshuLoop(ctx context.Context) {
+	ticker := time.NewTicker(seshulooptime)
+	defer ticker.Stop()
+
+	log.SetOutput(os.Stdout)
+
+	lastUpdate := readFirstLine(timestampFile)
+	seshulooptimecount = 0
+
+	defer func() {
+		overwriteTimestamp("last_update.txt", lastUpdate) // Write on graceful shutdown
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("[INFO] Seshu loop stopped by context.")
+			return
+
+		case <-ticker.C:
+			if os.Getenv("IS_ACT_LEADER") != "true" {
+				log.Printf("[INFO] Not the leader (IS_ACT_LEADER=%s). Skipping.", os.Getenv("IS_ACT_LEADER"))
+				continue
+			}
+
+			// helpers.MarkSeshuLoopAlive()
+
+			payload := map[string]interface{}{
+				"time": lastUpdate,
+			}
+			jsonData, _ := json.Marshal(payload)
+
+			resp, err := http.Post("http://localhost:8000/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
+			if err != nil {
+				log.Printf("[ERROR] Failed to send request: %v", err)
+				continue
+			}
+			defer resp.Body.Close()
+
+			var body bytes.Buffer
+			body.ReadFrom(resp.Body)
+
+			if bytes.Contains(body.Bytes(), []byte("successful")) {
+				log.Println("[INFO] Job triggered successfully.")
+				log.Printf("[INFO] counter: %d", seshulooptimecount)
+				seshulooptimecount++
+				if seshulooptimecount >= maxseshuloopcount { // limit write frequency
+					overwriteTimestamp("last_update.txt", lastUpdate)
+					seshulooptimecount = 0
+				}
+			} else {
+				log.Println("[INFO] Skipped.")
+			}
+
+			lastUpdate = time.Now().UTC().Unix()
+		}
+	}
+}
+
+func ensureTimestampFileExists(file string) error {
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		log.Printf("[INFO] File %s does not exist. Creating it...", file)
+		f, err := os.Create(file)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		//write initial value (e.g., current timestamp)
+		_, err = f.WriteString(fmt.Sprintf("%d\n", time.Now().UTC().Unix()))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func readFirstLine(path string) int64 {
+	file, err := os.Open(path)
+	if err != nil {
+		log.Printf("[WARN] Could not open timestamp file. Using current time. Error: %v", err)
+		return time.Now().UTC().Unix()
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			timestamp, err := strconv.ParseInt(line, 10, 64)
+			if err != nil {
+				log.Printf("[WARN] Invalid timestamp format in first line. Using current time. Error: %v", err)
+				return time.Now().UTC().Unix()
+			}
+			return timestamp
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("[WARN] Error reading timestamp file. Using current time. Error: %v", err)
+	}
+
+	// If file is empty
+	return time.Now().UTC().Unix()
+}
+
+func overwriteTimestamp(path string, timestamp int64) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		log.Printf("[ERROR] Could not open timestamp file for overwriting: %v", err)
+		return
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(fmt.Sprintf("%d\n", timestamp)); err != nil {
+		log.Printf("[ERROR] Failed to write timestamp to file: %v", err)
+	}
+}
+
 func main() {
 	deploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
 
@@ -584,13 +734,21 @@ func main() {
 	app.InitializeAuth()
 	app.SetupNotFoundHandler()
 
+	ensureTimestampFileExists(timestampFile)
+
 	// This is the package level instance of Db in handlers
 	_ = transport.GetDB()
 	defer app.PostGresDB.Close()
+	defer app.Nats.Close()
 
-	app.SetupRoutes(Routes)
+	routes := app.InitRoutes()
+	app.SetupRoutes(routes)
 
 	if deploymentTarget == "ACT" {
+
+		seshuCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		// Start serving
 		loggingRouter := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -601,14 +759,29 @@ func main() {
 		srv := &http.Server{
 			Handler: loggingRouter,
 			Addr:    "0.0.0.0:8000",
-			// Good practice: enforce timeouts for servers you create!
-			WriteTimeout: 15 * time.Second,
-			ReadTimeout:  15 * time.Second,
+			// Increased timeouts to accommodate Facebook scraping (can take up to 60s)
+			WriteTimeout: 120 * time.Second, // 2 minutes for response writing
+			ReadTimeout:  120 * time.Second, // 2 minutes for request reading
 		}
 
-		if err := srv.ListenAndServe(); err != nil {
-			log.Fatal(err)
-		}
+		go func() {
+			if err := srv.ListenAndServe(); err != nil {
+				log.Fatal(err)
+			}
+		}()
+
+		go func() {
+			if err := app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers); err != nil {
+				log.Fatal(err)
+			}
+		}()
+
+		go func() {
+			startSeshuLoop(seshuCtx)
+		}()
+
+		select {}
+
 	} else {
 		adapter := gorillamux.NewV2(app.Router)
 

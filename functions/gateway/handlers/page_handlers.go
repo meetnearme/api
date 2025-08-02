@@ -336,7 +336,13 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		return transport.SendHtmlRes(w, []byte(err.Error()), status, "page", err)
 	}
 
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+
 	homePage := pages.HomePage(
+		ctx,
 		events,
 		pageUser,
 		cfLocation,
@@ -346,11 +352,6 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		fmt.Sprint(originalQueryLong),
 		originalQueryLocation,
 	)
-
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
-	}
 
 	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage, types.Event{}, ctx, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
 

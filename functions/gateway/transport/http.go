@@ -20,7 +20,11 @@ func SendHtmlRes(w http.ResponseWriter, body []byte, status int, mode string, er
 		msg := string(body)
 		if status >= 400 {
 			internalMsg := "ERR: " + msg
-			log.Println(internalMsg + " || Internal error msg: " + err.Error())
+			if err != nil {
+				log.Println(internalMsg + " || Internal error msg: " + err.Error())
+			} else {
+				log.Println(internalMsg + " || Internal error msg: <nil>")
+			}
 			body = []byte(msg)
 			if mode == "partial" {
 				handler := SendHtmlErrorPartial(body, status)
@@ -78,7 +82,7 @@ func SendHtmlErrorPartial(body []byte, status int) http.HandlerFunc {
 		ctx := r.Context()
 		apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest).RequestContext
 		requestID := apiGwV2Req.RequestID
-		errorPartial := partials.ErrorHTML(body, fmt.Sprint(requestID))
+		errorPartial := partials.ErrorHTMLAlert(body, fmt.Sprint(requestID))
 		err := errorPartial.Render(r.Context(), &buf)
 		if err != nil {
 			log.Println("Error rendering error partial:", err)
