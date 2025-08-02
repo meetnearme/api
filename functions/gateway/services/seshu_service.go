@@ -563,15 +563,22 @@ func ExtractFbEventsFromJSON(jsonContent string) []internal_types.EventInfo {
 	var events []internal_types.EventInfo
 	eventID := 1
 
-	// Look for event objects in the JSON
-	eventPattern := regexp.MustCompile(`"__typename":"Event"[^}]*?"name":"([^"]+)"[^}]*?"url":"([^"]+)"`)
+	// Look for event objects in the JSON - just find the Event type first
+	eventPattern := regexp.MustCompile(`"__typename":"Event"[^}]*?"name":"([^"]+)"`)
 	eventMatches := eventPattern.FindAllStringSubmatch(jsonContent, -1)
 
 	for _, match := range eventMatches {
-
-		if len(match) >= 3 {
+		if len(match) >= 2 {
 			title := cleanUnicodeText(match[1])
-			url := unescapeJSON(match[2]) // Unescape the URL
+
+			// Extract URL - get the last URL in the event object (the event URL, not creator URL)
+			urlPattern := regexp.MustCompile(`"url":"([^"]+)"`)
+			urlMatches := urlPattern.FindAllStringSubmatch(jsonContent, -1)
+			var url string
+			if len(urlMatches) > 0 {
+				// Take the last URL found (event URL, not creator URL)
+				url = unescapeJSON(urlMatches[len(urlMatches)-1][1])
+			}
 
 			// Extract date pattern
 			datePattern := regexp.MustCompile(`"day_time_sentence":"([^"]+)"`)
@@ -579,6 +586,8 @@ func ExtractFbEventsFromJSON(jsonContent string) []internal_types.EventInfo {
 			var date string
 			if len(dateMatches) >= 2 {
 				date = cleanUnicodeText(unescapeJSON(dateMatches[1])) // Unescape date
+				// Clean the date string by removing extra text after timezone
+				date = cleanDateString(date)
 			}
 
 			// Extract location pattern
@@ -625,7 +634,6 @@ func ExtractFbEventsFromJSON(jsonContent string) []internal_types.EventInfo {
 				})
 				eventID++
 			}
-		} else {
 		}
 	}
 
@@ -648,6 +656,148 @@ func unescapeJSON(s string) string {
 	s = strings.ReplaceAll(s, `\u202f`, " ") // Narrow no-break space
 	s = strings.ReplaceAll(s, `\u00a0`, " ") // Non-breaking space
 	return s
+}
+
+// cleanDateString removes extra text after timezone codes like "and 20 more"
+func cleanDateString(dateStr string) string {
+	// Build regex pattern for all timezone abbreviations
+	timezoneMap := map[string]string{
+		// North America - United States
+		"CDT":  "America/Chicago",     // Central Daylight Time
+		"CST":  "America/Chicago",     // Central Standard Time (US - most common usage)
+		"EDT":  "America/New_York",    // Eastern Daylight Time
+		"EST":  "America/New_York",    // Eastern Standard Time
+		"PDT":  "America/Los_Angeles", // Pacific Daylight Time
+		"PST":  "America/Los_Angeles", // Pacific Standard Time
+		"MDT":  "America/Denver",      // Mountain Daylight Time
+		"MST":  "America/Denver",      // Mountain Standard Time
+		"AKDT": "America/Anchorage",   // Alaska Daylight Time
+		"AKST": "America/Anchorage",   // Alaska Standard Time
+		"HDT":  "America/Adak",        // Hawaii-Aleutian Daylight Time
+		"HST":  "Pacific/Honolulu",    // Hawaii Standard Time (most common usage)
+
+		// North America - Canada
+		"ADT": "America/Halifax",  // Atlantic Daylight Time
+		"AST": "America/Halifax",  // Atlantic Standard Time (most common usage)
+		"NDT": "America/St_Johns", // Newfoundland Daylight Time
+		"NST": "America/St_Johns", // Newfoundland Standard Time
+
+		// Europe
+		"CET":  "Europe/Paris",  // Central European Time
+		"CEST": "Europe/Paris",  // Central European Summer Time
+		"EET":  "Europe/Athens", // Eastern European Time
+		"EEST": "Europe/Athens", // Eastern European Summer Time
+		"WET":  "Europe/Lisbon", // Western European Time
+		"WEST": "Europe/Lisbon", // Western European Summer Time
+		"GMT":  "Europe/London", // Greenwich Mean Time
+		"BST":  "Europe/London", // British Summer Time (most common usage)
+		"IST":  "Asia/Kolkata",  // India Standard Time (most common usage - large population)
+		"MSK":  "Europe/Moscow", // Moscow Standard Time
+
+		// Asia - China/East Asia
+		"JST": "Asia/Tokyo",     // Japan Standard Time
+		"KST": "Asia/Seoul",     // Korea Standard Time
+		"HKT": "Asia/Hong_Kong", // Hong Kong Time
+		"CTT": "Asia/Shanghai",  // China Standard Time (using CTT to avoid CST conflict)
+
+		// Asia - South/Southeast Asia
+		"PKT":  "Asia/Karachi",      // Pakistan Standard Time
+		"NPT":  "Asia/Kathmandu",    // Nepal Time
+		"ICT":  "Asia/Bangkok",      // Indochina Time
+		"WIB":  "Asia/Jakarta",      // Western Indonesian Time
+		"WITA": "Asia/Makassar",     // Central Indonesian Time
+		"WIT":  "Asia/Jayapura",     // Eastern Indonesian Time
+		"PHT":  "Asia/Manila",       // Philippine Time
+		"SGT":  "Asia/Singapore",    // Singapore Time
+		"MYT":  "Asia/Kuala_Lumpur", // Malaysia Time
+
+		// Asia - Middle East
+		"GST":  "Asia/Dubai",  // Gulf Standard Time
+		"IRST": "Asia/Tehran", // Iran Standard Time
+		"IRDT": "Asia/Tehran", // Iran Daylight Time
+
+		// Asia - Central Asia
+		"UZT":  "Asia/Tashkent", // Uzbekistan Time
+		"TMT":  "Asia/Ashgabat", // Turkmenistan Time
+		"TJT":  "Asia/Dushanbe", // Tajikistan Time
+		"KGT":  "Asia/Bishkek",  // Kyrgyzstan Time
+		"ALMT": "Asia/Almaty",   // Alma-Ata Time
+
+		// Asia - Russia
+		"YEKT": "Asia/Yekaterinburg", // Yekaterinburg Time
+		"OMST": "Asia/Omsk",          // Omsk Time
+		"KRAT": "Asia/Krasnoyarsk",   // Krasnoyarsk Time
+		"IRKT": "Asia/Irkutsk",       // Irkutsk Time
+		"YAKT": "Asia/Yakutsk",       // Yakutsk Time
+		"VLAT": "Asia/Vladivostok",   // Vladivostok Time
+		"MAGT": "Asia/Magadan",       // Magadan Time
+		"PETT": "Asia/Kamchatka",     // Kamchatka Time
+		"ANAT": "Asia/Anadyr",        // Anadyr Time
+
+		// Africa
+		"CAT":  "Africa/Maputo",       // Central Africa Time
+		"EAT":  "Africa/Nairobi",      // East Africa Time
+		"WAT":  "Africa/Lagos",        // West Africa Time
+		"SAST": "Africa/Johannesburg", // South African Standard Time
+
+		// Australia/Oceania
+		"AEST": "Australia/Sydney",   // Australian Eastern Standard Time
+		"AEDT": "Australia/Sydney",   // Australian Eastern Daylight Time
+		"ACST": "Australia/Adelaide", // Australian Central Standard Time
+		"ACDT": "Australia/Adelaide", // Australian Central Daylight Time
+		"AWST": "Australia/Perth",    // Australian Western Standard Time
+		"NZST": "Pacific/Auckland",   // New Zealand Standard Time
+		"NZDT": "Pacific/Auckland",   // New Zealand Daylight Time
+		"CHST": "Pacific/Guam",       // Chamorro Standard Time
+
+		// South America
+		"ART":  "America/Argentina/Buenos_Aires", // Argentina Time
+		"BRT":  "America/Sao_Paulo",              // Brasília Time
+		"BRST": "America/Sao_Paulo",              // Brasília Summer Time
+		"CLT":  "America/Santiago",               // Chile Standard Time
+		"CLST": "America/Santiago",               // Chile Summer Time
+		"COT":  "America/Bogota",                 // Colombia Time
+		"PET":  "America/Lima",                   // Peru Time
+		"VET":  "America/Caracas",                // Venezuelan Standard Time
+		"UYT":  "America/Montevideo",             // Uruguay Standard Time
+		"UYST": "America/Montevideo",             // Uruguay Summer Time
+		"PYT":  "America/Asuncion",               // Paraguay Time
+		"PYST": "America/Asuncion",               // Paraguay Summer Time
+		"BOT":  "America/La_Paz",                 // Bolivia Time
+		"ECT":  "America/Guayaquil",              // Ecuador Time
+		"GYT":  "America/Guyana",                 // Guyana Time
+		"SRT":  "America/Paramaribo",             // Suriname Time
+		"GFT":  "America/Cayenne",                // French Guiana Time
+
+		// Additional common abbreviations
+		"UTC":  "UTC",                // Coordinated Universal Time
+		"CADT": "Australia/Adelaide", // Central Australia Daylight Time (deprecated)
+		"CAST": "Australia/Adelaide", // Central Australia Standard Time (deprecated)
+		"EAST": "Australia/Sydney",   // Eastern Australia Standard Time (deprecated)
+		"EADT": "Australia/Sydney",   // Eastern Australia Daylight Time (deprecated)
+		"NZT":  "Pacific/Auckland",   // New Zealand Time (deprecated)
+	}
+
+	// Build regex pattern dynamically from all timezone abbreviations in the map
+	var tzAbbreviations []string
+	for abbr := range timezoneMap {
+		tzAbbreviations = append(tzAbbreviations, abbr)
+	}
+	tzPatternStr := `\b(` + strings.Join(tzAbbreviations, "|") + `)\b`
+	tzPattern := regexp.MustCompile(tzPatternStr)
+
+	// Find the timezone in the date string
+	tzMatch := tzPattern.FindString(dateStr)
+	if tzMatch != "" {
+		// Find the position of the timezone
+		tzIndex := strings.Index(dateStr, tzMatch)
+		if tzIndex != -1 {
+			// Keep everything up to and including the timezone, remove everything after
+			dateStr = strings.TrimSpace(dateStr[:tzIndex+len(tzMatch)])
+		}
+	}
+
+	return dateStr
 }
 
 func min(a, b int) int {
