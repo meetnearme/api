@@ -1117,7 +1117,6 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			transport.SendServerRes(w, []byte("Failed to get purchase for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
 			return err
 		}
-		log.Printf("purchase: %+v", purchase)
 		// Create a map of updates to restore the previously decremented inventory
 		incrementUpdates := make([]internal_types.PurchasableInventoryUpdate, len(purchase.PurchasedItems))
 		for i, item := range purchase.PurchasedItems {

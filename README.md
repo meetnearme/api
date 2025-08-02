@@ -67,8 +67,10 @@
    *Note*: This file is used to intercept incoming request headers and look at the `Request['Headers']['Cf-Ray']` string, which terminates with a 3 letter code like `EWR` which correlates with an `iata` airport code. This is the Cloudflare datacenter serving the request
 3. **Deploy the project:**
    ```bash
-   npm run dev:sst
+   npm run sst-dev
+
    ```
+   *NOTE: This should be run a single time after the aws credentials are setup to deploy your AWS Dynamodb tables
    *NOTE: If you are encountering problem as a Window user, due to `'NODE_ENV' is not recognized as an internal or external command` do check Project Maintenance for troubleshooting*
 
     **⚠️IMPORTANT:** that you will NOT use the same command after the initial deployment of your project
@@ -84,6 +86,10 @@
      npm run dev
      ```
     You will use ```npm run dev``` command for all subsequent attempts to start the project
+
+7. Please look at the .env.example file for the bottom env variables. Please fill these out with the tables names found in your AWS account under dynamodb tables section.
+
+8. Please see below for the up to date Docker commands to build the project.
 
 - The following processes will run with `npm run dev`:
   1. **SST Go Lambda server:** Hot reload with Go rebuild.
@@ -234,6 +240,11 @@ Summary of this workflow:
 3. Quick Resume (from paused state):
 
     - npm run docker:start (or docker compose start)
+
+4. After docker is up and running run the command below to setup weaviate schema and then seed with the test json data:
+ 
+    - `npm run docker:weaviate:create-schema && npm run docker:weaviate:seed-json --file=test_events_for_seeding.json`
+
 
 ## Legacy Details
 

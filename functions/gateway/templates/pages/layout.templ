@@ -230,7 +230,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			// 🚨 WARNING 🚨 This filename is automatically updated by PostCSS
 			// ✅ DO commit it to version control whenever you see it change
 			if os.Getenv("SST_STAGE") == "prod" {
-				<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.c3d38bd4.css") }/>
+				<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.82a6336e.css") }/>
 			} else {
 				<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.css") }/>
 			}
@@ -306,3 +306,5 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 		</script>
 	</html>
 }
+
+// test

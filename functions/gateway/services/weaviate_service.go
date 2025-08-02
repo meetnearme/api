@@ -585,8 +585,6 @@ func BulkDeleteEventsFromWeaviate(ctx context.Context, client *weaviate.Client, 
 		WithOperator(filters.ContainsAny).
 		WithValueText(eventIds...)
 
-	log.Printf("Attempting to bulk delete %d events from Weaviate class '%s'", len(eventIds), className)
-
 	resp, err := client.Batch().ObjectsBatchDeleter().
 		WithClassName(className).
 		WithWhere(whereFilter).
@@ -703,7 +701,6 @@ func BulkUpdateWeaviateEventsByID(ctx context.Context, client *weaviate.Client, 
 		}
 	}
 
-	log.Printf("All %d events have IDs. Proceeding with Weaviate bulk update.", len(events))
 	return BulkUpsertEventsToWeaviate(ctx, client, events)
 }
 

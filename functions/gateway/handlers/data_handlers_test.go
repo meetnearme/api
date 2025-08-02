@@ -1890,8 +1890,6 @@ func TestSearchUsersHandler(t *testing.T) {
 				}
 			}
 
-			log.Printf("Extracted search query: %s", searchQuery)
-
 			var response helpers.ZitadelUserSearchResponse
 			response.Details.Timestamp = "2099-01-01T00:00:00Z"
 

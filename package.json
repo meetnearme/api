@@ -7,54 +7,29 @@
     "node": ">=21.6.0"
   },
   "scripts": {
-    "dev": "concurrently \"npm:dev:*\"",
-    "build": "sst build",
-    "_dev:sst": "sst dev",
-    "dev:serve-static": "npx http-server -o /static -a localhost -p 8001 --cors",
+    "dev": "concurrently --kill-others-on-fail --handle-input --graceful-kill --prefix-colors \"red,blue\" \"npm:dev:watchers\" \"npm:dev:docker\"",
+    "dev:watchers": "concurrently --kill-others-on-fail --handle-input --graceful-kill --prefix-colors \"blue,green,yellow\" \"npm:dev:templ\" \"npm:dev:serve-static\" \"npm:dev:tailwind\"",
+    "dev:docker": "docker compose up --remove-orphans",
+    "dev:docker:build": "docker compose up --build --remove-orphans",
+    "dev:docker:rebuild": "docker compose down && docker compose up --build --remove-orphans",
+    "docker:clean": "docker compose down --remove-orphans && docker image prune -f && docker image prune -a -f",
+    "dev:serve-static": "cross-env NODE_ENV=development npx http-server -o /static -a localhost -p 8001 --cors",
     "dev:tailwind": "tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --watch",
     "dev:templ": "node scripts/watchTempl.js ./functions/gateway/templates ./functions/lambda/go/seshu/templates",
-    "dev:golang": "node scripts/watchGo.js ./functions/gateway ./functions/lambda/go/seshu",
-    "deploy": "sst deploy",
-    "deploy:prod": "sst deploy --stage prod",
-    "remove": "sst remove",
-    "console": "sst console",
     "tailwind:prod": "cross-env NODE_ENV=production tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --minify",
     "typecheck": "tsc --noEmit",
     "lint:templ:dev": "eslint --ext .templ --fix .",
     "lint:templ:prod": "eslint --ext .templ --max-warnings 0 .",
-    "marqo:local": "docker ps -a --format '{{.Names}}' | grep -w marqo && docker start -a marqo || (docker pull marqoai/marqo:latest && docker rm -f marqo && docker run --name marqo -it -p 8882:8882 -e MARQO_STORAGE_TYPE=local -e MARQO_STORAGE_PATH=/data -e MARQO_STORAGE_SIZE=10GB -e MARQO_STORAGE_ENABLED=true -e MARQO_STORAGE_PERSIST=true -e MARQO_STORAGE_CLEANUP=false -v marqo_data:/data marqoai/marqo:latest)",
-    "marqo:local:migrate": "LOCAL_MARQO=true go run ./internal/database/marqo/migration -env prod -schema ./internal/database/marqo/migration/schema.json -source-index prod-events-2025-02-06-1826 -source-endpoint https://prod-events-2025-02-06-1826-hxz5vw-g2amp25x.dp1.marqo.ai",
-
-
-    "go:build:linux": "cross-env CGO_ENABLED=0 GOOS=linux go build -o ./docker_build/main ./functions/gateway/main.go",
-    "docker:build": "npm run go:build:linux && docker compose build",
-    "docker:build:nocache": "npm run go:build:linux && docker compose build --no-cache",
-
-    " These need to be updated": "missing compose setup",
-    "docker:run": "docker run -i --name meetnearme-monolith -p 8000:8000 -p 5433:5432 -p 8080:8080 -v \"$(pwd)/docker_build:/go-app\" meetnearme-monolith",
-    "docker:start": "docker start -a meetnearme-monolith",
-    "docker:stop": "docker stop meetnearme-monolith",
-
-    "docker:logs": "docker compose logs -f",
-    "docker:logs:app": "docker compose logs -f go-app",
-    "docker:logs:postgres": "docker compose logs -f postgres",
-    "docker:logs:weaviate": "docker compose logs -f weaviate",
-
-    "docker:clean": "docker compose down -v --remove-orphans",
-    "docker:up": "npm run go:build:linux && docker compose up --force-recreate --abort-on-container-exit",
-    "docker:rebuild": "npm run docker:clean && npm run docker:build && npm run docker:up",
-    "docker:restart": "npm run docker:stop && npm run docker:start",
-
     "docker:weaviate:create-schema": "go run cmd/weaviate-setup/main.go",
-
+    "docker:weaviate:seed-json": "go run cmd/seed-weaviate-db/main.go",
     "docker:shell:app": "docker-compose exec go-app sh",
     "docker:shell:db": "docker-compose exec postgres bash",
-    "docker:shell:weaviate": "docker-compose exec weaviate bash",
-
-    "test:build": "docker compose -f docker-compose.test.yml build",
-    "test:start": "docker compose -f docker-compose.test.yml up",
-    "test:exec": "docker compose -f docker-compose.test.yml exec go-app-tester sh -c 'go test -v -race -cover ./functions/gateway/services/... 2>&1 | tee test-results.log'",
-    "test:stop": "docker compose -f docker-compose.test.yml down -v"
+    "build": "sst build",
+    "sst-dev": "sst dev",
+    "deploy": "sst deploy",
+    "deploy:prod": "sst deploy --stage prod",
+    "remove": "sst remove",
+    "console": "sst console"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.14",
