@@ -875,16 +875,16 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					return Object.keys(this.selectedEvents).filter(id => this.selectedEvents[id]);
 				},
 				async reShareEvent(event) {
-          const eventId = event.currentTarget.id.split('re-share-')[1]
+					const eventId = event.currentTarget.id.split('re-share-')[1]
 					// send a post request to the re-share endpoint
-          if (!eventId) {
+					if (!eventId) {
 						this.showToast = true;
 						this.toastContent = {
 							type: 'error',
 							message: 'Cannot locate event ID for re-sharing.',
 						};
-            return
-          }
+						return
+					}
 
 					try {
 						const res = await fetch(`/api/data/re-share?event_id=${eventId}`, {
@@ -913,7 +913,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							type: 'error',
 							message: 'An error occurred while re-sharing the event.',
 						};
-            // eslint-disable-next-line no-console
+						// eslint-disable-next-line no-console
 						console.error('Re-share error:', error);
 					}
 				},
@@ -929,7 +929,6 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					}
 
 					try {
-						let content = '';
 						const eventData = [];
 
 						// Get data-id attribute values from the alpine-state element
