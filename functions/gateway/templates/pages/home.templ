@@ -139,7 +139,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 						@ReShareButton(ev)
 					}
 					if userId == pageUser.UserID {
-						<div class="absolute top-2 right-2 bg-base-100 rounded-box p-2 z-10 leading-none">
+						<div class="absolute top-2 right-2 bg-base-100 rounded-full px-2 z-10 leading-none">
 							<div class="form-control">
 								<label class="cursor-pointer label">
 									<span class="label-text mr-2" x-text={ "selectedEvents['" + ev.Id + "'] ? 'Remove' : 'Select'" }></span>
@@ -417,7 +417,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				</div>
 				// full width search bar
 				<form class="join w-full" @submit.prevent="$store.urlState.setParam('q', $event.target.querySelector('input[type=text]').value)">
-					<label class="input input-bordered flex join-item items-center gap-2 w-full">
+					<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
 						<input
 							id="search-input"
 							class="w-full grow"
@@ -547,32 +547,39 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					</div>
 				} else {
 					<div class="relative">
-						<div class="absolute top-0 right-0">
-							<template x-if="Object.keys(selectedEvents).length > 0">
-								<div class="indicator">
-									<span x-text="Object.keys(selectedEvents).length" class="indicator-item badge badge-primary"></span>
-									<div class="dropdown dropdown-end">
-										<div tabindex="0" role="button" class="btn">Export</div>
-										<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-48 p-2 shadow">
-											<li><a @click="exportSelectedEvents('rich')">Rich Text</a></li>
-											<li><a @click="exportSelectedEvents('html')">HTML</a></li>
-										</ul>
+						// share / export buttons for users viewing their own events
+						if pageUser.UserID == userId {
+							// shim for preventing floating buttons from covering the content
+							<div class="flex md:hidden leading-5">
+								<br/>
+							</div>
+							<div class="absolute top-0 right-0">
+								<template x-if="Object.keys(selectedEvents).length > 0">
+									<div class="indicator">
+										<span x-text="Object.keys(selectedEvents).length" class="indicator-item badge badge-primary"></span>
+										<div class="dropdown dropdown-end">
+											<div tabindex="0" role="button" class="btn">Export</div>
+											<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-48 p-2 shadow">
+												<li><a @click="exportSelectedEvents('rich')">Rich Text</a></li>
+												<li><a @click="exportSelectedEvents('html')">HTML</a></li>
+											</ul>
+										</div>
 									</div>
-								</div>
-							</template>
-							<button class="btn btn-ghost" @click="clearAllSelections()">
-								Clear
-							</button>
-							<button class="btn btn-primary" @click="selectAllEvents()">
-								Select All Events
-							</button>
-						</div>
+								</template>
+								<button class="btn btn-ghost" @click="clearAllSelections()">
+									Clear
+								</button>
+								<button class="btn btn-primary" @click="selectAllEvents()">
+									Select All Events
+								</button>
+							</div>
+						}
 						<div role="tablist" class="tabs tabs-bordered">
 							<input
 								type="radio"
 								name="org-events-tabs"
 								role="tab"
-								class="tab text-lg leading-5 uppercase"
+								class="tab text-lg leading-5 uppercase hidden md:flex"
 								aria-label="Upcoming"
 								checked="checked"
 							/>
@@ -588,7 +595,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 								type="radio"
 								name="org-events-tabs"
 								role="tab"
-								class="tab text-lg leading-5 uppercase"
+								class="tab text-lg leading-5 uppercase hidden md:flex"
 								aria-label="Past"
 							/>
 							<div role="tabpanel" class="tab-content p-10">(Coming Soon...)</div>

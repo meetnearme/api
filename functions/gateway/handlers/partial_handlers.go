@@ -859,6 +859,10 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			req.Header.Set("Content-Type", "application/json")
 
 			client := &http.Client{Timeout: 10 * time.Second}
+			// log the request url, body, and headers for debugging
+			log.Println("Sending seshuJob to handler:", req.URL.String())
+			log.Println("seshuJob:", string(payloadBytes))
+			log.Println("headers:", req.Header)
 			res, err := client.Do(req)
 			if err != nil {
 				log.Println("Failed to send seshuJob to handler:", err)

@@ -175,7 +175,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
 
 		//SeshuSession
-		{"/api/html/session/submit/", "POST", handlers.RouterNonLambda, None},
+		{"/api/html/session/submit/", "POST", handlers.HandleSeshuJobSubmit, None},
 
 		// SeshuJobs
 		{"/api/seshujob", "GET", handlers.GetSeshuJobs, None},

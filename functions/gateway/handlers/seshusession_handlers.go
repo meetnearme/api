@@ -11,11 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
-	md "github.com/JohannesKaufmann/html-to-markdown"
-	"github.com/PuerkitoBio/goquery"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	partials "github.com/meetnearme/api/functions/gateway/templates/partials"
@@ -49,8 +46,6 @@ import (
 // 		[sst] |  +10808ms 2024/04/26 15:07:55 {"errorMessage":"unexpected response format, `id` missing","errorType":"errorString"}
 // 		[sst] |  Error: unexpected response format, `id` missing
 
-var converter = md.NewConverter("", true, nil)
-
 // 395KB is just a bit under the 400KB dynamoDB limit
 // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html
 const maxHtmlDocSize = 395 * 1024
@@ -82,58 +77,6 @@ type SeshuResponseBody struct {
 	EventsFound []types.EventInfo `json:"events_found"`
 }
 
-type CreateChatSessionPayload struct {
-	Model    string    `json:"model"` // Set the model you want to use
-	Messages []Message `json:"messages"`
-}
-
-type SendMessagePayload struct {
-	Messages []Message `json:"messages"`
-}
-
-type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type Choice struct {
-	Index        int     `json:"index"`
-	Message      Message `json:"message"`
-	FinishReason string  `json:"finish_reason"`
-}
-
-type ChatCompletionResponse struct {
-	ID                string   `json:"id"`
-	Object            string   `json:"object"`
-	Created           int64    `json:"created"`
-	Model             string   `json:"model"`
-	Choices           []Choice `json:"choices"`
-	Usage             Usage    `json:"usage"`
-	SystemFingerprint string   `json:"system_fingerprint"`
-}
-
-type Usage struct {
-	PromptTokens            int                     `json:"prompt_tokens"`
-	CompletionTokens        int                     `json:"completion_tokens"`
-	TotalTokens             int                     `json:"total_tokens"`
-	PromptTokensDetails     PromptTokensDetails     `json:"prompt_tokens_details"`
-	CompletionTokensDetails CompletionTokensDetails `json:"completion_tokens_details"`
-}
-
-type PromptTokensDetails struct {
-	CachedTokens int `json:"cached_tokens"`
-	AudioTokens  int `json:"audio_tokens"`
-}
-
-type CompletionTokensDetails struct {
-	ReasoningTokens          int `json:"reasoning_tokens"`
-	AudioTokens              int `json:"audio_tokens"`
-	AcceptedPredictionTokens int `json:"accepted_prediction_tokens"`
-	RejectedPredictionTokens int `json:"rejected_prediction_tokens"`
-}
-
-var systemPrompt string
-
 var db types.DynamoDBAPI
 var scrapingService services.ScrapingService
 
@@ -142,84 +85,7 @@ func init() {
 	scrapingService = &services.RealScrapingService{}
 }
 
-func getSystemPrompt(isRecursive bool) string {
-	if isRecursive {
-		return `You are a helpful LLM capable of accepting an array of strings and reorganizing them according to patterns only an LLM is capable of recognizing.
-
-Your goal is to take the javascript array input I will provide, called the ` + "`textStrings`" + ` below and return a single grouped JSON object representing one event. This object should consist of the event metadata associated with the categories below that are to be searched for. There should be no duplicate keys. The object must contain no more than one of a given event metadata. When forming this object, prioritize proximity (meaning, the closer two strings are in array position) in associating them with the same event.
-
-If ` + "`textStrings`" + ` is empty, return an empty array.
-
-Any response you provide must ALWAYS begin with the characters ` + "`[{`" + ` and end with the characters ` + "`}]`" + `.
-
-Do not provide me with example code to achieve this task. Only an LLM (you are an LLM) is capable of reading the array of text strings and determining which string is a relevance match for which category can resolve this task. Javascript alone cannot resolve this query.
-
-Do not explain how code might be used to achieve this task. Do not explain how regex might accomplish this task. Only an LLM is capable of this pattern matching task. My expectation is a response from you that is an array containing one object, where the keys are the event metadata from the categories below.
-
-Do not return an ordered list of strings. Return a single-element array of one object, where the object represents a single event, and the keys of the object are the event metadata from the categories below.
-
-It is understood that the strings in the input below are in some cases not a categorical match for the event metadata categories below. This is acceptable. The LLM is capable of determining which strings are a relevance match for which category. It is acceptable to discard strings that are not a relevance match for any category.
-
-The categories to search for relevance matches in are as follows:
-=====
-1. Event title
-2. Event location
-3. Event start date / time
-4. Event end date / time
-5. Event URL
-6. Event description
-
-Note that some keys may be missing, for example, in the example below, the "event description" is missing. This is acceptable. The event metadata keys are not guaranteed to be present in the input array of strings.
-
-Do not truncate the response with an ellipsis ` + "`...`" + `, list the full object in its entirety, unless it exceeds the context window. Your response must be a JSON array with one event object that is valid JSON following this example schema:
-
-` + "```" + `
-[{"event_title": "` + services.FakeEventTitle1 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime1 + `", "event_end_datetime": "` + services.FakeEndTime1 + `", "event_url": "` + services.FakeUrl1 + `"}]
-` + "```" + `
-
-The input is:
-=====
-const textStrings = `
-	}
-	return `You are a helpful LLM capable of accepting an array of strings and reorganizing them according to patterns only an LLM is capable of recognizing.
-
-Your goal is to take the javascript array input I will provide, called the ` + "`textStrings`" + `below and return a grouped array of JSON objects. Each object should represent a single event, where it's keys are the event metadata associated with the categories below that are to be searched for. There should be no duplicate keys. Each object consists of no more than one of a given event metadata. When forming these groups, prioritize proximity (meaning, the closer two strings are in array position) in creating the event objects in the returned array of objects. In other words, the closer two strings are together, the higher the likelihood that they are two different event metadata items for the same event.
-
-If ` + "`textStrings`" + ` is empty, return an empty array.
-
-Any response you provide must ALWAYS begin with the characters ` + "`[{`" + ` and end with the characters ` + "`}]`" + `.
-
-Do not provide me with example code to achieve this task. Only an LLM (you are an LLM) is capable of reading the array of text strings and determining which string is a relevance match for which category can resolve this task. Javascript alone cannot resolve this query.
-
-Do not explain how code might be used to achieve this task. Do not explain how regex might accomplish this task. Only an LLM is capable of this pattern matching task. My expectation is a response from you that is an array of objects, where the keys are the event metadata from the categories below.
-
-Do not return an ordered list of strings. Return an array of objects, where each object is a single event, and the keys of each object are the event metadata from the categories below.
-
-It is understood that the strings in the input below are in some cases not a categorical match for the event metadata categories below. This is acceptable. The LLM is capable of determining which strings are a relevance match for which category. It is acceptable to discard strings that are not a relevance match for any category.
-
-The categories to search for relevance matches in are as follows:
-=====
-1. Event title
-2. Event location
-3. Event start date / time
-4. Event end date / time
-5. Event URL
-6. Event description
-
-Note that some keys may be missing, for example, in the example below, the "event description" is missing. This is acceptable. The event metadata keys are not guaranteed to be present in the input array of strings.
-
-Do not truncate the response with an ellipsis ` + "`...`" + `, list the full event array in it's entirety, unless it exceeds the context window. Your response must be a JSON array of event objects that is valid JSON following this example schema:
-
-` + "```" + `
-[{"event_title": "` + services.FakeEventTitle1 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime1 + `", "event_end_datetime": "` + services.FakeEndTime1 + `", "event_url": "` + services.FakeUrl1 + `"},{"event_title": "` + services.FakeEventTitle2 + `", "event_location": "` + services.FakeCity + `", "event_start_datetime": "` + services.FakeStartTime2 + `", "event_end_datetime": "` + services.FakeEndTime2 + `", "event_url": "` + services.FakeUrl2 + `"}]
-` + "```" + `
-
-The input is:
-=====
-const textStrings = `
-}
-
-func RouterNonLambda(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+func HandleSeshuJobSubmit(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Handle only POST
 	if r.Method != http.MethodPost {
 		return transport.SendHtmlErrorPartial([]byte("Method Not Allowed"), http.StatusMethodNotAllowed)
@@ -232,32 +98,40 @@ func RouterNonLambda(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 	defer r.Body.Close()
 
-	// Prepare internal request
-	internalReq := InternalRequest{
-		Method:  r.Method,
-		Action:  r.URL.Query().Get("action"),
-		Body:    string(body),
-		Headers: map[string]string{}, // You can populate this if needed
-	}
+	action := r.URL.Query().Get("action")
 
-	resp, err := HandlePost(r.Context(), internalReq, scrapingService)
+	urlToScrape, parentUrl, childID, err := parsePayload(action, string(body))
 	if err != nil {
-		log.Printf("Internal error: %v", err)
-		return transport.SendHtmlErrorPartial([]byte("Internal error: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial([]byte(err.Error()), http.StatusUnprocessableEntity)
 	}
 
-	return transport.SendHtmlRes(w, []byte(resp.Body), resp.StatusCode, "partial", nil)
+	var events []types.EventInfo
+	events, htmlContent, err := services.ExtractEventsFromHTML(urlToScrape, action, scrapingService)
+	if err != nil {
+		log.Println("Event extraction error:", err)
+		return transport.SendHtmlErrorPartial([]byte(err.Error()), http.StatusInternalServerError)
+	}
+
+	ctx := r.Context()
+
+	defer saveSession(ctx, htmlContent, urlToScrape, childID, parentUrl, events, action, scrapingService)
+
+	tmpl := partials.EventCandidatesPartial(events)
+	var buf bytes.Buffer
+	if err := tmpl.Render(ctx, &buf); err != nil {
+		return transport.SendHtmlErrorPartial([]byte(err.Error()), http.StatusInternalServerError)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func parsePayload(action string, body string) (urlToScrape, parentUrl, childID string, err error) {
 	switch action {
 	case "init":
-		systemPrompt = getSystemPrompt(false)
 		var payload SeshuInputPayload
 		err = parseAndValidatePayload(body, &payload)
 		return payload.Url, "", "", err
 	case "rs":
-		systemPrompt = getSystemPrompt(true)
 		var payload SeshuRecursivePayload
 		err = parseAndValidatePayload(body, &payload)
 		return payload.Url, payload.ParentUrl, "", err
@@ -266,62 +140,7 @@ func parsePayload(action string, body string) (urlToScrape, parentUrl, childID s
 	}
 }
 
-func fetchHTML(url string, isFacebook bool, scraper services.ScrapingService) (string, error) {
-	if isFacebook {
-		validate := func(content string) bool {
-			return strings.Contains(content, `"__typename":"Event"`)
-		}
-		return scraper.GetHTMLFromURLWithRetries(url, 7500, true, "script[data-sjs][data-content-len]", 7, validate)
-	}
-	return scraper.GetHTMLFromURL(url, 4500, true, "")
-}
-
-func extractEventsFromHTML(html string, isFacebook bool, action string) ([]types.EventInfo, error) {
-	if isFacebook {
-		return services.FindFacebookEventData(html)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil {
-		return nil, err
-	}
-	bodyHtml, err := doc.Find("body").Html()
-	if err != nil {
-		return nil, err
-	}
-
-	markdown, err := converter.ConvertString(bodyHtml)
-	if err != nil {
-		return nil, err
-	}
-
-	lines := strings.Split(markdown, "\n")
-	var filtered []string
-	for i, line := range lines {
-		if line != "" && i < 1500 {
-			filtered = append(filtered, line)
-		}
-	}
-
-	jsonPayload, err := json.Marshal(filtered)
-	if err != nil {
-		return nil, err
-	}
-
-	_, response, err := CreateChatSession(string(jsonPayload))
-	if err != nil {
-		return nil, err
-	}
-
-	var events []types.EventInfo
-	err = json.Unmarshal([]byte(response), &events)
-	for i := range events {
-		events[i].EventSource = action
-	}
-	return events, err
-}
-
-func saveSession(ctx context.Context, htmlString string, urlToScrape, childID, parentUrl string, events []types.EventInfo, action string) {
+func saveSession(ctx context.Context, htmlContent string, urlToScrape, childID, parentUrl string, events []types.EventInfo, action string, scraper services.ScrapingService) {
 	if len(events) == 0 {
 		return
 	}
@@ -331,7 +150,7 @@ func saveSession(ctx context.Context, htmlString string, urlToScrape, childID, p
 		log.Println("ERR: Error parsing URL:", err)
 	}
 
-	truncatedHTMLStr, exceededLimit := helpers.TruncateStringByBytes(htmlString, maxHtmlDocSize)
+	truncatedHTMLStr, exceededLimit := helpers.TruncateStringByBytes(htmlContent, maxHtmlDocSize)
 	if exceededLimit {
 		log.Printf("WARN: HTML document exceeded %v byte limit, truncating", maxHtmlDocSize)
 	}
@@ -376,261 +195,6 @@ func saveSession(ctx context.Context, htmlString string, urlToScrape, childID, p
 	}
 }
 
-func HandlePost(ctx context.Context, req InternalRequest, scraper services.ScrapingService) (InternalResponse, error) {
-	action := req.Action
-
-	urlToScrape, parentUrl, childID, err := parsePayload(action, req.Body)
-	if err != nil {
-		return clientError(http.StatusUnprocessableEntity)
-	}
-
-	isFacebook := services.IsFacebookEventsURL(urlToScrape)
-
-	htmlString, err := fetchHTML(urlToScrape, isFacebook, scraper)
-	if err != nil {
-		return _SendHtmlErrorPartial(err, ctx)
-	}
-
-	var events []types.EventInfo
-	events, err = extractEventsFromHTML(htmlString, isFacebook, action)
-	if err != nil {
-		log.Println("Event extraction error:", err)
-		return _SendHtmlErrorPartial(err, ctx)
-	}
-
-	defer saveSession(ctx, htmlString, urlToScrape, childID, parentUrl, events, action)
-
-	tmpl := partials.EventCandidatesPartial(events)
-	var buf bytes.Buffer
-	if err := tmpl.Render(ctx, &buf); err != nil {
-		return serverError(err)
-	}
-
-	return InternalResponse{
-		Headers:    map[string]string{"Content-Type": "text/html"},
-		StatusCode: http.StatusOK,
-		Body:       buf.String(),
-	}, nil
-}
-
-// func HandlePost(ctx context.Context, req InternalRequest, scraper services.ScrapingService) (InternalResponse, error) {
-
-// 	action := req.Action
-// 	var (
-// 		urlToScrape     string
-// 		parentUrl       string
-// 		childID         string
-// 		eventValidation []types.EventBoolValid
-// 	)
-
-// 	switch action {
-// 	case "init":
-// 		systemPrompt = getSystemPrompt(false)
-// 		var payload SeshuInputPayload
-// 		if err := parseAndValidatePayload(req.Body, &payload); err != nil {
-// 			return clientError(http.StatusUnprocessableEntity)
-// 		}
-// 		urlToScrape = payload.Url
-// 		childID = ""
-// 	case "rs":
-// 		systemPrompt = getSystemPrompt(true)
-// 		var payload SeshuRecursivePayload
-// 		if err := parseAndValidatePayload(req.Body, &payload); err != nil {
-// 			return clientError(http.StatusUnprocessableEntity)
-// 		}
-// 		urlToScrape = payload.Url
-// 		parentUrl = payload.ParentUrl
-// 		childID = ""
-// 	default:
-// 		return clientError(http.StatusBadRequest)
-// 	}
-
-// 	isFacebookEventsURL := services.IsFacebookEventsURL(urlToScrape)
-
-// 	var htmlString string
-// 	var err error
-// 	var eventsFound []types.EventInfo
-
-// 	if isFacebookEventsURL {
-// 		// Create validation function for Facebook events
-// 		facebookEventValidation := func(htmlContent string) bool {
-// 			return strings.Contains(htmlContent, `"__typename":"Event"`)
-// 		}
-
-// 		htmlString, err = scraper.GetHTMLFromURLWithRetries(urlToScrape, 7500, true, "script[data-sjs][data-content-len]", 7, facebookEventValidation)
-// 	} else {
-// 		htmlString, err = scraper.GetHTMLFromURL(urlToScrape, 4500, true, "")
-// 	}
-
-// 	if err != nil {
-// 		return _SendHtmlErrorPartial(err, ctx)
-// 	}
-
-// 	// if regex matches facebook.com/(.*)/events we return early as the data
-// 	// is already known and we don't need to pass to an LLM or convert
-// 	// to markdown
-// 	if isFacebookEventsURL {
-// 		events, err := services.FindFacebookEventData(htmlString)
-// 		if err != nil {
-// 			return _SendHtmlErrorPartial(err, ctx)
-// 		}
-
-// 		eventsFound = events
-
-// 	} else {
-
-// 		// Getting <body> content only
-// 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlString))
-// 		if err != nil {
-// 			return _SendHtmlErrorPartial(err, ctx)
-// 		}
-// 		// Goquery usage to get the <body> tag
-// 		htmlString, err = doc.Find("body").Html()
-// 		if err != nil {
-// 			return _SendHtmlErrorPartial(err, ctx)
-// 		}
-
-// 		markdown, err := converter.ConvertString(htmlString)
-// 		if err != nil {
-// 			log.Println("ERR: ", err)
-// 			return _SendHtmlErrorPartial(err, ctx)
-// 		}
-
-// 		lines := strings.Split(markdown, "\n")
-// 		// Filter out empty lines
-// 		var nonEmptyLines []string
-// 		for i, line := range lines {
-// 			// 30,000 as a line limit helps stay under the OpenAI API token limit of 16k, but this is not at all precise
-// 			if line != "" && i < 1500 {
-// 				nonEmptyLines = append(nonEmptyLines, line)
-// 			}
-// 		}
-
-// 		// Convert to JSON
-// 		jsonStringBytes, err := json.Marshal(nonEmptyLines)
-// 		if err != nil {
-// 			log.Println("Error converting to JSON:", err)
-// 			return _SendHtmlErrorPartial(err, ctx)
-// 		}
-// 		jsonString := string(jsonStringBytes)
-
-// 		// TODO: consider log levels / log volume
-// 		_, messageContent, err := CreateChatSession(jsonString)
-// 		if err != nil {
-// 			log.Println("Error creating chat session:", err)
-// 			return _SendHtmlErrorPartial(err, ctx)
-// 		}
-
-// 		// TODO: `CreateChatSession` returns `SessionID` which should be stored in session data
-// 		// which is a separate DynamoDB table that is keyed with the `SessionID` and can be used for
-// 		// follow up internally when we detect invalidity in the OpenAI response and need to re-prompt
-// 		// for correct output
-
-// 		openAIjson := messageContent
-
-// 		var eventsFound []types.EventInfo
-
-// 		err = json.Unmarshal([]byte(openAIjson), &eventsFound)
-// 		if err != nil {
-// 			log.Println("Error in LLM response, failed to convert to types.EventInfo slice:", err)
-// 			return _SendHtmlErrorPartial(err, ctx)
-// 		}
-// 	}
-
-// 	for i := range eventsFound {
-// 		eventsFound[i].EventSource = action // either "init" or "rs"
-// 	}
-
-// 	// we want to save the session AFTER sending an HTML response, since we will already
-// 	// have the session's `partitionKey` (which is always the full URL) for lookup later
-// 	defer func() {
-// 		url, err := url.Parse(urlToScrape)
-// 		if err != nil {
-// 			log.Println("ERR: Error parsing URL:", err)
-// 		}
-
-// 		domain := url.Host
-// 		path := url.Path
-// 		queryParams := url.Query()
-
-// 		// we opt for a truncation rather than error here as a tough UX decision. If an HTML document
-// 		// violates the 400KB dynamo doc size limit, there's really nothing we can do aside from
-// 		// "hope for the best" and use the first 400KB of the document and  hope it's enough to get
-// 		// the event data that's being sought after in the HTML doc output
-// 		// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html
-
-// 		truncatedHTMLStr, exceededLimit := helpers.TruncateStringByBytes(htmlString, maxHtmlDocSize)
-
-// 		if exceededLimit {
-// 			log.Printf("WARN: HTML document exceeded %v byte limit, truncating", maxHtmlDocSize)
-// 		}
-
-// 		// Recursive eventsFound workflow (assuming we doing one at a time)
-// 		if action == "rs" {
-// 			eventsFound[0].EventURL = urlToScrape
-// 		}
-
-// 		currentTime := time.Now()
-// 		seshuSessionPayload := types.SeshuSessionInput{
-// 			SeshuSession: types.SeshuSession{
-// 				// TODO: this needs wiring up with Auth
-// 				OwnerId:        "123",
-// 				Url:            urlToScrape,
-// 				UrlDomain:      domain,
-// 				UrlPath:        path,
-// 				UrlQueryParams: queryParams,
-// 				Html:           truncatedHTMLStr,
-// 				ChildId:        childID,
-// 				// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
-// 				// when we create a new session, we can't allow it to be `0` because that is
-// 				// a valid value for both latitdue and longitude (see "null island")
-// 				LocationLatitude:  services.InitialEmptyLatLong,
-// 				LocationLongitude: services.InitialEmptyLatLong,
-// 				EventCandidates:   eventsFound,
-// 				EventValidations:  eventValidation,
-// 				CreatedAt:         currentTime.Unix(),
-// 				UpdatedAt:         currentTime.Unix(),
-// 				ExpireAt:          currentTime.Add(time.Hour * 24).Unix(),
-// 			},
-// 		}
-
-// 		_, err = services.InsertSeshuSession(ctx, db, seshuSessionPayload)
-// 		if err != nil {
-// 			log.Println("Error inserting Seshu session:", err)
-// 		}
-
-// 		if action == "rs" {
-// 			parsedParentUrl, err := url.Parse(parentUrl)
-// 			if err != nil {
-// 				log.Println("ERR: unable to parse parentUrl for update:", err)
-// 				return
-// 			}
-
-// 			parentUpdatePayload := types.SeshuSessionUpdate{
-// 				Url:     parsedParentUrl.String(), // primary key
-// 				ChildId: url.String(),             // new value to update
-// 			}
-
-// 			_, err = services.UpdateSeshuSession(ctx, db, parentUpdatePayload)
-// 			if err != nil {
-// 				log.Println("ERR: failed to update parent session with childID:", err)
-// 			}
-// 		}
-// 	}()
-
-// 	layoutTemplate := partials.EventCandidatesPartial(eventsFound)
-// 	var buf bytes.Buffer
-// 	err = layoutTemplate.Render(ctx, &buf)
-// 	if err != nil {
-// 		return serverError(err)
-// 	}
-// 	return InternalResponse{
-// 		Headers:    map[string]string{"Content-Type": "text/html"},
-// 		StatusCode: http.StatusOK,
-// 		Body:       buf.String(),
-// 	}, nil
-// }
-
 func _SendHtmlErrorPartial(err error, ctx context.Context) (InternalResponse, error) {
 	layoutTemplate := partials.ErrorHTML(err, "web-handler")
 	var buf bytes.Buffer
@@ -646,92 +210,11 @@ func _SendHtmlErrorPartial(err error, ctx context.Context) (InternalResponse, er
 	}, nil
 }
 
-func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
-	client := &http.Client{}
-	payload := CreateChatSessionPayload{
-		Model: "gpt-4o-mini",
-		Messages: []Message{
-			{
-				Role:    "user",
-				Content: systemPrompt + markdownLinesAsArr,
-			},
-		},
-	}
-
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return "", "", err
-	}
-
-	log.Println(os.Getenv("OPENAI_API_BASE_URL") + "/chat/completions")
-
-	req, err := http.NewRequest("POST", os.Getenv("OPENAI_API_BASE_URL")+"/chat/completions", bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		return "", "", err
-	}
-
-	log.Println("490~")
-
-	req.Header.Add("Authorization", "Bearer "+os.Getenv("OPENAI_API_KEY"))
-	req.Header.Add("Content-Type", "application/json")
-
-	log.Println(req)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", "", err
-	}
-	defer resp.Body.Close()
-
-	log.Println(resp)
-
-	log.Println("501~")
-
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("%d: Completion API request not successful", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", "", err
-	}
-
-	var respData ChatCompletionResponse
-	if err := json.Unmarshal(body, &respData); err != nil {
-		return "", "", err
-	}
-
-	sessionId := respData.ID
-	if sessionId == "" {
-		return "", "", fmt.Errorf("unexpected response format, `id` missing")
-	}
-
-	messageContentArray := respData.Choices[0].Message.Content
-	if messageContentArray == "" {
-		return "", "", fmt.Errorf("unexpected response format, `message.content` missing")
-	}
-
-	// TODO: figure out why this isn't working
-	// Use regex to remove incomplete JSON that OpenAI sometimes returns
-	unpaddedJSON := UnpadJSON(messageContentArray)
-
-	return sessionId, unpaddedJSON, nil
-}
-
-func UnpadJSON(jsonStr string) string {
-	buffer := new(bytes.Buffer)
-	if err := json.Compact(buffer, []byte(jsonStr)); err != nil {
-		log.Println("Error unpadding JSON: ", err)
-		return jsonStr
-	}
-	return buffer.String()
-}
-
 func SendMessage(sessionID string, message string) (string, error) {
 	client := &http.Client{}
 
-	payload := SendMessagePayload{
-		Messages: []Message{
+	payload := services.SendMessagePayload{
+		Messages: []services.Message{
 			{
 				Role:    "user",
 				Content: message,

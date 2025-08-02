@@ -145,6 +145,12 @@ export default {
           borderRadius: '0',
           height: '0.25rem',
         },
+        '.btn': {
+          borderRadius: '4rem',
+        },
+        '.checkbox': {
+          borderWidth: '2px',
+        },
       });
     },
   ],
