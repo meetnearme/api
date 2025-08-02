@@ -20,11 +20,8 @@ env:
   IMG_NAME: ${{ github.repository }}
 
 jobs:
-  DeployDevSST:
+  DeployAndBuild:
     runs-on: ubuntu-latest
-    outputs:
-      sst-output: ${{ steps.deploy-sst.outputs.output }}
-      deployment-tag: ${{ steps.generate-tag.outputs.tag }}
     steps:
       - name: Git clone the repository
         uses: actions/checkout@v4
@@ -47,7 +44,7 @@ jobs:
           setup-go: 'false'
           commit: 'false'
       - name: Breakpoint if `templ` generate failed
-        if: true
+        if: failure()
         uses: namespacelabs/breakpoint-action@v0
         with:
           duration: 30m
@@ -155,14 +152,7 @@ jobs:
       #     wranglerVersion: '4.14.1'
       #     command: deploy --env dev
 
-  # Build and publish `dev` version of Docker image to GitHub Packages
-  BuildAndPublishDockerImages:
-    needs: DeployDevSST
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
+      # Docker build and publish steps
       - name: Log in to the Container registry
         uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
         with:
@@ -194,7 +184,6 @@ jobs:
           context: .
           file: ./Dockerfile.go.prod
           push: true
-          # add
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
