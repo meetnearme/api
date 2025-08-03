@@ -25,6 +25,9 @@ func TestMain(m *testing.M) {
 
 	// --- Part 2: Setup for Scraping Tests ---
 	// This starts a mock server for any test that needs to scrape a URL.
+	// Note: We can't use BindToPort in TestMain since we don't have a testing.T instance
+	// So we'll use the standard httptest.NewServer() which should be fine for TestMain
+	// since it's not run in parallel with other tests
 	mockScrapingServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(basicHTMLresp))

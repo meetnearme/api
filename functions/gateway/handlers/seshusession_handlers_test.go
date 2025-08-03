@@ -42,16 +42,25 @@ func TestHandleSeshuJobSubmit(t *testing.T) {
 	originalOpenAIAPIBaseURL := os.Getenv("OPENAI_API_BASE_URL")
 	originalOpenAIAPIKey := os.Getenv("OPENAI_API_KEY")
 
-	// Set up mock ScrapingBee server
-	mockScrapingBee := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Set up mock ScrapingBee server with proper port rotation
+	scrapingBeeHostAndPort := test_helpers.GetNextPort()
+	mockScrapingBee := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("<html><body>Mock HTML Content</body></html>"))
 	}))
+
+	scrapingBeeListener, err := test_helpers.BindToPort(t, scrapingBeeHostAndPort)
+	if err != nil {
+		t.Fatalf("Failed to bind ScrapingBee server: %v", err)
+	}
+	mockScrapingBee.Listener = scrapingBeeListener
+	mockScrapingBee.Start()
 	defer mockScrapingBee.Close()
 
-	// Set up mock OpenAI server
-	mockOpenAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Set up mock OpenAI server with proper port rotation
+	openAIHostAndPort := test_helpers.GetNextPort()
+	mockOpenAI := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		response := services.ChatCompletionResponse{
@@ -77,6 +86,13 @@ func TestHandleSeshuJobSubmit(t *testing.T) {
 		}
 		json.NewEncoder(w).Encode(response)
 	}))
+
+	openAIListener, err := test_helpers.BindToPort(t, openAIHostAndPort)
+	if err != nil {
+		t.Fatalf("Failed to bind OpenAI server: %v", err)
+	}
+	mockOpenAI.Listener = openAIListener
+	mockOpenAI.Start()
 	defer mockOpenAI.Close()
 
 	// Override environment variables
@@ -327,12 +343,20 @@ func TestSendMessage(t *testing.T) {
 	originalOpenAIAPIBaseURL := os.Getenv("OPENAI_API_BASE_URL")
 	originalOpenAIAPIKey := os.Getenv("OPENAI_API_KEY")
 
-	// Set up mock OpenAI server
-	mockOpenAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Set up mock OpenAI server with proper port rotation
+	hostAndPort := test_helpers.GetNextPort()
+	mockOpenAI := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"response": "mock response"}`))
 	}))
+
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("Failed to bind OpenAI server: %v", err)
+	}
+	mockOpenAI.Listener = listener
+	mockOpenAI.Start()
 	defer mockOpenAI.Close()
 
 	// Override environment variables
