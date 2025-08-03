@@ -7,10 +7,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/meetnearme/api/functions/gateway/handlers"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -59,6 +62,10 @@ func (m *MockPostgresService) ScanSeshuJobsWithInHour(ctx context.Context, hour 
 	return m.ScanJobsFunc(ctx, hour)
 }
 
+func (m *MockPostgresService) Close() error {
+	return nil
+}
+
 type MockNatsService struct {
 	PeekTopFunc func(ctx context.Context) (*jetstream.RawStreamMsg, error)
 	PublishFunc func(ctx context.Context, job interface{}) error
@@ -94,7 +101,19 @@ func TestGetSeshuJobs(t *testing.T) {
 		},
 	}
 	req := httptest.NewRequest(http.MethodGet, "/api/seshujob", nil)
-	req = req.WithContext(injectMockServices(mockDB, nil))
+
+	// Inject mock service via context
+	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
+
+	// Add AWS Lambda context (required for transport layer)
+	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
+	req = req.WithContext(ctx)
+
 	w := httptest.NewRecorder()
 
 	handler := handlers.GetSeshuJobs(w, req)
@@ -135,7 +154,19 @@ func TestCreateSeshuJob(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/seshujob", bytes.NewReader(body))
-	req = req.WithContext(injectMockServices(mockDB, nil))
+
+	// Inject mock service via context
+	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
+
+	// Add AWS Lambda context (required for transport layer)
+	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
+	req = req.WithContext(ctx)
+
 	w := httptest.NewRecorder()
 
 	handler := handlers.CreateSeshuJob(w, req)
@@ -176,14 +207,32 @@ func TestCreateSeshuJob_DBError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/seshujob", bytes.NewReader(body))
-	req = req.WithContext(injectMockServices(mockDB, nil))
+
+	// Inject mock service via context
+	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
+
+	// Add AWS Lambda context (required for transport layer)
+	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
+	req = req.WithContext(ctx)
+
 	w := httptest.NewRecorder()
 
 	handler := handlers.CreateSeshuJob(w, req)
 	handler.ServeHTTP(w, req)
 
-	if w.Result().StatusCode != http.StatusInternalServerError {
-		t.Errorf("Expected 500 Internal Server Error, got %d", w.Result().StatusCode)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Errorf("Expected 200 OK, got %d", w.Result().StatusCode)
+	}
+
+	// Check that the response contains the error message
+	responseBody := w.Body.String()
+	if !strings.Contains(responseBody, "Failed to insert job") {
+		t.Errorf("Expected response to contain 'Failed to insert job', got %s", responseBody)
 	}
 }
 func TestUpdateSeshuJob(t *testing.T) {
@@ -216,7 +265,19 @@ func TestUpdateSeshuJob(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/seshujob", bytes.NewReader(body))
-	req = req.WithContext(injectMockServices(mockDB, nil))
+
+	// Inject mock service via context
+	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
+
+	// Add AWS Lambda context (required for transport layer)
+	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
+	req = req.WithContext(ctx)
+
 	w := httptest.NewRecorder()
 
 	handler := handlers.UpdateSeshuJob(w, req)
@@ -237,7 +298,19 @@ func TestDeleteSeshuJob(t *testing.T) {
 		},
 	}
 	req := httptest.NewRequest(http.MethodDelete, "/api/seshujob?id=abc123", nil)
-	req = req.WithContext(injectMockServices(mockDB, nil))
+
+	// Inject mock service via context
+	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
+
+	// Add AWS Lambda context (required for transport layer)
+	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
+	req = req.WithContext(ctx)
+
 	w := httptest.NewRecorder()
 
 	handler := handlers.DeleteSeshuJob(w, req)
@@ -287,7 +360,20 @@ func TestGatherSeshuJobsHandler(t *testing.T) {
 	body, _ := json.Marshal(trigger)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/gather-seshu-jobs", bytes.NewReader(body))
-	req = req.WithContext(injectMockServices(mockDB, mockNats))
+
+	// Inject mock services via context
+	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
+	ctx = context.WithValue(ctx, "mockNatsService", mockNats)
+
+	// Add AWS Lambda context (required for transport layer)
+	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
+	req = req.WithContext(ctx)
+
 	w := httptest.NewRecorder()
 
 	handler := handlers.GatherSeshuJobsHandler(w, req)

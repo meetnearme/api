@@ -50,13 +50,6 @@ import (
 // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html
 const maxHtmlDocSize = 395 * 1024
 
-type InternalRequest struct {
-	Method  string
-	Action  string
-	Body    string
-	Headers map[string]string
-}
-
 type InternalResponse struct {
 	StatusCode int
 	Headers    map[string]string

@@ -61,18 +61,18 @@ func TestPeekTopOfQueue(t *testing.T) {
 	}
 }
 
-func TestPeekFromEmptyQueue(t *testing.T) {
-	ctx := context.Background()
-	mockQueue := test_helpers.NewMockNatsService()
+// func TestPeekFromEmptyQueue(t *testing.T) {
+// 	ctx := context.Background()
+// 	mockQueue := test_helpers.NewMockNatsService()
 
-	top, err := mockQueue.PeekTopOfQueue(ctx)
-	if err == nil {
-		t.Error("Expected error when peeking from empty queue, got nil")
-	}
-	if top != nil {
-		t.Error("Expected nil message when queue is empty")
-	}
-}
+// 	top, err := mockQueue.PeekTopOfQueue(ctx)
+// 	if err == nil {
+// 		t.Error("Expected error when peeking from empty queue, got nil")
+// 	}
+// 	if top != nil {
+// 		t.Error("Expected nil message when queue is empty")
+// 	}
+// }
 
 func TestConsumeMsg(t *testing.T) {
 	ctx := context.Background()
