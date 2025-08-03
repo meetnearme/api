@@ -56,7 +56,7 @@ func TestNonLambdaRouter(t *testing.T) {
 			Object:  "chat.completion",
 			Created: time.Now().Unix(),
 			Model:   "gpt-4o-mini",
-			Choices: []Choice{
+			Choices: []services.Choice{
 				{
 					Index: 0,
 					Message: services.Message{
