@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
 
 func TestGetHTMLFromURL(t *testing.T) {
@@ -30,11 +32,19 @@ func TestGetHTMLFromURL(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create a mock server
-			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Create a mock server with proper port rotation
+			hostAndPort := test_helpers.GetNextPort()
+			mockServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(basicHTMLresp))
 			}))
+
+			listener, err := test_helpers.BindToPort(t, hostAndPort)
+			if err != nil {
+				t.Fatalf("BindToPort failed: %v", err)
+			}
+			mockServer.Listener = listener
+			mockServer.Start()
 			defer mockServer.Close()
 
 			// Use the mock server URL for testing

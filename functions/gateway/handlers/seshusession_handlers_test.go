@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -41,16 +42,25 @@ func TestHandleSeshuJobSubmit(t *testing.T) {
 	originalOpenAIAPIBaseURL := os.Getenv("OPENAI_API_BASE_URL")
 	originalOpenAIAPIKey := os.Getenv("OPENAI_API_KEY")
 
-	// Set up mock ScrapingBee server
-	mockScrapingBee := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Set up mock ScrapingBee server with proper port rotation
+	scrapingBeeHostAndPort := test_helpers.GetNextPort()
+	mockScrapingBee := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("<html><body>Mock HTML Content</body></html>"))
 	}))
+
+	scrapingBeeListener, err := test_helpers.BindToPort(t, scrapingBeeHostAndPort)
+	if err != nil {
+		t.Fatalf("Failed to bind ScrapingBee server: %v", err)
+	}
+	mockScrapingBee.Listener = scrapingBeeListener
+	mockScrapingBee.Start()
 	defer mockScrapingBee.Close()
 
-	// Set up mock OpenAI server
-	mockOpenAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Set up mock OpenAI server with proper port rotation
+	openAIHostAndPort := test_helpers.GetNextPort()
+	mockOpenAI := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		response := services.ChatCompletionResponse{
@@ -76,6 +86,13 @@ func TestHandleSeshuJobSubmit(t *testing.T) {
 		}
 		json.NewEncoder(w).Encode(response)
 	}))
+
+	openAIListener, err := test_helpers.BindToPort(t, openAIHostAndPort)
+	if err != nil {
+		t.Fatalf("Failed to bind OpenAI server: %v", err)
+	}
+	mockOpenAI.Listener = openAIListener
+	mockOpenAI.Start()
 	defer mockOpenAI.Close()
 
 	// Override environment variables
@@ -316,6 +333,114 @@ func TestUnpadJSON(t *testing.T) {
 			result := services.UnpadJSON(tt.input)
 			if result != tt.expected {
 				t.Errorf("UnpadJSON() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSendMessage(t *testing.T) {
+	// Save original environment variables
+	originalOpenAIAPIBaseURL := os.Getenv("OPENAI_API_BASE_URL")
+	originalOpenAIAPIKey := os.Getenv("OPENAI_API_KEY")
+
+	// Set up mock OpenAI server with proper port rotation
+	hostAndPort := test_helpers.GetNextPort()
+	mockOpenAI := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"response": "mock response"}`))
+	}))
+
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("Failed to bind OpenAI server: %v", err)
+	}
+	mockOpenAI.Listener = listener
+	mockOpenAI.Start()
+	defer mockOpenAI.Close()
+
+	// Override environment variables
+	os.Setenv("OPENAI_API_BASE_URL", mockOpenAI.URL)
+	os.Setenv("OPENAI_API_KEY", "mock-api-key")
+
+	// Restore env after test
+	defer func() {
+		os.Setenv("OPENAI_API_BASE_URL", originalOpenAIAPIBaseURL)
+		os.Setenv("OPENAI_API_KEY", originalOpenAIAPIKey)
+	}()
+
+	// Test SendMessage function
+	response, err := SendMessage("test-session-id", "test message")
+	if err != nil {
+		t.Errorf("SendMessage() error = %v", err)
+	}
+	if response == "" {
+		t.Error("SendMessage() returned empty response")
+	}
+}
+
+func TestClientError(t *testing.T) {
+	response, err := clientError(http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("clientError() error = %v", err)
+	}
+	if response.StatusCode != http.StatusBadRequest {
+		t.Errorf("clientError() status = %v, want %v", response.StatusCode, http.StatusBadRequest)
+	}
+	if response.Body != "Bad Request" {
+		t.Errorf("clientError() body = %v, want %v", response.Body, "Bad Request")
+	}
+}
+
+func TestServerError(t *testing.T) {
+	testErr := errors.New("test error")
+	response, err := serverError(testErr)
+	if err != nil {
+		t.Errorf("serverError() error = %v", err)
+	}
+	if response.StatusCode != http.StatusInternalServerError {
+		t.Errorf("serverError() status = %v, want %v", response.StatusCode, http.StatusInternalServerError)
+	}
+	if response.Body != "Internal Server Error" {
+		t.Errorf("serverError() body = %v, want %v", response.Body, "Internal Server Error")
+	}
+}
+
+func TestParseAndValidatePayload(t *testing.T) {
+	tests := []struct {
+		name        string
+		payloadBody string
+		payload     interface{}
+		expectError bool
+	}{
+		{
+			name:        "Valid JSON and struct",
+			payloadBody: `{"url": "https://example.com"}`,
+			payload:     &SeshuInputPayload{},
+			expectError: false,
+		},
+		{
+			name:        "Invalid JSON",
+			payloadBody: `{"url":}`,
+			payload:     &SeshuInputPayload{},
+			expectError: true,
+		},
+		{
+			name:        "Invalid struct validation",
+			payloadBody: `{"url": ""}`,
+			payload:     &SeshuInputPayload{},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := parseAndValidatePayload(tt.payloadBody, tt.payload)
+			if tt.expectError && err == nil {
+				t.Error("parseAndValidatePayload() expected error, got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("parseAndValidatePayload() unexpected error = %v", err)
 			}
 		})
 	}
