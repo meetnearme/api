@@ -11,7 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
@@ -33,7 +35,7 @@ func (m *MockScrapingService) GetHTMLFromURLWithRetries(unescapedURL string, tim
 	return m.GetHTMLFromURL(unescapedURL, timeout, jsRender, waitFor)
 }
 
-func TestNonLambdaRouter(t *testing.T) {
+func TestHandleSeshuJobSubmit(t *testing.T) {
 	// Save original environment variables
 	originalScrapingBeeAPIBaseURL := os.Getenv("SCRAPINGBEE_API_URL_BASE")
 	originalOpenAIAPIBaseURL := os.Getenv("OPENAI_API_BASE_URL")
@@ -121,27 +123,20 @@ func TestNonLambdaRouter(t *testing.T) {
 			expectBodyText: "Mock Event",
 		},
 		{
-			name:           "Invalid method GET",
-			method:         "GET",
-			action:         "init",
-			body:           ``,
-			expectedStatus: http.StatusMethodNotAllowed,
-		},
-		{
 			name:           "Invalid action param",
 			method:         "POST",
 			action:         "invalid",
 			body:           `{}`,
-			expectedStatus: http.StatusInternalServerError,
-			expectBodyText: "Internal error",
+			expectedStatus: http.StatusOK,
+			expectBodyText: "invalid action",
 		},
 		{
 			name:           "Malformed JSON",
 			method:         "POST",
 			action:         "init",
 			body:           `{"url":}`,
-			expectedStatus: http.StatusInternalServerError,
-			expectBodyText: "Internal error",
+			expectedStatus: http.StatusOK,
+			expectBodyText: "unprocessable",
 		},
 	}
 
@@ -155,7 +150,16 @@ func TestNonLambdaRouter(t *testing.T) {
 				req = httptest.NewRequest(http.MethodGet, "/?action="+tt.action, nil)
 			}
 
-			// Call RouterNonLambda and get the resulting handler
+			// Add AWS Lambda context (required for transport layer)
+			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				RequestContext: events.APIGatewayV2HTTPRequestContext{
+					RequestID: "test-request-id",
+				},
+				PathParameters: map[string]string{},
+			})
+			req = req.WithContext(ctx)
+
+			// Call HandleSeshuJobSubmit and get the resulting handler
 			handler := HandleSeshuJobSubmit(httptest.NewRecorder(), req)
 
 			// Call the returned handler

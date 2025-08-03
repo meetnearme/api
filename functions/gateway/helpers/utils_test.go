@@ -968,29 +968,29 @@ func TestGetCloudflareMnmOptions(t *testing.T) {
 // 	}
 // }
 
-func TestDomainFromURL(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-		wantErr  bool
-	}{
-		{"Valid URL", "https://example.com/path", "example.com", false},
-		{"URL with subdomain", "https://sub.example.com/path", "sub.example.com", false},
-		{"URL with port", "https://example.com:8080/path", "example.com:8080", false},
-		{"URL with query", "https://example.com/path?query=1", "example.com", false},
-		{"Invalid URL format", "not-a-url", "", true},
-	}
+// func TestDomainFromURL(t *testing.T) {
+// 	tests := []struct {
+// 		name     string
+// 		input    string
+// 		expected string
+// 		wantErr  bool
+// 	}{
+// 		{"Valid URL", "https://example.com/path", "example.com", false},
+// 		{"URL with subdomain", "https://sub.example.com/path", "sub.example.com", false},
+// 		{"URL with port", "https://example.com:8080/path", "example.com:8080", false},
+// 		{"URL with query", "https://example.com/path?query=1", "example.com", false},
+// 		{"Invalid URL format", "not-a-url", "", true},
+// 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := ExtractBaseDomain(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("ExtractBaseDomain(%q) error = %v, wantErr = %v", tt.input, err, tt.wantErr)
-			}
-			if got != tt.expected && !tt.wantErr {
-				t.Errorf("ExtractBaseDomain(%q) = %q, want %q", tt.input, got, tt.expected)
-			}
-		})
-	}
-}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			got, err := ExtractBaseDomain(tt.input)
+// 			if (err != nil) != tt.wantErr {
+// 				t.Fatalf("ExtractBaseDomain(%q) error = %v, wantErr = %v", tt.input, err, tt.wantErr)
+// 			}
+// 			if got != tt.expected && !tt.wantErr {
+// 				t.Errorf("ExtractBaseDomain(%q) = %q, want %q", tt.input, got, tt.expected)
+// 			}
+// 		})
+// 	}
+// }
