@@ -90,6 +90,20 @@ jobs:
             ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }}
           USER_TEAM_EMAIL_SCHEMA: ${{ secrets.USER_TEAM_EMAIL_SCHEMA }}
           USER_TEAM_PASSWORD: ${{ secrets.USER_TEAM_PASSWORD }}
+          WEAVIATE_API_KEY_ALLOWED_KEYS:
+            ${{ secrets.WEAVIATE_API_KEY_ALLOWED_KEYS }}
+          WEAVIATE_API_KEY_USERS: ${{ secrets.WEAVIATE_API_KEY_USERS }}
+          SESHUJOBS_URL: ${{ secrets.SESHUJOBS_URL }}
+          NATS_URL: ${{ secrets.NATS_URL }}
+          NATS_SESHU_STREAM_NAME: ${{ secrets.NATS_SESHU_STREAM_NAME }}
+          NATS_SESHU_STREAM_SUBJECT: ${{ secrets.NATS_SESHU_STREAM_SUBJECT }}
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          VOCALCAT_CLIENT_ID: ${{ secrets.VOCALCAT_CLIENT_ID }}
+          VOCALCAT_CLIENT_SECRET: ${{ secrets.VOCALCAT_CLIENT_SECRET }}
+          VOCALCAT_API_ENDPOINT: ${{ secrets.VOCALCAT_API_ENDPOINT }}
       - name: Generate Cloudflare locations Go file
         uses: './.github/actions/generate_cloudflare_locations_file'
       - name: Generate deployment tag

@@ -101,6 +101,45 @@ inputs:
   USER_TEAM_PASSWORD:
     description: 'The password for user teams'
     required: true
+  WEAVIATE_API_KEY_ALLOWED_KEYS:
+    description: 'The allowed keys for the Weaviate API'
+    required: true
+  WEAVIATE_API_KEY_USERS:
+    description: 'The users for the Weaviate API'
+    required: true
+  SESHUJOBS_URL:
+    description: 'The URL for the Seshu Jobs API'
+    required: true
+  NATS_URL:
+    description: 'The URL for the NATS server'
+    required: true
+  NATS_SESHU_STREAM_NAME:
+    description: 'The name of the Seshu stream for NATS'
+    required: true
+  NATS_SESHU_STREAM_SUBJECT:
+    description: 'The subject of the Seshu stream for NATS'
+    required: true
+  POSTGRES_HOST:
+    description: 'The host for the Postgres server'
+    required: true
+  POSTGRES_PORT:
+    description: 'The port for the Postgres server'
+    required: true
+  POSTGRES_USER:
+    description: 'The user for the Postgres server'
+    required: true
+  POSTGRES_PASSWORD:
+    description: 'The password for the Postgres server'
+    required: true
+  VOCALCAT_CLIENT_ID:
+    description: 'The client ID for the Vocalcat API'
+    required: true
+  VOCALCAT_CLIENT_SECRET:
+    description: 'The client secret for the Vocalcat API'
+    required: true
+  VOCALCAT_API_ENDPOINT:
+    description: 'The endpoint for the Vocalcat API'
+    required: true
 runs:
   using: composite
   steps:
@@ -142,6 +181,19 @@ runs:
         # Below is quote to avoid special character bash issues
         echo "USER_TEAM_EMAIL_SCHEMA=\"${{ inputs.USER_TEAM_EMAIL_SCHEMA }}\"" >> .env
         echo USER_TEAM_PASSWORD=${{ inputs.USER_TEAM_PASSWORD }} >> .env
+        echo WEAVIATE_API_KEY_ALLOWED_KEYS=${{ inputs.WEAVIATE_API_KEY_ALLOWED_KEYS }} >> .env
+        echo WEAVIATE_API_KEY_USERS=${{ inputs.WEAVIATE_API_KEY_USERS }} >> .env
+        echo SESHUJOBS_URL=${{ inputs.SESHUJOBS_URL }} >> .env
+        echo NATS_URL=${{ inputs.NATS_URL }} >> .env
+        echo NATS_SESHU_STREAM_NAME=${{ inputs.NATS_SESHU_STREAM_NAME }} >> .env
+        echo NATS_SESHU_STREAM_SUBJECT=${{ inputs.NATS_SESHU_STREAM_SUBJECT }} >> .env
+        echo POSTGRES_HOST=${{ inputs.POSTGRES_HOST }} >> .env
+        echo POSTGRES_PORT=${{ inputs.POSTGRES_PORT }} >> .env
+        echo POSTGRES_USER=${{ inputs.POSTGRES_USER }} >> .env
+        echo POSTGRES_PASSWORD=${{ inputs.POSTGRES_PASSWORD }} >> .env
+        echo VOCALCAT_CLIENT_ID=${{ inputs.VOCALCAT_CLIENT_ID }} >> .env
+        echo VOCALCAT_CLIENT_SECRET=${{ inputs.VOCALCAT_CLIENT_SECRET }} >> .env
+        echo VOCALCAT_API_ENDPOINT=${{ inputs.VOCALCAT_API_ENDPOINT }} >> .env
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
