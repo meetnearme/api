@@ -360,8 +360,9 @@ func TestGetEventsPartial(t *testing.T) {
 	// Set up logging transport for debugging
 	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
 
-	// Create mock server using the working pattern
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Create mock server using proper port rotation
+	hostAndPort := test_helpers.GetNextPort()
+	mockServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("🎯 MOCK WEAVIATE HIT: %s %s", r.Method, r.URL.Path)
 
 		switch r.URL.Path {
@@ -423,6 +424,13 @@ func TestGetEventsPartial(t *testing.T) {
 			http.Error(w, "Not Found", http.StatusNotFound)
 		}
 	}))
+
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("BindToPort failed: %v", err)
+	}
+	mockServer.Listener = listener
+	mockServer.Start()
 	defer mockServer.Close()
 
 	// Parse mock server URL and set environment variables (working pattern)
@@ -1210,8 +1218,9 @@ func TestGetEventAdminChildrenPartial(t *testing.T) {
 	// Set up logging transport for debugging
 	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
 
-	// Create mock server using the working pattern
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Create mock server using proper port rotation
+	hostAndPort := test_helpers.GetNextPort()
+	mockServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("🎯 MOCK WEAVIATE HIT: %s %s", r.Method, r.URL.Path)
 
 		switch r.URL.Path {
@@ -1313,6 +1322,13 @@ func TestGetEventAdminChildrenPartial(t *testing.T) {
 			http.Error(w, "Not Found", http.StatusNotFound)
 		}
 	}))
+
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("BindToPort failed: %v", err)
+	}
+	mockServer.Listener = listener
+	mockServer.Start()
 	defer mockServer.Close()
 
 	// Parse mock server URL and set environment variables (working pattern)

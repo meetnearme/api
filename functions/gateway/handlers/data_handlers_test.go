@@ -58,8 +58,9 @@ func TestPostEventHandler(t *testing.T) {
 	// Set up logging transport to intercept ALL HTTP requests
 	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
 
-	// Create mock server
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Create mock server using proper port rotation
+	hostAndPort := test_helpers.GetNextPort()
+	mockServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("🎯 MOCK SERVER HIT: %s %s", r.Method, r.URL.Path)
 
 		switch r.URL.Path {
@@ -144,6 +145,13 @@ func TestPostEventHandler(t *testing.T) {
 			http.Error(w, "Not Found", http.StatusNotFound)
 		}
 	}))
+
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("BindToPort failed: %v", err)
+	}
+	mockServer.Listener = listener
+	mockServer.Start()
 	defer mockServer.Close()
 
 	// Parse mock server URL and set environment variables
