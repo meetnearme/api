@@ -37,15 +37,19 @@ RUN set -e && \
 # print a list of all files that end with *templ.go
 # RUN find . -name "*templ.go"
 
-# Development stage
+#   DEVELOPMENT STAGE
+#
+#
 FROM base AS development
 
 COPY . .
 
 RUN /go/bin/templ generate
-# CMD ["go", "run", "./cmd/fsnotify-watch/main.go"]
+
 ENTRYPOINT ["/go/bin/air"]
 
+#   BUILDER STAGE
+#
 # A separate builder stage
 FROM base AS builder
 
@@ -53,17 +57,26 @@ COPY . .
 
 RUN /go/bin/templ generate
 # -ldflags="-w -s" strips debug symbols, making the binary smaller.
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./docker_build/main ./functions/gateway/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./main ./functions/gateway/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o ./create_weaviate_schema ./cmd/weaviate-setup/main.go
 
-# Production Stage
+# PRODUCTION STAGE
+#
+#
 FROM alpine:latest AS production
 RUN apk add --no-cache \
   ca-certificates \
   tzdata # this is necessary for the timezone dependencies that are not automatically available in the image
+
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 WORKDIR /go-app
 
 COPY --from=builder /go-app/main /go-app/main
+COPY --from=builder /go-app/create_weaviate_schema /go-app/create_weaviate_schema
+
 RUN chown -R appuser:appgroup /go-app
+
 USER appuser
+
 CMD ["/go-app/main"]
