@@ -72,6 +72,7 @@ type SeshuResponseBody struct {
 
 var db types.DynamoDBAPI
 var scrapingService services.ScrapingService
+var userId string
 
 func init() {
 	db = transport.CreateDbClient()
@@ -79,6 +80,21 @@ func init() {
 }
 
 func HandleSeshuJobSubmit(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+
+	userInfo := helpers.UserInfo{}
+	if _, ok := r.Context().Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = r.Context().Value("userInfo").(helpers.UserInfo)
+	}
+
+	userId = ""
+	if userInfo.Sub != "" {
+		userId = userInfo.Sub
+	}
+
+	if userId == "" {
+		return transport.SendHtmlErrorPartial([]byte("Unauthorized: User ID is required"), http.StatusUnauthorized)
+	}
+
 	// Handle only POST
 	if r.Method != http.MethodPost {
 		return transport.SendHtmlErrorPartial([]byte("Method Not Allowed"), http.StatusMethodNotAllowed)
@@ -161,7 +177,7 @@ func saveSession(ctx context.Context, htmlContent string, urlToScrape, childID, 
 	now := time.Now()
 	payload := types.SeshuSessionInput{
 		SeshuSession: types.SeshuSession{
-			OwnerId:        "123",
+			OwnerId:        userId,
 			Url:            urlToScrape,
 			UrlDomain:      url.Host,
 			UrlPath:        url.Path,
