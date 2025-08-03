@@ -50,7 +50,7 @@
 //           // `sst deploy` at runtime and then gets set as an environment variable
 //           STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
 //           SESHU_FN_URL: process.env.SESHU_FN_URL ?? seshuFn.url,
-//           SST_STAGE: app.stage,
+//           ACT_STAGE: app.stage,
 
 //           // ----- END -----
 //         },
@@ -62,7 +62,7 @@
 //   if (app.stage === 'prod') {
 //     apexUrl = process.env.APEX_URL;
 //   } else if (app.stage === 'dev') {
-//     apexUrl = process.env.APEX_DEV_URL;
+//     apexUrl = process.env._DEV_APEX_URL;
 //   } else {
 //     apexUrl = api.url;
 //   }

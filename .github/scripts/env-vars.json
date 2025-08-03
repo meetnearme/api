@@ -1,0 +1,198 @@
+{
+  "env_vars": {
+    "SCRAPINGBEE_API_KEY": {
+      "description": "The API key for the ScrapingBee API",
+      "required": true
+    },
+    "SCRAPINGBEE_API_URL_BASE": {
+      "description": "The base URL for the ScrapingBee API",
+      "required": true
+    },
+    "GOOGLE_API_KEY": {
+      "description": "The API key for the Google API",
+      "required": true
+    },
+    "OPENAI_API_KEY": {
+      "description": "The API key for the OpenAI environment",
+      "required": true
+    },
+    "OPENAI_API_BASE_URL": {
+      "description": "The API Base URL for OpenAI",
+      "required": true
+    },
+    "ZITADEL_CLIENT_ID": {
+      "description": "The client ID for zitadel auth",
+      "required": true
+    },
+    "ZITADEL_CLIENT_SECRET": {
+      "description": "The client Secret for zitadel auth",
+      "required": true
+    },
+    "ZITADEL_PROJECT_ID": {
+      "description": "The project ID for zitadel auth",
+      "required": true
+    },
+    "ZITADEL_ENCRYPTION_KEY": {
+      "description": "The encryption key for zitadel auth",
+      "required": true
+    },
+    "ZITADEL_INSTANCE_HOST": {
+      "description": "The client instance URL for zitadel auth",
+      "required": true
+    },
+    "ZITADEL_BOT_ADMIN_TOKEN": {
+      "description": "The bot admin token for zitadel auth",
+      "required": true
+    },
+    "APEX_URL": {
+      "description": "The site apex URL, dynamic in lower environments, static in prod",
+      "required": true
+    },
+    "_DEV_APEX_URL": {
+      "description": "The site apex DEV URL, dynamic in lower environments, static in prod",
+      "required": true
+    },
+    "_PROD_APEX_URL": {
+      "description": "The site apex PROD URL, dynamic in lower environments, static in prod",
+      "required": true
+    },
+    "CLOUDFLARE_API_TOKEN": {
+      "description": "The API token for the Cloudflare API",
+      "required": true
+    },
+    "CLOUDFLARE_ACCOUNT_ID": {
+      "description": "The account ID for the Cloudflare API",
+      "required": true
+    },
+    "CLOUDFLARE_API_BASE_URL": {
+      "description": "The base URL for the Cloudflare API",
+      "required": true
+    },
+    "CLOUDFLARE_API_CLIENT_BASE_URL": {
+      "description": "The base URL for the Cloudflare API client",
+      "required": true
+    },
+    "CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE": {
+      "description": "The Namespace key for the project Cloudflare KV Storage",
+      "required": true
+    },
+    "CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID": {
+      "description": "The Namespace ID for the project Cloudflare KV Storage",
+      "required": true
+    },
+    "_PROD_STRIPE_SECRET_KEY": {
+      "description": "Stripe payment credentials",
+      "required": true
+    },
+    "_PROD_STRIPE_PUBLISHABLE_KEY": {
+      "description": "Stripe payment credentials",
+      "required": true
+    },
+    "_DEV_STRIPE_SECRET_KEY": {
+      "description": "Stripe payment credentials",
+      "required": true
+    },
+    "_DEV_STRIPE_PUBLISHABLE_KEY": {
+      "description": "Stripe payment credentials",
+      "required": true
+    },
+    "_DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET": {
+      "description": "Stripe (dev) checkout webhook signing secret",
+      "required": true
+    },
+    "_PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET": {
+      "description": "Stripe (prod) checkout webhook signing secret",
+      "required": true
+    },
+    "USER_TEAM_EMAIL_SCHEMA": {
+      "description": "The email schema for user teams",
+      "required": true
+    },
+    "USER_TEAM_PASSWORD": {
+      "description": "The password for user teams",
+      "required": true
+    },
+    "WEAVIATE_API_KEY_ALLOWED_KEYS": {
+      "description": "The allowed keys for the Weaviate API",
+      "required": true
+    },
+    "WEAVIATE_API_KEY_USERS": {
+      "description": "The users for the Weaviate API",
+      "required": true
+    },
+    "SESHUJOBS_URL": {
+      "description": "The URL for the Seshu Jobs API",
+      "required": true
+    },
+    "NATS_URL": {
+      "description": "The URL for the NATS server",
+      "required": true
+    },
+    "NATS_SESHU_STREAM_NAME": {
+      "description": "The name of the Seshu stream for NATS",
+      "required": true
+    },
+    "NATS_SESHU_STREAM_SUBJECT": {
+      "description": "The subject of the Seshu stream for NATS",
+      "required": true
+    },
+    "POSTGRES_HOST": {
+      "description": "The host for the Postgres server",
+      "required": true
+    },
+    "POSTGRES_PORT": {
+      "description": "The port for the Postgres server",
+      "required": true
+    },
+    "POSTGRES_USER": {
+      "description": "The user for the Postgres server",
+      "required": true
+    },
+    "POSTGRES_PASSWORD": {
+      "description": "The password for the Postgres server",
+      "required": true
+    },
+    "POSTGRES_DB": {
+      "description": "The database for the Postgres server",
+      "required": true
+    },
+    "VOCALCAT_CLIENT_ID": {
+      "description": "The client ID for the Vocalcat API",
+      "required": true
+    },
+    "VOCALCAT_CLIENT_SECRET": {
+      "description": "The client secret for the Vocalcat API",
+      "required": true
+    },
+    "VOCALCAT_API_ENDPOINT": {
+      "description": "The endpoint for the Vocalcat API",
+      "required": true
+    }
+  },
+  "deployment_vars": {
+    "GIT_BRANCH_NAME": {
+      "description": "The name of the branch being deployed",
+      "required": false
+    },
+    "AWS_SECRET_ACCESS_KEY": {
+      "description": "The secret access key for the AWS credentials",
+      "required": true
+    },
+    "DEPLOYMENT_TARGET": {
+      "description": "The target of the deployment",
+      "required": true
+    },
+    "IS_LOCAL_ACT": {
+      "description": "Whether the deployment is for the local ACT server",
+      "required": true
+    },
+    "ACT_STAGE": {
+      "description": "The stage of the deployment",
+      "required": true
+    },
+    "USE_REMOTE_DB": {
+      "description": "Whether the deployment is for the remote DB",
+      "required": true
+    }
+  }
+}
