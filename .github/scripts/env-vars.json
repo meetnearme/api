@@ -1,5 +1,9 @@
 {
   "env_vars": {
+    "AWS_SECRET_ACCESS_KEY": {
+      "description": "The AWS secret access key",
+      "required": true
+    },
     "SCRAPINGBEE_API_KEY": {
       "description": "The API key for the ScrapingBee API",
       "required": true
@@ -174,10 +178,7 @@
       "description": "The name of the branch being deployed",
       "required": false
     },
-    "AWS_SECRET_ACCESS_KEY": {
-      "description": "The secret access key for the AWS credentials",
-      "required": true
-    },
+
     "DEPLOYMENT_TARGET": {
       "description": "The target of the deployment",
       "required": true
