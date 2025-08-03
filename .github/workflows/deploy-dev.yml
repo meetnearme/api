@@ -111,7 +111,7 @@ jobs:
         run: |
           # Use the Node.js script to generate .env file
           # This replaces the custom action entirely and validates required variables
-          node .github/actions/set_aws_creds_env_vars/generate-env.js --dev
+          node .github/scripts/generate-env-inline.js --dev
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -152,13 +152,6 @@ jobs:
 
           # Create a copy with the tag name for the ACT server
           cp .env ${{ steps.generate-tag.outputs.tag }}.env
-
-      - name: Breakpoint (DELETE ME) to test sst output
-        if: failure()
-        uses: namespacelabs/breakpoint-action@v0
-        with:
-          duration: 30m
-          authorized-users: brianfeister
 
       - name: Send .env file to ACT server
         run: |

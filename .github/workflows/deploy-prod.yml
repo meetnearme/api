@@ -166,13 +166,6 @@ jobs:
           # Create a copy with the tag name for the ACT server
           cp .env ${{ steps.generate-tag.outputs.tag }}.env
 
-      - name: Breakpoint (DELETE ME) to test sst output
-        if: failure()
-        uses: namespacelabs/breakpoint-action@v0
-        with:
-          duration: 30m
-          authorized-users: brianfeister
-
       - name: Send .env file to ACT server
         run: |
           # Setup SSH key
