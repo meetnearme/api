@@ -31,7 +31,7 @@
     "remove": "sst remove",
     "console": "sst console",
     "generate:env:dev": "node .github/scripts/generate-env-inline.js --dev",
-    "generate:env:prod": "node .github/scripts/generate-env-inline.js --prod",
+    "generate:env:prod": "node .github/scripts/generate-env-inline.js --prod"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.14",
