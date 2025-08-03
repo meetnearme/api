@@ -61,6 +61,8 @@ jobs:
           # Pass all secrets as environment variables to the Node.js script
           APEX_URL: ${{ secrets.APEX_URL }}
           _DEV_APEX_URL: ${{ secrets._DEV_APEX_URL }}
+          _PROD_APEX_URL: ${{ secrets._PROD_APEX_URL }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           SCRAPINGBEE_API_URL_BASE: ${{ secrets.SCRAPINGBEE_API_URL_BASE }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
