@@ -217,15 +217,36 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const [varName, value] of availableVars.entries()) {
     if (varName.startsWith(stagePrefix)) {
       const baseVarName = varName.substring(stagePrefix.length);
-      if (availableVars.has(baseVarName)) {
-        availableVars.delete(baseVarName);
+      // If we have a stage-specific variable, it satisfies the base variable requirement
+      // So we add the base variable name to availableVars if it's not already there
+      if (!availableVars.has(baseVarName)) {
+        availableVars.set(baseVarName, value);
       }
+      // Remove the stage-specific variable from the list since it's now represented by the base name
+      availableVars.delete(varName);
     }
   }
 
   // Check environment variables
   for (const [varName, varConfig] of Object.entries(config.env_vars)) {
-    if (varConfig.required && !availableVars.has(varName)) {
+    if (varConfig.required) {
+      // Skip stage-specific variables in validation - they're handled separately
+      if (varName.startsWith('_DEV_') || varName.startsWith('_PROD_')) {
+        continue;
+      }
+
+      // Check if the base variable is available
+      if (availableVars.has(varName)) {
+        continue; // Base variable is available
+      }
+
+      // Check if a stage-specific version is available for the current stage
+      const stageSpecificVar = `${stagePrefix}${varName}`;
+      if (availableVars.has(stageSpecificVar)) {
+        continue; // Stage-specific variable is available
+      }
+
+      // If neither base nor stage-specific is available, it's missing
       missingVars.push(varName);
     }
   }
