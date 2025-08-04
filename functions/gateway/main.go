@@ -212,9 +212,7 @@ func NewApp() *App {
 	app.Router.Use(WithDerivedOptionsFromReq)
 	app.InitializeAuth()
 	app.InitDataBase()
-	// TODO: re-enable this when we have a NATS server available in
-	// deployed environments
-	// app.InitNats()
+	app.InitNats()
 	log.Printf("New Go App created at %s", time.Now().Format(time.RFC3339))
 
 	defer func() {
@@ -741,19 +739,15 @@ func main() {
 	// This is the package level instance of Db in handlers
 	_ = transport.GetDB()
 	defer app.PostGresDB.Close()
-	// TODO: re-enable this when we have a NATS server available in
-	// deployed environments
-	// defer app.Nats.Close()
+	defer app.Nats.Close()
 
 	routes := app.InitRoutes()
 	app.SetupRoutes(routes)
 
 	if deploymentTarget == "ACT" {
 
-		// TODO: re-enable this when we have a NATS server available in
-		// deployed environments
-		// seshCtx, cancel := context.WithCancel(context.Background())
-		// defer cancel()
+		seshuCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		// Start serving
 		loggingRouter := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -776,19 +770,15 @@ func main() {
 			}
 		}()
 
-		// TODO: re-enable this when we have a NATS server available in
-		// deployed environments
-		// go func() {
-		// 	if err := app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers); err != nil {
-		// 		log.Fatal(err)
-		// 	}
-		// }()
+		go func() {
+			if err := app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers); err != nil {
+				log.Fatal(err)
+			}
+		}()
 
-		// TODO: re-enable this when we have a NATS server available in
-		// deployed environments
-		// go func() {
-		// 	startSeshuLoop(seshuCtx)
-		// }()
+		go func() {
+			startSeshuLoop(seshuCtx)
+		}()
 
 		select {}
 
