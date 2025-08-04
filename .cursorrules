@@ -160,3 +160,26 @@ defer mockWeaviateServer.Close()
 - **Use the standard test helpers** (`test_helpers.GetNextPort()`,
   `test_helpers.BindToPort()`) to prevent parallelization issues with multiple
   parallel tests creating a mock server on conflicting ports
+
+## Environment File Protection
+
+### Critical File Protection
+
+- **NEVER modify `.env` files** - These contain sensitive production credentials
+- **NEVER write to `.env` files** - Only read them for debugging, and only afer
+  asking permission first
+- **When debugging environment issues**: Only suggest what values should be in
+  `.env`, never modify the file directly
+- **For environment variable issues**: Provide the exact values that should be
+  set, but let the user make the changes
+
+### Environment File Guidelines
+
+- **Read-only access**: Only use `read_file` to examine `.env` files for
+  debugging
+- **Value suggestions**: When environment variables are missing or incorrect,
+  provide the exact values that should be set
+- **User responsibility**: Always remind users that they are responsible for
+  managing their own `.env` files
+- **Security first**: Never expose or suggest exposing sensitive credentials in
+  code or logs

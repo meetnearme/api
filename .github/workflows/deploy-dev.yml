@@ -1,4 +1,4 @@
-name: Deploy Dev (SST)
+name: Deploy Dev (ACT + SST)
 on:
   push:
     branches:
@@ -18,42 +18,76 @@ permissions:
 env:
   IMG_REGISTRY: ghcr.io
   IMG_NAME: ${{ github.repository }}
+  ACT_STAGE: dev
 
 jobs:
-  DeployAndBuild:
+  BuildAndDeploy:
     runs-on: ubuntu-latest
     steps:
       - name: Git clone the repository
         uses: actions/checkout@v4
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.23.x'
+
       - name: npm install
         run: |
           npm i
+
       - name: Generate Tailwind CSS
         # 🚨 Must come before `templ_generate` to ensure CSS hash in
         # layout.templ is updated first, before go templates compile
         run: |
           npm run tailwind:prod
+
       - name: Generate templ code
         uses: './.github/actions/templ_generate'
         with:
           templ-version: 'v0.2.793'
           setup-go: 'false'
           commit: 'false'
+
       - name: Breakpoint if `templ` generate failed
         if: failure()
         uses: namespacelabs/breakpoint-action@v0
         with:
           duration: 30m
           authorized-users: brianfeister
-      - name: Configure AWS & Create env file
-        uses: './.github/actions/set_aws_creds_env_vars'
+
+      - name: Generate Cloudflare locations Go file
+        uses: './.github/actions/generate_cloudflare_locations_file'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          APEX_URL: ${{ secrets.APEX_DEV_URL }}
-          APEX_DEV_URL: ${{ secrets.APEX_DEV_URL }}
+          role-to-assume: arn:aws:iam::626762246796:role/GitHub
+          role-duration-seconds: 1200
+          aws-region: us-east-1
+
+      # 🚨 This implicitly uses AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+      # which is set in `Configure AWS credentials`, but we
+      # also use this for DynamoDB connection in dynamodb.go
+      # we deploy to SST first to prevent conflicts with OIDC credentials
+      - name: Deploy AWS resources via SST
+        id: deploy-sst
+        run: |
+          # Capture SST output directly to a variable and file
+          npm i && npx sst deploy --stage dev --print-logs | tee sst-output.log
+
+          # Store the output as a job output
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          cat sst-output.log >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Generate .env file from configuration
+        env:
+          # Pass all secrets as environment variables to the Node.js script
+          APEX_URL: ${{ secrets.APEX_URL }}
+          _DEV_APEX_URL: ${{ secrets._DEV_APEX_URL }}
+          _PROD_APEX_URL: ${{ secrets._PROD_APEX_URL }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           SCRAPINGBEE_API_URL_BASE: ${{ secrets.SCRAPINGBEE_API_URL_BASE }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
@@ -65,20 +99,16 @@ jobs:
           ZITADEL_ENCRYPTION_KEY: ${{ secrets.ZITADEL_ENCRYPTION_KEY }}
           ZITADEL_INSTANCE_HOST: ${{ secrets.ZITADEL_INSTANCE_HOST }}
           ZITADEL_BOT_ADMIN_TOKEN: ${{ secrets.ZITADEL_BOT_ADMIN_TOKEN }}
-          MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
-          PROD_MARQO_API_BASE_URL: ${{ secrets.PROD_MARQO_API_BASE_URL }}
-          DEV_MARQO_API_BASE_URL: ${{ secrets.DEV_MARQO_API_BASE_URL }}
-          PROD_MARQO_INDEX_NAME: ${{ secrets.PROD_MARQO_INDEX_NAME }}
-          DEV_MARQO_INDEX_NAME: ${{ secrets.DEV_MARQO_INDEX_NAME }}
-          PROD_STRIPE_SECRET_KEY: ${{ secrets.PROD_STRIPE_SECRET_KEY }}
-          PROD_STRIPE_PUBLISHABLE_KEY:
-            ${{ secrets.PROD_STRIPE_PUBLISHABLE_KEY }}
-          DEV_STRIPE_SECRET_KEY: ${{ secrets.DEV_STRIPE_SECRET_KEY }}
-          DEV_STRIPE_PUBLISHABLE_KEY: ${{ secrets.DEV_STRIPE_PUBLISHABLE_KEY }}
-          DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET:
-            ${{ secrets.DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
-          PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET:
-            ${{ secrets.PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
+          _PROD_STRIPE_SECRET_KEY: ${{ secrets._PROD_STRIPE_SECRET_KEY }}
+          _PROD_STRIPE_PUBLISHABLE_KEY:
+            ${{ secrets._PROD_STRIPE_PUBLISHABLE_KEY }}
+          _DEV_STRIPE_SECRET_KEY: ${{ secrets._DEV_STRIPE_SECRET_KEY }}
+          _DEV_STRIPE_PUBLISHABLE_KEY:
+            ${{ secrets._DEV_STRIPE_PUBLISHABLE_KEY }}
+          _DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET:
+            ${{ secrets._DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
+          _PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET:
+            ${{ secrets._PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
           CLOUDFLARE_API_BASE_URL: ${{ secrets.CLOUDFLARE_API_BASE_URL }}
           CLOUDFLARE_API_CLIENT_BASE_URL:
             ${{ secrets.CLOUDFLARE_API_CLIENT_BASE_URL }}
@@ -90,8 +120,26 @@ jobs:
             ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }}
           USER_TEAM_EMAIL_SCHEMA: ${{ secrets.USER_TEAM_EMAIL_SCHEMA }}
           USER_TEAM_PASSWORD: ${{ secrets.USER_TEAM_PASSWORD }}
-      - name: Generate Cloudflare locations Go file
-        uses: './.github/actions/generate_cloudflare_locations_file'
+          WEAVIATE_API_KEY_ALLOWED_KEYS:
+            ${{ secrets.WEAVIATE_API_KEY_ALLOWED_KEYS }}
+          WEAVIATE_API_KEY_USERS: ${{ secrets.WEAVIATE_API_KEY_USERS }}
+          SESHUJOBS_URL: ${{ secrets.SESHUJOBS_URL }}
+          NATS_URL: ${{ secrets.NATS_URL }}
+          NATS_SESHU_STREAM_NAME: ${{ secrets.NATS_SESHU_STREAM_NAME }}
+          NATS_SESHU_STREAM_SUBJECT: ${{ secrets.NATS_SESHU_STREAM_SUBJECT }}
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          VOCALCAT_CLIENT_ID: ${{ secrets.VOCALCAT_CLIENT_ID }}
+          VOCALCAT_CLIENT_SECRET: ${{ secrets.VOCALCAT_CLIENT_SECRET }}
+          VOCALCAT_API_ENDPOINT: ${{ secrets.VOCALCAT_API_ENDPOINT }}
+        run: |
+          # Use the Node.js script to generate .env file
+          # This replaces the custom action entirely and validates required variables
+          node .github/scripts/generate-env-inline.js --dev
+
       - name: Generate deployment tag
         id: generate-tag
         run: |
@@ -99,16 +147,7 @@ jobs:
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           # Generate tag in format: {branch}-YYYY-MM-DD-{SHORT SHA}
           echo "tag=develop-$(date +%Y-%m-%d)-$SHORT_SHA" >> $GITHUB_OUTPUT
-      - name: Deploy AWS resources via SST
-        id: deploy-sst
-        run: |
-          # Capture SST output directly to a variable and file
-          npm i && npx sst deploy --stage dev --print-logs | tee sst-output.log
 
-          # Store the output as a job output
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          cat sst-output.log >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
       - name: Add StaticEndpoint to .env file
         run: |
           # Extract StaticEndpoint value from SST output
@@ -119,10 +158,11 @@ jobs:
 
           # Create a copy with the tag name for the ACT server
           cp .env ${{ steps.generate-tag.outputs.tag }}.env
+
       - name: Send .env file to ACT server
         run: |
           # Setup SSH key
-          echo "${{ secrets.DEV_ACT_SSH_KEY }}" > ssh_key
+          echo "${{ secrets._DEV_ACT_SSH_KEY }}" > ssh_key
           chmod 600 ssh_key
 
           # Create remote directory if it doesn't exist
@@ -133,6 +173,7 @@ jobs:
 
           # Clean up SSH key
           rm ssh_key
+
       - name: Breakpoint if `npx sst deploy` failed
         if: failure()
         uses: namespacelabs/breakpoint-action@v0
@@ -153,6 +194,7 @@ jobs:
       #     command: deploy --env dev
 
       # Docker build and publish steps
+
       - name: Log in to the Container registry
         uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
         with:

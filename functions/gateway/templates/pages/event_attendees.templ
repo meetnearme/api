@@ -111,7 +111,7 @@ templ EventAttendeesPage(pageObj helpers.SitePage, event types.Event, isEditor b
 													<a
 														class="btn btn-sm btn-primary mt-2"
 														target="_blank"
-														if os.Getenv("SST_STAGE") != "prod" {
+														if os.Getenv("ACT_STAGE") != "prod" {
 															:href=" 'https://dashboard.stripe.com/test/workbench/logs?object=' + purchase.stripe_session_id + '&filtered=true' "
 														} else {
 															:href=" 'https://dashboard.stripe.com/workbench/logs?object=' + purchase.stripe_session_id + '&filtered=true' "

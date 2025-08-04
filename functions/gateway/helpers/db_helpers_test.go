@@ -18,14 +18,13 @@ func TestIsRemoteDB(t *testing.T) {
 	}{
 		{"Use remote DB", "true", "", true},
 		{"Production stage", "", "prod", true},
-		{"Feature branch", "", "feature-test", true},
 		{"Empty environment", "", "", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			os.Setenv("USE_REMOTE_DB", tt.useRemoteDB)
-			os.Setenv("SST_STAGE", tt.sstStage)
+			os.Setenv("ACT_STAGE", tt.sstStage)
 			result := IsRemoteDB()
 			if result != tt.expectedResult {
 				t.Errorf("IsRemoteDB() = %v, want %v", result, tt.expectedResult)
@@ -37,7 +36,7 @@ func TestIsRemoteDB(t *testing.T) {
 func TestGetDbTableName(t *testing.T) {
 	t.Run("Local DB", func(t *testing.T) {
 		os.Setenv("USE_REMOTE_DB", "false")
-		os.Setenv("SST_STAGE", "")
+		os.Setenv("ACT_STAGE", "")
 		result := GetDbTableName("TestTable")
 		if result != "TestTable" {
 			t.Errorf("GetDbTableName(\"TestTable\") = %s, want TestTable", result)

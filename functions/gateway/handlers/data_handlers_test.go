@@ -1220,11 +1220,11 @@ func TestUpdateOneEvent(t *testing.T) {
 func TestHandleCheckoutWebhook(t *testing.T) {
 	t.Run("handles checkout.session.completed successfully", func(t *testing.T) {
 		// Save original env var
-		originalWebhookSecret := os.Getenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET")
+		originalWebhookSecret := os.Getenv("STRIPE_CHECKOUT_WEBHOOK_SECRET")
 		testWebhookSecret := "whsec_test_secret"
-		os.Setenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET", testWebhookSecret)
+		os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", testWebhookSecret)
 		// Restore original env var after test
-		defer os.Setenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET", originalWebhookSecret)
+		defer os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", originalWebhookSecret)
 
 		// Setup mock service first
 		mockPurchasesService := &dynamodb_service.MockPurchaseService{
@@ -1298,11 +1298,11 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 	})
 	t.Run("handles checkout.session.expired successfully", func(t *testing.T) {
 		// Save original env var
-		originalWebhookSecret := os.Getenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET")
+		originalWebhookSecret := os.Getenv("STRIPE_CHECKOUT_WEBHOOK_SECRET")
 		testWebhookSecret := "whsec_test_secret"
-		os.Setenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET", testWebhookSecret)
+		os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", testWebhookSecret)
 		// Restore original env var after test
-		defer os.Setenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET", originalWebhookSecret)
+		defer os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", originalWebhookSecret)
 
 		tests := []struct {
 			name             string

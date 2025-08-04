@@ -3,7 +3,7 @@ import { SSTConfig } from 'sst';
 import { StorageStack } from './stacks/StorageStack';
 // import { ApiStack } from './stacks/ApiStack';
 import { StaticSiteStack } from './stacks/StaticSiteStack';
-import { SeshuFunction } from './stacks/SeshuFunction';
+// import { SeshuFunction } from './stacks/SeshuFunction';
 
 export default {
   config(_input) {
@@ -21,12 +21,10 @@ export default {
       runtime: 'go',
       timeout: '30 seconds',
     });
-    app
-      .stack(StaticSiteStack)
-      .stack(StorageStack)
-      .stack(SeshuFunction)
-      // .stack((stackContext) => ApiStack({ ...stackContext, app }));
-      // .stack(RdsStack)
+    app.stack(StaticSiteStack).stack(StorageStack);
+    // .stack(SeshuFunction)
+    // .stack((stackContext) => ApiStack({ ...stackContext, app }));
+    // .stack(RdsStack)
     app.addDefaultFunctionPermissions(['dynamodb:*']);
   },
 } satisfies SSTConfig;
