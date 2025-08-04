@@ -750,8 +750,10 @@ func main() {
 
 	if deploymentTarget == "ACT" {
 
-		seshuCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		// TODO: re-enable this when we have a NATS server available in
+		// deployed environments
+		// seshCtx, cancel := context.WithCancel(context.Background())
+		// defer cancel()
 
 		// Start serving
 		loggingRouter := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
