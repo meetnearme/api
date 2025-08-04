@@ -141,6 +141,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     WEAVIATE_SCHEME: 'http',
     WEAVIATE_HOST: 'weaviate',
     WEAVIATE_PORT: '8080',
+    NATS_URL: 'nats://nats-server:4222',
+    NATS_SESHU_STREAM_NAME: 'SESHU_JOBS_STREAM',
+    NATS_SESHU_STREAM_SUBJECT: 'seshu.jobs.queue',
+    NATS_SESHU_STREAM_DURABLE_NAME: 'seshu-consume',
   };
 
   if (args.includes('--dev')) {
