@@ -128,6 +128,11 @@ jobs:
       - name: Deploy AWS resources via SST
         id: deploy-sst
         run: |
+          # Unset AWS environment variables that might interfere with OIDC credentials
+          unset AWS_SECRET_ACCESS_KEY
+          unset AWS_ACCESS_KEY
+          unset AWS_SESSION_TOKEN
+
           # Capture SST output directly to a variable and file
           npm i && npx sst deploy --stage dev --print-logs | tee sst-output.log
 
@@ -135,6 +140,14 @@ jobs:
           echo "output<<EOF" >> $GITHUB_OUTPUT
           cat sst-output.log >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Generate deployment tag
+        id: generate-tag
+        run: |
+          # Get short SHA (first 7 characters)
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          # Generate tag in format: {branch}-YYYY-MM-DD-{SHORT SHA}
+          echo "tag=develop-$(date +%Y-%m-%d)-$SHORT_SHA" >> $GITHUB_OUTPUT
 
       - name: Add StaticEndpoint to .env file
         run: |
@@ -189,13 +202,6 @@ jobs:
       #     command: deploy --env dev
 
       # Docker build and publish steps
-      - name: Generate deployment tag
-        id: generate-tag
-        run: |
-          # Get short SHA (first 7 characters)
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          # Generate tag in format: {branch}-YYYY-MM-DD-{SHORT SHA}
-          echo "tag=develop-$(date +%Y-%m-%d)-$SHORT_SHA" >> $GITHUB_OUTPUT
 
       - name: Log in to the Container registry
         uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
