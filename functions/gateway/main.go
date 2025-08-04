@@ -741,7 +741,9 @@ func main() {
 	// This is the package level instance of Db in handlers
 	_ = transport.GetDB()
 	defer app.PostGresDB.Close()
-	defer app.Nats.Close()
+	// TODO: re-enable this when we have a NATS server available in
+	// deployed environments
+	// defer app.Nats.Close()
 
 	routes := app.InitRoutes()
 	app.SetupRoutes(routes)
@@ -772,15 +774,19 @@ func main() {
 			}
 		}()
 
-		go func() {
-			if err := app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers); err != nil {
-				log.Fatal(err)
-			}
-		}()
+		// TODO: re-enable this when we have a NATS server available in
+		// deployed environments
+		// go func() {
+		// 	if err := app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers); err != nil {
+		// 		log.Fatal(err)
+		// 	}
+		// }()
 
-		go func() {
-			startSeshuLoop(seshuCtx)
-		}()
+		// TODO: re-enable this when we have a NATS server available in
+		// deployed environments
+		// go func() {
+		// 	startSeshuLoop(seshuCtx)
+		// }()
 
 		select {}
 
