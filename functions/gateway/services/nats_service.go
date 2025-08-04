@@ -145,8 +145,21 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 			}()
 			msg, err := iter.Next()
 			if err != nil {
-				// Check if context is cancelled
+				// Check if context is cancelled or iterator is exhausted
+				if err == jetstream.ErrMsgIteratorClosed || err == jetstream.ErrNoMessages {
+					log.Printf("Iterator closed or no messages: %v", err)
+					return
+				}
+				log.Printf("Error getting next message: %v", err)
+				return
 			}
+
+			// Check if msg is nil before using it
+			if msg == nil {
+				log.Printf("Received nil message from iterator")
+				return
+			}
+
 			fmt.Printf("Processing msg: %s\n", string(msg.Data()))
 			time.Sleep(time.Second * 60) // Simulate processing time
 			msg.Ack()

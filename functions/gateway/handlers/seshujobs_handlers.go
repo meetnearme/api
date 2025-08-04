@@ -168,7 +168,7 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 			return transport.SendHtmlErrorPartial([]byte("Unable to obtain Jobs: "+err.Error()), http.StatusBadRequest)
 		}
 
-	} else if topOfQueue != nil {
+	} else if topOfQueue != nil && topOfQueue.Data != nil && len(topOfQueue.Data) > 0 {
 
 		var job internal_types.SeshuJob
 
@@ -190,7 +190,11 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 	// Push Found DB items onto the NATS queue
 	for _, job := range jobs {
 		if err := nats.PublishMsg(r.Context(), job); err != nil {
-			log.Printf("Failed to push job %s to NATS: %v", job.NormalizedUrlKey, err)
+			jobKey := "unknown"
+			if job.NormalizedUrlKey != "" {
+				jobKey = job.NormalizedUrlKey
+			}
+			log.Printf("Failed to push job %s to NATS: %v", jobKey, err)
 		}
 	}
 
