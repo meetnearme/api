@@ -133,6 +133,12 @@ jobs:
           unset AWS_ACCESS_KEY
           unset AWS_SESSION_TOKEN
 
+          # Debug AWS credentials
+          echo "🔍 Debugging AWS credentials..."
+          aws sts get-caller-identity
+          echo "AWS_REGION: $AWS_REGION"
+          echo "AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
+
           # Capture SST output directly to a variable and file
           npm i && npx sst deploy --stage dev --print-logs | tee sst-output.log
 
