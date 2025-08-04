@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"log"
 	"os"
 	"sync"
 
@@ -31,11 +32,17 @@ func GetNatsService(ctx context.Context) (interfaces.NatsServiceInterface, error
 	natsServiceOnce.Do(func() {
 		conn, err := GetNatsClient()
 		if err != nil {
-			panic(err) // Or handle initialization error gracefully
+			log.Printf("Failed to get NATS client: %v", err)
+			// Don't panic, return nil service and let caller handle it
+			natsService = nil
+			return
 		}
 		natsService, err = NewNatsService(ctx, conn)
 		if err != nil {
-			panic(err) // Or handle initialization error gracefully
+			log.Printf("Failed to create NATS service: %v", err)
+			// Don't panic, return nil service and let caller handle it
+			natsService = nil
+			return
 		}
 	})
 	return natsService, nil

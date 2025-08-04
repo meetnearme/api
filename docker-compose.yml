@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:17.4-alpine3.21
@@ -34,6 +32,8 @@ services:
         exec docker-entrypoint.sh postgres -c listen_addresses='*' -c
         hba_file=/var/lib/postgresql/custom_pg_hba.conf",
       ] #For local check
+    networks:
+      - meetnearme-network
 
   weaviate:
     image: cr.weaviate.io/semitechnologies/weaviate:1.30.1
@@ -61,6 +61,8 @@ services:
         condition: service_started
     env_file:
       - ./.env
+    networks:
+      - meetnearme-network
 
   nats-server:
     image: nats:latest
@@ -68,11 +70,16 @@ services:
     ports:
       - '4222:4222' # Client port
     command: ['-js', '-p', '4222']
+    restart: unless-stopped
+    networks:
+      - meetnearme-network
 
   t2v-transformers:
     image: cr.weaviate.io/semitechnologies/transformers-inference:sentence-transformers-multi-qa-MiniLM-L6-cos-v1 # A good default model
     environment:
       ENABLE_CUDA: '0' # Set to '1' if you have a compatible GPU and NVIDIA drivers installed
+    networks:
+      - meetnearme-network
 
   go-app:
     build:
@@ -87,6 +94,23 @@ services:
     ports:
       - '8000:8000'
     environment:
+      ACT_STAGE: ${ACT_STAGE:-dev}
+      NODE_ENV: development
+      DEPLOYMENT_TARGET: ${DEPLOYMENT_TARGET:-ACT}
+      _LAMBDA_SERVER_PORT: ''
+      AWS_LAMBDA_RUNTIME_API: ''
+      APP_PORT: ${APP_PORT:-8000}
+
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+
+      WEAVIATE_SCHEME: http
+      WEAVIATE_HOST: weaviate
+      WEAVIATE_PORT: 8080
+
       # for debugging air
       AIR_DEBUG: 1
     env_file:
@@ -110,6 +134,12 @@ services:
       nats-server:
         condition: service_started
     restart: unless-stopped
+    networks:
+      - meetnearme-network
+
+networks:
+  meetnearme-network:
+    driver: bridge
 
 volumes:
   postgres_data:

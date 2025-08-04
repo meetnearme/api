@@ -15,7 +15,7 @@
     "docker:clean": "docker compose down --remove-orphans && docker image prune -f && docker image prune -a -f",
     "dev:serve-static": "cross-env NODE_ENV=development npx http-server -o /static -a localhost -p 8001 --cors",
     "dev:tailwind": "tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --watch",
-    "dev:templ": "node scripts/watchTempl.js ./functions/gateway/templates ./functions/lambda/go/seshu/templates",
+    "dev:templ": "node scripts/watchTempl.js ./functions/gateway/templates",
     "tailwind:prod": "cross-env NODE_ENV=production tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --minify",
     "typecheck": "tsc --noEmit",
     "lint:templ:dev": "eslint --ext .templ --fix .",
