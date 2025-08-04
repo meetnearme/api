@@ -56,6 +56,31 @@ jobs:
           duration: 30m
           authorized-users: brianfeister
 
+      - name: Generate Cloudflare locations Go file
+        uses: './.github/actions/generate_cloudflare_locations_file'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::626762246796:role/GitHub
+          role-duration-seconds: 1200
+          aws-region: us-east-1
+
+      # 🚨 This implicitly uses AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+      # which is set in `Configure AWS credentials`, but we
+      # also use this for DynamoDB connection in dynamodb.go
+      # we deploy to SST first to prevent conflicts with OIDC credentials
+      - name: Deploy AWS resources via SST
+        id: deploy-sst
+        run: |
+          # Capture SST output directly to a variable and file
+          npm i && npx sst deploy --stage dev --print-logs | tee sst-output.log
+
+          # Store the output as a job output
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          cat sst-output.log >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Generate .env file from configuration
         env:
           # Pass all secrets as environment variables to the Node.js script
@@ -114,38 +139,6 @@ jobs:
           # Use the Node.js script to generate .env file
           # This replaces the custom action entirely and validates required variables
           node .github/scripts/generate-env-inline.js --dev
-
-      - name: Generate Cloudflare locations Go file
-        uses: './.github/actions/generate_cloudflare_locations_file'
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::626762246796:role/GitHub
-          role-duration-seconds: 1200
-          aws-region: us-east-1
-
-      - name: Deploy AWS resources via SST
-        id: deploy-sst
-        run: |
-          # Unset AWS environment variables that might interfere with OIDC credentials
-          unset AWS_SECRET_ACCESS_KEY
-          unset AWS_ACCESS_KEY
-          unset AWS_SESSION_TOKEN
-
-          # Debug AWS credentials
-          echo "🔍 Debugging AWS credentials..."
-          aws sts get-caller-identity
-          echo "AWS_REGION: $AWS_REGION"
-          echo "AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
-
-          # Capture SST output directly to a variable and file
-          npm i && npx sst deploy --stage dev --print-logs | tee sst-output.log
-
-          # Store the output as a job output
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          cat sst-output.log >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Generate deployment tag
         id: generate-tag
