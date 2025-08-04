@@ -212,7 +212,9 @@ func NewApp() *App {
 	app.Router.Use(WithDerivedOptionsFromReq)
 	app.InitializeAuth()
 	app.InitDataBase()
-	app.InitNats()
+	// TODO: re-enable this when we have a NATS server available in
+	// deployed environments
+	// app.InitNats()
 	log.Printf("New Go App created at %s", time.Now().Format(time.RFC3339))
 
 	defer func() {
