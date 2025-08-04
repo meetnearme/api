@@ -115,23 +115,15 @@ jobs:
           # This replaces the custom action entirely and validates required variables
           node .github/scripts/generate-env-inline.js --dev
 
+      - name: Generate Cloudflare locations Go file
+        uses: './.github/actions/generate_cloudflare_locations_file'
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::626762246796:role/GitHub
           role-duration-seconds: 1200
           aws-region: us-east-1
-
-      - name: Generate Cloudflare locations Go file
-        uses: './.github/actions/generate_cloudflare_locations_file'
-
-      - name: Generate deployment tag
-        id: generate-tag
-        run: |
-          # Get short SHA (first 7 characters)
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          # Generate tag in format: {branch}-YYYY-MM-DD-{SHORT SHA}
-          echo "tag=develop-$(date +%Y-%m-%d)-$SHORT_SHA" >> $GITHUB_OUTPUT
 
       - name: Deploy AWS resources via SST
         id: deploy-sst
@@ -197,6 +189,14 @@ jobs:
       #     command: deploy --env dev
 
       # Docker build and publish steps
+      - name: Generate deployment tag
+        id: generate-tag
+        run: |
+          # Get short SHA (first 7 characters)
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          # Generate tag in format: {branch}-YYYY-MM-DD-{SHORT SHA}
+          echo "tag=develop-$(date +%Y-%m-%d)-$SHORT_SHA" >> $GITHUB_OUTPUT
+
       - name: Log in to the Container registry
         uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
         with:
