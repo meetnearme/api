@@ -2,6 +2,7 @@ package services
 
 import (
 	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -25,14 +26,21 @@ func TestMain(m *testing.M) {
 
 	// --- Part 2: Setup for Scraping Tests ---
 	// This starts a mock server for any test that needs to scrape a URL.
-	// Note: We can't use BindToPort in TestMain since we don't have a testing.T instance
-	// So we'll use the standard httptest.NewServer() which should be fine for TestMain
-	// since it's not run in parallel with other tests
-	mockScrapingServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Use a high port number to avoid conflicts with other tests
+	mockScrapingServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(basicHTMLresp))
 	}))
-	defer mockScrapingServer.Close()
+	
+	// Use a high port number to avoid conflicts
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		log.Printf("Failed to create listener: %v", err)
+	} else {
+		mockScrapingServer.Listener = listener
+		mockScrapingServer.Start()
+		defer mockScrapingServer.Close()
+	}
 
 	exitCode := m.Run()
 
