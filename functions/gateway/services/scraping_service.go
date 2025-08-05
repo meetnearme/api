@@ -191,8 +191,6 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 		unescapedURL = strings.ReplaceAll(unescapedURL, targetHostPort, replacementHost)
 	}
 
-	log.Println("~~ unescapedURL: ", unescapedURL)
-
 	// TODO: Escaping twice, thrice or more is unlikely, but this just makes sure the URL isn't
 	// single or double-encoded when passed as a param
 	firstPassUrl, err := url.QueryUnescape(unescapedURL)
@@ -208,8 +206,6 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 	}
 
 	escapedURL := url.QueryEscape(unescapedURL)
-
-	log.Println("~~ escapedURL: ", escapedURL)
 
 	// Calculate timeouts based on scraping service defaults and best practices
 	// service default timeout is 140,000ms (140 seconds) - use this as our timeout
