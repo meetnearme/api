@@ -175,14 +175,14 @@ func (app *App) InitRoutes() []Route {
 		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
 
 		//SeshuSession
-		{"/api/html/session/submit/", "POST", handlers.HandleSeshuJobSubmit, None},
+		{"/api/html/session/submit/", "POST", handlers.HandleSeshuJobSubmit, Require},
 
 		// SeshuJobs
-		{"/api/seshujob", "GET", handlers.GetSeshuJobs, None},
-		{"/api/seshujob", "POST", handlers.CreateSeshuJob, None},
-		{"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, None},
-		{"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, None},
-		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, None},
+		{"/api/seshujob", "GET", handlers.GetSeshuJobs, Require},
+		{"/api/seshujob", "POST", handlers.CreateSeshuJob, Require},
+		{"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, Require},
+		{"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, Require},
+		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
 
 		// Re-share
 		{"/api/data/re-share", "POST", handlers.PostReShareHandler, Require},

@@ -129,13 +129,37 @@ func (m *MockTemplateRenderer) Render(ctx context.Context, buf *bytes.Buffer) er
 	return err
 }
 
-var PortCounter int32 = 8000
+var (
+	PortCounter int32 = 8000
+	portMutex   sync.Mutex
+	usedPorts   = make(map[string]bool)
+)
 
-// NOTE: this is due to an issue where github auto paralellizes these
-// test to run in serial, which causes port collisions
+// GetNextPort returns a unique port that is guaranteed to be available
+// Uses a mutex to ensure thread-safe port allocation and prevent collisions
 func GetNextPort() string {
-	port := atomic.AddInt32(&PortCounter, 1)
-	return fmt.Sprintf("localhost:%d", port)
+	portMutex.Lock()
+	defer portMutex.Unlock()
+
+	// Find the next available port
+	for {
+		port := atomic.AddInt32(&PortCounter, 1)
+		portStr := fmt.Sprintf("localhost:%d", port)
+
+		// Check if this port is already marked as used
+		if !usedPorts[portStr] {
+			// Mark this port as used
+			usedPorts[portStr] = true
+			return portStr
+		}
+	}
+}
+
+// ReleasePort marks a port as available again
+func ReleasePort(port string) {
+	portMutex.Lock()
+	defer portMutex.Unlock()
+	delete(usedPorts, port)
 }
 
 // Go tests run in parallel by default, which causes port collisions
@@ -177,11 +201,15 @@ func BindToPort(t *testing.T, endpoint string) (net.Listener, error) {
 					return listener, nil
 				}
 				t.Logf("Failed to bind despite port appearing available: %v", err)
+				// Release the port since we couldn't bind to it
+				ReleasePort(hostPort)
 			} else {
 				t.Logf("Port %s has existing server or other issue: %v", hostPort, err)
 			}
 		} else {
 			t.Logf("Port %s is already in use (received HTTP response)", hostPort)
+			// Release the port since it's already in use
+			ReleasePort(hostPort)
 		}
 
 		currentEndpoint = GetNextPort()

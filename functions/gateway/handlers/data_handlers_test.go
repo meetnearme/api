@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1478,13 +1477,6 @@ func TestGetUsersHandler(t *testing.T) {
 	// Save original environment variables
 	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
 
-	// Set test environment variables
-	os.Setenv("ZITADEL_INSTANCE_HOST", helpers.MOCK_ZITADEL_HOST)
-	// Defer resetting environment variables
-	defer func() {
-		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
-	}()
-
 	// Create a mock HTTP server for Zitadel
 	mockZitadelServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/meta") {
@@ -1702,15 +1694,22 @@ func TestGetUsersHandler(t *testing.T) {
 		http.Error(w, fmt.Sprintf("unexpected request: %s %s", r.Method, r.URL), http.StatusBadRequest)
 	}))
 
-	// Set the mock Zitadel server URL
-	mockZitadelServer.Listener.Close()
-	var err error
-	mockZitadelServer.Listener, err = net.Listen("tcp", helpers.MOCK_ZITADEL_HOST)
+	// Set the mock Zitadel server URL using proper port binding
+	zitadelHostAndPort := test_helpers.GetNextPort()
+	zitadelListener, err := test_helpers.BindToPort(t, zitadelHostAndPort)
 	if err != nil {
-		t.Fatalf("Failed to start mock Zitadel server: %v", err)
+		t.Fatalf("Failed to bind Zitadel server: %v", err)
 	}
+	mockZitadelServer.Listener = zitadelListener
 	mockZitadelServer.Start()
 	defer mockZitadelServer.Close()
+
+	// Set environment variable to the actual bound port
+	actualAddr := zitadelListener.Addr().String()
+	os.Setenv("ZITADEL_INSTANCE_HOST", actualAddr)
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
+	}()
 
 	// Store the original SearchUsersByIDs function
 	originalSearchFunc := searchUsersByIDs
@@ -1835,13 +1834,6 @@ func TestGetUsersHandler(t *testing.T) {
 func TestSearchUsersHandler(t *testing.T) {
 	// Save original environment variables
 	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
-
-	// Set test environment variables
-	os.Setenv("ZITADEL_INSTANCE_HOST", helpers.MOCK_ZITADEL_HOST)
-	// Defer resetting environment variables
-	defer func() {
-		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
-	}()
 
 	// Create a mock HTTP server for Zitadel
 	mockZitadelServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -2011,15 +2003,22 @@ func TestSearchUsersHandler(t *testing.T) {
 		http.Error(w, fmt.Sprintf("unexpected request: %s %s", r.Method, r.URL), http.StatusBadRequest)
 	}))
 
-	// Set the mock Zitadel server URL
-	mockZitadelServer.Listener.Close()
-	var err error
-	mockZitadelServer.Listener, err = net.Listen("tcp", helpers.MOCK_ZITADEL_HOST)
+	// Set the mock Zitadel server URL using proper port binding
+	zitadelHostAndPort := test_helpers.GetNextPort()
+	zitadelListener, err := test_helpers.BindToPort(t, zitadelHostAndPort)
 	if err != nil {
-		t.Fatalf("Failed to start mock Zitadel server: %v", err)
+		t.Fatalf("Failed to bind Zitadel server: %v", err)
 	}
+	mockZitadelServer.Listener = zitadelListener
 	mockZitadelServer.Start()
 	defer mockZitadelServer.Close()
+
+	// Set environment variable to the actual bound port
+	actualAddr := zitadelListener.Addr().String()
+	os.Setenv("ZITADEL_INSTANCE_HOST", actualAddr)
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
+	}()
 
 	tests := []struct {
 		name           string

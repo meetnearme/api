@@ -235,11 +235,11 @@ func TestGetAdminPage(t *testing.T) {
 		w.Write([]byte(`{"success": true, "result": "test-value"}`))
 	}))
 
-	// Set up the mock server
-	mockCloudflareServer.Listener.Close()
-	listener, err := test_helpers.BindToPort(t, helpers.MOCK_CLOUDFLARE_URL)
+	// Set up the mock server using proper port binding
+	cloudflareHostAndPort := test_helpers.GetNextPort()
+	listener, err := test_helpers.BindToPort(t, cloudflareHostAndPort)
 	if err != nil {
-		t.Fatalf("Failed to start mock Cloudflare server: %v", err)
+		t.Fatalf("Failed to bind Cloudflare server: %v", err)
 	}
 	mockCloudflareServer.Listener = listener
 	mockCloudflareServer.Start()
