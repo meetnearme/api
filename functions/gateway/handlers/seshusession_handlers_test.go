@@ -174,6 +174,19 @@ func TestHandleSeshuJobSubmit(t *testing.T) {
 				},
 				PathParameters: map[string]string{},
 			})
+
+			// Add auth context (required for authorization)
+			mockUserInfo := helpers.UserInfo{
+				Sub:   "test-user-123",
+				Name:  "Test User",
+				Email: "test@example.com",
+			}
+			mockRoleClaims := map[string]interface{}{
+				"roles": []string{"user"},
+			}
+			ctx = context.WithValue(ctx, "userInfo", mockUserInfo)
+			ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
+			ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "test-user-123"})
 			req = req.WithContext(ctx)
 
 			// Call HandleSeshuJobSubmit and get the resulting handler
