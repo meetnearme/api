@@ -42,7 +42,6 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			transport.SendHtmlErrorPage([]byte(msg), http.StatusBadRequest, false)(w, r)
 		}
 	}
-	log.Printf("425: Auth URL: %v", authURL)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, authURL.String(), http.StatusFound)
