@@ -234,8 +234,6 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 			scrapingUrl += "&wait_for=" + url.QueryEscape(waitFor)
 		}
 
-		log.Println("~~ scrapingUrl: ", scrapingUrl)
-
 		req, err := http.NewRequest("GET", scrapingUrl, nil)
 		if err != nil {
 			lastErr = fmt.Errorf("ERR: forming scraping request: %v", err)
