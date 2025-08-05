@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(basicHTMLresp))
 	}))
-	
+
 	// Use a high port number to avoid conflicts
 	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
