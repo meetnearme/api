@@ -12,6 +12,13 @@ permissions:
   id-token: write # This is required for requesting the JWT
   contents: write # This is required for actions/checkout
   pull-requests: write # This is required for comitting templ generated code
+  packages: write # This is required for publishing Docker images to GitHub Packages
+  attestations: write # This is required for artifact attestations
+
+env:
+  IMG_REGISTRY: ghcr.io
+  IMG_NAME: ${{ github.repository }}
+
 jobs:
   DeployDevSST:
     runs-on: ubuntu-latest
@@ -64,8 +71,7 @@ jobs:
           PROD_MARQO_INDEX_NAME: ${{ secrets.PROD_MARQO_INDEX_NAME }}
           DEV_MARQO_INDEX_NAME: ${{ secrets.DEV_MARQO_INDEX_NAME }}
           PROD_STRIPE_SECRET_KEY: ${{ secrets.PROD_STRIPE_SECRET_KEY }}
-          PROD_STRIPE_PUBLISHABLE_KEY:
-            ${{ secrets.PROD_STRIPE_PUBLISHABLE_KEY }}
+          PROD_STRIPE_PUBLISHABLE_KEY: ${{ secrets.PROD_STRIPE_PUBLISHABLE_KEY }}
           DEV_STRIPE_SECRET_KEY: ${{ secrets.DEV_STRIPE_SECRET_KEY }}
           DEV_STRIPE_PUBLISHABLE_KEY: ${{ secrets.DEV_STRIPE_PUBLISHABLE_KEY }}
           DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET: ${{ secrets.DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
@@ -89,14 +95,21 @@ jobs:
         with:
           duration: 30m
           authorized-users: brianfeister
+
       # TODO: can't figure out how to get this to work with the new version of wrangler
       # https://discord.com/channels/595317990191398933/1368769100192420010/1368769100192420010
-      # - name: Deploy to Cloudflare Workers with Wrangler
-      #   uses: cloudflare/wrangler-action@v3.14.1
-      #   env:
-      #     CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      #   with:
-      #     apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      #     accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      #     wranglerVersion: '4.14.1'
-      #     command: deploy --env dev
+      - name: Deploy to Cloudflare Workers with Wrangler
+        uses: cloudflare/wrangler-action@v3.14.1
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.14.1'
+          command: deploy --env dev
+      - name: Breakpoint if Cloudflare worker with Wrangler fails 
+        if: failure()
+        uses: namespacelabs/breakpoint-action@v0
+        with:
+          duration: 30m
+          authorized-users: shrutitamrakratuladhar
