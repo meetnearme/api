@@ -24,6 +24,9 @@ const CompetitionRoundsTablePrefix = "CompetitionRounds"
 const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomParticipant"
 const VotesTablePrefix = "Votes"
 
+const WeaviateEventClassName = "EventStrict"
+
+const ACT string = "ACT"
 const EVENT_ID_KEY string = "eventId"
 const PRIMARY_OWNER_KEY string = "primaryOwner"
 const COMPETITIONS_ID_KEY string = "competitionId"
@@ -42,10 +45,6 @@ const MNM_REFRESH_TOKEN_COOKIE_NAME = "mnm_refresh_token"
 const MNM_ID_TOKEN_COOKIE_NAME = "mnm_id_token"
 const FINAL_REDIRECT_URI_KEY = "final_redirect_uri"
 const POST_LOGOUT_REDIRECT_URI_KEY = "post_logout_redirect_uri"
-
-const MOCK_CLOUDFLARE_URL = "http://localhost:8999"
-const MOCK_ZITADEL_HOST = "localhost:8998"
-const MOCK_MARQO_URL = "http://localhost:8997"
 
 const JWT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 const AUTH_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
@@ -83,7 +82,7 @@ const COMP_EMPTY_TEAM_NAME = "___|~~EMPTY TEAM NAME~~|___"
 const COMP_UNASSIGNED_ROUND_EVENT_ID = "fake-event-id-123"
 const COMP_TEAM_ID_PREFIX = "tm_"
 
-const DEFAULT_PRIMARY_COLOR = "#39ff14"
+const DEFAULT_PRIMARY_COLOR = "#6004e0"
 const ZITADEL_USER_ID_LEN = 18
 
 // NOTE: these are the default searchable event source types that show up in the home event list view
@@ -176,6 +175,7 @@ const (
 	OrgAdmin         Role = "orgAdmin"
 	CompetitionAdmin Role = "competitionAdmin"
 	EventAdmin       Role = "eventAdmin"
+	SyndicateAdmin   Role = "syndicateAdmin"
 )
 
 var Roles = map[Role]string{
@@ -183,6 +183,7 @@ var Roles = map[Role]string{
 	OrgAdmin:         string(OrgAdmin),
 	CompetitionAdmin: string(CompetitionAdmin),
 	EventAdmin:       string(EventAdmin),
+	SyndicateAdmin:   string(SyndicateAdmin),
 }
 
 var AllowedMnmOptionsKeys = []string{
@@ -342,6 +343,8 @@ func humanizeFieldName(field string) string {
 		return "Localized Start Time"
 	case "CompetitionConfigId":
 		return "Competition Config ID"
+	case "ShadowOwners":
+		return "Shadow Owners"
 	default:
 		panic(fmt.Sprintf("No display name mapping for field: %s", field))
 	}

@@ -42,7 +42,6 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			transport.SendHtmlErrorPage([]byte(msg), http.StatusBadRequest, false)(w, r)
 		}
 	}
-	log.Printf("425: Auth URL: %v", authURL)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, authURL.String(), http.StatusFound)
@@ -105,7 +104,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			if zitadelRes["error_description"] != "" {
 				msg += fmt.Sprintf(", error_description: %+v", zitadelRes["error_description"])
 			}
-			log.Printf(msg)
+			log.Printf("%s", msg)
 			return func(w http.ResponseWriter, r *http.Request) {
 				transport.SendHtmlErrorPage([]byte(msg), http.StatusUnauthorized, false)(w, r)
 			}
@@ -130,7 +129,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	var userRedirectURL string = "/"
 	var cookieDomain string = ""
-	log.Printf("432: cookieDomain: %v", cookieDomain)
+	log.Printf("Leaving for compile issue at 138: cookieDomain: %v", cookieDomain)
 	if appState != "" {
 		userRedirectURL = appState
 		// Parse the redirect URL to get the host

@@ -30,8 +30,8 @@ func TestLayout(t *testing.T) {
 				// NOTE: we check for UTF-8 because emojis in event descriptions render wrong without this character set
 				`<meta charset="UTF-8"`,
 				`<title>Meet Near Me - Events</title>`,
-				// NOTE: the hash is generated and should be committed to version control with each hash change to the CSS output
-				`<link rel="stylesheet" href=.*styles\.[a-f0-9]{8}\.css`,
+				// NOTE: the hash is generated in prod mode, but plain CSS is used in dev/test mode
+				`<link rel="stylesheet" href="[^"]*styles[^"]*\.css"`,
 				`<meta name="viewport" content="width=device-width, initial-scale=1"`,
 				"hello world!",
 			},
@@ -50,8 +50,8 @@ func TestLayout(t *testing.T) {
 				// NOTE: we check for UTF-8 because emojis in event descriptions render wrong without this character set
 				`<meta charset="UTF-8"`,
 				`<title>Meet Near Me - Test Event 1</title>`,
-				// NOTE: the hash is generated and should be committed to version control with each hash change to the CSS output
-				`<link rel="stylesheet" href=.*styles\.[a-f0-9]{8}\.css`,
+				// NOTE: the hash is generated in prod mode, but plain CSS is used in dev/test mode
+				`<link rel="stylesheet" href="[^"]*styles[^"]*\.css"`,
 				`<meta name="viewport" content="width=device-width, initial-scale=1"`,
 				"hello world!",
 			},

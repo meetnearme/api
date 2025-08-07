@@ -1,7 +1,7 @@
 package pages
 
 templ ErrorPage(body []byte, requestID string, hideError bool) {
-	<header class="page-header bg-base-100 shadow-md py-4">
+	<header class="page-header bg-base-100 py-4">
 		<h1 class="text-3xl mb-4 text-center w-full">{ string(body) }</h1>
 	</header>
 	if !hideError {

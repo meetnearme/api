@@ -64,11 +64,9 @@ func (s *RegistrationFieldsService) InsertRegistrationFields(ctx context.Context
 
 	res, err := dynamodbClient.PutItem(ctx, input)
 	if err != nil {
-		log.Print("htting error in put item dynamo")
+		log.Print("hitting error in put item dynamo")
 		return nil, err
 	}
-
-	log.Printf("res form put item: %v", res)
 
 	var insertedRegistrationFields internal_types.RegistrationFields
 
@@ -76,8 +74,6 @@ func (s *RegistrationFieldsService) InsertRegistrationFields(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-
-	log.Printf("inserted reg fields after creation: %v", insertedRegistrationFields)
 
 	// return registrationFields, nil
 	return &insertedRegistrationFields, nil
@@ -165,7 +161,6 @@ func (s *RegistrationFieldsService) DeleteRegistrationFields(ctx context.Context
 		return err
 	}
 
-	log.Printf("registration fields successfully deleted")
 	return nil
 }
 

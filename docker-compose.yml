@@ -1,0 +1,135 @@
+services:
+  postgres:
+    image: postgres:17.4-alpine3.21
+    container_name: meetnearme-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./seshujobs_init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - '${POSTGRES_PORT_HOST:-5433}:5432'
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    entrypoint: [
+        '/bin/sh',
+        '-c',
+        "
+        echo 'local all all trust' > /var/lib/postgresql/custom_pg_hba.conf && \
+        echo 'host all all 0.0.0.0/0 md5' >>
+        /var/lib/postgresql/custom_pg_hba.conf && \
+        exec docker-entrypoint.sh postgres -c listen_addresses='*' -c
+        hba_file=/var/lib/postgresql/custom_pg_hba.conf",
+      ] #For local check
+
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.30.1
+    container_name: meetnearme-weaviate
+    ports:
+      - '${WEAVIATE_PORT_HOST:-8080}:8080'
+    restart: unless-stopped
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'false'
+      AUTHENTICATION_APIKEY_ENABLED: 'true'
+      AUTHENTICATION_APIKEY_ALLOWED_KEYS: '${WEAVIATE_API_KEY_ALLOWED_KEYS}'
+      AUTHENTICATION_APIKEY_USERS: '${WEAVIATE_API_KEY_USERS}'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-transformers' # Use sentence transformers
+      ENABLE_MODULES: 'text2vec-transformers'
+      TRANSFORMERS_INFERENCE_API: 'http://t2v-transformers:8080' # Address of the vectorizer container
+      CLUSTER_HOSTNAME: 'node1'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    depends_on:
+      postgres:
+        condition: service_healthy
+      t2v-transformers:
+        condition: service_started
+    env_file:
+      - ./.env
+
+  nats-server:
+    image: nats:latest
+    container_name: meetnearme-nats
+    ports:
+      - '4222:4222' # Client port
+    command: ['-js', '-p', '4222']
+    restart: unless-stopped
+
+  t2v-transformers:
+    image: cr.weaviate.io/semitechnologies/transformers-inference:sentence-transformers-multi-qa-MiniLM-L6-cos-v1 # A good default model
+    environment:
+      ENABLE_CUDA: '0' # Set to '1' if you have a compatible GPU and NVIDIA drivers installed
+
+  go-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # this set for local dev, but overridden with `production` github workflow
+      # deployments ... in this case, `development` means "local dev" and
+      # `production` means "any deployed environment"
+      target: development
+    image: meetnearme-go-app:dev
+    container_name: meetnearme-go-app
+    ports:
+      - '8000:8000'
+    environment:
+      ACT_STAGE: ${ACT_STAGE:-dev}
+      NODE_ENV: development
+      DEPLOYMENT_TARGET: ${DEPLOYMENT_TARGET:-ACT}
+      _LAMBDA_SERVER_PORT: ''
+      AWS_LAMBDA_RUNTIME_API: ''
+      APP_PORT: ${APP_PORT:-8000}
+
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+
+      WEAVIATE_SCHEME: http
+      WEAVIATE_HOST: weaviate
+      WEAVIATE_PORT: 8080
+
+      # for debugging air
+      AIR_DEBUG: 1
+    env_file:
+      - .env
+    volumes:
+      # Mount entire project for development
+      - .:/go-app
+      # Exclude build artifacts and dependencies
+      - /go-app/node_modules
+      - /go-app/docker_build
+      - /go-app/.git
+      - /go-app/.sst
+      # Cache Go modules
+      - go-mod-cache:/go/pkg/mod
+      # - go-build-cache:/root/.cache/go-build
+    depends_on:
+      postgres:
+        condition: service_healthy
+      weaviate:
+        condition: service_started
+      nats-server:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  weaviate_data:
+  # New volumes for caching go mod and build
+  go-mod-cache:
+  # go-build-cache:

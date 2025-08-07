@@ -77,8 +77,6 @@ func (s *CompetitionRoundService) PutCompetitionRounds(ctx context.Context, dyna
 		log.Printf("Service: Successfully processed all items")
 	}
 
-	log.Printf("BatchItemOUtput: %+v", result)
-
 	return *result, nil
 }
 
@@ -352,7 +350,6 @@ func (s *CompetitionRoundService) DeleteCompetitionRound(ctx context.Context, dy
 		return err
 	}
 
-	log.Printf("competition round successfully deleted")
 	return nil
 }
 

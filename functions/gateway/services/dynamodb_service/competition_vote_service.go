@@ -112,36 +112,5 @@ func (s *CompetitionVoteService) DeleteCompetitionVote(ctx context.Context, dyna
 		return err
 	}
 
-	log.Printf("competition vote successfully deleted")
 	return nil
 }
-
-// // Mock service for testing
-// type MockCompetitionVoteService struct {
-// 	InsertCompetitionVoteFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, vote internal_types.CompetitionVoteInsert) (*internal_types.CompetitionVote, error)
-// 	GetCompetitionVoteByPkFunc func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, pk, sk string) (*internal_types.CompetitionVote, error)
-// 	GetVotesByRoundIDFunc      func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, roundId string) ([]internal_types.CompetitionVote, error)
-// 	UpdateCompetitionVoteFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, pk, sk string, vote internal_types.CompetitionVoteUpdate) (*internal_types.CompetitionVote, error)
-// 	DeleteCompetitionVoteFunc  func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, pk, sk string) error
-// }
-//
-// // Implement mock methods
-// func (m *MockCompetitionVoteService) InsertCompetitionVote(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, vote internal_types.CompetitionVoteInsert) (*internal_types.CompetitionVote, error) {
-// 	return m.InsertCompetitionVoteFunc(ctx, dynamodbClient, vote)
-// }
-//
-// func (m *MockCompetitionVoteService) GetCompetitionVoteByPk(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, pk, sk string) (*internal_types.CompetitionVote, error) {
-// 	return m.GetCompetitionVoteByPkFunc(ctx, dynamodbClient, pk, sk)
-// }
-//
-// func (m *MockCompetitionVoteService) GetVotesByRoundID(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, roundId string) ([]internal_types.CompetitionVote, error) {
-// 	return m.GetVotesByRoundIDFunc(ctx, dynamodbClient, roundId)
-// }
-//
-// func (m *MockCompetitionVoteService) UpdateCompetitionVote(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, pk, sk string, vote internal_types.CompetitionVoteUpdate) (*internal_types.CompetitionVote, error) {
-// 	return m.UpdateCompetitionVoteFunc(ctx, dynamodbClient, pk, sk, vote)
-// }
-//
-// func (m *MockCompetitionVoteService) DeleteCompetitionVote(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, pk, sk string) error {
-// 	return m.DeleteCompetitionVoteFunc(ctx, dynamodbClient, pk, sk)
-// }

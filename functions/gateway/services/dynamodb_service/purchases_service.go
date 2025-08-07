@@ -270,7 +270,6 @@ func (s *PurchaseService) DeletePurchase(ctx context.Context, dynamodbClient int
 		return err
 	}
 
-	log.Printf("purchase fields successfully deleted")
 	return nil
 }
 

@@ -22,10 +22,6 @@ func NewCompetitionRoundHandler(eventCompetitionRoundService internal_types.Comp
 }
 
 func (h *CompetitionRoundHandler) PutCompetitionRounds(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	competitionId := vars["competitionId"]
-	log.Printf("Handler: Starting PutCompetitionRound for competitionId: %s", competitionId)
-
 	var createCompetitionRounds []internal_types.CompetitionRoundUpdate
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -34,17 +30,12 @@ func (h *CompetitionRoundHandler) PutCompetitionRounds(w http.ResponseWriter, r 
 		return
 	}
 
-	log.Printf("Handler: Request body received: %s", string(body))
-
 	err = json.Unmarshal(body, &createCompetitionRounds)
 	if err != nil {
 		log.Printf("Handler ERROR: Failed to unmarshal JSON: %v", err)
 		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
 		return
 	}
-	log.Printf("ATTEN: %+v", createCompetitionRounds)
-
-	log.Printf("Handler: Unmarshaled %d competition rounds", len(createCompetitionRounds))
 
 	createCompetitionRounds, err = helpers.NormalizeCompetitionRounds(createCompetitionRounds)
 	if err != nil {
@@ -53,7 +44,6 @@ func (h *CompetitionRoundHandler) PutCompetitionRounds(w http.ResponseWriter, r 
 	}
 
 	db := transport.GetDB()
-	log.Printf("Handler: Calling service layer PutCompetitionRounds with %d rounds", len(createCompetitionRounds))
 
 	res, err := h.CompetitionRoundService.PutCompetitionRounds(r.Context(), db, &createCompetitionRounds)
 	if err != nil {
@@ -239,7 +229,6 @@ func GetCompetitionRoundsScoreSums(w http.ResponseWriter, r *http.Request) http.
 }
 
 func PutCompetitionRoundsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	log.Print("Hit round handler wrapper")
 	eventCompetitionRoundService := dynamodb_service.NewCompetitionRoundService()
 	handler := NewCompetitionRoundHandler(eventCompetitionRoundService)
 	return func(w http.ResponseWriter, r *http.Request) {
