@@ -1,87 +1,90 @@
-import { Api, StackContext, use } from 'sst/constructs';
-import envVars from './shared/env';
-import { StaticSiteStack } from './StaticSiteStack';
-import { StorageStack } from './StorageStack';
-import { HostedZone } from 'aws-cdk-lib/aws-route53';
-import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
-import { SeshuFunction } from './SeshuFunction';
+// IMPORTANT! This file is commented out because of the move to self-hosted ACT servers,
+// as a side effect, we are no longer deploying the AWS Lambda API Gateway
 
-export function ApiStack({ stack, app }: StackContext & { app: any }) {
-  const {
-    seshuSessionsTable,
-    // registrationsTable, // deprecated
-    registrationFieldsTable,
-    purchasablesTable,
-    // purchasesTable, // deprecated
-    purchasesTableV2,
-    competitionConfigTable,
-    competitionRoundsTable,
-    competitionWaitingRoomParticipantTable,
-    votesTable,
-    // eventRsvpsTable,  // deprecated
-  } = use(StorageStack);
-  const { staticSite } = use(StaticSiteStack);
-  const { seshuFn } = use(SeshuFunction);
+// import { Api, StackContext, use } from 'sst/constructs';
+// import envVars from './shared/env';
+// import { StaticSiteStack } from './StaticSiteStack';
+// import { StorageStack } from './StorageStack';
+// import { HostedZone } from 'aws-cdk-lib/aws-route53';
+// import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
+// import { SeshuFunction } from './SeshuFunction';
 
-  const api = new Api(stack, 'api', {
-    defaults: {
-      function: {
-        bind: [
-          seshuSessionsTable,
-          // registrationsTable,  // deprecated
-          registrationFieldsTable,
-          purchasablesTable,
-          // purchasesTable, // deprecated
-          purchasesTableV2,
-          competitionConfigTable,
-          competitionRoundsTable,
-          competitionWaitingRoomParticipantTable,
-          votesTable
-          // eventRsvpsTable,  // deprecated
-        ],
+// export function ApiStack({ stack, app }: StackContext & { app: any }) {
+//   const {
+//     seshuSessionsTable,
+//     // registrationsTable, // deprecated
+//     registrationFieldsTable,
+//     purchasablesTable,
+//     // purchasesTable, // deprecated
+//     purchasesTableV2,
+//     competitionConfigTable,
+//     competitionRoundsTable,
+//     competitionWaitingRoomParticipantTable,
+//     votesTable,
+//     // eventRsvpsTable,  // deprecated
+//   } = use(StorageStack);
+//   const { staticSite } = use(StaticSiteStack);
+//   const { seshuFn } = use(SeshuFunction);
 
-        environment: {
-          ...envVars,
-          // ----- BEGIN -----
-          // the vars below are a special case because the value comes from
-          // `sst deploy` at runtime and then gets set as an environment variable
-          STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
-          SESHU_FN_URL: process.env.SESHU_FN_URL ?? seshuFn.url,
-          SST_STAGE: app.stage,
+//   const api = new Api(stack, 'api', {
+//     defaults: {
+//       function: {
+//         bind: [
+//           seshuSessionsTable,
+//           // registrationsTable,  // deprecated
+//           registrationFieldsTable,
+//           purchasablesTable,
+//           // purchasesTable, // deprecated
+//           purchasesTableV2,
+//           competitionConfigTable,
+//           competitionRoundsTable,
+//           competitionWaitingRoomParticipantTable,
+//           votesTable
+//           // eventRsvpsTable,  // deprecated
+//         ],
 
-          // ----- END -----
-        },
-      },
-    },
-  });
+//         environment: {
+//           ...envVars,
+//           // ----- BEGIN -----
+//           // the vars below are a special case because the value comes from
+//           // `sst deploy` at runtime and then gets set as an environment variable
+//           STATIC_BASE_URL: process.env.STATIC_BASE_URL ?? staticSite.url,
+//           SESHU_FN_URL: process.env.SESHU_FN_URL ?? seshuFn.url,
+//           ACT_STAGE: app.stage,
 
-  let apexUrl;
-  if (app.stage === 'prod') {
-    apexUrl = process.env.APEX_URL;
-  } else if (app.stage === 'dev') {
-    apexUrl = process.env.APEX_DEV_URL;
-  } else {
-    apexUrl = api.url;
-  }
+//           // ----- END -----
+//         },
+//       },
+//     },
+//   });
 
-  // $default route is added separately because we want to get `api.url` which is yielded above among
-  // others, this is used by zitadel auth to redirect back to a frontend URL that matches the apex
+//   let apexUrl;
+//   if (app.stage === 'prod') {
+//     apexUrl = process.env.APEX_URL;
+//   } else if (app.stage === 'dev') {
+//     apexUrl = process.env._DEV_APEX_URL;
+//   } else {
+//     apexUrl = api.url;
+//   }
 
-  api.addRoutes(stack, {
-    $default: {
-      function: {
-        handler: 'functions/gateway',
-        environment: {
-          APEX_URL: apexUrl,
-        },
-      },
-    },
-  });
+//   // $default route is added separately because we want to get `api.url` which is yielded above among
+//   // others, this is used by zitadel auth to redirect back to a frontend URL that matches the apex
 
-  stack.addOutputs({
-    ApexUrl: apexUrl,
-    CloudformationApiUrl: api.url,
-  });
+//   api.addRoutes(stack, {
+//     $default: {
+//       function: {
+//         handler: 'functions/gateway',
+//         environment: {
+//           APEX_URL: apexUrl,
+//         },
+//       },
+//     },
+//   });
 
-  return { api };
-}
+//   stack.addOutputs({
+//     ApexUrl: apexUrl,
+//     CloudformationApiUrl: api.url,
+//   });
+
+//   return { api };
+// }

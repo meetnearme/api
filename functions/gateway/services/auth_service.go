@@ -330,15 +330,23 @@ func SetSubdomainCookie(w http.ResponseWriter, cookieName string, cookieValue st
 		log.Print("ERR: APEX_URL is not set, cannot set cookies")
 		return
 	}
-	apexDomain = strings.Replace(apexDomain, "https://", "", 1)
-	subdomainCookieWildcard := "." + apexDomain
+
 	subdomainCookie := &http.Cookie{
 		Name:     cookieName,
-		Domain:   subdomainCookieWildcard,
 		Value:    cookieValue,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+	}
+
+	if apexDomain == "http://localhost:8000" {
+		apexDomain = strings.Replace(apexDomain, "http://", "", 1)
+		subdomainCookie.Secure = false
+		subdomainCookie.Domain = ""
+	} else {
+		apexDomain = strings.Replace(apexDomain, "https://", "", 1)
+		subdomainCookie.Secure = true
+		subdomainCookieWildcard := "." + apexDomain
+		subdomainCookie.Domain = subdomainCookieWildcard
 	}
 
 	if clearing {
@@ -353,3 +361,4 @@ func SetSubdomainCookie(w http.ResponseWriter, cookieName string, cookieValue st
 
 	http.SetCookie(w, subdomainCookie)
 }
+

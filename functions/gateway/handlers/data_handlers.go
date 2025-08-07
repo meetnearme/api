@@ -31,12 +31,12 @@ import (
 
 var validate *validator.Validate = validator.New()
 
-type MarqoHandler struct {
-	MarqoService services.MarqoServiceInterface
+type WeaviateHandler struct {
+	WeaviateService services.WeaviateServiceInterface
 }
 
-func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler {
-	return &MarqoHandler{MarqoService: marqoService}
+func NewWeaviateHandler(weaviateService services.WeaviateServiceInterface) *WeaviateHandler {
+	return &WeaviateHandler{WeaviateService: weaviateService}
 }
 
 type PurchasableWebhookHandler struct {
@@ -76,8 +76,6 @@ type rawEvent struct {
 	ImageUrl              *string     `json:"imageUrl,omitempty"`
 	Categories            *[]string   `json:"categories,omitempty"`
 	Tags                  *[]string   `json:"tags,omitempty"`
-	CreatedAt             *int64      `json:"createdAt,omitempty"`
-	UpdatedAt             *int64      `json:"updatedAt,omitempty"`
 	UpdatedBy             *string     `json:"updatedBy,omitempty"`
 	HideCrossPromo        *bool       `json:"hideCrossPromo,omitempty"`
 }
@@ -145,12 +143,6 @@ func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
 	}
 	if raw.Tags != nil {
 		event.Tags = *raw.Tags
-	}
-	if raw.CreatedAt != nil {
-		event.CreatedAt = *raw.CreatedAt
-	}
-	if raw.UpdatedAt != nil {
-		event.UpdatedAt = *raw.UpdatedAt
 	}
 	if raw.UpdatedBy != nil {
 		event.UpdatedBy = *raw.UpdatedBy
@@ -220,22 +212,22 @@ func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId
 	return event, status, nil
 }
 
-func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
+func (h *WeaviateHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
 	createEvent, status, err := ValidateSingleEventPaylod(w, r, false)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to extract event from payload: "+err.Error()), status, err)
 		return
 	}
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
 	createEvents := []types.Event{createEvent}
-
-	res, err := services.BulkUpsertEventToMarqo(marqoClient, createEvents)
+	ctx := r.Context()
+	res, err := services.BulkUpsertEventsToWeaviate(ctx, weaviateClient, createEvents)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -251,8 +243,8 @@ func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.PostEvent(w, r)
 	}
@@ -303,7 +295,7 @@ func HandleSingleEventValidation(rawEvent rawEvent, requireId bool) (types.Event
 
 func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireIds bool) ([]types.Event, int, error) {
 	var payload struct {
-		Events []rawEvent `json:"events"`
+		Events []rawEvent `json:"events" validate:"required,min=1"`
 	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -320,6 +312,11 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
 		return nil, http.StatusBadRequest, fmt.Errorf("invalid body: %w", err)
 	}
 
+	// Additional check with custom message
+	if len(payload.Events) == 0 {
+		return nil, http.StatusBadRequest, fmt.Errorf("events array must contain at least one event")
+	}
+
 	events := make([]types.Event, len(payload.Events))
 	for i, rawEvent := range payload.Events {
 		event, statusCode, err := HandleSingleEventValidation(rawEvent, requireIds)
@@ -332,7 +329,7 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
 	return events, http.StatusOK, nil
 }
 
-func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
+func (h *WeaviateHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 	events, status, err := HandleBatchEventValidation(w, r, false)
 
 	if err != nil {
@@ -340,13 +337,13 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	res, err := services.BulkUpsertEventToMarqo(marqoClient, events)
+	res, err := services.BulkUpsertEventsToWeaviate(r.Context(), weaviateClient, events)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert events: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -361,23 +358,23 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostBatchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.PostBatchEvents(w, r)
 	}
 }
 
-func (h *MarqoHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
-	marqoClient, err := services.GetMarqoClient()
+func (h *WeaviateHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
 	parseDates := r.URL.Query().Get("parse_dates")
 	var event *types.Event
-	event, err = services.GetMarqoEventByID(marqoClient, eventId, parseDates)
+	event, err = services.GetWeaviateEventByID(r.Context(), weaviateClient, eventId, parseDates)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -392,17 +389,17 @@ func (h *MarqoHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.GetOneEvent(w, r)
 	}
 }
 
-func (h *MarqoHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) {
-	marqoClient, err := services.GetMarqoClient()
+func (h *WeaviateHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) {
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
@@ -411,7 +408,7 @@ func (h *MarqoHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) 
 		transport.SendServerRes(w, []byte("Failed to extract event from payload: "+err.Error()), status, err)
 		return
 	}
-	res, err := services.BulkUpdateMarqoEventByID(marqoClient, events)
+	res, err := services.BulkUpdateWeaviateEventsByID(r.Context(), weaviateClient, events)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -426,8 +423,8 @@ func (h *MarqoHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) 
 }
 
 func BulkUpdateEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.BulkUpdateEvents(w, r)
 	}
@@ -486,7 +483,8 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				err := helpers.ValidateTeamUUID(id)
 				if err != nil {
 					transport.SendServerRes(w,
-						[]byte(fmt.Sprintf(err.Error())),
+						// []byte(fmt.Sprintf(err.Error())),
+						[]byte(err.Error()),
 						http.StatusBadRequest,
 						nil)
 					return
@@ -629,10 +627,10 @@ func SearchUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	}
 }
 
-func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
-	marqoClient, err := services.GetMarqoClient()
+func (h *WeaviateHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
@@ -651,7 +649,7 @@ func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
 	updateEvent.Id = eventId
 	updateEvents := []types.Event{updateEvent}
 
-	res, err := services.BulkUpdateMarqoEventByID(marqoClient, updateEvents)
+	res, err := services.BulkUpdateWeaviateEventsByID(r.Context(), weaviateClient, updateEvents)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -666,25 +664,25 @@ func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.UpdateOneEvent(w, r)
 	}
 }
 
-func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
+func (h *WeaviateHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
 	// Extract parameter values from the request query parameters
 	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
 	var res types.EventSearchResponse
-	res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+	res, err = services.SearchWeaviateEvents(r.Context(), weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to search events: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -698,8 +696,8 @@ func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func SearchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.SearchEvents(w, r)
 	}
@@ -1119,7 +1117,6 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			transport.SendServerRes(w, []byte("Failed to get purchase for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
 			return err
 		}
-		log.Printf("purchase: %+v", purchase)
 		// Create a map of updates to restore the previously decremented inventory
 		incrementUpdates := make([]internal_types.PurchasableInventoryUpdate, len(purchase.PurchasedItems))
 		for i, item := range purchase.PurchasedItems {
@@ -1286,8 +1283,8 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 
 		var createdAt int64
 		updatedAt := time.Now().Unix()
-		if updateEventRegPurchPayload.Events[0].CreatedAt != nil {
-			createdAt = *updateEventRegPurchPayload.Events[0].CreatedAt
+		if updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.Unix() > 0 {
+			createdAt = updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.Unix()
 		} else {
 			createdAt = time.Now().Unix()
 		}
@@ -1355,9 +1352,9 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 		}
 
 		// Update events
-		marqoClient, err := services.GetMarqoClient()
+		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 			return
 		}
 
@@ -1366,10 +1363,6 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			events[0].Id = eventId
 		}
 		for i, rawEvent := range updateEventRegPurchPayload.Events {
-			if rawEvent.CreatedAt == nil {
-				rawEvent.CreatedAt = &createdAt
-			}
-			rawEvent.UpdatedAt = &updatedAt
 			rawEvent.Description = updateEventRegPurchPayload.Events[0].Description
 			if updateEventRegPurchPayload.Events[0].EventSourceType == helpers.ES_SERIES_PARENT {
 				rawEvent.EventSourceId = &eventId
@@ -1388,7 +1381,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 		// delete "sweeper" we do in the `defer` function below
 
 		farFutureTime, _ := time.Parse(time.RFC3339, "2099-05-01T12:00:00Z")
-		childEventsToDelete, err := services.SearchMarqoEvents(marqoClient, "", []float64{0, 0}, 1000000, 0, farFutureTime.Unix(), []string{}, "", "", "", []string{helpers.ES_EVENT_SERIES, helpers.ES_EVENT_SERIES_UNPUB}, []string{eventId})
+		childEventsToDelete, err := services.SearchWeaviateEvents(ctx, weaviateClient, "", []float64{0, 0}, 1000000, 0, farFutureTime.Unix(), []string{}, "", "", "", []string{helpers.ES_EVENT_SERIES, helpers.ES_EVENT_SERIES_UNPUB}, []string{eventId})
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to search for existing child events: "+err.Error()), http.StatusInternalServerError, err)
 			return
@@ -1417,7 +1410,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 					deleteEventsArr[i] = event.Id
 				}
 
-				_, err = services.BulkDeleteEventsFromMarqo(marqoClient, deleteEventsArr)
+				_, err = services.BulkDeleteEventsFromWeaviate(ctx, weaviateClient, deleteEventsArr)
 				if err != nil {
 					transport.SendServerRes(w, []byte("Failed to delete old child events: "+err.Error()), http.StatusInternalServerError, err)
 					return
@@ -1425,10 +1418,17 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			}
 		}()
 
-		eventsRes, err := services.BulkUpsertEventToMarqo(marqoClient, events)
+		eventsRes, err := services.BulkUpsertEventsToWeaviate(ctx, weaviateClient, events)
 		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to upsert events to marqo: "+err.Error()), http.StatusInternalServerError, err)
+			transport.SendServerRes(w, []byte("Failed to upsert events to weaviate: "+err.Error()), http.StatusInternalServerError, err)
 			return
+		}
+
+		var parentEventData types.Event
+		if len(events) > 0 {
+			parentEventData = events[0]
+		} else {
+			transport.SendServerRes(w, []byte("No event data was processed."), http.StatusInternalServerError, errors.New("no event data processed"))
 		}
 
 		// Create response object
@@ -1436,7 +1436,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			"status":  "success",
 			"message": "Event(s), registration fields, and purchasable(s) updated successfully",
 			"data": map[string]interface{}{
-				"parentEvent": eventsRes.Items[0],
+				"parentEvent": parentEventData,
 				"events":      eventsRes,
 				"regFields":   regFieldsRes,
 				"purchasable": purchRes,
@@ -1475,19 +1475,110 @@ func BulkDeleteEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
 	// TODO: check that the event user has permission to delete via `eventOwners` array
 
-	_, err = services.BulkDeleteEventsFromMarqo(marqoClient, bulkDeleteEventsPayload.Events)
+	_, err = services.BulkDeleteEventsFromWeaviate(r.Context(), weaviateClient, bulkDeleteEventsPayload.Events)
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to delete events from marqo: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to delete events from weaviate: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
 	transport.SendServerRes(w, []byte("Events deleted successfully"), http.StatusOK, nil)
+}
+
+func (h *WeaviateHandler) PostReShare(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userInfo := helpers.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	}
+
+	roleClaims := []helpers.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	validRoles := []string{string(helpers.SyndicateAdmin), string(helpers.SuperAdmin)}
+	if !helpers.HasRequiredRole(roleClaims, validRoles) {
+		err := errors.New("only event syndicators can add or edit events")
+		transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)
+		return
+	}
+
+	userId := ""
+	if userInfo.Sub != "" {
+		userId = userInfo.Sub
+	}
+
+	eventId := r.URL.Query().Get("event_id")
+
+	weaviateClient, err := services.GetWeaviateClient()
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	resp, err := weaviateClient.Data().ObjectsGetter().
+		WithID(eventId).
+		WithClassName(helpers.WeaviateEventClassName).
+		Do(ctx)
+
+	var existingShadowOwners []string
+	if resp != nil && len(resp) > 0 && resp[0] != nil {
+		if props, ok := resp[0].Properties.(map[string]interface{}); ok {
+			if shadowOwners, exists := props["shadowOwners"]; exists {
+				if shadowOwnersSlice, ok := shadowOwners.([]interface{}); ok {
+					for _, owner := range shadowOwnersSlice {
+						if ownerStr, ok := owner.(string); ok {
+							existingShadowOwners = append(existingShadowOwners, ownerStr)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Always append the current userId
+	existingShadowOwners = append(existingShadowOwners, userId)
+
+	// Remove duplicates
+	seen := make(map[string]bool)
+	unique := []string{}
+	for _, owner := range existingShadowOwners {
+		if !seen[owner] {
+			seen[owner] = true
+			unique = append(unique, owner)
+		}
+	}
+	existingShadowOwners = unique
+
+	err = weaviateClient.Data().Updater().
+		WithMerge(). // merges properties into the object
+		WithID(eventId).
+		WithClassName(helpers.WeaviateEventClassName).
+		WithProperties(map[string]interface{}{
+			"shadowOwners": existingShadowOwners, // Only the 'points' property is updated
+		}).
+		Do(ctx)
+
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to re share event: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	transport.SendServerRes(w, []byte("Event re-shared successfully"), http.StatusOK, nil)
+}
+
+func PostReShareHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
+	return func(w http.ResponseWriter, r *http.Request) {
+		handler.PostReShare(w, r)
+	}
 }

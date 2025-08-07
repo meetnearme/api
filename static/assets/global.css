@@ -66,7 +66,7 @@ body:has(.bottom-drawer) {
 }
 
 .sticky-under-top-nav.subheader {
-  top: 8rem;
+  top: 8.4rem;
 }
 
 .sticky-under-top-nav + *:first-child {
@@ -246,16 +246,19 @@ body:has(.bottom-drawer) {
   padding: 20px;
 }
 
-.btn.carousel-control-left:active:hover, .btn.carousel-control-left:active:focus {
-  transform: translate(-100%, -50%)
+.btn.carousel-control-left:active:hover,
+.btn.carousel-control-left:active:focus {
+  transform: translate(-100%, -50%);
 }
 
-.btn.carousel-control-right:active:hover, .btn.carousel-control-right:active:focus {
-  transform: translate(100%, -50%)
+.btn.carousel-control-right:active:hover,
+.btn.carousel-control-right:active:focus {
+  transform: translate(100%, -50%);
 }
 
 .btn.btn-bold-outline {
   border: 5px solid oklch(var(--p));
+  color: oklch(var(--pc)) !important;
 }
 
 .btn.btn-primary.btn-bg-inverted {
@@ -306,7 +309,7 @@ input[type='number'] {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1.5rem;
 }
 
@@ -316,4 +319,15 @@ input[type='number'] {
 
 .object-position-25-25 {
   object-position: 25% 25%;
+}
+
+.link-text {
+  color: var(--fallback-p, oklch(var(--p)));
+  background-color: var(--fallback-pc, oklch(var(--pc)));
+  padding: 0.125rem 0.25rem;
+}
+
+.link-text:hover {
+  color: var(--fallback-pc, oklch(var(--pc)));
+  background-color: var(--fallback-p, oklch(var(--p)));
 }

@@ -11,8 +11,10 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -191,19 +193,32 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		},
 	)
 
+	// Handle the case where the key doesn't exist (404 is expected)
+	if err != nil {
+		// Check if the error is due to a 404 (key not found)
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
+			// This is expected for new subdomains, continue with the flow
+			resp = nil
+		} else {
+			return fmt.Errorf("error checking if key exists: %w", err)
+		}
+	}
+
 	kvValueExists := false
-	if resp.StatusCode == http.StatusOK {
+	if resp != nil && resp.StatusCode == http.StatusOK {
 		kvValueExists = true
 	}
 
 	existingValueStr := ""
-	existingRespBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("error reading existing user subdomain body request: %+v", err.Error())
-	}
-	existingRespBodyStr := string(existingRespBody)
-	if resp.StatusCode == http.StatusOK {
-		existingValueStr = existingRespBodyStr
+	if resp != nil && resp.Body != nil {
+		existingRespBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("error reading existing user subdomain body request: %+v", err.Error())
+		}
+		existingRespBodyStr := string(existingRespBody)
+		if resp.StatusCode == http.StatusOK {
+			existingValueStr = existingRespBodyStr
+		}
 	}
 
 	// check for pattern [0-9]{18} => Zitadel UserID pattern
@@ -223,7 +238,7 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		existingValueStr = strings.Split(existingValueStr, ";")[0]
 	}
 
-	if existingValueStr != userID && resp.StatusCode == http.StatusOK {
+	if existingValueStr != userID && resp != nil && resp.StatusCode == http.StatusOK {
 		return fmt.Errorf(ERR_KV_KEY_EXISTS)
 	}
 
@@ -693,12 +708,10 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	}
 	defer res.Body.Close()
 
-	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
-	log.Println("saved user metadata body response: ", string(body))
 	return nil
 }
 
@@ -1012,4 +1025,60 @@ func GetMnmOptionsFromContext(ctx context.Context) map[string]string {
 		return mnmOptions
 	}
 	return map[string]string{}
+}
+
+func NormalizeURL(input string) (string, error) {
+	parsedURL, err := url.Parse(input)
+	if err != nil {
+		return "", err
+	}
+
+	parsedURL.Scheme = strings.ToLower(parsedURL.Scheme)
+	parsedURL.Host = strings.ToLower(parsedURL.Hostname())
+
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return "", fmt.Errorf("unsupported URL scheme: %s", parsedURL.Scheme)
+	}
+
+	if parsedURL.Port() == "443" || parsedURL.Port() == "80" {
+		parsedURL.Host = strings.ToLower(parsedURL.Hostname())
+	}
+
+	if parsedURL.Scheme == "" || parsedURL.Scheme == "http" {
+		parsedURL.Scheme = "https"
+	}
+
+	if parsedURL.User != nil {
+		parsedURL.User = nil
+	}
+
+	parsedURL.Fragment = ""
+
+	queryParams := parsedURL.Query()
+	pairs := make([]string, 0, len(queryParams)*2)
+
+	for key, values := range queryParams {
+		sort.Strings(values)
+		for _, value := range values {
+			encodedKey := url.QueryEscape(key)
+			encodedValue := url.QueryEscape(value)
+			pairs = append(pairs, fmt.Sprintf("%s=%s", encodedKey, encodedValue))
+		}
+	}
+
+	sort.Strings(pairs)
+	parsedURL.RawQuery = strings.Join(pairs, "&")
+
+	return parsedURL.String(), nil
+}
+
+func ExtractBaseDomain(rawURL string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+
+	host := parsed.Hostname()
+
+	return host, nil
 }
