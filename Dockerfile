@@ -44,6 +44,9 @@ FROM base AS development
 
 COPY . .
 
+# Copy migration files to development stage
+COPY migrations ./migrations
+
 RUN /go/bin/templ generate
 
 ENTRYPOINT ["/go/bin/air"]
@@ -58,7 +61,6 @@ COPY . .
 RUN /go/bin/templ generate
 # -ldflags="-w -s" strips debug symbols, making the binary smaller.
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./main ./functions/gateway/main.go
-RUN CGO_ENABLED=0 GOOS=linux go build -o ./create_weaviate_schema ./cmd/weaviate-setup/main.go
 
 # PRODUCTION STAGE
 #
@@ -73,7 +75,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /go-app
 
 COPY --from=builder /go-app/main /go-app/main
-COPY --from=builder /go-app/create_weaviate_schema /go-app/create_weaviate_schema
+COPY --from=builder /go-app/migrations /go-app/migrations
 
 RUN chown -R appuser:appgroup /go-app
 

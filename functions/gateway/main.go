@@ -32,6 +32,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/startup"
 	"github.com/meetnearme/api/functions/gateway/transport"
 )
 
@@ -175,13 +176,14 @@ func (app *App) InitRoutes() []Route {
 		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
 
 		//SeshuSession
-		{"/api/html/session/submit/", "POST", handlers.HandleSeshuJobSubmit, Require},
+		{"/api/html/session/submit/", "POST", handlers.HandleSeshuSessionSubmit, Require},
 
 		// SeshuJobs
 		{"/api/seshujob", "GET", handlers.GetSeshuJobs, Require},
-		{"/api/seshujob", "POST", handlers.CreateSeshuJob, Require},
-		{"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, Require},
-		{"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, Require},
+		// DISABLED to prevent abuse
+		// {"/api/seshujob", "POST", handlers.CreateSeshuJob, Require},
+		// {"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, Require},
+		// {"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, Require},
 		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
 
 		// Re-share
@@ -201,6 +203,14 @@ type App struct {
 	AuthConfig *AuthConfig
 	PostGresDB *services.PostgresService
 	Nats       *services.NatsService
+}
+
+func (app *App) runStartupTasks() error {
+	// Import the startup package to trigger init() functions
+	_ = startup.Registry
+
+	// Run all startup tasks
+	return startup.RunAll()
 }
 
 func NewApp() *App {
@@ -741,10 +751,17 @@ func main() {
 	defer app.PostGresDB.Close()
 	defer app.Nats.Close()
 
+	// Run startup tasks BEFORE setting up routes or starting the server
+	if err := app.runStartupTasks(); err != nil {
+		log.Fatalf("Startup tasks failed: %v", err)
+	}
+
 	routes := app.InitRoutes()
 	app.SetupRoutes(routes)
 
 	if deploymentTarget == "ACT" {
+
+		actServerPort := "8000"
 
 		seshuCtx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -758,14 +775,18 @@ func main() {
 		})
 		srv := &http.Server{
 			Handler: loggingRouter,
-			Addr:    "0.0.0.0:8000",
+			Addr:    "0.0.0.0:" + actServerPort,
 			// Increased timeouts to accommodate Facebook scraping (can take up to 60s)
 			WriteTimeout: 120 * time.Second, // 2 minutes for response writing
 			ReadTimeout:  120 * time.Second, // 2 minutes for request reading
 		}
 
+		// Log that we're about to start the server
+		log.Printf("Starting HTTP server on port %s...", actServerPort)
+
 		go func() {
-			if err := srv.ListenAndServe(); err != nil {
+			log.Printf("HTTP server is now listening on port %s", actServerPort)
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				log.Fatal(err)
 			}
 		}()

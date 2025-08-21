@@ -20,6 +20,7 @@ func TestLocationLookupPartial(t *testing.T) {
 		inputModelStr     string
 		buttonPreText     string
 		buttonPostText    string
+		titleStr          string
 		lat               float64
 		lon               float64
 		address           string
@@ -36,6 +37,7 @@ func TestLocationLookupPartial(t *testing.T) {
 			inputModelStr:  "formData.url",
 			buttonPreText:  "Confirm Address",
 			buttonPostText: "Address Confirmed",
+			titleStr:       "Address",
 			lat:            0,
 			lon:            0,
 			address:        "",
@@ -59,6 +61,7 @@ func TestLocationLookupPartial(t *testing.T) {
 			inputModelStr:  "formData.url",
 			buttonPreText:  "Confirm Address",
 			buttonPostText: "Address Confirmed",
+			titleStr:       "Address",
 			lat:            0,
 			lon:            0,
 			address:        "",
@@ -79,7 +82,7 @@ func TestLocationLookupPartial(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// component := NestedCheckboxList(tt.isInDropdown, tt.interests)
 
-			component := LocationLookupPartial(tt.hxMethod, tt.hxApiPath, tt.hxAfterReqStr, tt.inputModelStr, tt.buttonPreText, tt.buttonPostText, tt.lat, tt.lon, tt.address, tt.cfLocationLat, tt.cfLocationLon)
+			component := LocationLookupPartial(tt.hxMethod, tt.hxApiPath, tt.hxAfterReqStr, tt.inputModelStr, tt.buttonPreText, tt.buttonPostText, tt.lat, tt.lon, tt.address, tt.cfLocationLat, tt.cfLocationLon, tt.titleStr)
 			// Render the template
 			var buf bytes.Buffer
 			err := component.Render(context.Background(), &buf)

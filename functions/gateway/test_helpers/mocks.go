@@ -130,7 +130,7 @@ func (m *MockTemplateRenderer) Render(ctx context.Context, buf *bytes.Buffer) er
 }
 
 var (
-	PortCounter int32 = 8000
+	PortCounter int32 = 8001
 	portMutex   sync.Mutex
 	usedPorts   = make(map[string]bool)
 )

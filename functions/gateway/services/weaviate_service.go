@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-openapi/strfmt"
+	"github.com/go-playground/validator"
 	"github.com/golang/geo/s2"
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -25,6 +27,8 @@ import (
 	"github.com/weaviate/weaviate/entities/models"
 )
 
+var validate *validator.Validate = validator.New()
+
 const (
 	earthRadiusKm = 6371.0
 	milesPerKm    = 0.621371
@@ -32,6 +36,38 @@ const (
 
 const vectorizer = "text2vec-transformers"
 const eventClassName = helpers.WeaviateEventClassName
+
+// Create a new struct for raw JSON operations
+type RawEventData struct {
+	Id              string   `json:"id"`
+	EventOwners     []string `json:"eventOwners" validate:"required,min=1"`
+	EventOwnerName  string   `json:"eventOwnerName" validate:"required"`
+	EventSourceType string   `json:"eventSourceType" validate:"required"`
+	Name            string   `json:"name" validate:"required"`
+	Description     string   `json:"description" validate:"required"`
+	Address         string   `json:"address" validate:"required"`
+	Lat             float64  `json:"lat" validate:"required"`
+	Long            float64  `json:"long" validate:"required"`
+	Timezone        string   `json:"timezone" validate:"required"`
+}
+
+type RawEvent struct {
+	RawEventData
+	EventSourceId         *string     `json:"eventSourceId,omitempty"`
+	StartTime             interface{} `json:"startTime" validate:"required"`
+	EndTime               interface{} `json:"endTime,omitempty"`
+	StartingPrice         *int32      `json:"startingPrice,omitempty"`
+	Currency              *string     `json:"currency,omitempty"`
+	PayeeId               *string     `json:"payeeId,omitempty"`
+	CompetitionConfigId   *string     `json:"competitionConfigId,omitempty"`
+	HasRegistrationFields *bool       `json:"hasRegistrationFields,omitempty"`
+	HasPurchasable        *bool       `json:"hasPurchasable,omitempty"`
+	ImageUrl              *string     `json:"imageUrl,omitempty"`
+	Categories            *[]string   `json:"categories,omitempty"`
+	Tags                  *[]string   `json:"tags,omitempty"`
+	UpdatedBy             *string     `json:"updatedBy,omitempty"`
+	HideCrossPromo        *bool       `json:"hideCrossPromo,omitempty"`
+}
 
 func GetWeaviateClient() (*weaviate.Client, error) {
 	weaviateHost := os.Getenv("WEAVIATE_HOST")
@@ -89,14 +125,16 @@ func (e *WeaviateService) UpsertEventToWeaviate(client *weaviate.Client, event t
 	return nil, nil
 }
 
-func DefineWeaviateSchema(ctx context.Context, client *weaviate.Client) error {
+func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client) error {
 	// Delete class if exists (same as before)
 	exists, err := client.Schema().ClassExistenceChecker().WithClassName(eventClassName).Do(ctx)
 	if err != nil {
 		return fmt.Errorf("failed checking class existence: %w", err)
 	}
 	if exists {
-		log.Fatalf("FATAL: Class '%s' exists.", eventClassName)
+		// log.Fatalf("FATAL: Class '%s' exists.", eventClassName)
+		log.Printf("Weaviate Class '%s' exists. Skipping schema definition.", eventClassName)
+		return nil
 	}
 
 	// Define class structure using models.Property and string data types
@@ -274,6 +312,155 @@ func EventStructToMap(e types.Event) map[string]interface{} {
 	}
 
 	return props
+}
+
+func ConvertRawEventToEvent(raw RawEvent, requireId bool) (types.Event, error) {
+	loc, err := time.LoadLocation(raw.Timezone)
+	if err != nil {
+		return types.Event{}, fmt.Errorf("invalid timezone: %w", err)
+	}
+	event := types.Event{
+		Id:              raw.Id,
+		EventOwners:     raw.EventOwners,
+		EventOwnerName:  raw.EventOwnerName,
+		EventSourceType: raw.EventSourceType,
+		Name:            raw.Name,
+		Description:     raw.Description,
+		Address:         raw.Address,
+		Lat:             raw.Lat,
+		Long:            raw.Long,
+		Timezone:        *loc,
+	}
+
+	// Safely assign pointer values
+	if raw.StartingPrice != nil {
+		event.StartingPrice = *raw.StartingPrice
+	}
+	if raw.Currency != nil {
+		event.Currency = *raw.Currency
+	}
+	if raw.PayeeId != nil {
+		event.PayeeId = *raw.PayeeId
+	}
+	if raw.HasRegistrationFields != nil {
+		event.HasRegistrationFields = *raw.HasRegistrationFields
+	}
+	if raw.HasPurchasable != nil {
+		event.HasPurchasable = *raw.HasPurchasable
+	}
+	if raw.ImageUrl != nil {
+		event.ImageUrl = *raw.ImageUrl
+	}
+	if raw.Categories != nil {
+		event.Categories = *raw.Categories
+	}
+	if raw.Tags != nil {
+		event.Tags = *raw.Tags
+	}
+	if raw.UpdatedBy != nil {
+		event.UpdatedBy = *raw.UpdatedBy
+	}
+	if raw.HideCrossPromo != nil {
+		event.HideCrossPromo = *raw.HideCrossPromo
+	}
+	if raw.EventSourceId != nil {
+		event.EventSourceId = *raw.EventSourceId
+	}
+	if raw.CompetitionConfigId != nil {
+		event.CompetitionConfigId = *raw.CompetitionConfigId
+	}
+	if raw.StartTime == nil {
+		return types.Event{}, fmt.Errorf("startTime is required")
+	}
+	startTime, err := helpers.UtcToUnix64(raw.StartTime, loc)
+	if err != nil || startTime == 0 {
+		return types.Event{}, fmt.Errorf("invalid StartTime: %w", err)
+	}
+	event.StartTime = startTime
+
+	if raw.EndTime != nil {
+		endTime, err := helpers.UtcToUnix64(raw.EndTime, loc)
+		if err != nil || endTime == 0 {
+			return types.Event{}, fmt.Errorf("invalid EndTime: %w", err)
+		}
+		event.EndTime = endTime
+	}
+	if raw.PayeeId != nil || raw.StartingPrice != nil || raw.Currency != nil {
+
+		if raw.PayeeId == nil || raw.StartingPrice == nil || raw.Currency == nil {
+			return types.Event{}, fmt.Errorf("all of 'PayeeId', 'StartingPrice', and 'Currency' are required if any are present")
+		}
+
+		if raw.PayeeId != nil {
+			event.PayeeId = *raw.PayeeId
+		}
+		if raw.Currency != nil {
+			event.Currency = *raw.Currency
+		}
+		if raw.StartingPrice != nil {
+			event.StartingPrice = *raw.StartingPrice
+		}
+	}
+	return event, nil
+}
+
+func BulkValidateEvents(events []RawEvent, requireIds bool) (eventsToReturn []types.Event, statusCode int, err error) {
+	if len(events) == 0 {
+		return []types.Event{}, http.StatusBadRequest, fmt.Errorf("no events to validate")
+	}
+	eventsToReturn = make([]types.Event, len(events))
+	for i, rawEvent := range events {
+		event, statusCode, err := SingleValidateEvent(rawEvent, requireIds)
+		if err != nil {
+			return nil, statusCode, fmt.Errorf("invalid body: invalid event at index %d: %w", i, err)
+		}
+		eventsToReturn[i] = event
+	}
+
+	return eventsToReturn, http.StatusOK, nil
+}
+
+func SingleValidateEvent(rawEvent RawEvent, requireId bool) (types.Event, int, error) {
+	if err := validate.Struct(rawEvent); err != nil {
+		// Type assert to get validation errors
+		if validationErrors, ok := err.(validator.ValidationErrors); ok {
+			// Get just the first validation error
+			firstErr := validationErrors[0]
+			// Extract just the field name and error
+			return types.Event{}, http.StatusBadRequest,
+				fmt.Errorf("Field validation for '%s' failed on the '%s' tag",
+					firstErr.Field(), firstErr.Tag())
+		}
+		return types.Event{}, http.StatusBadRequest, err
+	}
+	if requireId && rawEvent.Id == "" {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event has no id")
+	}
+	if len(rawEvent.EventOwners) == 0 {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwners")
+	}
+	if requireId && rawEvent.Id == "" {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event has no id")
+	}
+	if len(rawEvent.EventOwners) == 0 {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwners")
+	}
+
+	if rawEvent.EventOwnerName == "" {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwnerName")
+	}
+
+	if rawEvent.Timezone == "" {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing timezone")
+	}
+	if helpers.ArrFindFirst([]string{rawEvent.EventSourceType}, helpers.ALL_EVENT_SOURCE_TYPES) == "" {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid eventSourceType: %s", rawEvent.EventSourceType)
+	}
+	event, err := ConvertRawEventToEvent(rawEvent, requireId)
+	if err != nil {
+		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid event : %s", err.Error())
+	}
+	return event, http.StatusOK, nil
 }
 
 func BulkUpsertEventsToWeaviate(ctx context.Context, client *weaviate.Client, events []types.Event) ([]models.ObjectsGetResponse, error) {

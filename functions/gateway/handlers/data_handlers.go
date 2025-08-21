@@ -48,38 +48,6 @@ func NewPurchasableWebhookHandler(purchasableService internal_types.PurchasableS
 	return &PurchasableWebhookHandler{PurchasableService: purchasableService, PurchaseService: purchaseService}
 }
 
-// Create a new struct for raw JSON operations
-type rawEventData struct {
-	Id              string   `json:"id"`
-	EventOwners     []string `json:"eventOwners" validate:"required,min=1"`
-	EventOwnerName  string   `json:"eventOwnerName" validate:"required"`
-	EventSourceType string   `json:"eventSourceType" validate:"required"`
-	Name            string   `json:"name" validate:"required"`
-	Description     string   `json:"description" validate:"required"`
-	Address         string   `json:"address" validate:"required"`
-	Lat             float64  `json:"lat" validate:"required"`
-	Long            float64  `json:"long" validate:"required"`
-	Timezone        string   `json:"timezone" validate:"required"`
-}
-
-type rawEvent struct {
-	rawEventData
-	EventSourceId         *string     `json:"eventSourceId,omitempty"`
-	StartTime             interface{} `json:"startTime" validate:"required"`
-	EndTime               interface{} `json:"endTime,omitempty"`
-	StartingPrice         *int32      `json:"startingPrice,omitempty"`
-	Currency              *string     `json:"currency,omitempty"`
-	PayeeId               *string     `json:"payeeId,omitempty"`
-	CompetitionConfigId   *string     `json:"competitionConfigId,omitempty"`
-	HasRegistrationFields *bool       `json:"hasRegistrationFields,omitempty"`
-	HasPurchasable        *bool       `json:"hasPurchasable,omitempty"`
-	ImageUrl              *string     `json:"imageUrl,omitempty"`
-	Categories            *[]string   `json:"categories,omitempty"`
-	Tags                  *[]string   `json:"tags,omitempty"`
-	UpdatedBy             *string     `json:"updatedBy,omitempty"`
-	HideCrossPromo        *bool       `json:"hideCrossPromo,omitempty"`
-}
-
 // Create a new struct that includes the createPurchase fields and the Stripe checkout URL
 type PurchaseResponse struct {
 	internal_types.PurchaseInsert
@@ -101,98 +69,8 @@ type searchResult struct {
 	err        error
 }
 
-func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
-	loc, err := time.LoadLocation(raw.Timezone)
-	if err != nil {
-		return types.Event{}, fmt.Errorf("invalid timezone: %w", err)
-	}
-	event := types.Event{
-		Id:              raw.Id,
-		EventOwners:     raw.EventOwners,
-		EventOwnerName:  raw.EventOwnerName,
-		EventSourceType: raw.EventSourceType,
-		Name:            raw.Name,
-		Description:     raw.Description,
-		Address:         raw.Address,
-		Lat:             raw.Lat,
-		Long:            raw.Long,
-		Timezone:        *loc,
-	}
-
-	// Safely assign pointer values
-	if raw.StartingPrice != nil {
-		event.StartingPrice = *raw.StartingPrice
-	}
-	if raw.Currency != nil {
-		event.Currency = *raw.Currency
-	}
-	if raw.PayeeId != nil {
-		event.PayeeId = *raw.PayeeId
-	}
-	if raw.HasRegistrationFields != nil {
-		event.HasRegistrationFields = *raw.HasRegistrationFields
-	}
-	if raw.HasPurchasable != nil {
-		event.HasPurchasable = *raw.HasPurchasable
-	}
-	if raw.ImageUrl != nil {
-		event.ImageUrl = *raw.ImageUrl
-	}
-	if raw.Categories != nil {
-		event.Categories = *raw.Categories
-	}
-	if raw.Tags != nil {
-		event.Tags = *raw.Tags
-	}
-	if raw.UpdatedBy != nil {
-		event.UpdatedBy = *raw.UpdatedBy
-	}
-	if raw.HideCrossPromo != nil {
-		event.HideCrossPromo = *raw.HideCrossPromo
-	}
-	if raw.EventSourceId != nil {
-		event.EventSourceId = *raw.EventSourceId
-	}
-	if raw.CompetitionConfigId != nil {
-		event.CompetitionConfigId = *raw.CompetitionConfigId
-	}
-	if raw.StartTime == nil {
-		return types.Event{}, fmt.Errorf("startTime is required")
-	}
-	startTime, err := helpers.UtcToUnix64(raw.StartTime, loc)
-	if err != nil || startTime == 0 {
-		return types.Event{}, fmt.Errorf("invalid StartTime: %w", err)
-	}
-	event.StartTime = startTime
-
-	if raw.EndTime != nil {
-		endTime, err := helpers.UtcToUnix64(raw.EndTime, loc)
-		if err != nil || endTime == 0 {
-			return types.Event{}, fmt.Errorf("invalid EndTime: %w", err)
-		}
-		event.EndTime = endTime
-	}
-	if raw.PayeeId != nil || raw.StartingPrice != nil || raw.Currency != nil {
-
-		if raw.PayeeId == nil || raw.StartingPrice == nil || raw.Currency == nil {
-			return types.Event{}, fmt.Errorf("all of 'PayeeId', 'StartingPrice', and 'Currency' are required if any are present")
-		}
-
-		if raw.PayeeId != nil {
-			event.PayeeId = *raw.PayeeId
-		}
-		if raw.Currency != nil {
-			event.Currency = *raw.Currency
-		}
-		if raw.StartingPrice != nil {
-			event.StartingPrice = *raw.StartingPrice
-		}
-	}
-	return event, nil
-}
-
 func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId bool) (event types.Event, status int, err error) {
-	var raw rawEvent
+	var raw services.RawEvent
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -204,7 +82,7 @@ func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId
 		return types.Event{}, http.StatusUnprocessableEntity, fmt.Errorf("invalid JSON payload: %w", err)
 	}
 
-	event, status, err = HandleSingleEventValidation(raw, requireId)
+	event, status, err = services.SingleValidateEvent(raw, requireId)
 	if err != nil {
 		return types.Event{}, status, fmt.Errorf("invalid body: %w", err)
 	}
@@ -250,52 +128,9 @@ func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 }
 
-func HandleSingleEventValidation(rawEvent rawEvent, requireId bool) (types.Event, int, error) {
-	if err := validate.Struct(rawEvent); err != nil {
-		// Type assert to get validation errors
-		if validationErrors, ok := err.(validator.ValidationErrors); ok {
-			// Get just the first validation error
-			firstErr := validationErrors[0]
-			// Extract just the field name and error
-			return types.Event{}, http.StatusBadRequest,
-				fmt.Errorf("Field validation for '%s' failed on the '%s' tag",
-					firstErr.Field(), firstErr.Tag())
-		}
-		return types.Event{}, http.StatusBadRequest, err
-	}
-	if requireId && rawEvent.Id == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event has no id")
-	}
-	if len(rawEvent.EventOwners) == 0 {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwners")
-	}
-	if requireId && rawEvent.Id == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event has no id")
-	}
-	if len(rawEvent.EventOwners) == 0 {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwners")
-	}
-
-	if rawEvent.EventOwnerName == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwnerName")
-	}
-
-	if rawEvent.Timezone == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing timezone")
-	}
-	if helpers.ArrFindFirst([]string{rawEvent.EventSourceType}, helpers.ALL_EVENT_SOURCE_TYPES) == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid eventSourceType: %s", rawEvent.EventSourceType)
-	}
-	event, err := ConvertRawEventToEvent(rawEvent, requireId)
-	if err != nil {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid event : %s", err.Error())
-	}
-	return event, http.StatusOK, nil
-}
-
 func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireIds bool) ([]types.Event, int, error) {
 	var payload struct {
-		Events []rawEvent `json:"events" validate:"required,min=1"`
+		Events []services.RawEvent `json:"events" validate:"required,min=1"`
 	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -317,13 +152,9 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
 		return nil, http.StatusBadRequest, fmt.Errorf("events array must contain at least one event")
 	}
 
-	events := make([]types.Event, len(payload.Events))
-	for i, rawEvent := range payload.Events {
-		event, statusCode, err := HandleSingleEventValidation(rawEvent, requireIds)
-		if err != nil {
-			return nil, statusCode, fmt.Errorf("invalid body: invalid event at index %d: %w", i, err)
-		}
-		events[i] = event
+	events, statusCode, err := services.BulkValidateEvents(payload.Events, requireIds)
+	if err != nil {
+		return nil, statusCode, fmt.Errorf("invalid body: %w", err)
 	}
 
 	return events, http.StatusOK, nil
@@ -1231,7 +1062,7 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 }
 
 type UpdateEventRegPurchPayload struct {
-	Events                   []rawEvent                              `json:"events" validate:"required"`
+	Events                   []services.RawEvent                     `json:"events" validate:"required"`
 	RegistrationFieldsUpdate internal_types.RegistrationFieldsUpdate `json:"registrationFieldsUpdate"`
 	PurchasableUpdate        internal_types.PurchasableUpdate        `json:"purchasableUpdate"`
 	Rounds                   []internal_types.CompetitionRoundUpdate `json:"rounds"`
@@ -1368,7 +1199,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 				rawEvent.EventSourceId = &eventId
 			}
 
-			event, statusCode, err := HandleSingleEventValidation(rawEvent, false)
+			event, statusCode, err := services.SingleValidateEvent(rawEvent, false)
 			if err != nil {
 				transport.SendServerRes(w, []byte("Failed to validate events: "+err.Error()), statusCode, err)
 				return

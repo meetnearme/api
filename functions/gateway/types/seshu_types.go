@@ -5,13 +5,18 @@ import (
 )
 
 type EventInfo struct {
-	EventTitle       string `json:"event_title"`
-	EventLocation    string `json:"event_location"`
-	EventStartTime   string `json:"event_start_datetime"`
-	EventEndTime     string `json:"event_end_datetime"`
-	EventURL         string `json:"event_url"`
-	EventDescription string `json:"event_description"`
-	EventSource      string `json:"event_source"`
+	EventTitle        string  `json:"event_title"`
+	EventLocation     string  `json:"event_location"`
+	EventStartTime    string  `json:"event_start_datetime"`
+	EventEndTime      string  `json:"event_end_datetime"`
+	EventTimezone     string  `json:"event_timezone"`
+	EventURL          string  `json:"event_url"`
+	EventDescription  string  `json:"event_description"`
+	EventHostName     string  `json:"event_host_name"`
+	EventLatitude     float64 `json:"event_latitude,omitempty"`
+	EventLongitude    float64 `json:"event_longitude,omitempty"`
+	KnownScrapeSource string  `json:"known_scrape_source"`
+	ScrapeMode        string  `json:"scrape_mode"`
 }
 
 type EventBoolValid struct {
@@ -96,6 +101,7 @@ type SeshuJob struct {
 	LocationLatitude         float64 `json:"location_latitude,omitempty" validate:"required"`
 	LocationLongitude        float64 `json:"location_longitude,omitempty" validate:"required"`
 	LocationAddress          string  `json:"location_address,omitempty" validate:"required"`
+	LocationTimezone         string  `json:"location_timezone,omitempty" validate:"optional"`
 	ScheduledHour            int     `json:"scheduled_hour,omitempty" validate:"required"` // Hour of the day (0-23)
 	TargetNameCSSPath        string  `json:"target_name_css_path" validate:"required"`
 	TargetLocationCSSPath    string  `json:"target_location_css_path" validate:"required"`
@@ -108,5 +114,5 @@ type SeshuJob struct {
 	LastScrapeFailure        int64   `json:"last_scrape_failure,omitempty" validate:"required"`
 	LastScrapeFailureCount   int     `json:"last_scrape_failure_count" validate:"required"`
 	OwnerID                  string  `json:"owner_id" validate:"required"`
-	KnownScrapeSource        string  `json:"known_scrape_source" validate:"required"` // e.g. "MEETUP", "EVENTBRITE", etc.
+	KnownScrapeSource        string  `json:"known_scrape_source"` // e.g. "MEETUP", "EVENTBRITE", etc.
 }
