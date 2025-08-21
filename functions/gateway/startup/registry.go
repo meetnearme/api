@@ -48,7 +48,7 @@ func init() {
 		log.Println("Skipping startup task registration in test environment")
 		return
 	}
-	
+
 	// Register all startup tasks
 	Register("Database Migrations", InitMigrations)
 	Register("Weaviate Schema Setup", InitWeaviate)

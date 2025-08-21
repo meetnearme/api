@@ -81,7 +81,7 @@ func init() {
 		log.Println("Skipping database migrations in test environment")
 		return
 	}
-	
+
 	if err := InitMigrations(); err != nil {
 		log.Fatalf("Migrations failed: %v", err)
 	}
