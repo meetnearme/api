@@ -776,7 +776,6 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 	// Bulk upsert events to Weaviate
 	if len(weaviateEvents) > 0 {
 		log.Printf("Upserting %d events to Weaviate for %s", len(weaviateEvents), seshuJob.NormalizedUrlKey)
-		log.Printf("Events: %+v", weaviateEvents)
 		_, err = BulkUpsertEventsToWeaviate(context.Background(), weaviateClient, weaviateEventsStrict)
 		if err != nil {
 			return fmt.Errorf("failed to upsert events to Weaviate for %s: %v", seshuJob.NormalizedUrlKey, err)
