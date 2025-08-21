@@ -572,12 +572,10 @@ func FilterValidEvents(events []types.EventInfo) []types.EventInfo {
 		// Handle EventDescription fallback to EventTitle if missing
 		if event.EventDescription == "" {
 			event.EventDescription = event.EventTitle
-			log.Printf("INFO: Event %d: using EventTitle as EventDescription fallback", i)
 		}
 
 		// Event passed all validation checks
 		validEvents = append(validEvents, event)
-		log.Printf("INFO: Event %d passed validation: %s", i, event.EventTitle)
 	}
 
 	return validEvents
@@ -599,7 +597,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 	validEvents := FilterValidEvents(events)
 
 	if len(validEvents) == 0 {
-		log.Printf("No valid events to push to DB for %s, filtered %s events down to %s", seshuJob.NormalizedUrlKey, len(events), len(validEvents))
+		log.Printf("No valid events to push to DB for %s, filtered %v events down to %v", seshuJob.NormalizedUrlKey, len(events), len(validEvents))
 		return nil
 	}
 
