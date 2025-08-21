@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/meetnearme/api/functions/gateway/services"
 
@@ -31,6 +32,12 @@ func InitWeaviate() error {
 
 // init function for backward compatibility
 func init() {
+	// Skip initialization in test environment
+	if os.Getenv("GO_ENV") == "test" {
+		log.Println("Skipping Weaviate initialization in test environment")
+		return
+	}
+
 	if err := InitWeaviate(); err != nil {
 		log.Fatalf("Weaviate setup failed: %v", err)
 	}

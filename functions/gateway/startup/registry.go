@@ -3,6 +3,7 @@ package startup
 import (
 	"fmt"
 	"log"
+	"os"
 )
 
 // StartupTask represents a startup task function
@@ -42,6 +43,12 @@ func RunAll() error {
 
 // Auto-register startup tasks
 func init() {
+	// Skip registration in test environment
+	if os.Getenv("GO_ENV") == "test" {
+		log.Println("Skipping startup task registration in test environment")
+		return
+	}
+	
 	// Register all startup tasks
 	Register("Database Migrations", InitMigrations)
 	Register("Weaviate Schema Setup", InitWeaviate)

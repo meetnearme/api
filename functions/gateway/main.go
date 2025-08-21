@@ -752,8 +752,10 @@ func main() {
 	defer app.Nats.Close()
 
 	// Run startup tasks BEFORE setting up routes or starting the server
-	if err := app.runStartupTasks(); err != nil {
-		log.Fatalf("Startup tasks failed: %v", err)
+	if os.Getenv("GO_ENV") != helpers.GO_TEST_ENV {
+		if err := app.runStartupTasks(); err != nil {
+			log.Fatalf("Startup tasks failed: %v", err)
+		}
 	}
 
 	routes := app.InitRoutes()

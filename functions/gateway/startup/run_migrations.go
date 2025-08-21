@@ -76,6 +76,12 @@ func InitMigrations() error {
 
 // init function for backward compatibility
 func init() {
+	// Skip initialization in test environment
+	if os.Getenv("GO_ENV") == "test" {
+		log.Println("Skipping database migrations in test environment")
+		return
+	}
+	
 	if err := InitMigrations(); err != nil {
 		log.Fatalf("Migrations failed: %v", err)
 	}
