@@ -551,8 +551,6 @@ func TryParsingFuzzyTimeStr(dateStr string, fallbackTimezone *time.Location) (in
 				parsedTime = parsedTime.AddDate(currentYear, 0, 0)
 			}
 			return parsedTime.Unix(), foundTimezone, nil
-		} else {
-			log.Printf("INFO: Format '%s' failed for date string '%s': %v", format, cleanedDateStr, err)
 		}
 	}
 
