@@ -197,6 +197,46 @@
     "NATS_SESHU_STREAM_DURABLE_NAME": {
       "description": "The durable name of the Seshu stream for NATS",
       "required": true
+    },
+    "SST_Table_tableName_CompetitionConfig": {
+      "description": "The name of the Competition Config table for SST",
+      "required": true
+    },
+    "SST_Table_tableName_CompetitionRounds": {
+      "description": "The name of the Competition Rounds table for SST",
+      "required": true
+    },
+    "SST_Table_tableName_CompetitionWaitingRoomParticipant": {
+      "description": "The name of the Competition Waiting Room Participant table for SST",
+      "required": true
+    },
+    "SST_Table_tableName_EventRsvps": {
+      "description": "The name of the Event Rsvps table for SST",
+      "required": true
+    },
+    "SST_Table_tableName_Purchasables": {
+      "description": "The name of the Purchasables table for SST",
+      "required": true
+    },
+    "SST_Table_tableName_PurchasesV2": {
+      "description": "The name of the PurchasesV2 table for SST",
+      "required": true
+    },
+    "SST_Table_tableName_RegistrationFields": {
+      "description": "The name of the Registration Fields table for SST",
+      "required": true
+    },
+    "SST_Table_tableName_Registrations": {
+      "description": "The name of the Registrations table for SST",
+      "required": true
+    },
+    "SST_Table_tableName_SeshuSessions": {
+      "description": "The name of the Seshu Sessions table for SST",
+      "required": true
+    },
+    "SST_Table_tableName_Votes": {
+      "description": "The name of the Votes table for SST",
+      "required": true
     }
   }
 }
