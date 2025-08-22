@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -36,7 +35,7 @@ func (m *MockScrapingService) GetHTMLFromURLWithRetries(unescapedURL string, tim
 	return m.GetHTMLFromURL(unescapedURL, timeout, jsRender, waitFor)
 }
 
-func TestHandleSeshuJobSubmit(t *testing.T) {
+func TestHandleSeshuSessionSubmit(t *testing.T) {
 	// Save original environment variables
 	originalScrapingBeeAPIBaseURL := os.Getenv("SCRAPINGBEE_API_URL_BASE")
 	originalOpenAIAPIBaseURL := os.Getenv("OPENAI_API_BASE_URL")
@@ -189,8 +188,8 @@ func TestHandleSeshuJobSubmit(t *testing.T) {
 			ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "test-user-123"})
 			req = req.WithContext(ctx)
 
-			// Call HandleSeshuJobSubmit and get the resulting handler
-			handler := HandleSeshuJobSubmit(httptest.NewRecorder(), req)
+			// Call HandleSeshuSessionSubmit and get the resulting handler
+			handler := HandleSeshuSessionSubmit(httptest.NewRecorder(), req)
 
 			// Call the returned handler
 			rec := httptest.NewRecorder()
@@ -348,74 +347,6 @@ func TestUnpadJSON(t *testing.T) {
 				t.Errorf("UnpadJSON() = %v, want %v", result, tt.expected)
 			}
 		})
-	}
-}
-
-func TestSendMessage(t *testing.T) {
-	// Save original environment variables
-	originalOpenAIAPIBaseURL := os.Getenv("OPENAI_API_BASE_URL")
-	originalOpenAIAPIKey := os.Getenv("OPENAI_API_KEY")
-
-	// Set up mock OpenAI server with proper port rotation
-	hostAndPort := test_helpers.GetNextPort()
-	mockOpenAI := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"response": "mock response"}`))
-	}))
-
-	listener, err := test_helpers.BindToPort(t, hostAndPort)
-	if err != nil {
-		t.Fatalf("Failed to bind OpenAI server: %v", err)
-	}
-	mockOpenAI.Listener = listener
-	mockOpenAI.Start()
-	defer mockOpenAI.Close()
-
-	// Override environment variables
-	os.Setenv("OPENAI_API_BASE_URL", mockOpenAI.URL)
-	os.Setenv("OPENAI_API_KEY", "mock-api-key")
-
-	// Restore env after test
-	defer func() {
-		os.Setenv("OPENAI_API_BASE_URL", originalOpenAIAPIBaseURL)
-		os.Setenv("OPENAI_API_KEY", originalOpenAIAPIKey)
-	}()
-
-	// Test SendMessage function
-	response, err := SendMessage("test-session-id", "test message")
-	if err != nil {
-		t.Errorf("SendMessage() error = %v", err)
-	}
-	if response == "" {
-		t.Error("SendMessage() returned empty response")
-	}
-}
-
-func TestClientError(t *testing.T) {
-	response, err := clientError(http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("clientError() error = %v", err)
-	}
-	if response.StatusCode != http.StatusBadRequest {
-		t.Errorf("clientError() status = %v, want %v", response.StatusCode, http.StatusBadRequest)
-	}
-	if response.Body != "Bad Request" {
-		t.Errorf("clientError() body = %v, want %v", response.Body, "Bad Request")
-	}
-}
-
-func TestServerError(t *testing.T) {
-	testErr := errors.New("test error")
-	response, err := serverError(testErr)
-	if err != nil {
-		t.Errorf("serverError() error = %v", err)
-	}
-	if response.StatusCode != http.StatusInternalServerError {
-		t.Errorf("serverError() status = %v, want %v", response.StatusCode, http.StatusInternalServerError)
-	}
-	if response.Body != "Internal Server Error" {
-		t.Errorf("serverError() body = %v, want %v", response.Body, "Internal Server Error")
 	}
 }
 

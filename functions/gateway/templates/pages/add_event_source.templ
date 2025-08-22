@@ -76,10 +76,11 @@ templ AddEventSource() {
 					</label>
 					<div class="hidden-when-not-checked">
 						<div id="location-type-address" :class="{'opacity-100 h-auto': formData.selectedLocationType === 'address'}" aria-live="polite" class="opacity-0 h-0 w-full mt-5 mb-5 transition-all">
+							// @components.LocationLookupPartial("post", "/api/html/seshu/session/location", "", "formData.url", "Confirm Address", "Address Confirmed", 0, 0, "", 0, 0, "Enter an Address, ZIP / Postal Code, or City (more specific is better!)")
 							<form
 								class="group"
 								novalidate
-								hx-patch="/api/html/seshu/session/location"
+								hx-put="/api/html/seshu/session/location"
 								hx-ext="json-enc"
 								hx-target="#location-confirmation"
 								hx-disabled-elt="input[name='location'], button[type='submit']"

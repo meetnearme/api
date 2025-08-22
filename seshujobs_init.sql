@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS seshujobs (
     location_latitude DOUBLE PRECISION,
     location_longitude DOUBLE PRECISION,
     location_address TEXT,
+    location_timezone TEXT,
     scheduled_hour INT NOT NULL,
     target_name_css_path TEXT NOT NULL,
     target_location_css_path TEXT NOT NULL,

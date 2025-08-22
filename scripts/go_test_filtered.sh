@@ -3,6 +3,9 @@
 # This script runs go test in all directories excluding node_modules, because
 # AWS CDK is a node_module that includes Go test files with invalid names that fail
 
+# Set test environment
+export GO_ENV=test
+
 # Check if -v option is passed
 VERBOSE=""
 if [[ "$1" == "-v" ]]; then
@@ -10,6 +13,7 @@ if [[ "$1" == "-v" ]]; then
 fi
 
 echo "🧪 Running Go tests with timeouts..."
+echo "🔧 Test environment: $GO_ENV"
 
 # Find all directories excluding node_modules
 DIRS=$(find ./functions -type d -not -path "./node_modules*" -not -path "*/node_modules*")

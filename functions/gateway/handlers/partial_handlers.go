@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -273,23 +272,15 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlRes(w, []byte(string("Invalid Body: ")+err.Error()), http.StatusBadRequest, "partial", err)
 	}
 
-	var baseUrl string
-	deploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
-	if deploymentTarget == helpers.ACT {
-		baseUrl = "http://localhost:8000"
-	} else {
-		baseUrl = helpers.GetBaseUrlFromReq(r)
-	}
-
-	if baseUrl == "" {
-		return transport.SendHtmlRes(w, []byte("Failed to get base URL from request"), http.StatusInternalServerError, "partial", err)
-	}
-
+	baseUrl := helpers.GEO_BASE_URL
 	geoService := services.GetGeoService()
 	lat, lon, address, err := geoService.GetGeo(inputPayload.Location, baseUrl)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte(string("Error getting geocoordinates: ")+err.Error()), http.StatusInternalServerError, "partial", err)
 	}
+	log.Println("GeoLookup lat", lat)
+	log.Println("GeoLookup lon", lon)
+	log.Println("GeoLookup address", address)
 	// Convert lat and lon to float64
 	latFloat, err := strconv.ParseFloat(lat, 64)
 	if err != nil {
@@ -613,7 +604,7 @@ func getValidatedEvents(candidates []internal_types.EventInfo, validations []int
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	db := transport.GetDB()
-	natsService, _ := services.GetNatsService(ctx)
+	// natsService, _ := services.GetNatsService(ctx)
 
 	var inputPayload SeshuSessionEventsPayload
 	body, err := io.ReadAll(r.Body)
@@ -684,9 +675,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 		validatedEvents := getValidatedEvents(session.EventCandidates, session.EventValidations, hasDefaultLat && hasDefaultLon)
 
-		log.Println("Candidate Events, length: ", len(session.EventCandidates), " | events: ", session.EventCandidates)
-		log.Println("Validated Events, length: ", len(validatedEvents), " | events: ", validatedEvents)
-
 		// TODO: search `session.Html` for the items in the `validatedEvents` array
 		//Loop through eventTitle
 
@@ -748,6 +736,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			var url string
 
 			var titlePath string
+
 			var locationTag string
 			var startTag string
 			var endTag string
@@ -756,7 +745,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			var location string
 
 			// Use childDoc if this event matches the last child candidate (child is always only one)
-			if childDoc != nil && event.EventSource == "rs" {
+			if childDoc != nil && event.ScrapeMode == "rs" {
 				docToUse = childDoc
 				url = session.ChildId
 			} else {
@@ -783,14 +772,18 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				location = session.LocationAddress
 			}
 
-			scrapeSource, err := helpers.ExtractBaseDomain(url)
+			baseUrl, err := helpers.ExtractBaseDomain(url)
 			if err != nil {
 				log.Println("Error extracting base domain:", err)
 				continue
 			}
+			scrapeSource := "unknown"
+			if strings.Contains(baseUrl, "facebook.com") {
+				scrapeSource = helpers.SESHU_KNOWN_SOURCE_FB
+			}
 
 			switch scrapeSource {
-			case "www.facebook.com":
+			case helpers.SESHU_KNOWN_SOURCE_FB:
 				titlePath = "_BYPASS_"
 				locationTag = "_BYPASS_"
 				startTag = "_BYPASS_"
@@ -822,11 +815,18 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				}
 			}
 
+			locationTimezone := services.DeriveTimezoneFromCoordinates(session.LocationLatitude, session.LocationLongitude)
+			if locationTimezone == "" {
+				log.Println("Failed to derive timezone from coordinates for URL: ", normalizedUrl)
+				return
+			}
+
 			seshuJob := internal_types.SeshuJob{
 				NormalizedUrlKey:         normalizedUrl,
 				LocationLatitude:         session.LocationLatitude,
 				LocationLongitude:        session.LocationLongitude,
 				LocationAddress:          location,
+				LocationTimezone:         locationTimezone,
 				ScheduledHour:            scheduledHour,
 				TargetNameCSSPath:        titlePath,
 				TargetLocationCSSPath:    locationTag,
@@ -842,44 +842,85 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				KnownScrapeSource:        scrapeSource,    // or infer from URL pattern/domain
 			}
 
-			payloadBytes, err := json.Marshal(seshuJob)
+			// Validate the seshuJob
+			err = validate.Struct(seshuJob)
 			if err != nil {
-				log.Println("Error marshaling SeshuJob:", err)
+				log.Println("Error validating SeshuJob:", err)
 				return
 			}
 
+			ctx := r.Context()
+			db, _ := services.GetPostgresService(ctx)
+
+			log.Printf("INFO: Submitting SeshuJob for URL: %s", normalizedUrl)
+
+			err = db.CreateSeshuJob(ctx, seshuJob)
+			if err != nil {
+				log.Println("Error creating SeshuJob:", err)
+				return
+			}
+
+			// payloadBytes, err := json.Marshal(seshuJob)
+			// if err != nil {
+			// 	log.Println("Error marshaling SeshuJob:", err)
+			// 	return
+			// }
+
 			// Log the payload for debugging
-			log.Printf("Submitting SeshuJob: %s", string(payloadBytes))
+
+			// TODO: this should be a controller call to reduce complexity
+			// we don't want to get blocked by needing to forward http
+			// cookies from the SubmitSeshuSession handler to the
+			// SeshuJobs API handler
 
 			// POST to internal handler
-			req, err := http.NewRequest(http.MethodPost, os.Getenv("SESHUJOBS_URL")+"/api/seshujob", bytes.NewReader(payloadBytes))
-			if err != nil {
-				log.Println("Error creating HTTP request for seshuJob:", err)
-				continue
-			}
-			req.Header.Set("Content-Type", "application/json")
+			// req, err := http.NewRequest(http.MethodPost, os.Getenv("SESHUJOBS_URL")+"/api/seshujob", bytes.NewReader(payloadBytes))
+			// if err != nil {
+			// 	log.Println("Error creating HTTP request for seshuJob:", err)
+			// 	continue
+			// }
+			// req.Header.Set("Content-Type", "application/json")
 
-			client := &http.Client{Timeout: 10 * time.Second}
-			// log the request url, body, and headers for debugging
-			log.Println("Sending seshuJob to handler:", req.URL.String())
-			log.Println("seshuJob:", string(payloadBytes))
-			log.Println("headers:", req.Header)
-			res, err := client.Do(req)
-			if err != nil {
-				log.Println("Failed to send seshuJob to handler:", err)
-				continue
-			}
-			defer res.Body.Close()
+			// client := &http.Client{Timeout: 10 * time.Second}
+			// // log the request url, body, and headers for debugging
+			// res, err := client.Do(req)
+			// if err != nil {
+			// 	log.Println("Failed to send seshuJob to handler:", err)
+			// 	continue
+			// }
+			// defer res.Body.Close()
 
-			if res.StatusCode >= 400 {
-				body, _ := io.ReadAll(res.Body)
-				log.Printf("Handler responded with status %d: %s", res.StatusCode, string(body))
-			}
+			// if res.StatusCode >= 400 {
+			// 	body, _ := io.ReadAll(res.Body)
+			// 	log.Printf("Handler responded with status %d: %s", res.StatusCode, string(body))
+			// }
 
-			err = natsService.PublishMsg(ctx, seshuJob)
-			if err != nil {
-				log.Println("Failed to publish seshuJob to NATS:", err)
-			}
+			// TODO: this puts the job in the queue, but we don't yet have
+			// a priority queue so we're instead writing directly to the DB
+			// in the go func below
+
+			// err = natsService.PublishMsg(ctx, seshuJob)
+			// if err != nil {
+			// 	log.Println("Failed to publish seshuJob to NATS:", err)
+			// }
+
+			go func() {
+				extractedEvents, _, err := services.ExtractEventsFromHTML(seshuJob, helpers.SESHU_MODE_SCRAPE, &services.RealScrapingService{})
+				if err != nil {
+					log.Printf("Failed to extract events from %s: %v", seshuJob.NormalizedUrlKey, err)
+				}
+
+				if len(extractedEvents) == 0 {
+					log.Printf("No events extracted from %s", seshuJob.NormalizedUrlKey)
+				} else {
+					log.Printf("Extracted %d events from %s", len(extractedEvents), seshuJob.NormalizedUrlKey)
+				}
+
+				err = services.PushExtractedEventsToDB(extractedEvents, seshuJob)
+				if err != nil {
+					log.Println("Error pushing ingested events to DB:", err)
+				}
+			}()
 		}
 	}()
 

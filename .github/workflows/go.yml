@@ -57,8 +57,12 @@ jobs:
           go install github.com/playwright-community/playwright-go/cmd/playwright@v0.5101.0
           playwright install --with-deps ${{ matrix.browser }}
       - name: Run Go tests
+        env:
+          GO_ENV: test
         run: go test ./...
       - name: Run tests and generate coverage
+        env:
+          GO_ENV: test
         run: |
           go test -v -coverprofile=coverage.out ./functions/...
           go tool cover -func=coverage.out | tee coverage.txt
