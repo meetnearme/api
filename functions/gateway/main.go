@@ -667,8 +667,6 @@ func startSeshuLoop(ctx context.Context) {
 					overwriteTimestamp("last_update.txt", lastUpdate)
 					seshulooptimecount = 0
 				}
-			} else {
-				log.Println("[INFO] Skipped.")
 			}
 
 			lastUpdate = time.Now().UTC().Unix()

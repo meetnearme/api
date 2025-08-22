@@ -183,21 +183,22 @@ jobs:
 
       # TODO: can't figure out how to get this to work with the new version of wrangler
       # https://discord.com/channels/595317990191398933/1368769100192420010/1368769100192420010
-      - name: Deploy to Cloudflare Workers with Wrangler
-        uses: cloudflare/wrangler-action@v3.14.1
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: '4.14.1'
-          command: deploy --env dev
-      - name: Breakpoint if Cloudflare worker with Wrangler fails 
-        if: failure()
-        uses: namespacelabs/breakpoint-action@v0
-        with:
-          duration: 30m
-          authorized-users: shrutitamrakratuladhar
+      # - name: Deploy to Cloudflare Workers with Wrangler
+      #   uses: cloudflare/wrangler-action@v3.14.1
+      #   env:
+      #     CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      #   with:
+      #     apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      #     accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      #     wranglerVersion: '4.14.1'
+      #     command: deploy --env dev
+
+      # - name: Breakpoint if Cloudflare worker with Wrangler fails
+      #   if: failure()
+      #   uses: namespacelabs/breakpoint-action@v0
+      #   with:
+      #     duration: 30m
+      #     authorized-users: shrutitamrakratuladhar
 
       - name: Log in to the Container registry
         uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
