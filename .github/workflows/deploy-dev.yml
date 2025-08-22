@@ -139,7 +139,10 @@ jobs:
         run: |
           # Use the Node.js script to generate .env file
           # This replaces the custom action entirely and validates required variables
-          node .github/scripts/generate-env-inline.js --dev
+
+          # TODO: handle this conditionally when we have multiple
+          # ACT deployments rolling out in parallel
+          node .github/scripts/generate-env-inline.js --dev --leader
 
       - name: Generate deployment tag
         id: generate-tag

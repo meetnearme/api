@@ -178,6 +178,10 @@
       "description": "Whether the deployment is for the local ACT server",
       "required": true
     },
+    "IS_ACT_LEADER": {
+      "description": "Whether the deployment is for the leader ACT server",
+      "required": true
+    },
     "ACT_STAGE": {
       "description": "The stage of the deployment",
       "required": true

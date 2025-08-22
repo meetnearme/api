@@ -134,6 +134,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const config = loadConfig();
 
   const stage = args.includes('--prod') ? 'prod' : 'dev';
+  const isLeader = args.includes('--leader') ? 'true' : 'false';
   console.log(`🚀 Generating .env file for ${stage.toUpperCase()} environment`);
   console.log(`🔍 Stage prefix: ${stage === 'prod' ? '_PROD_' : '_DEV_'}\n`);
 
@@ -141,6 +142,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   let deploymentValues = {
     USE_REMOTE_DB: 'true',
     IS_LOCAL_ACT: 'false',
+    IS_ACT_LEADER: isLeader,
     DEPLOYMENT_TARGET: 'ACT',
     WEAVIATE_SCHEME: 'http',
     WEAVIATE_HOST: 'weaviate',
