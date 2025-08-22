@@ -1,5 +1,9 @@
 {
   "env_vars": {
+    "AWS_ACCESS_KEY": {
+      "description": "The AWS public access key",
+      "required": true
+    },
     "AWS_SECRET_ACCESS_KEY": {
       "description": "The AWS secret access key",
       "required": true
