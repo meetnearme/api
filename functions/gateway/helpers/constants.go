@@ -12,6 +12,9 @@ type AWSReqKey string
 
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
+// for all dynamo tables, currently single region
+const AWS_REGION = "us-east-1"
+
 const RsvpsTablePrefix = "EventRsvps"
 const PurchasesTablePrefix = "PurchasesV2"
 const PurchasablesTablePrefix = "Purchasables"
