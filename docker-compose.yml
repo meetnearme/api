@@ -98,6 +98,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_MIGRATIONS_DIR: /go-app/migrations
 
       WEAVIATE_SCHEME: http
       WEAVIATE_HOST: weaviate

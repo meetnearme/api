@@ -361,4 +361,3 @@ func SetSubdomainCookie(w http.ResponseWriter, cookieName string, cookieValue st
 
 	http.SetCookie(w, subdomainCookie)
 }
-

@@ -13,7 +13,6 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
@@ -574,14 +573,16 @@ func GetEventAttendeesPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	// apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	queryParameters := r.URL.Query()
 	userInfo := helpers.UserInfo{}
 	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
 	}
-	queryParameters := apiGwV2Req.QueryStringParameters
+	// queryParameters := apiGwV2Req.QueryStringParameters
+	log.Println("mapEmbedPage address", queryParameters["address"][0])
 
-	mapEmbedPage := pages.MapEmbedPage(queryParameters["address"])
+	mapEmbedPage := pages.MapEmbedPage(queryParameters["address"][0])
 	layoutTemplate := pages.Layout(helpers.SitePages["embed"], userInfo, mapEmbedPage, types.Event{}, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)

@@ -79,7 +79,7 @@ func init() {
 	scrapingService = &services.RealScrapingService{}
 }
 
-func HandleSeshuJobSubmit(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+func HandleSeshuSessionSubmit(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	userInfo := helpers.UserInfo{}
 	if _, ok := r.Context().Value("userInfo").(helpers.UserInfo); ok {
@@ -115,7 +115,8 @@ func HandleSeshuJobSubmit(w http.ResponseWriter, r *http.Request) http.HandlerFu
 	}
 
 	var events []types.EventInfo
-	events, htmlContent, err := services.ExtractEventsFromHTML(urlToScrape, action, scrapingService)
+
+	events, htmlContent, err := services.ExtractEventsFromHTML(types.SeshuJob{NormalizedUrlKey: urlToScrape}, helpers.SESHU_MODE_ONBOARD, scrapingService)
 	if err != nil {
 		log.Println("Event extraction error:", err)
 		return transport.SendHtmlErrorPartial([]byte(err.Error()), http.StatusInternalServerError)
@@ -123,7 +124,7 @@ func HandleSeshuJobSubmit(w http.ResponseWriter, r *http.Request) http.HandlerFu
 
 	ctx := r.Context()
 
-	defer saveSession(ctx, htmlContent, urlToScrape, childID, parentUrl, events, action, scrapingService)
+	defer saveSession(ctx, htmlContent, urlToScrape, childID, parentUrl, events, action)
 
 	tmpl := partials.EventCandidatesPartial(events)
 	var buf bytes.Buffer
@@ -149,7 +150,7 @@ func parsePayload(action string, body string) (urlToScrape, parentUrl, childID s
 	}
 }
 
-func saveSession(ctx context.Context, htmlContent string, urlToScrape, childID, parentUrl string, events []types.EventInfo, action string, scraper services.ScrapingService) {
+func saveSession(ctx context.Context, htmlContent string, urlToScrape, childID, parentUrl string, events []types.EventInfo, action string) {
 	if len(events) == 0 {
 		return
 	}
@@ -268,15 +269,6 @@ func SendMessage(sessionID string, message string) (string, error) {
 
 	return string(body), nil
 
-}
-
-// TODO: this should share with the gateway handler, though the
-// function signature typing is different
-func clientError(status int) (InternalResponse, error) {
-	return InternalResponse{
-		Body:       http.StatusText(status),
-		StatusCode: status,
-	}, nil
 }
 
 // // TODO: this should share with the gateway handler

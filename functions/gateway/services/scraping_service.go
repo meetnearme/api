@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,15 +10,44 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"github.com/ringsaturn/tzf"
 )
 
 var converter = md.NewConverter("", true, nil)
+
+// Global tzf finder for timezone derivation from coordinates
+var tzfFinder tzf.F
+
+func init() {
+	var err error
+	tzfFinder, err = tzf.NewDefaultFinder()
+	if err != nil {
+		log.Printf("Failed to initialize tzf finder: %v", err)
+		// Continue without tzf functionality - timezone derivation will fail gracefully
+	}
+}
+
+// DeriveTimezoneFromCoordinates attempts to derive timezone from latitude and longitude using tzf
+func DeriveTimezoneFromCoordinates(lat, lng float64) string {
+	if tzfFinder == nil {
+		return "" // tzf not available
+	}
+
+	timezoneName := tzfFinder.GetTimezoneName(lng, lat)
+	if timezoneName == "" {
+		return "" // tzf couldn't determine timezone
+	}
+
+	return timezoneName
+}
 
 const URLEscapedErrorMsg = "ERR: URL must not be encoded, it should look like this 'https://example.com/path?query=value'"
 
@@ -164,44 +194,31 @@ func UnpadJSON(jsonStr string) string {
 
 // Add this interface at the top of the file
 type ScrapingService interface {
-	GetHTMLFromURL(unescapedURL string, waitMs int, jsRender bool, waitFor string) (string, error)
-	GetHTMLFromURLWithRetries(unescapedURL string, waitMs int, jsRender bool, waitFor string, maxRetries int, validationFunc ContentValidationFunc) (string, error)
+	GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string) (string, error)
+	GetHTMLFromURLWithRetries(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string, maxRetries int, validationFunc ContentValidationFunc) (string, error)
 }
 
 // Modify the existing function to be a method on a struct
 type RealScrapingService struct{}
 
-func (s *RealScrapingService) GetHTMLFromURL(unescapedURL string, waitMs int, jsRender bool, waitFor string) (string, error) {
+func (s *RealScrapingService) GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string) (string, error) {
 	defaultBaseURL := os.Getenv("SCRAPINGBEE_API_URL_BASE")
-	return GetHTMLFromURLWithBase(defaultBaseURL, unescapedURL, waitMs, jsRender, waitFor, 1, nil)
+	return GetHTMLFromURLWithBase(defaultBaseURL, seshuJob.NormalizedUrlKey, waitMs, jsRender, waitFor, 1, nil)
 }
 
-func (s *RealScrapingService) GetHTMLFromURLWithRetries(unescapedURL string, waitMs int, jsRender bool, waitFor string, maxRetries int, validationFunc ContentValidationFunc) (string, error) {
+func (s *RealScrapingService) GetHTMLFromURLWithRetries(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string, maxRetries int, validationFunc ContentValidationFunc) (string, error) {
 	defaultBaseURL := os.Getenv("SCRAPINGBEE_API_URL_BASE")
-	return GetHTMLFromURLWithBase(defaultBaseURL, unescapedURL, waitMs, jsRender, waitFor, maxRetries, validationFunc)
+	return GetHTMLFromURLWithBase(defaultBaseURL, seshuJob.NormalizedUrlKey, waitMs, jsRender, waitFor, maxRetries, validationFunc)
 }
 
 func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender bool, waitFor string, maxRetries int, validationFunc ContentValidationFunc) (string, error) {
-
-	targetHostPort := "localhost:8000" // The string we want to replace
-	replacementHost := "devnear.me"
-
-	isLocalAct := os.Getenv("IS_LOCAL_ACT")
-	if isLocalAct == "true" {
-		unescapedURL = strings.ReplaceAll(unescapedURL, targetHostPort, replacementHost)
+	if maxRetries == 0 {
+		maxRetries = 1
 	}
 
 	// TODO: Escaping twice, thrice or more is unlikely, but this just makes sure the URL isn't
 	// single or double-encoded when passed as a param
-	firstPassUrl, err := url.QueryUnescape(unescapedURL)
-	if err != nil {
-		return "", fmt.Errorf(URLEscapedErrorMsg)
-	}
-	secondPassUrl, err := url.QueryUnescape(firstPassUrl)
-	if err != nil {
-		return "", fmt.Errorf(URLEscapedErrorMsg)
-	}
-	if unescapedURL != secondPassUrl {
+	if strings.Contains(unescapedURL, "%") {
 		return "", fmt.Errorf(URLEscapedErrorMsg)
 	}
 
@@ -209,9 +226,8 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 
 	// Calculate timeouts based on scraping service defaults and best practices
 	// service default timeout is 140,000ms (140 seconds) - use this as our timeout
-	scrapingBeeTimeoutMs := 140000
 	// HTTP client timeout: ScrapingBee timeout + 30s buffer for network overhead
-	httpClientTimeoutSec := (scrapingBeeTimeoutMs / 1000) + 30
+	httpClientTimeoutSec := 120000
 
 	var htmlContent string
 	var lastErr error
@@ -222,10 +238,12 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 		client := &http.Client{
 			Timeout: time.Duration(httpClientTimeoutSec) * time.Second,
 		}
-		scrapingUrl := baseURL + "?api_key=" + os.Getenv("SCRAPINGBEE_API_KEY") + "&url=" + escapedURL + "&render_js=" + fmt.Sprint(jsRender)
+		// Build ScrapingBee URL
+		scrapingUrl := baseURL + "?api_key=" + os.Getenv("SCRAPINGBEE_API_KEY") + "&url=" + escapedURL
 
-		// Add ScrapingBee timeout parameter
-		scrapingUrl += "&timeout=" + fmt.Sprint(scrapingBeeTimeoutMs)
+		if jsRender {
+			scrapingUrl += "&render_js=true"
+		}
 
 		if waitMs > 0 {
 			scrapingUrl += "&wait=" + fmt.Sprint(waitMs)
@@ -234,11 +252,12 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 			scrapingUrl += "&wait_for=" + url.QueryEscape(waitFor)
 		}
 
+		// Log a sanitized summary of the request
 		req, err := http.NewRequest("GET", scrapingUrl, nil)
 		if err != nil {
 			lastErr = fmt.Errorf("ERR: forming scraping request: %v", err)
 			if maxRetries > 1 {
-				log.Printf("❌ TRACE: Attempt %d for URL %s failed with error: %v", attempt, unescapedURL, lastErr)
+				log.Printf("ERR: Attempt %d for URL %s failed with error: %v", attempt, unescapedURL, lastErr)
 			}
 			if attempt == maxRetries {
 				return "", lastErr
@@ -248,9 +267,9 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 
 		res, err := client.Do(req)
 		if err != nil {
-			lastErr = fmt.Errorf("ERR: executing scraping request: %v for scrapingUrl: %s, with baseURL: %s", err, scrapingUrl, baseURL)
+			lastErr = fmt.Errorf("ERR: executing scraping request: %v for scrapingUrl: <sanitized> baseURL: %s", err, baseURL)
 			if maxRetries > 1 {
-				log.Printf("❌ TRACE: Attempt %d for URL %s failed with error: %v", attempt, unescapedURL, lastErr)
+				log.Printf("ERR: Attempt %d for URL %s failed with error: %v", attempt, baseURL, lastErr)
 			}
 			if attempt == maxRetries {
 				return "", lastErr
@@ -263,7 +282,7 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 		if err != nil {
 			lastErr = fmt.Errorf("ERR: reading scraping response body: %v", err)
 			if maxRetries > 1 {
-				log.Printf("❌ TRACE: Attempt %d for URL %s failed with error: %v", attempt, unescapedURL, lastErr)
+				log.Printf("ERR: Attempt %d for URL %s failed with error: %v", attempt, baseURL, lastErr)
 			}
 			if attempt == maxRetries {
 				return "", lastErr
@@ -272,10 +291,7 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 		}
 
 		if res.StatusCode != 200 {
-			lastErr = fmt.Errorf("ERR: %v from scraping service", res.StatusCode)
-			if maxRetries > 1 {
-				log.Printf("❌ TRACE: Attempt %d for URL %s failed with error: %v", attempt, unescapedURL, lastErr)
-			}
+			lastErr = fmt.Errorf("ERR: %v from scraping service for URL %s", res.StatusCode, baseURL)
 			if attempt == maxRetries {
 				return "", lastErr
 			}
@@ -287,13 +303,10 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 		// Apply content validation if provided and we're doing retries
 		if validationFunc != nil && maxRetries > 1 {
 			if validationFunc(htmlContent) {
-				log.Printf("✅ TRACE: Attempt %d succeeded for URL %s - content validation passed!", attempt, unescapedURL)
 				break
 			} else {
-				log.Printf("⚠️  TRACE: Attempt %d got response but content validation failed for URL %s", attempt, unescapedURL)
 				if attempt == maxRetries {
-					log.Printf("🚫 TRACE: All %d attempts failed content validation for URL %s", maxRetries, unescapedURL)
-					// Continue with last response for debugging
+					log.Printf("ERR: All %d attempts failed content validation for URL %s", maxRetries, baseURL)
 				}
 				continue
 			}
@@ -306,9 +319,9 @@ func GetHTMLFromURLWithBase(baseURL, unescapedURL string, waitMs int, jsRender b
 	return htmlContent, nil
 }
 
-func GetHTMLFromURL(unescapedURL string, waitMs int, jsRender bool, waitFor string) (string, error) {
+func GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string) (string, error) {
 	defaultBaseURL := os.Getenv("SCRAPINGBEE_API_URL_BASE")
-	return GetHTMLFromURLWithBase(defaultBaseURL, unescapedURL, waitMs, jsRender, waitFor, 1, nil)
+	return GetHTMLFromURLWithBase(defaultBaseURL, seshuJob.NormalizedUrlKey, waitMs, jsRender, waitFor, 1, nil)
 }
 
 func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
@@ -383,63 +396,391 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	return sessionId, unpaddedJSON, nil
 }
 
-func ExtractEventsFromHTML(urlToScrape string, action string, scraper ScrapingService) (eventsFound []types.EventInfo, htmlContent string, err error) {
-	isFacebook := IsFacebookEventsURL(urlToScrape)
+func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper ScrapingService) (eventsFound []types.EventInfo, htmlContent string, err error) {
+	knownScrapeSource := ""
+	isFacebook := IsFacebookEventsURL(seshuJob.NormalizedUrlKey)
+
 	if isFacebook {
 		validate := func(content string) bool {
 			return strings.Contains(content, `"__typename":"Event"`)
 		}
-		html, err := scraper.GetHTMLFromURLWithRetries(urlToScrape, 7500, true, "script[data-sjs][data-content-len]", 7, validate)
+
+		html, err := scraper.GetHTMLFromURLWithRetries(seshuJob, 7500, true, "script[data-sjs][data-content-len]", 7, validate)
+		if err != nil {
+			log.Printf("ERR: Failed to get HTML from Facebook URL: %v", err)
+			return nil, "", err
+		}
+
+		if mode != helpers.SESHU_MODE_ONBOARD {
+			childScrapeQueue := []types.EventInfo{}
+			urlToIndex := make(map[string]int)
+
+			// Use the list mode function for the main page
+			eventsFound, err = FindFacebookEventListData(html, seshuJob.LocationTimezone)
+			if err != nil {
+				log.Printf("ERR: Failed to extract Facebook event list data: %v", err)
+				return nil, "", err
+			}
+
+			for i, event := range eventsFound {
+				eventsFound[i].KnownScrapeSource = knownScrapeSource
+				// TODO: we could arguably this any time we have a URL,
+				// searching even for things like Title, StartTime, etc.
+				// but for now we're only assuming these missing fields have a
+				// chance of triggering a child scrape
+				if event.EventDescription == "" || event.EventLocation == "" || event.EventTimezone == "" {
+					childScrapeQueue = append(childScrapeQueue, event)
+					urlToIndex[event.EventURL] = i
+				}
+			}
+
+			if len(childScrapeQueue) <= 0 {
+				return eventsFound, html, err
+			}
+
+			for _, event := range childScrapeQueue {
+				childHtml, err := scraper.GetHTMLFromURLWithRetries(types.SeshuJob{NormalizedUrlKey: event.EventURL}, 7500, true, "script[data-sjs][data-content-len]", 7, validate)
+				if err != nil {
+					log.Printf("ERR: Failed to get child HTML from %s: %v", event.EventURL, err)
+					continue
+				}
+				// Use the single event mode function for child pages
+				childEvArrayOfOne, err := FindFacebookSingleEventData(childHtml, seshuJob.LocationTimezone)
+				if err != nil {
+					log.Printf("ERR: Failed to extract single event data from child page: %v", err)
+					continue
+				}
+
+				// Look up the original index using the URL
+				originalIndex := urlToIndex[event.EventURL]
+				if eventsFound[originalIndex].EventDescription == "" {
+					eventsFound[originalIndex].EventDescription = childEvArrayOfOne[0].EventDescription
+				}
+				if eventsFound[originalIndex].EventLocation == "" {
+					eventsFound[originalIndex].EventLocation = childEvArrayOfOne[0].EventLocation
+				}
+
+				// If we still don't have a timezone, try to derive it from coordinates
+				if eventsFound[originalIndex].EventTimezone == "" &&
+					childEvArrayOfOne[0].EventLatitude != 0 &&
+					childEvArrayOfOne[0].EventLongitude != 0 {
+					derivedTimezone := DeriveTimezoneFromCoordinates(
+						childEvArrayOfOne[0].EventLatitude,
+						childEvArrayOfOne[0].EventLongitude,
+					)
+					if derivedTimezone != "" {
+						eventsFound[originalIndex].EventTimezone = derivedTimezone
+					}
+				}
+			}
+
+			return eventsFound, html, err
+
+		} else {
+			// For validate mode, we still need to extract events to return them
+			// Use the list mode function to get events from the main page
+			eventsFound, err = FindFacebookEventListData(html, seshuJob.LocationTimezone)
+			if err != nil {
+				log.Printf("ERR: Failed to extract Facebook event list data in %s mode: %v", mode, err)
+				return nil, "", err
+			}
+
+			return eventsFound, html, err
+
+		}
+	}
+
+	html, err := scraper.GetHTMLFromURL(seshuJob, 4500, true, "")
+	if err != nil {
+		return nil, "", err
+	}
+
+	var response string
+
+	if mode == helpers.SESHU_MODE_ONBOARD {
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 		if err != nil {
 			return nil, "", err
 		}
-		eventsFound, err = FindFacebookEventData(html)
-		return eventsFound, html, err
-	}
-	html, err := scraper.GetHTMLFromURL(urlToScrape, 4500, true, "")
-	if err != nil {
-		return nil, "", err
-	}
-
-	// TODO: refactor this so extraction can be done as a separate step that doesn't
-	// include the
-
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil {
-		return nil, "", err
-	}
-	bodyHtml, err := doc.Find("body").Html()
-	if err != nil {
-		return nil, "", err
-	}
-
-	markdown, err := converter.ConvertString(bodyHtml)
-	if err != nil {
-		return nil, "", err
-	}
-
-	lines := strings.Split(markdown, "\n")
-	var filtered []string
-	for i, line := range lines {
-		if line != "" && i < 1500 {
-			filtered = append(filtered, line)
+		bodyHtml, err := doc.Find("body").Html()
+		if err != nil {
+			return nil, "", err
 		}
-	}
 
-	jsonPayload, err := json.Marshal(filtered)
-	if err != nil {
-		return nil, "", err
-	}
+		markdown, err := converter.ConvertString(bodyHtml)
+		if err != nil {
+			return nil, "", err
+		}
 
-	_, response, err := CreateChatSession(string(jsonPayload))
-	if err != nil {
-		return nil, "", err
+		lines := strings.Split(markdown, "\n")
+		var filtered []string
+		for i, line := range lines {
+			if line != "" && i < 1500 {
+				filtered = append(filtered, line)
+			}
+		}
+
+		jsonPayload, err := json.Marshal(filtered)
+		if err != nil {
+			return nil, "", err
+		}
+
+		_, response, err = CreateChatSession(string(jsonPayload))
+		if err != nil {
+			return nil, "", err
+		}
 	}
 
 	var events []types.EventInfo
 	err = json.Unmarshal([]byte(response), &events)
-	for i := range events {
-		events[i].EventSource = action
+	if err != nil {
+		return nil, "", err
 	}
+
 	return events, html, err
+}
+
+// FilterValidEvents removes events that fail validation checks
+func FilterValidEvents(events []types.EventInfo) []types.EventInfo {
+	var validEvents []types.EventInfo
+
+	for i, event := range events {
+
+		// Check if event has required fields
+		if event.EventTitle == "" || event.EventURL == "" {
+			log.Printf("INFO: Filtering out event %d: missing title or URL", i)
+			continue
+		}
+
+		// Check if event has location (required for GetGeo call)
+		if event.EventLocation == "" {
+			log.Printf("INFO: Filtering out event %d: no location", i)
+			continue
+		}
+
+		// Parse the event start time to check if it's in the past
+		if event.EventStartTime == "" {
+			log.Printf("INFO: Filtering out event %d: no start time", i)
+			continue
+		}
+
+		if event.EventTitle == "" {
+			log.Printf("INFO: Filtering out event %d: no title", i)
+			continue
+		}
+
+		// Handle EventDescription fallback to EventTitle if missing
+		if event.EventDescription == "" {
+			event.EventDescription = event.EventTitle
+		}
+
+		// Event passed all validation checks
+		validEvents = append(validEvents, event)
+	}
+
+	return validEvents
+}
+
+func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) error {
+	// Handle empty events array gracefully
+	if len(events) == 0 {
+		log.Printf("No events to push to DB for %s", seshuJob.NormalizedUrlKey)
+		return nil
+	}
+
+	// Get Weaviate client
+	weaviateClient, err := GetWeaviateClient()
+	if err != nil {
+		return fmt.Errorf("failed to get Weaviate client: %w", err)
+	}
+
+	validEvents := FilterValidEvents(events)
+
+	if len(validEvents) == 0 {
+		log.Printf("No valid events to push to DB for %s, filtered %v events down to %v", seshuJob.NormalizedUrlKey, len(events), len(validEvents))
+		return nil
+	}
+
+	currentTime := time.Now()
+
+	// Convert EventInfo to Event types for Weaviate
+	weaviateEvents := make([]RawEvent, 0, len(validEvents))
+	for i, eventInfo := range validEvents {
+
+		// Attempt to get geo coordinates and timezone from location string
+		lat, lon, address, err := GetGeo(eventInfo.EventLocation, os.Getenv("APEX_URL"))
+		if err != nil {
+			log.Printf("ERR: Skipping event %d: GetGeo failed: %v", i, err)
+			continue
+		}
+
+		latFloat, err := strconv.ParseFloat(lat, 64)
+		if err != nil {
+			return fmt.Errorf("ERR: failed to parse latitude for event #%d of %s: %v", i+1, seshuJob.NormalizedUrlKey, err)
+		}
+
+		lonFloat, err := strconv.ParseFloat(lon, 64)
+		if err != nil {
+			return fmt.Errorf("ERR: failed to parse longitude for event #%d of %s: %v", i+1, seshuJob.NormalizedUrlKey, err)
+		}
+
+		if address == "" {
+			return fmt.Errorf("ERR: couldn't find address for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
+		}
+
+		// Set latitude - use parsed value if available, otherwise fall back to seshuJob location
+		var finalLat float64
+		if lat == "" && seshuJob.LocationLatitude == 0 {
+			return fmt.Errorf("ERR: couldn't find latittude for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
+		} else if latFloat != 0 {
+			finalLat = latFloat
+		} else {
+			finalLat = seshuJob.LocationLatitude
+		}
+
+		// Set longitude - use parsed value if available, otherwise fall back to seshuJob location
+		var finalLon float64
+		if lon == "" && seshuJob.LocationLongitude == 0 {
+			return fmt.Errorf("couldn't find longitude for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
+		} else if lonFloat != 0 {
+			finalLon = lonFloat
+		} else {
+			finalLon = seshuJob.LocationLongitude
+		}
+
+		// Use timezone in priority order: GetGeo() response > EventInfo derived timezone > SeshuJob timezone
+		var targetTimezoneStr string
+
+		// First priority: GetGeo() response timezone (if available)
+		if lat != "" && lon != "" {
+			latFloat, err := strconv.ParseFloat(lat, 64)
+			if err != nil {
+				log.Printf("ERR: Skipping event %d: failed to parse latitude: %v", i, err)
+				continue
+			}
+			lonFloat, err := strconv.ParseFloat(lon, 64)
+			if err != nil {
+				log.Printf("ERR: Skipping event %d: failed to parse longitude: %v", i, err)
+				continue
+			}
+			mapDerivedTimezone := DeriveTimezoneFromCoordinates(latFloat, lonFloat)
+			if mapDerivedTimezone != "" {
+				targetTimezoneStr = mapDerivedTimezone
+				log.Printf("INFO: Using timezone from GetGeo coordinates: %s", targetTimezoneStr)
+			}
+
+		}
+
+		// Second priority: EventInfo derived timezone
+		if targetTimezoneStr == "" && eventInfo.EventTimezone != "" {
+			targetTimezoneStr = eventInfo.EventTimezone
+			log.Printf("INFO: Using derived timezone from EventInfo: %s", targetTimezoneStr)
+		}
+
+		// Third priority: SeshuJob timezone
+		if targetTimezoneStr == "" && seshuJob.LocationTimezone != "" {
+			targetTimezoneStr = seshuJob.LocationTimezone
+			log.Printf("INFO: Using timezone from SeshuJob: %s", targetTimezoneStr)
+		}
+
+		if targetTimezoneStr == "" {
+			log.Printf("INFO: Skipping event %d: couldn't derive a timezone", i)
+			continue
+		}
+
+		tz, err := time.LoadLocation(targetTimezoneStr)
+		if err != nil {
+			log.Printf("INFO: Skipping event %d: failed to load timezone %s: %v", i, targetTimezoneStr, err)
+			continue
+		}
+		if tz == nil {
+			log.Printf("INFO: Skipping event %d: failed to load timezone %s: %v", i, targetTimezoneStr, err)
+			continue
+		}
+
+		startTime, _, err := ParseFlexibleDatetime(eventInfo.EventStartTime, tz)
+		if err != nil {
+			log.Printf("INFO: Skipping event %d: failed to parse event start time: %v", i, err)
+			continue
+		} else if startTime == 0 {
+			log.Printf("INFO: Skipping event %d: couldn't find start time", i)
+			continue
+		}
+
+		if startTime > 0 && time.Unix(startTime, 0).Before(currentTime.Add(-1*time.Hour)) {
+			log.Printf("INFO: Filtering out event %d: event is in the past (started at %v)", i, time.Unix(startTime, 0))
+			continue
+		}
+
+		endTime, _, err := ParseFlexibleDatetime(eventInfo.EventEndTime, tz)
+		// we're ok with errors here, because endTime is optional
+		if err != nil {
+			endTime = 0
+		} else if endTime == 0 {
+			// Don't return error for missing end time as it's optional
+			endTime = 0
+		}
+
+		// fetch event owner from zitadel
+		owner, err := helpers.GetOtherUserByID(seshuJob.OwnerID)
+		if err != nil {
+			log.Printf("Failed to get event owner from zitadel: %v", err)
+			// Continue with default owner ID if zitadel lookup fails
+			owner = types.UserSearchResult{UserID: seshuJob.OwnerID}
+		}
+		// Convert EventInfo to RawEvent with JSON-friendly fields
+		// Build RFC3339 strings for times
+		startRFC3339 := time.Unix(startTime, 0).UTC().Format(time.RFC3339)
+		var endVal interface{}
+		if endTime > 0 {
+			endRFC3339 := time.Unix(endTime, 0).UTC().Format(time.RFC3339)
+			endVal = endRFC3339
+		} else {
+			endVal = nil
+		}
+
+		ownerName := owner.DisplayName
+		if ownerName == "" {
+			ownerName = owner.UserID
+		}
+
+		tzString := tz.String()
+		eventSourceID := eventInfo.EventURL
+
+		event := RawEvent{
+			RawEventData: RawEventData{
+				EventOwners:     []string{owner.UserID},
+				EventOwnerName:  ownerName,
+				EventSourceType: helpers.ES_SINGLE_EVENT,
+				Name:            eventInfo.EventTitle,
+				Description:     eventInfo.EventDescription,
+				Address:         address,
+				Lat:             finalLat,
+				Long:            finalLon,
+				Timezone:        tzString,
+			},
+			EventSourceId: &eventSourceID,
+			StartTime:     startRFC3339,
+			EndTime:       endVal,
+		}
+		weaviateEvents = append(weaviateEvents, event)
+	}
+
+	log.Printf("INFO: Successfully processed %d out of %d events for %s", len(weaviateEvents), len(validEvents), seshuJob.NormalizedUrlKey)
+
+	weaviateEventsStrict, _, err := BulkValidateEvents(weaviateEvents, false)
+	if err != nil {
+		return fmt.Errorf("failed to validate events: %w", err)
+	}
+
+	// Bulk upsert events to Weaviate
+	if len(weaviateEvents) > 0 {
+		log.Printf("Upserting %d events to Weaviate for %s", len(weaviateEvents), seshuJob.NormalizedUrlKey)
+		_, err = BulkUpsertEventsToWeaviate(context.Background(), weaviateClient, weaviateEventsStrict)
+		if err != nil {
+			return fmt.Errorf("failed to upsert events to Weaviate for %s: %v", seshuJob.NormalizedUrlKey, err)
+		}
+	}
+
+	return nil
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -408,9 +409,9 @@ func TestPostBatchEvents(t *testing.T) {
 	validEventID2 := uuid.New().String()
 
 	validPayload := struct {
-		Events []rawEvent `json:"events"`
+		Events []services.RawEvent `json:"events"`
 	}{
-		Events: []rawEvent{
+		Events: []services.RawEvent{
 			createValidRawEvent(validEventID1, "Valid Batch Event 1"),
 			createValidRawEvent(validEventID2, "Valid Batch Event 2"),
 		},
@@ -425,9 +426,9 @@ func TestPostBatchEvents(t *testing.T) {
 	invalidPayloadEvent2.Name = ""
 
 	partiallyInvalidPayload := struct {
-		Events []rawEvent `json:"events"`
+		Events []services.RawEvent `json:"events"`
 	}{
-		Events: []rawEvent{invalidPayloadEvent1, invalidPayloadEvent2},
+		Events: []services.RawEvent{invalidPayloadEvent1, invalidPayloadEvent2},
 	}
 	partiallyInvalidRequestBody, err := json.Marshal(partiallyInvalidPayload)
 	if err != nil {
@@ -522,9 +523,9 @@ func TestPostBatchEvents(t *testing.T) {
 	}
 }
 
-func createValidRawEvent(id, name string) rawEvent {
-	return rawEvent{
-		rawEventData: rawEventData{
+func createValidRawEvent(id, name string) services.RawEvent {
+	return services.RawEvent{
+		RawEventData: services.RawEventData{
 			Id:              id,
 			EventOwners:     []string{"owner-123"},
 			EventOwnerName:  "Test Owner",
@@ -1791,7 +1792,6 @@ func TestGetUsersHandler(t *testing.T) {
 			handler := GetUsersHandler(w, req)
 			handler.ServeHTTP(w, req)
 
-			log.Printf("\n\n\n\nw.Body: %v", w.Body)
 			// Check status code
 			if w.Code != tt.expectedStatus {
 				t.Errorf("expected status code %d, got %d", tt.expectedStatus, w.Code)

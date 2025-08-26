@@ -28,7 +28,7 @@ func init() {
 }
 
 func CreateDbClient() internal_types.DynamoDBAPI {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(helpers.AWS_REGION))
 
 	if err != nil {
 		fmt.Println("Error loading default Dynamo client config", err)
@@ -45,7 +45,7 @@ func CreateDbClient() internal_types.DynamoDBAPI {
 		})
 		// This is being changed to remove clutter from config for the previous early SAM testing
 		// cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
-		cfg, err = config.LoadDefaultConfig(context.TODO(), optionalCredentials)
+		cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithRegion(helpers.AWS_REGION), optionalCredentials)
 	}
 
 	if err != nil {
@@ -79,4 +79,3 @@ func GetDB() internal_types.DynamoDBAPI {
 	})
 	return db
 }
-

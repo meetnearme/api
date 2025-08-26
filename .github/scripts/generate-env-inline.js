@@ -133,10 +133,16 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   const config = loadConfig();
 
+  const stage = args.includes('--prod') ? 'prod' : 'dev';
+  const isLeader = args.includes('--leader') ? 'true' : 'false';
+  console.log(`🚀 Generating .env file for ${stage.toUpperCase()} environment`);
+  console.log(`🔍 Stage prefix: ${stage === 'prod' ? '_PROD_' : '_DEV_'}\n`);
+
   // Define deployment-specific values based on environment
   let deploymentValues = {
     USE_REMOTE_DB: 'true',
     IS_LOCAL_ACT: 'false',
+    IS_ACT_LEADER: isLeader,
     DEPLOYMENT_TARGET: 'ACT',
     WEAVIATE_SCHEME: 'http',
     WEAVIATE_HOST: 'weaviate',
@@ -147,30 +153,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     NATS_SESHU_STREAM_DURABLE_NAME: 'seshu-consume',
   };
 
-  if (args.includes('--dev')) {
-    deploymentValues = {
-      ...deploymentValues,
-      ACT_STAGE: 'dev',
-      SST_Table_tableName_CompetitionConfig:
-        'dev-meetnearme-go-fullstack-CompetitionConfig',
-      SST_Table_tableName_CompetitionRounds:
-        'dev-meetnearme-go-fullstack-CompetitionRounds',
-      SST_Table_tableName_CompetitionWaitingRoomParticipant:
-        'dev-meetnearme-go-fullstack-CompetitionWaitingRoomParticipantmParticipant',
-      SST_Table_tableName_EventRsvps: 'dev-meetnearme-go-fullstack-EventRsvps',
-      SST_Table_tableName_Purchasables:
-        'dev-meetnearme-go-fullstack-Purchasables',
-      SST_Table_tableName_PurchasesV2:
-        'dev-meetnearme-go-fullstack-PurchasesV2',
-      SST_Table_tableName_RegistrationFields:
-        'dev-meetnearme-go-fullstack-RegistrationFields',
-      SST_Table_tableName_Registrations:
-        'dev-meetnearme-go-fullstack-Registrations',
-      SST_Table_tableName_SeshuSessions:
-        'dev-meetnearme-go-fullstack-SeshuSessions',
-      SST_Table_tableName_Votes: 'dev-meetnearme-go-fullstack-Votes',
-    };
-  } else if (args.includes('--prod')) {
+  if (stage === 'prod') {
     deploymentValues = {
       ...deploymentValues,
       ACT_STAGE: 'prod',
@@ -193,11 +176,30 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         'prod-meetnearme-go-fullstack-SeshuSessions',
       SST_Table_tableName_Votes: 'prod-meetnearme-go-fullstack-Votes',
     };
+  } else {
+    deploymentValues = {
+      ...deploymentValues,
+      ACT_STAGE: 'dev',
+      SST_Table_tableName_CompetitionConfig:
+        'dev-meetnearme-go-fullstack-CompetitionConfig',
+      SST_Table_tableName_CompetitionRounds:
+        'dev-meetnearme-go-fullstack-CompetitionRounds',
+      SST_Table_tableName_CompetitionWaitingRoomParticipant:
+        'dev-meetnearme-go-fullstack-CompetitionWaitingRoomParticipantmParticipant',
+      SST_Table_tableName_EventRsvps: 'dev-meetnearme-go-fullstack-EventRsvps',
+      SST_Table_tableName_Purchasables:
+        'dev-meetnearme-go-fullstack-Purchasables',
+      SST_Table_tableName_PurchasesV2:
+        'dev-meetnearme-go-fullstack-PurchasesV2',
+      SST_Table_tableName_RegistrationFields:
+        'dev-meetnearme-go-fullstack-RegistrationFields',
+      SST_Table_tableName_Registrations:
+        'dev-meetnearme-go-fullstack-Registrations',
+      SST_Table_tableName_SeshuSessions:
+        'dev-meetnearme-go-fullstack-SeshuSessions',
+      SST_Table_tableName_Votes: 'dev-meetnearme-go-fullstack-Votes',
+    };
   }
-
-  const stage = args.includes('--prod') ? 'prod' : 'dev';
-  console.log(`🚀 Generating .env file for ${stage.toUpperCase()} environment`);
-  console.log(`🔍 Stage prefix: ${stage === 'prod' ? '_PROD_' : '_DEV_'}\n`);
 
   const envContent = generateEnvFile(config, deploymentValues, stage);
 

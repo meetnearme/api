@@ -48,6 +48,14 @@ func CreateSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusBadRequest)
 	}
 
+	// Derive timezone from coordinates if available and timezone is not provided
+	if job.LocationLatitude != 0 && job.LocationLongitude != 0 && job.LocationTimezone == "" {
+		derivedTimezone := services.DeriveTimezoneFromCoordinates(job.LocationLatitude, job.LocationLongitude)
+		if derivedTimezone != "" {
+			job.LocationTimezone = derivedTimezone
+		}
+	}
+
 	err = db.CreateSeshuJob(ctx, job)
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to insert job: "+err.Error()), http.StatusInternalServerError)
@@ -77,6 +85,14 @@ func UpdateSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	err = json.Unmarshal(body, &job)
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusBadRequest)
+	}
+
+	// Derive timezone from coordinates if available and timezone is not provided
+	if job.LocationLatitude != 0 && job.LocationLongitude != 0 && job.LocationTimezone == "" {
+		derivedTimezone := services.DeriveTimezoneFromCoordinates(job.LocationLatitude, job.LocationLongitude)
+		if derivedTimezone != "" {
+			job.LocationTimezone = derivedTimezone
+		}
 	}
 
 	err = db.UpdateSeshuJob(ctx, job)

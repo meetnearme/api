@@ -12,6 +12,9 @@ type AWSReqKey string
 
 const ApiGwV2ReqKey AWSReqKey = "ApiGwV2Req"
 
+// for all dynamo tables, currently single region
+const AWS_REGION = "us-east-1"
+
 const RsvpsTablePrefix = "EventRsvps"
 const PurchasesTablePrefix = "PurchasesV2"
 const PurchasablesTablePrefix = "Purchasables"
@@ -78,12 +81,23 @@ const (
 	ES_SERIES_PARENT_UNPUB = "SLF_EVS" + UNPUB_SUFFIX
 )
 
+const (
+	SESHU_MODE_SCRAPE  = "SCRAPE"
+	SESHU_MODE_ONBOARD = "ONBOARD"
+)
+
+const (
+	SESHU_KNOWN_SOURCE_FB = "FACEBOOK"
+)
+
 const COMP_EMPTY_TEAM_NAME = "___|~~EMPTY TEAM NAME~~|___"
 const COMP_UNASSIGNED_ROUND_EVENT_ID = "fake-event-id-123"
 const COMP_TEAM_ID_PREFIX = "tm_"
 
 const DEFAULT_PRIMARY_COLOR = "#6004e0"
 const ZITADEL_USER_ID_LEN = 18
+
+const GEO_BASE_URL = "https://brianfeister.github.io/temp-map-embed/"
 
 // NOTE: these are the default searchable event source types that show up in the home event list view
 var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT, ES_SINGLE_EVENT}

@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-templ LocationLookupPartial(hxMethod string, hxApiPath string, hxAfterReqStr string, inputModelStr string, buttonPreText, buttonPostText string, lat float64, lon float64, address string, cfLocationLat float64, cfLocationLon float64) {
+templ LocationLookupPartial(hxMethod string, hxApiPath string, hxAfterReqStr string, inputModelStr string, buttonPreText, buttonPostText string, lat float64, lon float64, address string, cfLocationLat float64, cfLocationLon float64, titleStr string) {
 	<form
 		class="group"
 		novalidate
@@ -44,7 +44,7 @@ templ LocationLookupPartial(hxMethod string, hxApiPath string, hxAfterReqStr str
 			type="hidden"
 		/>
 		<label for="location" class="form-control w-full">
-			Address
+			{ titleStr }
 			<input
 				name="location"
 				x-model.debounce.500ms="formData.addressInput"
