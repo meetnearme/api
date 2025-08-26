@@ -20,7 +20,7 @@ type TriggerRequest struct {
 }
 
 var lastExecutionTime int64 = 0
-var HOUR int64 = 3600 // 1 hour in seconds
+var timeIntervalSeshuJobs int64 = 3600 // 1 hour in seconds
 
 func GetSeshuJobs(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
@@ -159,7 +159,7 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 	log.Printf("Received request to gather seshu jobs at time: %d", req.Time)
 	log.Printf("Last execution time: %d", lastExecutionTime)
 
-	if req.Time-lastExecutionTime <= 60 { // change this for HOUR
+	if req.Time-lastExecutionTime <= timeIntervalSeshuJobs { // change this for HOUR
 		return transport.SendHtmlRes(w, []byte(""), http.StatusOK, "partial", nil)
 	}
 
