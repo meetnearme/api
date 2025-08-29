@@ -331,3 +331,24 @@ input[type='number'] {
   color: var(--fallback-pc, oklch(var(--pc)));
   background-color: var(--fallback-p, oklch(var(--p)));
 }
+
+/* Show an item only when an item within the parenthas focus */
+.show-on-focus-parent:focus-within .show-on-focus-child {
+  opacity: 1;
+  max-height: 200px;
+  visibility: visible;
+  transform: translateY(0);
+  transition: all 0.2s ease-in-out;
+}
+
+.show-on-focus-child {
+  opacity: 0;
+  max-height: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.2s ease-in-out;
+}
+
+.body-font {
+  font-family: inherit;
+}

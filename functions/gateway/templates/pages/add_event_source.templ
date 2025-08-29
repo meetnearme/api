@@ -12,20 +12,20 @@ templ AddEventSource() {
 				<li
 					class="step"
 					:class="{'step-primary':
-             formStep >= 1}"
+						 formStep >= 1}"
 				>Add a Target URL</li>
 				<li
 					class="step"
 					:class="{'step-primary':
-             formStep >= 2}"
+						 formStep >= 2}"
 				>Verify Events</li>
 				<li
 					class="step"
 					:class="{'step-primary':
-             formStep >= 3}"
+						 formStep >= 3}"
 				>Add to Site</li>
 			</ul>
-			<button @click="incrementFormStep()">Increment Step</button>
+			// <button @click="incrementFormStep()">Increment Step</button>
 		</div>
 		<div id="event-source-container" class="col-span-5 card border border-base-300 bg-base-200 p-10 rounded-box">
 			<h2 class="text-3xl font-bold">Add a Target URL</h2>
@@ -298,9 +298,11 @@ templ AddEventSource() {
 			}
 		}
 		function getWizardState() {
+			let importFrom = document.location.search.split('import_from=')[1];
+			importFrom = importFrom ? decodeURIComponent(importFrom) : "";
 			return {
 				formData: {
-					url: "",
+					url: importFrom ?? "",
 					selectedLocationType: "address",
 					address: "",
 				},
@@ -341,7 +343,7 @@ templ AddEventSource() {
 				isURL(url) {
 					// NOTE: unsure if this is a useless escape or not
 					// eslint-disable-next-line no-useless-escape
-					var re = /[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z0-9]{2,}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/;
+					var re = /^https?:\/\/[a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z0-9]{2,}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/;
 					return re.test(url);
 				},
 				handleURLSubmit() {
