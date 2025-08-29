@@ -352,3 +352,73 @@ input[type='number'] {
 .body-font {
   font-family: inherit;
 }
+.rainbow-box {
+  border-radius: 9999px;
+  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+  padding: 10px;
+  overflow: hidden;
+  position: relative;
+}
+.rainbow-box:before {
+  content: '';
+  position: absolute;
+  height: 50rem;
+  width: 50rem;
+  left: -50rem;
+  right: -50rem;
+  top: -50rem;
+  bottom: -50rem;
+  border-radius: 50%;
+  margin: auto;
+  background: #9ba4b5;
+  z-index: -2;
+  pointer-events: none;
+  animation: rotate-then-fade 3.5s linear 1 forwards;
+  background: conic-gradient(
+    #fd004c,
+    #fe9000,
+    #fff020,
+    #3edf4b,
+    #3363ff,
+    #b102b7,
+    #fd004c
+  );
+}
+.rainbow-box:after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  right: 3px;
+  bottom: 3px;
+  background: white;
+  z-index: -2;
+  pointer-events: none;
+  border-radius: 9999px;
+}
+@keyframes rotate-then-fade {
+  0% {
+    transform: rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    transform: rotate(0deg);
+    opacity: 0;
+  }
+  25% {
+    transform: rotate(20deg);
+    opacity: 0.9;
+  }
+  50% {
+    transform: rotate(180deg);
+    opacity: 1;
+  }
+  90% {
+    transform: rotate(340deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: rotate(360deg);
+    opacity: 0;
+  }
+}
