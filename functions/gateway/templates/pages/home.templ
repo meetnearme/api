@@ -463,7 +463,6 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 								placeholder="Share your favorite events via link"
 							/>
 						</label>
-						// TODO: URL encode the value
 						<button
 							class="btn btn-outline join-item"
 							onclick="window.location.replace( window.location.origin + '/admin/add-event-source/?import_from=' + encodeURIComponent(document.getElementById('event-link-input').value) )"
