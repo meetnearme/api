@@ -392,7 +392,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	// Use regex to remove incomplete JSON that OpenAI sometimes returns
 	unpaddedJSON, err := UnpadJSON(messageContentArray)
 	if err != nil {
-		log.Printf("Failed to convert scraped data to readable events: %w", err)
+		log.Printf("Failed to convert scraped data to readable events: %v", err)
 		return "", "", fmt.Errorf("Failed to convert scraped data to readable events")
 	}
 
