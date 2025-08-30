@@ -306,8 +306,8 @@ templ AddEventSource() {
 			}
 		}
 		function getWizardState() {
-			let importFrom = document.location.search.split('import_from=')[1];
-			importFrom = importFrom ? decodeURIComponent(importFrom) : "";
+			const params = new URLSearchParams(document.location.search);
+			const importFrom = params.get('import_from') ? decodeURIComponent(params.get('import_from')) : "";
 			return {
 				formData: {
 					url: importFrom ?? "",
