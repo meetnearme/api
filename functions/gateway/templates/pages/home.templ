@@ -455,21 +455,24 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				</div>
 				// event link import form
 				<div class="w-5/6 mx-auto mt-4">
-					<div class="join w-full rainbow-box z-[1]">
+					<form class="w-5/6 mx-auto mt-4" onsubmit="const v=document.getElementById('event-link-input').value; if(!v) return; window.location.replace(`${window.location.origin}/admin/add-event-source/?import_from=${encodeURIComponent(v)}`); return false;">
+					<div class="join w-full">
 						<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
 							<input
 								id="event-link-input"
 								class="w-full grow"
-								type="text"
-								placeholder="Share your favorite events via link"
+								type="url"
+								placeholder="Enter event link"
+								inputmode="url"
 								autocomplete="off"
 							/>
 						</label>
 						<button
+							type="submit"
 							class="btn btn-outline join-item"
-							onclick="window.location.replace( window.location.origin + '/admin/add-event-source/?import_from=' + encodeURIComponent(document.getElementById('event-link-input').value) )"
 						>Import events from link</button>
 					</div>
+				</form>
 				</div>
 			</div>
 			<div class="pb-4">
