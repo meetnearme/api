@@ -43,7 +43,7 @@ templ AddEventSource() {
 					:class="{'border-red-500': formData.url && !isURL(formData.url)}"
 					placeholder="Event source URL"
 				/>
-				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid URL (must start with http:// or https://)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
+				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid Facebook.com URL (must start with https://facebook.com)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
 				<br/>
 				<br/>
 				<button type="submit" :disabled="!formData.url || !isURL(formData.url)" class="btn btn-primary">Search for Events <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
@@ -349,10 +349,13 @@ templ AddEventSource() {
 					// NOTE: unsure if this is a useless escape or not
 					// eslint-disable-next-line no-useless-escape
 					try {
-					  const u = new URL(url);
-					  return u.protocol === 'http:' || u.protocol === 'https:';
+						const u = new URL(url);
+						if (u.origin !== 'https://www.facebook.com') {
+							return false;
+						}
+						return u.protocol === 'http:' || u.protocol === 'https:';
 					} catch {
-					  return false;
+						return false;
 					}
 				},
 				handleURLSubmit() {
