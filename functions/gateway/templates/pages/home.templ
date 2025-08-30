@@ -433,6 +433,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 									class="btn btn-sm btn-outline font-thin flex-shrink-0 whitespace-nowrap"
 									x-text="example"
 								></button>
+							</template>
 						</div>
 						<!-- Fade indicator for more content -->
 						<div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-base-200 to-transparent pointer-events-none"></div>
@@ -456,23 +457,23 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				// event link import form
 				<div class="w-5/6 mx-auto mt-4">
 					<form class="w-5/6 mx-auto mt-4" onsubmit="const v=document.getElementById('event-link-input').value; if(!v) return; window.location.replace(`${window.location.origin}/admin/add-event-source/?import_from=${encodeURIComponent(v)}`); return false;">
-					<div class="join w-full">
-						<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
-							<input
-								id="event-link-input"
-								class="w-full grow"
-								type="url"
-								placeholder="Enter event link"
-								inputmode="url"
-								autocomplete="off"
-							/>
-						</label>
-						<button
-							type="submit"
-							class="btn btn-outline join-item"
-						>Import events from link</button>
-					</div>
-				</form>
+						<div class="join w-full">
+							<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
+								<input
+									id="event-link-input"
+									class="w-full grow"
+									type="url"
+									placeholder="Enter event link"
+									inputmode="url"
+									autocomplete="off"
+								/>
+							</label>
+							<button
+								type="submit"
+								class="btn btn-outline join-item"
+							>Import events from link</button>
+						</div>
+					</form>
 				</div>
 			</div>
 			<div class="pb-4">

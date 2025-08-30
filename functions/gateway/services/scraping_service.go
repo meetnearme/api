@@ -183,13 +183,13 @@ The input is:
 const textStrings = `
 }
 
-func UnpadJSON(jsonStr string) string {
+func UnpadJSON(jsonStr string) (string, error) {
 	buffer := new(bytes.Buffer)
 	if err := json.Compact(buffer, []byte(jsonStr)); err != nil {
 		log.Println("Error unpadding JSON: ", err)
-		return jsonStr
+		return jsonStr, err
 	}
-	return buffer.String()
+	return buffer.String(), nil
 }
 
 // Add this interface at the top of the file
@@ -389,9 +389,12 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", fmt.Errorf("unexpected response format, `message.content` missing")
 	}
 
-	// TODO: figure out why this isn't working
 	// Use regex to remove incomplete JSON that OpenAI sometimes returns
-	unpaddedJSON := UnpadJSON(messageContentArray)
+	unpaddedJSON, err := UnpadJSON(messageContentArray)
+	if err != nil {
+		log.Printf("Failed to convert scraped data to readable events: %w", err)
+		return "", "", fmt.Errorf("Failed to convert scraped data to readable events")
+	}
 
 	return sessionId, unpaddedJSON, nil
 }
