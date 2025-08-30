@@ -140,7 +140,7 @@ templ AddEventSource() {
 						type="hidden"
 					/>
 					<div id="event-candidates-inner" class="mb-8" @change="updateMissingFieldsCheck()">
-						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-stretch">
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-2 justify-stretch">
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
@@ -149,7 +149,7 @@ templ AddEventSource() {
 					<div id="event-recursive-confirmation" class="margins-when-children my-8"></div>
 					<button
 						type="button"
-						class="btn"
+						class="btn mb-4"
 						:class="missingFieldsCheck ? 'btn-warning' : 'btn-primary'"
 						:disabled="!hasEvents || eventCandidates.length === 0"
 						@click="submitDynamicForm()"
@@ -165,9 +165,6 @@ templ AddEventSource() {
 			</div>
 			<div class="divider divider-horizontal"></div>
 			<div aria-live="polite">
-				<p aria-live="polite" x-text="getSubmissionStateText()"></p>
-				<br/>
-				<br/>
 				<form
 					class="group"
 					novalidate
@@ -183,6 +180,12 @@ templ AddEventSource() {
 						id="url"
 						type="hidden"
 					/>
+					<div class="alert alert-info mb-4">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+						<p aria-live="polite" x-text="getSubmissionStateText()"></p>
+					</div>
 					<button
 						:disabled="!hasEvents || !eventsValidated || (hasFallbackLocation && !locationValidated) || formStep < 2 || eventCandidates.length === 0"
 						type="submit"
@@ -372,7 +375,7 @@ templ AddEventSource() {
 				},
 				getSubmissionStateText() {
 					if (this.formStep === 1 || !this.formData.url) {
-						return "In order to submit, a URL is required"
+						return "In order to submit, search for events first"
 					} else if (this.eventsLoading) {
 						return "Checking the provided URL for event listings ..."
 					} else if (!this.hasEvents) {

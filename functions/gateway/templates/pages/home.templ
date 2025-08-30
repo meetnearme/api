@@ -413,6 +413,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 								type="text"
 								placeholder="I want to exercise with a group"
 								:value="$store.urlState.q || ''"
+								autocomplete="off"
 							/>
 							@FilterButton()
 						</label>
@@ -461,6 +462,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 								class="w-full grow"
 								type="text"
 								placeholder="Share your favorite events via link"
+								autocomplete="off"
 							/>
 						</label>
 						<button

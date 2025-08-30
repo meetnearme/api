@@ -7,7 +7,7 @@ const sharedTheme = {
   '--rounded-btn': '0.25rem',
   '--rounded-badge': '1rem',
   '--tab-radius': '0.25rem',
-  info: '#ffa914',
+  info: '#84ccff',
   'info-content': '#000000',
   success: '#74ea62',
   'success-content': '#000000',
