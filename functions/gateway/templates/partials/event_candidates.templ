@@ -11,7 +11,14 @@ templ EventCandidatesPartial(eventCandidates []types.EventInfo) {
 			Mark each field such as "title" and "location" as correct or incorrect with the adjacent toggle. If the proposed event is not an event, toggle "This is an event" to "This is not an event".
 		</div>
 		<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
-			for index, candidate := range eventCandidates[:3] {
+			{{
+				limit := 1
+				end := limit
+				if len(eventCandidates) < end {
+					end = len(eventCandidates)
+				}
+			}}
+			for index, candidate := range eventCandidates[:end] {
 				<div class="checkbox-card card card-compact shadow-lg">
 					<div class="checkbox-card-header bg-success content-success has-toggleable-text">
 						<label class="label cursor-pointer justify-normal">
