@@ -64,7 +64,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 				No events found, try changing your filters like location, date, and time, or
 				<br/>
 				<br/>
-				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search</a>
+				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search Radius</a>
 			</p>
 		} else {
 			for _, ev := range events {
@@ -402,42 +402,49 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 	>
 		<div x-data="getHomeState()">
 			<div class="card border border-base-300 bg-base-200 p-4 pb-2 md:p-10 md:pb-6 rounded-box mb-4">
-				<div class="mb-4 relative">
-					<div class="flex gap-2 items-center overflow-x-auto pb-3">
-						<template x-for="(example, index) in $store.filters.getSearchExamples()" :key="index">
-							<button
-								@click="$store.urlState.setParam('q', example)"
-								class="btn btn-sm btn-outline font-thin flex-shrink-0 whitespace-nowrap"
-								x-text="example"
-							></button>
-						</template>
-					</div>
-					<!-- Fade indicator for more content -->
-					<div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-base-200 to-transparent pointer-events-none"></div>
-				</div>
 				// full width search bar
-				<form class="join w-full" @submit.prevent="$store.urlState.setParam('q', $event.target.querySelector('input[type=text]').value)">
-					<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
-						<input
-							id="search-input"
-							class="w-full grow"
-							type="text"
-							placeholder="I want to exercise with a group"
-							:value="$store.urlState.q || ''"
-						/>
-						@FilterButton()
-					</label>
-					<button
-						type="submit"
-						id="search-submit-btn"
-						class="btn btn-primary join-item"
-					>Search</button>
+				<h2 class="text-2xl body-font font-bold mb-4 uppercase text-center">What type of local events you're looking to find?</h2>
+				<form class="show-on-focus-parent" @submit.prevent="$store.urlState.setParam('q', document.getElementById('search-input').value)">
+					<div class="join w-full">
+						<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
+							<input
+								id="search-input"
+								class="w-full grow"
+								type="text"
+								placeholder="I want to exercise with a group"
+								:value="$store.urlState.q || ''"
+								autocomplete="off"
+							/>
+							@FilterButton()
+						</label>
+						<button
+							type="submit"
+							id="search-submit-btn"
+							class="btn btn-primary join-item"
+						>Search</button>
+					</div>
+					<div class="mb-4 relative show-on-focus-child">
+						// search examples
+						<div class="flex gap-2 items-center overflow-x-auto pb-3 pt-4">
+							<template x-for="(example, index) in $store.filters.getSearchExamples()" :key="index">
+								<button
+									type="button"
+									@click="$store.urlState.setParam('q', example)"
+									class="btn btn-sm btn-outline font-thin flex-shrink-0 whitespace-nowrap"
+									x-text="example"
+								></button>
+							</template>
+						</div>
+						<!-- Fade indicator for more content -->
+						<div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-base-200 to-transparent pointer-events-none"></div>
+					</div>
 				</form>
-				<div class="text-sm md:text-base mt-6 mb-2">
+				// input form for importing events from link
+				<div class="text-sm md:text-base mt-2 mb-2">
 					Showing events within <span class="font-bold" x-text="$store.urlState.radius || defaultRadius"></span> miles of
-					<a class="link link-text font-bold" :href="`https://google.com/maps?q=${$store.urlState.location || document.querySelector('#alpine-state').getAttribute('data-city-label-initial') }`">
+					<button class="link link-text font-bold" @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();">
 						<span x-text="$store.urlState.location || document.querySelector('#alpine-state').getAttribute('data-city-label-initial')"></span>
-					</a>
+					</button>
 					<template x-if="$store.urlState.q">
 						<span>&nbsp;searching for "<strong x-text="$store.urlState.q"></strong>"</span>
 					</template>
@@ -446,6 +453,28 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					</template>
 					&nbsp;
 					<button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
+				</div>
+				// event link import form
+				<div class="w-5/6 mx-auto mt-4">
+					<form onsubmit="const v=document.getElementById('event-link-input').value; if(!v) return; window.location.replace(`${window.location.origin}/admin/add-event-source/?import_from=${encodeURIComponent(v)}`); return false;">
+						<div class="join w-full rainbow-box z-[1]">
+							<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
+								<input
+									id="event-link-input"
+									class="w-full grow"
+									type="text"
+									placeholder="Share your favorite events via link"
+									autocomplete="off"
+									type="url"
+									inputmode="url"
+								/>
+							</label>
+							<button
+								class="btn btn-outline join-item"
+								type="submit"
+							>Import events from link</button>
+						</div>
+					</form>
 				</div>
 			</div>
 			<div class="pb-4">

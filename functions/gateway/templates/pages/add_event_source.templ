@@ -6,31 +6,34 @@ templ AddEventSource() {
 	<h1 class="text-3xl">Add an Event Source</h1>
 	<br/>
 	<br/>
-	<div class="grid grid-cols-7" x-data="getWizardState()">
-		<div class="self-start sticky top-0 col-span-2 mr-5 card border border-base-300 bg-base-200 rounded-box place-items-center ">
+	<div class="md:grid md:grid-cols-7" x-data="getWizardState()">
+		<div class="self-start sticky top-0 md:col-span-2 md:mr-5 mb-4 md:mb-0 card border border-base-300 bg-base-200 rounded-box md:place-items-center">
 			<ul id="event-source-steps" class="steps steps-vertical">
 				<li
-					class="step"
+					class="step p-2"
 					:class="{'step-primary':
-             formStep >= 1}"
-				>Add a Target URL</li>
+						 formStep >= 1}"
+				>Search for Events</li>
 				<li
-					class="step"
+					class="step p-2"
 					:class="{'step-primary':
-             formStep >= 2}"
+						 formStep >= 2}"
 				>Verify Events</li>
 				<li
-					class="step"
+					class="step p-2"
 					:class="{'step-primary':
-             formStep >= 3}"
+						 formStep >= 3}"
 				>Add to Site</li>
 			</ul>
-			<button @click="incrementFormStep()">Increment Step</button>
+			// <button @click="incrementFormStep()">Increment Step</button>
 		</div>
 		<div id="event-source-container" class="col-span-5 card border border-base-300 bg-base-200 p-10 rounded-box">
-			<h2 class="text-3xl font-bold">Add a Target URL</h2>
+			<h2 class="text-3xl font-bold">Search for Events</h2>
 			<form class="group" novalidate hx-post={ templ.EscapeString("/api/html/session/submit/?action=init") } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? handleURLSubmit() : ''" @htmx:after-request="handleUrlRes(event)">
-				<label for="url">Enter a URL that lists events and we will check the site and propose some events that might be on that page (this will take some time)</label>
+				<label for="url">
+					Have a site or URL with local events? Drop it below. We'll identify and organize the events on that page for you so you can publish or share them quickly.
+					(scanning will take some time)
+				</label>
 				<input
 					x-model="formData.url"
 					name="url"
@@ -40,7 +43,7 @@ templ AddEventSource() {
 					:class="{'border-red-500': formData.url && !isURL(formData.url)}"
 					placeholder="Event source URL"
 				/>
-				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid URL (must start with http:// or https://)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
+				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid Facebook.com URL (must start with https://facebook.com)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
 				<br/>
 				<br/>
 				<button type="submit" :disabled="!formData.url || !isURL(formData.url)" class="btn btn-primary">Search for Events <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
@@ -90,7 +93,6 @@ templ AddEventSource() {
 								<input
 									x-model="formData.url"
 									name="url"
-									id="url"
 									type="hidden"
 								/>
 								<label for="location" class="form-control w-full">
@@ -136,11 +138,10 @@ templ AddEventSource() {
 					<input
 						x-model="formData.url"
 						name="url"
-						id="url"
 						type="hidden"
 					/>
 					<div id="event-candidates-inner" class="mb-8" @change="updateMissingFieldsCheck()">
-						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-stretch">
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-2 justify-stretch">
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
@@ -149,7 +150,7 @@ templ AddEventSource() {
 					<div id="event-recursive-confirmation" class="margins-when-children my-8"></div>
 					<button
 						type="button"
-						class="btn"
+						class="btn mb-4"
 						:class="missingFieldsCheck ? 'btn-warning' : 'btn-primary'"
 						:disabled="!hasEvents || eventCandidates.length === 0"
 						@click="submitDynamicForm()"
@@ -164,36 +165,40 @@ templ AddEventSource() {
 				<div id="events-valid-confirmation" class="margins-when-children my-8"></div>
 			</div>
 			<div class="divider divider-horizontal"></div>
-			<div aria-live="polite">
-				<p aria-live="polite" x-text="getSubmissionStateText()"></p>
-				<br/>
-				<br/>
-				<form
-					class="group"
-					novalidate
-					hx-post="/api/html/seshu/session/submit"
-					hx-ext="json-enc"
-					hx-target="#final-submission"
-					hx-disabled-elt="button[type='submit']"
-					@htmx:after-request="handleFinalSubmission(event)"
-				>
-					<input
-						x-model="formData.url"
-						name="url"
-						id="url"
-						type="hidden"
-					/>
-					<button
-						:disabled="!hasEvents || !eventsValidated || (hasFallbackLocation && !locationValidated) || formStep < 2 || eventCandidates.length === 0"
-						type="submit"
-						class="btn btn-primary"
+			<template x-if="formStep >= 2">
+				<div aria-live="polite" aria-live="polite">
+					<form
+						class="group"
+						novalidate
+						hx-post="/api/html/seshu/session/submit"
+						hx-ext="json-enc"
+						hx-target="#final-submission"
+						hx-disabled-elt="button[type='submit']"
+						@htmx:after-request="handleFinalSubmission(event)"
 					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Submit Event Source <span class="htmx-indicator loading loading-spinner loading-sm"></span>
-					</button>
-					<div id="final-submission" class="mt-8 htmx-hide-in-flight" aria-live="polite"></div>
-					<div class="skeleton card card-compact mt-8 h-24 w-full htmx-show-in-flight"></div>
-				</form>
-			</div>
+						<input
+							x-model="formData.url"
+							name="url"
+							type="hidden"
+						/>
+						<div class="alert alert-info mb-4">
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+							</svg>
+							<p aria-live="polite" x-text="getSubmissionStateText()"></p>
+						</div>
+						<button
+							:disabled="!hasEvents || !eventsValidated || (hasFallbackLocation && !locationValidated) || formStep < 2 || eventCandidates.length === 0"
+							type="submit"
+							class="btn btn-primary"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Submit Event Source <span class="htmx-indicator loading loading-spinner loading-sm"></span>
+						</button>
+						<div id="final-submission" class="mt-8 htmx-hide-in-flight" aria-live="polite"></div>
+						<div class="skeleton card card-compact mt-8 h-24 w-full htmx-show-in-flight"></div>
+					</form>
+				</div>
+			</template>
 		</div>
 		<template x-if="showToast === true">
 			<div class="toast m-4 z-50">
@@ -298,9 +303,11 @@ templ AddEventSource() {
 			}
 		}
 		function getWizardState() {
+			const params = new URLSearchParams(document.location.search);
+			const importFrom = params.get('import_from') ? decodeURIComponent(params.get('import_from')) : "";
 			return {
 				formData: {
-					url: "",
+					url: importFrom ?? "",
 					selectedLocationType: "address",
 					address: "",
 				},
@@ -314,7 +321,7 @@ templ AddEventSource() {
 				eventsValidated: false,
 				eventsLoading: false,
 				eventCandidates: [],
-				hasFallbackLocation: true,
+				hasFallbackLocation: false,
 				locationValidated: false,
 				isDisabling: false,
 				missingFieldsCheck: false,
@@ -341,8 +348,15 @@ templ AddEventSource() {
 				isURL(url) {
 					// NOTE: unsure if this is a useless escape or not
 					// eslint-disable-next-line no-useless-escape
-					var re = /[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z0-9]{2,}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/;
-					return re.test(url);
+					try {
+						const u = new URL(url);
+						if (u.origin !== 'https://www.facebook.com') {
+							return false;
+						}
+						return u.protocol === 'http:' || u.protocol === 'https:';
+					} catch {
+						return false;
+					}
 				},
 				handleURLSubmit() {
 					this.setEventsLoading(true);
@@ -370,7 +384,7 @@ templ AddEventSource() {
 				},
 				getSubmissionStateText() {
 					if (this.formStep === 1 || !this.formData.url) {
-						return "In order to submit, a URL is required"
+						return "In order to submit, search for events first"
 					} else if (this.eventsLoading) {
 						return "Checking the provided URL for event listings ..."
 					} else if (!this.hasEvents) {

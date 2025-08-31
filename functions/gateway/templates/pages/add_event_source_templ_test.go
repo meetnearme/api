@@ -32,7 +32,7 @@ func TestAddEventSource(t *testing.T) {
 	renderedContent := buf.String()
 	expectedContent := []string{
 		"Add an Event Source",
-		"Add a Target URL",
+		"Search for Events",
 		"Verify Events",
 		"Add to Site",
 		"event-source-steps",

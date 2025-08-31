@@ -322,6 +322,11 @@ func TestDeleteSeshuJob(t *testing.T) {
 }
 
 func TestGatherSeshuJobsHandler(t *testing.T) {
+	// Reset global state to avoid interference from other tests
+	originalLastExecutionTime := handlers.GetLastExecutionTime()
+	defer handlers.SetLastExecutionTime(originalLastExecutionTime)
+	handlers.SetLastExecutionTime(0) // Reset to 0 for this test
+
 	mockDB := &MockPostgresService{
 		ScanJobsFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
 			return []internal_types.SeshuJob{

@@ -331,18 +331,25 @@ func TestParsePayload(t *testing.T) {
 
 func TestUnpadJSON(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected string
+		name        string
+		input       string
+		expected    string
+		expectError bool
 	}{
-		{"Valid JSON", `{"key": "value"}`, `{"key":"value"}`},
-		{"Padded JSON", ` { "key" : "value" } `, `{"key":"value"}`},
-		{"Invalid JSON", `{"key": "value"`, `{"key": "value"`},
+		{"Valid JSON", `{"key": "value"}`, `{"key":"value"}`, false},
+		{"Padded JSON", ` { "key" : "value" } `, `{"key":"value"}`, false},
+		{"Invalid JSON", `{"key": "value"`, `{"key": "value"`, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := services.UnpadJSON(tt.input)
+			result, err := services.UnpadJSON(tt.input)
+			if err != nil && !tt.expectError {
+				t.Errorf("UnpadJSON() unexpected error = %v", err)
+			}
+			if err == nil && result != tt.expected {
+				t.Errorf("UnpadJSON() = %v, want %v", result, tt.expected)
+			}
 			if result != tt.expected {
 				t.Errorf("UnpadJSON() = %v, want %v", result, tt.expected)
 			}

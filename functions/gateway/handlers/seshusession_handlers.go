@@ -214,21 +214,6 @@ func saveSession(ctx context.Context, htmlContent string, urlToScrape, childID, 
 	}
 }
 
-func _SendHtmlErrorPartial(err error, ctx context.Context) (InternalResponse, error) {
-	layoutTemplate := partials.ErrorHTML(err, "web-handler")
-	var buf bytes.Buffer
-	renderErr := layoutTemplate.Render(ctx, &buf)
-	if renderErr != nil {
-		return serverError(renderErr)
-	}
-
-	return InternalResponse{
-		Headers:    map[string]string{"Content-Type": "text/html"},
-		StatusCode: http.StatusOK,
-		Body:       buf.String(),
-	}, nil
-}
-
 func SendMessage(sessionID string, message string) (string, error) {
 	client := &http.Client{}
 
@@ -269,16 +254,6 @@ func SendMessage(sessionID string, message string) (string, error) {
 
 	return string(body), nil
 
-}
-
-// // TODO: this should share with the gateway handler
-
-func serverError(err error) (InternalResponse, error) {
-	log.Println(err.Error())
-	return InternalResponse{
-		Body:       http.StatusText(http.StatusInternalServerError),
-		StatusCode: http.StatusInternalServerError,
-	}, nil
 }
 
 func parseAndValidatePayload(payloadBody string, payload any) error {
