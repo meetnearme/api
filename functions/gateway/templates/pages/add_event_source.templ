@@ -7,20 +7,20 @@ templ AddEventSource() {
 	<br/>
 	<br/>
 	<div class="md:grid md:grid-cols-7" x-data="getWizardState()">
-		<div class="self-start sticky top-0 md:col-span-2 md:mr-5 mb-4 md:mb-0 card border border-base-300 bg-base-200 rounded-box place-items-center ">
+		<div class="self-start sticky top-0 md:col-span-2 md:mr-5 mb-4 md:mb-0 card border border-base-300 bg-base-200 rounded-box md:place-items-center">
 			<ul id="event-source-steps" class="steps steps-vertical">
 				<li
-					class="step"
+					class="step p-2"
 					:class="{'step-primary':
 						 formStep >= 1}"
 				>Search for Events</li>
 				<li
-					class="step"
+					class="step p-2"
 					:class="{'step-primary':
 						 formStep >= 2}"
 				>Verify Events</li>
 				<li
-					class="step"
+					class="step p-2"
 					:class="{'step-primary':
 						 formStep >= 3}"
 				>Add to Site</li>
