@@ -256,16 +256,6 @@ func SendMessage(sessionID string, message string) (string, error) {
 
 }
 
-// // TODO: this should share with the gateway handler
-
-func serverError(err error) (InternalResponse, error) {
-	log.Println(err.Error())
-	return InternalResponse{
-		Body:       http.StatusText(http.StatusInternalServerError),
-		StatusCode: http.StatusInternalServerError,
-	}, nil
-}
-
 func parseAndValidatePayload(payloadBody string, payload any) error {
 	if err := json.Unmarshal([]byte(payloadBody), payload); err != nil {
 		log.Printf("Invalid JSON payload: %v", err)

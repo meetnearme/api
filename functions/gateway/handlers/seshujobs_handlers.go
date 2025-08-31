@@ -189,6 +189,7 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 		var job internal_types.SeshuJob
 
 		err := json.Unmarshal(topOfQueue.Data, &job)
+
 		if err != nil {
 			return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusBadRequest)
 		}
@@ -263,4 +264,13 @@ func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary
 		))
 	}
 	return &buf
+}
+
+// Add these functions to expose the global variable for testing
+func GetLastExecutionTime() int64 {
+	return lastExecutionTime
+}
+
+func SetLastExecutionTime(t int64) {
+	lastExecutionTime = t
 }
