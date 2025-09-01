@@ -33,15 +33,11 @@ type GeoLookupInputPayload struct {
 
 type GeoThenSeshuPatchInputPayload struct {
 	Location string `json:"location" validate:"required"`
-	Url      string `json:"url" validate:"required"` // URL is the DB key in SeshuSession
-}
-
-type SeshuSessionSubmitPayload struct {
-	Url string `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+	Url      string `json:"source_url" validate:"required"` // URL is the DB key in SeshuSession
 }
 
 type SeshuSessionEventsPayload struct {
-	Url                     string                          `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+	Url                     string                          `json:"event_source_url" validate:"required"` // URL is the DB key in SeshuSession
 	EventBoolValid          []internal_types.EventBoolValid `json:"eventValidations" validate:"required"`
 	EventRecursiveBoolValid []internal_types.EventBoolValid `json:"eventValidationRecursive" validate:"omitempty"`
 }
@@ -342,8 +338,10 @@ func GeoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 		transport.SendHtmlRes(w, []byte("Failed to get geocoordinates: "+err.Error()), http.StatusInternalServerError, "partial", err)(w, r)
 		return
 	}
+	updateSeshuSession := internal_types.SeshuSessionUpdate{
+		Url: inputPayload.Url, // Map source_url to Url field
+	}
 
-	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {

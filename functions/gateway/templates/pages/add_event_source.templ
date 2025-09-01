@@ -43,7 +43,7 @@ templ AddEventSource() {
 					:class="{'border-red-500': formData.url && !isURL(formData.url)}"
 					placeholder="Event source URL"
 				/>
-				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid Facebook.com URL (must start with https://facebook.com)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
+				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid Facebook.com events page URL (must look like https://facebook.com/{page name}/events or https://www.facebook.com/people/{page name}/123/?sk=events)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
 				<br/>
 				<br/>
 				<button type="submit" :disabled="!formData.url || !isURL(formData.url)" class="btn btn-primary">Search for Events <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
@@ -92,7 +92,7 @@ templ AddEventSource() {
 							>
 								<input
 									x-model="formData.url"
-									name="url"
+									name="source_url"
 									type="hidden"
 								/>
 								<label for="location" class="form-control w-full">
@@ -137,7 +137,7 @@ templ AddEventSource() {
 				>
 					<input
 						x-model="formData.url"
-						name="url"
+						name="event_source_url"
 						type="hidden"
 					/>
 					<div id="event-candidates-inner" class="mb-8" @change="updateMissingFieldsCheck()">
@@ -165,40 +165,48 @@ templ AddEventSource() {
 				<div id="events-valid-confirmation" class="margins-when-children my-8"></div>
 			</div>
 			<div class="divider divider-horizontal"></div>
-			<template x-if="formStep >= 2">
-				<div aria-live="polite" aria-live="polite">
-					<form
-						class="group"
-						novalidate
-						hx-post="/api/html/seshu/session/submit"
-						hx-ext="json-enc"
-						hx-target="#final-submission"
-						hx-disabled-elt="button[type='submit']"
-						@htmx:after-request="handleFinalSubmission(event)"
-					>
-						<input
-							x-model="formData.url"
-							name="url"
-							type="hidden"
-						/>
+			<div
+				aria-live="polite"
+				:class="{'opacity-100 h-auto': formStep >= 2}"
+				class="w-full opacity-0 h-0 transition-all"
+				:aria-hidden="formStep < 2"
+				:aria-expanded="formStep >= 2"
+			>
+				<form
+					class="group"
+					novalidate
+					hx-post="/api/html/seshu/session/submit"
+					hx-ext="json-enc"
+					hx-target="#final-submission"
+					hx-disabled-elt="button[type='submit']"
+					@submit.prevent=""
+					@htmx:after-request="handleFinalSubmission(event)"
+				>
+					<input
+						x-model="formData.url"
+						name="event_source_url"
+						id="final_submission_url"
+						type="hidden"
+					/>
+					<template x-if="getSubmissionStateText() !== ''">
 						<div class="alert alert-info mb-4">
 							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 							</svg>
 							<p aria-live="polite" x-text="getSubmissionStateText()"></p>
 						</div>
-						<button
-							:disabled="!hasEvents || !eventsValidated || (hasFallbackLocation && !locationValidated) || formStep < 2 || eventCandidates.length === 0"
-							type="submit"
-							class="btn btn-primary"
-						>
-							<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Submit Event Source <span class="htmx-indicator loading loading-spinner loading-sm"></span>
-						</button>
-						<div id="final-submission" class="mt-8 htmx-hide-in-flight" aria-live="polite"></div>
-						<div class="skeleton card card-compact mt-8 h-24 w-full htmx-show-in-flight"></div>
-					</form>
-				</div>
-			</template>
+					</template>
+					<button
+						:disabled="!hasEvents || !eventsValidated || (hasFallbackLocation && !locationValidated) || formStep < 2 || eventCandidates.length === 0"
+						type="submit"
+						class="btn btn-primary"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Submit Event Source <span class="htmx-indicator loading loading-spinner loading-sm"></span>
+					</button>
+					<div id="final-submission" class="mt-8 htmx-hide-in-flight" aria-live="polite"></div>
+					<div class="skeleton card card-compact mt-8 h-24 w-full htmx-show-in-flight"></div>
+				</form>
+			</div>
 		</div>
 		<template x-if="showToast === true">
 			<div class="toast m-4 z-50">
@@ -353,6 +361,15 @@ templ AddEventSource() {
 						if (u.origin !== 'https://www.facebook.com') {
 							return false;
 						}
+						const fbEventPageRegex = /^\/events\/(.*)$/;
+						if (fbEventPageRegex.test(u.pathname)) {
+							return false;
+						}
+						// allow alternate "people" pages format
+						const fbEventPersonRegex = /^\/people\/(.*)\/\d+\/\?sk=events$/;
+						if (fbEventPersonRegex.test(u.pathname)) {
+							return true;
+						}
 						return u.protocol === 'http:' || u.protocol === 'https:';
 					} catch {
 						return false;
@@ -400,6 +417,7 @@ templ AddEventSource() {
 					} else if (this.formStep === 2) {
 						return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
 					}
+					return "";
 				},
 				submitDynamicForm() {
 					const form = this.$refs.eventForm;
