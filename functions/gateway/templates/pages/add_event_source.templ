@@ -358,19 +358,18 @@ templ AddEventSource() {
 					// eslint-disable-next-line no-useless-escape
 					try {
 						const u = new URL(url);
-						if (u.origin !== 'https://www.facebook.com') {
-							return false;
-						}
-						const fbEventPageRegex = /^\/events\/(.*)$/;
-						if (fbEventPageRegex.test(u.pathname)) {
-							return false;
-						}
-						// allow alternate "people" pages format
-						const fbEventPersonRegex = /^\/people\/(.*)\/\d+\/\?sk=events$/;
-						if (fbEventPersonRegex.test(u.pathname)) {
-							return true;
-						}
-						return u.protocol === 'http:' || u.protocol === 'https:';
+						// Enforce HTTPS + allowed hosts
+						if (u.protocol !== 'https:') return false;
+						const allowedHosts = new Set(['www.facebook.com', 'facebook.com']);
+						if (!allowedHosts.has(u.host)) return false;
+						// Reject single-event URLs like /events/1234567890
+						if (/^\/events\/.+/.test(u.pathname)) return false;
+						// Accept page events: /{page}/events or /{page}/events/
+						const isPageEvents = /^\/[^/]+\/events\/?$/.test(u.pathname);
+						// Accept “people” pages when ?sk=events
+						const isPeopleBase = /^\/people\/[^/]+\/\d+\/?$/.test(u.pathname);
+						const isPeopleEvents = isPeopleBase && new URLSearchParams(u.search).get('sk') === 'events';
+						return isPageEvents || isPeopleEvents;
 					} catch {
 						return false;
 					}
