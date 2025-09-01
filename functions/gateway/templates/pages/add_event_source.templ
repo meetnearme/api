@@ -43,7 +43,7 @@ templ AddEventSource() {
 					:class="{'border-red-500': formData.url && !isURL(formData.url)}"
 					placeholder="Event source URL"
 				/>
-				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid Facebook.com URL (must start with https://facebook.com) and NOT be a single event page (e.g. facebook.com/events/1234567890)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
+				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid Facebook.com events page URL (must look like https://facebook.com/{page name}/events or https://www.facebook.com/people/{page name}/123/?sk=events)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
 				<br/>
 				<br/>
 				<button type="submit" :disabled="!formData.url || !isURL(formData.url)" class="btn btn-primary">Search for Events <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
@@ -361,9 +361,15 @@ templ AddEventSource() {
 						if (u.origin !== 'https://www.facebook.com') {
 							return false;
 						}
-            if (u.pathname.includes('facebook.com/events/')) {
-              return false;
-            }
+						const fbEventPageRegex = /^\/events\/(.*)$/;
+						if (fbEventPageRegex.test(u.pathname)) {
+							return false;
+						}
+						// allow alternate "people" pages format
+						const fbEventPersonRegex = /^\/people\/(.*)\/\d+\/\?sk=events$/;
+						if (fbEventPersonRegex.test(u.pathname)) {
+							return true;
+						}
 						return u.protocol === 'http:' || u.protocol === 'https:';
 					} catch {
 						return false;
@@ -411,7 +417,7 @@ templ AddEventSource() {
 					} else if (this.formStep === 2) {
 						return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
 					}
-          return "";
+					return "";
 				},
 				submitDynamicForm() {
 					const form = this.$refs.eventForm;
