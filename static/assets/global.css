@@ -369,7 +369,7 @@ input[type='number'] {
   bottom: -50rem;
   border-radius: 50%;
   margin: auto;
-  background: #9ba4b5;
+  background: oklch(var(--b1));
   z-index: -2;
   pointer-events: none;
   animation: rotate-then-fade 3.5s linear 1 forwards;
@@ -390,7 +390,7 @@ input[type='number'] {
   top: 3px;
   right: 3px;
   bottom: 3px;
-  background: white;
+  background: oklch(var(--b1));
   z-index: -2;
   pointer-events: none;
   border-radius: 9999px;

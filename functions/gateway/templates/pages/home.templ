@@ -403,7 +403,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 		<div x-data="getHomeState()">
 			<div class="card border border-base-300 bg-base-200 p-4 pb-2 md:p-10 md:pb-6 rounded-box mb-4">
 				// full width search bar
-				<h2 class="text-2xl body-font font-bold mb-4 uppercase text-center">What type of local events you're looking to find?</h2>
+				<h2 class="text-xl md:text-2xl body-font font-bold mb-4 uppercase text-center">What type of local events you're looking to find?</h2>
 				<form class="show-on-focus-parent" @submit.prevent="$store.urlState.setParam('q', document.getElementById('search-input').value)">
 					<div class="join w-full">
 						<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
@@ -440,7 +440,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					</div>
 				</form>
 				// input form for importing events from link
-				<div class="text-sm md:text-base mt-2 mb-2">
+				<div class="text-sm md:text-base mt-2 mb-2 text-center">
 					Showing events within <span class="font-bold" x-text="$store.urlState.radius || defaultRadius"></span> miles of
 					<button class="link link-text font-bold" @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();">
 						<span x-text="$store.urlState.location || document.querySelector('#alpine-state').getAttribute('data-city-label-initial')"></span>
@@ -457,6 +457,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				// event link import form
 				<div class="w-full md:w-5/6 mx-auto mt-4">
 					<form onsubmit="const v=document.getElementById('event-link-input').value; if(!v) return; window.location.replace(`${window.location.origin}/admin/add-event-source/?import_from=${encodeURIComponent(v)}`); return false;">
+						<p class="text-sm md:text-base mb-2 text-center">Know of a cool event or community? Drop a link below. We'll scan the page for events!</p>
 						<div class="join w-full rainbow-box z-[1]">
 							<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
 								<input
