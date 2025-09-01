@@ -33,15 +33,15 @@ type GeoLookupInputPayload struct {
 
 type GeoThenSeshuPatchInputPayload struct {
 	Location string `json:"location" validate:"required"`
-	Url      string `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+	Url      string `json:"source_url" validate:"required"` // URL is the DB key in SeshuSession
 }
 
 type SeshuSessionSubmitPayload struct {
-	Url string `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+	Url string `json:"final_submission_url" validate:"required"` // URL is the DB key in SeshuSession
 }
 
 type SeshuSessionEventsPayload struct {
-	Url                     string                          `json:"url" validate:"required"` // URL is the DB key in SeshuSession
+	Url                     string                          `json:"event_source_url" validate:"required"` // URL is the DB key in SeshuSession
 	EventBoolValid          []internal_types.EventBoolValid `json:"eventValidations" validate:"required"`
 	EventRecursiveBoolValid []internal_types.EventBoolValid `json:"eventValidationRecursive" validate:"omitempty"`
 }

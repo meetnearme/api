@@ -41,8 +41,6 @@ func (s *RealGeoService) GetGeo(location string, baseUrl string) (lat string, lo
 		return "", "", "", fmt.Errorf("location is not valid")
 	}
 
-	log.Printf("~~ 46: matches: %+v", matches)
-
 	lat = matches[1]
 	lon = matches[2]
 
