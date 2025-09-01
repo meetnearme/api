@@ -1,6 +1,20 @@
 # Meet Near Me API
 
-## Running the Lambda Project
+## Running the Docker Project
+
+1. Install Docker via [`Download Docker Desktop button here`](https://www.docker.com/products/docker-desktop/)
+2. Get the latest `.env` file variables from someone on the team
+3. Install npm
+4. Git clone this repo
+5. `npm install`
+6. Open two terminal tabs
+7. In the first, execute `npm run dev:docker:rebuild`, this will build the multi-container project (you can view the various containers [here](https://github.com/meetnearme/api/blob/develop/docker-compose.yml)) and expose the main project on `localhost:8000`
+8. In the second, execute `npm run dev:watchers`, this will run a few things
+    1. Tailwind (with a special watcher that can update the css hash in `layout.templ`
+    2. The `*.templ` template file watcher and a trigger to compile new Go builds
+    3. local npm static asset server
+
+## (⚠️ Deprecaated) Running the Lambda Project
 
 ### Prerequisites
 
