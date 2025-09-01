@@ -36,10 +36,6 @@ type GeoThenSeshuPatchInputPayload struct {
 	Url      string `json:"source_url" validate:"required"` // URL is the DB key in SeshuSession
 }
 
-type SeshuSessionSubmitPayload struct {
-	Url string `json:"final_submission_url" validate:"required"` // URL is the DB key in SeshuSession
-}
-
 type SeshuSessionEventsPayload struct {
 	Url                     string                          `json:"event_source_url" validate:"required"` // URL is the DB key in SeshuSession
 	EventBoolValid          []internal_types.EventBoolValid `json:"eventValidations" validate:"required"`

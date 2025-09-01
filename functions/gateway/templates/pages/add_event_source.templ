@@ -43,7 +43,7 @@ templ AddEventSource() {
 					:class="{'border-red-500': formData.url && !isURL(formData.url)}"
 					placeholder="Event source URL"
 				/>
-				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid Facebook.com URL (must start with https://facebook.com)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
+				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid Facebook.com URL (must start with https://facebook.com) and NOT be a single event page (e.g. facebook.com/events/1234567890)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
 				<br/>
 				<br/>
 				<button type="submit" :disabled="!formData.url || !isURL(formData.url)" class="btn btn-primary">Search for Events <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
@@ -184,16 +184,18 @@ templ AddEventSource() {
 				>
 					<input
 						x-model="formData.url"
-						name="final_submission_url"
+						name="event_source_url"
 						id="final_submission_url"
 						type="hidden"
 					/>
-					<div class="alert alert-info mb-4">
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-						</svg>
-						<p aria-live="polite" x-text="getSubmissionStateText()"></p>
-					</div>
+					<template x-if="getSubmissionStateText() !== ''">
+						<div class="alert alert-info mb-4">
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+							</svg>
+							<p aria-live="polite" x-text="getSubmissionStateText()"></p>
+						</div>
+					</template>
 					<button
 						:disabled="!hasEvents || !eventsValidated || (hasFallbackLocation && !locationValidated) || formStep < 2 || eventCandidates.length === 0"
 						type="submit"
@@ -359,6 +361,9 @@ templ AddEventSource() {
 						if (u.origin !== 'https://www.facebook.com') {
 							return false;
 						}
+            if (u.pathname.includes('facebook.com/events/')) {
+              return false;
+            }
 						return u.protocol === 'http:' || u.protocol === 'https:';
 					} catch {
 						return false;
@@ -406,6 +411,7 @@ templ AddEventSource() {
 					} else if (this.formStep === 2) {
 						return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
 					}
+          return "";
 				},
 				submitDynamicForm() {
 					const form = this.$refs.eventForm;
