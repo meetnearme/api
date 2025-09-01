@@ -338,8 +338,10 @@ func GeoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 		transport.SendHtmlRes(w, []byte("Failed to get geocoordinates: "+err.Error()), http.StatusInternalServerError, "partial", err)(w, r)
 		return
 	}
+	updateSeshuSession := internal_types.SeshuSessionUpdate{
+		Url: inputPayload.Url, // Map source_url to Url field
+	}
 
-	var updateSeshuSession internal_types.SeshuSessionUpdate
 	err = json.Unmarshal([]byte(body), &updateSeshuSession)
 
 	if err != nil {
