@@ -40,13 +40,23 @@ templ AddEventSource() {
 					id="url"
 					type="url"
 					class="input input-bordered w-full p-2 mt-5 w-full"
-					:class="{'border-red-500': formData.url && !isURL(formData.url)}"
+					:class="{'border-red-500': formData.urlTouched && formData.url && !isURL(formData.url)}"
 					placeholder="Event source URL"
+					@blur="formData.urlTouched = true"
 				/>
-				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid Facebook.com events page URL (must look like https://facebook.com/{page name}/events or https://www.facebook.com/people/{page name}/123/?sk=events)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
+				<span
+					aria-live="polite"
+					x-text="formData.urlTouched && formData.url && !isURL(formData.url) ? 'Please enter a valid Facebook.com events page URL (must look like https://facebook.com/{page name}/events or https://www.facebook.com/people/{page name}/123/?sk=events)' : ''"
+					:class="{'visible': formData.urlTouched && formData.url && !isURL(formData.url)}"
+					class="mt-2 text-sm text-red-500"
+				></span>
 				<br/>
 				<br/>
-				<button type="submit" :disabled="!formData.url || !isURL(formData.url)" class="btn btn-primary">Search for Events <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+				<button
+					type="submit"
+					:disabled="!formData.url || (formData.urlTouched && !isURL(formData.url))"
+					class="btn btn-primary"
+				>Search for Events <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 			</form>
 			<br/>
 			<br/>
@@ -318,6 +328,7 @@ templ AddEventSource() {
 					url: importFrom ?? "",
 					selectedLocationType: "address",
 					address: "",
+					urlTouched: false,
 				},
 				showToast: false,
 				toastContent: {
