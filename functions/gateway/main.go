@@ -801,7 +801,7 @@ func main() {
 		actServerPort := helpers.GO_ACT_SERVER_PORT
 
 		// Kill any existing process on port GO_ACT_SERVER_PORT
-		if err := killProcessOnPortWithLsof(actServerPort); err != nil {
+		if err := killProcessOnPort(actServerPort); err != nil {
 			log.Printf("[WARN] Failed to kill existing process on port %s: %v", actServerPort, err)
 		}
 
