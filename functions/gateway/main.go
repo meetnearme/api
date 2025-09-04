@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"slices"
 	"strconv"
 	"strings"
@@ -734,6 +735,36 @@ func overwriteTimestamp(path string, timestamp int64) {
 	}
 }
 
+// killProcessOnPort kills any process listening on the specified port
+func killProcessOnPort(port string) error {
+	// Use lsof to find processes using the port
+	cmd := exec.Command("lsof", "-ti", ":"+port)
+	output, err := cmd.Output()
+	if err != nil {
+		// If no process is found, lsof returns exit code 1, which is not an error for us
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			log.Printf("No process found on port %s", port)
+			return nil
+		}
+		return fmt.Errorf("failed to check for processes on port %s: %v", port, err)
+	}
+
+	// If output is empty, no process is using the port
+	if len(strings.TrimSpace(string(output))) == 0 {
+		log.Printf("No process found on port %s", port)
+		return nil
+	}
+
+	// Kill the process(es) found on the port
+	killCmd := exec.Command("kill", "-9", strings.TrimSpace(string(output)))
+	if err := killCmd.Run(); err != nil {
+		return fmt.Errorf("failed to kill process on port %s: %v", port, err)
+	}
+
+	log.Printf("Successfully killed process on port %s", port)
+	return nil
+}
+
 func main() {
 	deploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
 
@@ -762,6 +793,11 @@ func main() {
 	if deploymentTarget == "ACT" {
 
 		actServerPort := "8000"
+
+		// Kill any existing process on port 8000
+		if err := killProcessOnPort(actServerPort); err != nil {
+			log.Printf("[WARN] Failed to kill existing process on port %s: %v", actServerPort, err)
+		}
 
 		seshuCtx, cancel := context.WithCancel(context.Background())
 		defer cancel()
