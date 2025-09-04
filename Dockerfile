@@ -42,6 +42,9 @@ RUN set -e && \
 #
 FROM base AS development
 
+# Add lsof for port checking in development
+RUN apk add --no-cache lsof
+
 COPY . .
 
 # Copy migration files to development stage

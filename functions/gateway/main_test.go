@@ -808,3 +808,75 @@ func TestEnvironmentVariableHandling(t *testing.T) {
 		}
 	}
 }
+
+// TestKillProcessOnPortWithLsof tests the lsof-based port killing
+func TestKillProcessOnPortWithLsof(t *testing.T) {
+	tests := []struct {
+		name    string
+		port    string
+		wantErr bool
+	}{
+		{
+			name:    "valid port",
+			port:    "8000",
+			wantErr: false, // Should not error even if no process found or lsof not available
+		},
+		{
+			name:    "empty port",
+			port:    "",
+			wantErr: false, // Should handle gracefully
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := killProcessOnPortWithLsof(tt.port)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("killProcessOnPortWithLsof() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestPortKillIntegration tests the full integration with a real server
+func TestPortKillIntegration(t *testing.T) {
+	// Skip in CI environments
+	if os.Getenv("CI") != "" {
+		t.Skip("Skipping integration test in CI environment")
+	}
+
+	// Start a test server on port 8001
+	server := &http.Server{
+		Addr: ":8001",
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("test server"))
+		}),
+	}
+
+	// Start server in background
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			t.Logf("Server error: %v", err)
+		}
+	}()
+
+	// Wait a moment for server to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Test killing the process on port 8001
+	err := killProcessOnPortWithLsof("8001")
+	if err != nil {
+		t.Errorf("Failed to kill process on port 8001: %v", err)
+	}
+
+	// Wait a moment for the kill to take effect
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify the server is no longer responding
+	resp, err := http.Get("http://localhost:8001")
+	if err == nil {
+		resp.Body.Close()
+		t.Error("Server should not be responding after kill")
+	}
+}

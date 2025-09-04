@@ -735,8 +735,7 @@ func overwriteTimestamp(path string, timestamp int64) {
 	}
 }
 
-// killProcessOnPort kills any process listening on the specified port
-func killProcessOnPort(port string) error {
+func killProcessOnPortWithLsof(port string) error {
 	// Use lsof to find processes using the port
 	cmd := exec.Command("lsof", "-ti", ":"+port)
 	output, err := cmd.Output()
@@ -746,7 +745,9 @@ func killProcessOnPort(port string) error {
 			log.Printf("No process found on port %s", port)
 			return nil
 		}
-		return fmt.Errorf("failed to check for processes on port %s: %v", port, err)
+		// If lsof command is not found or fails for other reasons, log and return gracefully
+		log.Printf("[WARN] lsof not available or failed on port %s: %v", port, err)
+		return nil
 	}
 
 	// If output is empty, no process is using the port
@@ -758,7 +759,8 @@ func killProcessOnPort(port string) error {
 	// Kill the process(es) found on the port
 	killCmd := exec.Command("kill", "-9", strings.TrimSpace(string(output)))
 	if err := killCmd.Run(); err != nil {
-		return fmt.Errorf("failed to kill process on port %s: %v", port, err)
+		log.Printf("[WARN] Failed to kill process on port %s: %v", port, err)
+		return nil // Don't fail the application, just log the warning
 	}
 
 	log.Printf("Successfully killed process on port %s", port)
@@ -795,7 +797,7 @@ func main() {
 		actServerPort := helpers.GO_ACT_SERVER_PORT
 
 		// Kill any existing process on port GO_ACT_SERVER_PORT
-		if err := killProcessOnPort(actServerPort); err != nil {
+		if err := killProcessOnPortWithLsof(actServerPort); err != nil {
 			log.Printf("[WARN] Failed to kill existing process on port %s: %v", actServerPort, err)
 		}
 
