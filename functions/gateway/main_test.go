@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -811,23 +812,16 @@ func TestEnvironmentVariableHandling(t *testing.T) {
 
 // TestKillProcessOnPortWithLsof tests the lsof-based port killing
 func TestKillProcessOnPort(t *testing.T) {
+	freeHostPort := test_helpers.GetNextPort()      // e.g. "localhost:49160"
+	freePort := strings.Split(freeHostPort, ":")[1] // "49160"
 	tests := []struct {
 		name    string
 		port    string
 		wantErr bool
 	}{
-		{
-			name:    "valid port",
-			port:    "8000",
-			wantErr: false, // Should not error even if no process found or lsof not available
-		},
-		{
-			name:    "empty port",
-			port:    "",
-			wantErr: false, // Should handle gracefully
-		},
+		{name: "free port (no-op)", port: freePort, wantErr: false},
+		{name: "empty port", port: "", wantErr: false},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := killProcessOnPort(tt.port)
@@ -840,43 +834,34 @@ func TestKillProcessOnPort(t *testing.T) {
 
 // TestPortKillIntegration tests the full integration with a real server
 func TestPortKillIntegration(t *testing.T) {
-	// Skip in CI environments
-	if os.Getenv("CI") != "" {
-		t.Skip("Skipping integration test in CI environment")
+	// Opt-in only; never run in CI by default
+	if os.Getenv("ALLOW_PORT_KILL_ITEST") == "" || os.Getenv("CI") != "" {
+		t.Skip("Skipping dangerous integration test; set ALLOW_PORT_KILL_ITEST=1 to run locally")
+	}
+	hostPort := test_helpers.GetNextPort() // "localhost:NNNN"
+	port := strings.Split(hostPort, ":")[1]
+
+	// Launch a child helper process that only listens on 'port'
+	cmd := exec.Command(os.Args[0], "-test.run=TestHelperServer", "--", port)
+	cmd.Env = append(os.Environ(), "TEST_HELPER_SERVER=1")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start helper server: %v", err)
+	}
+	// Give it a moment to bind
+	time.Sleep(150 * time.Millisecond)
+
+	// Kill the child listener
+	if err := killProcessOnPort(port); err != nil {
+		t.Fatalf("killProcessOnPort(%s) error: %v", port, err)
 	}
 
-	// Start a test server on port 8001
-	server := &http.Server{
-		Addr: ":8001",
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("test server"))
-		}),
-	}
-
-	// Start server in background
-	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			t.Logf("Server error: %v", err)
-		}
-	}()
-
-	// Wait a moment for server to start
-	time.Sleep(100 * time.Millisecond)
-
-	// Test killing the process on port 8001
-	err := killProcessOnPort("8001")
-	if err != nil {
-		t.Errorf("Failed to kill process on port 8001: %v", err)
-	}
-
-	// Wait a moment for the kill to take effect
-	time.Sleep(100 * time.Millisecond)
-
-	// Verify the server is no longer responding
-	resp, err := http.Get("http://localhost:8001")
-	if err == nil {
-		resp.Body.Close()
-		t.Error("Server should not be responding after kill")
+	// Wait for helper to exit (killed)
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case <-time.After(2 * time.Second):
+		t.Fatal("helper server did not exit after kill")
+	case <-done:
+		// ok
 	}
 }

@@ -37,13 +37,13 @@ RUN set -e && \
 # print a list of all files that end with *templ.go
 # RUN find . -name "*templ.go"
 
+# Add lsof for port checking in development
+RUN apk add --no-cache lsof
+
 #   DEVELOPMENT STAGE
 #
 #
 FROM base AS development
-
-# Add lsof for port checking in development
-RUN apk add --no-cache lsof
 
 COPY . .
 
