@@ -810,7 +810,7 @@ func TestEnvironmentVariableHandling(t *testing.T) {
 }
 
 // TestKillProcessOnPortWithLsof tests the lsof-based port killing
-func TestKillProcessOnPortWithLsof(t *testing.T) {
+func TestKillProcessOnPort(t *testing.T) {
 	tests := []struct {
 		name    string
 		port    string
@@ -830,9 +830,9 @@ func TestKillProcessOnPortWithLsof(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := killProcessOnPortWithLsof(tt.port)
+			err := killProcessOnPort(tt.port)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("killProcessOnPortWithLsof() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("killProcessOnPort() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -865,7 +865,7 @@ func TestPortKillIntegration(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Test killing the process on port 8001
-	err := killProcessOnPortWithLsof("8001")
+	err := killProcessOnPort("8001")
 	if err != nil {
 		t.Errorf("Failed to kill process on port 8001: %v", err)
 	}
