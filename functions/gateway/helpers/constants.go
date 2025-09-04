@@ -53,6 +53,8 @@ const JWT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bear
 const AUTH_ROLE_CLAIMS_KEY = "urn:zitadel:iam:org:project:<project-id>:roles"
 const AUTH_METADATA_KEY = "urn:zitadel:iam:user:metadata"
 
+const GO_ACT_SERVER_PORT = "8000"
+
 const DEFAULT_PAGINATION_LIMIT = 50
 const DEFAULT_MAX_RADIUS = 999999
 const DEFAULT_SEARCH_RADIUS = 500.0

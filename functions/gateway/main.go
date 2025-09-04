@@ -650,7 +650,7 @@ func startSeshuLoop(ctx context.Context) {
 			}
 			jsonData, _ := json.Marshal(payload)
 
-			resp, err := http.Post("http://localhost:8000/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
+			resp, err := http.Post("http://localhost:"+helpers.GO_ACT_SERVER_PORT+"/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
 			if err != nil {
 				log.Printf("[ERROR] Failed to send request: %v", err)
 				continue
@@ -792,9 +792,9 @@ func main() {
 
 	if deploymentTarget == "ACT" {
 
-		actServerPort := "8000"
+		actServerPort := helpers.GO_ACT_SERVER_PORT
 
-		// Kill any existing process on port 8000
+		// Kill any existing process on port GO_ACT_SERVER_PORT
 		if err := killProcessOnPort(actServerPort); err != nil {
 			log.Printf("[WARN] Failed to kill existing process on port %s: %v", actServerPort, err)
 		}
