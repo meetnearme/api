@@ -735,35 +735,39 @@ func overwriteTimestamp(path string, timestamp int64) {
 	}
 }
 
-func killProcessOnPortWithLsof(port string) error {
-	// Use lsof to find processes using the port
-	cmd := exec.Command("lsof", "-ti", ":"+port)
+// killProcessOnPort terminates any LISTENers on the port: TERM then KILL if needed.
+func killProcessOnPort(port string) error {
+	// Limit to TCP LISTEN sockets, output PIDs only
+	cmd := exec.Command("lsof", "-nP", "-i", "TCP:"+port, "-sTCP:LISTEN", "-t")
 	output, err := cmd.Output()
 	if err != nil {
-		// If no process is found, lsof returns exit code 1, which is not an error for us
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-			log.Printf("No process found on port %s", port)
+			log.Printf("No LISTENer found on port %s", port)
 			return nil
 		}
-		// If lsof command is not found or fails for other reasons, log and return gracefully
-		log.Printf("[WARN] lsof not available or failed on port %s: %v", port, err)
+		return fmt.Errorf("failed to query port %s: %v", port, err)
+	}
+	pids := strings.Fields(string(output))
+	if len(pids) == 0 {
+		log.Printf("No LISTENer found on port %s", port)
 		return nil
 	}
+	log.Printf("Found LISTENer(s) on port %s: %v", port, pids)
 
-	// If output is empty, no process is using the port
-	if len(strings.TrimSpace(string(output))) == 0 {
-		log.Printf("No process found on port %s", port)
-		return nil
+	// Escalate for any survivors
+	var survivors []string
+	for _, pid := range pids {
+		if err := exec.Command("kill", "-0", pid).Run(); err == nil {
+			survivors = append(survivors, pid)
+		}
 	}
-
-	// Kill the process(es) found on the port
-	killCmd := exec.Command("kill", "-9", strings.TrimSpace(string(output)))
-	if err := killCmd.Run(); err != nil {
-		log.Printf("[WARN] Failed to kill process on port %s: %v", port, err)
-		return nil // Don't fail the application, just log the warning
+	if len(survivors) > 0 {
+		args := append([]string{"-9"}, survivors...)
+		if err := exec.Command("kill", args...).Run(); err != nil {
+			return fmt.Errorf("failed to force-kill %v on port %s: %v", survivors, port, err)
+		}
 	}
-
-	log.Printf("Successfully killed process on port %s", port)
+	log.Printf("Successfully cleared port %s", port)
 	return nil
 }
 
