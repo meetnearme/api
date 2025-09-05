@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -806,5 +807,61 @@ func TestEnvironmentVariableHandling(t *testing.T) {
 		if app.AuthConfig.CookieDomain != tc.expectedDomain {
 			t.Errorf("Expected CookieDomain to be '%s', got '%s'", tc.expectedDomain, app.AuthConfig.CookieDomain)
 		}
+	}
+}
+
+// TestKillProcessOnPortWithLsof tests the lsof-based port killing
+func TestKillProcessOnPort(t *testing.T) {
+	freeHostPort := test_helpers.GetNextPort()      // e.g. "localhost:49160"
+	freePort := strings.Split(freeHostPort, ":")[1] // "49160"
+	tests := []struct {
+		name    string
+		port    string
+		wantErr bool
+	}{
+		{name: "free port (no-op)", port: freePort, wantErr: false},
+		{name: "empty port", port: "", wantErr: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := killProcessOnPort(tt.port)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("killProcessOnPort() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestPortKillIntegration tests the full integration with a real server
+func TestPortKillIntegration(t *testing.T) {
+	// Opt-in only; never run in CI by default
+	if os.Getenv("ALLOW_PORT_KILL_ITEST") == "" || os.Getenv("CI") != "" {
+		t.Skip("Skipping dangerous integration test; set ALLOW_PORT_KILL_ITEST=1 to run locally")
+	}
+	hostPort := test_helpers.GetNextPort() // "localhost:NNNN"
+	port := strings.Split(hostPort, ":")[1]
+
+	// Launch a child helper process that only listens on 'port'
+	cmd := exec.Command(os.Args[0], "-test.run=TestHelperServer", "--", port)
+	cmd.Env = append(os.Environ(), "TEST_HELPER_SERVER=1")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start helper server: %v", err)
+	}
+	// Give it a moment to bind
+	time.Sleep(150 * time.Millisecond)
+
+	// Kill the child listener
+	if err := killProcessOnPort(port); err != nil {
+		t.Fatalf("killProcessOnPort(%s) error: %v", port, err)
+	}
+
+	// Wait for helper to exit (killed)
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case <-time.After(2 * time.Second):
+		t.Fatal("helper server did not exit after kill")
+	case <-done:
+		// ok
 	}
 }

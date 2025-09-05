@@ -310,7 +310,7 @@ func TestGeoLookup(t *testing.T) {
 			payloadBytes, _ := json.Marshal(tt.payload)
 			req := httptest.NewRequest("POST", "/geo-lookup", bytes.NewReader(payloadBytes))
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Host", "localhost:8000")
+			req.Header.Set("Host", "localhost:"+helpers.GO_ACT_SERVER_PORT)
 
 			// Add AWS Lambda context (required for transport layer)
 			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
@@ -577,11 +577,11 @@ func TestGeoThenPatchSeshuSessionHandler(t *testing.T) {
 
 			// Create request with proper URL scheme and host
 			payloadBytes, _ := json.Marshal(tt.payload)
-			req := httptest.NewRequest("POST", "http://localhost:8000/geo-patch-seshu", bytes.NewReader(payloadBytes))
+			req := httptest.NewRequest("POST", "http://localhost:"+helpers.GO_ACT_SERVER_PORT+"/geo-patch-seshu", bytes.NewReader(payloadBytes))
 			req.Header.Set("Content-Type", "application/json")
 			// Set URL fields that GetBaseUrlFromReq needs
 			req.URL.Scheme = "http"
-			req.URL.Host = "localhost:8000"
+			req.URL.Host = "localhost:" + helpers.GO_ACT_SERVER_PORT
 
 			// Add AWS Lambda context for error handling
 			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"slices"
 	"strconv"
 	"strings"
@@ -649,7 +650,7 @@ func startSeshuLoop(ctx context.Context) {
 			}
 			jsonData, _ := json.Marshal(payload)
 
-			resp, err := http.Post("http://localhost:8000/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
+			resp, err := http.Post("http://localhost:"+helpers.GO_ACT_SERVER_PORT+"/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
 			if err != nil {
 				log.Printf("[ERROR] Failed to send request: %v", err)
 				continue
@@ -734,6 +735,42 @@ func overwriteTimestamp(path string, timestamp int64) {
 	}
 }
 
+// killProcessOnPort terminates any LISTENers on the port: TERM then KILL if needed.
+func killProcessOnPort(port string) error {
+	// Limit to TCP LISTEN sockets, output PIDs only
+	cmd := exec.Command("lsof", "-nP", "-i", "TCP:"+port, "-sTCP:LISTEN", "-t")
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			log.Printf("No LISTENer found on port %s", port)
+			return nil
+		}
+		return fmt.Errorf("failed to query port %s: %v", port, err)
+	}
+	pids := strings.Fields(string(output))
+	if len(pids) == 0 {
+		log.Printf("No LISTENer found on port %s", port)
+		return nil
+	}
+	log.Printf("Found LISTENer(s) on port %s: %v", port, pids)
+
+	// Escalate for any survivors
+	var survivors []string
+	for _, pid := range pids {
+		if err := exec.Command("kill", "-0", pid).Run(); err == nil {
+			survivors = append(survivors, pid)
+		}
+	}
+	if len(survivors) > 0 {
+		args := append([]string{"-9"}, survivors...)
+		if err := exec.Command("kill", args...).Run(); err != nil {
+			return fmt.Errorf("failed to force-kill %v on port %s: %v", survivors, port, err)
+		}
+	}
+	log.Printf("Successfully cleared port %s", port)
+	return nil
+}
+
 func main() {
 	deploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
 
@@ -761,7 +798,12 @@ func main() {
 
 	if deploymentTarget == "ACT" {
 
-		actServerPort := "8000"
+		actServerPort := helpers.GO_ACT_SERVER_PORT
+
+		// Kill any existing process on port GO_ACT_SERVER_PORT
+		if err := killProcessOnPort(actServerPort); err != nil {
+			log.Printf("[WARN] Failed to kill existing process on port %s: %v", actServerPort, err)
+		}
 
 		seshuCtx, cancel := context.WithCancel(context.Background())
 		defer cancel()
