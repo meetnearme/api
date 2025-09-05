@@ -1581,7 +1581,7 @@ func TestSubmitSeshuSession(t *testing.T) {
 				},
 			},
 			expectedStatus: http.StatusOK, // HTML error responses return 200
-			shouldContain:  "This event source already exists",
+			shouldContain:  "This event source URL already exists",
 		},
 		{
 			name: "postgres service error",

@@ -672,7 +672,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlRes(w, []byte("Failed to get SeshuJobs"), http.StatusInternalServerError, "partial", err)
 	}
 	if len(jobs) > 0 {
-		return transport.SendHtmlRes(w, []byte("This event source already exists"), http.StatusConflict, "partial", err)
+		return transport.SendHtmlRes(w, []byte("This event source URL already exists"), http.StatusConflict, "partial", err)
 
 	}
 
