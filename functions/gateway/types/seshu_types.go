@@ -114,5 +114,5 @@ type SeshuJob struct {
 	LastScrapeFailureCount   int     `json:"last_scrape_failure_count" validate:"gte=0"`
 	OwnerID                  string  `json:"owner_id" validate:"required"`
 	KnownScrapeSource        string  `json:"known_scrape_source"` // e.g. "MEETUP", "EVENTBRITE", etc.
-	LocationTimezone         *string `json:"location_timezone,omitempty"`
+	LocationTimezone         string  `json:"location_timezone,omitempty"`
 }
