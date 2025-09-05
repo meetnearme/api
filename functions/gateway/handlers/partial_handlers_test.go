@@ -16,10 +16,12 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
+	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"github.com/weaviate/weaviate/entities/models"
 )
@@ -1387,6 +1389,289 @@ func TestGetEventAdminChildrenPartial(t *testing.T) {
 			// For successful responses, just verify it's not an error
 			if tt.expectedStatus == http.StatusOK && strings.Contains(strings.ToLower(responseBody), "error") {
 				t.Errorf("Expected successful response but got error: %s", responseBody)
+			}
+		})
+	}
+}
+
+func TestSubmitSeshuSession(t *testing.T) {
+	// Save original environment variables
+	originalGoEnv := os.Getenv("GO_ENV")
+	originalTransport := http.DefaultTransport
+	defer func() {
+		os.Setenv("GO_ENV", originalGoEnv)
+		http.DefaultTransport = originalTransport
+		services.ResetGeoService() // Reset service singleton
+	}()
+
+	// Set environment for test mode
+	os.Setenv("GO_ENV", "test")
+
+	// Set up logging transport for debugging
+	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
+
+	tests := []struct {
+		name           string
+		payload        SeshuSessionEventsPayload
+		userInfo       helpers.UserInfo
+		mockDB         *test_helpers.MockDynamoDBClient
+		mockPostgres   *test_helpers.MockPostgresService
+		expectedStatus int
+		shouldContain  string
+	}{
+		{
+			name: "successful seshu session submission",
+			payload: SeshuSessionEventsPayload{
+				Url: "https://example.com/events",
+				EventBoolValid: []types.EventBoolValid{
+					{
+						EventValidateTitle:       true,
+						EventValidateLocation:    true,
+						EventValidateStartTime:   true,
+						EventValidateEndTime:     false,
+						EventValidateURL:         true,
+						EventValidateDescription: false,
+					},
+				},
+			},
+			userInfo: helpers.UserInfo{
+				Sub: "user123",
+			},
+			mockDB: &test_helpers.MockDynamoDBClient{
+				GetItemFunc: func(ctx context.Context, input *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+					// Mock successful SeshuSession retrieval
+					item := map[string]dynamodb_types.AttributeValue{
+						"ownerId":           &dynamodb_types.AttributeValueMemberS{Value: "user123"},
+						"url":               &dynamodb_types.AttributeValueMemberS{Value: "https://example.com/events"},
+						"urlDomain":         &dynamodb_types.AttributeValueMemberS{Value: "example.com"},
+						"urlPath":           &dynamodb_types.AttributeValueMemberS{Value: "/events"},
+						"locationLatitude":  &dynamodb_types.AttributeValueMemberN{Value: "37.7749"},
+						"locationLongitude": &dynamodb_types.AttributeValueMemberN{Value: "-122.4194"},
+						"locationAddress":   &dynamodb_types.AttributeValueMemberS{Value: "San Francisco, CA"},
+						"html":              &dynamodb_types.AttributeValueMemberS{Value: "<html><body><h1>Test Event</h1><p>Test Location</p><p>2024-01-01T10:00:00Z</p></body></html>"},
+						"childId":           &dynamodb_types.AttributeValueMemberS{Value: ""},
+						"eventCandidates": &dynamodb_types.AttributeValueMemberL{
+							Value: []dynamodb_types.AttributeValue{
+								&dynamodb_types.AttributeValueMemberM{
+									Value: map[string]dynamodb_types.AttributeValue{
+										"event_title":          &dynamodb_types.AttributeValueMemberS{Value: "Test Event"},
+										"event_location":       &dynamodb_types.AttributeValueMemberS{Value: "Test Location"},
+										"event_start_datetime": &dynamodb_types.AttributeValueMemberS{Value: "2024-01-01T10:00:00Z"},
+										"event_end_datetime":   &dynamodb_types.AttributeValueMemberS{Value: ""},
+										"event_url":            &dynamodb_types.AttributeValueMemberS{Value: "https://example.com/event/1"},
+										"event_description":    &dynamodb_types.AttributeValueMemberS{Value: ""},
+										"scrape_mode":          &dynamodb_types.AttributeValueMemberS{Value: "init"},
+									},
+								},
+							},
+						},
+						"eventValidations": &dynamodb_types.AttributeValueMemberL{
+							Value: []dynamodb_types.AttributeValue{
+								&dynamodb_types.AttributeValueMemberM{
+									Value: map[string]dynamodb_types.AttributeValue{
+										"event_title":          &dynamodb_types.AttributeValueMemberBOOL{Value: true},
+										"event_location":       &dynamodb_types.AttributeValueMemberBOOL{Value: true},
+										"event_start_datetime": &dynamodb_types.AttributeValueMemberBOOL{Value: true},
+										"event_end_datetime":   &dynamodb_types.AttributeValueMemberBOOL{Value: false},
+										"event_url":            &dynamodb_types.AttributeValueMemberBOOL{Value: true},
+										"event_description":    &dynamodb_types.AttributeValueMemberBOOL{Value: false},
+									},
+								},
+							},
+						},
+						"status":    &dynamodb_types.AttributeValueMemberS{Value: "draft"},
+						"createdAt": &dynamodb_types.AttributeValueMemberN{Value: "1234567890"},
+						"updatedAt": &dynamodb_types.AttributeValueMemberN{Value: "1234567890"},
+						"expireAt":  &dynamodb_types.AttributeValueMemberN{Value: "1234654290"},
+					}
+					return &dynamodb.GetItemOutput{Item: item}, nil
+				},
+				UpdateItemFunc: func(ctx context.Context, input *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+					return &dynamodb.UpdateItemOutput{}, nil
+				},
+			},
+			mockPostgres: &test_helpers.MockPostgresService{
+				GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) {
+					return []types.SeshuJob{}, nil // No existing jobs
+				},
+				CreateSeshuJobFunc: func(ctx context.Context, job types.SeshuJob) error {
+					return nil
+				},
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain:  "Your Event Source has been added",
+		},
+		{
+			name: "unauthorized user",
+			payload: SeshuSessionEventsPayload{
+				Url: "https://example.com/events",
+			},
+			userInfo: helpers.UserInfo{
+				Sub: "", // Empty user ID
+			},
+			mockDB:         &test_helpers.MockDynamoDBClient{},
+			mockPostgres:   &test_helpers.MockPostgresService{},
+			expectedStatus: http.StatusOK, // HTML error responses return 200
+			shouldContain:  "You must be logged in to submit an event source",
+		},
+		{
+			name:    "invalid JSON payload",
+			payload: SeshuSessionEventsPayload{}, // Empty payload will fail validation
+			userInfo: helpers.UserInfo{
+				Sub: "user123",
+			},
+			mockDB:         &test_helpers.MockDynamoDBClient{},
+			mockPostgres:   &test_helpers.MockPostgresService{},
+			expectedStatus: http.StatusOK, // HTML error responses return 200
+			shouldContain:  "Invalid request body",
+		},
+		{
+			name: "event source already exists",
+			payload: SeshuSessionEventsPayload{
+				Url: "https://example.com/events",
+				EventBoolValid: []types.EventBoolValid{
+					{
+						EventValidateTitle:       true,
+						EventValidateLocation:    true,
+						EventValidateStartTime:   true,
+						EventValidateEndTime:     false,
+						EventValidateURL:         true,
+						EventValidateDescription: false,
+					},
+				},
+			},
+			userInfo: helpers.UserInfo{
+				Sub: "user123",
+			},
+			mockDB: &test_helpers.MockDynamoDBClient{
+				GetItemFunc: func(ctx context.Context, input *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+					// Mock successful SeshuSession retrieval
+					item := map[string]dynamodb_types.AttributeValue{
+						"ownerId":           &dynamodb_types.AttributeValueMemberS{Value: "user123"},
+						"url":               &dynamodb_types.AttributeValueMemberS{Value: "https://example.com/events"},
+						"urlDomain":         &dynamodb_types.AttributeValueMemberS{Value: "example.com"},
+						"urlPath":           &dynamodb_types.AttributeValueMemberS{Value: "/events"},
+						"locationLatitude":  &dynamodb_types.AttributeValueMemberN{Value: "37.7749"},
+						"locationLongitude": &dynamodb_types.AttributeValueMemberN{Value: "-122.4194"},
+						"locationAddress":   &dynamodb_types.AttributeValueMemberS{Value: "San Francisco, CA"},
+						"html":              &dynamodb_types.AttributeValueMemberS{Value: "<html><body><h1>Test Event</h1></body></html>"},
+						"childId":           &dynamodb_types.AttributeValueMemberS{Value: ""},
+						"eventCandidates":   &dynamodb_types.AttributeValueMemberL{Value: []dynamodb_types.AttributeValue{}},
+						"eventValidations":  &dynamodb_types.AttributeValueMemberL{Value: []dynamodb_types.AttributeValue{}},
+						"status":            &dynamodb_types.AttributeValueMemberS{Value: "draft"},
+						"createdAt":         &dynamodb_types.AttributeValueMemberN{Value: "1234567890"},
+						"updatedAt":         &dynamodb_types.AttributeValueMemberN{Value: "1234567890"},
+						"expireAt":          &dynamodb_types.AttributeValueMemberN{Value: "1234654290"},
+					}
+					return &dynamodb.GetItemOutput{Item: item}, nil
+				},
+				UpdateItemFunc: func(ctx context.Context, input *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+					return &dynamodb.UpdateItemOutput{}, nil
+				},
+			},
+			mockPostgres: &test_helpers.MockPostgresService{
+				GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) {
+					// Return existing job to trigger conflict
+					return []types.SeshuJob{
+						{
+							NormalizedUrlKey: "https://example.com/events",
+							OwnerID:          "user123",
+						},
+					}, nil
+				},
+			},
+			expectedStatus: http.StatusOK, // HTML error responses return 200
+			shouldContain:  "This event source already exists",
+		},
+		{
+			name: "postgres service error",
+			payload: SeshuSessionEventsPayload{
+				Url: "https://example.com/events",
+				EventBoolValid: []types.EventBoolValid{
+					{
+						EventValidateTitle:       true,
+						EventValidateLocation:    true,
+						EventValidateStartTime:   true,
+						EventValidateEndTime:     false,
+						EventValidateURL:         true,
+						EventValidateDescription: false,
+					},
+				},
+			},
+			userInfo: helpers.UserInfo{
+				Sub: "user123",
+			},
+			mockDB: &test_helpers.MockDynamoDBClient{
+				GetItemFunc: func(ctx context.Context, input *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+					// Mock successful SeshuSession retrieval
+					item := map[string]dynamodb_types.AttributeValue{
+						"ownerId":           &dynamodb_types.AttributeValueMemberS{Value: "user123"},
+						"url":               &dynamodb_types.AttributeValueMemberS{Value: "https://example.com/events"},
+						"urlDomain":         &dynamodb_types.AttributeValueMemberS{Value: "example.com"},
+						"urlPath":           &dynamodb_types.AttributeValueMemberS{Value: "/events"},
+						"locationLatitude":  &dynamodb_types.AttributeValueMemberN{Value: "37.7749"},
+						"locationLongitude": &dynamodb_types.AttributeValueMemberN{Value: "-122.4194"},
+						"locationAddress":   &dynamodb_types.AttributeValueMemberS{Value: "San Francisco, CA"},
+						"html":              &dynamodb_types.AttributeValueMemberS{Value: "<html><body><h1>Test Event</h1></body></html>"},
+						"childId":           &dynamodb_types.AttributeValueMemberS{Value: ""},
+						"eventCandidates":   &dynamodb_types.AttributeValueMemberL{Value: []dynamodb_types.AttributeValue{}},
+						"eventValidations":  &dynamodb_types.AttributeValueMemberL{Value: []dynamodb_types.AttributeValue{}},
+						"status":            &dynamodb_types.AttributeValueMemberS{Value: "draft"},
+						"createdAt":         &dynamodb_types.AttributeValueMemberN{Value: "1234567890"},
+						"updatedAt":         &dynamodb_types.AttributeValueMemberN{Value: "1234567890"},
+						"expireAt":          &dynamodb_types.AttributeValueMemberN{Value: "1234654290"},
+					}
+					return &dynamodb.GetItemOutput{Item: item}, nil
+				},
+			},
+			mockPostgres: &test_helpers.MockPostgresService{
+				GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) {
+					return nil, fmt.Errorf("database connection failed")
+				},
+			},
+			expectedStatus: http.StatusOK, // HTML error responses return 200
+			shouldContain:  "Failed to get SeshuJobs",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up mock DB for this test
+			if tt.mockDB != nil {
+				transport.SetTestDB(tt.mockDB)
+			}
+
+			// Create request
+			payloadBytes, _ := json.Marshal(tt.payload)
+			req := httptest.NewRequest("POST", "/submit-seshu-session", bytes.NewReader(payloadBytes))
+			req.Header.Set("Content-Type", "application/json")
+
+			// Add AWS Lambda context and user info to context (required for transport layer)
+			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				PathParameters: map[string]string{},
+			})
+			ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			ctx = context.WithValue(ctx, "targetUrl", tt.payload.Url)
+			ctx = context.WithValue(ctx, "mockPostgresService", tt.mockPostgres)
+			req = req.WithContext(ctx)
+
+			rr := httptest.NewRecorder()
+
+			// Execute handler with mock DB
+			handler := SubmitSeshuSession(rr, req)
+			handler(rr, req)
+
+			// Verify response
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rr.Code)
+			}
+
+			// Log the response for debugging
+			t.Logf("Response status: %d", rr.Code)
+			t.Logf("Response body: %s", rr.Body.String())
+
+			if tt.shouldContain != "" && !strings.Contains(rr.Body.String(), tt.shouldContain) {
+				t.Errorf("Expected response to contain '%s', got '%s'", tt.shouldContain, rr.Body.String())
 			}
 		})
 	}
