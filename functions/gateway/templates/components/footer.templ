@@ -1,0 +1,64 @@
+package components
+
+import (
+  "os"
+  "time"
+)
+
+templ Footer() {
+  <footer class="footer-vertical grid w-full gap-6 p-4 mt-20 bg-black text-primary-content">
+    <div class="grid [grid-template-columns:260px_1fr_260px] items-start">
+					<div class="flex col-start-1 items-center h-auto text-xl hover:bg-opacity-80">
+						<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+            <img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
+					</div>
+          <div class="flex col-start-2 gap-4 w-full justify-center">
+          <a href="/">All Events</a>
+          <a href="/?q=music">Music</a>
+          <a href="/?q=party">Party</a>
+          <a href="/?q=news">News</a>
+          <a href="/about">About Us</a>
+          </div>
+				<nav class="col-start-3">
+					<div class="flex gap-4 justify-center">
+          <span>Follow Us</span>
+          						<a href="https://www.youtube.com/@MeetNearMe">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg>
+            </a>
+						<a>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>
+            </a>
+						<a>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+            </a>
+            <a href="https://www.linkedin.com/company/meetnearme/">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
+            </a>
+					</div>
+				</nav>
+    </div>
+        <div class="flex flex-col row-start-2 gap-4 justify-self-center items-center text-center max-w-xl">
+          <span class="text-xl w-full text-center"> Get local events straight to your inbox. </span>
+          <p class="text-center"> Subscribe to get the latest local events, curated for your style — wherever you are in the world. No spam, just good vibes.</p>
+          <div class="w-full flex gap-2">
+          <input type="email" placeholder="Email" class="bg-transparent border-b-2 border-base-content w-full w-max-lg" />
+          <button class="btn bg-transparent btn-outline w-lg">Get Personalized Events
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send-icon lucide-send"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+          </button>
+          </div>
+        </div>
+        <div class="grid [grid-template-columns:300px_1fr_300px] row-start-3 border-t-2 border-accent-content justify-center items-center gap-10">
+      <div class="text-sm col-start-2  gap-4 border-top-2">
+      			&copy; 2024-{ time.Now().Format("2006") }
+						<span class="font-bold">
+							Meet Near Me LLC. </span> All rights reserved.
+          </div>
+          <div class="flex gap-4 text-sm col-start-3">
+						<a href={ templ.URL(os.Getenv("APEX_URL") + "/terms-of-service") }>Terms of Service</a>
+             &bull;&nbsp;
+						<a href={ templ.URL(os.Getenv("APEX_URL") + "/privacy-policy") }>Privacy Policy</a>
+          </div>
+          </div>
+			</footer>
+      }
+
