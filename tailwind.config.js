@@ -26,6 +26,10 @@ export default {
       aspectRatio: {
         '4/1': '4 / 1',
       },
+      colors: {
+        footer: '#7C7A7A',
+        'footer-light': '#C9C8C8',
+      },
     },
     fontSize: {
       sm: '0.8rem',
@@ -182,7 +186,7 @@ export default {
           'color-scheme': 'dark',
           primary: '#6004e0',
           'primary-content': '#ffffff',
-          secondary: '#8e4de9',
+          secondary: '#B28FFF',
           'secondary-content': '#ffffff',
           accent: '#b380f1',
           'accent-content': '#000000',
