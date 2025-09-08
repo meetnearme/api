@@ -47,6 +47,14 @@
   .carousel-control-right {
     @apply no-animation absolute right-0 ml-8 -m-1 top-1/2 -translate-y-1/2 translate-x-full;
   }
+
+  .icon-circle {
+    @apply flex justify-center items-center w-10 h-10 bg-icon-circle hover:bg-footer-purple rounded-full;
+  }
+
+  .icon-circle svg {
+    @apply w-6 h-6 text-white;
+  }
 }
 
 body {

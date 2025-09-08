@@ -15,6 +15,12 @@ const sharedTheme = {
   'warning-content': '#000000',
   error: '#AE1335',
   'error-content': '#FFFFFF',
+  footer: '#979595',
+  'footer-light': '#C9C8C8',
+  'footer-purple': '#9c82fc',
+  'footer-black': '#252323',
+  'icon-circle': '#6004e0',
+  'icon-circle-hover': '#b582fc',
 };
 
 export default {
@@ -25,10 +31,6 @@ export default {
     extend: {
       aspectRatio: {
         '4/1': '4 / 1',
-      },
-      colors: {
-        footer: '#7C7A7A',
-        'footer-light': '#C9C8C8',
       },
     },
     fontSize: {
