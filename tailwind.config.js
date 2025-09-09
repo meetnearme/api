@@ -190,7 +190,7 @@ export default {
           'color-scheme': 'dark',
           primary: '#6004e0',
           'primary-content': '#ffffff',
-          secondary: '#B28FFF',
+          secondary: '#8e4de9',
           'secondary-content': '#ffffff',
           accent: '#b380f1',
           'accent-content': '#000000',
