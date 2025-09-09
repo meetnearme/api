@@ -28,8 +28,8 @@ export default {
       },
       colors: {
         footer: '#979595',
-        'footer-purple': '#9c82fc',
         'footer-light': '#C9C8C8',
+        'footer-purple': '#9c82fc',
         'footer-black': '#252323',
         'icon-circle': '#6004e0',
         'icon-circle-hover': '#b582fc',
