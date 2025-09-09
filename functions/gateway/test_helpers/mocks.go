@@ -106,6 +106,16 @@ func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoD
 		OwnerId: "mockOwner",
 		Url:     seshuPayload.Url,
 		Status:  "draft",
+		EventValidations: []types.EventBoolValid{
+			{
+				EventValidateTitle:       true,
+				EventValidateLocation:    true,
+				EventValidateStartTime:   true,
+				EventValidateEndTime:     false,
+				EventValidateURL:         true,
+				EventValidateDescription: false,
+			},
+		},
 		// Fill in other fields as needed
 	}, nil
 }
@@ -375,6 +385,53 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 
 	return resp, err
+}
+
+type MockPostgresService struct {
+	GetSeshuJobsFunc            func(ctx context.Context) ([]types.SeshuJob, error)
+	CreateSeshuJobFunc          func(ctx context.Context, job types.SeshuJob) error
+	UpdateSeshuJobFunc          func(ctx context.Context, job types.SeshuJob) error
+	DeleteSeshuJobFunc          func(ctx context.Context, id string) error
+	ScanSeshuJobsWithInHourFunc func(ctx context.Context, hours int) ([]types.SeshuJob, error)
+}
+
+func (m *MockPostgresService) GetSeshuJobs(ctx context.Context) ([]types.SeshuJob, error) {
+	if m.GetSeshuJobsFunc != nil {
+		return m.GetSeshuJobsFunc(ctx)
+	}
+	return []types.SeshuJob{}, nil
+}
+
+func (m *MockPostgresService) CreateSeshuJob(ctx context.Context, job types.SeshuJob) error {
+	if m.CreateSeshuJobFunc != nil {
+		return m.CreateSeshuJobFunc(ctx, job)
+	}
+	return nil
+}
+
+func (m *MockPostgresService) UpdateSeshuJob(ctx context.Context, job types.SeshuJob) error {
+	if m.UpdateSeshuJobFunc != nil {
+		return m.UpdateSeshuJobFunc(ctx, job)
+	}
+	return nil
+}
+
+func (m *MockPostgresService) DeleteSeshuJob(ctx context.Context, id string) error {
+	if m.DeleteSeshuJobFunc != nil {
+		return m.DeleteSeshuJobFunc(ctx, id)
+	}
+	return nil
+}
+
+func (m *MockPostgresService) ScanSeshuJobsWithInHour(ctx context.Context, hours int) ([]types.SeshuJob, error) {
+	if m.ScanSeshuJobsWithInHourFunc != nil {
+		return m.ScanSeshuJobsWithInHourFunc(ctx, hours)
+	}
+	return []types.SeshuJob{}, nil
+}
+
+func (m *MockPostgresService) Close() error {
+	return nil
 }
 
 type MockNatsService struct {

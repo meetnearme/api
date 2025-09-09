@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -35,7 +36,10 @@ func GetSeshuJobs(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 func CreateSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	db, _ := services.GetPostgresService(ctx)
+	db, err := services.GetPostgresService(ctx)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to initialize services: "+err.Error()), http.StatusInternalServerError)
+	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -58,6 +62,10 @@ func CreateSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	err = db.CreateSeshuJob(ctx, job)
 	if err != nil {
+		// Check if this is a duplicate key error
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			return transport.SendHtmlErrorPartial([]byte("That URL is already owned by another user"), http.StatusConflict)
+		}
 		return transport.SendHtmlErrorPartial([]byte("Failed to insert job: "+err.Error()), http.StatusInternalServerError)
 	}
 
