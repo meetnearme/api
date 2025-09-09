@@ -414,6 +414,8 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper Scrapin
 			return nil, "", err
 		}
 
+		// log.Printf("=======\n\n\n\n\n (417) HTML \n: %s", html)
+
 		if mode != helpers.SESHU_MODE_ONBOARD {
 			childScrapeQueue := []types.EventInfo{}
 			urlToIndex := make(map[string]int)
@@ -653,7 +655,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 
 		// Use timezone in priority order: GetGeo() response > EventInfo derived timezone > SeshuJob timezone
 		var targetTimezoneStr string
-
+		var mapDerivedTimezone string
 		// First priority: GetGeo() response timezone (if available)
 		if lat != "" && lon != "" {
 			latFloat, err := strconv.ParseFloat(lat, 64)
@@ -666,7 +668,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 				log.Printf("ERR: Skipping event %d: failed to parse longitude: %v", i, err)
 				continue
 			}
-			mapDerivedTimezone := DeriveTimezoneFromCoordinates(latFloat, lonFloat)
+			mapDerivedTimezone = DeriveTimezoneFromCoordinates(latFloat, lonFloat)
 			if mapDerivedTimezone != "" {
 				targetTimezoneStr = mapDerivedTimezone
 				log.Printf("INFO: Using timezone from GetGeo coordinates: %s", targetTimezoneStr)
@@ -701,27 +703,28 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 			continue
 		}
 
-		startTime, _, err := ParseFlexibleDatetime(eventInfo.EventStartTime, tz)
+		// Parse the start time using the resolved timezone
+		startTime, err := time.Parse(time.RFC3339, eventInfo.EventStartTime)
 		if err != nil {
 			log.Printf("INFO: Skipping event %d: failed to parse event start time: %v", i, err)
 			continue
-		} else if startTime == 0 {
-			log.Printf("INFO: Skipping event %d: couldn't find start time", i)
+		}
+
+		// Convert to local time for comparison
+		startTimeLocal := startTime.In(tz)
+		if startTimeLocal.Before(currentTime.Add(-1 * time.Hour)) {
+			log.Printf("INFO: Filtering out event %d: event is in the past (started at %v)", i, startTimeLocal)
 			continue
 		}
 
-		if startTime > 0 && time.Unix(startTime, 0).Before(currentTime.Add(-1*time.Hour)) {
-			log.Printf("INFO: Filtering out event %d: event is in the past (started at %v)", i, time.Unix(startTime, 0))
-			continue
-		}
-
-		endTime, _, err := ParseFlexibleDatetime(eventInfo.EventEndTime, tz)
-		// we're ok with errors here, because endTime is optional
-		if err != nil {
-			endTime = 0
-		} else if endTime == 0 {
-			// Don't return error for missing end time as it's optional
-			endTime = 0
+		// Parse end time if available (optional)
+		var endTime time.Time
+		if eventInfo.EventEndTime != "" {
+			endTime, err = time.Parse(time.RFC3339, eventInfo.EventEndTime)
+			if err != nil {
+				log.Printf("INFO: Failed to parse end time for event %d: %v", i, err)
+				// Continue without end time - it's optional
+			}
 		}
 
 		// fetch event owner from zitadel
@@ -733,10 +736,10 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 		}
 		// Convert EventInfo to RawEvent with JSON-friendly fields
 		// Build RFC3339 strings for times
-		startRFC3339 := time.Unix(startTime, 0).UTC().Format(time.RFC3339)
+		startRFC3339 := startTime.In(tz).Format(time.RFC3339)
 		var endVal interface{}
-		if endTime > 0 {
-			endRFC3339 := time.Unix(endTime, 0).UTC().Format(time.RFC3339)
+		if !endTime.IsZero() {
+			endRFC3339 := endTime.In(tz).Format(time.RFC3339)
 			endVal = endRFC3339
 		} else {
 			endVal = nil
@@ -770,6 +773,8 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 	}
 
 	log.Printf("INFO: Successfully processed %d out of %d events for %s", len(weaviateEvents), len(validEvents), seshuJob.NormalizedUrlKey)
+
+	log.Printf("INFO: Weaviate events: %+v", weaviateEvents)
 
 	weaviateEventsStrict, _, err := BulkValidateEvents(weaviateEvents, false)
 	if err != nil {

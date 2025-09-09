@@ -9,7 +9,7 @@ type EventInfo struct {
 	EventLocation     string  `json:"event_location"`
 	EventStartTime    string  `json:"event_start_datetime"`
 	EventEndTime      string  `json:"event_end_datetime"`
-	EventTimezone     string  `json:"event_timezone"`
+	EventTimezone     string  `json:"event_timezone,omitempty"`
 	EventURL          string  `json:"event_url"`
 	EventDescription  string  `json:"event_description"`
 	EventHostName     string  `json:"event_host_name"`
