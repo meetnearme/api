@@ -10,6 +10,8 @@ import (
 	"github.com/itlightning/dateparse"
 )
 
+var reYear = regexp.MustCompile(`\b(?:19|20)\d{2}\b|\b2100\b`)
+
 // ParseMaybeMultiDayEvent handles multi-day spanning events by extracting start time
 // Note: Offset resolution is handled separately via geolocation + tzf library
 // to avoid conflicts between timezone abbreviations and location-based timezone detection
@@ -141,10 +143,23 @@ func convertFullMonthToAbbrev(input string) string {
 	return result
 }
 
-var reYear = regexp.MustCompile(`\b(?:19|20)\d{2}\b|\b2100\b`)
-
 func findYearInString(str string) string {
-	return reYear.FindString(str)
+	// Use a more flexible approach: find any 4-digit number that looks like a year
+	// This handles cases like "Jul 26 at 4:00pm, 2025" or "2025" or "at 4:00pm, 2025"
+	// or "July 25 at 3:00 PM, 2024" or "Friday, August 15 at 2:30 PM, 2024"
+
+	// Look for any 4 consecutive digits that could be a year
+	for i := 0; i <= len(str)-4; i++ {
+		if isAllDigits(str[i : i+4]) {
+			// Check if it's a reasonable year
+			year := int(str[i]-'0')*1000 + int(str[i+1]-'0')*100 + int(str[i+2]-'0')*10 + int(str[i+3]-'0')
+			if year >= 1900 && year <= 2100 {
+				return str[i : i+4]
+			}
+		}
+	}
+	return ""
+
 }
 
 // isAllDigits checks if a string contains only digits
@@ -161,20 +176,29 @@ func isAllDigits(s string) bool {
 // Uses "next future" logic: if the date has already passed this year, use next year
 func addNextFutureYear(dateStr string) string {
 	// Check if the string already contains a 4-digit year
-	if reYear.MatchString(dateStr) {
+	yearRegex := regexp.MustCompile(`\b(19|20)\d{2}\b`)
+	if yearRegex.MatchString(dateStr) {
 		return dateStr // Already has a year
 	}
 
+	// Check if the string contains a 2-digit year (like "70" for 1970)
+	// Look for 2-digit numbers that are likely years (not day numbers)
+	// Years are typically at the end of the string or after a comma
+	twoDigitYearRegex := regexp.MustCompile(`,\s*\d{2}\b`)
+	if twoDigitYearRegex.MatchString(dateStr) {
+		return dateStr // Already has a 2-digit year
+	}
+
 	// Check if it looks like a date (contains month name or day)
-	monthNames := []string{"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-		"JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
-		"JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
-		"JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"}
+	monthNames := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+		"January", "February", "March", "April", "May", "June",
+		"July", "August", "September", "October", "November", "December"}
 
 	hasMonth := false
 	upper := strings.ToUpper(dateStr)
 	for _, month := range monthNames {
-		if strings.Contains(upper, month) {
+		if strings.Contains(upper, strings.ToUpper(month)) {
 			hasMonth = true
 			break
 		}
