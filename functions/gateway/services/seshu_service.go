@@ -17,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 
-	"github.com/araddon/dateparse"
+	"github.com/itlightning/dateparse"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 

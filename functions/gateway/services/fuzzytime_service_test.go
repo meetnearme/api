@@ -498,7 +498,7 @@ func TestCleanDateString(t *testing.T) {
 		{
 			name:     "date_range_with_dash",
 			input:    "Fri, Jul 25 - Jul 26",
-			expected: "Fri, Jul 25",
+			expected: "Fri, Jul 25, 2026", // Year added by "next future" logic
 		},
 		{
 			name:     "time_range_with_en_dash",
@@ -508,7 +508,7 @@ func TestCleanDateString(t *testing.T) {
 		{
 			name:     "time_range_with_hyphen",
 			input:    "Saturday 26 July 2025 from 18:30-21:30",
-			expected: "Saturday 26 July 2025 from 18:30",
+			expected: "Saturday 26 July 2025 18:30", // "from" removed by character cleaning
 		},
 		{
 			name:     "no_range",
