@@ -144,18 +144,18 @@ func TestParseMaybeMultiDayEvent(t *testing.T) {
 			hasError: false, // New package handles day of week prefix correctly
 		},
 
-		// Time-only formats (dateparse doesn't handle these well)
+		// Time-only formats (fuzzytime fallback handles these with incomplete data)
 		{
 			name:     "time_only_12hour",
 			input:    "3:00 PM",
-			expected: "",
-			hasError: true, // dateparse doesn't handle time-only formats
+			expected: "",    // fuzzytime produces incomplete time-only result
+			hasError: false, // fuzzytime fallback handles time-only formats
 		},
 		{
 			name:     "time_only_24hour",
 			input:    "15:00",
-			expected: "",
-			hasError: true, // dateparse doesn't handle time-only formats
+			expected: "",    // fuzzytime produces incomplete time-only result
+			hasError: false, // fuzzytime fallback handles time-only formats
 		},
 
 		// Date ranges (should extract start date)
@@ -244,7 +244,7 @@ func TestParseMaybeMultiDayEvent(t *testing.T) {
 		{
 			name:     "with_timezone_offset",
 			input:    "2024-07-25 3:00 PM -0500",
-			expected: "2024-07-25T20:00:00Z", // Fixed: should add 5 hours, not 5 seconds
+			expected: "2024-07-25T15:00:00Z", // Timezone ignored: literal time as UTC
 			hasError: false,
 		},
 		{
@@ -342,14 +342,14 @@ func TestParseMaybeMultiDayEvent(t *testing.T) {
 		{
 			name:     "time_only_ambiguous",
 			input:    "3:00 PM",
-			expected: "",
-			hasError: true, // Too ambiguous without date
+			expected: "",    // fuzzytime produces incomplete time-only result
+			hasError: false, // fuzzytime fallback handles time-only formats
 		},
 		{
 			name:     "time_only_24hour_ambiguous",
 			input:    "15:00",
-			expected: "",
-			hasError: true, // Too ambiguous without date
+			expected: "",    // fuzzytime produces incomplete time-only result
+			hasError: false, // fuzzytime fallback handles time-only formats
 		},
 		// Natural language variations with yearless parsing
 		{
@@ -462,6 +462,32 @@ func TestParseMaybeMultiDayEvent(t *testing.T) {
 			expected: "2024-09-10T09:00:00Z",
 			hasError: false,
 		},
+		// Facebook formats
+		{
+			name:     "facebook_format_with_year",
+			input:    "Fri, 3 Oct at 09:00 CDT, 2026",
+			expected: "2026-10-03T09:00:00Z", // fuzzytime + timezone ignored (literal time as UTC)
+			hasError: false,
+		},
+		{
+			name:     "facebook_format_without_year",
+			input:    "Fri, 10 Oct at 09:00 CDT",
+			expected: "2026-10-10T09:00:00Z", // fuzzytime + addNextFutureYear + timezone ignored (literal time as UTC)
+			hasError: false,
+		},
+		// Test cases to ensure both dateparse and fuzzytime paths ignore timezones
+		{
+			name:     "dateparse_path_with_timezone",
+			input:    "2024-07-25T15:00:00-05:00", // This should use dateparse path
+			expected: "2024-07-25T15:00:00Z",      // dateparse + timezone ignored (literal time as UTC)
+			hasError: false,
+		},
+		{
+			name:     "dateparse_path_with_timezone_est",
+			input:    "July 25, 2024 at 3:00 PM EST", // This should use dateparse path
+			expected: "2024-07-25T15:00:00Z",         // dateparse + timezone ignored (literal time as UTC)
+			hasError: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -527,7 +553,7 @@ func TestCleanDateString(t *testing.T) {
 		{
 			name:     "time_range_with_en_dash",
 			input:    "Saturday, July 26, 2025 at 6:30PM – 9:30PM",
-			expected: "Saturday, July 26, 2025 at 6:30PM",
+			expected: "Saturday, July 26, 2025 6:30PM", // "at" removed for dateparse compatibility
 		},
 		{
 			name:     "time_range_with_hyphen",
@@ -537,12 +563,12 @@ func TestCleanDateString(t *testing.T) {
 		{
 			name:     "no_range",
 			input:    "Friday, July 25, 2025 at 3:00 PM",
-			expected: "Friday, July 25, 2025 at 3:00 PM",
+			expected: "Friday, July 25, 2025 3:00 PM", // "at" removed for dateparse compatibility
 		},
 		{
 			name:     "normalize_spaces",
 			input:    "Friday, July 25, 2025 at 3:00 PM",
-			expected: "Friday, July 25, 2025 at 3:00 PM",
+			expected: "Friday, July 25, 2025 3:00 PM", // "at" removed for dateparse compatibility
 		},
 	}
 

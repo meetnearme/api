@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bcampbell/fuzzytime"
 	"github.com/itlightning/dateparse"
 )
 
@@ -20,16 +21,60 @@ func ParseMaybeMultiDayEvent(input string) (string, error) {
 	// This handles date ranges, time ranges, and other complex formats
 	cleanedDateStr := cleanDateString(input)
 
-	// Step 2: Parse the cleaned date string using dateparse
-	// We use ParseAny which handles a wide variety of formats
+	// Step 2: Try dateparse first
 	startDt, err := dateparse.ParseAny(cleanedDateStr)
-	if err != nil {
-		return "", err
+	if err == nil {
+		// dateparse succeeded, extract time components and reconstruct as UTC (ignoring timezone)
+		year, month, day := startDt.Date()
+		hour, min, sec := startDt.Clock()
+		utcTime := time.Date(year, month, day, hour, min, sec, 0, time.UTC)
+		return utcTime.Format(time.RFC3339), nil
 	}
 
-	// Step 3: Convert to UTC and format as RFC3339
-	// This ensures consistent timezone handling
-	return startDt.UTC().Format(time.RFC3339), nil
+	// Step 3: Apply next future logic to cleaned string before trying fuzzytime
+	// This ensures we have a year for fuzzytime to work with
+	patchedDateStr := addNextFutureYear(cleanedDateStr)
+
+	// Step 4: Try fuzzytime with the patched string
+	dt, _, err := fuzzytime.Extract(patchedDateStr)
+	if err != nil || dt.Empty() {
+		return "", fmt.Errorf("both dateparse and fuzzytime failed to parse: %s", input)
+	}
+
+	// Step 5: Convert fuzzytime result to RFC3339, ignoring timezone information
+	// fuzzytime.ISOFormat() returns various formats, we need to extract time components only
+	isoFormat := dt.ISOFormat()
+
+	// Try different parsing formats until we find one that works
+	formats := []string{
+		time.RFC3339,                // "2006-01-02T15:04:05Z07:00"
+		"2006-01-02T15:04:05-07:00", // Full date with timezone offset (with seconds)
+		"2006-01-02T15:04-07:00",    // Full date with timezone offset (without seconds)
+		"T15:04:05-07:00",           // Time-only with timezone (with seconds)
+		"T15:04-07:00",              // Time-only with timezone (without seconds)
+		"T15:04:05",                 // Time-only without timezone (with seconds)
+		"T15:04",                    // Time-only without timezone (without seconds)
+	}
+
+	var parsedTime time.Time
+	for _, format := range formats {
+		parsedTime, err = time.Parse(format, isoFormat)
+		if err == nil {
+			break // Found a working format
+		}
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to parse fuzzytime result as time: %s", isoFormat)
+	}
+
+	// Extract time components and reconstruct as UTC (ignoring timezone)
+	// This ensures we get the literal time without timezone conversion
+	year, month, day := parsedTime.Date()
+	hour, min, sec := parsedTime.Clock()
+	utcTime := time.Date(year, month, day, hour, min, sec, 0, time.UTC)
+
+	return utcTime.Format(time.RFC3339), nil
 }
 
 // cleanDateString implements the cleaning logic from seshu_service.go
@@ -71,8 +116,10 @@ func cleanDateString(dateStr string) string {
 	// Remove "from" keyword that might confuse dateparse
 	cleanedDateStr = strings.ReplaceAll(cleanedDateStr, " from ", " ")
 
-	// Let the new maintained package handle day of week prefixes
-	// No preprocessing needed - itlightning/dateparse handles this correctly
+	// Remove "at" keyword that confuses dateparse
+	cleanedDateStr = strings.ReplaceAll(cleanedDateStr, " at ", " ")
+
+	// Let fuzzytime handle day of week prefixes - it's more robust than string stripping
 
 	// If we found a year in the right part of a range, use yearless parsing approach
 	if yearFromRight != "" {
@@ -182,9 +229,10 @@ func addNextFutureYear(dateStr string) string {
 	}
 
 	// Check if the string contains a 2-digit year (like "70" for 1970)
-	// Look for 2-digit numbers that are likely years (not day numbers)
-	// Years are typically at the end of the string or after a comma
-	twoDigitYearRegex := regexp.MustCompile(`,\s*\d{2}\b`)
+	// Look for 2-digit numbers that are likely years (not day numbers or time components)
+	// Years are typically at the end of the string or after a comma, but not followed by ":"
+	// We need to be more specific to avoid matching day numbers
+	twoDigitYearRegex := regexp.MustCompile(`,\s*\d{2}(?:\s*$|\s+[A-Z]{3,}|\s+[A-Z]{2}\s)`)
 	if twoDigitYearRegex.MatchString(dateStr) {
 		return dateStr // Already has a 2-digit year
 	}
