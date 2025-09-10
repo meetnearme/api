@@ -414,8 +414,6 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper Scrapin
 			return nil, "", err
 		}
 
-		// log.Printf("=======\n\n\n\n\n (417) HTML \n: %s", html)
-
 		if mode != helpers.SESHU_MODE_ONBOARD {
 			childScrapeQueue := []types.EventInfo{}
 			urlToIndex := make(map[string]int)

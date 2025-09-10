@@ -215,6 +215,18 @@ func TestParseMaybeMultiDayEvent(t *testing.T) {
 			expected: "",
 			hasError: true, // dateparse doesn't handle month-year format
 		},
+		{
+			name:     "uppercase_month_names",
+			input:    "JULY 25, 2024 at 3:00 PM",
+			expected: "2024-07-25T15:00:00Z",
+			hasError: false, // Should work with uppercase normalization
+		},
+		{
+			name:     "mixed_case_month_names",
+			input:    "JuLy 25, 2024 at 3:00 PM",
+			expected: "2024-07-25T15:00:00Z",
+			hasError: false, // Should work with uppercase normalization
+		},
 
 		// Timezone variations
 		{
@@ -308,6 +320,12 @@ func TestParseMaybeMultiDayEvent(t *testing.T) {
 			input:    "Fri, Jul 25", // Should use next future logic
 			expected: "2026-07-25T00:00:00Z",
 			hasError: false,
+		},
+		{
+			name:     "ambiguous_date_uppercase_month",
+			input:    "JULY 25",
+			expected: "2026-07-25T00:00:00Z",
+			hasError: false, // Should work with uppercase normalization
 		},
 		{
 			name:     "non_breaking_spaces",

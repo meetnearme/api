@@ -141,23 +141,10 @@ func convertFullMonthToAbbrev(input string) string {
 	return result
 }
 
-// findYearInString finds a 4-digit year in a string using regex
-func findYearInString(str string) string {
-	// Use a more flexible approach: find any 4-digit number that looks like a year
-	// This handles cases like "Jul 26 at 4:00pm, 2025" or "2025" or "at 4:00pm, 2025"
-	// or "July 25 at 3:00 PM, 2024" or "Friday, August 15 at 2:30 PM, 2024"
+var reYear = regexp.MustCompile(`\b(?:19|20)\d{2}\b|\b2100\b`)
 
-	// Look for any 4 consecutive digits that could be a year
-	for i := 0; i <= len(str)-4; i++ {
-		if isAllDigits(str[i : i+4]) {
-			// Check if it's a reasonable year
-			year := int(str[i]-'0')*1000 + int(str[i+1]-'0')*100 + int(str[i+2]-'0')*10 + int(str[i+3]-'0')
-			if year >= 1900 && year <= 2100 {
-				return str[i : i+4]
-			}
-		}
-	}
-	return ""
+func findYearInString(str string) string {
+	return reYear.FindString(str)
 }
 
 // isAllDigits checks if a string contains only digits
@@ -174,20 +161,20 @@ func isAllDigits(s string) bool {
 // Uses "next future" logic: if the date has already passed this year, use next year
 func addNextFutureYear(dateStr string) string {
 	// Check if the string already contains a 4-digit year
-	yearRegex := regexp.MustCompile(`\b(19|20)\d{2}\b`)
-	if yearRegex.MatchString(dateStr) {
+	if reYear.MatchString(dateStr) {
 		return dateStr // Already has a year
 	}
 
 	// Check if it looks like a date (contains month name or day)
-	monthNames := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-		"January", "February", "March", "April", "May", "June",
-		"July", "August", "September", "October", "November", "December"}
+	monthNames := []string{"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+		"JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+		"JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+		"JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"}
 
 	hasMonth := false
+	upper := strings.ToUpper(dateStr)
 	for _, month := range monthNames {
-		if strings.Contains(dateStr, month) {
+		if strings.Contains(upper, month) {
 			hasMonth = true
 			break
 		}
@@ -198,14 +185,14 @@ func addNextFutureYear(dateStr string) string {
 	}
 
 	// Try to parse the date with current year first
-	currentYear := time.Now().Year()
+	now := time.Now()
+	currentYear := now.Year()
 	testDate := dateStr + ", " + fmt.Sprintf("%d", currentYear)
 
 	// Try parsing with current year
 	if parsed, err := dateparse.ParseAny(testDate); err == nil {
 		// Current year works, check if the date has already passed
-		today := time.Now()
-		if parsed.Before(today) {
+		if parsed.Before(now) {
 			// Date has passed this year, use next year
 			return dateStr + ", " + fmt.Sprintf("%d", currentYear+1)
 		}
@@ -288,78 +275,6 @@ func looksLikeTimeRange(str string) bool {
 
 	return false
 }
-
-// convertToRFC3339 converts a fuzzytime DateTime to RFC3339 format
-// If timezone is provided, includes the timezone offset
-// If timezone is empty, returns time without timezone offset
-// func convertToRFC3339(dt fuzzytime.DateTime, offset string) string {
-// 	// Check if we have enough information
-// 	if !dt.Time.HasHour() {
-// 		return ""
-// 	}
-
-// 	// Set the date - handle missing year by assuming next occurrence
-// 	year := dt.Year()
-// 	if year == 0 {
-// 		// No year provided - assume next occurrence from today
-// 		year = getNextOccurrenceYear(dt.Month(), dt.Day())
-// 	}
-
-// 	month := time.Month(dt.Month())
-// 	day := dt.Day()
-
-// 	// Set the time
-// 	hour := dt.Time.Hour()
-// 	minute := dt.Time.Minute()
-// 	second := dt.Time.Second()
-
-// 	// Format as RFC3339
-// 	if offset != "" {
-// 		// Check if offset is an offset string (e.g., "-05:00", "+08:00") or IANA offset
-// 		if strings.HasPrefix(offset, "+") || strings.HasPrefix(offset, "-") || offset == "Z" {
-// 			// It's an offset string - create a FixedZone
-// 			var offsetSeconds int
-// 			if offset == "Z" {
-// 				offsetSeconds = 0
-// 			} else {
-// 				// Parse offset like "-05:00" or "+08:00"
-// 				sign := 1
-// 				if strings.HasPrefix(offset, "-") {
-// 					sign = -1
-// 					offset = strings.TrimPrefix(offset, "-")
-// 				} else {
-// 					offset = strings.TrimPrefix(offset, "+")
-// 				}
-
-// 				parts := strings.Split(offset, ":")
-// 				hours, _ := strconv.Atoi(parts[0])
-// 				minutes := 0
-// 				if len(parts) > 1 {
-// 					minutes, _ = strconv.Atoi(parts[1])
-// 				}
-// 				offsetSeconds = sign * (hours*3600 + minutes*60)
-// 			}
-
-// 			loc := time.FixedZone(offset, offsetSeconds)
-// 			t := time.Date(year, month, day, hour, minute, second, 0, loc)
-// 			return t.Format(time.RFC3339)
-// 		} else {
-// 			// It's an IANA offset - try to load it
-// 			loc, err := time.LoadLocation(offset)
-// 			if err != nil {
-// 				// If offset loading fails, create time in UTC
-// 				t := time.Date(year, month, day, hour, minute, second, 0, time.UTC)
-// 				return t.Format(time.RFC3339)
-// 			}
-// 			t := time.Date(year, month, day, hour, minute, second, 0, loc)
-// 			return t.Format(time.RFC3339)
-// 		}
-// 	} else {
-// 		// If no offset, create time in UTC and return without offset
-// 		t := time.Date(year, month, day, hour, minute, second, 0, time.UTC)
-// 		return t.Format("2006-01-02T15:04:05")
-// 	}
-// }
 
 // getNextOccurrenceYear finds the next year when the given month/day will occur
 func getNextOccurrenceYear(month, day int) int {
