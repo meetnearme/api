@@ -637,7 +637,7 @@ func normalizeEventInfo(
 
 	startTimeRFC3339, err := ParseMaybeMultiDayEvent(dateStr)
 	if err != nil {
-		return internal_types.EventInfo{}, fmt.Errorf("failed to parse date string: %w", err)
+		return internal_types.EventInfo{}, fmt.Errorf("failed to parse date string: %s: error: %w", dateStr, err)
 	}
 
 	// Choose first non-empty location candidate

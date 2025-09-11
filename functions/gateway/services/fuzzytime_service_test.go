@@ -250,8 +250,8 @@ func TestParseMaybeMultiDayEvent(t *testing.T) {
 		{
 			name:     "with_iana_timezone",
 			input:    "2024-07-25 3:00 PM America/New_York",
-			expected: "",
-			hasError: true, // IANA timezones not supported by dateparse
+			expected: "2024-07-25T15:00:00Z", // fuzzytime fallback handles IANA timezones
+			hasError: false,
 		},
 
 		// Edge cases discovered during debugging
@@ -473,6 +473,19 @@ func TestParseMaybeMultiDayEvent(t *testing.T) {
 			name:     "facebook_format_without_year",
 			input:    "Fri, 10 Oct at 09:00 CDT",
 			expected: "2026-10-10T09:00:00Z", // fuzzytime + addNextFutureYear + timezone ignored (literal time as UTC)
+			hasError: false,
+		},
+		// Production failure pattern - time range with timezone
+		{
+			name:     "production_time_range_with_timezone_future",
+			input:    "Friday, September 12, 2099 at 5:00 PM – 9:00 PM CDT",
+			expected: "2099-09-12T17:00:00Z", // fuzzytime handles time range + timezone, returns without seconds
+			hasError: false,
+		},
+		{
+			name:     "production_time_range_with_timezone_past",
+			input:    "Friday, September 12, 2024 at 5:00 PM – 9:00 PM CDT",
+			expected: "2024-09-12T17:00:00Z", // fuzzytime handles time range + timezone, returns without seconds
 			hasError: false,
 		},
 		// Test cases to ensure both dateparse and fuzzytime paths ignore timezones

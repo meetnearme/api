@@ -50,6 +50,8 @@ func ParseMaybeMultiDayEvent(input string) (string, error) {
 		time.RFC3339,                // "2006-01-02T15:04:05Z07:00"
 		"2006-01-02T15:04:05-07:00", // Full date with timezone offset (with seconds)
 		"2006-01-02T15:04-07:00",    // Full date with timezone offset (without seconds)
+		"2006-01-02T15:04:05",       // Full date without timezone (with seconds)
+		"2006-01-02T15:04",          // Full date without timezone (without seconds)
 		"T15:04:05-07:00",           // Time-only with timezone (with seconds)
 		"T15:04-07:00",              // Time-only with timezone (without seconds)
 		"T15:04:05",                 // Time-only without timezone (with seconds)
