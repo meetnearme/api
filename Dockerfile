@@ -12,7 +12,7 @@ RUN go mod download
 
 # TODO: find a way to globally pin templ binary version
 RUN go install github.com/a-h/templ/cmd/templ@v0.2.793
-RUN go install github.com/air-verse/air@latest
+RUN go install github.com/air-verse/air@1.62.0
 
 COPY functions/ ./functions/
 # COPY cmd/ ./cmd/
