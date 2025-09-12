@@ -671,7 +671,9 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to get SeshuJobs"), http.StatusInternalServerError, "partial", err)
 	}
+	jobAborted := false
 	if len(jobs) > 0 {
+		jobAborted = true
 		return transport.SendHtmlRes(w, []byte("This event source URL already exists"), http.StatusConflict, "partial", err)
 
 	}
@@ -679,6 +681,9 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	log.Printf("INFO: Submitting SeshuJob for URL: %s", inputPayload.Url)
 
 	defer func() {
+		if jobAborted {
+			return
+		}
 		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLong`
 		// which is an intentionally invalid placeholder
 
@@ -926,6 +931,11 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			// }
 
 			go func() {
+
+				if jobAborted {
+					return
+				}
+
 				extractedEvents, _, err := services.ExtractEventsFromHTML(seshuJob, helpers.SESHU_MODE_SCRAPE, &services.RealScrapingService{})
 				if err != nil {
 					log.Printf("Failed to extract events from %s: %v", seshuJob.NormalizedUrlKey, err)

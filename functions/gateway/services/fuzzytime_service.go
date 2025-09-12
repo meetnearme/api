@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -12,6 +13,15 @@ import (
 )
 
 var reYear = regexp.MustCompile(`\b(?:19|20)\d{2}\b|\b2100\b`)
+
+// getCurrentTime returns the current time, or a frozen time if GO_ENV=test
+func getCurrentTime() time.Time {
+	if os.Getenv("GO_ENV") == "test" {
+		// Freeze time to September 11, 2025 for consistent test results
+		return time.Date(2025, 9, 11, 15, 0, 0, 0, time.UTC)
+	}
+	return time.Now()
+}
 
 // ParseMaybeMultiDayEvent handles multi-day spanning events by extracting start time
 // Note: Offset resolution is handled separately via geolocation + tzf library
@@ -24,11 +34,57 @@ func ParseMaybeMultiDayEvent(input string) (string, error) {
 	// Step 2: Try dateparse first
 	startDt, err := dateparse.ParseAny(cleanedDateStr)
 	if err == nil {
-		// dateparse succeeded, extract time components and reconstruct as UTC (ignoring timezone)
+		// Check if dateparse returned year 0
 		year, month, day := startDt.Date()
-		hour, min, sec := startDt.Clock()
-		utcTime := time.Date(year, month, day, hour, min, sec, 0, time.UTC)
-		return utcTime.Format(time.RFC3339), nil
+		if year == 0 {
+			// dateparse returned year 0, apply next future logic
+			patchedDateStr := addNextFutureYear(cleanedDateStr)
+			dt, _, err := fuzzytime.Extract(patchedDateStr)
+			if err != nil || dt.Empty() {
+				return "", fmt.Errorf("dateparse returned year 0 and fuzzytime failed: %s", input)
+			}
+			// Handle fuzzytime result (including year 0 detection)
+			isoFormat := dt.ISOFormat()
+			if strings.Contains(isoFormat, "0000") {
+				// fuzzytime also returned year 0, handle it directly
+				now := getCurrentTime()
+				currentYear := now.Year()
+
+				// Parse the ISO format to extract month, day, hour, minute, second
+				parsedTime, err := time.Parse("2006-01-02T15:04:05Z", isoFormat)
+				if err != nil {
+					// Try alternative formats
+					formats := []string{"2006-01-02T15:04Z", "2006-01-02T15:04:05", "2006-01-02T15:04"}
+					for _, format := range formats {
+						parsedTime, err = time.Parse(format, isoFormat)
+						if err == nil {
+							break
+						}
+					}
+					if err != nil {
+						return "", fmt.Errorf("failed to parse fuzzytime result with year 0: %s", isoFormat)
+					}
+				}
+
+				// Apply next future logic
+				testDate := time.Date(currentYear, parsedTime.Month(), parsedTime.Day(),
+					parsedTime.Hour(), parsedTime.Minute(), parsedTime.Second(), 0, time.UTC)
+				if testDate.Before(now) {
+					// Date has passed, use next year
+					testDate = time.Date(currentYear+1, parsedTime.Month(), parsedTime.Day(),
+						parsedTime.Hour(), parsedTime.Minute(), parsedTime.Second(), 0, time.UTC)
+				}
+
+				return testDate.Format(time.RFC3339), nil
+			}
+			// fuzzytime succeeded with proper year, continue with normal processing
+			// (this will be handled by the existing fuzzytime processing logic below)
+		} else {
+			// dateparse succeeded with proper year, extract time components and reconstruct as UTC (ignoring timezone)
+			hour, min, sec := startDt.Clock()
+			utcTime := time.Date(year, month, day, hour, min, sec, 0, time.UTC)
+			return utcTime.Format(time.RFC3339), nil
+		}
 	}
 
 	// Step 3: Apply next future logic to cleaned string before trying fuzzytime
@@ -41,15 +97,54 @@ func ParseMaybeMultiDayEvent(input string) (string, error) {
 		return "", fmt.Errorf("both dateparse and fuzzytime failed to parse: %s", input)
 	}
 
-	// Step 5: Convert fuzzytime result to RFC3339, ignoring timezone information
-	// fuzzytime.ISOFormat() returns various formats, we need to extract time components only
+	// Step 5: Check if fuzzytime returned year 0 and handle it directly
 	isoFormat := dt.ISOFormat()
+
+	if strings.Contains(isoFormat, "0000") {
+		// fuzzytime returned year 0, we need to manually construct the date with proper year
+		// Extract the time components from the fuzzytime result and apply next future logic
+		now := getCurrentTime()
+		currentYear := now.Year()
+
+		// Parse the ISO format to extract month, day, hour, minute, second
+		parsedTime, err := time.Parse("2006-01-02T15:04:05Z", isoFormat)
+		if err != nil {
+			// Try alternative formats
+			formats := []string{"2006-01-02T15:04Z", "2006-01-02T15:04:05", "2006-01-02T15:04"}
+			for _, format := range formats {
+				parsedTime, err = time.Parse(format, isoFormat)
+				if err == nil {
+					break
+				}
+			}
+			if err != nil {
+				return "", fmt.Errorf("failed to parse fuzzytime result with year 0: %s", isoFormat)
+			}
+		}
+
+		// Apply next future logic
+		testDate := time.Date(currentYear, parsedTime.Month(), parsedTime.Day(),
+			parsedTime.Hour(), parsedTime.Minute(), parsedTime.Second(), 0, time.UTC)
+		if testDate.Before(now) {
+			// Date has passed, use next year
+			testDate = time.Date(currentYear+1, parsedTime.Month(), parsedTime.Day(),
+				parsedTime.Hour(), parsedTime.Minute(), parsedTime.Second(), 0, time.UTC)
+		}
+
+		return testDate.Format(time.RFC3339), nil
+	}
+
+	// Step 6: Convert fuzzytime result to RFC3339, ignoring timezone information
+	// fuzzytime.ISOFormat() returns various formats, we need to extract time components only
 
 	// Try different parsing formats until we find one that works
 	formats := []string{
 		time.RFC3339,                // "2006-01-02T15:04:05Z07:00"
 		"2006-01-02T15:04:05-07:00", // Full date with timezone offset (with seconds)
 		"2006-01-02T15:04-07:00",    // Full date with timezone offset (without seconds)
+		"2006-01-02T15:04:05",       // Full date without timezone (with seconds)
+		"2006-01-02T15:04",          // Full date without timezone (without seconds)
+		"2006-01-02",                // Date-only format (YYYY-MM-DD)
 		"T15:04:05-07:00",           // Time-only with timezone (with seconds)
 		"T15:04-07:00",              // Time-only with timezone (without seconds)
 		"T15:04:05",                 // Time-only without timezone (with seconds)
@@ -119,16 +214,17 @@ func cleanDateString(dateStr string) string {
 	// Remove "at" keyword that confuses dateparse
 	cleanedDateStr = strings.ReplaceAll(cleanedDateStr, " at ", " ")
 
+	// Remove Facebook's "and X more" pattern (e.g., "and 15 more")
+	andMoreRegex := regexp.MustCompile(`\s+and\s+\d{1,2}\s+more\s*$`)
+	cleanedDateStr = andMoreRegex.ReplaceAllString(cleanedDateStr, "")
+
 	// Let fuzzytime handle day of week prefixes - it's more robust than string stripping
 
 	// If we found a year in the right part of a range, use yearless parsing approach
 	if yearFromRight != "" {
 		cleanedDateStr = parseWithYearlessApproach(cleanedDateStr, yearFromRight)
-	} else {
-		// Handle "next future" logic for ambiguous dates (no year specified)
-		cleanedDateStr = addNextFutureYear(cleanedDateStr)
 	}
-
+	// Note: addNextFutureYear is called later in ParseMaybeMultiDayEvent for fuzzytime fallback only
 	return cleanedDateStr
 }
 
@@ -256,22 +352,40 @@ func addNextFutureYear(dateStr string) string {
 		return dateStr // Doesn't look like a date
 	}
 
-	// Try to parse the date with current year first
-	now := time.Now()
+	// Try to parse the date with current year first to determine if it's in the future
+	now := getCurrentTime()
 	currentYear := now.Year()
 	testDate := dateStr + ", " + fmt.Sprintf("%d", currentYear)
 
-	// Try parsing with current year
-	if parsed, err := dateparse.ParseAny(testDate); err == nil {
-		// Current year works, check if the date has already passed
-		if parsed.Before(now) {
-			// Date has passed this year, use next year
-			return dateStr + ", " + fmt.Sprintf("%d", currentYear+1)
-		}
+	// For Facebook-style formats (with timezone abbreviations), just use current year
+	// since fuzzytime will handle the parsing properly
+
+	tzRegex := regexp.MustCompile(`[A-Z]{3}`)
+	if tzRegex.MatchString(testDate) {
 		return testDate
 	}
 
-	// If current year doesn't work, try next year
+	// For simple formats like "July 25", try parsing to determine if it's in the future
+	formats := []string{
+		testDate,                              // "July 25, 2025"
+		strings.ReplaceAll(testDate, ",", ""), // "July 25 2025"
+	}
+
+	for _, format := range formats {
+		if parsed, err := dateparse.ParseAny(format); err == nil {
+			// Current year works, check if the date is in the future
+			if parsed.After(now) {
+				// Date is in the future, use current year
+				return testDate
+			} else {
+				// Date has passed this year, use next year
+				return dateStr + ", " + fmt.Sprintf("%d", currentYear+1)
+			}
+		} else {
+		}
+	}
+
+	// If current year doesn't work with any format, try next year
 	nextYear := currentYear + 1
 	return dateStr + ", " + fmt.Sprintf("%d", nextYear)
 }
@@ -350,7 +464,7 @@ func looksLikeTimeRange(str string) bool {
 
 // getNextOccurrenceYear finds the next year when the given month/day will occur
 func getNextOccurrenceYear(month, day int) int {
-	now := time.Now()
+	now := getCurrentTime()
 	currentYear := now.Year()
 
 	// Try current year first
