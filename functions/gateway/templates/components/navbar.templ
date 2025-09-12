@@ -394,7 +394,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 								// @click function call is a global shared from home_details.templ
 								<button
 									type="submit"
-									class="btn btn-primary w-full sticky top-0 z-[10]"
+									class="btn btn-red-500 w-full sticky top-0 z-[10]"
 									@click.prevent="handleFilterSubmit"
 								>
 									Apply Filters
@@ -475,6 +475,16 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 											<ul class="flex max-h-44 flex-col overflow-y-auto">
 												<li class="hidden px-4 py-2 text-sm" x-ref="noResultsMessage">
 													<span>No matches found</span>
+												</li>
+												<li
+													class="px-4 py-2 text-sm cursor-pointer
+                        bg-primary hover:text-secondary
+                        focus-visible:bg-secondary
+                         focus-visible:outline-none"
+													tabindex="0"
+													role="button"
+												>
+													<span>Locate Me</span>
 												</li>
 												<template x-for="(item, index) in options" :key="index">
 													<li
