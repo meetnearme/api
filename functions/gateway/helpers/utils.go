@@ -49,18 +49,13 @@ func UtcToUnix64(t interface{}, timezone *time.Location) (int64, error) {
 	switch v := t.(type) {
 	case string:
 		// First validate by parsing as RFC3339
-		_, err := time.Parse(time.RFC3339, v)
+		parsedTime, err := time.Parse(time.RFC3339, v)
 		if err != nil {
 			return 0, fmt.Errorf("invalid date format: %v", err)
 		}
 
-		// Now do local time parsing
-		timeStr := strings.TrimSuffix(v, "Z")
-		// Note the time layout here MUST NOT be RFC3339, it must be the local time layout
-		localTime, err := time.ParseInLocation("2006-01-02T15:04:05", timeStr, timezone)
-		if err != nil {
-			return 0, fmt.Errorf("invalid date format: %v", err)
-		}
+		// Convert the parsed time to the specified timezone
+		localTime := parsedTime.In(timezone)
 		return localTime.Unix(), nil
 
 	default:
