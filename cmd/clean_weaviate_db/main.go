@@ -26,14 +26,14 @@ func main() {
 	}
 
 	if exists {
-		log.Println("%s class exists. Deleting it...", helpers.WeaviateEventClassName)
+		log.Printf("%s class exists. Deleting it...", helpers.WeaviateEventClassName)
 		err = client.Schema().ClassDeleter().WithClassName(helpers.WeaviateEventClassName).Do(context.Background())
 		if err != nil {
 			log.Fatalf("FATAL: Could not delete existing %s class: %v", helpers.WeaviateEventClassName, err)
 		}
-		log.Println("Successfully deleted existing %s class.", helpers.WeaviateEventClassName)
+		log.Printf("Successfully deleted existing %s class.", helpers.WeaviateEventClassName)
 	} else {
-		log.Println("%s class does not exist. Proceeding to create new schema.", helpers.WeaviateEventClassName)
+		log.Printf("%s class does not exist. Proceeding to create new schema.", helpers.WeaviateEventClassName)
 	}
 
 	log.Println("Schema cleanup and setup complete. Weaviate is ready.")
