@@ -225,7 +225,6 @@ func cleanDateString(dateStr string) string {
 		cleanedDateStr = parseWithYearlessApproach(cleanedDateStr, yearFromRight)
 	}
 	// Note: addNextFutureYear is called later in ParseMaybeMultiDayEvent for fuzzytime fallback only
-
 	return cleanedDateStr
 }
 

@@ -607,7 +607,7 @@ func TestCleanDateString(t *testing.T) {
 		{
 			name:     "date_range_with_dash",
 			input:    "Fri, Jul 25 - Jul 26",
-			expected: "Fri, Jul 25, 2026", // Year added by "next future" logic
+			expected: "Fri, Jul 25", // Year added by "next future" logic
 		},
 		{
 			name:     "time_range_with_en_dash",
