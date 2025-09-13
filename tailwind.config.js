@@ -30,9 +30,8 @@ export default {
         footer: '#979595',
         'footer-light': '#C9C8C8',
         'footer-purple': '#9c82fc',
-        'footer-black': '#252323',
+        'footer-black': '#000000',
         'icon-circle': '#6004e0',
-        'icon-circle-hover': '#b582fc',
       },
     },
     fontSize: {

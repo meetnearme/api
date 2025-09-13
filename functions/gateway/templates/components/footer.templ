@@ -6,7 +6,7 @@ import (
 )
 
 templ Footer() {
-	<footer class="footer-vertical text-footer grid w-full gap-6 p-6 mt-20 bg-black">
+	<footer class="footer-vertical text-footer grid w-full gap-6 p-6 mt-20 bg-footer-black">
 		<div
 			class="grid grid-cols-1
     lg:[grid-template-columns:300px_1fr_300px] gap-4 items-center"
@@ -19,16 +19,16 @@ templ Footer() {
 				/>
 				<img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
 			</div>
-			<nav class="flex text-footer-light gap-4 w-full justify-center">
+			<nav class="flex text-footer-light gap-4 w-full justify-center" aria-label="Primary footer navigation">
 				<a href="/">All Events</a>
 				<a href="/?q=music">Music</a>
 				<a href="/?q=party">Party</a>
 				<a href="/?q=news">News</a>
 				<a href="/about">About Us</a>
 			</nav>
-			<nav class="flex text-footer-light gap-4 justify-center items-center">
+			<nav class="flex text-footer-light gap-4 justify-center items-center" aria-label="Social links">
 				<span>Follow Us</span>
-				<a class="icon-circle" href="https://www.youtube.com/@MeetNearMe">
+				<a class="icon-circle" href="https://www.youtube.com/@MeetNearMe" aria-label="YouTube" target="_blank" rel="noopener">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						width="24"
@@ -46,7 +46,7 @@ templ Footer() {
 						<path d="m10 15 5-3-5-3z"></path>
 					</svg>
 				</a>
-				<a class="icon-circle">
+				<a class="icon-circle" href="https://www.twitter.com" aria-label="Twitter" target="_blank" rel="noopener">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						width="24"
@@ -63,7 +63,7 @@ templ Footer() {
 						></path>
 					</svg>
 				</a>
-				<a class="icon-circle">
+				<a class="icon-circle" href="https://www.facebook.com" aria-label="Facebook" target="_blank" rel="noopener">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						width="24"
@@ -78,7 +78,7 @@ templ Footer() {
 						<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
 					</svg>
 				</a>
-				<a class="icon-circle" href="https://www.linkedin.com/company/meet-near-me/">
+				<a class="icon-circle" href="https://www.linkedin.com/company/meet-near-me/" aria-label="LinkedIn" target="_blank" rel="noopener">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						width="24"
@@ -105,7 +105,7 @@ templ Footer() {
 			</p>
 			<form class="w-full flex gap-4 flex-col md:flex-row">
 				<label for="email-signup" class="sr-only">Email address</label>
-				<input type="email" id="email-signup" name="email" placeholder="Enter your email" class="bg-transparent text-footer-light border-b-2 focus-within:rounded-lg border-base-content w-full w-max-lg"/>
+				<input type="email" id="email-signup" name="email" placeholder="Enter your email" class="bg-transparent text-footer-light border-b-2 px-2 focus:!rounded-lg border-footer-light w-full max-w-lg"/>
 				<button type="submit" class="btn btn-outline btn-footer-purple bg-transparent text-footer-purple hover:bg-footer-purple hover:text-black w-lg">
 					Get Personalized Events
 					<svg
@@ -131,7 +131,7 @@ templ Footer() {
 			class="grid grid-cols-1 md:[grid-template-columns:280px_1fr_280px] row-start-3 border pt-3 border-transparent border-t-footer justify-center items-center gap-4"
 			aria-label="Copyright and legal information"
 		>
-			<div class="text-sm md:col-start-2 min-w-lg justify-self-center gap-4">
+			<div class="text-sm md:col-start-2 min-w-[20ch] justify-self-center gap-4">
 				&copy; 2024-{ time.Now().Format("2006") }
 				<span class="font-bold">
 					Meet Near Me LLC.
