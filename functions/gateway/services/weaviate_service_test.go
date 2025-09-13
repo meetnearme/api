@@ -217,7 +217,7 @@ func TestBulkUpsertEventsToWeaviate(t *testing.T) {
 	defer mockWeaviateServer.Close()
 
 	loc, _ := time.LoadLocation("America/New_York")
-	startTime1, err := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
+	startTime1, err := helpers.UtcToUnix64WithTrimZ("2099-05-01T12:00:00Z", loc, false)
 	if err != nil {
 		t.Fatalf("failed to convert time: %v", err)
 	}

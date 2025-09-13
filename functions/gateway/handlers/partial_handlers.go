@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -531,6 +532,12 @@ func getValidatedEvents(candidates []internal_types.EventInfo, validations []int
 	for i := range candidates {
 		isValid := true
 
+		// Check if we have a corresponding validation for this candidate
+		if i >= len(validations) {
+			// If no validation exists for this candidate, skip it
+			continue
+		}
+
 		// Validate Event Title
 		if candidates[i].EventTitle == "" || isFakeData(candidates[i].EventTitle) || !validations[i].EventValidateTitle {
 			isValid = false
@@ -651,7 +658,32 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlRes(w, []byte("Invalid JSON payload"), http.StatusBadRequest, "partial", err)
 	}
 
+	ctx = r.Context()
+	postgresDB, err := services.GetPostgresService(ctx)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte("Failed to initialize services"), http.StatusInternalServerError, "partial", err)
+	}
+
+	// set context value for url
+	ctx = context.WithValue(ctx, "targetUrl", inputPayload.Url)
+
+	jobs, err := postgresDB.GetSeshuJobs(ctx)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte("Failed to get SeshuJobs"), http.StatusInternalServerError, "partial", err)
+	}
+	jobAborted := false
+	if len(jobs) > 0 {
+		jobAborted = true
+		return transport.SendHtmlRes(w, []byte("This event source URL already exists"), http.StatusConflict, "partial", err)
+
+	}
+
+	log.Printf("INFO: Submitting SeshuJob for URL: %s", inputPayload.Url)
+
 	defer func() {
+		if jobAborted {
+			return
+		}
 		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLong`
 		// which is an intentionally invalid placeholder
 
@@ -847,11 +879,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				return
 			}
 
-			ctx := r.Context()
 			db, _ := services.GetPostgresService(ctx)
-
-			log.Printf("INFO: Submitting SeshuJob for URL: %s", normalizedUrl)
-
 			err = db.CreateSeshuJob(ctx, seshuJob)
 			if err != nil {
 				log.Println("Error creating SeshuJob:", err)
@@ -903,6 +931,11 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			// }
 
 			go func() {
+
+				if jobAborted {
+					return
+				}
+
 				extractedEvents, _, err := services.ExtractEventsFromHTML(seshuJob, helpers.SESHU_MODE_SCRAPE, &services.RealScrapingService{})
 				if err != nil {
 					log.Printf("Failed to extract events from %s: %v", seshuJob.NormalizedUrlKey, err)

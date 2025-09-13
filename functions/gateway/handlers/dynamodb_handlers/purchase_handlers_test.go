@@ -53,7 +53,7 @@ func TestGetPurchasesByEventID(t *testing.T) {
 	)
 
 	loc, _ := time.LoadLocation("America/New_York")
-	testEventStartTime, tmErr := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
+	testEventStartTime, tmErr := helpers.UtcToUnix64WithTrimZ("2099-05-01T12:00:00Z", loc, false)
 	if tmErr != nil || testEventStartTime == 0 {
 		t.Logf("Error converting tm UTC to unix: %v", tmErr)
 	}

@@ -12,7 +12,7 @@ RUN go mod download
 
 # TODO: find a way to globally pin templ binary version
 RUN go install github.com/a-h/templ/cmd/templ@v0.2.793
-RUN go install github.com/air-verse/air@latest
+RUN go install github.com/air-verse/air@v1.62.0
 
 COPY functions/ ./functions/
 # COPY cmd/ ./cmd/
@@ -36,9 +36,6 @@ RUN set -e && \
 # not sure we need this was probably debugging
 # print a list of all files that end with *templ.go
 # RUN find . -name "*templ.go"
-
-# Add lsof for port checking in development
-RUN apk add --no-cache lsof
 
 #   DEVELOPMENT STAGE
 #

@@ -9,7 +9,7 @@ type EventInfo struct {
 	EventLocation     string  `json:"event_location"`
 	EventStartTime    string  `json:"event_start_datetime"`
 	EventEndTime      string  `json:"event_end_datetime"`
-	EventTimezone     string  `json:"event_timezone"`
+	EventTimezone     string  `json:"event_timezone,omitempty"`
 	EventURL          string  `json:"event_url"`
 	EventDescription  string  `json:"event_description"`
 	EventHostName     string  `json:"event_host_name"`
@@ -101,7 +101,6 @@ type SeshuJob struct {
 	LocationLatitude         float64 `json:"location_latitude,omitempty"`
 	LocationLongitude        float64 `json:"location_longitude,omitempty"`
 	LocationAddress          string  `json:"location_address,omitempty"`
-	LocationTimezone         string  `json:"location_timezone,omitempty"`
 	ScheduledHour            int     `json:"scheduled_hour,omitempty" validate:"required"` // Hour of the day (0-23)
 	TargetNameCSSPath        string  `json:"target_name_css_path" validate:"required"`
 	TargetLocationCSSPath    string  `json:"target_location_css_path" validate:"required"`
@@ -115,4 +114,5 @@ type SeshuJob struct {
 	LastScrapeFailureCount   int     `json:"last_scrape_failure_count" validate:"gte=0"`
 	OwnerID                  string  `json:"owner_id" validate:"required"`
 	KnownScrapeSource        string  `json:"known_scrape_source"` // e.g. "MEETUP", "EVENTBRITE", etc.
+	LocationTimezone         string  `json:"location_timezone,omitempty"`
 }
