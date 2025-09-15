@@ -840,6 +840,26 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					// Update lat and lon in the parent component
 					this.$dispatch('location-dropdown', { option: { ...option } })
 				},
+
+        findAndSetLocation() {
+
+        const success = async (position) => {
+            this.selectedOption = {
+            label: "Test City, Texas, US",
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            value: "123456"
+          }
+          console.log("Fake city with real lat and lon:", this.selectedOption);
+        }
+
+        const error = (err) => {
+          console.warn(`ERROR(${err.code}): ${err.message}`);
+        }
+
+        navigator.geolocation.getCurrentPosition(success, error);
+        },
+
 				getFilteredOptions(query) {
 					this.options = this.allOptions.filter((option) =>
 						option.label.toLowerCase().includes(query.toLowerCase()),
