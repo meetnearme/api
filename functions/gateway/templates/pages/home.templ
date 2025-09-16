@@ -832,7 +832,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					}
 				},
 				setSelectedOption(option) {
-					this.selectedOption = option
+	this.selectedOption = option
 
 					this.isOpen = false
 					this.openedWithKeyboard = false
@@ -841,24 +841,27 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					this.$dispatch('location-dropdown', { option: { ...option } })
 				},
 
-        findAndSetLocation() {
+				findAndSetLocation() {
 
-        const success = async (position) => {
-            this.selectedOption = {
-            label: "Test City, Texas, US",
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            value: "123456"
-          }
-          console.log("Fake city with real lat and lon:", this.selectedOption);
-        }
+				const success = async (position) => {
+					// call getGeo function here
+					this.selectedOption = {
+						label: "Test City, Texas, US",
+						latitude: position.coords.latitude.toFixed(6),
+						longitude: position.coords.longitude.toFixed(6),
+						value: "123456"
+					}
+					console.log("Fake city with real lat and lon:", this.selectedOption);
+				}
 
-        const error = (err) => {
-          console.warn(`ERROR(${err.code}): ${err.message}`);
-        }
+				const error = (err) => {
+					console.warn(`ERROR(${err.code}): ${err.message}`);
+				}
 
-        navigator.geolocation.getCurrentPosition(success, error);
-        },
+				navigator.geolocation.getCurrentPosition(success, error);
+				this.isOpen = false
+				this.openedWithKeyboard = false
+				},
 
 				getFilteredOptions(query) {
 					this.options = this.allOptions.filter((option) =>

@@ -12,6 +12,10 @@ type GeoServiceInterface interface {
 	GetGeo(location, baseUrl string) (string, string, string, error)
 }
 
+type CityServiceInterface interface {
+	GetCity(location, baseUrl string) (string, error)
+}
+
 type SeshuServiceInterface interface {
 	GetSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionGet) (*types.SeshuSession, error)
 	InsertSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionInput) (*types.SeshuSessionInsert, error)
