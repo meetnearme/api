@@ -66,6 +66,10 @@ func (m *MockNatsService) Close() error {
 	return nil
 }
 
+func (m *MockNatsService) PurgeStream(ctx context.Context) error {
+	return nil
+}
+
 func getMockNatsService() interfaces.NatsServiceInterface {
 	return &MockNatsService{}
 }

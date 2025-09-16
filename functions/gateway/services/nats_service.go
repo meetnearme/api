@@ -277,6 +277,22 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 	}
 }
 
+// Purge the stream to remove all messages , temporary function
+func (s *NatsService) PurgeStream(ctx context.Context) error {
+	stream, err := s.js.Stream(ctx, streamName)
+	if err != nil {
+		return fmt.Errorf("failed to get stream: %w", err)
+	}
+
+	err = stream.Purge(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to purge stream: %w", err)
+	}
+
+	fmt.Printf("Stream %s purged successfully\n", streamName)
+	return nil
+}
+
 func (s *NatsService) Close() error {
 	if s.conn != nil {
 		s.conn.Close()

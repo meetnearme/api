@@ -21,7 +21,7 @@ type TriggerRequest struct {
 }
 
 var lastExecutionTime int64 = 0
-var HOUR int64 = 3600 // 1 hour in seconds
+var timeIntervalSeshuJobs int64 = 3600 // 1 hour in seconds
 
 func GetSeshuJobs(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
@@ -167,7 +167,7 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 	log.Printf("Received request to gather seshu jobs at time: %d", req.Time)
 	log.Printf("Last execution time: %d", lastExecutionTime)
 
-	if req.Time-lastExecutionTime <= 60 { // change this for HOUR
+	if req.Time-lastExecutionTime <= timeIntervalSeshuJobs { // change this for HOUR
 		return transport.SendHtmlRes(w, []byte(""), http.StatusOK, "partial", nil)
 	}
 
@@ -225,6 +225,30 @@ func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.Handler
 
 	return transport.SendHtmlRes(w, []byte("successful"), http.StatusOK, "partial", nil)
 
+}
+
+func PurgeNatsQueue(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	nats, _ := services.GetNatsService(ctx)
+
+	if nats == nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to initialize NATS service"), http.StatusInternalServerError)
+	}
+
+	err := nats.PurgeStream(ctx)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to purge NATS stream: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	successPartial := partials.SuccessBannerHTML("NATS stream purged successfully")
+	var buf bytes.Buffer
+
+	err = successPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to render template: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary

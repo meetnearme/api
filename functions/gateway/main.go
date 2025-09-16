@@ -185,6 +185,7 @@ func (app *App) InitRoutes() []Route {
 		// {"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, Require},
 		// {"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, Require},
 		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
+		{"/api/nats/purge", "GET", handlers.PurgeNatsQueue, Require},
 
 		// Re-share
 		{"/api/data/re-share", "POST", handlers.PostReShareHandler, Require},

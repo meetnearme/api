@@ -61,18 +61,26 @@ func TestPeekTopOfQueue(t *testing.T) {
 	}
 }
 
-// func TestPeekFromEmptyQueue(t *testing.T) {
-// 	ctx := context.Background()
-// 	mockQueue := test_helpers.NewMockNatsService()
+func TestPurgeStream(t *testing.T) {
+	ctx := context.Background()
+	mockQueue := test_helpers.NewMockNatsService()
 
-// 	top, err := mockQueue.PeekTopOfQueue(ctx)
-// 	if err == nil {
-// 		t.Error("Expected error when peeking from empty queue, got nil")
-// 	}
-// 	if top != nil {
-// 		t.Error("Expected nil message when queue is empty")
-// 	}
-// }
+	// Publish a message to ensure the stream is not empty
+	payload := internal_types.SeshuJob{
+		NormalizedUrlKey: "example-event-1",
+	}
+	_ = mockQueue.PublishMsg(ctx, payload)
+
+	err := mockQueue.PurgeStream(ctx)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	top, _ := mockQueue.PeekTopOfQueue(ctx)
+	if top != nil {
+		t.Error("Expected queue to be empty after purge, but it's not")
+	}
+}
 
 func TestConsumeMsg(t *testing.T) {
 	ctx := context.Background()

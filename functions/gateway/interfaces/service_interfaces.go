@@ -31,6 +31,7 @@ type NatsServiceInterface interface {
 	PeekTopOfQueue(ctx context.Context) (*jetstream.RawStreamMsg, error)
 	PublishMsg(ctx context.Context, job interface{}) error
 	ConsumeMsg(ctx context.Context, workers int) error
+	PurgeStream(ctx context.Context) error // Temporary method to clear the stream
 	Close() error
 }
 

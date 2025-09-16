@@ -490,3 +490,12 @@ func (m *MockNatsService) ConsumeMsg(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (m *MockNatsService) PurgeStream(ctx context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Clear the simulated queue
+	m.SimulatedQueue = make([][]byte, 0)
+	return nil
+}
