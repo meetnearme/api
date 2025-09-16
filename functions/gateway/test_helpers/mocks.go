@@ -90,7 +90,10 @@ type MockGeoService struct {
 }
 
 func (m *MockGeoService) GetGeo(location, baseUrl string) (string, string, string, error) {
-	return "40.7128", "-74.0060", "New York, NY 10001, USA", nil
+	if m.GetGeoFunc != nil {
+		return m.GetGeoFunc(location, baseUrl)
+	}
+	return "", "", "", fmt.Errorf("no mock function provided")
 }
 
 // MochSeshuService mocks the UpdateSeshuSession function

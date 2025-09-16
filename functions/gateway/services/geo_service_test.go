@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -44,21 +45,20 @@ func TestGetGeo(t *testing.T) {
 			expectedLon:  "-74.0060",
 			expectedAddr: "New York, NY 10001, USA",
 		},
-        // TODO: issues with the mock for the below cases so will not pass
-		// {
-		// 	name:           "Invalid location",
-		// 	location:       "Invalid",
-		// 	baseURL:        "http://example.com",
-		// 	mockError:      errors.New("location is not valid"),
-		// 	expectedErrMsg: "location is not valid",
-		// },
-		// {
-		// 	name:           "Empty base URL",
-		// 	location:       "New York",
-		// 	baseURL:        "",
-		// 	mockError:      errors.New("base URL is empty"),
-		// 	expectedErrMsg: "base URL is empty",
-		// },
+		{
+			name:           "Invalid location",
+			location:       "Invalid",
+			baseURL:        "http://example.com",
+			mockError:      errors.New("location is not valid"),
+			expectedErrMsg: "location is not valid",
+		},
+		{
+			name:           "Empty base URL",
+			location:       "New York",
+			baseURL:        "",
+			mockError:      errors.New("base URL is empty"),
+			expectedErrMsg: "base URL is empty",
+		},
 	}
 
 	for _, tt := range tests {
