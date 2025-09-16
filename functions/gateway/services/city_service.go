@@ -36,7 +36,7 @@ func (s *RealCityService) GetCity(location string, baseUrl string) (city string,
 	}
 
 	city = matches[1]
-	fmt.Printf(city)
+	fmt.Print(city)
 
 	return city, nil
 }
