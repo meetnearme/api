@@ -41,6 +41,10 @@ func DeriveTimezoneFromCoordinates(lat, lng float64) string {
 		return "" // tzf not available
 	}
 
+	if lat == 0 && lng == 0 {
+		return ""
+	}
+
 	timezoneName := tzfFinder.GetTimezoneName(lng, lat)
 	if timezoneName == "" {
 		return "" // tzf couldn't determine timezone
