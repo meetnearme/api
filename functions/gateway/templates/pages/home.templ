@@ -451,6 +451,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					<template x-if="$store.urlState.start_time">
 						<span>&nbsp;starting <strong x-text="$store.urlState.queryParamToReadableTime($store.urlState.start_time)"></strong></span>
 					</template>
+					<template x-if="$store.urlState.address">
+						<span>&nbsp;at location <strong x-text="$store.urlState.address"></strong></span>
+					</template>
 					&nbsp;
 					<button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
 				</div>

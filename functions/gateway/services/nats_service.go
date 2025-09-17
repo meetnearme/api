@@ -269,6 +269,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 			// TODO: Update the SeshuJob status and timestamps in database
 			// - Set LastScrapeSuccess to current timestamp
 			// - Update Status to "HEALTHY" if successful
+			// - Update to other status if not successful
 			// - Reset LastScrapeFailureCount to 0
 
 			log.Printf("Successfully processed scraping job for URL: %s", seshuJob.NormalizedUrlKey)
