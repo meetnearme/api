@@ -90,6 +90,9 @@ type MockGeoService struct {
 }
 
 func (m *MockGeoService) GetGeo(location, baseUrl string) (string, string, string, error) {
+	if m.GetGeoFunc != nil {
+		return m.GetGeoFunc(location, baseUrl)
+	}
 	return "40.7128", "-74.0060", "New York, NY 10001, USA", nil
 }
 
