@@ -16,7 +16,7 @@ func GetCity(location string, baseUrl string) (city string, err error) {
 }
 
 func (s *RealCityService) GetCity(location string, baseUrl string) (city string, err error) {
-	// TODO: this needs to be parameterized!
+
 	if baseUrl == "" {
 		return "", fmt.Errorf("base URL is empty")
 	}
@@ -27,7 +27,7 @@ func (s *RealCityService) GetCity(location string, baseUrl string) (city string,
 		return "", err
 	}
 
-	// this regex captures the city which appears after the string H8X2 X2R within a group
+	// this regex captures the city which appears after the string H8X2 X2R within a group denoted by () or []
 	re := regexp.MustCompile(`H8X2\+X2R\s+([^"]+)`)
 
 	matches := re.FindStringSubmatch(htmlString)
