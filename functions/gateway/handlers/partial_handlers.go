@@ -845,10 +845,13 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				}
 			}
 
-			locationTimezone := services.DeriveTimezoneFromCoordinates(session.LocationLatitude, session.LocationLongitude)
-			if locationTimezone == "" {
-				log.Println("Failed to derive timezone from coordinates for URL: ", normalizedUrl)
-				return
+			locationTimezone := ""
+			if session.LocationLatitude != 0 && session.LocationLongitude != 0 {
+				locationTimezone := services.DeriveTimezoneFromCoordinates(session.LocationLatitude, session.LocationLongitude)
+				if locationTimezone == "" {
+					log.Println("Failed to derive timezone from coordinates for URL: ", normalizedUrl)
+					return
+				}
 			}
 
 			seshuJob := internal_types.SeshuJob{

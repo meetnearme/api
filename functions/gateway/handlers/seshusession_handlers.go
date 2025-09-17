@@ -130,11 +130,15 @@ func HandleSeshuSessionSubmit(w http.ResponseWriter, r *http.Request) http.Handl
 	// show the user 50 options and they get confused / overwhelmed
 	limit := 3
 	end := limit
-	if len(events) < end {
-		end = len(events)
+	eventsTruncated := []types.EventInfo{}
+	for i := 0; i < end; i++ {
+		eventsTruncated = append(eventsTruncated, events[i])
+		if i >= end {
+			break
+		}
 	}
 
-	tmpl := partials.EventCandidatesPartial(events)
+	tmpl := partials.EventCandidatesPartial(eventsTruncated)
 	var buf bytes.Buffer
 	if err := tmpl.Render(ctx, &buf); err != nil {
 		return transport.SendHtmlErrorPartial([]byte(err.Error()), http.StatusInternalServerError)
