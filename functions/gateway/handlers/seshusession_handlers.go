@@ -129,14 +129,8 @@ func HandleSeshuSessionSubmit(w http.ResponseWriter, r *http.Request) http.Handl
 	// this is purely a UX limitation to avoid a scenario where we
 	// show the user 50 options and they get confused / overwhelmed
 	limit := 3
-	end := limit
 	eventsTruncated := []types.EventInfo{}
-	for i := 0; i < end; i++ {
-		eventsTruncated = append(eventsTruncated, events[i])
-		if i >= end {
-			break
-		}
-	}
+	eventsTruncated = events[:min(len(events), limit)]
 
 	tmpl := partials.EventCandidatesPartial(eventsTruncated)
 	var buf bytes.Buffer

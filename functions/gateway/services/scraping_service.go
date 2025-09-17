@@ -352,8 +352,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", err
 	}
 
-	log.Println("490~")
-
 	req.Header.Add("Authorization", "Bearer "+os.Getenv("OPENAI_API_KEY"))
 	req.Header.Add("Content-Type", "application/json")
 
