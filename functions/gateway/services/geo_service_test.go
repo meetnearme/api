@@ -12,12 +12,12 @@ import (
 //go:embed geo_service_test_mock_html1.html
 var mockHTML1 string
 
-type MockHTMLFetcher struct {
+type mockHTMLFetcher struct {
 	HTMLResponse string
 	Error        error
 }
 
-func (m *MockHTMLFetcher) GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string) (string, error) {
+func (m *mockHTMLFetcher) GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string) (string, error) {
 	return m.HTMLResponse, m.Error
 }
 
@@ -49,10 +49,11 @@ func TestGeoService(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name:          "successful geocoding partial HTML",
-			location:      "Doesntmatter, NY",
-			baseURL:       "https://example.com",
-			mockHTML:      `random words "New York, NY 10001, USA", [40.712800, -74.006000] random words []]`,
+			name:     "successful geocoding with newline in HTML",
+			location: "Doesntmatter, NY",
+			baseURL:  "https://example.com",
+			mockHTML: `random words "New York,
+			        NY 10001, USA", [40.712800, -74.006000] random words []]`,
 			mockError:     nil,
 			expectedLat:   "40.712800",
 			expectedLon:   "-74.006000",
@@ -93,6 +94,17 @@ func TestGeoService(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name:          "out of bounds longitude is not captured",
+			location:      "Doesntmatter",
+			baseURL:       "https://example.com",
+			mockHTML:      `[40.7, 181.006000]`,
+			mockError:     nil,
+			expectedLat:   "",
+			expectedLon:   "",
+			expectedAddr:  "",
+			expectedError: true,
+		},
+		{
 			name:          "empty base URL",
 			location:      "Doesntmatter",
 			baseURL:       "",
@@ -107,7 +119,7 @@ func TestGeoService(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockFetcher := &MockHTMLFetcher{
+			mockFetcher := &mockHTMLFetcher{
 				HTMLResponse: tt.mockHTML,
 				Error:        tt.mockError,
 			}
