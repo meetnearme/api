@@ -9,7 +9,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
-//go:embed mock_html1.html
+//go:embed geo_service_test_mock_html1.html
 var mockHTML1 string
 
 type MockHTMLFetcher struct {
