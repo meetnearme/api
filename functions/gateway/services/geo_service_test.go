@@ -12,6 +12,9 @@ import (
 //go:embed geo_service_test_mock_html1.html
 var mockHTML1 string
 
+//go:embed geo_service_test_mock_html2.html
+var mockHTML2 string
+
 type mockHTMLFetcher struct {
 	HTMLResponse string
 	Error        error
@@ -38,8 +41,8 @@ func TestGeoService(t *testing.T) {
 		expectedError bool
 	}{
 		{
-			name:          "successful geocoding with mocked html script tag",
-			location:      "Doesntmatter, TX", // this isn't used since we're mocking the http response
+			name:          "successful geocoding with city only",
+			location:      "Georgetown, TX", // I manually copied the html using this location
 			baseURL:       "https://example.com",
 			mockHTML:      mockHTML1,
 			mockError:     nil,
@@ -49,11 +52,22 @@ func TestGeoService(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name:          "successful geocoding with full address",
+			location:      "3400 Wolf Ranch Pkwy, Georgetown, Texas", // I manually copied the html using this location
+			baseURL:       "https://example.com",
+			mockHTML:      mockHTML2,
+			mockError:     nil,
+			expectedLat:   "30.6272609",
+			expectedLon:   "-97.71859189999999",
+			expectedAddr:  "3400 Wolf Ranch Parkway, Georgetown, TX 78628",
+			expectedError: false,
+		},
+		{
 			name:     "successful geocoding with newline in HTML",
 			location: "Doesntmatter, NY",
 			baseURL:  "https://example.com",
 			mockHTML: `random words "New York,
-			        NY 10001, USA", [40.712800, -74.006000] random words []]`,
+			                  NY 10001, USA", [40.712800, -74.006000] random words []]`,
 			mockError:     nil,
 			expectedLat:   "40.712800",
 			expectedLon:   "-74.006000",
