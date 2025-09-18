@@ -63,8 +63,9 @@ func GetSeshuService() interfaces.SeshuServiceInterface {
 	return seshuService
 }
 
-type RealGeoService struct{}
-type RealCityService struct{}
+type RealGeoService struct {
+	htmlFetcher HTMLFetcher // Can be nil for production use
+}
 type RealSeshuService struct{}
 
 func (s *RealSeshuService) GetSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionGet) (*internal_types.SeshuSession, error) {

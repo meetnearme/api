@@ -129,12 +129,10 @@ func HandleSeshuSessionSubmit(w http.ResponseWriter, r *http.Request) http.Handl
 	// this is purely a UX limitation to avoid a scenario where we
 	// show the user 50 options and they get confused / overwhelmed
 	limit := 3
-	end := limit
-	if len(events) < end {
-		end = len(events)
-	}
+	eventsTruncated := []types.EventInfo{}
+	eventsTruncated = events[:min(len(events), limit)]
 
-	tmpl := partials.EventCandidatesPartial(events)
+	tmpl := partials.EventCandidatesPartial(eventsTruncated)
 	var buf bytes.Buffer
 	if err := tmpl.Render(ctx, &buf); err != nil {
 		return transport.SendHtmlErrorPartial([]byte(err.Error()), http.StatusInternalServerError)

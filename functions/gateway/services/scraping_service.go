@@ -41,6 +41,10 @@ func DeriveTimezoneFromCoordinates(lat, lng float64) string {
 		return "" // tzf not available
 	}
 
+	if lat == 0 && lng == 0 {
+		return ""
+	}
+
 	timezoneName := tzfFinder.GetTimezoneName(lng, lat)
 	if timezoneName == "" {
 		return "" // tzf couldn't determine timezone
@@ -348,8 +352,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", err
 	}
 
-	log.Println("490~")
-
 	req.Header.Add("Authorization", "Bearer "+os.Getenv("OPENAI_API_KEY"))
 	req.Header.Add("Content-Type", "application/json")
 
@@ -606,6 +608,21 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 
 	currentTime := time.Now()
 
+	ownerName := ""
+	// fetch event owner from zitadel
+	owner, err := helpers.GetOtherUserByID(seshuJob.OwnerID)
+	if err != nil {
+		log.Printf("Failed to get event owner from zitadel: %v", err)
+		// Continue with default owner ID if zitadel lookup fails
+		owner = types.UserSearchResult{UserID: seshuJob.OwnerID}
+	}
+
+	if owner.DisplayName != "" {
+		ownerName = owner.DisplayName
+	} else {
+		ownerName = seshuJob.OwnerID
+	}
+
 	// Convert EventInfo to Event types for Weaviate
 	weaviateEvents := make([]RawEvent, 0, len(validEvents))
 	for i, eventInfo := range validEvents {
@@ -725,13 +742,6 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 			}
 		}
 
-		// fetch event owner from zitadel
-		owner, err := helpers.GetOtherUserByID(seshuJob.OwnerID)
-		if err != nil {
-			log.Printf("Failed to get event owner from zitadel: %v", err)
-			// Continue with default owner ID if zitadel lookup fails
-			owner = types.UserSearchResult{UserID: seshuJob.OwnerID}
-		}
 		// Convert EventInfo to RawEvent with JSON-friendly fields
 		// Build RFC3339 strings for times
 		startRFC3339 := startTime.In(tz).Format(time.RFC3339)
@@ -743,17 +753,12 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 			endVal = nil
 		}
 
-		ownerName := owner.DisplayName
-		if ownerName == "" {
-			ownerName = owner.UserID
-		}
-
 		tzString := tz.String()
 		eventSourceID := eventInfo.EventURL
 
 		event := RawEvent{
 			RawEventData: RawEventData{
-				EventOwners:     []string{owner.UserID},
+				EventOwners:     []string{seshuJob.OwnerID},
 				EventOwnerName:  ownerName,
 				EventSourceType: helpers.ES_SINGLE_EVENT,
 				Name:            eventInfo.EventTitle,
@@ -771,8 +776,6 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 	}
 
 	log.Printf("INFO: Successfully processed %d out of %d events for %s", len(weaviateEvents), len(validEvents), seshuJob.NormalizedUrlKey)
-
-	log.Printf("INFO: Weaviate events: %+v", weaviateEvents)
 
 	weaviateEventsStrict, _, err := BulkValidateEvents(weaviateEvents, false)
 	if err != nil {
