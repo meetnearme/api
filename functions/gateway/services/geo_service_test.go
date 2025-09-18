@@ -21,7 +21,7 @@ func (m *MockHTMLFetcher) GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int, js
 	return m.HTMLResponse, m.Error
 }
 
-func TestGeoServiceWithMockHTML(t *testing.T) {
+func TestGeoService(t *testing.T) {
 	origEnv := os.Getenv("GO_ENV")
 	defer os.Setenv("GO_ENV", origEnv)
 	os.Setenv("GO_ENV", "test")
