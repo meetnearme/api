@@ -361,17 +361,11 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	req.Header.Add("Authorization", "Bearer "+os.Getenv("OPENAI_API_KEY"))
 	req.Header.Add("Content-Type", "application/json")
 
-	log.Println(req)
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", err
 	}
 	defer resp.Body.Close()
-
-	log.Println(resp)
-
-	log.Println("501~")
 
 	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("%d: Completion API request not successful", resp.StatusCode)
@@ -410,6 +404,8 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper ScrapingService) (eventsFound []types.EventInfo, htmlContent string, err error) {
 	knownScrapeSource := ""
 	isFacebook := IsFacebookEventsURL(seshuJob.NormalizedUrlKey)
+
+	fmt.Println("seshuJob.NormalizedUrlKey:", seshuJob.NormalizedUrlKey)
 
 	if isFacebook {
 		validate := func(content string) bool {

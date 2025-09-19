@@ -287,8 +287,17 @@ func IsFacebookEventsURL(targetURL string) bool {
 	// Pattern: facebook.com/<any string>/events
 	// pattern := regexp.MustCompile(`facebook\.com\/[^\/]+\/events`)
 	// also allow for https://www.facebook.com/people/<user>/<user_id>/?sk=events
-	pattern := regexp.MustCompile(`facebook\.com\/[^\/]+\/events|facebook\.com\/people\/(.*)sk=events`)
-	return pattern.MatchString(targetURL)
+	var fbEventsRe = regexp.MustCompile(
+		`(?i)^(?:https?://)?(?:www\.|m\.)?facebook\.com/` +
+			`(?:` +
+			`events/\d+|` + // individual event
+			`[^/?#]+/events|` + // page events listing
+			`groups/\d+/events|` + // group events
+			`people/[^/?#]+/\d+/?\?sk=events` + // people profile events tab
+			`)` +
+			`(?:[/?#].*)?$`,
+	)
+	return fbEventsRe.MatchString(targetURL)
 }
 
 // ParseFlexibleDatetime attempts to parse a date string using various formats and timezone detection
