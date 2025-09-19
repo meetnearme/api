@@ -194,8 +194,8 @@ func saveSession(ctx context.Context, htmlContent string, urlToScrape, childID, 
 			// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
 			// when we create a new session, we can't allow it to be `0` because that is
 			// a valid value for both latitude and longitude (see "null island")
-			LocationLatitude:  services.InitialEmptyLatLong,
-			LocationLongitude: services.InitialEmptyLatLong,
+			LocationLatitude:  helpers.INITIAL_EMPTY_LAT_LONG,
+			LocationLongitude: helpers.INITIAL_EMPTY_LAT_LONG,
 			EventCandidates:   events,
 			CreatedAt:         now.Unix(),
 			UpdatedAt:         now.Unix(),

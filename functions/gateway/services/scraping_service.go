@@ -41,7 +41,13 @@ func DeriveTimezoneFromCoordinates(lat, lng float64) string {
 		return "" // tzf not available
 	}
 
+	// technically this is valid (null island) but we assume it's not intentional
 	if lat == 0 && lng == 0 {
+		return ""
+	}
+
+	// Check for our custom "empty" value
+	if lat == helpers.INITIAL_EMPTY_LAT_LONG || lng == helpers.INITIAL_EMPTY_LAT_LONG {
 		return ""
 	}
 
@@ -650,7 +656,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 
 		// Set latitude - use parsed value if available, otherwise fall back to seshuJob location
 		var finalLat float64
-		if lat == "" && seshuJob.LocationLatitude == 0 {
+		if lat == "" && (seshuJob.LocationLatitude == 0 || seshuJob.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG) {
 			return fmt.Errorf("ERR: couldn't find latittude for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
 		} else if latFloat != 0 {
 			finalLat = latFloat
@@ -660,7 +666,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 
 		// Set longitude - use parsed value if available, otherwise fall back to seshuJob location
 		var finalLon float64
-		if lon == "" && seshuJob.LocationLongitude == 0 {
+		if lon == "" && (seshuJob.LocationLongitude == 0 || seshuJob.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG) {
 			return fmt.Errorf("couldn't find longitude for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
 		} else if lonFloat != 0 {
 			finalLon = lonFloat

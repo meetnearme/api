@@ -684,12 +684,12 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		if jobAborted {
 			return
 		}
-		// check for valid latitude / longitude that is NOT equal to `services.InitialEmptyLatLong`
+		// check for valid latitude / longitude that is NOT equal to `helpers.INITIAL_EMPTY_LAT_LONG`
 		// which is an intentionally invalid placeholder
 
 		hasDefaultLat := false
 		latMatch, err := regexp.MatchString(services.LatitudeRegex, fmt.Sprint(session.LocationLatitude))
-		if session.LocationLatitude == services.InitialEmptyLatLong {
+		if session.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG {
 			hasDefaultLat = false
 		} else if err != nil || !latMatch {
 			hasDefaultLat = true
@@ -697,9 +697,9 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 		hasDefaultLon := false
 		lonMatch, err := regexp.MatchString(services.LongitudeRegex, fmt.Sprint(session.LocationLongitude))
-		if session.LocationLongitude == services.InitialEmptyLatLong {
+		if session.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG {
 			hasDefaultLon = false
-		} else if err != nil || !lonMatch || session.LocationLongitude == services.InitialEmptyLatLong {
+		} else if err != nil || !lonMatch || session.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG {
 			hasDefaultLon = true
 		}
 
