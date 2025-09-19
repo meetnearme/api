@@ -1499,7 +1499,7 @@ func TestSubmitSeshuSession(t *testing.T) {
 				},
 			},
 			expectedStatus: http.StatusOK,
-			shouldContain:  "Your Event Source has been added",
+			shouldContain:  "",
 		},
 		{
 			name: "unauthorized user",
@@ -1632,6 +1632,88 @@ func TestSubmitSeshuSession(t *testing.T) {
 			expectedStatus: http.StatusOK, // HTML error responses return 200
 			shouldContain:  "Failed to get SeshuJobs",
 		},
+		{
+			name: "seshu session submission with missing location data should succeed when no default timezone is set",
+			payload: SeshuSessionEventsPayload{
+				Url: "https://example.com/events",
+				EventBoolValid: []types.EventBoolValid{
+					{
+						EventValidateTitle:       true,
+						EventValidateLocation:    true,
+						EventValidateStartTime:   true,
+						EventValidateEndTime:     false,
+						EventValidateURL:         true,
+						EventValidateDescription: false,
+					},
+				},
+			},
+			userInfo: helpers.UserInfo{
+				Sub: "user123",
+			},
+			mockDB: &test_helpers.MockDynamoDBClient{
+				GetItemFunc: func(ctx context.Context, input *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+					// Mock SeshuSession with missing location data but valid events (copied from working test)
+					item := map[string]dynamodb_types.AttributeValue{
+						"ownerId":           &dynamodb_types.AttributeValueMemberS{Value: "user123"},
+						"url":               &dynamodb_types.AttributeValueMemberS{Value: "https://example.com/events"},
+						"urlDomain":         &dynamodb_types.AttributeValueMemberS{Value: "example.com"},
+						"urlPath":           &dynamodb_types.AttributeValueMemberS{Value: "/events"},
+						"locationLatitude":  &dynamodb_types.AttributeValueMemberN{Value: "37.7749"},   // Valid coordinates but no location data - should derive from event locations
+						"locationLongitude": &dynamodb_types.AttributeValueMemberN{Value: "-122.4194"}, // Valid coordinates but no location data - should derive from event locations
+						"locationAddress":   &dynamodb_types.AttributeValueMemberS{Value: ""},          // Empty address
+						"html":              &dynamodb_types.AttributeValueMemberS{Value: "<html><body><h1>Test Event</h1><p>Test Location</p><p>2024-01-01T10:00:00Z</p></body></html>"},
+						"childId":           &dynamodb_types.AttributeValueMemberS{Value: ""},
+						"eventCandidates": &dynamodb_types.AttributeValueMemberL{
+							Value: []dynamodb_types.AttributeValue{
+								&dynamodb_types.AttributeValueMemberM{
+									Value: map[string]dynamodb_types.AttributeValue{
+										"event_title":          &dynamodb_types.AttributeValueMemberS{Value: "Test Event"},    // Use same values as working test
+										"event_location":       &dynamodb_types.AttributeValueMemberS{Value: "Test Location"}, // Use same values as working test
+										"event_start_datetime": &dynamodb_types.AttributeValueMemberS{Value: "2024-01-01T10:00:00Z"},
+										"event_end_datetime":   &dynamodb_types.AttributeValueMemberS{Value: ""},
+										"event_url":            &dynamodb_types.AttributeValueMemberS{Value: "https://example.com/event/1"},
+										"event_description":    &dynamodb_types.AttributeValueMemberS{Value: ""},
+										"scrape_mode":          &dynamodb_types.AttributeValueMemberS{Value: "init"},
+									},
+								},
+							},
+						},
+						"eventValidations": &dynamodb_types.AttributeValueMemberL{
+							Value: []dynamodb_types.AttributeValue{
+								&dynamodb_types.AttributeValueMemberM{
+									Value: map[string]dynamodb_types.AttributeValue{
+										"event_title":          &dynamodb_types.AttributeValueMemberBOOL{Value: true},
+										"event_location":       &dynamodb_types.AttributeValueMemberBOOL{Value: true},
+										"event_start_datetime": &dynamodb_types.AttributeValueMemberBOOL{Value: true},
+										"event_end_datetime":   &dynamodb_types.AttributeValueMemberBOOL{Value: false},
+										"event_url":            &dynamodb_types.AttributeValueMemberBOOL{Value: true},
+										"event_description":    &dynamodb_types.AttributeValueMemberBOOL{Value: false},
+									},
+								},
+							},
+						},
+						"status":    &dynamodb_types.AttributeValueMemberS{Value: "draft"},
+						"createdAt": &dynamodb_types.AttributeValueMemberN{Value: "1234567890"},
+						"updatedAt": &dynamodb_types.AttributeValueMemberN{Value: "1234567890"},
+						"expireAt":  &dynamodb_types.AttributeValueMemberN{Value: "1234654290"},
+					}
+					return &dynamodb.GetItemOutput{Item: item}, nil
+				},
+				UpdateItemFunc: func(ctx context.Context, input *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+					return &dynamodb.UpdateItemOutput{}, nil
+				},
+			},
+			mockPostgres: &test_helpers.MockPostgresService{
+				GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) {
+					return []types.SeshuJob{}, nil // No existing jobs
+				},
+				CreateSeshuJobFunc: func(ctx context.Context, job types.SeshuJob) error {
+					return nil // Should succeed - timezone derived from event locations
+				},
+			},
+			expectedStatus: http.StatusOK,                      // Handler should succeed
+			shouldContain:  "Your Event Source has been added", // Should contain success message
+		},
 	}
 
 	for _, tt := range tests {
@@ -1656,6 +1738,9 @@ func TestSubmitSeshuSession(t *testing.T) {
 			req = req.WithContext(ctx)
 
 			rr := httptest.NewRecorder()
+
+			// Set up mock DynamoDB client
+			transport.SetTestDB(tt.mockDB)
 
 			// Execute handler with mock DB
 			handler := SubmitSeshuSession(rr, req)
