@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -37,8 +36,8 @@ func TestAddOrEditEventPage(t *testing.T) {
 			isEditor:           false,
 			isCompetitionAdmin: false,
 			sitePage:           helpers.SitePages["add-event"],
-			cfLat:              services.InitialEmptyLatLong,
-			cfLon:              services.InitialEmptyLatLong,
+			cfLat:              helpers.INITIAL_EMPTY_LAT_LONG,
+			cfLon:              helpers.INITIAL_EMPTY_LAT_LONG,
 			expected: []string{
 				"Event Name",
 				"Description",

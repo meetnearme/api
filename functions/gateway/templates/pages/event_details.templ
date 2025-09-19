@@ -175,8 +175,10 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			}
 			<br/>
 			<p>
-				if event.EventOwnerName != "" {
+				if event.EventSourceId == "" && event.EventOwnerName != "" {
 					@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				} else if event.EventSourceId != "" {
+					@IconLeftSection("Curator", event.EventSourceId, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
 				}
 				<br/>
 				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, "VENUE", event)

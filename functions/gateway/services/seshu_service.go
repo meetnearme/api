@@ -33,8 +33,6 @@ const FakeStartTime2 = "Oct 10, 25:00am"
 const FakeEndTime1 = "Sep 26, 27:30pm"
 const FakeEndTime2 = "Oct 10, 26:00am"
 
-const InitialEmptyLatLong = 9e+10
-
 type ChildEventMeta struct {
 	EventTitle       string
 	EventURL         string
@@ -178,13 +176,13 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		*input.UpdateExpression += " #urlQueryParams = :urlQueryParams,"
 	}
 
-	if seshuPayload.LocationLatitude != InitialEmptyLatLong {
+	if seshuPayload.LocationLatitude != helpers.INITIAL_EMPTY_LAT_LONG {
 		input.ExpressionAttributeNames["#locationLatitude"] = "locationLatitude"
 		input.ExpressionAttributeValues[":locationLatitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(seshuPayload.LocationLatitude, 'f', -1, 64)}
 		*input.UpdateExpression += " #locationLatitude = :locationLatitude,"
 	}
 
-	if seshuPayload.LocationLongitude != InitialEmptyLatLong {
+	if seshuPayload.LocationLongitude != helpers.INITIAL_EMPTY_LAT_LONG {
 		input.ExpressionAttributeNames["#locationLongitude"] = "locationLongitude"
 		input.ExpressionAttributeValues[":locationLongitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(seshuPayload.LocationLongitude, 'f', -1, 64)}
 		*input.UpdateExpression += " #locationLongitude = :locationLongitude,"

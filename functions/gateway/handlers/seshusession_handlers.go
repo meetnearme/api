@@ -129,12 +129,10 @@ func HandleSeshuSessionSubmit(w http.ResponseWriter, r *http.Request) http.Handl
 	// this is purely a UX limitation to avoid a scenario where we
 	// show the user 50 options and they get confused / overwhelmed
 	limit := 3
-	end := limit
-	if len(events) < end {
-		end = len(events)
-	}
+	eventsTruncated := []types.EventInfo{}
+	eventsTruncated = events[:min(len(events), limit)]
 
-	tmpl := partials.EventCandidatesPartial(events)
+	tmpl := partials.EventCandidatesPartial(eventsTruncated)
 	var buf bytes.Buffer
 	if err := tmpl.Render(ctx, &buf); err != nil {
 		return transport.SendHtmlErrorPartial([]byte(err.Error()), http.StatusInternalServerError)
@@ -196,8 +194,8 @@ func saveSession(ctx context.Context, htmlContent string, urlToScrape, childID, 
 			// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
 			// when we create a new session, we can't allow it to be `0` because that is
 			// a valid value for both latitude and longitude (see "null island")
-			LocationLatitude:  services.InitialEmptyLatLong,
-			LocationLongitude: services.InitialEmptyLatLong,
+			LocationLatitude:  helpers.INITIAL_EMPTY_LAT_LONG,
+			LocationLongitude: helpers.INITIAL_EMPTY_LAT_LONG,
 			EventCandidates:   events,
 			CreatedAt:         now.Unix(),
 			UpdatedAt:         now.Unix(),

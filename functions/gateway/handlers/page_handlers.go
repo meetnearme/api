@@ -107,8 +107,8 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	cfRay := GetCfRay(r)
 	rayCode := ""
 
-	cfLocationLat := services.InitialEmptyLatLong
-	cfLocationLon := services.InitialEmptyLatLong
+	cfLocationLat := helpers.INITIAL_EMPTY_LAT_LONG
+	cfLocationLon := helpers.INITIAL_EMPTY_LAT_LONG
 
 	if len(cfRay) > 2 {
 		rayCode = cfRay[len(cfRay)-3:]
@@ -125,13 +125,13 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	if latStr != "" {
 		lat64, _ := strconv.ParseFloat(latStr, 32)
 		lat = float64(lat64)
-	} else if cfLocationLat != services.InitialEmptyLatLong {
+	} else if cfLocationLat != helpers.INITIAL_EMPTY_LAT_LONG {
 		lat = float64(cfLocationLat)
 	}
 	if longStr != "" {
 		long64, _ := strconv.ParseFloat(longStr, 32)
 		long = float64(long64)
-	} else if cfLocationLon != services.InitialEmptyLatLong {
+	} else if cfLocationLon != helpers.INITIAL_EMPTY_LAT_LONG {
 		long = float64(cfLocationLon)
 	}
 
@@ -149,7 +149,7 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	// is not the initial empty value (can't use 0.0, a valid lat/lon) we assume
 	// cfLocation has given us a reasonable local guess
 
-	if radius < 0.0001 && (cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong ||
+	if radius < 0.0001 && (cfLocationLat != helpers.INITIAL_EMPTY_LAT_LONG && cfLocationLon != helpers.INITIAL_EMPTY_LAT_LONG ||
 		lat != US_GEO_DEFAULT_LAT && long != US_GEO_DEFAULT_LONG) {
 		radius = helpers.DEFAULT_SEARCH_RADIUS
 		// we still don't have lat/lon, which means we'll be using "geographic center of US"
@@ -489,8 +489,8 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 	cfRay := GetCfRay(r)
 	rayCode := ""
 	cfLocation := helpers.CdnLocation{}
-	cfLocationLat := services.InitialEmptyLatLong
-	cfLocationLon := services.InitialEmptyLatLong
+	cfLocationLat := helpers.INITIAL_EMPTY_LAT_LONG
+	cfLocationLon := helpers.INITIAL_EMPTY_LAT_LONG
 
 	if len(cfRay) > 2 {
 		rayCode = cfRay[len(cfRay)-3:]

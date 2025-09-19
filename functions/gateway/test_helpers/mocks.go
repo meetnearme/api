@@ -103,9 +103,11 @@ func (m *MockSeshuService) UpdateSeshuSession(ctx context.Context, db types.Dyna
 func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionGet) (*types.SeshuSession, error) {
 	// Return mock data
 	return &types.SeshuSession{
-		OwnerId: "mockOwner",
-		Url:     seshuPayload.Url,
-		Status:  "draft",
+		OwnerId:           "mockOwner",
+		Url:               seshuPayload.Url,
+		Status:            "draft",
+		LocationLatitude:  9e+10, // INITIAL_EMPTY_LAT_LONG
+		LocationLongitude: 9e+10, // INITIAL_EMPTY_LAT_LONG
 		EventValidations: []types.EventBoolValid{
 			{
 				EventValidateTitle:       true,
@@ -123,9 +125,11 @@ func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoD
 func (m *MockSeshuService) InsertSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionInput) (*types.SeshuSessionInsert, error) {
 	// Return mock data
 	return &types.SeshuSessionInsert{
-		OwnerId: seshuPayload.OwnerId,
-		Url:     seshuPayload.Url,
-		Status:  "draft",
+		OwnerId:           seshuPayload.OwnerId,
+		Url:               seshuPayload.Url,
+		Status:            "draft",
+		LocationLatitude:  seshuPayload.LocationLatitude,
+		LocationLongitude: seshuPayload.LocationLongitude,
 		// Fill in other fields as needed
 	}, nil
 }

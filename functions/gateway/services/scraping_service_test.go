@@ -69,3 +69,70 @@ func TestGetHTMLFromURL(t *testing.T) {
 		})
 	}
 }
+
+func TestDeriveTimezoneFromCoordinates(t *testing.T) {
+	testCases := []struct {
+		name           string
+		lat            float64
+		lng            float64
+		expectedResult string
+		description    string
+	}{
+		{
+			name:           "Empty input coordinates",
+			lat:            0,
+			lng:            0,
+			expectedResult: "",
+			description:    "Should return empty string for zero coordinates",
+		},
+		{
+			name:           "Out of range latitude coordinates",
+			lat:            91,
+			lng:            0,
+			expectedResult: "",
+			description:    "Should return empty string for zero coordinates",
+		},
+		{
+			name:           "Out of range longitude coordinates",
+			lat:            0,
+			lng:            181,
+			expectedResult: "",
+			description:    "Should return empty string for zero coordinates",
+		},
+		{
+			name:           "United States coordinates",
+			lat:            37.875580,
+			lng:            -92.473411,
+			expectedResult: "America/Chicago", // Missouri, USA
+			description:    "Should return America/Chicago timezone for Missouri coordinates",
+		},
+		{
+			name:           "United Kingdom coordinates",
+			lat:            52.282165,
+			lng:            -0.891387,
+			expectedResult: "Europe/London", // England, UK
+			description:    "Should return Europe/London timezone for England coordinates",
+		},
+		{
+			name:           "Australia coordinates",
+			lat:            -27.507454,
+			lng:            144.479705,
+			expectedResult: "Australia/Brisbane", // Queensland, Australia
+			description:    "Should return Australia/Brisbane timezone for Queensland coordinates",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := DeriveTimezoneFromCoordinates(tc.lat, tc.lng)
+
+			if result != tc.expectedResult {
+				t.Errorf("Expected timezone '%s', got '%s' for coordinates (%.6f, %.6f) - %s",
+					tc.expectedResult, result, tc.lat, tc.lng, tc.description)
+			}
+
+			// Log the result for verification
+			t.Logf("Coordinates (%.6f, %.6f) -> Timezone: '%s'", tc.lat, tc.lng, result)
+		})
+	}
+}
