@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
 func TestLocationLookupPartial(t *testing.T) {
@@ -41,8 +41,8 @@ func TestLocationLookupPartial(t *testing.T) {
 			lat:            0,
 			lon:            0,
 			address:        "",
-			cfLocationLat:  services.InitialEmptyLatLong,
-			cfLocationLon:  services.InitialEmptyLatLong,
+			cfLocationLat:  helpers.INITIAL_EMPTY_LAT_LONG,
+			cfLocationLon:  helpers.INITIAL_EMPTY_LAT_LONG,
 			expectedContent: []string{
 				"hx-post=\"/api/location/geo\"",
 				"hx-target=\"#location-confirmation\"",
