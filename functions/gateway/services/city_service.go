@@ -24,54 +24,6 @@ func (r *RealCityHTMLFetcher) GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int
 
 const ()
 
-// extractCityAndState extracts city and state from a full address
-// Examples:
-// "1st street New York, NY 10001, USA" -> "New York, NY"
-// "123 Main St, San Francisco, CA 94102, USA" -> "San Francisco, CA"
-// "Georgetown, TX" -> "Georgetown, TX"
-func extractCityAndState(fullAddress string) string {
-	// Split by commas to get address parts
-	parts := strings.Split(fullAddress, ",")
-
-	// If we have at least 2 parts, look for city, state pattern
-	if len(parts) >= 2 {
-		// Look for the pattern "City, State" in the middle parts
-		for i := 0; i < len(parts)-1; i++ {
-			cityPart := strings.TrimSpace(parts[i])
-			statePart := strings.TrimSpace(parts[i+1])
-
-			// Check if state part looks like a state (2-3 letters, possibly with zip)
-			stateRegex := regexp.MustCompile(`^[A-Z]{2,3}(\s+\d{5})?$`)
-			if stateRegex.MatchString(statePart) {
-				// Found city, state pattern
-				return cityPart + ", " + strings.Fields(statePart)[0] // Remove zip if present
-			}
-		}
-	}
-
-	// If no clear city, state pattern found, try to extract from the end
-	// Look for pattern like "City, State" at the end
-	if len(parts) >= 2 {
-		lastPart := strings.TrimSpace(parts[len(parts)-1])
-
-		// Check if last part is a country (USA, United States, etc.)
-		countryRegex := regexp.MustCompile(`(?i)^(usa|united states|us)$`)
-		if countryRegex.MatchString(lastPart) && len(parts) >= 3 {
-			// Look at the part before the country
-			statePart := strings.TrimSpace(parts[len(parts)-2])
-			cityPart := strings.TrimSpace(parts[len(parts)-3])
-
-			stateRegex := regexp.MustCompile(`^[A-Z]{2,3}(\s+\d{5})?$`)
-			if stateRegex.MatchString(statePart) {
-				return cityPart + ", " + strings.Fields(statePart)[0]
-			}
-		}
-	}
-
-	// Fallback: if we can't parse it properly, return the original address
-	return fullAddress
-}
-
 func GetCity(location string, baseUrl string) (city string, err error) {
 	return GetCityService().GetCity(location, baseUrl)
 }
@@ -80,7 +32,7 @@ func (s *RealCityService) GetCity(location string, baseUrl string) (city string,
 
 	htmlFetcher := s.htmlFetcher
 	if htmlFetcher == nil {
-		htmlFetcher = &RealHTMLFetcher{}
+		htmlFetcher = &RealCityHTMLFetcher{}
 	}
 
 	if baseUrl == "" {
@@ -93,47 +45,31 @@ func (s *RealCityService) GetCity(location string, baseUrl string) (city string,
 		return "", err
 	}
 
-	// this regex captures the city which appears after the string H8X2 X2R within a group denoted by () or []
-	// re := regexp.MustCompile(`H8X2\+X2R\s+([^"]+)`)
+	// This regex captures the plus code pattern followed by city and state
+	// Plus code format: alphanumeric characters + plus sign + more alphanumeric characters (e.g., J7JW+PM7, 8F2GJPJ3+P8)
+	// Followed by city, state (unabbreviated)
+	re := regexp.MustCompile(`([A-Z0-9]+\+[A-Z0-9]+)\s+([^,]+),\s*([^,"\]]+)`)
 
-	// matches := re.FindStringSubmatch(htmlString)
-	// fmt.Printf("matches are %#v", matches)
-	// if len(matches) < 1 {
-	// 	return "", fmt.Errorf("location is not valid")
-	// }
-
-	// this regex specifically captures the pattern of a lat/lon pair e.g. [40.7128, -74.0060]
-	re := regexp.MustCompile(`\[(\-?(?:[1-8]?\d(?:\.\d+)?|90(?:\.0+)?)),\s*(\-?(?:180(?:\.0+)?|(?:1[0-7]\d|[1-9]?\d)(?:\.\d+)?))\]`)
-
-	coordMatches := re.FindStringSubmatch(htmlString)
-	foundValidCoordinates := len(coordMatches) >= 3
-	if !foundValidCoordinates {
-		return "", fmt.Errorf("location is not valid")
+	matches := re.FindStringSubmatch(htmlString)
+	if len(matches) < 4 {
+		return "", fmt.Errorf("plus code and city/state not found in location data")
 	}
 
-	lat := coordMatches[1]
-	lon := coordMatches[2]
+	plusCode := matches[1]
+	cityName := strings.TrimSpace(matches[2])
+	stateName := strings.TrimSpace(matches[3])
 
-	// This regex captures the pattern of an address string that is wrapped in double quotes
-	// and followed by a lat/lon pair e.g. "123 Main St", [40.7128, -74.0060]
-	// Use (?s) flag to make . match newlines, and clean up whitespace in the captured address
-	pattern := `"((?s)[^"]*)"\s*,\s*\[\s*` + regexp.QuoteMeta(lat) + `\s*,\s*` + regexp.QuoteMeta(lon) + `\s*\]`
-	re = regexp.MustCompile(pattern)
-	addressMatches := re.FindStringSubmatch(htmlString) // can be a city or an actual address
-	if len(addressMatches) > 0 {
-		// Clean up the address by replacing newlines and extra whitespace with single spaces
-		fullAddress := strings.TrimSpace(strings.ReplaceAll(addressMatches[1], "\n", " "))
-		// Remove any multiple consecutive spaces
-		fullAddress = regexp.MustCompile(`\s+`).ReplaceAllString(fullAddress, " ")
+	// Clean up the city and state names
+	cityName = strings.TrimSpace(strings.ReplaceAll(cityName, "\n", " "))
+	cityName = regexp.MustCompile(`\s+`).ReplaceAllString(cityName, " ")
 
-		// Extract city and state from the full address
-		city = extractCityAndState(fullAddress)
-	} else {
-		city = "No address found"
-	}
+	stateName = strings.TrimSpace(strings.ReplaceAll(stateName, "\n", " "))
+	stateName = regexp.MustCompile(`\s+`).ReplaceAllString(stateName, " ")
 
-	//city = matches[1]
-	fmt.Print(city)
+	// Combine city and state
+	city = cityName + ", " + stateName
+
+	log.Printf("Found plus code: %s, City: %s, State: %s", plusCode, cityName, stateName)
 
 	return city, nil
 }

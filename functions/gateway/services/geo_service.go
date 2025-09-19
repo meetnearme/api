@@ -27,11 +27,11 @@ const (
 	LongitudeRegex = `^[-+]?((1[0-7]\d)|([1-9]?\d))(\.\d+)?$`
 )
 
-func GetGeo(location string, baseUrl string) (lat string, lon string, address string, err error) {
-	return GetGeoService().GetGeo(location, baseUrl)
+func GetGeo(locationQuery string, baseUrl string) (lat string, lon string, address string, err error) {
+	return GetGeoService().GetGeo(locationQuery, baseUrl)
 }
 
-func (s *RealGeoService) GetGeo(location string, baseUrl string) (lat string, lon string, address string, err error) {
+func (s *RealGeoService) GetGeo(locationQuery string, baseUrl string) (lat string, lon string, address string, err error) {
 
 	htmlFetcher := s.htmlFetcher
 	if htmlFetcher == nil {
@@ -41,12 +41,13 @@ func (s *RealGeoService) GetGeo(location string, baseUrl string) (lat string, lo
 	if baseUrl == "" {
 		return "", "", "", fmt.Errorf("base URL is empty")
 	}
-	targetUrl := helpers.GEO_BASE_URL + "?address=" + location
+	targetUrl := helpers.GEO_BASE_URL + "?address=" + locationQuery
 	log.Println("targetUrl", targetUrl)
 	// Log escaped for clarity (scraper will escape internally)
 	// escaped := url.QueryEscape(targetUrl)
 	// log.Println("targetUrl (escaped)", escaped)
 	htmlString, err := htmlFetcher.GetHTMLFromURL(types.SeshuJob{NormalizedUrlKey: targetUrl}, 0, true, "")
+	log.Printf("html string is %s", htmlString)
 	if err != nil {
 		return "", "", "", err
 	}

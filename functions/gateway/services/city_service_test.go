@@ -9,10 +9,10 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
-//go:embed geo_service_test_mock_html1.html
+//go:embed city_service_test_mock_html1.html
 var cityMockHTML1 string
 
-//go:embed geo_service_test_mock_html2.html
+//go:embed city_service_test_mock_html2.html
 var cityMockHTML2 string
 
 type cityMockHTMLFetcher struct {
@@ -39,31 +39,40 @@ func TestCityService(t *testing.T) {
 		expectedError bool
 	}{
 		{
-			name:          "successful geocoding with city only",
-			location:      "Georgetown, TX", // I manually copied the html using this location
+			name:          "lat+lon in Georgetown, TX",
+			location:      "30.631799878085577+-97.70332501413287", // I manually copied the html using this location
 			baseURL:       "https://example.com",
 			mockHTML:      cityMockHTML1,
 			mockError:     nil,
-			expectedCity:  "Georgetown, TX",
+			expectedCity:  "Georgetown, Texas",
 			expectedError: false,
 		},
 		{
-			name:          "successful geocoding with full address",
-			location:      "3400 Wolf Ranch Pkwy, Georgetown, Texas", // I manually copied the html using this location
+			name:          "lat+lon in Badr, Egypt",
+			location:      "30.6317+30.703325", // I manually copied the html using this location
 			baseURL:       "https://example.com",
 			mockHTML:      cityMockHTML2,
 			mockError:     nil,
-			expectedCity:  "Georgetown, TX",
+			expectedCity:  "Badr, Egypt",
 			expectedError: false,
 		},
 		{
-			name:     "successful geocoding with newline in HTML",
-			location: "Doesntmatter, NY",
-			baseURL:  "https://example.com",
-			mockHTML: `random words "New York,
-			                  NY 10001, USA", [40.712800, -74.006000] random words []]`,
+			name:          "lat+lon in Mexico City, Mexico",
+			location:      "19.4326077+-99.133208", // I manually copied the html using this location
+			baseURL:       "https://example.com",
+			mockHTML:      `["76F2CVM8+2PV"],["CVM8+2PV Mexico City, Mexico"],1]]],null,null,null,`,
 			mockError:     nil,
-			expectedCity:  "New York, NY",
+			expectedCity:  "Mexico City, Mexico",
+			expectedError: false,
+		},
+		{
+			name:     "lat+lon with newline and spaces and two word city",
+			location: "",
+			baseURL:  "https://example.com",
+			mockHTML: `XXFC+MF Copperas Cove,
+										       Texas"]]],null,null`,
+			mockError:     nil,
+			expectedCity:  "Copperas Cove, Texas",
 			expectedError: false,
 		},
 		{
@@ -76,35 +85,26 @@ func TestCityService(t *testing.T) {
 			expectedError: true,
 		},
 		{
-			name:          "invalid HTML format - no coordinates",
+			name:          "invalid plus code",
 			location:      "Invalid Location",
 			baseURL:       "https://example.com",
-			mockHTML:      `"Some text without coordinates"`,
+			mockHTML:      `"JRQ+  TVW NotACity, HI"`,
 			mockError:     nil,
 			expectedCity:  "",
 			expectedError: true,
 		},
 		{
-			name:          "valid coordinates but no address",
-			location:      "Doesntmatter",
+			name:          "Invalid lat+lon",
+			location:      "",
 			baseURL:       "https://example.com",
-			mockHTML:      `[40.712800, -74.006000]`,
-			mockError:     nil,
-			expectedCity:  "",
-			expectedError: true,
-		},
-		{
-			name:          "out of bounds longitude is not captured",
-			location:      "Doesntmatter",
-			baseURL:       "https://example.com",
-			mockHTML:      `[40.7, 181.006000]`,
+			mockHTML:      `null,null,null,null,null,null,null,null,null,null,null,null,[[[120000000,0,0],null,null,13.10000038146973],null,0],null,null,null`,
 			mockError:     nil,
 			expectedCity:  "",
 			expectedError: true,
 		},
 		{
 			name:          "empty base URL",
-			location:      "Doesntmatter",
+			location:      "",
 			baseURL:       "",
 			mockHTML:      "",
 			mockError:     nil,
@@ -139,7 +139,7 @@ func TestCityService(t *testing.T) {
 			}
 
 			if city != tt.expectedCity {
-				t.Errorf("Expected %s, got %s", tt.expectedCity, city)
+				t.Errorf("Expected %#v, got %#v", tt.expectedCity, city)
 			}
 		})
 	}
