@@ -846,10 +846,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			}
 
 			locationTimezone := services.DeriveTimezoneFromCoordinates(session.LocationLatitude, session.LocationLongitude)
-			if locationTimezone == "" {
-				log.Println("Failed to derive timezone from coordinates for URL: ", normalizedUrl)
-				return
-			}
 
 			seshuJob := internal_types.SeshuJob{
 				NormalizedUrlKey:         normalizedUrl,
