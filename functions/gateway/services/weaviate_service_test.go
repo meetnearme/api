@@ -228,6 +228,7 @@ func TestBulkUpsertEventsToWeaviate(t *testing.T) {
 			EventOwners: []string{"123"},
 			Name:        "Test Event 1",
 			StartTime:   startTime1,
+			SourceUrl:   "https://example.com/event-source",
 		},
 	}
 
@@ -641,6 +642,7 @@ func TestBulkGetWeaviateEventByID(t *testing.T) {
 								"name":        "First Mock Event",
 								"description": "This is the first event.",
 								"timezone":    "America/Denver",
+								"sourceUrl":   "https://example.com/event/1",
 								"_additional": map[string]interface{}{
 									"id": strfmt.UUID(idsToFetch[0]),
 								},
@@ -650,6 +652,7 @@ func TestBulkGetWeaviateEventByID(t *testing.T) {
 								"name":        "Second Mock Event",
 								"description": "This is the second event.",
 								"timezone":    "America/Denver",
+								"sourceUrl":   "https://example.com/event/2",
 								"_additional": map[string]interface{}{
 									"id": strfmt.UUID(idsToFetch[1]),
 								},
@@ -708,11 +711,17 @@ func TestBulkGetWeaviateEventByID(t *testing.T) {
 	if res[0].Name != "First Mock Event" {
 		t.Errorf("Expected first event name to be 'First Mock Event', but got '%s'", res[0].Name)
 	}
+	if res[0].SourceUrl != "https://example.com/event/1" {
+		t.Errorf("Expected first event sourceUrl to be 'https://example.com/event/1', but got '%s'", res[0].SourceUrl)
+	}
 
 	if res[1].Id != idsToFetch[1] {
 		t.Errorf("Expected second event ID to be %s, but got %s", idsToFetch[1], res[1].Id)
 	}
 	if res[1].Name != "Second Mock Event" {
 		t.Errorf("Expected second event name to be 'Second Mock Event', but got '%s'", res[1].Name)
+	}
+	if res[1].SourceUrl != "https://example.com/event/2" {
+		t.Errorf("Expected second event sourceUrl to be 'https://example.com/event/2', but got '%s'", res[1].SourceUrl)
 	}
 }
