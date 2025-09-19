@@ -1499,7 +1499,7 @@ func TestSubmitSeshuSession(t *testing.T) {
 				},
 			},
 			expectedStatus: http.StatusOK,
-			shouldContain:  "",
+			shouldContain:  "Your Event Source has been added",
 		},
 		{
 			name: "unauthorized user",
