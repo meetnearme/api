@@ -83,8 +83,8 @@ type SeshuSessionUpdate struct {
 	UrlDomain         string           `json:"urlDomain" dynamodbav:"urlDomain"`
 	UrlPath           string           `json:"urlPath" dynamodbav:"urlPath"`
 	UrlQueryParams    url.Values       `json:"urlQueryParams" dynamodbav:"urlQueryParams"`
-	LocationLatitude  float64          `json:"locationLatitude" dynamodbav:"locationLatitude"`
-	LocationLongitude float64          `json:"locationLongitude" dynamodbav:"locationLongitude"`
+	LocationLatitude  *float64         `json:"locationLatitude" dynamodbav:"locationLatitude"`
+	LocationLongitude *float64         `json:"locationLongitude" dynamodbav:"locationLongitude"`
 	LocationAddress   string           `json:"locationAddress" dynamodbav:"locationAddress"`
 	Html              string           `json:"html" dynamodbav:"html"`
 	ChildId           string           `json:"childId" dynamodbav:"childId"`

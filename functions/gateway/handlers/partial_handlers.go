@@ -356,13 +356,13 @@ func GeoThenPatchSeshuSessionHandler(w http.ResponseWriter, r *http.Request, db 
 		return
 	}
 
-	updateSeshuSession.LocationLatitude = latFloat
+	updateSeshuSession.LocationLatitude = &latFloat
 	lonFloat, err := strconv.ParseFloat(lon, 64)
 	if err != nil {
 		transport.SendHtmlRes(w, []byte("Invalid longitude value"), http.StatusUnprocessableEntity, "partial", err)(w, r)
 		return
 	}
-	updateSeshuSession.LocationLongitude = lonFloat
+	updateSeshuSession.LocationLongitude = &lonFloat
 	updateSeshuSession.LocationAddress = address
 
 	if updateSeshuSession.Url == "" {
@@ -418,6 +418,12 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	// Note that only OpenAI can push events as candidates, `eventValidations` is an array of
 	// arrays that confirms the subfields, but avoids a scenario where users can push string data
 	// that is prone to manipulation
+	// check current session payload
+	beforeSession, _ := services.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
+		Url: inputPayload.Url,
+	})
+	fmt.Println("~ 425 beforeSession:", beforeSession.LocationLatitude, beforeSession.LocationLongitude)
+
 	updateSeshuSession = internal_types.SeshuSessionUpdate{
 		Url:              inputPayload.Url,
 		EventValidations: inputPayload.EventBoolValid,
@@ -425,6 +431,12 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 
 	seshuService := services.GetSeshuService()
 	_, err = seshuService.UpdateSeshuSession(ctx, db, updateSeshuSession)
+
+	// check current session payload
+	currentSession, _ := services.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
+		Url: inputPayload.Url,
+	})
+	fmt.Println("~ 433 currentSession:", currentSession.LocationLatitude, currentSession.LocationLongitude)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
@@ -764,6 +776,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// Assumming any event is the one to use for DOM path finding, make sure that it is not rs
 		scrapeSource := "unknown"
 		var docToUse *goquery.Document
+		geoService := services.GetGeoService()
 
 		var anchorEvent *internal_types.EventInfo
 		var rsEvents []internal_types.EventInfo // Identify all validated events that are recursive scrape (rs) mode (future proofing for multiple children)
@@ -853,14 +866,31 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				}
 			}
 
-			locationTimezone := services.DeriveTimezoneFromCoordinates(session.LocationLatitude, session.LocationLongitude)
+			var anchorLatFloat, anchorLonFloat float64
+			if (session.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG || session.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG) ||
+				(session.LocationLatitude == 0 || session.LocationLongitude == 0) {
+				lat, lon, _, err := geoService.GetGeo(location, helpers.GEO_BASE_URL)
+				if err != nil {
+					log.Println("Error getting geocoordinates for session:", err)
+				}
+				anchorLatFloat, err = strconv.ParseFloat(lat, 64)
+				if err != nil {
+					log.Println("Invalid latitude value for session:", err)
+				}
+				anchorLonFloat, err = strconv.ParseFloat(lon, 64)
+				if err != nil {
+					log.Println("Invalid longitude value for session:", err)
+				}
+			}
+
+			locationTimezone := services.DeriveTimezoneFromCoordinates(anchorLatFloat, anchorLonFloat)
 
 			seshuJob := internal_types.SeshuJob{
 				NormalizedUrlKey:         normalizedUrl,
-				LocationLatitude:         session.LocationLatitude,  // can this be empty?
-				LocationLongitude:        session.LocationLongitude, // can this be empty?
-				LocationAddress:          location,                  // can this be empty?
-				LocationTimezone:         locationTimezone,          // can this be empty?
+				LocationLatitude:         anchorLatFloat, // can this be empty?
+				LocationLongitude:        anchorLonFloat, // can this be empty?
+				LocationAddress:          location,
+				LocationTimezone:         locationTimezone, // can this be empty?
 				ScheduledHour:            scheduledHour,
 				TargetNameCSSPath:        titleTag,
 				TargetLocationCSSPath:    locationTag,
@@ -954,14 +984,32 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				}
 			}
 
-			locationTimezone := services.DeriveTimezoneFromCoordinates(childSession.LocationLatitude, childSession.LocationLongitude)
+			var childLatFloat, childLonFloat float64
+			if childSession.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG || childSession.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG ||
+				(childSession.LocationLatitude == 0 || childSession.LocationLongitude == 0) {
+				geoService := services.GetGeoService()
+				lat, lon, _, err := geoService.GetGeo(location, helpers.GEO_BASE_URL)
+				if err != nil {
+					log.Println("Error getting geocoordinates for child session:", err)
+				}
+				childLatFloat, err = strconv.ParseFloat(lat, 64)
+				if err != nil {
+					log.Println("Invalid latitude value for child session:", err)
+				}
+				childLonFloat, err = strconv.ParseFloat(lon, 64)
+				if err != nil {
+					log.Println("Invalid longitude value for child session:", err)
+				}
+			}
+
+			locationTimezone := services.DeriveTimezoneFromCoordinates(childLatFloat, childLonFloat)
 
 			seshuJob := internal_types.SeshuJob{
 				NormalizedUrlKey:         normalizedChildURL,
-				LocationLatitude:         childSession.LocationLatitude,  // can this be empty?
-				LocationLongitude:        childSession.LocationLongitude, // can this be empty?
-				LocationAddress:          location,                       // can this be empty?
-				LocationTimezone:         locationTimezone,               // can this be empty?
+				LocationLatitude:         childLatFloat, // can this be empty?
+				LocationLongitude:        childLonFloat, // can this be empty?
+				LocationAddress:          location,
+				LocationTimezone:         locationTimezone, // can this be empty?
 				ScheduledHour:            scheduledHour,
 				TargetNameCSSPath:        titleTag,
 				TargetLocationCSSPath:    locationTag,

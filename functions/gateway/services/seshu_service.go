@@ -176,15 +176,23 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		*input.UpdateExpression += " #urlQueryParams = :urlQueryParams,"
 	}
 
-	if seshuPayload.LocationLatitude != helpers.INITIAL_EMPTY_LAT_LONG {
+	if seshuPayload.LocationLatitude != nil {
 		input.ExpressionAttributeNames["#locationLatitude"] = "locationLatitude"
-		input.ExpressionAttributeValues[":locationLatitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(seshuPayload.LocationLatitude, 'f', -1, 64)}
+		if *seshuPayload.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG {
+			input.ExpressionAttributeValues[":locationLatitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(helpers.INITIAL_EMPTY_LAT_LONG, 'f', -1, 64)}
+		} else {
+			input.ExpressionAttributeValues[":locationLatitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(*seshuPayload.LocationLatitude, 'f', -1, 64)}
+		}
 		*input.UpdateExpression += " #locationLatitude = :locationLatitude,"
 	}
 
-	if seshuPayload.LocationLongitude != helpers.INITIAL_EMPTY_LAT_LONG {
+	if seshuPayload.LocationLongitude != nil {
 		input.ExpressionAttributeNames["#locationLongitude"] = "locationLongitude"
-		input.ExpressionAttributeValues[":locationLongitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(seshuPayload.LocationLongitude, 'f', -1, 64)}
+		if *seshuPayload.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG {
+			input.ExpressionAttributeValues[":locationLongitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(helpers.INITIAL_EMPTY_LAT_LONG, 'f', -1, 64)}
+		} else {
+			input.ExpressionAttributeValues[":locationLongitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(*seshuPayload.LocationLongitude, 'f', -1, 64)}
+		}
 		*input.UpdateExpression += " #locationLongitude = :locationLongitude,"
 	}
 
