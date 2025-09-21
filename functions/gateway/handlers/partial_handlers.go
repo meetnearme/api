@@ -419,10 +419,6 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	// arrays that confirms the subfields, but avoids a scenario where users can push string data
 	// that is prone to manipulation
 	// check current session payload
-	beforeSession, _ := services.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
-		Url: inputPayload.Url,
-	})
-	fmt.Println("~ 425 beforeSession:", beforeSession.LocationLatitude, beforeSession.LocationLongitude)
 
 	updateSeshuSession = internal_types.SeshuSessionUpdate{
 		Url:              inputPayload.Url,
@@ -431,12 +427,6 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 
 	seshuService := services.GetSeshuService()
 	_, err = seshuService.UpdateSeshuSession(ctx, db, updateSeshuSession)
-
-	// check current session payload
-	currentSession, _ := services.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
-		Url: inputPayload.Url,
-	})
-	fmt.Println("~ 433 currentSession:", currentSession.LocationLatitude, currentSession.LocationLongitude)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
@@ -867,8 +857,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			}
 
 			var anchorLatFloat, anchorLonFloat float64
-			if (session.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG || session.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG) ||
-				(session.LocationLatitude == 0 || session.LocationLongitude == 0) {
+			if session.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG || session.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG {
 				lat, lon, _, err := geoService.GetGeo(location, helpers.GEO_BASE_URL)
 				if err != nil {
 					log.Println("Error getting geocoordinates for session:", err)
@@ -985,8 +974,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			}
 
 			var childLatFloat, childLonFloat float64
-			if childSession.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG || childSession.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG ||
-				(childSession.LocationLatitude == 0 || childSession.LocationLongitude == 0) {
+			if childSession.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG || childSession.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG {
 				geoService := services.GetGeoService()
 				lat, lon, _, err := geoService.GetGeo(location, helpers.GEO_BASE_URL)
 				if err != nil {
