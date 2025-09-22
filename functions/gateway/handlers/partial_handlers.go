@@ -309,6 +309,7 @@ func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				parts := strings.Split(location, "+")
 				if len(parts) == 2 {
 					latStr = parts[0]
+					lonStr = parts[1]
 				} else {
 					return transport.SendHtmlRes(w, []byte(`Location must be in the format "lat+lon"`), http.StatusBadRequest, "partial", nil)
 				}
