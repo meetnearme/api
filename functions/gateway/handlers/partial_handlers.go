@@ -297,6 +297,66 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
+func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+
+	location := r.URL.Query().Get("location")
+	latAndLonAreValid := true
+	if location != "" {
+		if strings.Contains(location, "+") && len(strings.Fields(location)) == 2 {
+			var latStr, lonStr string
+
+			if strings.Contains(location, "+") {
+				parts := strings.Split(location, "+")
+				if len(parts) == 2 {
+					latStr = parts[0]
+				} else {
+					return transport.SendHtmlRes(w, []byte(`Location must be in the format "lat+lon"`), http.StatusBadRequest, "partial", nil)
+				}
+			}
+
+			// Validate latitude and longitude ranges using math
+			if latStr != "" && lonStr != "" {
+				if lat, err := strconv.ParseFloat(latStr, 64); err == nil {
+					if lon, err := strconv.ParseFloat(lonStr, 64); err == nil {
+						// Latitude: -90 to +90
+						// Longitude: -180 to +180
+						latAndLonAreValid = lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
+					}
+				}
+			}
+		}
+	}
+
+	var status int
+	var response []byte
+
+	if location == "" {
+		status = http.StatusBadRequest
+		response = []byte(`{"error": "Location parameter is required"}`)
+	} else if !latAndLonAreValid {
+		status = http.StatusBadRequest
+		response = []byte(`{"error": "Latitude and Longitude are invalid"}`)
+	} else {
+		baseUrl := helpers.GEO_BASE_URL
+		cityService := services.GetCityService()
+		city, err := cityService.GetCity(location, baseUrl)
+		if err != nil {
+			status = http.StatusInternalServerError
+			response = []byte(`{"error": "Error getting city"}`)
+		} else {
+			status = http.StatusOK
+			response = []byte(`{"city": "` + city + `"}`)
+		}
+		log.Println("CityLookup city:", city)
+	}
+
+	return transport.SendHtmlRes(w, response, status, "partial", nil)
+	// w.Header().Set("Content-Type", "application/json")
+	// w.WriteHeader(status)
+	// w.Write(response)
+	// return func(w http.ResponseWriter, r *http.Request) {}
+}
+
 func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		db := transport.GetDB()

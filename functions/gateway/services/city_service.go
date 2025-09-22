@@ -24,11 +24,11 @@ func (r *RealCityHTMLFetcher) GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int
 
 const ()
 
-func GetCity(location string, baseUrl string) (city string, err error) {
-	return GetCityService().GetCity(location, baseUrl)
+func GetCity(locationQuery string, baseUrl string) (city string, err error) {
+	return GetCityService().GetCity(locationQuery, baseUrl)
 }
 
-func (s *RealCityService) GetCity(location string, baseUrl string) (city string, err error) {
+func (s *RealCityService) GetCity(locationQuery string, baseUrl string) (city string, err error) {
 
 	htmlFetcher := s.htmlFetcher
 	if htmlFetcher == nil {
@@ -38,7 +38,7 @@ func (s *RealCityService) GetCity(location string, baseUrl string) (city string,
 	if baseUrl == "" {
 		return "", fmt.Errorf("base URL is empty")
 	}
-	targetUrl := helpers.GEO_BASE_URL + "?address=" + location
+	targetUrl := helpers.GEO_BASE_URL + "?address=" + locationQuery
 	log.Println("targetUrl", targetUrl)
 	htmlString, err := htmlFetcher.GetHTMLFromURL(types.SeshuJob{NormalizedUrlKey: targetUrl}, 0, true, "")
 	if err != nil {

@@ -848,8 +848,17 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 
 				const success = async (position) => {
 					// call getGeo function here
+          // make this work with production server too
+          const response = await fetch("http://localhost:8000/api/location/city?location=30.6317+-97.7033")
+          const data = await response.json()
+          console.log("data is", data)
+          let city = "failed"
+          if (data.city) {
+            city = data.city;
+            console.log(city)
+          }
 					this.selectedOption = {
-						label: "Test City, Texas, US",
+						label: city,
 						latitude: position.coords.latitude.toFixed(6),
 						longitude: position.coords.longitude.toFixed(6),
 						value: "123456"
