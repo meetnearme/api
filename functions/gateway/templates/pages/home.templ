@@ -835,8 +835,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					}
 				},
 				setSelectedOption(option) {
-	this.selectedOption = option
-
+					this.selectedOption = option
 					this.isOpen = false
 					this.openedWithKeyboard = false
 					this.$refs.hiddenTextField.value = option.value
@@ -846,27 +845,28 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 
 				findAndSetLocation() {
 
-				const success = async (position) => {
-					// call getGeo function here
-          // make this work with production server too
-          const response = await fetch("http://localhost:8000/api/location/city?location=30.6317+-97.7033")
-          const data = await response.json()
-          console.log("data is", data)
-          let city = "failed"
+				const success = (position) => {
+					const latitude = position.coords.latitude.toFixed(3);
+					const longitude = position.coords.longitude.toFixed(3);
+					fetch(`/api/location/city?location=${latitude}+${longitude}`)
+					.then(response => response.json())
+					.then(data => {
           if (data.city) {
-            city = data.city;
-            console.log(city)
-          }
 					this.selectedOption = {
-						label: city,
-						latitude: position.coords.latitude.toFixed(6),
-						longitude: position.coords.longitude.toFixed(6),
-						value: "123456"
+						label: data.city,
+						latitude: latitude,
+						longitude: longitude,
 					}
-					console.log("Fake city with real lat and lon:", this.selectedOption);
+					}
+					})
+					.catch(error => {
+					// eslint-disable-next-line no-console
+					console.error("Error fetching city", error);
+				})
 				}
 
 				const error = (err) => {
+					// eslint-disable-next-line no-console
 					console.warn(`ERROR(${err.code}): ${err.message}`);
 				}
 
