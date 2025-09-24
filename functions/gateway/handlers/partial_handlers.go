@@ -302,27 +302,22 @@ func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	location := r.URL.Query().Get("location")
 	latAndLonAreValid := true
 	if location != "" {
-		if strings.Contains(location, "+") && len(strings.Fields(location)) == 2 {
-			var latStr, lonStr string
+		var latStr, lonStr string
 
-			if strings.Contains(location, "+") {
-				parts := strings.Split(location, "+")
-				if len(parts) == 2 {
-					latStr = parts[0]
-					lonStr = parts[1]
-				} else {
-					return transport.SendHtmlRes(w, []byte(`Location must be in the format "lat+lon"`), http.StatusBadRequest, "partial", nil)
-				}
+		if strings.Contains(location, "+") {
+			parts := strings.Split(location, "+")
+			if len(parts) == 2 {
+				latStr = parts[0]
+				lonStr = parts[1]
+			} else {
+				return transport.SendHtmlRes(w, []byte(`Location must be in the format "lat+lon"`), http.StatusBadRequest, "partial", nil)
 			}
+		}
 
-			// Validate latitude and longitude ranges using math
-			if latStr != "" && lonStr != "" {
-				if lat, err := strconv.ParseFloat(latStr, 64); err == nil {
-					if lon, err := strconv.ParseFloat(lonStr, 64); err == nil {
-						// Latitude: -90 to +90
-						// Longitude: -180 to +180
-						latAndLonAreValid = lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
-					}
+		if latStr != "" && lonStr != "" {
+			if lat, err := strconv.ParseFloat(latStr, 64); err == nil {
+				if lon, err := strconv.ParseFloat(lonStr, 64); err == nil {
+					latAndLonAreValid = lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
 				}
 			}
 		}
@@ -351,11 +346,10 @@ func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		log.Println("CityLookup city:", city)
 	}
 
-	return transport.SendHtmlRes(w, response, status, "partial", nil)
-	// w.Header().Set("Content-Type", "application/json")
-	// w.WriteHeader(status)
-	// w.Write(response)
-	// return func(w http.ResponseWriter, r *http.Request) {}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	w.Write(response)
+	return func(w http.ResponseWriter, r *http.Request) {}
 }
 
 func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
