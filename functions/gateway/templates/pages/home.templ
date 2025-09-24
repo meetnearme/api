@@ -854,23 +854,25 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					fetch(`/api/location/city?location=${latitude}+${longitude}`)
 					.then(response => response.json())
 					.then(data => {
-          if (data.city) {
-					this.selectedOption = {
-						label: data.city,
-						latitude: latitude,
-						longitude: longitude,
-					}
-					Alpine.store('urlState').setParam('location', this.locationDropdown.label)
-          Alpine.store('location').setSelectedLocation(this.locationDropdown)
-					}
+						if (data.city) {
+							this.selectedOption = {
+								label: data.city,
+								latitude: latitude,
+								longitude: longitude,
+							}
+							// changing the locationDropdown triggers the url params to update
+							this.locationDropdown = this.selectedOption
+							Alpine.store('location').setSelectedLocation(this.selectedOption)
+						}
 					})
 					.catch(error => {
-					// eslint-disable-next-line no-console
-					console.error("Error fetching city:", error);
-				})
+						// eslint-disable-next-line no-console
+						console.error("Error fetching city:", error);
+					})
 				}
 
-				const error = (err) => {
+				// This gets executed if the user does not allow the browser to access their location
+				const error = () => {
 					this.locationAccessDeclined = true
 				}
 
@@ -1198,8 +1200,6 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							Alpine.store('urlState').setParam('lat', this.locationDropdown.latitude)
 							Alpine.store('urlState').setParam('lon', this.locationDropdown.longitude)
 							Alpine.store('urlState').setParam('location', this.locationDropdown.label)
-
-							// Also update the location store for the display
 							Alpine.store('location').setSelectedLocation(this.locationDropdown)
 						}
 
