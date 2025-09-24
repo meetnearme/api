@@ -10,11 +10,6 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
-// HTMLFetcher interface allows us to mock the HTML fetching behavior
-type CityHTMLFetcher interface {
-	GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string) (string, error)
-}
-
 // RealHTMLFetcher wraps the actual GetHTMLFromURL function
 type RealCityHTMLFetcher struct{}
 

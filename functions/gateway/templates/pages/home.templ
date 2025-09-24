@@ -844,7 +844,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 
 				locationAccessDeclined: false,
-        cityNotFound: false,
+				cityNotFound: false,
 
 				findAndSetLocation() {
 
@@ -865,8 +865,8 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							this.locationDropdown = this.selectedOption
 							Alpine.store('location').setSelectedLocation(this.selectedOption)
 						} else {
-              this.cityNotFound = true
-            }
+							this.cityNotFound = true
+						}
 					})
 					.catch(error => {
 						// eslint-disable-next-line no-console
