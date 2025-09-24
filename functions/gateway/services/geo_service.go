@@ -47,7 +47,6 @@ func (s *RealGeoService) GetGeo(locationQuery string, baseUrl string) (lat strin
 	// escaped := url.QueryEscape(targetUrl)
 	// log.Println("targetUrl (escaped)", escaped)
 	htmlString, err := htmlFetcher.GetHTMLFromURL(types.SeshuJob{NormalizedUrlKey: targetUrl}, 0, true, "")
-	log.Printf("html string is %s", htmlString)
 	if err != nil {
 		return "", "", "", err
 	}

@@ -347,46 +347,44 @@ func TestGeoLookup(t *testing.T) {
 }
 
 func TestCityLookup(t *testing.T) {
-	// Initialize and setup environment
 	originalDeploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
 	originalGoEnv := os.Getenv("GO_ENV")
 	defer func() {
 		os.Setenv("DEPLOYMENT_TARGET", originalDeploymentTarget)
 		os.Setenv("GO_ENV", originalGoEnv)
-		services.ResetCityService() // Reset service singleton
+		services.ResetCityService()
 	}()
 
-	// Set environment for test mode
 	os.Setenv("GO_ENV", "test")
 	os.Setenv("DEPLOYMENT_TARGET", helpers.ACT)
 
 	tests := []struct {
 		name           string
-		location       string
+		query          string
 		expectedStatus int
 		shouldContain  []string
 	}{
 		{
 			name:           "Successful lookup with valid coordinates",
-			location:       "40.7+-74.0",
+			query:          "lat=40.7&lon=-74.0",
 			expectedStatus: http.StatusOK,
 			shouldContain:  []string{"New York"}, // Mock cityService returns "New York"
 		},
 		{
 			name:           "Missing location parameter",
-			location:       "",
+			query:          "",
 			expectedStatus: http.StatusBadRequest,
-			shouldContain:  []string{"Location parameter is required"},
+			shouldContain:  []string{"Both lat and lon parameters are required"},
 		},
 		{
 			name:           "Invalid coordinates - latitude too high",
-			location:       "91.0+0.0",
+			query:          "lat=91.0&lon=0.0",
 			expectedStatus: http.StatusBadRequest,
 			shouldContain:  []string{"Latitude and Longitude are invalid"},
 		},
 		{
 			name:           "Invalid coordinates - longitude too high",
-			location:       "0.0+181.0",
+			query:          "lat=0.0&lon=181.0",
 			expectedStatus: http.StatusBadRequest,
 			shouldContain:  []string{"Latitude and Longitude are invalid"},
 		},
@@ -394,19 +392,16 @@ func TestCityLookup(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset service for each test
 			services.ResetCityService()
 
-			// Create request with proper URL and query parameters
 			requestURL := "/api/location/city"
-			if tt.location != "" {
-				requestURL += "?location=" + url.QueryEscape(tt.location)
+			if tt.query != "" {
+				requestURL += "?" + tt.query
 			}
 
 			req := httptest.NewRequest("GET", requestURL, nil)
 			req.Header.Set("Host", "localhost:"+helpers.GO_ACT_SERVER_PORT)
 
-			// Add AWS Lambda context (required for transport layer)
 			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				PathParameters: map[string]string{},
 			})
@@ -414,20 +409,16 @@ func TestCityLookup(t *testing.T) {
 
 			rr := httptest.NewRecorder()
 
-			// Execute handler
 			handler := CityLookup(rr, req)
 			handler(rr, req)
 
-			// Verify response
 			if rr.Code != tt.expectedStatus {
 				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rr.Code)
 			}
 
-			// Log the response for debugging
 			t.Logf("Response status: %d", rr.Code)
 			t.Logf("Response body: %s", rr.Body.String())
 
-			// Check all required strings are present
 			responseBody := rr.Body.String()
 			for _, expectedStr := range tt.shouldContain {
 				if !strings.Contains(responseBody, expectedStr) {

@@ -851,7 +851,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					this.locationAccessDeclined = false;
 					const latitude = position.coords.latitude.toFixed(3);
 					const longitude = position.coords.longitude.toFixed(3);
-					fetch(`/api/location/city?location=${latitude}+${longitude}`)
+					fetch(`/api/location/city?lat=${latitude}&lon=${longitude}`)
 					.then(response => response.json())
 					.then(data => {
 						if (data.city) {

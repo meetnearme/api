@@ -298,58 +298,51 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 }
 
 func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		latStr := r.URL.Query().Get("lat")
+		lonStr := r.URL.Query().Get("lon")
+		w.Header().Set("Content-Type", "application/json")
 
-	location := r.URL.Query().Get("location")
-	latAndLonAreValid := true
-	if location != "" {
-		var latStr, lonStr string
-
-		if strings.Contains(location, "+") {
-			parts := strings.Split(location, "+")
-			if len(parts) == 2 {
-				latStr = parts[0]
-				lonStr = parts[1]
-			} else {
-				return transport.SendHtmlRes(w, []byte(`Location must be in the format "lat+lon"`), http.StatusBadRequest, "partial", nil)
-			}
+		if latStr == "" || lonStr == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Both lat and lon parameters are required"})
+			return
 		}
 
-		if latStr != "" && lonStr != "" {
-			if lat, err := strconv.ParseFloat(latStr, 64); err == nil {
-				if lon, err := strconv.ParseFloat(lonStr, 64); err == nil {
-					latAndLonAreValid = lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
-				}
-			}
+		lat, err := strconv.ParseFloat(latStr, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid latitude format"})
+			return
 		}
-	}
 
-	var status int
-	var response []byte
+		lon, err := strconv.ParseFloat(lonStr, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid longitude format"})
+			return
+		}
 
-	if location == "" {
-		status = http.StatusBadRequest
-		response = []byte(`{"error": "Location parameter is required"}`)
-	} else if !latAndLonAreValid {
-		status = http.StatusBadRequest
-		response = []byte(`{"error": "Latitude and Longitude are invalid"}`)
-	} else {
+		latAndLonAreValid := lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
+
+		if !latAndLonAreValid {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Latitude and Longitude are invalid"})
+			return
+		}
+
 		baseUrl := helpers.GEO_BASE_URL
 		cityService := services.GetCityService()
-		city, err := cityService.GetCity(location, baseUrl)
+		city, err := cityService.GetCity(fmt.Sprintf("%.3f+%.3f", lat, lon), baseUrl)
 		if err != nil {
-			status = http.StatusInternalServerError
-			response = []byte(`{"error": "Error getting city"}`)
-		} else {
-			status = http.StatusOK
-			response = []byte(`{"city": "` + city + `"}`)
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Error getting city"})
+			return
 		}
-		log.Println("CityLookup city:", city)
-	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	w.Write(response)
-	return func(w http.ResponseWriter, r *http.Request) {}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"city": city})
+	}
 }
 
 func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
