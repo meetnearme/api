@@ -22,24 +22,18 @@ func (r *RealCityHTMLFetcher) GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int
 	return GetHTMLFromURL(seshuJob, waitMs, jsRender, waitFor)
 }
 
-const ()
-
-func GetCity(locationQuery string, baseUrl string) (city string, err error) {
-	return GetCityService().GetCity(locationQuery, baseUrl)
+func GetCity(locationQuery string) (city string, err error) {
+	return GetCityService().GetCity(locationQuery)
 }
 
-func (s *RealCityService) GetCity(locationQuery string, baseUrl string) (city string, err error) {
+func (s *RealCityService) GetCity(locationQuery string) (city string, err error) {
 
 	htmlFetcher := s.htmlFetcher
 	if htmlFetcher == nil {
 		htmlFetcher = &RealCityHTMLFetcher{}
 	}
 
-	if baseUrl == "" {
-		return "", fmt.Errorf("base URL is empty")
-	}
 	targetUrl := helpers.GEO_BASE_URL + "?address=" + locationQuery
-	log.Println("targetUrl", targetUrl)
 	htmlString, err := htmlFetcher.GetHTMLFromURL(types.SeshuJob{NormalizedUrlKey: targetUrl}, 0, true, "")
 	if err != nil {
 		return "", err
@@ -59,14 +53,12 @@ func (s *RealCityService) GetCity(locationQuery string, baseUrl string) (city st
 	cityName := strings.TrimSpace(matches[2])
 	stateName := strings.TrimSpace(matches[3])
 
-	// Clean up the city and state names
 	cityName = strings.TrimSpace(strings.ReplaceAll(cityName, "\n", " "))
 	cityName = regexp.MustCompile(`\s+`).ReplaceAllString(cityName, " ")
 
 	stateName = strings.TrimSpace(strings.ReplaceAll(stateName, "\n", " "))
 	stateName = regexp.MustCompile(`\s+`).ReplaceAllString(stateName, " ")
 
-	// Combine city and state
 	city = cityName + ", " + stateName
 
 	log.Printf("Found plus code: %s, City: %s, State: %s", plusCode, cityName, stateName)

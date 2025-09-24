@@ -331,9 +331,8 @@ func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			return
 		}
 
-		baseUrl := helpers.GEO_BASE_URL
 		cityService := services.GetCityService()
-		city, err := cityService.GetCity(fmt.Sprintf("%.3f+%.3f", lat, lon), baseUrl)
+		city, err := cityService.GetCity(fmt.Sprintf("%.3f+%.3f", lat, lon))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Error getting city"})

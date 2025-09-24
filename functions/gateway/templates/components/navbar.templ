@@ -407,6 +407,9 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 									<span x-show="locationAccessDeclined" class="text-error text-sm mb-2">
 										Location access was declined.
 									</span>
+									<span x-show="cityNotFound" class="text-error text-sm mb-2">
+										Error: City not found.
+									</span>
 									<div class="relative">
 										<!-- trigger button  -->
 										<button

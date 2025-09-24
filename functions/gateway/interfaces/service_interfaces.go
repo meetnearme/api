@@ -13,7 +13,7 @@ type GeoServiceInterface interface {
 }
 
 type CityServiceInterface interface {
-	GetCity(location, baseUrl string) (string, error)
+	GetCity(location string) (string, error)
 }
 
 type SeshuServiceInterface interface {

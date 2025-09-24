@@ -15,6 +15,9 @@ var cityMockHTML1 string
 //go:embed city_service_test_mock_html2.html
 var cityMockHTML2 string
 
+//go:embed city_service_test_mock_html3.html
+var cityMockHTML3 string
+
 type cityMockHTMLFetcher struct {
 	HTMLResponse string
 	Error        error
@@ -55,6 +58,15 @@ func TestCityService(t *testing.T) {
 			mockError:     nil,
 			expectedCity:  "Badr, Egypt",
 			expectedError: false,
+		},
+		{
+			name:          "lat+lon in middle of the ocean",
+			location:      "40.6317+-30.703325", // I manually copied the html using this location
+			baseURL:       "https://example.com",
+			mockHTML:      cityMockHTML3,
+			mockError:     nil,
+			expectedCity:  "",
+			expectedError: true,
 		},
 		{
 			name:          "lat+lon in Mexico City, Mexico",
@@ -124,7 +136,7 @@ func TestCityService(t *testing.T) {
 				htmlFetcher: mockFetcher,
 			}
 
-			city, err := service.GetCity(tt.location, tt.baseURL)
+			city, err := service.GetCity(tt.location)
 
 			if tt.expectedError {
 				if err == nil {

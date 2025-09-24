@@ -844,6 +844,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 
 				locationAccessDeclined: false,
+        cityNotFound: false,
 
 				findAndSetLocation() {
 
@@ -854,7 +855,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					fetch(`/api/location/city?lat=${latitude}&lon=${longitude}`)
 					.then(response => response.json())
 					.then(data => {
-						if (data.city) {
+						if (data.city != "") {
 							this.selectedOption = {
 								label: data.city,
 								latitude: latitude,
@@ -863,7 +864,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							// changing the locationDropdown triggers the url params to update
 							this.locationDropdown = this.selectedOption
 							Alpine.store('location').setSelectedLocation(this.selectedOption)
-						}
+						} else {
+              this.cityNotFound = true
+            }
 					})
 					.catch(error => {
 						// eslint-disable-next-line no-console

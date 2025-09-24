@@ -94,10 +94,10 @@ func (m *MockGeoService) GetGeo(location, baseUrl string) (string, string, strin
 }
 
 type MockCityService struct {
-	GetCityFunc func(location, baseUrl string) (string, error)
+	GetCityFunc func(location string) (string, error)
 }
 
-func (m *MockCityService) GetCity(location, baseUrl string) (string, error) {
+func (m *MockCityService) GetCity(location string) (string, error) {
 	return "New York", nil
 }
 
