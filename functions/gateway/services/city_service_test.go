@@ -85,7 +85,7 @@ func TestCityService(t *testing.T) {
 			expectedError: true,
 		},
 		{
-			name:          "invalid plus code",
+			name:          "invalid plus code", // The city always comes after a valid plus code
 			location:      "Invalid Location",
 			baseURL:       "https://example.com",
 			mockHTML:      `"JRQ+  TVW NotACity, HI"`,
