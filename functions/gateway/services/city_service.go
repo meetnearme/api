@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -28,7 +29,7 @@ func (s *RealCityService) GetCity(locationQuery string) (city string, err error)
 		htmlFetcher = &RealCityHTMLFetcher{}
 	}
 
-	targetUrl := helpers.GEO_BASE_URL + "?address=" + locationQuery
+	targetUrl := helpers.GEO_BASE_URL + "?address=" + url.QueryEscape(locationQuery)
 	htmlString, err := htmlFetcher.GetHTMLFromURL(types.SeshuJob{NormalizedUrlKey: targetUrl}, 0, true, "")
 	if err != nil {
 		return "", err

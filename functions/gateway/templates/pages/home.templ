@@ -849,10 +849,16 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 
 				const success = (position) => {
 					this.locationAccessDeclined = false;
+					this.cityNotFound = false;
 					const latitude = position.coords.latitude.toFixed(3);
 					const longitude = position.coords.longitude.toFixed(3);
 					fetch(`/api/location/city?lat=${latitude}&lon=${longitude}`)
-					.then(response => response.json())
+					.then(async (response) => {
+						if (!response.ok) {
+							throw new Error(`City lookup failed (${response.status})`);
+						}
+							return response.json();
+					})
 					.then(data => {
 						if (data.city != "") {
 							this.selectedOption = {
@@ -863,6 +869,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							// changing the locationDropdown triggers the url params to update
 							this.locationDropdown = this.selectedOption
 							Alpine.store('location').setSelectedLocation(this.selectedOption)
+							this.$dispatch('location-dropdown', { option: { ...this.selectedOption } });
 						} else {
 							this.cityNotFound = true
 						}
