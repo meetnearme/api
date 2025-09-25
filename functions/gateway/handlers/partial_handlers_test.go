@@ -346,6 +346,89 @@ func TestGeoLookup(t *testing.T) {
 	}
 }
 
+func TestCityLookup(t *testing.T) {
+	originalDeploymentTarget := os.Getenv("DEPLOYMENT_TARGET")
+	originalGoEnv := os.Getenv("GO_ENV")
+	defer func() {
+		os.Setenv("DEPLOYMENT_TARGET", originalDeploymentTarget)
+		os.Setenv("GO_ENV", originalGoEnv)
+		services.ResetCityService()
+	}()
+
+	os.Setenv("GO_ENV", "test")
+	os.Setenv("DEPLOYMENT_TARGET", helpers.ACT)
+
+	tests := []struct {
+		name           string
+		query          string
+		expectedStatus int
+		shouldContain  []string
+	}{
+		{
+			name:           "Successful lookup with valid coordinates",
+			query:          "lat=40.7&lon=-74.0",
+			expectedStatus: http.StatusOK,
+			shouldContain:  []string{"New York"}, // Mock cityService returns "New York"
+		},
+		{
+			name:           "Missing location parameter",
+			query:          "",
+			expectedStatus: http.StatusBadRequest,
+			shouldContain:  []string{"Both lat and lon parameters are required"},
+		},
+		{
+			name:           "Invalid coordinates - latitude too high",
+			query:          "lat=91.0&lon=0.0",
+			expectedStatus: http.StatusBadRequest,
+			shouldContain:  []string{"Latitude and Longitude are invalid"},
+		},
+		{
+			name:           "Invalid coordinates - longitude too high",
+			query:          "lat=0.0&lon=181.0",
+			expectedStatus: http.StatusBadRequest,
+			shouldContain:  []string{"Latitude and Longitude are invalid"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			services.ResetCityService()
+
+			requestURL := "/api/location/city"
+			if tt.query != "" {
+				requestURL += "?" + tt.query
+			}
+
+			req := httptest.NewRequest("GET", requestURL, nil)
+			req.Header.Set("Host", "localhost:"+helpers.GO_ACT_SERVER_PORT)
+
+			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				PathParameters: map[string]string{},
+			})
+			req = req.WithContext(ctx)
+
+			rr := httptest.NewRecorder()
+
+			handler := CityLookup(rr, req)
+			handler(rr, req)
+
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rr.Code)
+			}
+
+			t.Logf("Response status: %d", rr.Code)
+			t.Logf("Response body: %s", rr.Body.String())
+
+			responseBody := rr.Body.String()
+			for _, expectedStr := range tt.shouldContain {
+				if !strings.Contains(responseBody, expectedStr) {
+					t.Errorf("Expected response to contain '%s', got '%s'", expectedStr, responseBody)
+				}
+			}
+		})
+	}
+}
+
 func TestGetEventsPartial(t *testing.T) {
 	// Save original environment variables
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")

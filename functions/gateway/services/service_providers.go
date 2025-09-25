@@ -13,6 +13,9 @@ var (
 	geoService     interfaces.GeoServiceInterface
 	geoServiceOnce sync.Once
 
+	cityService     interfaces.CityServiceInterface
+	cityServiceOnce sync.Once
+
 	seshuService     interfaces.SeshuServiceInterface
 	seshuServiceOnce sync.Once
 )
@@ -28,9 +31,25 @@ func GetGeoService() interfaces.GeoServiceInterface {
 	return geoService
 }
 
+func GetCityService() interfaces.CityServiceInterface {
+	cityServiceOnce.Do(func() {
+		if os.Getenv("GO_ENV") == "test" {
+			cityService = getMockCityService()
+		} else {
+			cityService = &RealCityService{}
+		}
+	})
+	return cityService
+}
+
 func ResetGeoService() {
 	geoService = nil
 	geoServiceOnce = sync.Once{}
+}
+
+func ResetCityService() {
+	cityService = nil
+	cityServiceOnce = sync.Once{}
 }
 
 func GetSeshuService() interfaces.SeshuServiceInterface {
@@ -45,6 +64,9 @@ func GetSeshuService() interfaces.SeshuServiceInterface {
 }
 
 type RealGeoService struct {
+	htmlFetcher HTMLFetcher // Can be nil for production use
+}
+type RealCityService struct {
 	htmlFetcher HTMLFetcher // Can be nil for production use
 }
 type RealSeshuService struct{}

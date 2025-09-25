@@ -836,13 +836,60 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 				setSelectedOption(option) {
 					this.selectedOption = option
-
 					this.isOpen = false
 					this.openedWithKeyboard = false
 					this.$refs.hiddenTextField.value = option.value
 					// Update lat and lon in the parent component
 					this.$dispatch('location-dropdown', { option: { ...option } })
 				},
+
+				locationAccessDeclined: false,
+				cityNotFound: false,
+				findAndSetLocation() {
+
+				const success = (position) => {
+					this.locationAccessDeclined = false;
+					this.cityNotFound = false;
+					const latitude = position.coords.latitude.toFixed(3);
+					const longitude = position.coords.longitude.toFixed(3);
+					fetch(`/api/location/city?lat=${latitude}&lon=${longitude}`)
+					.then(async (response) => {
+						if (!response.ok) {
+							throw new Error(`City lookup failed (${response.status})`);
+						}
+							return response.json();
+					})
+					.then(data => {
+						if (data.city != "") {
+							this.selectedOption = {
+								label: data.city,
+								latitude: latitude,
+								longitude: longitude,
+							}
+							// changing the locationDropdown triggers the url params to update
+							this.locationDropdown = this.selectedOption
+							Alpine.store('location').setSelectedLocation(this.selectedOption)
+							this.$dispatch('location-dropdown', { option: { ...this.selectedOption } });
+						} else {
+							this.cityNotFound = true
+						}
+					})
+					.catch(error => {
+						// eslint-disable-next-line no-console
+						console.error("Error fetching city:", error);
+					})
+				}
+
+				// This gets executed if the user does not allow the browser to access their location
+				const error = () => {
+					this.locationAccessDeclined = true
+				}
+
+				navigator.geolocation.getCurrentPosition(success, error);
+				this.isOpen = false
+				this.openedWithKeyboard = false
+				},
+
 				getFilteredOptions(query) {
 					this.options = this.allOptions.filter((option) =>
 						option.label.toLowerCase().includes(query.toLowerCase()),
@@ -1162,8 +1209,6 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							Alpine.store('urlState').setParam('lat', this.locationDropdown.latitude)
 							Alpine.store('urlState').setParam('lon', this.locationDropdown.longitude)
 							Alpine.store('urlState').setParam('location', this.locationDropdown.label)
-
-							// Also update the location store for the display
 							Alpine.store('location').setSelectedLocation(this.locationDropdown)
 						}
 
