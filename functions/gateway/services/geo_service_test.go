@@ -9,10 +9,10 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
-//go:embed geo_service_test_mock_html1.html
+//go:embed geo_service_test_mock1.html
 var mockHTML1 string
 
-//go:embed geo_service_test_mock_html2.html
+//go:embed geo_service_test_mock2.html
 var mockHTML2 string
 
 type mockHTMLFetcher struct {
