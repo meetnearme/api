@@ -806,12 +806,12 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				log.Println("Error normalizing URL:", err)
 			}
 
-			// Assuming that location can be found in event, might not be accurate if events are not in the same area
-			if session.LocationAddress == "" {
-				location = anchorEvent.EventLocation
-			} else {
-				location = session.LocationAddress
-			}
+			// if session.LocationAddress == "" {
+			// 	location = anchorEvent.EventLocation
+			// } else {
+			// 	location = session.LocationAddress
+			// }
+			location = session.LocationAddress
 
 			baseUrl, err := helpers.ExtractBaseDomain(session.Url)
 			if err != nil {
@@ -852,7 +852,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				if anchorEvent.EventURL == "" {
 					eventURLTag = ""
 				} else {
-					eventURLTag = findTagByPartialText(docToUse, anchorEvent.EventURL)
+					eventURLTag = findTagByExactText(docToUse, anchorEvent.EventURL)
 				}
 			}
 
@@ -1085,7 +1085,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			}
 
 			for _, seshuJob := range finalSeshuJobsList {
-				extractedEvents, _, err := services.ExtractEventsFromHTML(seshuJob, helpers.SESHU_MODE_SCRAPE, &services.RealScrapingService{})
+				extractedEvents, _, err := services.ExtractEventsFromHTML(seshuJob, helpers.SESHU_MODE_SCRAPE, "init", &services.RealScrapingService{})
 				if err != nil {
 					log.Printf("Failed to extract events from %s: %v", seshuJob.NormalizedUrlKey, err)
 				}

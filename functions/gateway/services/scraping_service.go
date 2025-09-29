@@ -391,6 +391,8 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", fmt.Errorf("unexpected response format, `message.content` missing")
 	}
 
+	fmt.Println("Raw message content array:", messageContentArray)
+
 	// Use regex to remove incomplete JSON that OpenAI sometimes returns
 	unpaddedJSON, err := UnpadJSON(messageContentArray)
 	if err != nil {
@@ -401,7 +403,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	return sessionId, unpaddedJSON, nil
 }
 
-func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper ScrapingService) (eventsFound []types.EventInfo, htmlContent string, err error) {
+func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, scraper ScrapingService) (eventsFound []types.EventInfo, htmlContent string, err error) {
 	knownScrapeSource := ""
 	isFacebook := IsFacebookEventsURL(seshuJob.NormalizedUrlKey)
 
@@ -505,6 +507,14 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper Scrapin
 	var response string
 
 	if mode == helpers.SESHU_MODE_ONBOARD {
+
+		// Set system prompt based on action
+		if action == "init" {
+			systemPrompt = GetSystemPrompt(false)
+		} else {
+			systemPrompt = GetSystemPrompt(true)
+		}
+
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 		if err != nil {
 			return nil, "", err
