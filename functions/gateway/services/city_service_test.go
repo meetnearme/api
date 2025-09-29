@@ -9,14 +9,17 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
-//go:embed city_service_test_mock_html1.html
+//go:embed city_service_test_mock1.html
 var cityMockHTML1 string
 
-//go:embed city_service_test_mock_html2.html
+//go:embed city_service_test_mock2.html
 var cityMockHTML2 string
 
-//go:embed city_service_test_mock_html3.html
+//go:embed city_service_test_mock3.html
 var cityMockHTML3 string
+
+//go:embed city_service_test_mock4.html
+var cityMockHTML4 string
 
 type cityMockHTMLFetcher struct {
 	HTMLResponse string
@@ -51,10 +54,19 @@ func TestCityService(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name:          "lat+lon in Tesuque Pueblo, New Mexico",
+			location:      "35.792+-106.0", // I manually copied the html using this location
+			baseURL:       "https://example.com",
+			mockHTML:      cityMockHTML2,
+			mockError:     nil,
+			expectedCity:  "Tesuque Pueblo, New Mexico",
+			expectedError: false,
+		},
+		{
 			name:          "lat+lon in Badr, Egypt",
 			location:      "30.6317+30.703325", // I manually copied the html using this location
 			baseURL:       "https://example.com",
-			mockHTML:      cityMockHTML2,
+			mockHTML:      cityMockHTML3,
 			mockError:     nil,
 			expectedCity:  "Badr, Egypt",
 			expectedError: false,
@@ -63,7 +75,7 @@ func TestCityService(t *testing.T) {
 			name:          "lat+lon in middle of the ocean",
 			location:      "40.6317+-30.703325", // I manually copied the html using this location
 			baseURL:       "https://example.com",
-			mockHTML:      cityMockHTML3,
+			mockHTML:      cityMockHTML4,
 			mockError:     nil,
 			expectedCity:  "",
 			expectedError: true,
