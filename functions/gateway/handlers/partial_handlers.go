@@ -336,7 +336,7 @@ func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		city, err := cityService.GetCity(locationQuery)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			log.Print("Error is:", err)
+			log.Print("ERR:", err)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Error getting city with query: %s", locationQuery)})
 			return
 		}
