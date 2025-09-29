@@ -332,10 +332,12 @@ func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 
 		cityService := services.GetCityService()
-		city, err := cityService.GetCity(fmt.Sprintf("%.3f+%.3f", lat, lon))
+		locationQuery := fmt.Sprintf("%.3f+%.3f", lat, lon)
+		city, err := cityService.GetCity(locationQuery)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Error getting city"})
+			log.Print("Error is:", err)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Error getting city with query: %s", locationQuery)})
 			return
 		}
 

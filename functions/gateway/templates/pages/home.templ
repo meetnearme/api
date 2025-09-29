@@ -852,10 +852,11 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					this.cityNotFound = false;
 					const latitude = position.coords.latitude.toFixed(3);
 					const longitude = position.coords.longitude.toFixed(3);
-					fetch(`/api/location/city?lat=${latitude}&lon=${longitude}`)
+          const query = `lat=${latitude}&lon=${longitude}`
+					fetch(`/api/location/city?${query}`)
 					.then(async (response) => {
 						if (!response.ok) {
-							throw new Error(`City lookup failed (${response.status})`);
+							throw new Error(`City lookup failed with query ${query} status: (${response.status})`);
 						}
 							return response.json();
 					})
