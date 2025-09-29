@@ -425,7 +425,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 			urlToIndex := make(map[string]int)
 
 			// Use the list mode function for the main page
-			eventsFound, err = FindFacebookEventListData(html, seshuJob.LocationTimezone)
+			eventsFound, err = FindFacebookEventListData(html, seshuJob.NormalizedUrlKey, seshuJob.LocationTimezone)
 			if err != nil {
 				log.Printf("ERR: Failed to extract Facebook event list data: %v", err)
 				return nil, "", err
@@ -454,7 +454,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 					continue
 				}
 				// Use the single event mode function for child pages
-				childEvArrayOfOne, err := FindFacebookSingleEventData(childHtml, seshuJob.LocationTimezone)
+				childEvArrayOfOne, err := FindFacebookSingleEventData(childHtml, seshuJob.NormalizedUrlKey, seshuJob.LocationTimezone)
 				if err != nil {
 					log.Printf("ERR: Failed to extract single event data from child page: %v", err)
 					continue
@@ -491,7 +491,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 		} else {
 			// For validate mode, we still need to extract events to return them
 			// Use the list mode function to get events from the main page
-			eventsFound, err = FindFacebookEventListData(html, seshuJob.LocationTimezone)
+			eventsFound, err = FindFacebookEventListData(html, seshuJob.NormalizedUrlKey, seshuJob.LocationTimezone)
 			if err != nil {
 				log.Printf("ERR: Failed to extract Facebook event list data in %s mode: %v", mode, err)
 				return nil, "", err

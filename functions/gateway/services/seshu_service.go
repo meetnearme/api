@@ -424,7 +424,7 @@ func extractJSONField(htmlContent string, pattern string) ([]string, error) {
 }
 
 // FindFacebookEventData extracts event data from Facebook events pages specifically
-func FindFacebookEventData(htmlContent string, locationTimezone string) ([]internal_types.EventInfo, error) {
+func FindFacebookEventData(htmlContent string, sourceUrl string, locationTimezone string) ([]internal_types.EventInfo, error) {
 	// log.Printf("=======\n\n\n\n\n (562) HTML \n: %s", htmlContent)
 	// First, check if the HTML contains event data
 	if !strings.Contains(htmlContent, `"__typename":"Event"`) {
@@ -454,7 +454,7 @@ func FindFacebookEventData(htmlContent string, locationTimezone string) ([]inter
 	eventScriptContent = strings.TrimSpace(eventScriptContent)
 
 	// Extract events from the JSON content
-	events := ExtractFbEventsFromJSON(eventScriptContent, locationTimezone)
+	events := ExtractFbEventsFromJSON(eventScriptContent, sourceUrl, locationTimezone)
 
 	if len(events) == 0 {
 		return nil, fmt.Errorf("no valid events extracted from JSON content")
@@ -464,7 +464,7 @@ func FindFacebookEventData(htmlContent string, locationTimezone string) ([]inter
 }
 
 // ExtractFbEventsFromJSON extracts events from JSON content - exported for use as callback
-func ExtractFbEventsFromJSON(jsonContent string, locationTimezone string) []internal_types.EventInfo {
+func ExtractFbEventsFromJSON(jsonContent string, sourceUrl string, locationTimezone string) []internal_types.EventInfo {
 	var events []internal_types.EventInfo
 
 	// Try to parse the entire JSON content
@@ -475,7 +475,7 @@ func ExtractFbEventsFromJSON(jsonContent string, locationTimezone string) []inte
 	}
 
 	// Extract events from the parsed JSON structure
-	events = findEventsInJSON(jsonData, events, locationTimezone)
+	events = findEventsInJSON(jsonData, events, sourceUrl, locationTimezone)
 
 	// If no events found in structured JSON, fall back to regex
 	if len(events) == 0 {
@@ -486,12 +486,12 @@ func ExtractFbEventsFromJSON(jsonContent string, locationTimezone string) []inte
 }
 
 // findEventsInJSON recursively searches for event objects in JSON data
-func findEventsInJSON(data interface{}, events []internal_types.EventInfo, locationTimezone string) []internal_types.EventInfo {
+func findEventsInJSON(data interface{}, events []internal_types.EventInfo, sourceUrl string, locationTimezone string) []internal_types.EventInfo {
 	switch v := data.(type) {
 	case map[string]interface{}:
 		// Check if this is an event object
 		if typename, ok := v["__typename"].(string); ok && typename == "Event" {
-			event := extractEventFromObject(v)
+			event := extractEventFromObject(v, sourceUrl)
 			if event.EventTitle != "" && event.EventURL != "" {
 				events = append(events, event)
 			}
@@ -499,13 +499,13 @@ func findEventsInJSON(data interface{}, events []internal_types.EventInfo, locat
 
 		// Recursively search in all values
 		for _, value := range v {
-			events = findEventsInJSON(value, events, locationTimezone)
+			events = findEventsInJSON(value, events, sourceUrl, locationTimezone)
 		}
 
 	case []interface{}:
 		// Recursively search in array elements
 		for _, item := range v {
-			events = findEventsInJSON(item, events, locationTimezone)
+			events = findEventsInJSON(item, events, sourceUrl, locationTimezone)
 		}
 	}
 
@@ -513,7 +513,7 @@ func findEventsInJSON(data interface{}, events []internal_types.EventInfo, locat
 }
 
 // extractEventFromObject extracts event data from a single event object
-func extractEventFromObject(eventObj map[string]interface{}) internal_types.EventInfo {
+func extractEventFromObject(eventObj map[string]interface{}, sourceUrl string) internal_types.EventInfo {
 	event := internal_types.EventInfo{}
 	// Extract title
 	if name, ok := eventObj["name"].(string); ok {
@@ -606,7 +606,7 @@ func extractEventFromObject(eventObj map[string]interface{}) internal_types.Even
 	} else {
 		defaultTimezone = time.UTC
 	}
-	info, err := normalizeEventInfo(event.EventTitle, urlCandidates, dateStr, locationCandidates, organizer, description, defaultTimezone)
+	info, err := normalizeEventInfo(event.EventTitle, urlCandidates, sourceUrl, dateStr, locationCandidates, organizer, description, defaultTimezone)
 	if err != nil {
 		return internal_types.EventInfo{}
 	}
@@ -622,6 +622,7 @@ func extractEventFromObject(eventObj map[string]interface{}) internal_types.Even
 func normalizeEventInfo(
 	title string,
 	urlCandidates []string,
+	sourceUrl string,
 	dateStr string,
 	locationCandidates []string,
 	organizer string,
@@ -674,6 +675,7 @@ func normalizeEventInfo(
 		EventDescription: description,
 		EventTimezone:    "", // Will be resolved later via coordinates
 		EventHostName:    organizer,
+		SourceUrl:        sourceUrl,
 	}
 	return evt, nil
 }
@@ -690,18 +692,18 @@ func unescapeJSONString(s string) string {
 
 // FindFacebookEventListData extracts event data from Facebook event LIST pages
 // This handles the structure where multiple events are found at a higher nesting level
-func FindFacebookEventListData(htmlContent string, locationTimezone string) ([]internal_types.EventInfo, error) {
-	return findFacebookEventData(htmlContent, "list", locationTimezone)
+func FindFacebookEventListData(htmlContent string, sourceUrl string, locationTimezone string) ([]internal_types.EventInfo, error) {
+	return findFacebookEventData(htmlContent, sourceUrl, "list", locationTimezone)
 }
 
 // FindFacebookSingleEventData extracts event data from Facebook SINGLE event pages
 // This handles the structure where a single event is nested under result.data.event
-func FindFacebookSingleEventData(htmlContent string, locationTimezone string) ([]internal_types.EventInfo, error) {
-	return findFacebookEventData(htmlContent, "single", locationTimezone)
+func FindFacebookSingleEventData(htmlContent string, sourceUrl string, locationTimezone string) ([]internal_types.EventInfo, error) {
+	return findFacebookEventData(htmlContent, sourceUrl, "single", locationTimezone)
 }
 
 // findFacebookEventData is the shared implementation that handles both modes
-func findFacebookEventData(htmlContent string, mode string, locationTimezone string) ([]internal_types.EventInfo, error) {
+func findFacebookEventData(htmlContent string, sourceUrl string, mode string, locationTimezone string) ([]internal_types.EventInfo, error) {
 
 	// First, check if the HTML contains event data
 	if !strings.Contains(htmlContent, `"__typename":"Event"`) {
@@ -744,7 +746,7 @@ func findFacebookEventData(htmlContent string, mode string, locationTimezone str
 			log.Printf("Failed to load timezone: %v", err)
 			// Continue with the rest of the function even if timezone loading fails
 		}
-		eventInfo, err := normalizeEventInfo(childEvent.EventTitle, []string{childEvent.EventURL}, childEvent.EventStartTime, []string{childEvent.EventLocation}, childEvent.EventHostName, childEvent.EventDescription, tz)
+		eventInfo, err := normalizeEventInfo(childEvent.EventTitle, []string{childEvent.EventURL}, sourceUrl, childEvent.EventStartTime, []string{childEvent.EventLocation}, childEvent.EventHostName, childEvent.EventDescription, tz)
 		if err != nil {
 			log.Printf("Failed to normalize child event metadata: %+v", err)
 			// Continue with the rest of the function even if normalization fails
@@ -754,7 +756,7 @@ func findFacebookEventData(htmlContent string, mode string, locationTimezone str
 	} else {
 		// For event list pages, use the existing logic
 
-		events = ExtractFbEventsFromJSON(eventScriptContent, locationTimezone)
+		events = ExtractFbEventsFromJSON(eventScriptContent, sourceUrl, locationTimezone)
 	}
 
 	if len(events) == 0 {
