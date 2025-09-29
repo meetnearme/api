@@ -469,7 +469,10 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 					eventsFound[originalIndex].EventLocation = childEvArrayOfOne[0].EventLocation
 				}
 
-				// If we still don't have a timezone, try to derive it from coordinates
+				// Store the event URL as the source URL for the child event
+				childEvArrayOfOne[0].SourceUrl = event.EventURL
+
+				// derive timezone from coordinates, without it all time data is unstable
 				if eventsFound[originalIndex].EventTimezone == "" &&
 					childEvArrayOfOne[0].EventLatitude != 0 &&
 					childEvArrayOfOne[0].EventLongitude != 0 {
@@ -783,6 +786,11 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 			EventSourceId: &eventSourceID,
 			StartTime:     startRFC3339,
 			EndTime:       endVal,
+		}
+
+		// Set SourceUrl if available from EventInfo
+		if eventInfo.SourceUrl != "" {
+			event.SourceUrl = &eventInfo.SourceUrl
 		}
 		weaviateEvents = append(weaviateEvents, event)
 	}

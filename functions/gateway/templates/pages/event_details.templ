@@ -21,6 +21,8 @@ templ Icon(icon string) {
 					</g>
 				</g>
 			</svg>
+		case "link":
+			@components.Icon("link")
 		case "location":
 			@components.Icon("location")
 		case "calendar":
@@ -179,6 +181,9 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 					@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
 				} else if event.EventSourceId != "" {
 					@IconLeftSection("Curator", event.EventSourceId, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				}
+				if event.SourceUrl != "" {
+					@IconLeftSection("Source", event.SourceUrl, "link", event.SourceUrl, "SOURCE_URL", event)
 				}
 				<br/>
 				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, "VENUE", event)

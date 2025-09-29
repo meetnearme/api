@@ -335,6 +335,8 @@ func humanizeFieldName(field string) string {
 		return "Currency"
 	case "PayeeId":
 		return "Payee ID"
+	case "SourceUrl":
+		return "Source URL"
 	case "HasRegistrationFields":
 		return "Has Registration Fields"
 	case "HasPurchasable":

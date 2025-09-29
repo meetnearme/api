@@ -17,6 +17,7 @@ type EventInfo struct {
 	EventLongitude    float64 `json:"event_longitude,omitempty"`
 	KnownScrapeSource string  `json:"known_scrape_source"`
 	ScrapeMode        string  `json:"scrape_mode"`
+	SourceUrl         string  `json:"source_url,omitempty"`
 }
 
 type EventBoolValid struct {
