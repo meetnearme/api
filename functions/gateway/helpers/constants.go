@@ -60,6 +60,10 @@ const DEFAULT_MAX_RADIUS = 999999
 const DEFAULT_SEARCH_RADIUS = 500.0
 const DEFAULT_EXPANDED_SEARCH_RADIUS = 2500.0
 
+// INITIAL_EMPTY_LAT_LONG represents an intentionally invalid coordinate value
+// used to distinguish between missing location data and valid coordinates (including 0,0 "null island")
+const INITIAL_EMPTY_LAT_LONG = 9e+10
+
 // placeholder for unset end time, December 4th, 292,277,026,596 AD, at 20:10:55 UTC
 const DEFAULT_UNDEFINED_END_TIME = math.MaxInt64
 

@@ -112,6 +112,7 @@ func (app *App) InitRoutes() []Route {
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo{trailingslash:\\/?}", "POST", handlers.GeoLookup, None},
+		{"/api/location/city{trailingslash:\\/?}", "GET", handlers.CityLookup, None},
 		{"/api/user-search{trailingslash:\\/?}", "GET", handlers.SearchUsersHandler, Require},
 		{"/api/users{trailingslash:\\/?}", "GET", handlers.GetUsersHandler, None},
 		{"/api/html/events{trailingslash:\\/?}", "GET", handlers.GetEventsPartial, None},

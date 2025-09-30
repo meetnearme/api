@@ -264,9 +264,9 @@ body:has(.bottom-drawer) {
   transform: translate(100%, -50%);
 }
 
-.btn.btn-bold-outline {
+.btn.btn-bold-outline,
+.btn.btn-bold-outline:hover {
   border: 5px solid oklch(var(--p));
-  color: oklch(var(--pc)) !important;
 }
 
 .btn.btn-primary.btn-bg-inverted {
