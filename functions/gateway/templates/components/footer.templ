@@ -6,7 +6,7 @@ import (
 )
 
 templ Footer() {
-	<footer class="footer-vertical text-footer grid w-full gap-6 p-6 mt-20 bg-footer-black">
+	<footer class="footer-vertical text-footer grid w-full gap-6 p-6 mt-20 bg-footer-black" x-data="footerNavigation()">
 		<div
 			class="grid grid-cols-1
     lg:[grid-template-columns:300px_1fr_300px] gap-4 items-center"
@@ -20,10 +20,10 @@ templ Footer() {
 				<img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
 			</div>
 			<nav class="flex text-footer-light gap-6 w-full justify-center" aria-label="Primary footer navigation">
-				<a href="/">All Events</a>
-				<a href="/?q=music">Music</a>
-				<a href="/?q=party">Party</a>
-				<a href="/?q=news">News</a>
+				<a href="#" @click.prevent="swapQueryParam('')" @keydown.enter.prevent="swapQueryParam('')">All Events</a>
+				<a href="#" @click.prevent="swapQueryParam('music')" @keydown.enter.prevent="swapQueryParam('music')">Music</a>
+				<a href="#" @click.prevent="swapQueryParam('party')" @keydown.enter.prevent="swapQueryParam('party')">Party</a>
+				<a href="#" @click.prevent="swapQueryParam('news')" @keydown.enter.prevent="swapQueryParam('news')">News</a>
 				<a href="/about">About Us</a>
 			</nav>
 			<nav class="flex text-footer-light gap-4 justify-center items-center" aria-label="Social links">
@@ -89,4 +89,25 @@ templ Footer() {
 			</div>
 		</section>
 	</footer>
+	<script>
+		// eslint-disable-next-line no-unused-vars
+		function footerNavigation() {
+			return {
+				swapQueryParam(newQ) {
+					const url = new URL(window.location.href);
+					const params = new URLSearchParams(url.search);
+
+					if (newQ) {
+						params.set('q', newQ);
+					} else {
+						params.delete('q');
+					}
+
+					const newUrl = `${url.pathname}?${params.toString()}`;
+
+					window.location.href = newUrl;
+				}
+			}
+		}
+	</script>
 }
