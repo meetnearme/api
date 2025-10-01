@@ -264,7 +264,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 				</div>
 			</div>
 			{ children... }
-			@Footer()
+			@Footer(userInfo.Email != "")
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>

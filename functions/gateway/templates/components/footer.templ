@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-templ Footer() {
+templ Footer(isLoggedIn bool) {
 	<footer class="footer-vertical text-footer grid w-full gap-6 p-6 mt-20 bg-footer-black" x-data="footerNavigation()">
 		<div
 			class="grid grid-cols-1
@@ -42,16 +42,17 @@ templ Footer() {
 				</a>
 			</nav>
 		</div>
-		<section class="flex flex-col row-start-2 gap-4 justify-self-center items-center text-center max-w-xl">
-			<span class="text-xl w-full font-bold text-center">Get local events straight to your inbox. </span>
-			<p class="text-center">
-				Subscribe to get the latest local events, curated for your style — wherever you are in the
-				world. No spam, just good vibes.
-			</p>
-			<form class="w-full flex gap-4 flex-col md:flex-row">
-				<label for="email-signup" class="sr-only">Email address</label>
-				<input type="email" id="email-signup" name="email" placeholder="Enter your email" class="bg-transparent text-footer-light border-b-2 px-2 focus:!rounded-lg border-footer-light w-full max-w-lg"/>
-				<button type="submit" class="btn btn-outline btn-footer-purple bg-transparent text-footer-purple hover:bg-footer-purple hover:text-black w-lg">
+		if !isLoggedIn {
+			<section class="flex flex-col row-start-2 gap-4 justify-self-center items-center text-center max-w-xl">
+				<span class="text-xl w-full font-bold text-center">Get local events straight to your inbox. </span>
+				<p class="text-center">
+					Create an account to get the latest local events, curated for your style — wherever you are in the
+					world. No spam, just good vibes.
+				</p>
+				<a
+					:href="'/auth/login?redirect=' + window.location.href + '&state=email_opt_in'"
+					class="btn btn-outline btn-footer-purple bg-transparent text-footer-purple hover:bg-footer-purple hover:text-black w-lg"
+				>
 					Get Personalized Events
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
