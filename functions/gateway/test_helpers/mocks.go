@@ -204,6 +204,7 @@ func BindToPort(t *testing.T, endpoint string) (net.Listener, error) {
 		if err != nil {
 			isPortAvailable := strings.Contains(err.Error(), "connection refused") ||
 				strings.Contains(err.Error(), "connect: connection refused") ||
+				strings.Contains(err.Error(), "actively refused") ||
 				strings.Contains(err.Error(), "EOF") || // Add EOF as an indicator of available port
 				strings.Contains(err.Error(), "no response")
 
