@@ -49,11 +49,11 @@
   }
 
   .icon-circle {
-    @apply flex justify-center items-center w-10 h-10 bg-icon-circle hover:bg-footer-purple rounded-full;
+    @apply flex justify-center items-center w-10 h-10 bg-primary hover:bg-primary/70 rounded-full;
   }
 
   .icon-circle svg {
-    @apply w-6 h-6 text-white;
+    @apply w-6 h-6 text-primary-content;
   }
 }
 

@@ -26,13 +26,6 @@ export default {
       aspectRatio: {
         '4/1': '4 / 1',
       },
-      colors: {
-        footer: '#979595',
-        'footer-light': '#C9C8C8',
-        'footer-purple': '#9c82fc',
-        'footer-black': '#000000',
-        'icon-circle': '#6004e0',
-      },
     },
     fontSize: {
       sm: '0.8rem',
