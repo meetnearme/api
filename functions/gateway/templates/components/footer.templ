@@ -6,10 +6,10 @@ import (
 )
 
 templ Footer(isLoggedIn bool) {
-	<footer class="footer-vertical grid w-full gap-6 p-6 mt-20 bg-base-200" x-data="footerNavigation()">
+	<footer class="footer-vertical grid w-full gap-4 p-4 mt-20 bg-base-200" x-data="footerNavigation()">
 		<div
 			class="grid grid-cols-1
-    lg:[grid-template-columns:300px_1fr_300px] gap-4 items-center"
+    lg:[grid-template-columns:316px_1fr_316px] gap-2 items-center"
 		>
 			<a href="/" class="btn btn-ghost flex items-center h-auto text-xl hover:bg-opacity-80 bg-black dark:bg-transparent rounded-lg w-fit px-3">
 				<img
@@ -19,7 +19,7 @@ templ Footer(isLoggedIn bool) {
 				/>
 				<img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
 			</a>
-			<nav class="flex gap-6 w-full justify-center" aria-label="Primary footer navigation">
+			<nav class="flex gap-4 w-full justify-center" aria-label="Primary footer navigation">
 				<a href="#" @click.prevent="swapQueryParam('')" @keydown.enter.prevent="swapQueryParam('')">All Events</a>
 				<a href="#" @click.prevent="swapQueryParam('music')" @keydown.enter.prevent="swapQueryParam('music')">Music</a>
 				<a href="#" @click.prevent="swapQueryParam('party')" @keydown.enter.prevent="swapQueryParam('party')">Party</a>
@@ -39,6 +39,9 @@ templ Footer(isLoggedIn bool) {
 				</a>
 				<a class="icon-circle" href="https://www.linkedin.com/company/meet-near-me/" aria-label="LinkedIn" target="_blank" rel="noopener">
 					@Icon("linkedin")
+				</a>
+				<a class="icon-circle" href="https://discord.gg/zfXWhGHs8T" aria-label="Discord" target="_blank" rel="noopener">
+					@Icon("discord")
 				</a>
 			</nav>
 		</div>
