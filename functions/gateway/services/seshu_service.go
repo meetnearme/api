@@ -425,7 +425,6 @@ func extractJSONField(htmlContent string, pattern string) ([]string, error) {
 
 // FindFacebookEventData extracts event data from Facebook events pages specifically
 func FindFacebookEventData(htmlContent string, sourceUrl string, locationTimezone string) ([]internal_types.EventInfo, error) {
-	// log.Printf("=======\n\n\n\n\n (562) HTML \n: %s", htmlContent)
 	// First, check if the HTML contains event data
 	if !strings.Contains(htmlContent, `"__typename":"Event"`) {
 		return nil, fmt.Errorf("no Facebook event data found (no __typename: Event)")

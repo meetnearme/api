@@ -351,8 +351,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", err
 	}
 
-	log.Println(os.Getenv("OPENAI_API_BASE_URL") + "/chat/completions")
-
 	req, err := http.NewRequest("POST", os.Getenv("OPENAI_API_BASE_URL")+"/chat/completions", bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return "", "", err
@@ -391,8 +389,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", fmt.Errorf("unexpected response format, `message.content` missing")
 	}
 
-	fmt.Println("Raw message content array:", messageContentArray)
-
 	// Use regex to remove incomplete JSON that OpenAI sometimes returns
 	unpaddedJSON, err := UnpadJSON(messageContentArray)
 	if err != nil {
@@ -406,8 +402,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, scraper ScrapingService) (eventsFound []types.EventInfo, htmlContent string, err error) {
 	knownScrapeSource := ""
 	isFacebook := IsFacebookEventsURL(seshuJob.NormalizedUrlKey)
-
-	fmt.Println("seshuJob.NormalizedUrlKey:", seshuJob.NormalizedUrlKey)
 
 	if isFacebook {
 		validate := func(content string) bool {
