@@ -66,7 +66,7 @@ func TestLayout(t *testing.T) {
 				"userId": "123",
 				"--p":    "#000000",
 			})
-			component := Layout(tc.sitePage, helpers.UserInfo{}, templ.Raw("hello world!"), tc.event, fakeContext, []string{})
+			component := Layout(tc.sitePage, helpers.UserInfo{}, templ.Raw("hello world!"), tc.event, false, fakeContext, []string{})
 
 			var buf bytes.Buffer
 			err := component.Render(fakeContext, &buf)

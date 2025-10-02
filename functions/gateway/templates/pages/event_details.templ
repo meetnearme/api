@@ -83,7 +83,7 @@ templ IconLeftSection(labelText, labelValue, icon string, urlString string, sect
 }
 
 templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit bool) {
-	<div class="max-w-prose mx-auto" x-data="getEventDetailsState()">
+	<div x-data="getEventDetailsState()">
 		if event.Id == "" {
 			<br/>
 			<br/>
@@ -214,6 +214,14 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				<div class="whitespace-pre-wrap">
 					@templ.Raw(event.Description)
 				</div>
+				<br/>
+				<br/>
+				<h3 class="text-xl">EVENT LOCATION</h3>
+				<br/>
+				<iframe src={ "https://www.google.com/maps/embed/v1/place?key=" + os.Getenv("GOOGLE_API_KEY") + "&q=" + event.Address } width="100%" height="300px" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+				<br/>
+				<br/>
+				<br/>
 				<template x-if="competitionConfigId && userId">
 					<div class="mt-4" id="voting-section">
 						<h3 class="text-xl">VOTING</h3>
