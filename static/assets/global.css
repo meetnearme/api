@@ -429,3 +429,9 @@ input[type='number'] {
     opacity: 0;
   }
 }
+
+/* Add bottom padding to footer when bottom-drawer is present */
+html:has(.bottom-drawer) body .space-y-4 > footer,
+html:has(.bottom-drawer) footer {
+  margin-bottom: 10rem !important;
+}

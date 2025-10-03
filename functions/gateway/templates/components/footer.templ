@@ -8,10 +8,9 @@ import (
 templ Footer(isLoggedIn bool) {
 	<footer class="footer-vertical grid w-full gap-4 p-4 mt-20 bg-base-200" x-data="footerNavigation()">
 		<div
-			class="grid grid-cols-1
-    lg:[grid-template-columns:316px_1fr_316px] gap-2 items-center"
+			class="grid items-center justify-items-center"
 		>
-			<a href="/" class="btn btn-ghost flex items-center h-auto text-xl hover:bg-opacity-80 bg-black dark:bg-transparent rounded-lg w-fit px-3">
+			<a href="/" class="btn btn-ghost flex items-center h-auto text-xl hover:bg-opacity-80 bg-black dark:bg-transparent rounded-lg w-fit px-3 mb-4">
 				<img
 					class="brand-logo"
 					alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin"
@@ -62,16 +61,16 @@ templ Footer(isLoggedIn bool) {
 			</section>
 		}
 		<section
-			class="grid grid-cols-1 md:[grid-template-columns:280px_1fr_280px] row-start-3 border pt-3 border-transparent border-t-base-300 justify-center items-center gap-4"
+			class="grid grid-cols-1 row-start-3 border pt-3 border-transparent border-t-base-300 justify-center items-center gap-4"
 			aria-label="Copyright and legal information"
 		>
-			<div class="text-sm md:col-start-2 min-w-[20ch] justify-self-center gap-4">
+			<div class="text-sm min-w-[20ch] justify-self-center gap-4">
 				&copy; 2024-{ time.Now().Format("2006") }
 				<span class="font-bold">
 					Meet Near Me LLC.
 				</span> All rights reserved.
 			</div>
-			<div class="flex gap-4 text-sm md:col-start-3 justify-self-center">
+			<div class="flex gap-4 text-sm justify-self-center">
 				<a href={ templ.URL(os.Getenv("APEX_URL") + "/terms-of-service") }>Terms of Service</a>
 				&bull;&nbsp;
 				<a href={ templ.URL(os.Getenv("APEX_URL") + "/privacy-policy") }>Privacy Policy</a>
@@ -92,7 +91,7 @@ templ Footer(isLoggedIn bool) {
 						params.delete('q');
 					}
 
-					const newUrl = `${url.pathname}?${params.toString()}`;
+					const newUrl = `/?${params.toString()}`;
 
 					window.location.href = newUrl;
 				}
