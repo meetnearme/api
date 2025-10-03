@@ -330,14 +330,15 @@ input[type='number'] {
 }
 
 .link-text {
-  color: var(--fallback-p, oklch(var(--p)));
-  background-color: var(--fallback-pc, oklch(var(--pc)));
+  color: var(--fallback-s, oklch(var(--s)));
+  /*  background-color: var(--fallback-pc, oklch(var(--pc))); */
   padding: 0.125rem 0.25rem;
 }
 
 .link-text:hover {
-  color: var(--fallback-pc, oklch(var(--pc)));
-  background-color: var(--fallback-p, oklch(var(--p)));
+  color: var(--fallback-sc, oklch(var(--sc)));
+  background-color: var(--fallback-s, oklch(var(--s)));
+  border-radius: 5px;
 }
 
 /* Show an item only when an item within the parenthas focus */

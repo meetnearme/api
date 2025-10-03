@@ -27,6 +27,64 @@ func maxContrastColor(hex string) (string, error) {
 	return "#ffffff", nil // light text on dark background
 }
 
+// returns 1-21, where 21 is maximum contrast
+func calculateContrast(color1, color2 string) (float64, error) {
+	c1, err := colorful.Hex(color1)
+	if err != nil {
+		return 0, err
+	}
+	c2, err := colorful.Hex(color2)
+	if err != nil {
+		return 0, err
+	}
+
+	lum1 := 0.2126*c1.R + 0.7152*c1.G + 0.0722*c1.B
+	lum2 := 0.2126*c2.R + 0.7152*c2.G + 0.0722*c2.B
+
+	// calculate ratio as higher/lower
+	if lum1 > lum2 {
+		return (lum1 + 0.05) / (lum2 + 0.05), nil
+	}
+	return (lum2 + 0.05) / (lum1 + 0.05), nil
+}
+
+func generateSecondaryColor(primaryHex, colorScheme string) (string, error) {
+	primaryColor, err := colorful.Hex(primaryHex)
+	if err != nil {
+		return primaryHex, err
+	}
+
+	// this is only used for contrast calculations, not actually setting the background.
+	var backgroundHex string
+	if colorScheme == "light" {
+		backgroundHex = "#ffffff" // Light theme base-100 as hex
+	} else {
+		backgroundHex = "#131316" // Dark theme base-100 as hex
+	}
+
+	contrast, err := calculateContrast(primaryHex, backgroundHex)
+	if err != nil {
+		log.Printf("warning: could not calculate contrast, using basic secondary generation: %s", err)
+		return primaryHex, err // make secondary same as primary if there's an error
+	}
+
+	// If contrast is good enough (>= 4.5 for AA accessibility), use same as primary
+	if contrast >= 4.5 {
+		return primaryHex, nil
+	}
+
+	h, s, l := primaryColor.Hsl()
+	if colorScheme == "dark" {
+		newL := math.Min(0.9, l+0.15) // Add 15% luminance, cap at 90%
+		secondaryColor := colorful.Hsl(h, s, newL)
+		return secondaryColor.Hex(), nil
+	} else {
+		newL := math.Max(0.1, l-0.15) // Subtract 15% luminance, cap at 10%
+		secondaryColor := colorful.Hsl(h, s, newL)
+		return secondaryColor.Hex(), nil
+	}
+}
+
 func hexToSrgb(hex string) (r, g, b float64) {
 	// Remove # if present
 	if hex[0] == '#' {
@@ -148,6 +206,20 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 
 	maxContrastColorOklch := hexToOklch(maxContrastColorHex)
 
+	hexSecondaryColor, err := generateSecondaryColor(hexPrimaryColor, colorScheme)
+	if err != nil {
+		log.Printf("error generating secondary color: %s", err)
+		hexSecondaryColor = hexPrimaryColor
+	}
+
+	oklchSecondaryColor := hexToOklch(hexSecondaryColor)
+	hexSecondaryContrastColor, err := maxContrastColor(hexSecondaryColor)
+	if err != nil {
+		log.Printf("error calculating secondary contrast color: %s", err)
+		hexSecondaryContrastColor = maxContrastColorHex
+	}
+	oklchSecondaryContrastColor := hexToOklch(hexSecondaryContrastColor)
+
 	rootLightThemeStyles := ""
 	lightThemeExtraStyles := ""
 	if colorScheme == "light" {
@@ -192,6 +264,10 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 				--fallback-p: %s;
 				--pc: %s;
 				--fallback-pc: %s;
+				--s: %s;
+				--fallback-s: %s;
+				--sc: %s;
+				--fallback-sc: %s;
 				--link-text: %s;
 				%s
 			}
@@ -205,7 +281,11 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 		hexPrimaryColor,
 		maxContrastColorOklch,
 		maxContrastColorHex,
-		primaryLinkColor,
+		oklchSecondaryColor,
+		hexSecondaryColor,
+		oklchSecondaryContrastColor,
+		hexSecondaryContrastColor,
+		primaryLinkColor, // not currently used
 		rootLightThemeStyles,
 		lightThemeExtraStyles,
 	)
