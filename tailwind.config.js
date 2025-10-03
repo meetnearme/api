@@ -163,11 +163,11 @@ export default {
         // Light theme
         meetnearmelight: {
           'color-scheme': 'light',
-          primary: '#6366f1',
+          primary: 'hsl(239, 84%, 67%)',
           'primary-content': '#ffffff',
-          secondary: '#7032cb',
+          secondary: 'hsl(239, 84%, 67%)',
           'secondary-content': '#ffffff',
-          accent: '#7a4cb6',
+          accent: 'hsl(239, 84%, 67%)', // not currently used
           'accent-content': '#ffffff',
           'base-100': '#ffffff',
           'base-200': '#f0f0f0',
@@ -180,14 +180,14 @@ export default {
         // Dark theme
         meetnearmedark: {
           'color-scheme': 'dark',
-          primary: '#6004e0',
+          primary: 'hsl(239, 84%, 67%)',
           'primary-content': '#ffffff',
-          secondary: '#8e4de9',
+          secondary: 'hsl(239, 84%, 80%)',
           'secondary-content': '#ffffff',
-          accent: '#b380f1',
+          accent: 'hsl(239, 84%, 80%)', // not currently used
           'accent-content': '#000000',
-          'base-100': '#1c1524',
-          'base-200': '#312a39',
+          'base-100': 'hsl(240, 10%, 8%)',
+          'base-200': 'hsl(240, 8%, 12%)',
           'base-300': '#48414e',
           'base-content': '#F5F5F5',
           '--btn-bg-inverted': '0% 0 0', // Black in OKLCH
