@@ -38,14 +38,29 @@ func calculateContrast(color1, color2 string) (float64, error) {
 		return 0, err
 	}
 
-	lum1 := 0.2126*c1.R + 0.7152*c1.G + 0.0722*c1.B
-	lum2 := 0.2126*c2.R + 0.7152*c2.G + 0.0722*c2.B
+	relLum1 := relativeLuminance(c1.R, c1.G, c1.B)
+	relLum2 := relativeLuminance(c2.R, c2.G, c2.B)
 
-	// calculate ratio as higher/lower
-	if lum1 > lum2 {
-		return (lum1 + 0.05) / (lum2 + 0.05), nil
+	// calculate ratio as higher / lower
+	if relLum1 > relLum2 {
+		return (relLum1 + 0.05) / (relLum2 + 0.05), nil
 	}
-	return (lum2 + 0.05) / (lum1 + 0.05), nil
+	return (relLum2 + 0.05) / (relLum1 + 0.05), nil
+}
+
+func relativeLuminance(r, g, b float64) float64 {
+	toLinear := func(c float64) float64 {
+		if c <= 0.04045 {
+			return c / 12.92
+		}
+		return math.Pow((c+0.055)/1.055, 2.4)
+	}
+
+	rLin := toLinear(r)
+	gLin := toLinear(g)
+	bLin := toLinear(b)
+
+	return 0.2126*rLin + 0.7152*gLin + 0.0722*bLin
 }
 
 func generateSecondaryColor(primaryHex, colorScheme string) (string, error) {
@@ -68,8 +83,8 @@ func generateSecondaryColor(primaryHex, colorScheme string) (string, error) {
 		return primaryHex, err // make secondary same as primary if there's an error
 	}
 
-	// If contrast is good enough (>= 4.5 for AA accessibility), use same as primary
-	if contrast >= 4.5 {
+	// If contrast is good enough (>= 4.5 for AA accessibility), use same as primary. I'm using 4.4 since the primary indigo brand color wouldn't have enough contrast in light mode with 4.5
+	if contrast >= 4.4 {
 		return primaryHex, nil
 	}
 
