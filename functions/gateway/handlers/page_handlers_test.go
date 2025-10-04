@@ -63,7 +63,7 @@ func TestGetHomeOrUserPage(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						"EventStrict": []interface{}{
+						helpers.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"name":           "First Test Event",
 								"description":    "Description of the first event",
@@ -330,7 +330,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						"EventStrict": []interface{}{
+						helpers.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"_additional": map[string]interface{}{
 									"id": "123",
@@ -806,7 +806,7 @@ func TestGetAddOrEditEventPage(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						"EventStrict": []interface{}{
+						helpers.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"_additional": map[string]interface{}{
 									"id": "123",
@@ -1004,7 +1004,7 @@ func TestGetEventAttendeesPage(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						"EventStrict": []interface{}{
+						helpers.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"_additional": map[string]interface{}{
 									"id": "123",

@@ -86,7 +86,7 @@ func TestGetPurchasesByEventID(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						"EventStrict": []interface{}{
+						helpers.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"name":           testEventName,
 								"description":    testEventDescription,
