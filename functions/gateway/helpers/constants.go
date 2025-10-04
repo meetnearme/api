@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	"time"
 
 	"github.com/meetnearme/api/functions/gateway/types"
 )
@@ -29,8 +28,7 @@ const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomPart
 const VotesTablePrefix = "Votes"
 
 // const WeaviateEventClassName = "EventStrict" // old version
-var timestamp = time.Now().UTC().Format("2006_01_02_150405")
-var WeaviateEventClassName = fmt.Sprintf("EventStrict_%s", timestamp) // updated version with timestamp
+const WeaviateEventClassName = "EventStrict_2025_10_3_000000"
 
 const ACT string = "ACT"
 const EVENT_ID_KEY string = "eventId"
