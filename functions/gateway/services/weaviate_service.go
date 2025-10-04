@@ -35,7 +35,8 @@ const (
 )
 
 const vectorizer = "text2vec-transformers"
-const eventClassName = helpers.WeaviateEventClassName
+
+var eventClassName = helpers.WeaviateEventClassName
 
 // Create a new struct for raw JSON operations
 type RawEventData struct {
