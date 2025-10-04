@@ -174,7 +174,12 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "eventSourceType", DataType: []string{"text"}, Description: "Source system type",
-				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
+				// ⚠️  CRITICAL: "field" tokenization is required for exact matching
+				// Without this, "SLF" would match "SLF_UNPUB" because "word" tokenization (default)
+				// splits "SLF_UNPUB" into ["SLF", "UNPUB"], causing substring matches with ContainsAny.
+				// With "field" tokenization, "SLF_UNPUB" is a single token and won't match "SLF".
+				// See: https://weaviate.io/developers/weaviate/config-refs/schema#property-tokenization
+				Tokenization: "field",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "startTime", DataType: []string{"int"}, Description: "Event start timestamp (Unix epoch)", // Use "int" for int64
@@ -190,7 +195,8 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "eventSourceId", DataType: []string{"text"}, Description: "Optional source system ID",
-				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
+				// "field" tokenization for exact ID matching (prevents partial matches)
+				Tokenization: "field",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "startingPrice", DataType: []string{"number"}, Description: "Optional starting price", // Using "number" for the int32 -> float64 conversion in ToMap
