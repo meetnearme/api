@@ -162,6 +162,7 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 			},
 			{Name: "address", DataType: []string{"text"}, Description: "Venue address",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": false, "vectorizePropertyName": false}},
+				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 			},
 			// Other fields (NOT vectorized by default)
 			{Name: "eventOwners", DataType: []string{"text[]"}, Description: "List of owner IDs", // Use "text[]" for string arrays
@@ -174,6 +175,7 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "eventSourceType", DataType: []string{"text"}, Description: "Source system type",
+				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "startTime", DataType: []string{"int"}, Description: "Event start timestamp (Unix epoch)", // Use "int" for int64
@@ -189,6 +191,7 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "eventSourceId", DataType: []string{"text"}, Description: "Optional source system ID",
+				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "startingPrice", DataType: []string{"number"}, Description: "Optional starting price", // Using "number" for the int32 -> float64 conversion in ToMap
@@ -199,6 +202,7 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 			},
 			{Name: "payeeId", DataType: []string{"text"}, Description: "Optional payee ID",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
+				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 			},
 			{Name: "hasRegistrationFields", DataType: []string{"boolean"}, Description: "Flag for registration fields", // Use "boolean" for bool
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
@@ -214,14 +218,13 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 			},
 			{Name: "categories", DataType: []string{"text[]"}, Description: "Optional list of categories",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
+				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 			},
 			{Name: "tags", DataType: []string{"text[]"}, Description: "Optional list of tags",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
+				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 			},
 			{Name: "updatedBy", DataType: []string{"text"}, Description: "User ID of last updater",
-				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
-			},
-			{Name: "refUrl", DataType: []string{"text"}, Description: "Optional reference URL",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "hideCrossPromo", DataType: []string{"boolean"}, Description: "Flag to hide cross-promotion",
@@ -303,9 +306,6 @@ func EventStructToMap(e types.Event) map[string]interface{} {
 	}
 	if e.UpdatedBy != "" {
 		props["updatedBy"] = e.UpdatedBy
-	}
-	if e.RefUrl != "" {
-		props["refUrl"] = e.RefUrl
 	}
 	if e.CompetitionConfigId != "" {
 		props["competitionConfigId"] = e.CompetitionConfigId
@@ -820,7 +820,7 @@ func BulkGetWeaviateEventByID(ctx context.Context, client *weaviate.Client, docI
 		{Name: "lat"}, {Name: "long"}, {Name: "eventSourceId"}, {Name: "startingPrice"},
 		{Name: "currency"}, {Name: "payeeId"}, {Name: "hasRegistrationFields"}, {Name: "hasPurchasable"},
 		{Name: "imageUrl"}, {Name: "timezone"}, {Name: "categories"}, {Name: "tags"},
-		{Name: "updatedBy"}, {Name: "refUrl"},
+		{Name: "updatedBy"},
 		{Name: "hideCrossPromo"}, {Name: "competitionConfigId"},
 		{Name: "shadowOwners"},
 		{Name: "_additional", Fields: []graphql.Field{
