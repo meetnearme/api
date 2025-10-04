@@ -300,7 +300,7 @@ func TestSearchWeaviateEvents(t *testing.T) {
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
 						// The key here should match the Class name your code expects.
-						"EventStrict": []interface{}{
+						helpers.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"ClassName":   "Event", // The field your code was looking for.
 								"name":        "Rock Concert",
@@ -523,8 +523,8 @@ func TestGetWeaviateEventByID(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						// The key is the Class Name your code is querying, likely "EventStrict"
-						"EventStrict": []interface{}{
+						// The key is the Class Name your code is querying
+						helpers.WeaviateEventClassName: []interface{}{
 							// This map represents the single event object found
 							map[string]interface{}{
 								"name":        expectedName,
@@ -634,8 +634,8 @@ func TestBulkGetWeaviateEventByID(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						// The key is the Class Name, likely "EventStrict"
-						"EventStrict": []interface{}{
+						// The key is the Class Name
+						helpers.WeaviateEventClassName: []interface{}{
 							// First event object
 							map[string]interface{}{
 								"name":        "First Mock Event",

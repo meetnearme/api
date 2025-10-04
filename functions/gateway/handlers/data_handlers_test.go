@@ -116,7 +116,7 @@ func TestPostEventHandler(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						"EventStrict": []interface{}{
+						helpers.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"name":        "Test Event",
 								"description": "A test event",
@@ -595,7 +595,7 @@ func TestSearchEvents(t *testing.T) {
 				mockResponse = models.GraphQLResponse{
 					Data: map[string]models.JSONObject{
 						"Get": map[string]interface{}{
-							"EventStrict": []interface{}{
+							helpers.WeaviateEventClassName: []interface{}{
 								map[string]interface{}{
 									"name":            "Conference on Go Programming",
 									"description":     "A deep dive into the Go language and its powerful ecosystem.",
@@ -619,7 +619,7 @@ func TestSearchEvents(t *testing.T) {
 				mockResponse = models.GraphQLResponse{
 					Data: map[string]models.JSONObject{
 						"Get": map[string]interface{}{
-							"EventStrict": []interface{}{},
+							helpers.WeaviateEventClassName: []interface{}{},
 						},
 					},
 				}
@@ -628,7 +628,7 @@ func TestSearchEvents(t *testing.T) {
 				mockResponse = models.GraphQLResponse{
 					Data: map[string]models.JSONObject{
 						"Get": map[string]interface{}{
-							"EventStrict": []interface{}{},
+							helpers.WeaviateEventClassName: []interface{}{},
 						},
 					},
 				}

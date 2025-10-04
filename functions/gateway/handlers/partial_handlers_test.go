@@ -491,7 +491,7 @@ func TestGetEventsPartial(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						"EventStrict": events,
+						helpers.WeaviateEventClassName: events,
 					},
 				},
 			}
@@ -1334,7 +1334,7 @@ func TestGetEventAdminChildrenPartial(t *testing.T) {
 				mockResponse := models.GraphQLResponse{
 					Data: map[string]models.JSONObject{
 						"Get": map[string]interface{}{
-							"EventStrict": []interface{}{
+							helpers.WeaviateEventClassName: []interface{}{
 								map[string]interface{}{
 									"name":            "Child Event 1",
 									"description":     "First child event",
@@ -1377,7 +1377,7 @@ func TestGetEventAdminChildrenPartial(t *testing.T) {
 				mockResponse := models.GraphQLResponse{
 					Data: map[string]models.JSONObject{
 						"Get": map[string]interface{}{
-							"EventStrict": []interface{}{
+							helpers.WeaviateEventClassName: []interface{}{
 								map[string]interface{}{
 									"name":            "Parent Event",
 									"description":     "Parent event description",
