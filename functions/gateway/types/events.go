@@ -30,6 +30,7 @@ type Event struct {
 	CreatedAt             int64         `json:"createdAt,omitempty"`
 	UpdatedAt             int64         `json:"updatedAt,omitempty"`
 	UpdatedBy             string        `json:"updatedBy,omitempty"`
+	RefUrl                string        `json:"refUrl,omitempty"`
 	HideCrossPromo        bool          `json:"hideCrossPromo,omitempty"`
 	CompetitionConfigId   string        `json:"competitionConfigId,omitempty"`
 	ShadowOwners          []string      `json:"shadowOwners,omitempty"`

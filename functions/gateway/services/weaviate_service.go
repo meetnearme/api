@@ -162,7 +162,6 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 			},
 			{Name: "address", DataType: []string{"text"}, Description: "Venue address",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": false, "vectorizePropertyName": false}},
-				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 			},
 			// Other fields (NOT vectorized by default)
 			{Name: "eventOwners", DataType: []string{"text[]"}, Description: "List of owner IDs", // Use "text[]" for string arrays
@@ -226,6 +225,10 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 			},
 			{Name: "updatedBy", DataType: []string{"text"}, Description: "User ID of last updater",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
+			},
+			{Name: "refUrl", DataType: []string{"text"}, Description: "Optional reference URL",
+				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
+				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 			},
 			{Name: "hideCrossPromo", DataType: []string{"boolean"}, Description: "Flag to hide cross-promotion",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
@@ -306,6 +309,9 @@ func EventStructToMap(e types.Event) map[string]interface{} {
 	}
 	if e.UpdatedBy != "" {
 		props["updatedBy"] = e.UpdatedBy
+	}
+	if e.RefUrl != "" {
+		props["refUrl"] = e.RefUrl
 	}
 	if e.CompetitionConfigId != "" {
 		props["competitionConfigId"] = e.CompetitionConfigId
@@ -820,7 +826,7 @@ func BulkGetWeaviateEventByID(ctx context.Context, client *weaviate.Client, docI
 		{Name: "lat"}, {Name: "long"}, {Name: "eventSourceId"}, {Name: "startingPrice"},
 		{Name: "currency"}, {Name: "payeeId"}, {Name: "hasRegistrationFields"}, {Name: "hasPurchasable"},
 		{Name: "imageUrl"}, {Name: "timezone"}, {Name: "categories"}, {Name: "tags"},
-		{Name: "updatedBy"},
+		{Name: "updatedBy"}, {Name: "refUrl"},
 		{Name: "hideCrossPromo"}, {Name: "competitionConfigId"},
 		{Name: "shadowOwners"},
 		{Name: "_additional", Fields: []graphql.Field{
