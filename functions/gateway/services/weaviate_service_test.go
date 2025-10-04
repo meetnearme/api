@@ -265,6 +265,8 @@ func TestSearchWeaviateEvents(t *testing.T) {
 		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
 	}()
 
+	className := helpers.WeaviateEventClassName
+
 	hostAndPort := test_helpers.GetNextPort()
 	parts := strings.Split(hostAndPort, ":")
 	host, port := parts[0], parts[1]
@@ -296,12 +298,10 @@ func TestSearchWeaviateEvents(t *testing.T) {
 				t.Errorf("expected method POST for /v1/graphql, got %s", r.Method)
 			}
 
-			// FIX 2: Make the mock response more realistic.
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						// The key here should match the Class name your code expects.
-						"EventStrict": []interface{}{
+						className: []interface{}{
 							map[string]interface{}{
 								"ClassName":   "Event", // The field your code was looking for.
 								"name":        "Rock Concert",
@@ -499,6 +499,8 @@ func TestGetWeaviateEventByID(t *testing.T) {
 	os.Setenv("WEAVIATE_SCHEME", "http")
 	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
 
+	className := helpers.WeaviateEventClassName
+
 	// Defer the cleanup to restore original env vars
 	defer func() {
 		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
@@ -524,8 +526,7 @@ func TestGetWeaviateEventByID(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						// The key is the Class Name your code is querying, likely "EventStrict"
-						"EventStrict": []interface{}{
+						className: []interface{}{
 							// This map represents the single event object found
 							map[string]interface{}{
 								"name":        expectedName,
@@ -613,6 +614,8 @@ func TestBulkGetWeaviateEventByID(t *testing.T) {
 	os.Setenv("WEAVIATE_SCHEME", "http")
 	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
 
+	className := helpers.WeaviateEventClassName
+
 	// --- Mock Server Logic for Bulk Get By ID ---
 	idsToFetch := []string{
 		"00000000-0000-0000-0000-000000000123",
@@ -635,8 +638,7 @@ func TestBulkGetWeaviateEventByID(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						// The key is the Class Name, likely "EventStrict"
-						"EventStrict": []interface{}{
+						className: []interface{}{
 							// First event object
 							map[string]interface{}{
 								"name":        "First Mock Event",
