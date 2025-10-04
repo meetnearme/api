@@ -49,7 +49,7 @@
   }
 
   .icon-circle {
-    @apply flex justify-center items-center w-8 h-8 bg-primary hover:bg-primary/70 rounded-full;
+    @apply flex justify-center items-center w-8 h-8 bg-primary hover:bg-secondary rounded-full;
   }
 
   .icon-circle svg {

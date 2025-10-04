@@ -83,8 +83,9 @@ func generateSecondaryColor(primaryHex, colorScheme string) (string, error) {
 		return primaryHex, err // make secondary same as primary if there's an error
 	}
 
-	// If contrast is good enough (>= 4.5 for AA accessibility), use same as primary. I'm using 4.4 since the primary indigo brand color wouldn't have enough contrast in light mode with 4.5
-	if contrast >= 4.4 {
+	// If contrast is good enough (>= 4.5 for AA accessibility), use same as primary.
+	// This means for some custom colors with good contrast, there won't be a hover state that's different from the primary since primary and secondary will be the same.
+	if contrast >= 4.5 {
 		return primaryHex, nil
 	}
 

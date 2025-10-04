@@ -232,7 +232,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 			<div id="main-nav" class="navbar fixed z-50 top-0 w-full bg-base-100 shadow-md mb-5">
 				<div class="container mx-auto flex items-center">
 					<div class="flex flex-1">
-						<a href="/" class="btn pl-2 text-xl flex flex-col bg-black hover:bg-black/0.7 rounded-lg">
+						<a href="/" class="btn pl-2 text-xl bg-black rounded-lg">
 							<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 							<img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
 						</a>
@@ -346,7 +346,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 								// @click function call is a global shared from home_details.templ
 								<button
 									type="submit"
-									class="btn btn-red-500 w-full sticky top-0 z-[10]"
+									class="btn btn-primary w-full sticky top-0 z-[10]"
 									@click.prevent="handleFilterSubmit"
 								>
 									Apply Filters
@@ -435,7 +435,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 													<span>No matches found</span>
 												</li>
 												<li
-													class="px-4 py-2 text-sm cursor-pointer bg-primary focus-visible:bg-secondary focus-visible:outline-none hover:bg-secondary"
+													class="px-4 py-2 text-sm cursor-pointer bg-primary focus-visible:bg-secondary focus-visible:outline-none focus-visible:text-secondary-content hover:bg-secondary hover:text-secondary-content"
 													tabindex="0"
 													role="option"
 													@click="findAndSetLocation"
@@ -443,7 +443,6 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 													:id="'option-locateme'"
 												>
 													<span class="flex gap-2">
-														@Icon("location")
 														@Icon("location-outline")
 														Locate Me
 													</span>

@@ -165,7 +165,7 @@ export default {
           'color-scheme': 'light',
           primary: 'hsl(239, 84%, 67%)',
           'primary-content': '#ffffff',
-          secondary: 'hsl(239, 84%, 67%)',
+          secondary: 'hsl(239, 84%, 72%)',
           'secondary-content': '#ffffff',
           accent: 'hsl(239, 84%, 67%)', // not currently used
           'accent-content': '#ffffff',
@@ -182,8 +182,8 @@ export default {
           'color-scheme': 'dark',
           primary: 'hsl(239, 84%, 67%)',
           'primary-content': '#ffffff',
-          secondary: 'hsl(239, 84%, 80%)',
-          'secondary-content': '#ffffff',
+          secondary: 'hsl(235, 100%, 86%)',
+          'secondary-content': 'hsl(240, 10%, 8%)',
           accent: 'hsl(239, 84%, 80%)', // not currently used
           'accent-content': '#000000',
           'base-100': 'hsl(240, 10%, 8%)',
