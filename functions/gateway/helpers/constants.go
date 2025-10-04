@@ -27,7 +27,8 @@ const CompetitionRoundsTablePrefix = "CompetitionRounds"
 const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomParticipant"
 const VotesTablePrefix = "Votes"
 
-const WeaviateEventClassName = "EventStrict"
+// const WeaviateEventClassName = "EventStrict" // old version
+const WeaviateEventClassName = "EventStrict_2025_10_4_000000"
 
 const ACT string = "ACT"
 const EVENT_ID_KEY string = "eventId"
