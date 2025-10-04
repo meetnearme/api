@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"errors"
+
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/rdsdata"
 	rds_types "github.com/aws/aws-sdk-go-v2/service/rdsdata/types"
@@ -313,6 +315,9 @@ func ScreenshotToStandardDir(t *testing.T, page playwright.Page, screenshotName 
 func GetPlaywrightBrowser() (*playwright.Browser, error) {
 	pw, err := playwright.Run()
 	if err != nil {
+		if strings.Contains(err.Error(), "driver") {
+			return nil, errors.New("playwright driver not installed")
+		}
 		return nil, err
 	}
 

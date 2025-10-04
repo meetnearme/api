@@ -482,12 +482,10 @@ func TestGetEventDetailsPage(t *testing.T) {
 
 	browser, err := test_helpers.GetPlaywrightBrowser()
 	if err != nil {
-		log.Fatal(err)
+		t.Skipf("skipping playwright flow: %v", err)
 	}
-
-	if browser == nil || err != nil {
-		log.Fatalf("could not launch browser: %v\n", err)
-		return
+	if browser == nil {
+		t.Skip("skipping playwright flow: browser unavailable")
 	}
 	page, err := (*browser).NewPage()
 	if err != nil {
