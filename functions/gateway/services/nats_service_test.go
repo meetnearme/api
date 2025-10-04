@@ -61,18 +61,18 @@ func TestPeekTopOfQueue(t *testing.T) {
 	}
 }
 
-// func TestPeekFromEmptyQueue(t *testing.T) {
-// 	ctx := context.Background()
-// 	mockQueue := test_helpers.NewMockNatsService()
+func TestPeekFromEmptyQueue(t *testing.T) {
+	ctx := context.Background()
+	mockQueue := test_helpers.NewMockNatsService()
 
-// 	top, err := mockQueue.PeekTopOfQueue(ctx)
-// 	if err == nil {
-// 		t.Error("Expected error when peeking from empty queue, got nil")
-// 	}
-// 	if top != nil {
-// 		t.Error("Expected nil message when queue is empty")
-// 	}
-// }
+	top, err := mockQueue.PeekTopOfQueue(ctx)
+	if err != nil {
+		t.Fatalf("expected no error when queue empty, got %v", err)
+	}
+	if top != nil {
+		t.Errorf("expected nil message when queue is empty")
+	}
+}
 
 func TestConsumeMsg(t *testing.T) {
 	ctx := context.Background()
@@ -92,5 +92,27 @@ func TestConsumeMsg(t *testing.T) {
 	top, _ := mockQueue.PeekTopOfQueue(ctx)
 	if top != nil {
 		t.Error("Expected queue to be empty after ConsumeMsg, but it's not")
+	}
+}
+
+func TestPublishMsgMarshalError(t *testing.T) {
+	ctx := context.Background()
+	mockQueue := test_helpers.NewMockNatsService()
+
+	err := mockQueue.PublishMsg(ctx, func() {})
+	if err == nil {
+		t.Fatalf("expected marshal error for unsupported payload")
+	}
+	if len(mockQueue.PublishedMsgs) != 0 {
+		t.Errorf("expected no messages stored on marshal failure")
+	}
+}
+
+func TestConsumeMsgEmptyQueue(t *testing.T) {
+	ctx := context.Background()
+	mockQueue := test_helpers.NewMockNatsService()
+
+	if err := mockQueue.ConsumeMsg(ctx); err != nil {
+		t.Fatalf("expected no error consuming empty queue, got %v", err)
 	}
 }
