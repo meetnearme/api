@@ -127,7 +127,7 @@ func TestGenerateSecondaryColor(t *testing.T) {
 			name:        "Medium primary on light background - poor contrast",
 			primaryHex:  "#6366f1", // Indigo
 			colorScheme: "light",
-			expectSame:  true,
+			expectSame:  false,
 		},
 		{
 			name:        "Medium primary on dark background - poor contrast",

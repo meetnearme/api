@@ -88,7 +88,7 @@ export default {
           position: 'fixed',
           left: '0',
           top: '40vw',
-          opacity: '0.25',
+          opacity: '0.15',
           zIndex: '-1',
           '@screen sm': {
             top: '50vw',
