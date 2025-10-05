@@ -165,7 +165,7 @@ export default {
           'color-scheme': 'light',
           primary: 'hsl(239, 84%, 67%)',
           'primary-content': '#ffffff',
-          secondary: 'hsl(239, 84%, 72%)',
+          secondary: 'hsl(242, 84%, 60%)',
           'secondary-content': '#ffffff',
           accent: 'hsl(239, 84%, 67%)', // not currently used
           'accent-content': '#ffffff',
