@@ -535,7 +535,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						<button
 							type="button"
 							:class="{ 'btn-primary': $store.urlState.start_time === 'this_month' }"
-							class="btn hover:bg-primary grow px-2 py-2 text-md md:text-xl"
+							class="btn hover:bg-primary hover:text-primary-content grow px-2 py-2 text-md md:text-xl"
 							@click="$store.urlState.setParam('start_time', 'this_month')"
 						>
 							THIS MONTH
@@ -543,7 +543,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						<button
 							type="button"
 							:class="{ 'btn-primary': $store.urlState.start_time === 'today' }"
-							class="btn hover:bg-primary grow px-2 py-2 text-md md:text-xl"
+							class="btn hover:bg-primary hover:text-primary-content grow px-2 py-2 text-md md:text-xl"
 							@click="$store.urlState.setParam('start_time', 'today')"
 						>
 							TODAY
@@ -551,7 +551,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						<button
 							type="button"
 							:class="{ 'btn-primary': $store.urlState.start_time === 'tomorrow' }"
-							class="btn hover:bg-primary grow px-2 py-2 text-md md:text-xl"
+							class="btn hover:btn-primary hover:text-primary-content grow px-2 py-2 text-md md:text-xl"
 							@click="$store.urlState.setParam('start_time', 'tomorrow')"
 						>
 							TOMORROW
@@ -559,7 +559,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						<button
 							type="button"
 							:class="{ 'btn-primary': $store.urlState.start_time === 'this_week' }"
-							class="btn hover:bg-primary grow px-2 py-2 text-md md:text-xl"
+							class="btn hover:btn-primary grow px-2 py-2 text-md md:text-xl"
 							@click="$store.urlState.setParam('start_time', 'this_week')"
 						>
 							THIS WEEK
