@@ -763,7 +763,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 		}
 
 		tzString := tz.String()
-		eventSourceID := eventInfo.EventURL
+		eventSourceID := eventInfo.SourceUrl
 
 		event := RawEvent{
 			RawEventData: RawEventData{
@@ -784,7 +784,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 
 		// Set SourceUrl if available from EventInfo
 		if eventInfo.SourceUrl != "" {
-			event.SourceUrl = &eventInfo.SourceUrl
+			event.SourceUrl = &eventInfo.EventURL
 		}
 		weaviateEvents = append(weaviateEvents, event)
 	}
