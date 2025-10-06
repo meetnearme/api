@@ -356,10 +356,10 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 									<h3 class="text-xl my-3">
 										Location <span x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? '(Geocoordinates)' : '' "></span>
 									</h3>
-									<span x-show="locationAccessDeclined" class="text-error text-sm mb-2">
+									<span x-show="locationAccessDeclined" class=" text-sm mb-2">
 										Location access was declined.
 									</span>
-									<span x-show="cityNotFound" class="text-error text-sm mb-2">
+									<span x-show="cityNotFound" class="badge badge-error text-sm mb-2">
 										Error: City not found.
 									</span>
 									<div class="relative">
@@ -435,7 +435,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 													<span>No matches found</span>
 												</li>
 												<li
-													class="px-4 py-2 text-sm cursor-pointer bg-primary focus-visible:bg-secondary focus-visible:outline-none focus-visible:text-secondary-content hover:bg-secondary hover:text-secondary-content"
+													class="px-4 py-2 text-sm cursor-pointer bg-primary text-primary-content focus-visible:bg-secondary focus-visible:outline-none focus-visible:text-secondary-content hover:bg-secondary hover:text-secondary-content"
 													tabindex="0"
 													role="option"
 													@click="findAndSetLocation"
