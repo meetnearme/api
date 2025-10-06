@@ -186,6 +186,12 @@ func runMigrations(db *sql.DB, migrations []Migration) error {
 	for _, migration := range migrations {
 		fmt.Printf("Running migration: %s\n", migration.Filename)
 
+		// Set session variables before executing migration
+		// This allows migrations to use current_setting() to access environment variables
+		if err := setMigrationEnvVars(db); err != nil {
+			fmt.Printf("Warning: failed to set migration environment variables: %v\n", err)
+		}
+
 		// Execute the migration
 		if _, err := db.Exec(migration.Content); err != nil {
 			return fmt.Errorf("failed to run migration %s: %w", migration.Filename, err)
@@ -195,4 +201,29 @@ func runMigrations(db *sql.DB, migrations []Migration) error {
 	}
 
 	return nil
+}
+
+// setMigrationEnvVars sets PostgreSQL session variables from environment variables
+// These can be accessed in SQL using current_setting('app.var_name')
+func setMigrationEnvVars(db *sql.DB) error {
+	envVars := map[string]string{
+		"app.seshu_jobs_table_name": getEnvOrDefault("SESHU_JOBS_TABLE_NAME", "seshujobs"),
+	}
+
+	for key, value := range envVars {
+		query := fmt.Sprintf("SET %s = '%s'", key, value)
+		if _, err := db.Exec(query); err != nil {
+			return fmt.Errorf("failed to set %s: %w", key, err)
+		}
+	}
+
+	return nil
+}
+
+// getEnvOrDefault returns the environment variable value or a default if not set
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

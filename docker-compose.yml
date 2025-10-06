@@ -99,6 +99,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       POSTGRES_MIGRATIONS_DIR: /go-app/migrations
+      SESHU_JOBS_TABLE_NAME: ${SESHU_JOBS_TABLE_NAME:-seshujobs}
 
       WEAVIATE_SCHEME: http
       WEAVIATE_HOST: weaviate

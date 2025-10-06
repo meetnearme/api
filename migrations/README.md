@@ -1,95 +1,153 @@
 # Database Migrations
 
-This directory contains database migration files that are automatically executed
-in numerical order by the `run_migrations` Go binary during application startup.
+This directory contains SQL migration files that are automatically executed when
+the application starts.
 
-## How It Fits Into the Architecture
+## Migration Files
 
-1. **Main App** (`functions/gateway/main.go`) starts independently
-2. **Migration Binary** (`cmd/run-migrations/main.go`) discovers and executes
-   files from this directory
-3. **SQL Files** in this directory are executed manually when needed via
-   `npm run docker:migrations:run`
+Migration files must follow the naming convention: `NNN_description.sql`
 
-## Naming Convention
+- `NNN`: A three-digit sequence number (e.g., `001`, `002`, `003`)
+- `description`: A brief description of what the migration does
+- `.sql`: The file extension
 
-Migrations must follow this naming pattern:
+Example: `001_add_location_timezone.sql`
 
-```
-{sequence_number}_{description}.sql
-```
+## Dynamic Table Names
 
-### Examples:
+To keep database table names in sync across the application, migrations can use
+dynamic table names via PostgreSQL session variables.
 
-- `001_add_location_timezone.sql`
-- `002_add_user_preferences.sql`
-- `003_update_event_schema.sql`
+### Available Session Variables
 
-## Rules
+- `app.seshu_jobs_table_name`: The name of the seshu jobs table (default:
+  `seshujobs`)
 
-1. **Sequence Numbers**: Must be sequential integers starting from 001
-2. **Descriptions**: Use lowercase with underscores, descriptive of the change
-3. **File Extension**: Must end with `.sql`
-4. **Ordering**: Files are executed in numerical order (001, 002, 003, etc.)
+### How It Works
 
-## Adding New Migrations
+1. **Environment Variable**: Set `SESHU_JOBS_TABLE_NAME` in your environment
+   (`.env` file or Docker Compose)
+2. **Go Migration Runner**: The migration runner reads the environment variable
+   and sets it as a PostgreSQL session variable
+3. **SQL Migration**: Use `current_setting('app.seshu_jobs_table_name', true)`
+   to access the table name in your SQL
 
-1. Create a new file with the next available sequence number
-2. Use a descriptive name that explains what the migration does
-3. Make the migration idempotent (safe to run multiple times)
-4. Test the migration on a copy of production data before deploying
-
-## Example Migration
+### Example Migration with Dynamic Table Name
 
 ```sql
--- Migration: 001_add_location_timezone.sql
--- Description: Adds location_timezone column to seshujobs table
-
 DO $$
+DECLARE
+    table_name_var TEXT;
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'seshujobs'
-        AND column_name = 'location_timezone'
-    ) THEN
-        ALTER TABLE seshujobs ADD COLUMN location_timezone TEXT;
-        RAISE NOTICE 'Added location_timezone column to seshujobs table';
-    ELSE
-        RAISE NOTICE 'Column location_timezone already exists in seshujobs table';
+    -- Get table name from session variable (set by Go migration runner)
+    table_name_var := current_setting('app.seshu_jobs_table_name', true);
+
+    -- Fallback to default if not set
+    IF table_name_var IS NULL OR table_name_var = '' THEN
+        table_name_var := 'seshujobs';
     END IF;
+
+    -- Use dynamic SQL with format() to safely quote the table name
+    EXECUTE format('ALTER TABLE %I ADD COLUMN new_column TEXT', table_name_var);
 END$$;
 ```
 
-## Important Notes
+### Configuration Locations
 
-- **Never delete or rename existing migration files** - this will break the
-  sequence
-- **Always test migrations** before deploying to production
-- **Use transactions** when possible to ensure rollback capability
-- **Keep migrations small and focused** on single schema changes
-- **Use `IF NOT EXISTS` checks** to make migrations idempotent
+The table name configuration is defined in multiple places to ensure
+consistency:
 
-## Execution Flow
+1. **Environment Variables** (`.env` file or Docker Compose):
 
-```
-Manual Migration Execution
-       ↓
-npm run docker:migrations:run
-       ↓
-Migration binary scans this directory
-       ↓
-Files sorted by sequence number
-       ↓
-Each .sql file executed in order
-       ↓
-Migration complete - app continues running
+   ```bash
+   SESHU_JOBS_TABLE_NAME=seshujobs
+   ```
+
+2. **Docker Compose** (`docker-compose.yml`):
+
+   ```yaml
+   environment:
+     SESHU_JOBS_TABLE_NAME: ${SESHU_JOBS_TABLE_NAME:-seshujobs}
+   ```
+
+3. **Go Constants** (`functions/gateway/helpers/constants.go`):
+
+   ```go
+   const SESHU_JOBS_TABLE_NAME = "seshujobs" // Default value
+   ```
+
+4. **Migration Runner** (`functions/gateway/startup/run_migrations.go`):
+   - Reads environment variable
+   - Sets PostgreSQL session variable
+   - Provides default fallback
+
+### Benefits
+
+- **Single Source of Truth**: Change the table name in one place (environment
+  variable)
+- **Type Safety**: Go code uses constants, not magic strings
+- **Flexibility**: Easy to use different table names for testing or different
+  environments
+- **Backward Compatible**: Defaults to original table name if environment
+  variable is not set
+
+## Creating New Migrations
+
+1. Create a new file with the next sequence number
+2. Use the idempotent pattern with `IF NOT EXISTS` checks
+3. Use dynamic table names when referencing application tables
+4. Test the migration in a local environment first
+
+## Migration Execution
+
+Migrations are automatically executed:
+
+- On application startup (except in test environment)
+- In sequence order (sorted by number)
+- With retry logic for database connectivity
+- With proper error handling and logging
+
+To manually run migrations:
+
+```bash
+# Set environment variables
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5433
+export POSTGRES_DB=postgres
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=postgres
+export POSTGRES_MIGRATIONS_DIR=./migrations
+export SESHU_JOBS_TABLE_NAME=seshujobs
+
+# Run the application (migrations run on startup)
+go run functions/gateway/main.go
 ```
 
 ## Troubleshooting
 
-- **Migration not running**: Check that the file follows the naming convention
-- **Sequence errors**: Ensure files are numbered sequentially without gaps
-- **Execution failures**: Check SQL syntax and database permissions
-- **Missing files**: Verify the migrations directory is properly mounted in
-  Docker
+### Migration fails with "relation does not exist"
+
+Check that:
+
+1. The initial table creation script (`seshujobs_init.sql`) has been executed by
+   Docker
+2. The table name in the environment variable matches the actual table name
+3. The PostgreSQL session variable is being set correctly (check logs)
+
+### Migration runs multiple times
+
+Migrations use idempotent patterns with `IF NOT EXISTS` checks, so running them
+multiple times should be safe. However, if you see unexpected behavior:
+
+1. Check that the migration logic properly handles existing state
+2. Verify the migration sequence numbers are unique
+3. Consider adding a migration tracking table in the future
+
+### Table name mismatch
+
+If you see errors about table names not matching:
+
+1. Check the `SESHU_JOBS_TABLE_NAME` environment variable in `.env`
+2. Verify Docker Compose is passing the environment variable correctly
+3. Restart the Docker containers to pick up environment changes
+4. Check the application logs for warnings about missing session variables
