@@ -334,14 +334,14 @@ func GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor 
 	return GetHTMLFromURLWithBase(defaultBaseURL, seshuJob.NormalizedUrlKey, waitMs, jsRender, waitFor, 1, nil)
 }
 
-func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
+func CreateChatSession(markdownLinesAsArr string, localPrompt string) (string, string, error) {
 	client := &http.Client{}
 	payload := CreateChatSessionPayload{
 		Model: "gpt-4o-mini",
 		Messages: []Message{
 			{
 				Role:    "user",
-				Content: systemPrompt + markdownLinesAsArr,
+				Content: localPrompt + markdownLinesAsArr,
 			},
 		},
 	}
@@ -506,10 +506,11 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 	if mode == helpers.SESHU_MODE_ONBOARD {
 
 		// Set system prompt based on action
+		var localPrompt string
 		if action == "init" {
-			systemPrompt = GetSystemPrompt(false)
+			localPrompt = GetSystemPrompt(false)
 		} else {
-			systemPrompt = GetSystemPrompt(true)
+			localPrompt = GetSystemPrompt(true)
 		}
 
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
@@ -539,7 +540,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 			return nil, "", err
 		}
 
-		_, response, err = CreateChatSession(string(jsonPayload))
+		_, response, err = CreateChatSession(string(jsonPayload), localPrompt)
 		if err != nil {
 			return nil, "", err
 		}
