@@ -843,8 +843,8 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				locationAccessDeclined: false,
 				cityNotFound: false,
 				findAndSetLocation() {
-
 				const success = (position) => {
+					this.isLoading = true;
 					this.locationAccessDeclined = false;
 					this.cityNotFound = false;
 					const latitude = position.coords.latitude.toFixed(3);
@@ -876,17 +876,23 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						// eslint-disable-next-line no-console
 						console.error("Error fetching city:", error);
 					})
+					.finally(() => {
+						this.isLoading = false;
+						this.isOpen = false;
+						this.openedWithKeyboard = false;
+					})
+
 				}
 
 				// This gets executed if the user does not allow the browser to access their location
 				const error = () => {
-					this.locationAccessDeclined = true
+					this.locationAccessDeclined = true;
+					this.isOpen = false;
+					this.openedWithKeyboard = false;
 				}
 
 				navigator.geolocation.getCurrentPosition(success, error);
-				this.isOpen = false
-				this.openedWithKeyboard = false
-				},
+			},
 
 				getFilteredOptions(query) {
 					this.options = this.allOptions.filter((option) =>
