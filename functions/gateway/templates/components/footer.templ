@@ -10,7 +10,7 @@ templ Footer(isLoggedIn bool) {
 		<div
 			class="grid items-center justify-items-center"
 		>
-			<a href="/" class="btn btn-ghost flex items-center h-auto text-xl hover:bg-opacity-80 bg-black dark:bg-transparent rounded-lg w-fit px-3 mb-4">
+			<a href="/" class="btn btn-ghost flex items-center h-auto text-xl bg-black dark:bg-transparent rounded-lg w-fit px-3 mb-4">
 				<img
 					class="brand-logo"
 					alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin"
@@ -53,7 +53,7 @@ templ Footer(isLoggedIn bool) {
 				</p>
 				<a
 					:href="'/auth/login?redirect=' + window.location.href + '&state=email_opt_in'"
-					class="btn btn-outline btn-primary bg-transparent hover:bg-primary hover:text-primary-content w-lg"
+					class="btn btn-outline btn-secondary bg-transparent hover:bg-secondary hover:text-secondary-content w-lg"
 				>
 					Get Personalized Events
 					@Icon("send")

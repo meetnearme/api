@@ -27,6 +27,9 @@ const CompetitionRoundsTablePrefix = "CompetitionRounds"
 const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomParticipant"
 const VotesTablePrefix = "Votes"
 
+// PostgreSQL table names (read from environment with defaults)
+const SESHU_JOBS_TABLE_NAME = "seshujobs" // Default value
+
 // const WeaviateEventClassName = "EventStrict" // old version
 const WeaviateEventClassName = "EventStrict_2025_10_4_000000"
 

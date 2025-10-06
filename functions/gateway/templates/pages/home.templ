@@ -61,10 +61,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 	if mode == helpers.EV_MODE_UPCOMING || mode == "" {
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
-				No events found, try changing your filters like location, date, and time, or
-				<br/>
-				<br/>
-				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search Radius</a>
+				No events found, try changing your filters like location, date, and time, or	<a class="link-text" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>expand your search radius</a>
 			</p>
 		} else {
 			for _, ev := range events {
@@ -323,7 +320,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 	if pageUser == nil {
 		<div class="header-hero">
 			<h1 class="text-xl md:text-4xl text-center mb-5">
-				<span class="opener">_People_ Over Screens!</span>
+				<span class="opener">People Over Screens!</span>
 				<br/>
 				<span>Find Connection at Local Events.</span>
 				// <span class="opener">Journey to exotic realms <br/> unreachable by AI bots 🚀</span>
@@ -538,7 +535,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						<button
 							type="button"
 							:class="{ 'btn-primary': $store.urlState.start_time === 'this_month' }"
-							class="btn grow px-2 py-2 text-md md:text-xl"
+							class="btn hover:bg-primary hover:text-primary-content grow px-2 py-2 text-md md:text-xl"
 							@click="$store.urlState.setParam('start_time', 'this_month')"
 						>
 							THIS MONTH
@@ -546,7 +543,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						<button
 							type="button"
 							:class="{ 'btn-primary': $store.urlState.start_time === 'today' }"
-							class="btn grow px-2 py-2 text-md md:text-xl"
+							class="btn hover:bg-primary hover:text-primary-content grow px-2 py-2 text-md md:text-xl"
 							@click="$store.urlState.setParam('start_time', 'today')"
 						>
 							TODAY
@@ -554,7 +551,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						<button
 							type="button"
 							:class="{ 'btn-primary': $store.urlState.start_time === 'tomorrow' }"
-							class="btn grow px-2 py-2 text-md md:text-xl"
+							class="btn hover:btn-primary hover:text-primary-content grow px-2 py-2 text-md md:text-xl"
 							@click="$store.urlState.setParam('start_time', 'tomorrow')"
 						>
 							TOMORROW
@@ -562,7 +559,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						<button
 							type="button"
 							:class="{ 'btn-primary': $store.urlState.start_time === 'this_week' }"
-							class="btn grow px-2 py-2 text-md md:text-xl"
+							class="btn hover:btn-primary grow px-2 py-2 text-md md:text-xl"
 							@click="$store.urlState.setParam('start_time', 'this_week')"
 						>
 							THIS WEEK
