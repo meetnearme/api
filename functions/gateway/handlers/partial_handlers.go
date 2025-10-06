@@ -1083,43 +1083,8 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 		}
 
-		// payloadBytes, err := json.Marshal(seshuJob)
-		// if err != nil {
-		// 	log.Println("Error marshaling SeshuJob:", err)
-		// 	return
-		// }
-
-		// Log the payload for debugging
-
-		// TODO: this should be a controller call to reduce complexity
-		// we don't want to get blocked by needing to forward http
-		// cookies from the SubmitSeshuSession handler to the
-		// SeshuJobs API handler
-
-		// POST to internal handler
-		// req, err := http.NewRequest(http.MethodPost, os.Getenv("SESHUJOBS_URL")+"/api/seshujob", bytes.NewReader(payloadBytes))
-		// if err != nil {
-		// 	log.Println("Error creating HTTP request for seshuJob:", err)
-		// 	continue
-		// }
-		// req.Header.Set("Content-Type", "application/json")
-
-		// client := &http.Client{Timeout: 10 * time.Second}
-		// // log the request url, body, and headers for debugging
-		// res, err := client.Do(req)
-		// if err != nil {
-		// 	log.Println("Failed to send seshuJob to handler:", err)
-		// 	continue
-		// }
-		// defer res.Body.Close()
-
-		// if res.StatusCode >= 400 {
-		// 	body, _ := io.ReadAll(res.Body)
-		// 	log.Printf("Handler responded with status %d: %s", res.StatusCode, string(body))
-		// }
-
-		// TODO: this puts the job in the queue, but we don't yet have
-		// a priority queue so we're instead writing directly to the DB
+		// NOTE: `natsService.PublishMsg` would put the job in the queue, but we don't yet
+		// have a priority queue so we're instead writing directly to the DB
 		// in the go func below
 
 		// err = natsService.PublishMsg(ctx, seshuJob)
