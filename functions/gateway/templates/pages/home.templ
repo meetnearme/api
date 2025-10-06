@@ -878,19 +878,17 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					})
 					.finally(() => {
 						this.isLoading = false;
-						this.isOpen = false
-						this.openedWithKeyboard = false
-						return;
+						this.isOpen = false;
+						this.openedWithKeyboard = false;
 					})
 
 				}
 
 				// This gets executed if the user does not allow the browser to access their location
 				const error = () => {
-					this.locationAccessDeclined = true
-					this.isLoading = false;
-					this.isOpen = false
-					this.openedWithKeyboard = false
+					this.locationAccessDeclined = true;
+					this.isOpen = false;
+					this.openedWithKeyboard = false;
 				}
 
 				navigator.geolocation.getCurrentPosition(success, error);
