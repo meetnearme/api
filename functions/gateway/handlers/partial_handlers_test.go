@@ -561,7 +561,7 @@ func TestGetEventsPartial(t *testing.T) {
 			name:           "no events found",
 			queryParams:    "q=nonexistent&lat=37.7749&lon=-122.4194&radius=10",
 			expectedStatus: http.StatusOK,
-			shouldContain:  []string{"No events found", "Expand Your Search"},
+			shouldContain:  []string{"No events found", "expand your search"},
 			mockEmpty:      true,
 		},
 	}
