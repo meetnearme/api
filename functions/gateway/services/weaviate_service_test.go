@@ -265,8 +265,6 @@ func TestSearchWeaviateEvents(t *testing.T) {
 		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
 	}()
 
-	className := helpers.WeaviateEventClassName
-
 	hostAndPort := test_helpers.GetNextPort()
 	parts := strings.Split(hostAndPort, ":")
 	host, port := parts[0], parts[1]
@@ -500,8 +498,6 @@ func TestGetWeaviateEventByID(t *testing.T) {
 	os.Setenv("WEAVIATE_SCHEME", "http")
 	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
 
-	className := helpers.WeaviateEventClassName
-
 	// Defer the cleanup to restore original env vars
 	defer func() {
 		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
@@ -615,8 +611,6 @@ func TestBulkGetWeaviateEventByID(t *testing.T) {
 	os.Setenv("WEAVIATE_PORT", port)
 	os.Setenv("WEAVIATE_SCHEME", "http")
 	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
-
-	className := helpers.WeaviateEventClassName
 
 	// --- Mock Server Logic for Bulk Get By ID ---
 	idsToFetch := []string{
