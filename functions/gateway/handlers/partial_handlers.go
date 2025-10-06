@@ -297,6 +297,55 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
+func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		latStr := r.URL.Query().Get("lat")
+		lonStr := r.URL.Query().Get("lon")
+		w.Header().Set("Content-Type", "application/json")
+
+		if latStr == "" || lonStr == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Both lat and lon parameters are required"})
+			return
+		}
+
+		lat, err := strconv.ParseFloat(latStr, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid latitude format"})
+			return
+		}
+
+		lon, err := strconv.ParseFloat(lonStr, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid longitude format"})
+			return
+		}
+
+		latAndLonAreValid := lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
+
+		if !latAndLonAreValid {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Latitude and Longitude are invalid"})
+			return
+		}
+
+		cityService := services.GetCityService()
+		locationQuery := fmt.Sprintf("%.3f+%.3f", lat, lon)
+		city, err := cityService.GetCity(locationQuery)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Print("ERR:", err)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Error getting city with query: %s", locationQuery)})
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"city": city})
+	}
+}
+
 func GeoThenPatchSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		db := transport.GetDB()

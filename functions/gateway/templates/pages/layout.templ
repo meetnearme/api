@@ -213,7 +213,7 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	return nil
 }
 
-templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event, ctx context.Context, scripts []string) {
+templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event, narrowLayout bool, ctx context.Context, scripts []string) {
 	<!DOCTYPE html>
 	<html data-theme="auto">
 		<head>
@@ -254,7 +254,15 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			@components.Navbar(userInfo, sitePage.SubnavItems, event, ctx) {
 				<div class="container mx-auto">
 					<div id="content" class="p-4 space-y-4 relative">
-						@pageContent
+						if narrowLayout {
+							<div class="max-w-prose mx-auto">
+								@pageContent
+								@components.Footer(userInfo.Email != "")
+							</div>
+						} else {
+							@pageContent
+							@components.Footer(userInfo.Email != "")
+						}
 					</div>
 				</div>
 			}

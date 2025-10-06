@@ -176,6 +176,12 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "eventSourceType", DataType: []string{"text"}, Description: "Source system type",
+				// ⚠️  CRITICAL: "field" tokenization is required for exact matching
+				// Without this, "SLF" would match "SLF_UNPUB" because "word" tokenization (default)
+				// splits "SLF_UNPUB" into ["SLF", "UNPUB"], causing substring matches with ContainsAny.
+				// With "field" tokenization, "SLF_UNPUB" is a single token and won't match "SLF".
+				// See: https://weaviate.io/developers/weaviate/config-refs/schema#property-tokenization
+				Tokenization: "field",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "startTime", DataType: []string{"int"}, Description: "Event start timestamp (Unix epoch)", // Use "int" for int64
@@ -191,6 +197,8 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "eventSourceId", DataType: []string{"text"}, Description: "Optional source system ID",
+				// "field" tokenization for exact ID matching (prevents partial matches)
+				Tokenization: "field",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "startingPrice", DataType: []string{"number"}, Description: "Optional starting price", // Using "number" for the int32 -> float64 conversion in ToMap
@@ -201,6 +209,7 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 			},
 			{Name: "payeeId", DataType: []string{"text"}, Description: "Optional payee ID",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
+				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 			},
 			{Name: "sourceUrl", DataType: []string{"text"}, Description: "Optional source URL",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
@@ -219,15 +228,18 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 			},
 			{Name: "categories", DataType: []string{"text[]"}, Description: "Optional list of categories",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
+				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 			},
 			{Name: "tags", DataType: []string{"text[]"}, Description: "Optional list of tags",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
+				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 			},
 			{Name: "updatedBy", DataType: []string{"text"}, Description: "User ID of last updater",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
 			{Name: "refUrl", DataType: []string{"text"}, Description: "Optional reference URL",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
+				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 			},
 			{Name: "hideCrossPromo", DataType: []string{"boolean"}, Description: "Flag to hide cross-promotion",
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},

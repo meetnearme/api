@@ -47,6 +47,14 @@
   .carousel-control-right {
     @apply no-animation absolute right-0 ml-8 -m-1 top-1/2 -translate-y-1/2 translate-x-full;
   }
+
+  .icon-circle {
+    @apply flex justify-center items-center w-8 h-8 bg-primary hover:bg-primary/70 rounded-full;
+  }
+
+  .icon-circle svg {
+    @apply w-5 h-5 text-primary-content;
+  }
 }
 
 body {
@@ -75,7 +83,7 @@ body:has(.bottom-drawer) {
 
 .brand-logo {
   width: 3rem;
-  height: 4.8rem;
+  /* height: 4.8rem; */
   /* TODO: this shouldn't be hard coded  */
   padding: 0.5rem;
 }
@@ -420,4 +428,10 @@ input[type='number'] {
     transform: rotate(360deg);
     opacity: 0;
   }
+}
+
+/* Add bottom padding to footer when bottom-drawer is present */
+html:has(.bottom-drawer) body .space-y-4 > footer,
+html:has(.bottom-drawer) footer {
+  margin-bottom: 10rem !important;
 }
