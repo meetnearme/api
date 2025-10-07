@@ -191,6 +191,18 @@ func TestPostEventHandler(t *testing.T) {
 			},
 		},
 		{
+			name:           "Valid event with sourceUrl posts successfully",
+			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event with Source","description":"A test event with source URL","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York","startTime":"2099-05-01T12:00:00Z","sourceUrl":"https://example.com/event-source"}`,
+			expectedStatus: http.StatusCreated,
+			expectedBodyCheck: func(t *testing.T, body string) {
+				t.Logf("Response body: %s", body)
+				// Update this check since we expect success now
+				if strings.Contains(body, "error") {
+					t.Errorf("Expected successful response, but got error: %s", body)
+				}
+			},
+		},
+		{
 			name:           "Invalid JSON",
 			requestBody:    `{"name":"Test Event","description":}`,
 			expectedStatus: http.StatusUnprocessableEntity,
@@ -412,8 +424,8 @@ func TestPostBatchEvents(t *testing.T) {
 		Events []services.RawEvent `json:"events"`
 	}{
 		Events: []services.RawEvent{
-			createValidRawEvent(validEventID1, "Valid Batch Event 1"),
-			createValidRawEvent(validEventID2, "Valid Batch Event 2"),
+			createValidRawEvent(validEventID1, "Valid Batch Event 1", "https://example.com/batch-event-1"),
+			createValidRawEvent(validEventID2, "Valid Batch Event 2", "https://example.com/batch-event-2"),
 		},
 	}
 	validRequestBody, err := json.Marshal(validPayload)
@@ -421,8 +433,8 @@ func TestPostBatchEvents(t *testing.T) {
 		t.Fatalf("Setup failed: Could not marshal valid request body: %v", err)
 	}
 
-	invalidPayloadEvent1 := createValidRawEvent(uuid.New().String(), "This event is valid")
-	invalidPayloadEvent2 := createValidRawEvent(uuid.New().String(), "This event has no name")
+	invalidPayloadEvent1 := createValidRawEvent(uuid.New().String(), "This event is valid", "https://example.com/valid-event")
+	invalidPayloadEvent2 := createValidRawEvent(uuid.New().String(), "This event has no name", "https://example.com/no-name-event")
 	invalidPayloadEvent2.Name = ""
 
 	partiallyInvalidPayload := struct {
@@ -523,7 +535,7 @@ func TestPostBatchEvents(t *testing.T) {
 	}
 }
 
-func createValidRawEvent(id, name string) services.RawEvent {
+func createValidRawEvent(id, name, sourceUrl string) services.RawEvent {
 	return services.RawEvent{
 		RawEventData: services.RawEventData{
 			Id:              id,
@@ -538,6 +550,7 @@ func createValidRawEvent(id, name string) services.RawEvent {
 			Timezone:        "America/New_York",
 		},
 		StartTime: "2099-10-10T10:00:00Z",
+		SourceUrl: &sourceUrl,
 	}
 }
 
@@ -891,6 +904,31 @@ func TestBulkUpdateEvents(t *testing.T) {
 			},
 		},
 		{
+			name: "Successful bulk update with sourceUrl field",
+			requestBody: `{ "events": [
+				{
+					"id": "update-test-with-source",
+					"eventOwners":["owner-123"],
+					"eventOwnerName":"Updated Owner",
+					"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+					"name":"Updated Event with Source",
+					"description":"This event has been updated with source URL.",
+					"startTime":"2099-05-01T12:00:00Z",
+					"address":"1 First St, Washington, DC",
+					"lat":38.8951,
+					"long":-77.0364,
+					"timezone":"America/New_York",
+					"sourceUrl":"https://example.com/updated-event-source"
+				}
+			]}`,
+			expectedStatus: http.StatusOK,
+			expectedBodyCheck: func(t *testing.T, body string) {
+				if !strings.Contains(body, `"status":"SUCCESS"`) {
+					t.Errorf("Expected response body to indicate success, but got: %s", body)
+				}
+			},
+		},
+		{
 			name: "Bulk update with an event missing an ID fails validation",
 			requestBody: `{ "events": [
 				{
@@ -1092,6 +1130,37 @@ func TestUpdateOneEvent(t *testing.T) {
 				"lat": 40.7129,
 				"long": -74.0061,
 				"timezone": "America/New_York"
+			}`,
+			expectedStatus: http.StatusOK,
+			expectedBodyCheck: func(t *testing.T, body string) {
+				// Handler returns batch response format (array of ObjectsGetResponse)
+				var response []models.ObjectsGetResponse
+				if err := json.Unmarshal([]byte(body), &response); err != nil {
+					t.Fatalf("Failed to unmarshal response body: %v", err)
+				}
+				if len(response) != 1 {
+					t.Errorf("Expected 1 response object, got %d", len(response))
+				}
+				if response[0].Result == nil || response[0].Result.Status == nil || *response[0].Result.Status != "SUCCESS" {
+					t.Errorf("Expected success status, got %v", response[0].Result)
+				}
+			},
+		},
+		{
+			name:    "Successful update of a single event with sourceUrl",
+			eventID: "update-single-with-source",
+			requestBody: `{
+				"eventOwners": ["owner-abc"],
+				"eventOwnerName": "The New Organizer",
+				"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+				"name": "Post-Update Rock Show with Source",
+				"description": "This event has been successfully updated with source URL.",
+				"startTime": "2099-05-01T12:00:00Z",
+				"address": "456 New Avenue, New York, NY",
+				"lat": 40.7129,
+				"long": -74.0061,
+				"timezone": "America/New_York",
+				"sourceUrl": "https://example.com/rock-show-source"
 			}`,
 			expectedStatus: http.StatusOK,
 			expectedBodyCheck: func(t *testing.T, body string) {

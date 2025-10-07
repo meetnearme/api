@@ -670,7 +670,6 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
 	}
 	canEdit := helpers.CanEditEvent(event, &userInfo, roleClaims)
-
 	eventDetailsPage := pages.EventDetailsPage(*event, userInfo, canEdit)
 	layoutTemplate := pages.Layout(helpers.SitePages["event-detail"], userInfo, eventDetailsPage, *event, false, ctx, []string{})
 	var buf bytes.Buffer

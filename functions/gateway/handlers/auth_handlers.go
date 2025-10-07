@@ -20,7 +20,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if apexURL == "" {
 		log.Println("APEX_URL not configured")
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SendHtmlErrorPage([]byte("APEX_URL not configured"), http.StatusInternalServerError, false)
+			transport.SendHtmlErrorPage([]byte("APEX_URL not configured"), http.StatusInternalServerError, false)(w, r)
 		}
 	}
 
@@ -51,11 +51,19 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	sessionId := r.URL.Query().Get("id")
 	appState := r.URL.Query().Get("state")
+	apexURL := os.Getenv("APEX_URL")
 
 	if sessionId != "" {
 		location := r.Header.Get("Location")
 		return func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, location, http.StatusFound)
+		}
+	}
+
+	if apexURL == "" {
+		log.Println("APEX_URL not configured")
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("APEX_URL not configured"), http.StatusInternalServerError, false)(w, r)
 		}
 	}
 
@@ -88,11 +96,20 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 	}
 
-	zitadelRes, err := services.GetAuthToken(code, codeVerifier)
-	if err != nil {
-		log.Printf("Authentication Failed: %v", err)
-		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SendHtmlErrorPage([]byte("Authentication failed"), http.StatusUnauthorized, false)(w, r)
+	var zitadelRes map[string]interface{}
+	if os.Getenv("GO_ENV") == helpers.GO_TEST_ENV {
+		zitadelRes = map[string]interface{}{
+			"access_token":  "test-access-token",
+			"refresh_token": "test-refresh-token",
+			"id_token":      "test-id-token",
+		}
+	} else {
+		zitadelRes, err = services.GetAuthToken(code, codeVerifier)
+		if err != nil {
+			log.Printf("Authentication Failed: %v", err)
+			return func(w http.ResponseWriter, r *http.Request) {
+				transport.SendHtmlErrorPage([]byte("Authentication failed"), http.StatusUnauthorized, false)(w, r)
+			}
 		}
 	}
 

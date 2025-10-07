@@ -21,6 +21,7 @@ type Event struct {
 	StartingPrice         int32         `json:"startingPrice,omitempty"`
 	Currency              string        `json:"currency,omitempty"`
 	PayeeId               string        `json:"payeeId,omitempty"`
+	SourceUrl             string        `json:"sourceUrl,omitempty"`
 	HasRegistrationFields bool          `json:"hasRegistrationFields,omitempty"`
 	HasPurchasable        bool          `json:"hasPurchasable,omitempty"`
 	ImageUrl              string        `json:"imageUrl,omitempty"`

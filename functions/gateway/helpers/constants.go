@@ -28,7 +28,7 @@ const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomPart
 const VotesTablePrefix = "Votes"
 
 // const WeaviateEventClassName = "EventStrict" // old version
-const WeaviateEventClassName = "EventStrict_2025_10_4_000000"
+const WeaviateEventClassName = "EventStrict_2025_10_5_000000"
 
 const ACT string = "ACT"
 const EVENT_ID_KEY string = "eventId"
@@ -336,6 +336,8 @@ func humanizeFieldName(field string) string {
 		return "Currency"
 	case "PayeeId":
 		return "Payee ID"
+	case "SourceUrl":
+		return "Source URL"
 	case "HasRegistrationFields":
 		return "Has Registration Fields"
 	case "HasPurchasable":
