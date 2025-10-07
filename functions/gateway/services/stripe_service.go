@@ -2,16 +2,18 @@ package services
 
 import (
 	"os"
+	"sync"
 
-	"github.com/stripe/stripe-go/v80/client"
+	"github.com/stripe/stripe-go/v83"
 )
 
-var sc = &client.API{}
+var sc *stripe.Client
+var stripeOnce sync.Once
 
 func InitStripe() {
-	once.Do(func() {
+	stripeOnce.Do(func() {
 		_, priv := GetStripeKeyPair()
-		sc.Init(priv, nil) // the second parameter overrides the backends used if needed for mocking
+		sc = stripe.NewClient(priv)
 	})
 }
 
@@ -19,7 +21,7 @@ func GetStripeKeyPair() (publishableKey string, privateKey string) {
 	return os.Getenv("STRIPE_PUBLISHABLE_KEY"), os.Getenv("STRIPE_SECRET_KEY")
 }
 
-func GetStripeClient() *client.API {
+func GetStripeClient() *stripe.Client {
 	return sc
 }
 

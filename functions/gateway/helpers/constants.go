@@ -106,6 +106,19 @@ const ZITADEL_USER_ID_LEN = 18
 
 const GEO_BASE_URL = "https://brianfeister.github.io/temp-map-embed/"
 
+// Stripe webhook event types for subscriptions
+const (
+	STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_CREATED                = "customer.subscription.created"
+	STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_DELETED                = "customer.subscription.deleted"
+	STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PAUSED                 = "customer.subscription.paused"
+	STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PENDING_UPDATE_APPLIED = "customer.subscription.pending_update_applied"
+	STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PENDING_UPDATE_EXPIRED = "customer.subscription.pending_update_expired"
+	STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_RESUMED                = "customer.subscription.resumed"
+	STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_TRIAL_WILL_END         = "customer.subscription.trial_will_end"
+	STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_UPDATED                = "customer.subscription.updated"
+	STRIPE_WEBHOOK_EVENT_CUSTOMER_UPDATED                             = "customer.updated"
+)
+
 // NOTE: these are the default searchable event source types that show up in the home event list view
 var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT, ES_SINGLE_EVENT}
 
@@ -197,6 +210,8 @@ const (
 	CompetitionAdmin Role = "competitionAdmin"
 	EventAdmin       Role = "eventAdmin"
 	SyndicateAdmin   Role = "syndicateAdmin"
+	SubscrGrowth     Role = "subscrGrowth"
+	SubscrSeed       Role = "subscrSeed"
 )
 
 var Roles = map[Role]string{
@@ -205,6 +220,8 @@ var Roles = map[Role]string{
 	CompetitionAdmin: string(CompetitionAdmin),
 	EventAdmin:       string(EventAdmin),
 	SyndicateAdmin:   string(SyndicateAdmin),
+	SubscrGrowth:     string(SubscrGrowth),
+	SubscrSeed:       string(SubscrSeed),
 }
 
 var AllowedMnmOptionsKeys = []string{

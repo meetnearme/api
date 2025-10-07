@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,9 +25,8 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
-	"github.com/stripe/stripe-go/v80"
-	"github.com/stripe/stripe-go/v80/checkout/session"
-	"github.com/stripe/stripe-go/v80/webhook"
+	"github.com/stripe/stripe-go/v83"
+	"github.com/stripe/stripe-go/v83/webhook"
 )
 
 var validate *validator.Validate = validator.New()
@@ -716,18 +716,19 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	}
 
 	// Continue with existing Stripe checkout logic for paid items
-	_, stripePrivKey := services.GetStripeKeyPair()
-	stripe.Key = stripePrivKey
+	// Initialize Stripe client
+	services.InitStripe()
+	stripeClient := services.GetStripeClient()
 
-	lineItems := make([]*stripe.CheckoutSessionLineItemParams, len(createPurchase.PurchasedItems))
+	lineItems := make([]*stripe.CheckoutSessionCreateLineItemParams, len(createPurchase.PurchasedItems))
 
 	for i, item := range createPurchase.PurchasedItems {
-		lineItems[i] = &stripe.CheckoutSessionLineItemParams{
+		lineItems[i] = &stripe.CheckoutSessionCreateLineItemParams{
 			Quantity: stripe.Int64(int64(item.Quantity)),
-			PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
+			PriceData: &stripe.CheckoutSessionCreateLineItemPriceDataParams{
 				Currency:   stripe.String("USD"),
 				UnitAmount: stripe.Int64(int64(item.Cost)), // Convert to cents
-				ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
+				ProductData: &stripe.CheckoutSessionCreateLineItemPriceDataProductDataParams{
 					Name: stripe.String(item.Name + " (" + createPurchase.EventName + ")"),
 					Metadata: map[string]string{
 						"EventId":       eventId,
@@ -739,7 +740,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
-	params := &stripe.CheckoutSessionParams{
+	params := &stripe.CheckoutSessionCreateParams{
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
 		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin/profile?new_purch_key=" + createPurchase.CompositeKey),
 		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=cancel"),
@@ -751,7 +752,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		ExpiresAt: stripe.Int64(time.Now().Add(30 * time.Minute).Unix()),
 	}
 
-	stripeCheckoutResult, err := session.New(params)
+	stripeCheckoutResult, err := stripeClient.V1CheckoutSessions.Create(context.Background(), params)
 
 	if err != nil {
 		needsRevert = true
