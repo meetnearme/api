@@ -1264,7 +1264,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 		clientReferenceID := "event-" + eventID + "-user-" + userID + "-time-" + nowString
 		payload := []byte(`{
 			"type": "checkout.session.completed",
-			"api_version": "2024-09-30.acacia",
+			"api_version": "2025-09-30.clover",
 			"data": {
 				"object": {
 					"client_reference_id": "` + clientReferenceID + `",
@@ -1360,7 +1360,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 				// Create payload
 				payload := []byte(`{
 					"type": "checkout.session.expired",
-					"api_version": "2024-09-30.acacia",
+					"api_version": "2025-09-30.clover",
 					"data": {
 						"object": {
 							"client_reference_id": "` + clientReferenceID + `",
