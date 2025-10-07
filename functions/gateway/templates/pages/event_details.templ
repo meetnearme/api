@@ -83,8 +83,8 @@ templ IconLeftSection(labelText, labelValue, icon string, urlString string, sect
 	</div>
 }
 
-	<div x-data="getEventDetailsState()">
 templ EventDetailsPage(event types.Event, userInfo constants.UserInfo, canEdit bool) {
+	<div x-data="getEventDetailsState()">
 		if event.Id == "" {
 			<br/>
 			<br/>
