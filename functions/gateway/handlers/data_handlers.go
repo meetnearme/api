@@ -853,7 +853,16 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 
 	endpointSecret := services.GetStripeCheckoutWebhookSecret()
 	ctx := r.Context()
-	apiGwV2Req := ctx.Value(constants.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	apiGwV2Req := events.APIGatewayV2HTTPRequest{}
+	if raw := ctx.Value(constants.ApiGwV2ReqKey); raw != nil {
+		if req, ok := raw.(events.APIGatewayV2HTTPRequest); ok {
+			apiGwV2Req = req
+		} else {
+			log.Println("Warning: ApiGwV2ReqKey value is not of expected type")
+		}
+	} else {
+		log.Println("Warning: No ApiGwV2ReqKey found in context")
+	}
 	stripeHeader := apiGwV2Req.Headers["stripe-signature"]
 	event, err := webhook.ConstructEvent(payload, stripeHeader,
 		endpointSecret)

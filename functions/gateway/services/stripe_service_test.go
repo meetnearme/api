@@ -2,10 +2,19 @@ package services
 
 import (
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/stripe/stripe-go/v83"
 )
+
+// test-only helper to reset singleton (same package access)
+//
+//nolint:testpackage
+func resetStripeForTest() {
+	sc = nil
+	stripeOnce = sync.Once{}
+}
 
 // TestStripeServiceInitialization tests the Stripe service initialization
 func TestStripeServiceInitialization(t *testing.T) {
@@ -15,23 +24,16 @@ func TestStripeServiceInitialization(t *testing.T) {
 		originalPubKey := os.Getenv("STRIPE_PUBLISHABLE_KEY")
 
 		defer func() {
-			if originalKey != "" {
-				os.Setenv("STRIPE_SECRET_KEY", originalKey)
-			} else {
-				os.Unsetenv("STRIPE_SECRET_KEY")
-			}
-			if originalPubKey != "" {
-				os.Setenv("STRIPE_PUBLISHABLE_KEY", originalPubKey)
-			} else {
-				os.Unsetenv("STRIPE_PUBLISHABLE_KEY")
-			}
+			os.Setenv("STRIPE_SECRET_KEY", originalKey)
+			os.Setenv("STRIPE_PUBLISHABLE_KEY", originalPubKey)
 		}()
 
 		// Set test keys
-		os.Setenv("STRIPE_SECRET_KEY", "sk_test_123456789")
-		os.Setenv("STRIPE_PUBLISHABLE_KEY", "pk_test_123456789")
+		os.Setenv("STRIPE_SECRET_KEY", "sk_test_fake_key")
+		os.Setenv("STRIPE_PUBLISHABLE_KEY", "pk_test_fake_key")
 
 		// Initialize Stripe
+		resetStripeForTest()
 		InitStripe()
 
 		// Get client
@@ -68,16 +70,8 @@ func TestStripeServiceInitialization(t *testing.T) {
 		originalPubKey := os.Getenv("STRIPE_PUBLISHABLE_KEY")
 
 		defer func() {
-			if originalKey != "" {
-				os.Setenv("STRIPE_SECRET_KEY", originalKey)
-			} else {
-				os.Unsetenv("STRIPE_SECRET_KEY")
-			}
-			if originalPubKey != "" {
-				os.Setenv("STRIPE_PUBLISHABLE_KEY", originalPubKey)
-			} else {
-				os.Unsetenv("STRIPE_PUBLISHABLE_KEY")
-			}
+			os.Setenv("STRIPE_SECRET_KEY", originalKey)
+			os.Setenv("STRIPE_PUBLISHABLE_KEY", originalPubKey)
 		}()
 
 		// Set empty keys
@@ -85,6 +79,7 @@ func TestStripeServiceInitialization(t *testing.T) {
 		os.Setenv("STRIPE_PUBLISHABLE_KEY", "")
 
 		// Initialize Stripe
+		resetStripeForTest()
 		InitStripe()
 
 		// Get client

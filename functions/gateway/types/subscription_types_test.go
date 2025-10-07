@@ -371,12 +371,8 @@ func TestStripeClientInitialization(t *testing.T) {
 
 		// Clean up after test
 		defer func() {
-			if originalKey != "" {
-				os.Setenv("STRIPE_SECRET_KEY", originalKey)
-			}
-			if originalPubKey != "" {
-				os.Setenv("STRIPE_PUBLISHABLE_KEY", originalPubKey)
-			}
+			os.Setenv("STRIPE_SECRET_KEY", originalKey)
+			os.Setenv("STRIPE_PUBLISHABLE_KEY", originalPubKey)
 		}()
 
 		// Test with missing secret key
@@ -413,16 +409,14 @@ func TestStripeClientInitialization(t *testing.T) {
 		// Test that we can create a Stripe client (without making actual API calls)
 		originalKey := os.Getenv("STRIPE_SECRET_KEY")
 		defer func() {
-			if originalKey != "" {
-				os.Setenv("STRIPE_SECRET_KEY", originalKey)
-			}
+			os.Setenv("STRIPE_SECRET_KEY", originalKey)
 		}()
 
 		// Set a test key
-		os.Setenv("STRIPE_SECRET_KEY", "sk_test_123456789")
+		os.Setenv("STRIPE_SECRET_KEY", "sk_test_123")
 
 		// This should not panic
-		client := stripe.NewClient("sk_test_123456789")
+		client := stripe.NewClient("sk_test_123")
 		if client == nil {
 			t.Error("Expected client to be created successfully")
 		}
@@ -530,7 +524,7 @@ func TestStripeSDKVersionCompatibility(t *testing.T) {
 		// We can add version-specific checks here if needed
 
 		// Test that we can import and use the current SDK
-		client := stripe.NewClient("sk_test_123456789")
+		client := stripe.NewClient("sk_test_123")
 		if client == nil {
 			t.Error("Failed to create Stripe client")
 		}

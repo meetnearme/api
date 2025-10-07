@@ -80,8 +80,16 @@ func SendHtmlErrorPartial(body []byte, status int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var buf bytes.Buffer
 		ctx := r.Context()
-		apiGwV2Req := ctx.Value(constants.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest).RequestContext
-		requestID := apiGwV2Req.RequestID
+		requestID := ""
+		if raw := ctx.Value(constants.ApiGwV2ReqKey); raw != nil {
+			if req, ok := raw.(events.APIGatewayV2HTTPRequest); ok {
+				requestID = req.RequestContext.RequestID
+			} else {
+				log.Println("Warning: ApiGwV2ReqKey value is not of expected type")
+			}
+		} else {
+			log.Println("Warning: No ApiGwV2ReqKey found in context")
+		}
 		errorPartial := partials.ErrorHTMLAlert(body, fmt.Sprint(requestID))
 		err := errorPartial.Render(r.Context(), &buf)
 		if err != nil {

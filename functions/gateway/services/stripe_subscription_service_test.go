@@ -36,11 +36,16 @@ func TestGetStripeSubscriptionPlanIDs(t *testing.T) {
 	var testGrowthPlanID = "test_growth_plan_id"
 	var testSeedPlanID = "test_seed_plan_id"
 
+	var originalGrowthPlanID = os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	var originalSeedPlanID = os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", testGrowthPlanID)
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", testSeedPlanID)
 
-	defer os.Unsetenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
-	defer os.Unsetenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	defer func() {
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlanID)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlanID)
+	}()
 
 	growthPlanID, seedPlanID := GetStripeSubscriptionPlanIDs()
 
@@ -201,6 +206,11 @@ func TestStripeSubscriptionService_GetSubscriptionPlans(t *testing.T) {
 	originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
 	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+
+	os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+
 	defer func() {
 		os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
