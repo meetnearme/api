@@ -28,3 +28,10 @@ func GetStripeClient() *stripe.Client {
 func GetStripeCheckoutWebhookSecret() string {
 	return os.Getenv("STRIPE_CHECKOUT_WEBHOOK_SECRET")
 }
+
+// GetStripeSubscriptionPlanIDs returns the subscription plan IDs for the current environment
+func GetStripeSubscriptionPlanIDs() (growthPlanID, seedPlanID string) {
+	growthPlanID = os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	seedPlanID = os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	return growthPlanID, seedPlanID
+}

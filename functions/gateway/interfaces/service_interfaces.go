@@ -6,6 +6,7 @@ import (
 
 	"github.com/meetnearme/api/functions/gateway/types"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/stripe/stripe-go/v83"
 )
 
 type GeoServiceInterface interface {
@@ -36,6 +37,16 @@ type NatsServiceInterface interface {
 	PublishMsg(ctx context.Context, job interface{}) error
 	ConsumeMsg(ctx context.Context, workers int) error
 	Close() error
+}
+
+type StripeSubscriptionServiceInterface interface {
+	GetSubscriptionPlans() ([]*types.SubscriptionPlan, error)
+	GetCustomerSubscriptions(customerID string) ([]*types.CustomerSubscription, error)
+	CreateCustomerPortalSession(customerID, returnURL string) (*types.CustomerPortalSession, error)
+	SearchCustomerByExternalID(externalID string) (*stripe.Customer, error)
+	UpdateCustomerMetadata(customerID, externalID string) error
+	CreateCustomer(externalID, email, name string) (*stripe.Customer, error)
+	GetOrCreateCustomerByExternalID(externalID, email, name string) (*stripe.Customer, error)
 }
 
 var ErrInvalidLocation = errors.New("location is not valid")

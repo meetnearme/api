@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/stripe/stripe-go/v83"
 )
 
@@ -343,9 +344,9 @@ func TestStripeAPIContractValidation(t *testing.T) {
 			planName     string
 			expectedRole string
 		}{
-			{"Growth", "subscriber"},
-			{"Seed Community", "premium_subscriber"},
-			{"Unknown Plan", "subscriber"}, // Default fallback
+			{"Growth", constants.Roles[constants.SubscrGrowth]},
+			{"Seed Community", constants.Roles[constants.SubscrSeed]},
+			{"Unknown Plan", constants.Roles[constants.SubscrGrowth]}, // Default fallback
 		}
 
 		for _, tc := range testCases {

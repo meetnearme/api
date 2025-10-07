@@ -3,6 +3,7 @@ package types
 import (
 	"time"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/stripe/stripe-go/v83"
 )
 
@@ -154,14 +155,13 @@ func (s *CustomerSubscription) IsPastDue() bool {
 
 // GetZitadelRole returns the corresponding Zitadel role for this subscription plan
 func (s *CustomerSubscription) GetZitadelRole() string {
-	// This mapping should be based on the plan metadata or plan name
-	// For now, we'll use a simple mapping based on plan name
+	// Map subscription plans to Zitadel roles based on plan name
 	switch s.PlanName {
 	case "Growth":
-		return "subscriber"
+		return constants.Roles[constants.SubscrGrowth]
 	case "Seed Community":
-		return "premium_subscriber"
+		return constants.Roles[constants.SubscrSeed]
 	default:
-		return "subscriber" // Default to basic subscriber role
+		return constants.Roles[constants.SubscrGrowth] // Default to Growth role
 	}
 }
