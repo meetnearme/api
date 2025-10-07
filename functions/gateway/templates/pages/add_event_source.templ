@@ -150,7 +150,7 @@ templ AddEventSource() {
 						name="event_source_url"
 						type="hidden"
 					/>
-					<div id="event-candidates-inner" class="mb-8" @change="updateMissingFieldsCheck()">
+					<div id="event-candidates-inner" :class="{'hidden': formStep < 2, 'mb-8': formStep >= 2}" @change="updateMissingFieldsCheck()">
 						<div class="grid grid-cols-1 lg:grid-cols-2 gap-2 justify-stretch">
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
 							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
