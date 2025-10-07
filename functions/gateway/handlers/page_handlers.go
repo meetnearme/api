@@ -580,11 +580,9 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
 		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	// queryParameters := apiGwV2Req.QueryStringParameters
-	log.Println("mapEmbedPage address", queryParameters["address"][0])
 
 	mapEmbedPage := pages.MapEmbedPage(queryParameters["address"][0])
-	layoutTemplate := pages.Layout(constants.SitePages["embed"], userInfo, mapEmbedPage, types.Event{}, false, ctx, []string{})
+	layoutTemplate := pages.Layout(constants.SitePages["map-embed"], userInfo, mapEmbedPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
