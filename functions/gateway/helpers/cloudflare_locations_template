@@ -11,20 +11,22 @@ package helpers
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/meetnearme/api/functions/gateway/constants"
 )
 
 const cfLocations = `<replace me>`
 
-var CfLocationMap map[string]CdnLocation
+var CfLocationMap map[string]constants.CdnLocation
 
 func init() {
 
-	var cfLocationData []CdnLocation
+	var cfLocationData []constants.CdnLocation
 	err := json.Unmarshal([]byte(cfLocations), &cfLocationData)
 	if err != nil {
 		fmt.Println("Error unmarshaling JSON:", err)
 	}
-	CfLocationMap = make(map[string]CdnLocation)
+	CfLocationMap = make(map[string]constants.CdnLocation)
 	for _, location := range cfLocationData {
 		CfLocationMap[location.IATA] = location
 	}
