@@ -6,13 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func TestAdminPage(t *testing.T) {
 	// Create mock user info
-	mockUserInfo := helpers.UserInfo{
+	mockUserInfo := constants.UserInfo{
 		Email:             "test@example.com",
 		EmailVerified:     true,
 		FamilyName:        "Doe",
@@ -25,7 +25,7 @@ func TestAdminPage(t *testing.T) {
 		Metadata:          "",
 	}
 
-	mockRoleClaims := []helpers.RoleClaim{
+	mockRoleClaims := []constants.RoleClaim{
 		{
 			Role:        "orgAdmin",
 			ProjectID:   "project-id",
@@ -48,12 +48,12 @@ func TestAdminPage(t *testing.T) {
 
 	// Create a layout template
 	fakeContext := context.Background()
-	fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123", "--p": "#000000", "themeMode": "dark"})
+	fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123", "--p": "#000000", "themeMode": "dark"})
 
 	// Call the AdminPage function
 	profilePage := AdminPage(mockUserInfo, mockRoleClaims, interests, subdomain, "userId=123;--p=#000000;themeMode=dark", "Test about me text", context.Background())
 
-	layoutTemplate := Layout(helpers.SitePages["profile"], mockUserInfo, profilePage, types.Event{}, false, fakeContext, []string{})
+	layoutTemplate := Layout(constants.SitePages["profile"], mockUserInfo, profilePage, types.Event{}, false, fakeContext, []string{})
 
 	// Render the template
 	var buf bytes.Buffer

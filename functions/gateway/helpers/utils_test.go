@@ -10,12 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func init() {
-	os.Setenv("GO_ENV", GO_TEST_ENV)
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 }
 
 func TestFormatDateL(t *testing.T) {

@@ -1,6 +1,7 @@
 package partials
 
 import (
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"reflect"
@@ -87,7 +88,7 @@ func HasValidOverride(fieldName string, parentValue interface{}, childValue inte
 }
 
 templ EventAdminChildren(eventParent types.Event, eventChildren []types.Event) {
-	if eventParent.EventSourceType != helpers.ES_SERIES_PARENT && eventParent.EventSourceType != helpers.ES_SERIES_PARENT_UNPUB {
+	if eventParent.EventSourceType != constants.ES_SERIES_PARENT && eventParent.EventSourceType != constants.ES_SERIES_PARENT_UNPUB {
 		<div>This event is not a series</div>
 	} else if len(eventChildren) == 0 {
 		<div>No children events found for this series</div>

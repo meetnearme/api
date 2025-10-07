@@ -1,6 +1,7 @@
 package partials
 
 import (
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
@@ -31,7 +32,7 @@ templ CompetitionConfigAdminList(configs *[]internal_types.CompetitionConfig) {
 						{ helpers.FormatTimeMMDDYYYY(config.EndTime) }
 					</td>
 					<td>
-						if config.ModuleType == helpers.ES_SERIES_PARENT || config.ModuleType == helpers.ES_SERIES_PARENT_UNPUB {
+						if config.ModuleType == constants.ES_SERIES_PARENT || config.ModuleType == constants.ES_SERIES_PARENT_UNPUB {
 							Series
 						} else {
 							Event

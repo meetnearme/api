@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -41,7 +41,7 @@ func (s *RealGeoService) GetGeo(locationQuery string, baseUrl string) (lat strin
 	if baseUrl == "" {
 		return "", "", "", fmt.Errorf("base URL is empty")
 	}
-	targetUrl := helpers.GEO_BASE_URL + "?address=" + locationQuery
+	targetUrl := constants.GEO_BASE_URL + "?address=" + locationQuery
 	log.Println("targetUrl", targetUrl)
 	// Log escaped for clarity (scraper will escape internally)
 	// escaped := url.QueryEscape(targetUrl)

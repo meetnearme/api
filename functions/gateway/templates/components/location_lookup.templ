@@ -2,7 +2,7 @@ package components
 
 import (
 	"fmt"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"os"
 )
@@ -108,7 +108,7 @@ templ LocationLookupPartial(hxMethod string, hxApiPath string, hxAfterReqStr str
 		</template>
 		@partials.GeoLookup(lat, lon, address, "form-hidden")
 	</form>
-	<script id="location-lookup" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") } data-event-address={ address } data-event-lat={ fmt.Sprintf("%.6f", lat) } data-event-lon={ fmt.Sprintf("%.6f", lon) } data-cf-lat={ fmt.Sprintf("%.6f", cfLocationLat) } data-cf-lon={ fmt.Sprintf("%.6f", cfLocationLon) } data-lat-lon-unknown={ fmt.Sprintf("%.6f", helpers.INITIAL_EMPTY_LAT_LONG) }>
+	<script id="location-lookup" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") } data-event-address={ address } data-event-lat={ fmt.Sprintf("%.6f", lat) } data-event-lon={ fmt.Sprintf("%.6f", lon) } data-cf-lat={ fmt.Sprintf("%.6f", cfLocationLat) } data-cf-lon={ fmt.Sprintf("%.6f", cfLocationLon) } data-lat-lon-unknown={ fmt.Sprintf("%.6f", constants.INITIAL_EMPTY_LAT_LONG) }>
 		function getLocationLookupState() {
 			return {
 				cfLocationLat: document.querySelector('#location-lookup').getAttribute('data-cf-lat') ?? 0,

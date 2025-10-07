@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -22,7 +22,7 @@ func TestAddEventSource(t *testing.T) {
 	}{
 		{
 			name:        string("Event Details, registration / purchasable"),
-			subnavItems: helpers.SitePages["event-detail"].SubnavItems,
+			subnavItems: constants.SitePages["event-detail"].SubnavItems,
 			expectedContent: []string{
 				"Main Nav",
 				"John Doe",
@@ -36,7 +36,7 @@ func TestAddEventSource(t *testing.T) {
 		},
 		{
 			name:        string("Event Details, with purchasable"),
-			subnavItems: helpers.SitePages["event-detail"].SubnavItems,
+			subnavItems: constants.SitePages["event-detail"].SubnavItems,
 			expectedContent: []string{
 				"flyout-tab-cart",
 				"John Doe",
@@ -49,7 +49,7 @@ func TestAddEventSource(t *testing.T) {
 		},
 		{
 			name:        string("Event Details, with registration"),
-			subnavItems: helpers.SitePages["event-detail"].SubnavItems,
+			subnavItems: constants.SitePages["event-detail"].SubnavItems,
 			expectedContent: []string{
 				"flyout-tab-cart",
 				"John Doe",
@@ -62,7 +62,7 @@ func TestAddEventSource(t *testing.T) {
 		},
 		{
 			name:        string("About page"),
-			subnavItems: helpers.SitePages["about"].SubnavItems,
+			subnavItems: constants.SitePages["about"].SubnavItems,
 			expectedContent: []string{
 				"John Doe",
 			},
@@ -74,7 +74,7 @@ func TestAddEventSource(t *testing.T) {
 		},
 		{
 			name:        string("Home / event search page"),
-			subnavItems: helpers.SitePages["home"].SubnavItems,
+			subnavItems: constants.SitePages["home"].SubnavItems,
 			expectedContent: []string{
 				"John Doe",
 				"flyout-tab-filters",
@@ -86,7 +86,7 @@ func TestAddEventSource(t *testing.T) {
 		},
 	}
 
-	mockUserInfo := helpers.UserInfo{
+	mockUserInfo := constants.UserInfo{
 		Email:             "test@example.com",
 		EmailVerified:     true,
 		FamilyName:        "Doe",

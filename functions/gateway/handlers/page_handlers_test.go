@@ -16,6 +16,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/playwright-community/playwright-go"
@@ -66,7 +67,7 @@ func TestGetHomeOrUserPage(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						helpers.WeaviateEventClassName: []interface{}{
+						constants.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"name":            "First Test Event",
 								"description":     "Description of the first event",
@@ -136,7 +137,7 @@ func TestGetHomeOrUserPage(t *testing.T) {
 
 	// Add MNM_OPTIONS_CTX_KEY to context
 	fakeContext := context.Background()
-	// fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
+	// fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
 
 	// Create a request
 	req, err := http.NewRequest("GET", "/", nil)
@@ -222,28 +223,28 @@ func TestGetHomeOrUserPage_EventTypeFiltering(t *testing.T) {
 	// ==================================================================================
 
 	// Verify that DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES only includes published types
-	expectedTypes := []string{helpers.ES_SERIES_PARENT, helpers.ES_SINGLE_EVENT} // ["SLF_EVS", "SLF"]
-	if len(helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES) != len(expectedTypes) {
+	expectedTypes := []string{constants.ES_SERIES_PARENT, constants.ES_SINGLE_EVENT} // ["SLF_EVS", "SLF"]
+	if len(constants.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES) != len(expectedTypes) {
 		t.Errorf("DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES length mismatch: got %d, want %d",
-			len(helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES), len(expectedTypes))
+			len(constants.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES), len(expectedTypes))
 	}
 
 	for i, expectedType := range expectedTypes {
-		if helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES[i] != expectedType {
+		if constants.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES[i] != expectedType {
 			t.Errorf("DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES[%d] = %s, want %s",
-				i, helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES[i], expectedType)
+				i, constants.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES[i], expectedType)
 		}
 	}
 
 	// Verify that unpublished types are NOT in the default searchable types
 	unpublishedTypes := []string{
-		helpers.ES_SINGLE_EVENT_UNPUB,  // "SLF_UNPUB"
-		helpers.ES_SERIES_PARENT_UNPUB, // "SLF_EVS_UNPUB"
-		helpers.ES_EVENT_SERIES_UNPUB,  // "EVS_UNPUB"
+		constants.ES_SINGLE_EVENT_UNPUB,  // "SLF_UNPUB"
+		constants.ES_SERIES_PARENT_UNPUB, // "SLF_EVS_UNPUB"
+		constants.ES_EVENT_SERIES_UNPUB,  // "EVS_UNPUB"
 	}
 
 	for _, unpubType := range unpublishedTypes {
-		for _, searchableType := range helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES {
+		for _, searchableType := range constants.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES {
 			if searchableType == unpubType {
 				t.Errorf("DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES should not include unpublished type: %s", unpubType)
 			}
@@ -257,7 +258,7 @@ func TestGetAdminPage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mockUserInfo := helpers.UserInfo{
+	mockUserInfo := constants.UserInfo{
 		Email:             "test@domain.com",
 		EmailVerified:     true,
 		GivenName:         "Demo",
@@ -268,7 +269,7 @@ func TestGetAdminPage(t *testing.T) {
 		UpdatedAt:         123234234,
 	}
 
-	mockRoleClaims := []helpers.RoleClaim{
+	mockRoleClaims := []constants.RoleClaim{
 		{
 			Role:        "orgAdmin",
 			ProjectID:   "project-id",
@@ -331,7 +332,7 @@ func TestGetAdminPage(t *testing.T) {
 
 	ctx := context.WithValue(req.Context(), "userInfo", mockUserInfo)
 	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
-	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
+	ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
 	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
@@ -354,11 +355,11 @@ func TestGetMapEmbedPage(t *testing.T) {
 	}
 
 	// Set up context with APIGatewayV2HTTPRequest
-	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+	ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		QueryStringParameters: map[string]string{"address": "New York"},
 	})
 	// Add MNM_OPTIONS_CTX_KEY to context
-	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
+	ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
 	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
@@ -414,7 +415,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						helpers.WeaviateEventClassName: []interface{}{
+						constants.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"_additional": map[string]interface{}{
 									"id": "123",
@@ -479,13 +480,13 @@ func TestGetEventDetailsPage(t *testing.T) {
 	}
 
 	// Set up context with APIGatewayV2HTTPRequest
-	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+	ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		PathParameters: map[string]string{
-			helpers.EVENT_ID_KEY: eventID,
+			constants.EVENT_ID_KEY: eventID,
 		},
 	})
 
-	mockUserInfo := helpers.UserInfo{
+	mockUserInfo := constants.UserInfo{
 		Email:             "test@domain.com",
 		EmailVerified:     true,
 		GivenName:         "Demo",
@@ -496,7 +497,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 		UpdatedAt:         123234234,
 	}
 
-	mockRoleClaims := []helpers.RoleClaim{
+	mockRoleClaims := []constants.RoleClaim{
 		{
 			Role:        "superAdmin",
 			ProjectID:   "project-id",
@@ -506,17 +507,17 @@ func TestGetEventDetailsPage(t *testing.T) {
 
 	ctx = context.WithValue(req.Context(), "userInfo", mockUserInfo)
 	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
-	ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
+	ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
 	_ = req.WithContext(ctx)
 
 	// Set up router to extract variables
 	router := test_helpers.SetupStaticTestRouter(t, "./assets")
 
-	router.HandleFunc("/event/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/event/{"+constants.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
 	})
 
-	router.HandleFunc("/api/purchasables/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/api/purchasables/{"+constants.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		json, _ := json.Marshal(map[string]interface{}{
 			"purchasable_items": []map[string]interface{}{
 				{
@@ -535,7 +536,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 		w.Write(json)
 	})
 
-	router.HandleFunc("/api/registration-fields/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/api/registration-fields/{"+constants.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		json, _ := json.Marshal(map[string]interface{}{
 			"registration_fields": []map[string]interface{}{
 				{
@@ -546,7 +547,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 		w.Write(json)
 	})
 
-	router.HandleFunc("/api/checkout/{"+helpers.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/api/checkout/{"+constants.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		json, _ := json.Marshal(map[string]interface{}{
 			"checkout_url": "https://checkout.stripe.com/test_checkout_url",
 		})
@@ -690,7 +691,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 		expectedRadius float64
 		expectedStart  int64
 		expectedEnd    int64
-		expectedCfLoc  helpers.CdnLocation
+		expectedCfLoc  constants.CdnLocation
 	}{
 		{
 			name: "All parameters provided",
@@ -723,10 +724,10 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			cfRay:          "",
 			expectedQuery:  "",
 			expectedLoc:    []float64{40.7128, -74.0060},
-			expectedRadius: helpers.DEFAULT_SEARCH_RADIUS,
+			expectedRadius: constants.DEFAULT_SEARCH_RADIUS,
 			expectedStart:  4070908800,
 			expectedEnd:    4071808800,
-			expectedCfLoc:  helpers.CdnLocation{},
+			expectedCfLoc:  constants.CdnLocation{},
 		},
 		{
 			name:           "No parameters provided",
@@ -737,7 +738,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
 			expectedEnd:    0, // This will be one month from now in Unix seconds
-			expectedCfLoc:  helpers.CdnLocation{},
+			expectedCfLoc:  constants.CdnLocation{},
 		},
 		{
 			name: "Only location parameters",
@@ -752,7 +753,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			expectedRadius: 500,
 			expectedStart:  0, // This will be the current time in Unix seconds
 			expectedEnd:    0, // This will be one month from now in Unix seconds
-			expectedCfLoc:  helpers.CdnLocation{},
+			expectedCfLoc:  constants.CdnLocation{},
 		},
 		{
 			name: "Only time parameters",
@@ -766,7 +767,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
 			expectedEnd:    0, // This will be 7 days from now in Unix seconds
-			expectedCfLoc:  helpers.CdnLocation{},
+			expectedCfLoc:  constants.CdnLocation{},
 		},
 		{
 			name:           "Only CF-Ray header",
@@ -774,7 +775,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			cfRay:          "1234567890000-LAX",
 			expectedLoc:    []float64{helpers.CfLocationMap["LAX"].Lat, helpers.CfLocationMap["LAX"].Lon}, // Los Angeles coordinates
 			expectedCfLoc:  helpers.CfLocationMap["LAX"],
-			expectedRadius: helpers.DEFAULT_SEARCH_RADIUS,
+			expectedRadius: constants.DEFAULT_SEARCH_RADIUS,
 		},
 	}
 
@@ -890,7 +891,7 @@ func TestGetAddOrEditEventPage(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						helpers.WeaviateEventClassName: []interface{}{
+						constants.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"_additional": map[string]interface{}{
 									"id": "123",
@@ -948,20 +949,20 @@ func TestGetAddOrEditEventPage(t *testing.T) {
 	tests := []struct {
 		name           string
 		eventID        string
-		userInfo       helpers.UserInfo
-		roleClaims     []helpers.RoleClaim
+		userInfo       constants.UserInfo
+		roleClaims     []constants.RoleClaim
 		expectedStatus int
 		expectedBody   string
 	}{
 		{
 			name:    "Add new event as superAdmin",
 			eventID: "",
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Email: "test@domain.com",
 				Sub:   "testID",
 				Name:  "Test User",
 			},
-			roleClaims: []helpers.RoleClaim{
+			roleClaims: []constants.RoleClaim{
 				{Role: "superAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
@@ -970,12 +971,12 @@ func TestGetAddOrEditEventPage(t *testing.T) {
 		{
 			name:    "Edit existing event as event owner",
 			eventID: "123",
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Email: "test@domain.com",
 				Sub:   "testID",
 				Name:  "Test User",
 			},
-			roleClaims: []helpers.RoleClaim{
+			roleClaims: []constants.RoleClaim{
 				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
@@ -984,12 +985,12 @@ func TestGetAddOrEditEventPage(t *testing.T) {
 		{
 			name:    "Unauthorized user",
 			eventID: "123",
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Email: "test@domain.com",
 				Sub:   "testID",
 				Name:  "Test User",
 			},
-			roleClaims: []helpers.RoleClaim{
+			roleClaims: []constants.RoleClaim{
 				{Role: "user", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
@@ -1015,9 +1016,9 @@ func TestGetAddOrEditEventPage(t *testing.T) {
 			ctx = context.WithValue(ctx, "roleClaims", tt.roleClaims)
 			// Add API Gateway context with path parameters if we have an event ID
 			if tt.eventID != "" {
-				ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 					PathParameters: map[string]string{
-						helpers.EVENT_ID_KEY: tt.eventID,
+						constants.EVENT_ID_KEY: tt.eventID,
 					},
 				})
 			}
@@ -1029,7 +1030,7 @@ func TestGetAddOrEditEventPage(t *testing.T) {
 			router.HandleFunc("/event", func(w http.ResponseWriter, r *http.Request) {
 				GetAddOrEditEventPage(w, r).ServeHTTP(w, r)
 			})
-			router.HandleFunc("/event/{"+helpers.EVENT_ID_KEY+"}/edit", func(w http.ResponseWriter, r *http.Request) {
+			router.HandleFunc("/event/{"+constants.EVENT_ID_KEY+"}/edit", func(w http.ResponseWriter, r *http.Request) {
 				GetAddOrEditEventPage(w, r).ServeHTTP(w, r)
 			})
 
@@ -1088,7 +1089,7 @@ func TestGetEventAttendeesPage(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						helpers.WeaviateEventClassName: []interface{}{
+						constants.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"_additional": map[string]interface{}{
 									"id": "123",
@@ -1145,20 +1146,20 @@ func TestGetEventAttendeesPage(t *testing.T) {
 	tests := []struct {
 		name           string
 		eventID        string
-		userInfo       helpers.UserInfo
-		roleClaims     []helpers.RoleClaim
+		userInfo       constants.UserInfo
+		roleClaims     []constants.RoleClaim
 		expectedStatus int
 		expectedBody   string
 	}{
 		{
 			name:    "Authorized user (event owner)",
 			eventID: "123",
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Email: "authorized@example.com",
 				Sub:   "authorizedUserID",
 				Name:  "Authorized User",
 			},
-			roleClaims: []helpers.RoleClaim{
+			roleClaims: []constants.RoleClaim{
 				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
@@ -1167,12 +1168,12 @@ func TestGetEventAttendeesPage(t *testing.T) {
 		{
 			name:    "Unauthorized user (not event owner)",
 			eventID: "123",
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Email: "unauthorized@example.com",
 				Sub:   "unauthorizedUserID",
 				Name:  "Unauthorized User",
 			},
-			roleClaims: []helpers.RoleClaim{
+			roleClaims: []constants.RoleClaim{
 				{Role: "eventAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
@@ -1181,12 +1182,12 @@ func TestGetEventAttendeesPage(t *testing.T) {
 		{
 			name:    "Superadmin can access any event",
 			eventID: "123",
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Email: "admin@example.com",
 				Sub:   "adminUserID",
 				Name:  "Admin User",
 			},
-			roleClaims: []helpers.RoleClaim{
+			roleClaims: []constants.RoleClaim{
 				{Role: "superAdmin", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
@@ -1195,12 +1196,12 @@ func TestGetEventAttendeesPage(t *testing.T) {
 		{
 			name:    "User without required role",
 			eventID: "123",
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Email: "user@example.com",
 				Sub:   "regularUserID",
 				Name:  "Regular User",
 			},
-			roleClaims: []helpers.RoleClaim{
+			roleClaims: []constants.RoleClaim{
 				{Role: "user", ProjectID: "project-id"},
 			},
 			expectedStatus: http.StatusOK,
@@ -1219,16 +1220,16 @@ func TestGetEventAttendeesPage(t *testing.T) {
 			// Set up context with user info and role claims
 			ctx := context.WithValue(req.Context(), "userInfo", tt.userInfo)
 			ctx = context.WithValue(ctx, "roleClaims", tt.roleClaims)
-			ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				PathParameters: map[string]string{
-					helpers.EVENT_ID_KEY: tt.eventID,
+					constants.EVENT_ID_KEY: tt.eventID,
 				},
 			})
 			req = req.WithContext(ctx)
 
 			// Set up router to extract variables
 			router := mux.NewRouter()
-			router.HandleFunc("/event/{"+helpers.EVENT_ID_KEY+"}/attendees", func(w http.ResponseWriter, r *http.Request) {
+			router.HandleFunc("/event/{"+constants.EVENT_ID_KEY+"}/attendees", func(w http.ResponseWriter, r *http.Request) {
 				GetEventAttendeesPage(w, r).ServeHTTP(w, r)
 			})
 

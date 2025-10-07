@@ -19,6 +19,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/a-h/templ"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
@@ -85,7 +86,7 @@ func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 	ctx := r.Context()
 
-	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := ctx.Value("userInfo").(constants.UserInfo)
 	userID := userInfo.Sub
 
 	// Call Cloudflare KV store to save the subdomain
@@ -93,7 +94,7 @@ func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	metadata := map[string]string{"": ""}
 	err = helpers.SetCloudflareMnmOptions(inputPayload.Subdomain, userID, metadata, cfMetadataValue)
 	if err != nil {
-		if err.Error() == helpers.ERR_KV_KEY_EXISTS {
+		if err.Error() == constants.ERR_KV_KEY_EXISTS {
 			return transport.SendHtmlErrorPartial([]byte("Subdomain already taken"), http.StatusInternalServerError)
 		} else {
 			return transport.SendHtmlErrorPartial([]byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
@@ -151,14 +152,14 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		})
 	}
 
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 		roleClaims = claims
 	}
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 	userId := ""
 	if userInfo.Sub != "" {
@@ -184,7 +185,7 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 
 	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
-	radius = helpers.DEFAULT_MAX_RADIUS
+	radius = constants.DEFAULT_MAX_RADIUS
 	farFutureTime, _ := time.Parse(time.RFC3339, "2099-01-01T00:00:00Z")
 	endTimeUnix = farFutureTime.Unix()
 
@@ -193,11 +194,11 @@ func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.H
 		return transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
 
 	// NOTE: we want the children AND the parent event, empty string gets the parent
 	eventSourceIds = []string{eventId}
-	eventSourceTypes = []string{helpers.ES_EVENT_SERIES, helpers.ES_EVENT_SERIES_UNPUB}
+	eventSourceTypes = []string{constants.ES_EVENT_SERIES, constants.ES_EVENT_SERIES_UNPUB}
 
 	// Separate parent and children events
 	var eventParent *internal_types.Event
@@ -269,7 +270,7 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlRes(w, []byte(string("Invalid Body: ")+err.Error()), http.StatusBadRequest, "partial", err)
 	}
 
-	baseUrl := helpers.GEO_BASE_URL
+	baseUrl := constants.GEO_BASE_URL
 	geoService := services.GetGeoService()
 	lat, lon, address, err := geoService.GetGeo(inputPayload.Location, baseUrl)
 	if err != nil {
@@ -672,7 +673,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		log.Fatal("Failed to parse JSON:", err)
 	}
 
-	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := ctx.Value("userInfo").(constants.UserInfo)
 	userId := userInfo.Sub
 	if userId == "" {
 		return transport.SendHtmlRes(w, []byte("You must be logged in to submit an event source"), http.StatusUnauthorized, "partial", err)
@@ -733,12 +734,12 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		if jobAborted {
 			return
 		}
-		// check for valid latitude / longitude that is NOT equal to `helpers.INITIAL_EMPTY_LAT_LONG`
+		// check for valid latitude / longitude that is NOT equal to `constants.INITIAL_EMPTY_LAT_LONG`
 		// which is an intentionally invalid placeholder
 
 		hasDefaultLat := false
 		latMatch, err := regexp.MatchString(services.LatitudeRegex, fmt.Sprint(session.LocationLatitude))
-		if session.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG {
+		if session.LocationLatitude == constants.INITIAL_EMPTY_LAT_LONG {
 			hasDefaultLat = false
 		} else if err != nil || !latMatch {
 			hasDefaultLat = true
@@ -746,9 +747,9 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 		hasDefaultLon := false
 		lonMatch, err := regexp.MatchString(services.LongitudeRegex, fmt.Sprint(session.LocationLongitude))
-		if session.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG {
+		if session.LocationLongitude == constants.INITIAL_EMPTY_LAT_LONG {
 			hasDefaultLon = false
-		} else if err != nil || !lonMatch || session.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG {
+		} else if err != nil || !lonMatch || session.LocationLongitude == constants.INITIAL_EMPTY_LAT_LONG {
 			hasDefaultLon = true
 		}
 
@@ -858,11 +859,11 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			}
 			scrapeSource := "unknown"
 			if strings.Contains(baseUrl, "facebook.com") {
-				scrapeSource = helpers.SESHU_KNOWN_SOURCE_FB
+				scrapeSource = constants.SESHU_KNOWN_SOURCE_FB
 			}
 
 			switch scrapeSource {
-			case helpers.SESHU_KNOWN_SOURCE_FB:
+			case constants.SESHU_KNOWN_SOURCE_FB:
 				titlePath = "_BYPASS_"
 				locationTag = "_BYPASS_"
 				startTag = "_BYPASS_"
@@ -981,7 +982,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 					return
 				}
 
-				extractedEvents, _, err := services.ExtractEventsFromHTML(seshuJob, helpers.SESHU_MODE_SCRAPE, &services.RealScrapingService{})
+				extractedEvents, _, err := services.ExtractEventsFromHTML(seshuJob, constants.SESHU_MODE_SCRAPE, &services.RealScrapingService{})
 				if err != nil {
 					log.Printf("Failed to extract events from %s: %v", seshuJob.NormalizedUrlKey, err)
 				}
@@ -1034,7 +1035,7 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	r.ParseForm()
 	ctx := r.Context()
 
-	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := ctx.Value("userInfo").(constants.UserInfo)
 	userID := userInfo.Sub
 
 	// TODO: pretty sure the Form approach here makes it so that you can't submit this multiple
@@ -1061,7 +1062,7 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 	flattenedCategoriesString := strings.Join(flattenedCategories, "|")
 
-	err := helpers.UpdateUserMetadataKey(userID, helpers.INTERESTS_KEY, flattenedCategoriesString)
+	err := helpers.UpdateUserMetadataKey(userID, constants.INTERESTS_KEY, flattenedCategoriesString)
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
 	}
@@ -1089,9 +1090,9 @@ func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 	ctx := r.Context()
 
-	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := ctx.Value("userInfo").(constants.UserInfo)
 	userID := userInfo.Sub
-	err = helpers.UpdateUserMetadataKey(userID, helpers.META_ABOUT_KEY, inputPayload.About)
+	err = helpers.UpdateUserMetadataKey(userID, constants.META_ABOUT_KEY, inputPayload.About)
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to update 'about' field: "+err.Error()), http.StatusInternalServerError)
 	}

@@ -14,14 +14,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var purchasablesTableName = helpers.GetDbTableName(helpers.PurchasablesTablePrefix)
+var purchasablesTableName = helpers.GetDbTableName(constants.PurchasablesTablePrefix)
 
 func init() {
-	purchasablesTableName = helpers.GetDbTableName(helpers.PurchasablesTablePrefix)
+	purchasablesTableName = helpers.GetDbTableName(constants.PurchasablesTablePrefix)
 }
 
 type PurchasableService struct{}

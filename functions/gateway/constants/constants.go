@@ -1,11 +1,11 @@
-package helpers
+package constants
 
 import (
 	"fmt"
 	"math"
+	"os"
 	"reflect"
-
-	"github.com/meetnearme/api/functions/gateway/types"
+	"time"
 )
 
 type AWSReqKey string
@@ -119,6 +119,9 @@ const (
 	STRIPE_WEBHOOK_EVENT_CUSTOMER_UPDATED                             = "customer.updated"
 )
 
+// Customer portal configuration
+var CUSTOMER_PORTAL_RETURN_URL_PATH = os.Getenv("APEX_URL") + "/admin/subscriptions"
+
 // NOTE: these are the default searchable event source types that show up in the home event list view
 var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT, ES_SINGLE_EVENT}
 
@@ -145,24 +148,6 @@ func init() {
 		if key != page.Key {
 			panic(fmt.Sprintf("SitePage key mismatch: map key %q != struct key %q", key, page.Key))
 		}
-	}
-
-	// Initialize the EventFields struct with field names
-	eventType := reflect.TypeOf(types.Event{})
-	eventFieldsValue := reflect.ValueOf(&EventFields).Elem()
-
-	fieldDisplayNames = make(map[string]string)
-
-	for i := 0; i < eventType.NumField(); i++ {
-		field := eventType.Field(i)
-
-		// Set the field name in EventFields
-		if f := eventFieldsValue.FieldByName(field.Name); f.IsValid() {
-			f.SetString(field.Name)
-		}
-
-		// Initialize the display names map
-		fieldDisplayNames[field.Name] = humanizeFieldName(field.Name)
 	}
 }
 
@@ -233,6 +218,19 @@ var AllowedMnmOptionsKeys = []string{
 type Category struct {
 	Name, Desc, Slug string
 	Items            []Subcategory
+}
+
+type Subcategory struct {
+	Name, Desc, Slug string
+}
+
+type CdnLocation struct {
+	IATA   string  `json:"iata"`
+	Lat    float64 `json:"lat"`
+	Lon    float64 `json:"lon"`
+	CCA2   string  `json:"cca2"`
+	Region string  `json:"region"`
+	City   string  `json:"city"`
 }
 
 type SubnavOption string
@@ -313,6 +311,62 @@ var EventFields struct {
 
 var fieldDisplayNames map[string]string
 
+type Event struct {
+	Id                    string        `json:"id,omitempty"`
+	EventOwners           []string      `json:"eventOwners" validate:"required,min=1"`
+	EventOwnerName        string        `json:"eventOwnerName" validate:"required"`
+	EventSourceType       string        `json:"eventSourceType" validate:"required"`
+	Name                  string        `json:"name" validate:"required"`
+	Description           string        `json:"description" validate:"required"`
+	StartTime             int64         `json:"startTime" validate:"required"`
+	EndTime               int64         `json:"endTime,omitempty"`
+	Address               string        `json:"address" validate:"required"`
+	Lat                   float64       `json:"lat" validate:"required"`
+	Long                  float64       `json:"long" validate:"required"`
+	EventSourceId         string        `json:"eventSourceId"`
+	StartingPrice         int32         `json:"startingPrice,omitempty"`
+	Currency              string        `json:"currency,omitempty"`
+	PayeeId               string        `json:"payeeId,omitempty"`
+	HasRegistrationFields bool          `json:"hasRegistrationFields,omitempty"`
+	HasPurchasable        bool          `json:"hasPurchasable,omitempty"`
+	ImageUrl              string        `json:"imageUrl,omitempty"`
+	Timezone              time.Location `json:"timezone" validate:"required"`
+	Categories            []string      `json:"categories,omitempty"`
+	Tags                  []string      `json:"tags,omitempty"`
+	CreatedAt             int64         `json:"createdAt,omitempty"`
+	UpdatedAt             int64         `json:"updatedAt,omitempty"`
+	UpdatedBy             string        `json:"updatedBy,omitempty"`
+	RefUrl                string        `json:"refUrl,omitempty"`
+	HideCrossPromo        bool          `json:"hideCrossPromo,omitempty"`
+	CompetitionConfigId   string        `json:"competitionConfigId,omitempty"`
+	ShadowOwners          []string      `json:"shadowOwners,omitempty"`
+	SourceUrl             string        `json:"sourceUrl,omitempty"`
+
+	// New fields for UI use only
+	LocalizedStartDate string `json:"localStartDate,omitempty"`
+	LocalizedStartTime string `json:"localStartTime,omitempty"`
+}
+
+func init() {
+	// Initialize the EventFields struct with field names
+	eventType := reflect.TypeOf(Event{})
+	eventFieldsValue := reflect.ValueOf(&EventFields).Elem()
+
+	fieldDisplayNames = make(map[string]string)
+
+	for i := 0; i < eventType.NumField(); i++ {
+		field := eventType.Field(i)
+
+		// Set the field name in EventFields
+		if f := eventFieldsValue.FieldByName(field.Name); f.IsValid() {
+			f.SetString(field.Name)
+		}
+
+		// Initialize the display names map
+		fieldDisplayNames[field.Name] = humanizeFieldName(field.Name)
+	}
+}
+
 // GetFieldDisplayName returns the human-readable name for a field
 func GetFieldDisplayName(field string) string {
 	if displayName, exists := fieldDisplayNames[field]; exists {
@@ -383,22 +437,11 @@ func humanizeFieldName(field string) string {
 		return "Competition Config ID"
 	case "ShadowOwners":
 		return "Shadow Owners"
+	case "SourceUrl":
+		return "Source URL"
 	default:
 		panic(fmt.Sprintf("No display name mapping for field: %s", field))
 	}
-}
-
-type Subcategory struct {
-	Name, Desc, Slug string
-}
-
-type CdnLocation struct {
-	IATA   string  `json:"iata"`
-	Lat    float64 `json:"lat"`
-	Lon    float64 `json:"lon"`
-	CCA2   string  `json:"cca2"`
-	Region string  `json:"region"`
-	City   string  `json:"city"`
 }
 
 var Categories = []Category{

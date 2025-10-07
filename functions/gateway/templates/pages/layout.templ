@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/lucasb-eyer/go-colorful"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"io"
@@ -163,7 +163,7 @@ type themeStyleTag struct{}
 
 func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	// Safely get the MNM_OPTIONS from context
-	mnmOptionsValue := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY)
+	mnmOptionsValue := ctx.Value(constants.MNM_OPTIONS_CTX_KEY)
 
 	if mnmOptionsValue == nil {
 		// If no options are set, return without error
@@ -309,7 +309,7 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	return nil
 }
 
-templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event, narrowLayout bool, ctx context.Context, scripts []string) {
+templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageContent templ.Component, event types.Event, narrowLayout bool, ctx context.Context, scripts []string) {
 	<!DOCTYPE html>
 	<html data-theme="auto">
 		<head>

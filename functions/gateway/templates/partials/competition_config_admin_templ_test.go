@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -18,7 +18,7 @@ func TestCompetitionConfigAdminList(t *testing.T) {
 			Name:       "Test Competition 1",
 			StartTime:  1704067200, // Jan 1, 2024
 			EndTime:    1706745600, // Feb 1, 2024
-			ModuleType: helpers.ES_SERIES_PARENT,
+			ModuleType: constants.ES_SERIES_PARENT,
 			CreatedAt:  1704067200,
 			UpdatedAt:  1704067200,
 		},
@@ -27,7 +27,7 @@ func TestCompetitionConfigAdminList(t *testing.T) {
 			Name:       "Test Competition 2",
 			StartTime:  1706745600, // Feb 1, 2024
 			EndTime:    1709251200, // Mar 1, 2024
-			ModuleType: helpers.ES_EVENT_SERIES,
+			ModuleType: constants.ES_EVENT_SERIES,
 			CreatedAt:  1706745600,
 			UpdatedAt:  1706745600,
 		},

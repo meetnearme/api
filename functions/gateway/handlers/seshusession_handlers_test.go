@@ -14,7 +14,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
@@ -168,7 +168,7 @@ func TestHandleSeshuSessionSubmit(t *testing.T) {
 			}
 
 			// Add AWS Lambda context (required for transport layer)
-			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				RequestContext: events.APIGatewayV2HTTPRequestContext{
 					RequestID: "test-request-id",
 				},
@@ -176,7 +176,7 @@ func TestHandleSeshuSessionSubmit(t *testing.T) {
 			})
 
 			// Add auth context (required for authorization)
-			mockUserInfo := helpers.UserInfo{
+			mockUserInfo := constants.UserInfo{
 				Sub:   "test-user-123",
 				Name:  "Test User",
 				Email: "test@example.com",
@@ -186,7 +186,7 @@ func TestHandleSeshuSessionSubmit(t *testing.T) {
 			}
 			ctx = context.WithValue(ctx, "userInfo", mockUserInfo)
 			ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
-			ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "test-user-123"})
+			ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "test-user-123"})
 			req = req.WithContext(ctx)
 
 			// Call HandleSeshuSessionSubmit and get the resulting handler
@@ -496,7 +496,7 @@ func TestSeshuSessionSubmitEventTruncation(t *testing.T) {
 			name:           "99 events returned (truncated to 3)",
 			url:            "https://many-events.com",
 			openAIResponse: generateManyEventsJSON(99),
-			expectedEvents: 3, // Should be truncated to 3
+			expectedEvents: 3,         // Should be truncated to 3
 			expectBodyText: "Event 1", // Should contain first event
 		},
 	}
@@ -508,11 +508,11 @@ func TestSeshuSessionSubmitEventTruncation(t *testing.T) {
 			mockOpenAI := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				
+
 				// Create response by copying base and overriding only the Content field
 				response := baseResponse
 				response.Choices[0].Message.Content = tt.openAIResponse
-				
+
 				json.NewEncoder(w).Encode(response)
 			}))
 
@@ -533,7 +533,7 @@ func TestSeshuSessionSubmitEventTruncation(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			// Add AWS Lambda context (required for transport layer)
-			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				RequestContext: events.APIGatewayV2HTTPRequestContext{
 					RequestID: "test-request-id",
 				},
@@ -541,7 +541,7 @@ func TestSeshuSessionSubmitEventTruncation(t *testing.T) {
 			})
 
 			// Add auth context (required for authorization)
-			mockUserInfo := helpers.UserInfo{
+			mockUserInfo := constants.UserInfo{
 				Sub:   "test-user-123",
 				Name:  "Test User",
 				Email: "test@example.com",
@@ -551,7 +551,7 @@ func TestSeshuSessionSubmitEventTruncation(t *testing.T) {
 			}
 			ctx = context.WithValue(ctx, "userInfo", mockUserInfo)
 			ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
-			ctx = context.WithValue(ctx, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "test-user-123"})
+			ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "test-user-123"})
 			req = req.WithContext(ctx)
 
 			// Call HandleSeshuSessionSubmit and get the resulting handler
@@ -568,7 +568,7 @@ func TestSeshuSessionSubmitEventTruncation(t *testing.T) {
 
 			// Check response content
 			responseBody := rec.Body.String()
-			
+
 			if tt.expectedEvents == 0 {
 				// For zero events, should not contain any event text
 				if strings.Contains(responseBody, "Event") {

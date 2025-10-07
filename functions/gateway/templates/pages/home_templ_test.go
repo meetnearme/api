@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -25,7 +25,7 @@ func TestHomePage(t *testing.T) {
 		},
 	}
 
-	cfLocation := helpers.CdnLocation{
+	cfLocation := constants.CdnLocation{
 		City: "New York",
 		CCA2: "US",
 	}
@@ -76,7 +76,7 @@ func TestHomePage(t *testing.T) {
 				UserID:      "1234567890",
 				DisplayName: "Brian's Pub",
 				Metadata: map[string]string{
-					helpers.META_ABOUT_KEY: "Welcome to Brian's Pub",
+					constants.META_ABOUT_KEY: "Welcome to Brian's Pub",
 				},
 			},
 			latStr:            "",
@@ -97,7 +97,7 @@ func TestHomePage(t *testing.T) {
 				UserID:      "1234567890",
 				DisplayName: "Brian's Pub",
 				Metadata: map[string]string{
-					helpers.META_ABOUT_KEY: "Welcome to Brian's Pub",
+					constants.META_ABOUT_KEY: "Welcome to Brian's Pub",
 				},
 			},
 			latStr:            "29.760427",
@@ -174,7 +174,7 @@ func TestHomeWithReShareButton(t *testing.T) {
 		UserID:      "1234567890",
 		DisplayName: "Brian Feister",
 	}
-	cfLocation := helpers.CdnLocation{
+	cfLocation := constants.CdnLocation{
 		City: "New York",
 		CCA2: "US",
 	}

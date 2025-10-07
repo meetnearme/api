@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers"
-	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -106,7 +106,7 @@ func TestGetSeshuJobs(t *testing.T) {
 	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		RequestContext: events.APIGatewayV2HTTPRequestContext{
 			RequestID: "test-request-id",
 		},
@@ -159,7 +159,7 @@ func TestCreateSeshuJob(t *testing.T) {
 	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		RequestContext: events.APIGatewayV2HTTPRequestContext{
 			RequestID: "test-request-id",
 		},
@@ -212,7 +212,7 @@ func TestCreateSeshuJob_DBError(t *testing.T) {
 	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		RequestContext: events.APIGatewayV2HTTPRequestContext{
 			RequestID: "test-request-id",
 		},
@@ -270,7 +270,7 @@ func TestUpdateSeshuJob(t *testing.T) {
 	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		RequestContext: events.APIGatewayV2HTTPRequestContext{
 			RequestID: "test-request-id",
 		},
@@ -303,7 +303,7 @@ func TestDeleteSeshuJob(t *testing.T) {
 	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		RequestContext: events.APIGatewayV2HTTPRequestContext{
 			RequestID: "test-request-id",
 		},
@@ -371,7 +371,7 @@ func TestGatherSeshuJobsHandler(t *testing.T) {
 	ctx = context.WithValue(ctx, "mockNatsService", mockNats)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		RequestContext: events.APIGatewayV2HTTPRequestContext{
 			RequestID: "test-request-id",
 		},

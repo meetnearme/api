@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
@@ -149,7 +150,7 @@ func TestSetMnmOptions(t *testing.T) {
 	tests := []struct {
 		name           string
 		payload        SetMnmOptionsRequestPayload
-		userInfo       helpers.UserInfo
+		userInfo       constants.UserInfo
 		queryParams    string
 		expectedStatus int
 		shouldContain  []string
@@ -161,7 +162,7 @@ func TestSetMnmOptions(t *testing.T) {
 				PrimaryColor: "#FF0000",
 				ThemeMode:    "dark",
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user123",
 			},
 			expectedStatus: http.StatusOK,
@@ -174,7 +175,7 @@ func TestSetMnmOptions(t *testing.T) {
 				PrimaryColor: "#00FF00",
 				ThemeMode:    "light",
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user456",
 			},
 			queryParams:    "theme=true",
@@ -188,7 +189,7 @@ func TestSetMnmOptions(t *testing.T) {
 				PrimaryColor: "#0000FF",
 				ThemeMode:    "auto",
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "different-user-789",
 			},
 			expectedStatus: http.StatusOK, // HTML error responses return 200
@@ -197,7 +198,7 @@ func TestSetMnmOptions(t *testing.T) {
 		{
 			name:    "invalid JSON payload",
 			payload: SetMnmOptionsRequestPayload{}, // Empty payload will fail validation
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user999",
 			},
 			expectedStatus: http.StatusOK, // HTML error responses return 200
@@ -225,7 +226,7 @@ func TestSetMnmOptions(t *testing.T) {
 			}
 
 			// Add AWS Lambda context and user info to context (required for transport layer)
-			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				PathParameters: map[string]string{},
 			})
 			ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
@@ -269,7 +270,7 @@ func TestGeoLookup(t *testing.T) {
 
 	// Set environment for test mode
 	os.Setenv("GO_ENV", "test")
-	os.Setenv("DEPLOYMENT_TARGET", helpers.ACT)
+	os.Setenv("DEPLOYMENT_TARGET", constants.ACT)
 
 	tests := []struct {
 		name           string
@@ -312,10 +313,10 @@ func TestGeoLookup(t *testing.T) {
 			payloadBytes, _ := json.Marshal(tt.payload)
 			req := httptest.NewRequest("POST", "/geo-lookup", bytes.NewReader(payloadBytes))
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Host", "localhost:"+helpers.GO_ACT_SERVER_PORT)
+			req.Header.Set("Host", "localhost:"+constants.GO_ACT_SERVER_PORT)
 
 			// Add AWS Lambda context (required for transport layer)
-			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				PathParameters: map[string]string{},
 			})
 			req = req.WithContext(ctx)
@@ -356,7 +357,7 @@ func TestCityLookup(t *testing.T) {
 	}()
 
 	os.Setenv("GO_ENV", "test")
-	os.Setenv("DEPLOYMENT_TARGET", helpers.ACT)
+	os.Setenv("DEPLOYMENT_TARGET", constants.ACT)
 
 	tests := []struct {
 		name           string
@@ -400,9 +401,9 @@ func TestCityLookup(t *testing.T) {
 			}
 
 			req := httptest.NewRequest("GET", requestURL, nil)
-			req.Header.Set("Host", "localhost:"+helpers.GO_ACT_SERVER_PORT)
+			req.Header.Set("Host", "localhost:"+constants.GO_ACT_SERVER_PORT)
 
-			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				PathParameters: map[string]string{},
 			})
 			req = req.WithContext(ctx)
@@ -491,7 +492,7 @@ func TestGetEventsPartial(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						helpers.WeaviateEventClassName: events,
+						constants.WeaviateEventClassName: events,
 					},
 				},
 			}
@@ -612,7 +613,7 @@ func TestGeoThenPatchSeshuSessionHandler(t *testing.T) {
 	}()
 
 	os.Setenv("GO_ENV", "test")
-	os.Setenv("DEPLOYMENT_TARGET", helpers.ACT)
+	os.Setenv("DEPLOYMENT_TARGET", constants.ACT)
 	services.ResetGeoService() // Reset to pick up test environment
 
 	tests := []struct {
@@ -662,14 +663,14 @@ func TestGeoThenPatchSeshuSessionHandler(t *testing.T) {
 
 			// Create request with proper URL scheme and host
 			payloadBytes, _ := json.Marshal(tt.payload)
-			req := httptest.NewRequest("POST", "http://localhost:"+helpers.GO_ACT_SERVER_PORT+"/geo-patch-seshu", bytes.NewReader(payloadBytes))
+			req := httptest.NewRequest("POST", "http://localhost:"+constants.GO_ACT_SERVER_PORT+"/geo-patch-seshu", bytes.NewReader(payloadBytes))
 			req.Header.Set("Content-Type", "application/json")
 			// Set URL fields that GetBaseUrlFromReq needs
 			req.URL.Scheme = "http"
-			req.URL.Host = "localhost:" + helpers.GO_ACT_SERVER_PORT
+			req.URL.Host = "localhost:" + constants.GO_ACT_SERVER_PORT
 
 			// Add AWS Lambda context for error handling
-			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				RequestContext: events.APIGatewayV2HTTPRequestContext{
 					RequestID: "test-request-id",
 				},
@@ -767,7 +768,7 @@ func TestUpdateUserInterests(t *testing.T) {
 	tests := []struct {
 		name           string
 		formData       map[string][]string
-		userInfo       helpers.UserInfo
+		userInfo       constants.UserInfo
 		expectedStatus int
 		shouldContain  string
 	}{
@@ -778,7 +779,7 @@ func TestUpdateUserInterests(t *testing.T) {
 				"subCategory": {"Football", "Rock Music"},
 				"other":       {"ignored"}, // Should be ignored
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user123",
 			},
 			expectedStatus: http.StatusOK,
@@ -789,7 +790,7 @@ func TestUpdateUserInterests(t *testing.T) {
 			formData: map[string][]string{
 				"category": {"Sports, Music, Technology"},
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user456",
 			},
 			expectedStatus: http.StatusOK,
@@ -802,7 +803,7 @@ func TestUpdateUserInterests(t *testing.T) {
 				"eventCategory":   {"Concerts"},
 				"mainSubCategory": {"Classical"},
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user789",
 			},
 			expectedStatus: http.StatusOK,
@@ -813,7 +814,7 @@ func TestUpdateUserInterests(t *testing.T) {
 			formData: map[string][]string{
 				"other": {"non-category-field"},
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user999",
 			},
 			expectedStatus: http.StatusOK,
@@ -824,7 +825,7 @@ func TestUpdateUserInterests(t *testing.T) {
 			formData: map[string][]string{
 				"category": {"Sports"},
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "error_user",
 			},
 			expectedStatus: http.StatusOK, // HTML error responses return 200
@@ -846,7 +847,7 @@ func TestUpdateUserInterests(t *testing.T) {
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 			// Add AWS Lambda context and user info to context (required for transport layer)
-			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				PathParameters: map[string]string{},
 			})
 			ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
@@ -948,7 +949,7 @@ func TestUpdateUserAbout(t *testing.T) {
 	tests := []struct {
 		name           string
 		payload        UpdateUserAboutRequestPayload
-		userInfo       helpers.UserInfo
+		userInfo       constants.UserInfo
 		expectedStatus int
 		shouldContain  string
 	}{
@@ -957,7 +958,7 @@ func TestUpdateUserAbout(t *testing.T) {
 			payload: UpdateUserAboutRequestPayload{
 				About: "I love attending events and meeting new people!",
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user123",
 			},
 			expectedStatus: http.StatusOK,
@@ -968,7 +969,7 @@ func TestUpdateUserAbout(t *testing.T) {
 			payload: UpdateUserAboutRequestPayload{
 				About: "",
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user123",
 			},
 			expectedStatus: http.StatusOK,
@@ -979,7 +980,7 @@ func TestUpdateUserAbout(t *testing.T) {
 			payload: UpdateUserAboutRequestPayload{
 				About: "Some about text",
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "error_user",
 			},
 			expectedStatus: http.StatusOK,
@@ -995,7 +996,7 @@ func TestUpdateUserAbout(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			// Add AWS Lambda context and user info to context (required for transport layer)
-			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				PathParameters: map[string]string{},
 			})
 			ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
@@ -1334,7 +1335,7 @@ func TestGetEventAdminChildrenPartial(t *testing.T) {
 				mockResponse := models.GraphQLResponse{
 					Data: map[string]models.JSONObject{
 						"Get": map[string]interface{}{
-							helpers.WeaviateEventClassName: []interface{}{
+							constants.WeaviateEventClassName: []interface{}{
 								map[string]interface{}{
 									"name":            "Child Event 1",
 									"description":     "First child event",
@@ -1377,13 +1378,13 @@ func TestGetEventAdminChildrenPartial(t *testing.T) {
 				mockResponse := models.GraphQLResponse{
 					Data: map[string]models.JSONObject{
 						"Get": map[string]interface{}{
-							helpers.WeaviateEventClassName: []interface{}{
+							constants.WeaviateEventClassName: []interface{}{
 								map[string]interface{}{
 									"name":            "Parent Event",
 									"description":     "Parent event description",
 									"eventOwners":     []interface{}{"123"},
 									"eventOwnerName":  "Event Host",
-									"eventSourceType": "SLF_EVS", // helpers.ES_SERIES_PARENT
+									"eventSourceType": constants.ES_SERIES_PARENT,
 									"startTime":       int64(1234567000),
 									"endTime":         int64(1234568000),
 									"address":         "Parent Location",
@@ -1445,7 +1446,7 @@ func TestGetEventAdminChildrenPartial(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create request with event ID in URL path
 			req := httptest.NewRequest("GET", "/admin/event/"+tt.eventId+"/children", nil)
-			req = mux.SetURLVars(req, map[string]string{helpers.EVENT_ID_KEY: tt.eventId})
+			req = mux.SetURLVars(req, map[string]string{constants.EVENT_ID_KEY: tt.eventId})
 			rr := httptest.NewRecorder()
 
 			// Execute handler
@@ -1496,7 +1497,7 @@ func TestSubmitSeshuSession(t *testing.T) {
 	tests := []struct {
 		name           string
 		payload        SeshuSessionEventsPayload
-		userInfo       helpers.UserInfo
+		userInfo       constants.UserInfo
 		mockDB         *test_helpers.MockDynamoDBClient
 		mockPostgres   *test_helpers.MockPostgresService
 		expectedStatus int
@@ -1517,7 +1518,7 @@ func TestSubmitSeshuSession(t *testing.T) {
 					},
 				},
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user123",
 			},
 			mockDB: &test_helpers.MockDynamoDBClient{
@@ -1589,7 +1590,7 @@ func TestSubmitSeshuSession(t *testing.T) {
 			payload: SeshuSessionEventsPayload{
 				Url: "https://example.com/events",
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "", // Empty user ID
 			},
 			mockDB:         &test_helpers.MockDynamoDBClient{},
@@ -1600,7 +1601,7 @@ func TestSubmitSeshuSession(t *testing.T) {
 		{
 			name:    "invalid JSON payload",
 			payload: SeshuSessionEventsPayload{}, // Empty payload will fail validation
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user123",
 			},
 			mockDB:         &test_helpers.MockDynamoDBClient{},
@@ -1623,7 +1624,7 @@ func TestSubmitSeshuSession(t *testing.T) {
 					},
 				},
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user123",
 			},
 			mockDB: &test_helpers.MockDynamoDBClient{
@@ -1681,7 +1682,7 @@ func TestSubmitSeshuSession(t *testing.T) {
 					},
 				},
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user123",
 			},
 			mockDB: &test_helpers.MockDynamoDBClient{
@@ -1730,7 +1731,7 @@ func TestSubmitSeshuSession(t *testing.T) {
 					},
 				},
 			},
-			userInfo: helpers.UserInfo{
+			userInfo: constants.UserInfo{
 				Sub: "user123",
 			},
 			mockDB: &test_helpers.MockDynamoDBClient{
@@ -1812,7 +1813,7 @@ func TestSubmitSeshuSession(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			// Add AWS Lambda context and user info to context (required for transport layer)
-			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				PathParameters: map[string]string{},
 			})
 			ctx = context.WithValue(ctx, "userInfo", tt.userInfo)

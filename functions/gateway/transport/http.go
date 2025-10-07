@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -46,14 +46,14 @@ func SendHtmlRes(w http.ResponseWriter, body []byte, status int, mode string, er
 
 func SendHtmlErrorPage(body []byte, status int, hideError bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userInfo := helpers.UserInfo{}
+		userInfo := constants.UserInfo{}
 		ctx := r.Context()
-		if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-			userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+		if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(constants.UserInfo)
 		}
 
 		requestID := ""
-		if apiGwV2ReqRaw := ctx.Value(helpers.ApiGwV2ReqKey); apiGwV2ReqRaw != nil {
+		if apiGwV2ReqRaw := ctx.Value(constants.ApiGwV2ReqKey); apiGwV2ReqRaw != nil {
 			if apiGwV2Req, ok := apiGwV2ReqRaw.(events.APIGatewayV2HTTPRequest); ok {
 				requestID = apiGwV2Req.RequestContext.RequestID
 			} else {
@@ -64,7 +64,7 @@ func SendHtmlErrorPage(body []byte, status int, hideError bool) http.HandlerFunc
 		}
 
 		errorPartial := pages.ErrorPage(body, requestID, hideError)
-		layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, errorPartial, types.Event{}, false, ctx, []string{})
+		layoutTemplate := pages.Layout(constants.SitePages["home"], userInfo, errorPartial, types.Event{}, false, ctx, []string{})
 		var buf bytes.Buffer
 		err := layoutTemplate.Render(ctx, &buf)
 		if err != nil {
@@ -80,7 +80,7 @@ func SendHtmlErrorPartial(body []byte, status int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var buf bytes.Buffer
 		ctx := r.Context()
-		apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest).RequestContext
+		apiGwV2Req := ctx.Value(constants.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest).RequestContext
 		requestID := apiGwV2Req.RequestID
 		errorPartial := partials.ErrorHTMLAlert(body, fmt.Sprint(requestID))
 		err := errorPartial.Render(r.Context(), &buf)

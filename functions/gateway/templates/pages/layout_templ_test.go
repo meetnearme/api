@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/a-h/templ"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -16,13 +16,13 @@ func TestLayout(t *testing.T) {
 	testCases := []struct {
 		name            string
 		event           types.Event
-		sitePage        helpers.SitePage
+		sitePage        constants.SitePage
 		expectedStrings []string
 	}{
 		{
 			name:  "Empty event",
 			event: types.Event{},
-			sitePage: helpers.SitePage{
+			sitePage: constants.SitePage{
 				Key:  "event-detail",
 				Name: "Events",
 			},
@@ -42,7 +42,7 @@ func TestLayout(t *testing.T) {
 				Id:   "123",
 				Name: "Test Event 1",
 			},
-			sitePage: helpers.SitePage{
+			sitePage: constants.SitePage{
 				Key:  "event-detail",
 				Name: "Events",
 			},
@@ -62,11 +62,11 @@ func TestLayout(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeContext := context.Background()
 			// Add MNM_OPTIONS_CTX_KEY to context
-			fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{
+			fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, map[string]string{
 				"userId": "123",
 				"--p":    "#000000",
 			})
-			component := Layout(tc.sitePage, helpers.UserInfo{}, templ.Raw("hello world!"), tc.event, false, fakeContext, []string{})
+			component := Layout(tc.sitePage, constants.UserInfo{}, templ.Raw("hello world!"), tc.event, false, fakeContext, []string{})
 
 			var buf bytes.Buffer
 			err := component.Render(fakeContext, &buf)

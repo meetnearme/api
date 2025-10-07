@@ -1,6 +1,6 @@
 package components
 
-import "github.com/meetnearme/api/functions/gateway/helpers"
+import "github.com/meetnearme/api/functions/gateway/constants"
 
 templ ColorPicker(selectedColor string, label string, id string) {
 	<div
@@ -40,7 +40,7 @@ templ ColorPicker(selectedColor string, label string, id string) {
 				/>
 			</div>
 		</div>
-		<script data-selected-color={ selectedColor } data-default-color={ helpers.DEFAULT_PRIMARY_COLOR }>
+		<script data-selected-color={ selectedColor } data-default-color={ constants.DEFAULT_PRIMARY_COLOR }>
       var selectedColor = document.querySelector('[data-selected-color]').dataset.selectedColor;
       var defaultColor = document.querySelector('[data-default-color]').dataset.defaultColor;
       function getColorPickerState() {

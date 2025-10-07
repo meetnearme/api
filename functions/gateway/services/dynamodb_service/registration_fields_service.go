@@ -13,14 +13,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var registrationFieldsTableName = helpers.GetDbTableName(helpers.RegistrationFieldsTablePrefix)
+var registrationFieldsTableName = helpers.GetDbTableName(constants.RegistrationFieldsTablePrefix)
 
 func init() {
-	registrationFieldsTableName = helpers.GetDbTableName(helpers.RegistrationFieldsTablePrefix)
+	registrationFieldsTableName = helpers.GetDbTableName(constants.RegistrationFieldsTablePrefix)
 }
 
 // Validator instance for struct validation
