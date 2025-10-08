@@ -14,6 +14,7 @@ import (
 
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
@@ -24,7 +25,7 @@ import (
 
 func TestGetPurchasesByEventID(t *testing.T) {
 	// --- Standard Test Setup (same pattern as other tests) ---
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
 
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
@@ -86,7 +87,7 @@ func TestGetPurchasesByEventID(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						helpers.WeaviateEventClassName: []interface{}{
+						constants.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"name":           testEventName,
 								"description":    testEventDescription,
@@ -171,10 +172,10 @@ func TestGetPurchasesByEventID(t *testing.T) {
 			}
 			handler := NewPurchaseHandler(mockService)
 			req := httptest.NewRequest(http.MethodGet, "/purchases/event_id", nil)
-			req = mux.SetURLVars(req, map[string]string{helpers.EVENT_ID_KEY: testEventID})
+			req = mux.SetURLVars(req, map[string]string{constants.EVENT_ID_KEY: testEventID})
 
 			// Add authentication context with test user
-			userInfo := helpers.UserInfo{
+			userInfo := constants.UserInfo{
 				Sub: tt.userID,
 			}
 			ctx := context.WithValue(req.Context(), "userInfo", userInfo)
@@ -232,7 +233,7 @@ func TestGetPurchasesByUserID(t *testing.T) {
 			req = mux.SetURLVars(req, map[string]string{"user_id": tt.requestUserID})
 
 			// Add authentication context with test user
-			userInfo := helpers.UserInfo{
+			userInfo := constants.UserInfo{
 				Sub: tt.contextUserID,
 			}
 			ctx := context.WithValue(req.Context(), "userInfo", userInfo)
@@ -271,12 +272,12 @@ func TestDeletePurchase(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/purchases/%s/%s", testEventID, testUserID), nil)
 	req = mux.SetURLVars(req, map[string]string{
-		helpers.EVENT_ID_KEY: testEventID,
-		"user_id":            testUserID,
+		constants.EVENT_ID_KEY: testEventID,
+		"user_id":              testUserID,
 	})
 
 	// Add user context
-	userInfo := helpers.UserInfo{
+	userInfo := constants.UserInfo{
 		Sub: testUserID, // Using the same user ID to test authorized deletion
 	}
 	ctx := context.WithValue(req.Context(), "userInfo", userInfo)

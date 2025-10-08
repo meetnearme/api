@@ -1,13 +1,14 @@
 package pages
 
 import (
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"strings"
 )
 
-templ AddOrEditCompetitionPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, competition types.CompetitionConfig, users []types.UserSearchResultDangerous) {
+templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.UserInfo, competition types.CompetitionConfig, users []types.UserSearchResultDangerous) {
 	// NOTE: the `owners` portion of `@users-updated-owners` is a namespace and must be unique
 	// also must be connected manually with the value passed to @components.UsersSelect
 	<div
@@ -446,7 +447,7 @@ templ AddOrEditCompetitionPage(pageObj helpers.SitePage, userInfo helpers.UserIn
 			</div>
 		</template>
 	</div>
-	<script id="add-edit-competition" data-user-id={ userInfo.Sub } data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["competition-detail"].Slug, helpers.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ helpers.COMP_EMPTY_TEAM_NAME } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ helpers.COMP_TEAM_ID_PREFIX } competition-competitors={ string(helpers.ToJSON(competition.Competitors)) } data-competition-start-time={ helpers.GetDatetimePickerFormatted(competition.StartTime, nil) } data-competition-end-time={ helpers.GetDatetimePickerFormatted(competition.EndTime, nil) }>
+	<script id="add-edit-competition" data-user-id={ userInfo.Sub } data-competition-name={ competition.Name } data-competition-module-type={ competition.ModuleType } data-competition-scoring-method={ competition.ScoringMethod } data-competition-id={ competition.Id } data-competition-auxilary-owners={ string(helpers.ToJSON(competition.AuxilaryOwners)) } data-competition-primary-owner={ competition.PrimaryOwner } data-competition-owners={ string(helpers.ToJSON(users)) } data-competition-detail-url={ strings.Replace(strings.Replace(constants.SitePages["competition-detail"].Slug, constants.COMPETITIONS_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-empty-team-name={ constants.COMP_EMPTY_TEAM_NAME } data-round-empty-event-id={ constants.COMP_UNASSIGNED_ROUND_EVENT_ID } data-team-id-prefix={ constants.COMP_TEAM_ID_PREFIX } competition-competitors={ string(helpers.ToJSON(competition.Competitors)) } data-competition-start-time={ helpers.GetDatetimePickerFormatted(competition.StartTime, nil) } data-competition-end-time={ helpers.GetDatetimePickerFormatted(competition.EndTime, nil) }>
 		function getEditCompetitionState() {
 			return {
 				init() {

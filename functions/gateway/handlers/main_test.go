@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
@@ -47,7 +48,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("FATAL: Could not create Weaviate client for handler tests: %v", err)
 	}
 
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 	helpers.InitDefaultProtocol() // Re-initialize protocol after setting GO_ENV
 	os.Setenv("APEX_URL", "https://test.example.com")
 	os.Setenv("ZITADEL_INSTANCE_HOST", "test.zitadel.cloud")

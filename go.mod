@@ -20,6 +20,7 @@ require (
 	github.com/aws/constructs-go/constructs/v10 v10.3.0
 	github.com/aws/jsii-runtime-go v1.96.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.16.2
+	github.com/bcampbell/fuzzytime v0.0.0-20191010161914-05ea0010feac
 	github.com/cloudflare/cloudflare-go/v3 v3.1.0
 	github.com/go-openapi/strfmt v0.23.0
 	github.com/go-playground/validator v9.31.0+incompatible
@@ -36,7 +37,7 @@ require (
 	github.com/nats-io/nats.go v1.43.0
 	github.com/playwright-community/playwright-go v0.5101.0
 	github.com/ringsaturn/tzf v1.0.0
-	github.com/stripe/stripe-go/v80 v80.2.0
+	github.com/stripe/stripe-go/v83 v83.0.0
 	github.com/weaviate/weaviate v1.28.8
 	github.com/weaviate/weaviate-go-client/v4 v4.16.1
 	github.com/zitadel/oidc/v3 v3.33.1
@@ -59,7 +60,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.29.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.16 // indirect
 	github.com/aws/smithy-go v1.22.2 // indirect
-	github.com/bcampbell/fuzzytime v0.0.0-20191010161914-05ea0010feac // indirect
 	github.com/cdklabs/awscdk-asset-awscli-go/awscliv1/v2 v2.2.202 // indirect
 	github.com/cdklabs/awscdk-asset-kubectl-go/kubectlv20/v2 v2.1.2 // indirect
 	github.com/cdklabs/awscdk-asset-node-proxy-agent-go/nodeproxyagentv6/v2 v2.0.1 // indirect

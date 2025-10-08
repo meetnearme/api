@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
@@ -441,12 +441,12 @@ func TestDeriveTimezoneFromCoordinates(t *testing.T) {
 }
 
 func TestDeriveTimezoneFromCoordinatesInitialEmpty(t *testing.T) {
-	result := DeriveTimezoneFromCoordinates(helpers.INITIAL_EMPTY_LAT_LONG, 10)
+	result := DeriveTimezoneFromCoordinates(constants.INITIAL_EMPTY_LAT_LONG, 10)
 	if result != "" {
 		t.Fatalf("Expected empty string for INITIAL_EMPTY_LAT_LONG latitude, got %q", result)
 	}
 
-	result = DeriveTimezoneFromCoordinates(10, helpers.INITIAL_EMPTY_LAT_LONG)
+	result = DeriveTimezoneFromCoordinates(10, constants.INITIAL_EMPTY_LAT_LONG)
 	if result != "" {
 		t.Fatalf("Expected empty string for INITIAL_EMPTY_LAT_LONG longitude, got %q", result)
 	}
@@ -562,7 +562,7 @@ func TestExtractEventsFromHTML_FacebookListTriggersChildScrape(t *testing.T) {
 		LocationTimezone: "America/Chicago",
 	}
 
-	events, htmlContent, err := ExtractEventsFromHTML(seshuJob, helpers.SESHU_MODE_SCRAPE, "", mockService)
+	events, htmlContent, err := ExtractEventsFromHTML(seshuJob, constants.SESHU_MODE_SCRAPE, "", mockService)
 	if err != nil {
 		t.Fatalf("Expected no error extracting Facebook events, got %v", err)
 	}
@@ -614,7 +614,7 @@ func TestExtractEventsFromHTML_FacebookOnboardSkipsChildScrapes(t *testing.T) {
 		LocationTimezone: "America/Chicago",
 	}
 
-	events, _, err := ExtractEventsFromHTML(seshuJob, helpers.SESHU_MODE_ONBOARD, "", mockService)
+	events, _, err := ExtractEventsFromHTML(seshuJob, constants.SESHU_MODE_ONBOARD, "", mockService)
 	if err != nil {
 		t.Fatalf("Expected no error extracting Facebook events in onboard mode, got %v", err)
 	}

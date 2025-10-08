@@ -11,14 +11,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var votesTableName = helpers.GetDbTableName(helpers.VotesTablePrefix)
+var votesTableName = helpers.GetDbTableName(constants.VotesTablePrefix)
 
 func init() {
-	votesTableName = helpers.GetDbTableName(helpers.VotesTablePrefix)
+	votesTableName = helpers.GetDbTableName(constants.VotesTablePrefix)
 }
 
 type CompetitionVoteService struct{}

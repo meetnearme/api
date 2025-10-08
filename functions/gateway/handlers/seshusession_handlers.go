@@ -13,6 +13,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	partials "github.com/meetnearme/api/functions/gateway/templates/partials"
@@ -81,9 +82,9 @@ func init() {
 
 func HandleSeshuSessionSubmit(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := r.Context().Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = r.Context().Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := r.Context().Value("userInfo").(constants.UserInfo); ok {
+		userInfo = r.Context().Value("userInfo").(constants.UserInfo)
 	}
 
 	userId = ""
@@ -116,7 +117,7 @@ func HandleSeshuSessionSubmit(w http.ResponseWriter, r *http.Request) http.Handl
 
 	var events []types.EventInfo
 
-	events, htmlContent, err := services.ExtractEventsFromHTML(types.SeshuJob{NormalizedUrlKey: urlToScrape}, helpers.SESHU_MODE_ONBOARD, action, scrapingService)
+	events, htmlContent, err := services.ExtractEventsFromHTML(types.SeshuJob{NormalizedUrlKey: urlToScrape}, constants.SESHU_MODE_ONBOARD, action, scrapingService)
 	if err != nil {
 		log.Println("Event extraction error:", err)
 		return transport.SendHtmlErrorPartial([]byte(err.Error()), http.StatusInternalServerError)
@@ -194,8 +195,8 @@ func saveSession(ctx context.Context, htmlContent string, urlToScrape, childID, 
 			// zero is the `nil` value in dynamoDB for an undeclared `number` db field,
 			// when we create a new session, we can't allow it to be `0` because that is
 			// a valid value for both latitude and longitude (see "null island")
-			LocationLatitude:  helpers.INITIAL_EMPTY_LAT_LONG,
-			LocationLongitude: helpers.INITIAL_EMPTY_LAT_LONG,
+			LocationLatitude:  constants.INITIAL_EMPTY_LAT_LONG,
+			LocationLongitude: constants.INITIAL_EMPTY_LAT_LONG,
 			EventCandidates:   events,
 			CreatedAt:         now.Unix(),
 			UpdatedAt:         now.Unix(),

@@ -2,7 +2,7 @@ package pages
 
 import (
 	"context"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"os"
 	"strconv"
@@ -21,7 +21,7 @@ func extractMnmOptions(mnmOptions string) map[string]string {
 	return mnmOptionsMap
 }
 
-templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, interests []string, userSubdomain, mnmOptions, userAbout string, ctx context.Context) {
+templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, interests []string, userSubdomain, mnmOptions, userAbout string, ctx context.Context) {
 	<h1 class="text-3xl">Admin</h1>
 	<br/>
 	<br/>
@@ -294,7 +294,7 @@ templ AdminPage(userInfo helpers.UserInfo, roleClaims []helpers.RoleClaim, inter
 			<div id="about-result" class="margins-when-children my-8"></div>
 		</div>
 	</div>
-	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ helpers.PurchaseStatus.Pending } data-status-settled={ helpers.PurchaseStatus.Settled }>
+	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled }>
 		// eslint-disable-next-line no-unused-vars
 		function getMnmOptionsPayload() {
 			const payload = {

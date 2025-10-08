@@ -2,6 +2,7 @@ package pages
 
 import (
 	"fmt"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -54,7 +55,7 @@ templ IconLeftSection(labelText, labelValue, icon string, urlString string, sect
 				if sectionType == "OWNER_NAME" {
 					<strong>{ labelText }:</strong>
 					// TODO: rewrite this after migrating to `event.EventOwners` array (required marqo db migration)
-					{{ eventOwnersArr := strings.Split(event.EventOwnerName, helpers.EventOwnerNameDelimiter) }}
+					{{ eventOwnersArr := strings.Split(event.EventOwnerName, constants.EventOwnerNameDelimiter) }}
 					// Fallback: if no delimiter was found, use the entire EventOwnerName
 					if len(eventOwnersArr) == 1 && len(event.EventOwners) > 0 {
 						<a class="link link-text" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + event.EventOwners[0]) }>{ event.EventOwnerName }</a>
@@ -84,7 +85,7 @@ templ IconLeftSection(labelText, labelValue, icon string, urlString string, sect
 	</div>
 }
 
-templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit bool) {
+templ EventDetailsPage(event types.Event, userInfo constants.UserInfo, canEdit bool) {
 	<div x-data="getEventDetailsState()">
 		if event.Id == "" {
 			<br/>
@@ -102,7 +103,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			<br/>
 			<br/>
 			<br/>
-		} else if strings.Contains(event.EventSourceType, helpers.UNPUB_SUFFIX) && !canEdit {
+		} else if strings.Contains(event.EventSourceType, constants.UNPUB_SUFFIX) && !canEdit {
 			<br/>
 			<br/>
 			<br/>
@@ -151,24 +152,24 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			if (canEdit) {
 				<div class="alert alert-success">
 					You are an editor for this event.
-					if event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB {
+					if event.EventSourceType == constants.ES_EVENT_SERIES || event.EventSourceType == constants.ES_EVENT_SERIES_UNPUB {
 						<a
 							class="btn btn-sm"
-							href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.EventSourceId, 1), "{trailingslash:\\/?}", "", 1)) }
+							href={ templ.URL(strings.Replace(strings.Replace(constants.SitePages["edit-event"].Slug, "{"+constants.EVENT_ID_KEY+"}", event.EventSourceId, 1), "{trailingslash:\\/?}", "", 1)) }
 						>Edit Series</a>
 					} else {
 						<a
 							class="btn btn-sm"
-							href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }
+							href={ templ.URL(strings.Replace(strings.Replace(constants.SitePages["edit-event"].Slug, "{"+constants.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }
 						>Edit Event</a>
 					}
 				</div>
 			}
 			<h1 class="text-3xl mt-2">{ event.Name }</h1>
-			if event.EventSourceType == helpers.ES_SERIES_PARENT || event.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
+			if event.EventSourceType == constants.ES_SERIES_PARENT || event.EventSourceType == constants.ES_SERIES_PARENT_UNPUB {
 				<h3 class="text-xl mt-2">Event Series</h3>
 				<div
-					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=" + strconv.Itoa(helpers.DEFAULT_MAX_RADIUS) + "&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES + "," + helpers.ES_EVENT_SERIES_UNPUB }
+					hx-get={ "/api/html/events?list_mode=" + constants.EV_MODE_CAROUSEL + "&radius=" + strconv.Itoa(constants.DEFAULT_MAX_RADIUS) + "&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id + "&event_source_types=" + constants.ES_EVENT_SERIES + "," + constants.ES_EVENT_SERIES_UNPUB }
 					hx-trigger="load"
 					hx-swap="outerHTML"
 				>
@@ -202,11 +203,11 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 					// TODO: handle basecurrency
 					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", "", event)
 				}
-				if (event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB) && event.EventSourceId != "" {
+				if (event.EventSourceType == constants.ES_EVENT_SERIES || event.EventSourceType == constants.ES_EVENT_SERIES_UNPUB) && event.EventSourceId != "" {
 					<div class="divider my-3"></div>
 					<h3 class="text-xl mt-2 mb-2">All Events in this Series</h3>
 					<div
-						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId + "&event_source_types=" + helpers.ES_EVENT_SERIES + "," + helpers.ES_EVENT_SERIES_UNPUB }
+						hx-get={ "/api/html/events?list_mode=" + constants.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId + "&event_source_types=" + constants.ES_EVENT_SERIES + "," + constants.ES_EVENT_SERIES_UNPUB }
 						hx-trigger="load"
 						hx-swap="outerHTML"
 					>
@@ -361,7 +362,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 	<div>
 		<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
 	</div>
-	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId }>
+	<script id="event-details-script" data-interested-status={ constants.PurchaseStatus.Interested } data-registered-status={ constants.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ constants.ES_SINGLE_EVENT } data-event-type-series-parent={ constants.ES_SERIES_PARENT } data-event-type-series-child={ constants.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId }>
 		function getEventDetailsState() {
 			return {
 				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),

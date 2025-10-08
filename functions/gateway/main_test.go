@@ -12,7 +12,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/gorilla/mux"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 )
 
@@ -244,7 +244,7 @@ func TestMiddleware(t *testing.T) {
 	// Test withContext middleware
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		if _, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest); !ok {
+		if _, ok := ctx.Value(constants.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest); !ok {
 			t.Error("Expected ApiGwV2ReqKey to be present in context")
 		}
 		w.WriteHeader(http.StatusOK)
@@ -345,7 +345,7 @@ func TestWithDerivedOptionsFromReq(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				ctx := r.Context()
-				if options, ok := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY).(map[string]string); !ok {
+				if options, ok := ctx.Value(constants.MNM_OPTIONS_CTX_KEY).(map[string]string); !ok {
 					t.Error("Expected MNM_OPTIONS_CTX_KEY to be present in context")
 				} else if options == nil {
 					t.Error("Expected options to not be nil")

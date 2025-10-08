@@ -16,6 +16,7 @@ import (
 	"github.com/go-playground/validator"
 	"github.com/golang/geo/s2"
 	"github.com/google/uuid"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate"
@@ -35,8 +36,7 @@ const (
 )
 
 const vectorizer = "text2vec-transformers"
-
-const eventClassName = helpers.WeaviateEventClassName
+const eventClassName = constants.WeaviateEventClassName
 
 // Create a new struct for raw JSON operations
 type RawEventData struct {
@@ -476,7 +476,7 @@ func SingleValidateEvent(rawEvent RawEvent, requireId bool) (types.Event, int, e
 	if rawEvent.Timezone == "" {
 		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing timezone")
 	}
-	if helpers.ArrFindFirst([]string{rawEvent.EventSourceType}, helpers.ALL_EVENT_SOURCE_TYPES) == "" {
+	if helpers.ArrFindFirst([]string{rawEvent.EventSourceType}, constants.ALL_EVENT_SOURCE_TYPES) == "" {
 		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid eventSourceType: %s", rawEvent.EventSourceType)
 	}
 	event, err := ConvertRawEventToEvent(rawEvent, requireId)
@@ -659,8 +659,8 @@ func SearchWeaviateEvents(
 
 	// Type Filter (Integrated)
 	typesToSearch := eventSourceTypes
-	if len(typesToSearch) == 0 && len(helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES) > 0 {
-		typesToSearch = helpers.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES
+	if len(typesToSearch) == 0 && len(constants.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES) > 0 {
+		typesToSearch = constants.DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES
 	}
 	if len(typesToSearch) > 0 {
 		typeFilter := (&filters.WhereBuilder{}).

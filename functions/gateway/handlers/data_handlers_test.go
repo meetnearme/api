@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
@@ -116,7 +117,7 @@ func TestPostEventHandler(t *testing.T) {
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
-						helpers.WeaviateEventClassName: []interface{}{
+						constants.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"name":        "Test Event",
 								"description": "A test event",
@@ -180,7 +181,7 @@ func TestPostEventHandler(t *testing.T) {
 	}{
 		{
 			name:           "Valid event posts successfully",
-			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York","startTime":"2099-05-01T12:00:00Z"}`,
+			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + constants.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York","startTime":"2099-05-01T12:00:00Z"}`,
 			expectedStatus: http.StatusCreated,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				t.Logf("Response body: %s", body)
@@ -192,7 +193,7 @@ func TestPostEventHandler(t *testing.T) {
 		},
 		{
 			name:           "Valid event with sourceUrl posts successfully",
-			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event with Source","description":"A test event with source URL","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York","startTime":"2099-05-01T12:00:00Z","sourceUrl":"https://example.com/event-source"}`,
+			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + constants.ES_SINGLE_EVENT + `","name":"Test Event with Source","description":"A test event with source URL","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York","startTime":"2099-05-01T12:00:00Z","sourceUrl":"https://example.com/event-source"}`,
 			expectedStatus: http.StatusCreated,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				t.Logf("Response body: %s", body)
@@ -214,7 +215,7 @@ func TestPostEventHandler(t *testing.T) {
 		},
 		{
 			name:           "Missing required name field",
-			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","startTime":"2099-05-01T12:00:00Z","description":"A test event","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + constants.ES_SINGLE_EVENT + `","startTime":"2099-05-01T12:00:00Z","description":"A test event","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				if !strings.Contains(body, "Field validation for 'Name' failed on the 'required' tag") {
@@ -224,7 +225,7 @@ func TestPostEventHandler(t *testing.T) {
 		},
 		{
 			name:           "Missing required startTime field",
-			requestBody:    `{"description":"A test event", "eventOwnerName": "Event Owner", "eventOwners":["123"],"name":"Test Event","eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+			requestBody:    `{"description":"A test event", "eventOwnerName": "Event Owner", "eventOwners":["123"],"name":"Test Event","eventSourceType": "` + constants.ES_SINGLE_EVENT + `","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				expectedSubstring := "Field validation for 'StartTime' failed on the 'required' tag"
@@ -235,7 +236,7 @@ func TestPostEventHandler(t *testing.T) {
 		},
 		{
 			name:           "Missing required name field",
-			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","startTime":"2099-05-01T12:00:00Z","description":"A test event","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+			requestBody:    `{"eventOwnerName": "Event Owner", "eventOwners":["123"],"eventSourceType": "` + constants.ES_SINGLE_EVENT + `","startTime":"2099-05-01T12:00:00Z","description":"A test event","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				expectedSubstring := "Field validation for 'Name' failed on the 'required' tag"
@@ -246,7 +247,7 @@ func TestPostEventHandler(t *testing.T) {
 		},
 		{
 			name:           "Missing required eventOwners field",
-			requestBody:    `{"eventOwnerName":"Event Owner","eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
+			requestBody:    `{"eventOwnerName":"Event Owner","eventSourceType": "` + constants.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278,"timezone":"America/New_York"}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				expectedSubstring := "Field validation for 'EventOwners' failed on the 'required' tag"
@@ -268,7 +269,7 @@ func TestPostEventHandler(t *testing.T) {
 		},
 		{
 			name:           "Missing required timezone field",
-			requestBody:    `{"eventOwnerName":"Event Owner","eventOwners":["123"], "eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+			requestBody:    `{"eventOwnerName":"Event Owner","eventOwners":["123"], "eventSourceType": "` + constants.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				expectedSubstring := "Field validation for 'Timezone' failed on the 'required' tag"
@@ -279,7 +280,7 @@ func TestPostEventHandler(t *testing.T) {
 		},
 		{
 			name:           "Invalid timezone field",
-			requestBody:    `{"timezone":"Does_Not_Exist/Nowhere","eventOwnerName":"Event Owner","eventOwners":["123"],"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
+			requestBody:    `{"timezone":"Does_Not_Exist/Nowhere","eventOwnerName":"Event Owner","eventOwners":["123"],"eventSourceType": "` + constants.ES_SINGLE_EVENT + `","name":"Test Event","description":"A test event","startTime":"2099-05-01T12:00:00Z","address":"123 Test St","lat":51.5074,"long":-0.1278}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBodyCheck: func(t *testing.T, body string) {
 				expectedSubstring := "invalid timezone: unknown time zone Does_Not_Exist/Nowhere"
@@ -541,7 +542,7 @@ func createValidRawEvent(id, name, sourceUrl string) services.RawEvent {
 			Id:              id,
 			EventOwners:     []string{"owner-123"},
 			EventOwnerName:  "Test Owner",
-			EventSourceType: helpers.ES_SINGLE_EVENT,
+			EventSourceType: constants.ES_SINGLE_EVENT,
 			Name:            name,
 			Description:     "A valid test event description.",
 			Address:         "123 Test St, Testville",
@@ -608,12 +609,12 @@ func TestSearchEvents(t *testing.T) {
 				mockResponse = models.GraphQLResponse{
 					Data: map[string]models.JSONObject{
 						"Get": map[string]interface{}{
-							helpers.WeaviateEventClassName: []interface{}{
+							constants.WeaviateEventClassName: []interface{}{
 								map[string]interface{}{
 									"name":            "Conference on Go Programming",
 									"description":     "A deep dive into the Go language and its powerful ecosystem.",
 									"eventOwnerName":  "Tech Org",
-									"eventSourceType": helpers.ES_SINGLE_EVENT,
+									"eventSourceType": constants.ES_SINGLE_EVENT,
 									"address":         "123 Tech Way, Silicon Valley, CA",
 									"lat":             37.3861,
 									"long":            -122.0839,
@@ -632,7 +633,7 @@ func TestSearchEvents(t *testing.T) {
 				mockResponse = models.GraphQLResponse{
 					Data: map[string]models.JSONObject{
 						"Get": map[string]interface{}{
-							helpers.WeaviateEventClassName: []interface{}{},
+							constants.WeaviateEventClassName: []interface{}{},
 						},
 					},
 				}
@@ -641,7 +642,7 @@ func TestSearchEvents(t *testing.T) {
 				mockResponse = models.GraphQLResponse{
 					Data: map[string]models.JSONObject{
 						"Get": map[string]interface{}{
-							helpers.WeaviateEventClassName: []interface{}{},
+							constants.WeaviateEventClassName: []interface{}{},
 						},
 					},
 				}
@@ -886,7 +887,7 @@ func TestBulkUpdateEvents(t *testing.T) {
 					"id": "update-test-1",
 					"eventOwners":["owner-123"],
 					"eventOwnerName":"Updated Owner",
-					"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+					"eventSourceType": "` + constants.ES_SINGLE_EVENT + `",
 					"name":"Updated Event Name",
 					"description":"This description has been updated.",
 					"startTime":"2099-05-01T12:00:00Z",
@@ -910,7 +911,7 @@ func TestBulkUpdateEvents(t *testing.T) {
 					"id": "update-test-with-source",
 					"eventOwners":["owner-123"],
 					"eventOwnerName":"Updated Owner",
-					"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+					"eventSourceType": "` + constants.ES_SINGLE_EVENT + `",
 					"name":"Updated Event with Source",
 					"description":"This event has been updated with source URL.",
 					"startTime":"2099-05-01T12:00:00Z",
@@ -934,7 +935,7 @@ func TestBulkUpdateEvents(t *testing.T) {
 				{
 					"eventOwners":["owner-123"],
 					"eventOwnerName":"Owner",
-					"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+					"eventSourceType": "` + constants.ES_SINGLE_EVENT + `",
 					"name": "Event missing an ID",
 					"description": "A complete event but missing ID",
 					"startTime":"2099-05-01T12:00:00Z",
@@ -1122,7 +1123,7 @@ func TestUpdateOneEvent(t *testing.T) {
 			requestBody: `{
 				"eventOwners": ["owner-abc"],
 				"eventOwnerName": "The New Organizer",
-				"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+				"eventSourceType": "` + constants.ES_SINGLE_EVENT + `",
 				"name": "Post-Update Rock Show",
 				"description": "This event has been successfully updated.",
 				"startTime": "2099-05-01T12:00:00Z",
@@ -1152,7 +1153,7 @@ func TestUpdateOneEvent(t *testing.T) {
 			requestBody: `{
 				"eventOwners": ["owner-abc"],
 				"eventOwnerName": "The New Organizer",
-				"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+				"eventSourceType": "` + constants.ES_SINGLE_EVENT + `",
 				"name": "Post-Update Rock Show with Source",
 				"description": "This event has been successfully updated with source URL.",
 				"startTime": "2099-05-01T12:00:00Z",
@@ -1194,7 +1195,7 @@ func TestUpdateOneEvent(t *testing.T) {
 			requestBody: `{
 				"eventOwners": ["owner-123"],
 				"eventOwnerName": "Owner",
-				"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+				"eventSourceType": "` + constants.ES_SINGLE_EVENT + `",
 				"description": "This event is missing a name",
 				"startTime": "2099-05-01T12:00:00Z",
 				"timezone": "America/New_York"
@@ -1212,7 +1213,7 @@ func TestUpdateOneEvent(t *testing.T) {
 			requestBody: `{
 				"eventOwners": ["owner-123"],
 				"eventOwnerName": "Owner",
-				"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+				"eventSourceType": "` + constants.ES_SINGLE_EVENT + `",
 				"name": "Event Missing Timezone",
 				"description": "This event is missing timezone",
 				"startTime": "2099-05-01T12:00:00Z",
@@ -1233,7 +1234,7 @@ func TestUpdateOneEvent(t *testing.T) {
 			requestBody: `{
 				"eventOwners": ["owner-123"],
 				"eventOwnerName": "Owner",
-				"eventSourceType": "` + helpers.ES_SINGLE_EVENT + `",
+				"eventSourceType": "` + constants.ES_SINGLE_EVENT + `",
 				"name": "Event with Invalid Timezone",
 				"description": "This event has invalid timezone",
 				"startTime": "2099-05-01T12:00:00Z",
@@ -1302,7 +1303,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 					EventID:         eventId,
 					UserID:          userId,
 					CreatedAtString: createdAt,
-					Status:          helpers.PurchaseStatus.Pending,
+					Status:          constants.PurchaseStatus.Pending,
 					PurchasedItems: []internal_types.PurchasedItem{
 						{
 							Name:     "Test Item",
@@ -1313,8 +1314,8 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 				}, nil
 			},
 			UpdatePurchaseFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string, update internal_types.PurchaseUpdate) (*internal_types.Purchase, error) {
-				if update.Status != helpers.PurchaseStatus.Settled {
-					t.Errorf("expected status %v, got %v", helpers.PurchaseStatus.Settled, update.Status)
+				if update.Status != constants.PurchaseStatus.Settled {
+					t.Errorf("expected status %v, got %v", constants.PurchaseStatus.Settled, update.Status)
 				}
 				return nil, nil
 			},
@@ -1333,7 +1334,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 		clientReferenceID := "event-" + eventID + "-user-" + userID + "-time-" + nowString
 		payload := []byte(`{
 			"type": "checkout.session.completed",
-			"api_version": "2024-09-30.acacia",
+			"api_version": "2025-09-30.clover",
 			"data": {
 				"object": {
 					"client_reference_id": "` + clientReferenceID + `",
@@ -1351,7 +1352,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 		stripeSignature := fmt.Sprintf("t=%d,v1=%s", timestamp, signature)
 
 		r := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer(payload))
-		ctx := context.WithValue(r.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		ctx := context.WithValue(r.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 			Headers: map[string]string{
 				"stripe-signature": stripeSignature,
 			},
@@ -1429,7 +1430,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 				// Create payload
 				payload := []byte(`{
 					"type": "checkout.session.expired",
-					"api_version": "2024-09-30.acacia",
+					"api_version": "2025-09-30.clover",
 					"data": {
 						"object": {
 							"client_reference_id": "` + clientReferenceID + `",
@@ -1449,7 +1450,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 
 				// Create request
 				r := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer(payload))
-				ctx := context.WithValue(r.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				ctx := context.WithValue(r.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 					Headers: map[string]string{
 						"stripe-signature": stripeSignature,
 					},
@@ -1491,7 +1492,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 							EventID:         eventId,
 							UserID:          userId,
 							CreatedAtString: createdAt,
-							Status:          helpers.PurchaseStatus.Pending,
+							Status:          constants.PurchaseStatus.Pending,
 							PurchasedItems: []internal_types.PurchasedItem{
 								{
 									Name:     "Test Item",
@@ -1502,8 +1503,8 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 						}, nil
 					},
 					UpdatePurchaseFunc: func(ctx context.Context, dynamodbClient internal_types.DynamoDBAPI, eventId, userId, createdAt string, update internal_types.PurchaseUpdate) (*internal_types.Purchase, error) {
-						if update.Status != helpers.PurchaseStatus.Canceled {
-							t.Errorf("expected status %v, got %v", helpers.PurchaseStatus.Canceled, update.Status)
+						if update.Status != constants.PurchaseStatus.Canceled {
+							t.Errorf("expected status %v, got %v", constants.PurchaseStatus.Canceled, update.Status)
 						}
 						return nil, nil
 					},
@@ -1524,7 +1525,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 	})
 	t.Run("handles invalid signature", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer([]byte(`{}`)))
-		ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 			Headers: map[string]string{
 				"stripe-signature": "invalid_signature",
 			},

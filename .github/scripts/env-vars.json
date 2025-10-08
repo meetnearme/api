@@ -112,6 +112,30 @@
       "description": "Stripe (prod) checkout webhook signing secret",
       "required": true
     },
+    "_DEV_STRIPE_SUBSCRIPTION_PLAN_GROWTH": {
+      "description": "Stripe (dev) Growth tier product/price ID",
+      "required": true
+    },
+    "_PROD_STRIPE_SUBSCRIPTION_PLAN_GROWTH": {
+      "description": "Stripe (prod) Growth tier product/price ID",
+      "required": true
+    },
+    "_DEV_STRIPE_SUBSCRIPTION_PLAN_SEED": {
+      "description": "Stripe (dev) Seed community tier product/price ID",
+      "required": true
+    },
+    "_PROD_STRIPE_SUBSCRIPTION_PLAN_SEED": {
+      "description": "Stripe (prod) Seed community tier product/price ID",
+      "required": true
+    },
+    "_DEV_STRIPE_SUBSCRIPTION_WEBHOOK_SECRET": {
+      "description": "Stripe (dev) subscription webhook signing secret",
+      "required": true
+    },
+    "_PROD_STRIPE_SUBSCRIPTION_WEBHOOK_SECRET": {
+      "description": "Stripe (prod) subscription webhook signing secret",
+      "required": true
+    },
     "USER_TEAM_EMAIL_SCHEMA": {
       "description": "The email schema for user teams",
       "required": true

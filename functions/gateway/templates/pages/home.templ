@@ -3,6 +3,7 @@ package pages
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -57,16 +58,16 @@ const eventLocationDataId = "event-location"
 const eventStartTimeDataId = "event-start-time"
 const eventUrlDataId = "data-url"
 
-templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleClaim, userId string, pageUser *types.UserSearchResult) {
-	if mode == helpers.EV_MODE_UPCOMING || mode == "" {
+templ EventsInner(events []types.Event, mode string, roleClaims []constants.RoleClaim, userId string, pageUser *types.UserSearchResult) {
+	if mode == constants.EV_MODE_UPCOMING || mode == "" {
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
-				No events found, try changing your filters like location, date, and time, or	<a class="link-text" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>expand your search radius</a>
+				No events found, try changing your filters like location, date, and time, or	<a class="link-text" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>expand your search radius</a>
 			</p>
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-24 md:pb-4">
-					if helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.SuperAdmin], helpers.Roles[helpers.SyndicateAdmin]}) {
+					if helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SyndicateAdmin]}) {
 						@ReShareButton(ev)
 					}
 					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
@@ -92,7 +93,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 			}
 		}
 	}
-	if mode == helpers.EV_MODE_CAROUSEL {
+	if mode == constants.EV_MODE_CAROUSEL {
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
 				This event series has no events yet.
@@ -121,18 +122,18 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 			</div>
 		}
 	}
-	if mode == helpers.EV_MODE_LIST {
+	if mode == constants.EV_MODE_LIST {
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
 				No events found.
 				<br/>
 				<br/>
-				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search</a>
+				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search</a>
 			</p>
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-12 md:pb-4">
-					if userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.SuperAdmin], helpers.Roles[helpers.SyndicateAdmin]}) {
+					if userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SyndicateAdmin]}) {
 						@ReShareButton(ev)
 					}
 					if userId == pageUser.UserID {
@@ -180,7 +181,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 			}
 		}
 	}
-	if mode == helpers.EV_MODE_ADMIN_LIST {
+	if mode == constants.EV_MODE_ADMIN_LIST {
 		<h3 class="text-2xl font-bold my-10">Event Admin</h3>
 		<table class="table table-fixed top-align bg-base-100 table-pin-rows table-zebra">
 			<thead>
@@ -211,7 +212,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 						</td>
 						<td colspan="6">
 							<a class="link link-primary" href={ templ.URL("/admin/event/" + ev.Id + "/edit") }>{ ev.Name }</a>
-							if ev.EventSourceType == helpers.ES_SERIES_PARENT || ev.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
+							if ev.EventSourceType == constants.ES_SERIES_PARENT || ev.EventSourceType == constants.ES_SERIES_PARENT_UNPUB {
 								<br/>
 								<strong>Event Series</strong>
 							}
@@ -221,7 +222,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 							Updated: { helpers.FormatTimeMMDDYYYY(ev.UpdatedAt) }
 						</td>
 						<td colspan="2">
-							if strings.HasPrefix(ev.EventSourceType, helpers.UNPUB_SUFFIX) {
+							if strings.HasPrefix(ev.EventSourceType, constants.UNPUB_SUFFIX) {
 								Unpublished
 							} else {
 								Published
@@ -242,7 +243,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []helpers.RoleCl
 	}
 }
 
-func GetCityCountryFromLocation(cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLon, origQueryLocation string) string {
+func GetCityCountryFromLocation(cfLocation constants.CdnLocation, latStr, lonStr, origLat, origLon, origQueryLocation string) string {
 	if origQueryLocation != "" {
 		return origQueryLocation
 	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
@@ -292,24 +293,24 @@ func GetPageUserID(pageUser *types.UserSearchResult) string {
 	return pageUser.UserID
 }
 
-func GetDefaultRadius(cfLocation helpers.CdnLocation) string {
+func GetDefaultRadius(cfLocation constants.CdnLocation) string {
 	if cfLocation.City == "" {
-		return strconv.FormatFloat(helpers.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)
+		return strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)
 	}
-	return strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64)
+	return strconv.FormatFloat(constants.DEFAULT_SEARCH_RADIUS, 'f', -1, 64)
 }
 
-templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation helpers.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
+templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation constants.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
 	{{
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 		roleClaims = claims
 	}
 	}}
 	{{
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 	userId := ""
 	if userInfo.Sub != "" {
@@ -329,10 +330,10 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 	} else {
 		<div class="space-y-10" x-data="getCompetitionsState()">
 			<h1 class="text-5xl alt-title font-bold text-center uppercase">{ pageUser.DisplayName }</h1>
-			if pageUser.Metadata != nil && pageUser.Metadata[helpers.META_ABOUT_KEY] != "" {
+			if pageUser.Metadata != nil && pageUser.Metadata[constants.META_ABOUT_KEY] != "" {
 				<h2 class="text-3xl font-bold uppercase my-10">About</h2>
 				<div class="prose prose-invert max-w-none">
-					@templ.Raw(pageUser.Metadata[helpers.META_ABOUT_KEY])
+					@templ.Raw(pageUser.Metadata[constants.META_ABOUT_KEY])
 				</div>
 			}
 			<template x-if="competitions?.length">
@@ -484,7 +485,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					if pageUser == nil {
 						hx-get="/api/html/events"
 					} else {
-						hx-get={ `/api/html/events?list_mode=` + helpers.EV_MODE_LIST }
+						hx-get={ `/api/html/events?list_mode=` + constants.EV_MODE_LIST }
 					}
 					hx-indicator="#events-container"
 					hx-ext="json-enc"
@@ -616,7 +617,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 									<span class="loading loading-spinner loading-lg text-primary"></span>
 								</div>
 								<div id="events-container-inner">
-									@EventsInner(events, helpers.EV_MODE_LIST, roleClaims, userId, pageUser)
+									@EventsInner(events, constants.EV_MODE_LIST, roleClaims, userId, pageUser)
 								</div>
 							</div>
 							<input
@@ -645,7 +646,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 			</template>
 		</div>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ constants.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId }>
 		document.addEventListener('alpine:init', () => {
 			// Reactive URL store - single source of truth with reactivity
 			Alpine.store('urlState', {

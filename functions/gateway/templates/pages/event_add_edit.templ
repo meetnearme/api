@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
@@ -9,8 +10,8 @@ import (
 	"strings"
 )
 
-templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64, isCompetitionAdmin bool) {
-	if event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB {
+templ AddOrEditEventPage(pageObj constants.SitePage, userInfo constants.UserInfo, event types.Event, isEditor bool, cfLocationLat float64, cfLocationLon float64, isCompetitionAdmin bool) {
+	if event.EventSourceType == constants.ES_EVENT_SERIES || event.EventSourceType == constants.ES_EVENT_SERIES_UNPUB {
 		<header class="page-header bg-base-100 sticky sticky-under-top-nav z-40 py-4">
 			<h1 class="text-3xl mb-4 truncate whitespace-nowrap overflow-hidden max-w-full">
 				This is a series event, you must edit it's parent
@@ -36,7 +37,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 						<span x-text=" ': ' + formData.event.name"></span>
 					</template>
 				</h1>
-				<a class="btn btn-sm flex-start" href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["attendees-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>View Attendees</a>
+				<a class="btn btn-sm flex-start" href={ templ.URL(strings.Replace(strings.Replace(constants.SitePages["attendees-event"].Slug, "{"+constants.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }>View Attendees</a>
 			</header>
 			<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Event Overview</h2>
 			<div id="basic" class="card border border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
@@ -60,21 +61,21 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 							data-test-id={ event.EventSourceType }
 							class="select select-bordered w-full"
 							x-model.fill="publishStatus"
-							if strings.Contains(event.EventSourceType, helpers.UNPUB_SUFFIX) {
-								value={ helpers.UNPUB_SUFFIX }
+							if strings.Contains(event.EventSourceType, constants.UNPUB_SUFFIX) {
+								value={ constants.UNPUB_SUFFIX }
 							} else {
-								value={ helpers.PUBLISHED_SUFFIX }
+								value={ constants.PUBLISHED_SUFFIX }
 							}
 						>
 							<option
-								value={ helpers.UNPUB_SUFFIX }
-								if strings.Contains(event.EventSourceType, helpers.UNPUB_SUFFIX) {
+								value={ constants.UNPUB_SUFFIX }
+								if strings.Contains(event.EventSourceType, constants.UNPUB_SUFFIX) {
 									selected
 								}
 							>Unpublished</option>
 							<option
-								value={ helpers.PUBLISHED_SUFFIX }
-								if !strings.Contains(event.EventSourceType, helpers.UNPUB_SUFFIX) {
+								value={ constants.PUBLISHED_SUFFIX }
+								if !strings.Contains(event.EventSourceType, constants.UNPUB_SUFFIX) {
 									selected
 								}
 							>Published</option>
@@ -169,7 +170,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 					<h2 class="text-2xl mt-4">Event Ownership</h2>
 					<div class="form-control">
 						<div class="form-control">
-							<label class="label">{ helpers.GetFieldDisplayName("EventOwners") }</label>
+							<label class="label">{ constants.GetFieldDisplayName("EventOwners") }</label>
 							<div class="tags" id="ownersList">
 								<template x-for="owner in owners">
 									<span
@@ -351,7 +352,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 			<h2 class="text-2xl sticky sticky-under-top-nav subheader bg-base-100 z-40 py-2">Date &amp; Media</h2>
 			<div id="basic" class="card border border-base-300 bg-base-200 p-4 md:p-10 rounded-box mb-4">
 				<div class="form-control">
-					<label class="label">{ helpers.GetFieldDisplayName("StartTime") }</label>
+					<label class="label">{ constants.GetFieldDisplayName("StartTime") }</label>
 					<input
 						class="input input-bordered"
 						type="datetime-local"
@@ -363,7 +364,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 					/>
 				</div>
 				<div class="form-control">
-					<label class="label">{ helpers.GetFieldDisplayName("EndTime") }</label>
+					<label class="label">{ constants.GetFieldDisplayName("EndTime") }</label>
 					<input
 						class="input input-bordered"
 						type="datetime-local"
@@ -421,8 +422,8 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 								type="checkbox"
 								class="toggle toggle-primary"
 								x-model="isEventSeries"
-								@change={ `formData.event.eventSourceType = isEventSeries ? "` + helpers.ES_SERIES_PARENT + `" : "` + helpers.ES_SINGLE_EVENT + `"` }
-								if event.EventSourceType == helpers.ES_SERIES_PARENT || event.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
+								@change={ `formData.event.eventSourceType = isEventSeries ? "` + constants.ES_SERIES_PARENT + `" : "` + constants.ES_SINGLE_EVENT + `"` }
+								if event.EventSourceType == constants.ES_SERIES_PARENT || event.EventSourceType == constants.ES_SERIES_PARENT_UNPUB {
 									checked
 								}
 								:disabled="saveReqInFlight"
@@ -431,9 +432,9 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 					</label>
 					<template x-if="isEventSeries">
 						<div>
-							if event.EventSourceType == helpers.ES_SERIES_PARENT || event.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
+							if event.EventSourceType == constants.ES_SERIES_PARENT || event.EventSourceType == constants.ES_SERIES_PARENT_UNPUB {
 								<div
-									hx-get={ "/api/html/event-series-form/" + event.Id + "?&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES + "," + helpers.ES_EVENT_SERIES_UNPUB + "&start_time=" + helpers.GetDatetimePickerFormatted(0, &event.Timezone) + ":00Z" + "&end_time=" + helpers.GetDatetimePickerFormatted(helpers.DEFAULT_UNDEFINED_END_TIME, &event.Timezone) + ":00Z" }
+									hx-get={ "/api/html/event-series-form/" + event.Id + "?&event_source_ids=" + event.Id + "&event_source_types=" + constants.ES_EVENT_SERIES + "," + constants.ES_EVENT_SERIES_UNPUB + "&start_time=" + helpers.GetDatetimePickerFormatted(0, &event.Timezone) + ":00Z" + "&end_time=" + helpers.GetDatetimePickerFormatted(constants.DEFAULT_UNDEFINED_END_TIME, &event.Timezone) + ":00Z" }
 									hx-trigger="load"
 									hx-swap="outerHTML"
 									@htmx:after-request="setEventChildrenLoaded()"
@@ -482,7 +483,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 										</div>
 										<div class="form-control">
 											for _, diffField := range partials.AlwaysShowEventDiffFields {
-												<label class="label">{ helpers.GetFieldDisplayName(diffField) }</label>
+												<label class="label">{ constants.GetFieldDisplayName(diffField) }</label>
 												<input
 													class="input input-bordered w-full"
 													type="datetime-local"
@@ -990,7 +991,7 @@ templ AddOrEditEventPage(pageObj helpers.SitePage, userInfo helpers.UserInfo, ev
 				</div>
 			</template>
 		</div>
-		<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ helpers.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(helpers.SitePages["event-detail"].Slug, helpers.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-config-id={ event.CompetitionConfigId } data-is-competition-admin={ strconv.FormatBool(isCompetitionAdmin) } data-round-empty-event-id={ helpers.COMP_UNASSIGNED_ROUND_EVENT_ID } data-unpub-suffix={ helpers.UNPUB_SUFFIX } data-published-suffix={ helpers.PUBLISHED_SUFFIX } data-current-user-id={ userInfo.Sub } data-current-user-display-name={ userInfo.Name }>
+		<script id="add-edit-event" data-event-id={ event.Id } data-event-owners={ string(helpers.ToJSON(event.EventOwners)) } data-event-owner-name={ event.EventOwnerName } data-event-owner-delimiter={ constants.EventOwnerNameDelimiter } data-event-tags={ string(helpers.ToJSON(event.Tags)) } data-event-categories={ string(helpers.ToJSON(event.Categories)) } data-event-type-single={ constants.ES_SINGLE_EVENT } data-event-type-series-parent={ constants.ES_SERIES_PARENT } data-event-type-series-child={ constants.ES_EVENT_SERIES } data-event-lat={ strconv.FormatFloat(event.Lat, 'f', -1, 64) } data-event-long={ strconv.FormatFloat(event.Long, 'f', -1, 64) } data-event-address={ event.Address } data-event-source-id={ event.EventSourceId } data-payee-id={ event.PayeeId } data-event-hide-cross-promo={ strconv.FormatBool(event.HideCrossPromo) } data-event-detail-url={ strings.Replace(strings.Replace(constants.SitePages["event-detail"].Slug, constants.EVENT_ID_KEY, "", 1), "{trailingslash:\\/?}", "", 1) } data-competition-config-id={ event.CompetitionConfigId } data-is-competition-admin={ strconv.FormatBool(isCompetitionAdmin) } data-round-empty-event-id={ constants.COMP_UNASSIGNED_ROUND_EVENT_ID } data-unpub-suffix={ constants.UNPUB_SUFFIX } data-published-suffix={ constants.PUBLISHED_SUFFIX } data-current-user-id={ userInfo.Sub } data-current-user-display-name={ userInfo.Name }>
 
 
 	function getAddEditEventState() {

@@ -10,14 +10,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var competitionWaitingRoomParticipantTableName = helpers.GetDbTableName(helpers.CompetitionWaitingRoomParticipantTablePrefix)
+var competitionWaitingRoomParticipantTableName = helpers.GetDbTableName(constants.CompetitionWaitingRoomParticipantTablePrefix)
 
 func init() {
-	competitionWaitingRoomParticipantTableName = helpers.GetDbTableName(helpers.CompetitionWaitingRoomParticipantTablePrefix)
+	competitionWaitingRoomParticipantTableName = helpers.GetDbTableName(constants.CompetitionWaitingRoomParticipantTablePrefix)
 }
 
 type CompetitionWaitingRoomParticipantService struct{}

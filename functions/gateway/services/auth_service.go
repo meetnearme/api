@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
 	"github.com/zitadel/zitadel-go/v3/pkg/zitadel"
@@ -70,15 +70,15 @@ func GetAuthMw() *authorization.Authorizer[*oauth.IntrospectionContext] {
 }
 
 // Extract and format roles from the claims.
-func ExtractClaimsMeta(claims map[string]interface{}) ([]helpers.RoleClaim, map[string]interface{}) {
+func ExtractClaimsMeta(claims map[string]interface{}) ([]constants.RoleClaim, map[string]interface{}) {
 	var userMeta map[string]interface{}
-	var roles []helpers.RoleClaim
+	var roles []constants.RoleClaim
 
-	if metadataMap, ok := claims[helpers.AUTH_METADATA_KEY].(map[string]interface{}); ok {
+	if metadataMap, ok := claims[constants.AUTH_METADATA_KEY].(map[string]interface{}); ok {
 		userMeta = metadataMap
 	}
 
-	roleKey := strings.Replace(helpers.AUTH_ROLE_CLAIMS_KEY, "<project-id>", *projectID, 1)
+	roleKey := strings.Replace(constants.AUTH_ROLE_CLAIMS_KEY, "<project-id>", *projectID, 1)
 	// Check if the claims contain the specified key
 	if roleMap, ok := claims[roleKey].(map[string]interface{}); ok {
 		for role, projects := range roleMap {
@@ -86,7 +86,7 @@ func ExtractClaimsMeta(claims map[string]interface{}) ([]helpers.RoleClaim, map[
 			if projectMap, ok := projects.(map[string]interface{}); ok {
 				for projectID, projectName := range projectMap {
 					// Add the role, project ID, and project name to the list
-					roles = append(roles, helpers.RoleClaim{
+					roles = append(roles, constants.RoleClaim{
 						Role:        role,
 						ProjectID:   projectID,
 						ProjectName: fmt.Sprintf("%v", projectName), // Ensure it's a string
@@ -133,7 +133,7 @@ func BuildAuthorizeRequest(codeChallenge string, userRedirectURL string) (*url.U
 	query.Set("client_id", *clientID)
 	query.Set("redirect_uri", *redirectURI)
 	query.Set("response_type", "code") // code for authorization grant
-	query.Set("scope", "openid oidc profile email offline_access "+helpers.AUTH_METADATA_KEY)
+	query.Set("scope", "openid oidc profile email offline_access "+constants.AUTH_METADATA_KEY)
 	query.Set("code_challenge", codeChallenge)
 	query.Set("code_challenge_method", "S256")
 	query.Set("state", userRedirectURL)
@@ -189,7 +189,7 @@ func RefreshAccessToken(refreshToken string) (map[string]interface{}, error) {
 
 func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	var redirectURL *url.URL
-	redirectURLStr := r.URL.Query().Get(helpers.POST_LOGOUT_REDIRECT_URI_KEY)
+	redirectURLStr := r.URL.Query().Get(constants.POST_LOGOUT_REDIRECT_URI_KEY)
 	decodedRedirectURL, err := url.QueryUnescape(redirectURLStr)
 	if err != nil {
 		log.Printf("Failed to decode redirect URL: %v", err)
@@ -211,16 +211,16 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	// today is 2025-03-05, so we could remove this logic perhaps after 2025-06-05, depending on zitadel
 	ClearSubdomainCookie(w, "access_token")
 	ClearSubdomainCookie(w, "refresh_token")
-	ClearSubdomainCookie(w, helpers.MNM_ID_TOKEN_COOKIE_NAME)
+	ClearSubdomainCookie(w, constants.MNM_ID_TOKEN_COOKIE_NAME)
 
 	// Clear application cookies
-	ClearSubdomainCookie(w, helpers.PKCE_VERIFIER_COOKIE_NAME)
-	ClearSubdomainCookie(w, helpers.MNM_ACCESS_TOKEN_COOKIE_NAME)
-	ClearSubdomainCookie(w, helpers.MNM_REFRESH_TOKEN_COOKIE_NAME)
+	ClearSubdomainCookie(w, constants.PKCE_VERIFIER_COOKIE_NAME)
+	ClearSubdomainCookie(w, constants.MNM_ACCESS_TOKEN_COOKIE_NAME)
+	ClearSubdomainCookie(w, constants.MNM_REFRESH_TOKEN_COOKIE_NAME)
 
 	// Get id_token_hint from cookies if available
 	var idTokenHint string
-	if c, err := r.Cookie(helpers.MNM_ID_TOKEN_COOKIE_NAME); err == nil && c != nil {
+	if c, err := r.Cookie(constants.MNM_ID_TOKEN_COOKIE_NAME); err == nil && c != nil {
 		idTokenHint = c.Value
 	}
 
@@ -235,12 +235,12 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query := postLogoutURI.Query()
-	query.Set(helpers.POST_LOGOUT_REDIRECT_URI_KEY, os.Getenv("APEX_URL"))
+	query.Set(constants.POST_LOGOUT_REDIRECT_URI_KEY, os.Getenv("APEX_URL"))
 	if *clientID != "" {
 		query.Set("client_id", *clientID)
 	}
 	// Create a proper state parameter that includes the final_redirect_uri
-	stateValue := helpers.FINAL_REDIRECT_URI_KEY + "="
+	stateValue := constants.FINAL_REDIRECT_URI_KEY + "="
 	if redirectURL != nil {
 		stateValue += url.QueryEscape(redirectURL.String())
 	} else {

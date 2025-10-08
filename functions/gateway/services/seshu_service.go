@@ -18,10 +18,11 @@ import (
 	"github.com/meetnearme/api/functions/gateway/helpers"
 
 	"github.com/itlightning/dateparse"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
+var seshuSessionsTableName = helpers.GetDbTableName(constants.SeshuSessionTablePrefix)
 
 const FakeCity = "Nowhere City, NM 11111"
 const FakeUrl1 = "http://example.com/event/12345"
@@ -43,7 +44,7 @@ type ChildEventMeta struct {
 }
 
 func init() {
-	seshuSessionsTableName = helpers.GetDbTableName(helpers.SeshuSessionTablePrefix)
+	seshuSessionsTableName = helpers.GetDbTableName(constants.SeshuSessionTablePrefix)
 }
 
 func GetSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionGet) (*internal_types.SeshuSession, error) {
@@ -176,20 +177,20 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		*input.UpdateExpression += " #urlQueryParams = :urlQueryParams,"
 	}
 
-	if seshuPayload.LocationLatitude != nil {
+	if seshuPayload.LocationLatitude != nil && *seshuPayload.LocationLatitude != constants.INITIAL_EMPTY_LAT_LONG {
 		input.ExpressionAttributeNames["#locationLatitude"] = "locationLatitude"
-		if *seshuPayload.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG {
-			input.ExpressionAttributeValues[":locationLatitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(helpers.INITIAL_EMPTY_LAT_LONG, 'f', -1, 64)}
+		if *seshuPayload.LocationLatitude == constants.INITIAL_EMPTY_LAT_LONG {
+			input.ExpressionAttributeValues[":locationLatitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(constants.INITIAL_EMPTY_LAT_LONG, 'f', -1, 64)}
 		} else {
 			input.ExpressionAttributeValues[":locationLatitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(*seshuPayload.LocationLatitude, 'f', -1, 64)}
 		}
 		*input.UpdateExpression += " #locationLatitude = :locationLatitude,"
 	}
 
-	if seshuPayload.LocationLongitude != nil {
+	if seshuPayload.LocationLongitude != nil && *seshuPayload.LocationLongitude != constants.INITIAL_EMPTY_LAT_LONG {
 		input.ExpressionAttributeNames["#locationLongitude"] = "locationLongitude"
-		if *seshuPayload.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG {
-			input.ExpressionAttributeValues[":locationLongitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(helpers.INITIAL_EMPTY_LAT_LONG, 'f', -1, 64)}
+		if *seshuPayload.LocationLongitude == constants.INITIAL_EMPTY_LAT_LONG {
+			input.ExpressionAttributeValues[":locationLongitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(constants.INITIAL_EMPTY_LAT_LONG, 'f', -1, 64)}
 		} else {
 			input.ExpressionAttributeValues[":locationLongitude"] = &types.AttributeValueMemberN{Value: strconv.FormatFloat(*seshuPayload.LocationLongitude, 'f', -1, 64)}
 		}

@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -28,7 +29,7 @@ func init() {
 }
 
 func CreateDbClient() internal_types.DynamoDBAPI {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(helpers.AWS_REGION))
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(constants.AWS_REGION))
 
 	if err != nil {
 		fmt.Println("Error loading default Dynamo client config", err)
@@ -45,7 +46,7 @@ func CreateDbClient() internal_types.DynamoDBAPI {
 		})
 		// This is being changed to remove clutter from config for the previous early SAM testing
 		// cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
-		cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithRegion(helpers.AWS_REGION), optionalCredentials)
+		cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithRegion(constants.AWS_REGION), optionalCredentials)
 	}
 
 	if err != nil {

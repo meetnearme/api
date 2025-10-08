@@ -30,7 +30,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23.x'
+          go-version: '1.24.x'
 
       - name: npm install
         run: |
@@ -110,6 +110,18 @@ jobs:
             ${{ secrets._DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
           _PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET:
             ${{ secrets._PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
+          _DEV_STRIPE_SUBSCRIPTION_PLAN_GROWTH:
+            ${{ secrets._DEV_STRIPE_SUBSCRIPTION_PLAN_GROWTH }}
+          _PROD_STRIPE_SUBSCRIPTION_PLAN_GROWTH:
+            ${{ secrets._PROD_STRIPE_SUBSCRIPTION_PLAN_GROWTH }}
+          _DEV_STRIPE_SUBSCRIPTION_PLAN_SEED:
+            ${{ secrets._DEV_STRIPE_SUBSCRIPTION_PLAN_SEED }}
+          _PROD_STRIPE_SUBSCRIPTION_PLAN_SEED:
+            ${{ secrets._PROD_STRIPE_SUBSCRIPTION_PLAN_SEED }}
+          _DEV_STRIPE_SUBSCRIPTION_WEBHOOK_SECRET:
+            ${{ secrets._DEV_STRIPE_SUBSCRIPTION_WEBHOOK_SECRET }}
+          _PROD_STRIPE_SUBSCRIPTION_WEBHOOK_SECRET:
+            ${{ secrets._PROD_STRIPE_SUBSCRIPTION_WEBHOOK_SECRET }}
           CLOUDFLARE_API_BASE_URL: ${{ secrets.CLOUDFLARE_API_BASE_URL }}
           CLOUDFLARE_API_CLIENT_BASE_URL:
             ${{ secrets.CLOUDFLARE_API_CLIENT_BASE_URL }}

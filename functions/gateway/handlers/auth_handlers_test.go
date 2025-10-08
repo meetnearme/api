@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 )
 
 func TestHandleLogin(t *testing.T) {
@@ -78,7 +78,7 @@ func TestHandleLogin(t *testing.T) {
 
 			// Add AWS Lambda context (required for transport layer)
 			ctx := req.Context()
-			ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				RequestContext: events.APIGatewayV2HTTPRequestContext{
 					RequestID: "test-request-id",
 				},
@@ -112,7 +112,7 @@ func TestHandleLogin(t *testing.T) {
 			cookies := w.Result().Cookies()
 			foundVerifier := false
 			for _, cookie := range cookies {
-				if cookie.Name == helpers.PKCE_VERIFIER_COOKIE_NAME {
+				if cookie.Name == constants.PKCE_VERIFIER_COOKIE_NAME {
 					foundVerifier = true
 					break
 				}
@@ -233,14 +233,14 @@ func TestHandleCallback(t *testing.T) {
 			// Add verifier cookie if provided
 			if tt.verifierCookie != "" {
 				req.AddCookie(&http.Cookie{
-					Name:  helpers.PKCE_VERIFIER_COOKIE_NAME,
+					Name:  constants.PKCE_VERIFIER_COOKIE_NAME,
 					Value: tt.verifierCookie,
 				})
 			}
 
 			// Add AWS Lambda context
 			ctx := req.Context()
-			ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				RequestContext: events.APIGatewayV2HTTPRequestContext{
 					RequestID: "test-request-id",
 				},
@@ -271,9 +271,9 @@ func TestHandleCallback(t *testing.T) {
 			if !tt.expectError && tt.code != "" && tt.verifierCookie != "" {
 				cookies := w.Result().Cookies()
 				expectedCookies := []string{
-					helpers.MNM_ACCESS_TOKEN_COOKIE_NAME,
-					helpers.MNM_REFRESH_TOKEN_COOKIE_NAME,
-					helpers.MNM_ID_TOKEN_COOKIE_NAME,
+					constants.MNM_ACCESS_TOKEN_COOKIE_NAME,
+					constants.MNM_REFRESH_TOKEN_COOKIE_NAME,
+					constants.MNM_ID_TOKEN_COOKIE_NAME,
 				}
 				for _, expectedCookie := range expectedCookies {
 					found := false
@@ -344,7 +344,7 @@ func TestHandleLogout(t *testing.T) {
 
 			// Add AWS Lambda context
 			ctx := req.Context()
-			ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				RequestContext: events.APIGatewayV2HTTPRequestContext{
 					RequestID: "test-request-id",
 				},
@@ -373,10 +373,10 @@ func TestHandleLogout(t *testing.T) {
 			if tt.apexURL != "" {
 				cookies := w.Result().Cookies()
 				authCookies := []string{
-					helpers.MNM_ACCESS_TOKEN_COOKIE_NAME,
-					helpers.MNM_REFRESH_TOKEN_COOKIE_NAME,
-					helpers.MNM_ID_TOKEN_COOKIE_NAME,
-					helpers.PKCE_VERIFIER_COOKIE_NAME,
+					constants.MNM_ACCESS_TOKEN_COOKIE_NAME,
+					constants.MNM_REFRESH_TOKEN_COOKIE_NAME,
+					constants.MNM_ID_TOKEN_COOKIE_NAME,
+					constants.PKCE_VERIFIER_COOKIE_NAME,
 				}
 				for _, cookieName := range authCookies {
 					found := false

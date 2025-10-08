@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 )
 
 func TestExtractClaimsMeta(t *testing.T) {
@@ -17,13 +17,13 @@ func TestExtractClaimsMeta(t *testing.T) {
 	tests := []struct {
 		name          string
 		claims        map[string]interface{}
-		expectedRoles []helpers.RoleClaim
+		expectedRoles []constants.RoleClaim
 		expectedMeta  map[string]interface{}
 	}{
 		{
 			name: "successful extraction of roles and metadata",
 			claims: map[string]interface{}{
-				helpers.AUTH_METADATA_KEY: map[string]interface{}{
+				constants.AUTH_METADATA_KEY: map[string]interface{}{
 					"name": "John Doe",
 					"age":  30,
 				},
@@ -36,7 +36,7 @@ func TestExtractClaimsMeta(t *testing.T) {
 					},
 				},
 			},
-			expectedRoles: []helpers.RoleClaim{
+			expectedRoles: []constants.RoleClaim{
 				{Role: "admin", ProjectID: "proj-123", ProjectName: "Project Alpha"},
 				{Role: "user", ProjectID: "proj-456", ProjectName: "Project Beta"},
 			},
@@ -48,15 +48,15 @@ func TestExtractClaimsMeta(t *testing.T) {
 		{
 			name:          "empty claims",
 			claims:        map[string]interface{}{},
-			expectedRoles: []helpers.RoleClaim{},
+			expectedRoles: []constants.RoleClaim{},
 			expectedMeta:  nil,
 		},
 		{
 			name: "malformed metadata",
 			claims: map[string]interface{}{
-				helpers.AUTH_METADATA_KEY: "invalid",
+				constants.AUTH_METADATA_KEY: "invalid",
 			},
-			expectedRoles: []helpers.RoleClaim{},
+			expectedRoles: []constants.RoleClaim{},
 			expectedMeta:  nil,
 		},
 		{
@@ -64,7 +64,7 @@ func TestExtractClaimsMeta(t *testing.T) {
 			claims: map[string]interface{}{
 				"urn:zitadel:iam:org:project:test-project:roles": "invalid",
 			},
-			expectedRoles: []helpers.RoleClaim{},
+			expectedRoles: []constants.RoleClaim{},
 			expectedMeta:  nil,
 		},
 	}

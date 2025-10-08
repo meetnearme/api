@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -35,7 +35,7 @@ func GetPostgresClient(ctx context.Context) (*pgxpool.Pool, error) {
 }
 
 func (s *PostgresService) GetSeshuJobs(ctx context.Context) ([]internal_types.SeshuJob, error) {
-	userInfo := ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := ctx.Value("userInfo").(constants.UserInfo)
 	userId := userInfo.Sub
 
 	targetUrl := ctx.Value("targetUrl").(string)

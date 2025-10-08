@@ -3,10 +3,12 @@ package helpers
 import (
 	"os"
 	"testing"
+
+	"github.com/meetnearme/api/functions/gateway/constants"
 )
 
 func init() {
-	os.Setenv("GO_ENV", GO_TEST_ENV)
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 }
 
 func TestIsRemoteDB(t *testing.T) {

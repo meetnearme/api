@@ -28,9 +28,9 @@ import (
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
-	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/startup"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -65,29 +65,29 @@ func (app *App) InitRoutes() []Route {
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
-		{helpers.SitePages["home"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
-		{helpers.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
-		{helpers.SitePages["user"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
-		{helpers.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
-		{helpers.SitePages["admin"].Slug, "GET", handlers.GetAdminPage, Require},
-		{helpers.SitePages["settings"].Slug, "GET", handlers.GetProfileSettingsPage, Require},
-		{helpers.SitePages["add-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
-		{helpers.SitePages["edit-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
-		{helpers.SitePages["attendees-event"].Slug, "GET", handlers.GetEventAttendeesPage, Require},
-		{helpers.SitePages["map-embed"].Slug, "GET", handlers.GetMapEmbedPage, Check},
-		{helpers.SitePages["privacy-policy"].Slug, "GET", handlers.GetPrivacyPolicyPage, Check},
-		{helpers.SitePages["data-request"].Slug, "GET", handlers.GetDataRequestPage, Check},
-		{helpers.SitePages["terms-of-service"].Slug, "GET", handlers.GetTermsOfServicePage, Check},
+		{constants.SitePages["home"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
+		{constants.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
+		{constants.SitePages["user"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
+		{constants.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
+		{constants.SitePages["admin"].Slug, "GET", handlers.GetAdminPage, Require},
+		{constants.SitePages["settings"].Slug, "GET", handlers.GetProfileSettingsPage, Require},
+		{constants.SitePages["add-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
+		{constants.SitePages["edit-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
+		{constants.SitePages["attendees-event"].Slug, "GET", handlers.GetEventAttendeesPage, Require},
+		{constants.SitePages["map-embed"].Slug, "GET", handlers.GetMapEmbedPage, Check},
+		{constants.SitePages["privacy-policy"].Slug, "GET", handlers.GetPrivacyPolicyPage, Check},
+		{constants.SitePages["data-request"].Slug, "GET", handlers.GetDataRequestPage, Check},
+		{constants.SitePages["terms-of-service"].Slug, "GET", handlers.GetTermsOfServicePage, Check},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...
 		// the complexity is we might want "in the middle", which would be "auto-refresh
 		// the session, but DO NOT redirect to /login if the user's session is expired'"
 		// session duration might be a Zitadel configuration issue
-		{helpers.SitePages["event-detail"].Slug, "GET", handlers.GetEventDetailsPage, Check},
+		{constants.SitePages["event-detail"].Slug, "GET", handlers.GetEventDetailsPage, Check},
 		// Below for competition engagement modules
-		// {helpers.SitePages["competitions"].Slug, "GET", handlers.GetCompetitionsPage, Check},
-		{helpers.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
-		{helpers.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
+		// {constants.SitePages["competitions"].Slug, "GET", handlers.GetCompetitionsPage, Check},
+		{constants.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
+		{constants.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 
 		// API routes
 
@@ -97,13 +97,13 @@ func (app *App) InitRoutes() []Route {
 		{"/api/events{trailingslash:\\/?}", "POST", handlers.PostBatchEventsHandler, Require},
 		{"/api/events{trailingslash:\\/?}", "GET", handlers.SearchEventsHandler, None},
 		{"/api/events{trailingslash:\\/?}", "PUT", handlers.BulkUpdateEventsHandler, Require},
-		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
-		{"/api/events/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, Require},
+		{"/api/events/{" + constants.EVENT_ID_KEY + "}", "GET", handlers.GetOneEventHandler, None},
+		{"/api/events/{" + constants.EVENT_ID_KEY + "}", "PUT", handlers.UpdateOneEventHandler, Require},
 		// This is to delete directly which we do not do in the UI
 		{"/api/events", "DELETE", handlers.BulkDeleteEventsHandler, Require},
 
 		{"/api/event-reg-purch{trailingslash:\\/?}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
-		{"/api/event-reg-purch/{" + helpers.EVENT_ID_KEY + "}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
+		{"/api/event-reg-purch/{" + constants.EVENT_ID_KEY + "}", "PUT", handlers.UpdateEventRegPurchHandler, Require},
 		{"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
 		{"/api/auth/users/update-mnm-options{trailingslash:\\/?}", "POST", handlers.SetMnmOptions, Require},
@@ -116,64 +116,64 @@ func (app *App) InitRoutes() []Route {
 		{"/api/user-search{trailingslash:\\/?}", "GET", handlers.SearchUsersHandler, Require},
 		{"/api/users{trailingslash:\\/?}", "GET", handlers.GetUsersHandler, None},
 		{"/api/html/events{trailingslash:\\/?}", "GET", handlers.GetEventsPartial, None},
-		{"/api/html/event-series-form/{" + helpers.EVENT_ID_KEY + "}", "GET", handlers.GetEventAdminChildrenPartial, None},
+		{"/api/html/event-series-form/{" + constants.EVENT_ID_KEY + "}", "GET", handlers.GetEventAdminChildrenPartial, None},
 		{"/api/html/seshu/session/submit{trailingslash:\\/?}", "POST", handlers.SubmitSeshuSession, Require},
 		{"/api/html/seshu/session/location{trailingslash:\\/?}", "PUT", handlers.GeoThenPatchSeshuSession, Require},
 		{"/api/html/seshu/session/events{trailingslash:\\/?}", "PUT", handlers.SubmitSeshuEvents, Require},
-		{"/api/html/competition-config/owner/{" + helpers.USER_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigsHtmlByPrimaryOwnerHandler, None},
+		{"/api/html/competition-config/owner/{" + constants.USER_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigsHtmlByPrimaryOwnerHandler, None},
 
 		// // Purchasables routes
-		{"/api/purchasables/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, Require},   // Create a new purchasable
-		{"/api/purchasables/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasableHandler, None},          // Get all purchasables
-		{"/api/purchasables/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchasableHandler, Require},    // Update an existing purchasable
-		{"/api/purchasables/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchasableHandler, Require}, // Delete a purchasable
+		{"/api/purchasables/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, Require},   // Create a new purchasable
+		{"/api/purchasables/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasableHandler, None},          // Get all purchasables
+		{"/api/purchasables/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdatePurchasableHandler, Require},    // Update an existing purchasable
+		{"/api/purchasables/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchasableHandler, Require}, // Delete a purchasable
 
 		// RegistrationFields
-		{"/api/registration-fields/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, Require},
-		{"/api/registration-fields/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationFieldsByEventIDHandler, None},
-		{"/api/registration-fields/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationFieldsHandler, Require},
-		{"/api/registration-fields/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationFieldsHandler, Require},
+		{"/api/registration-fields/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreateRegistrationFieldsHandler, Require},
+		{"/api/registration-fields/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetRegistrationFieldsByEventIDHandler, None},
+		{"/api/registration-fields/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "PUT", dynamodb_handlers.UpdateRegistrationFieldsHandler, Require},
+		{"/api/registration-fields/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeleteRegistrationFieldsHandler, Require},
 
 		// Purchases
-		{"/api/purchases/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchaseHandler, Require},                     // Create a new event Purchase
-		{"/api/purchases/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "GET", dynamodb_handlers.GetPurchaseByPkHandler, Require}, // Get a specific event Purchase
-		{"/api/purchases/event/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByEventIDHandler, Require},                                 // Get all event Purchases
+		{"/api/purchases/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchaseHandler, Require},                     // Create a new event Purchase
+		{"/api/purchases/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "GET", dynamodb_handlers.GetPurchaseByPkHandler, Require}, // Get a specific event Purchase
+		{"/api/purchases/event/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByEventIDHandler, Require},                                 // Get all event Purchases
 		{"/api/purchases/user/{user_id:[0-9a-fA-F-]+}", "GET", dynamodb_handlers.GetPurchasesByUserIDHandler, Require},
-		{"/api/purchases/has-for-event", "POST", dynamodb_handlers.HasPurchaseForEventHandler, Require},                                                                   // User has a purchase for one of two events
-		{"/api/purchases/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None}, // Update an existing event Purchase
-		{"/api/purchases/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None},
+		{"/api/purchases/has-for-event", "POST", dynamodb_handlers.HasPurchaseForEventHandler, Require},                                                                     // User has a purchase for one of two events
+		{"/api/purchases/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}/{created_at:[0-9]+}", "PUT", dynamodb_handlers.UpdatePurchaseHandler, None}, // Update an existing event Purchase
+		{"/api/purchases/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}/{user_id:[0-9a-fA-F-]+}", "DELETE", dynamodb_handlers.DeletePurchaseHandler, None},
 
 		// Competition Config
 		{"/api/competition-config", "PUT", dynamodb_handlers.UpdateCompetitionConfigHandler, Require},
 		{"/api/competition-config/owner", "GET", dynamodb_handlers.GetCompetitionConfigsByPrimaryOwnerHandler, Require},
-		{"/api/competition-config/owner/{" + helpers.USER_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigsByPrimaryOwnerHandler, None},
-		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigByIdHandler, Require},
+		{"/api/competition-config/owner/{" + constants.USER_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigsByPrimaryOwnerHandler, None},
+		{"/api/competition-config/{" + constants.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigByIdHandler, Require},
 		// verify below is correct with brian, was not accessing userId from context
-		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.UpdateCompetitionConfigHandler, Require},
-		{"/api/competition-config/{" + helpers.COMPETITIONS_ID_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionConfigHandler, Require},
+		{"/api/competition-config/{" + constants.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.UpdateCompetitionConfigHandler, Require},
+		{"/api/competition-config/{" + constants.COMPETITIONS_ID_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionConfigHandler, Require},
 
 		// Competition Round
-		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionRoundsHandler, Require}, // creation or update
-		{"/api/competition-round/competition-sum/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundsScoreSums, None},
-		{"/api/competition-round/competition/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetAllCompetitionRoundsHandler, None},                                   // Gets all rounds for a competition using begins_with
-		{"/api/competition-round/event/{" + helpers.EVENT_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundsByEventIdHandler, Require},                                       // This gets a single round item by the event id it is associated with
-		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundByPrimaryKeyHandler, Require}, // This gets a single round item by its own id
-		{"/api/competition-round/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionRoundHandler, Require},
+		{"/api/competition-round/{" + constants.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionRoundsHandler, Require}, // creation or update
+		{"/api/competition-round/competition-sum/{" + constants.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundsScoreSums, None},
+		{"/api/competition-round/competition/{" + constants.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetAllCompetitionRoundsHandler, None},                                     // Gets all rounds for a competition using begins_with
+		{"/api/competition-round/event/{" + constants.EVENT_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundsByEventIdHandler, Require},                                         // This gets a single round item by the event id it is associated with
+		{"/api/competition-round/{" + constants.COMPETITIONS_ID_KEY + "}/{" + constants.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionRoundByPrimaryKeyHandler, Require}, // This gets a single round item by its own id
+		{"/api/competition-round/{" + constants.COMPETITIONS_ID_KEY + "}/{" + constants.ROUND_NUMBER_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionRoundHandler, Require},
 		// summing, ending point for leader board needed here
 
 		// Competition Waiting Room
-		{"/api/waiting-room/{" + helpers.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionWaitingRoomParticipantHandler, Require},
-		{"/api/waiting-room/{" + helpers.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionWaitingRoomParticipantsHandler, Require},
-		{"/api/waiting-room/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.USER_ID_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionWaitingRoomParticipantHandler, Require},
+		{"/api/waiting-room/{" + constants.COMPETITIONS_ID_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionWaitingRoomParticipantHandler, Require},
+		{"/api/waiting-room/{" + constants.COMPETITIONS_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionWaitingRoomParticipantsHandler, Require},
+		{"/api/waiting-room/{" + constants.COMPETITIONS_ID_KEY + "}/{" + constants.USER_ID_KEY + "}", "DELETE", dynamodb_handlers.DeleteCompetitionWaitingRoomParticipantHandler, Require},
 
 		// // Competition Vote
-		{"/api/votes/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionVoteHandler, Require},
-		{"/api/votes/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionVotesByRoundHandler, Require},
-		{"/api/votes/tally-votes/{" + helpers.COMPETITIONS_ID_KEY + "}/{" + helpers.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionVotesTallyForRoundHandler, Require},
+		{"/api/votes/{" + constants.COMPETITIONS_ID_KEY + "}/{" + constants.ROUND_NUMBER_KEY + "}", "PUT", dynamodb_handlers.PutCompetitionVoteHandler, Require},
+		{"/api/votes/{" + constants.COMPETITIONS_ID_KEY + "}/{" + constants.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionVotesByRoundHandler, Require},
+		{"/api/votes/tally-votes/{" + constants.COMPETITIONS_ID_KEY + "}/{" + constants.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionVotesTallyForRoundHandler, Require},
 		{"/api/votes", "DELETE", dynamodb_handlers.DeleteCompetitionVoteHandler, Require},
 
 		// Checkout Session
-		{"/api/checkout/{" + helpers.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
+		{"/api/checkout/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
 		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
 
 		//SeshuSession
@@ -272,9 +272,9 @@ func (app *App) addRoute(route Route) {
 				accessToken = strings.TrimPrefix(authHeader, "Bearer ")
 			} else {
 				// Fall back to cookie-based auth
-				accessTokenCookie, err = r.Cookie(helpers.MNM_ACCESS_TOKEN_COOKIE_NAME)
+				accessTokenCookie, err = r.Cookie(constants.MNM_ACCESS_TOKEN_COOKIE_NAME)
 				if err != nil {
-					refreshTokenCookie, refreshTokenCookieErr = r.Cookie(helpers.MNM_REFRESH_TOKEN_COOKIE_NAME)
+					refreshTokenCookie, refreshTokenCookieErr = r.Cookie(constants.MNM_REFRESH_TOKEN_COOKIE_NAME)
 					if refreshTokenCookieErr != nil {
 						state := base64.URLEncoding.EncodeToString([]byte(redirectUrl))
 						loginURL := fmt.Sprintf("/auth/login?state=%s&redirect=%s", state, url.QueryEscape(redirectUrl))
@@ -291,7 +291,7 @@ func (app *App) addRoute(route Route) {
 					}
 
 					// Store the access token and refresh token securely
-					newAccessToken, ok := tokens[helpers.MNM_ACCESS_TOKEN_COOKIE_NAME].(string)
+					newAccessToken, ok := tokens[constants.MNM_ACCESS_TOKEN_COOKIE_NAME].(string)
 					if !ok {
 						log.Printf("Failed to get access token in require middleware: %+v", refreshAccessTokenErr)
 						loginURL := fmt.Sprintf("/auth/login?redirect=%s", url.QueryEscape(redirectUrl))
@@ -299,7 +299,7 @@ func (app *App) addRoute(route Route) {
 						return
 					}
 
-					refreshToken, ok := tokens[helpers.MNM_REFRESH_TOKEN_COOKIE_NAME].(string)
+					refreshToken, ok := tokens[constants.MNM_REFRESH_TOKEN_COOKIE_NAME].(string)
 					if !ok {
 						log.Printf("Failed to get refresh token in require middleware: %+v", refreshAccessTokenErr)
 						loginURL := fmt.Sprintf("/auth/login?redirect=%s", url.QueryEscape(redirectUrl))
@@ -307,7 +307,7 @@ func (app *App) addRoute(route Route) {
 						return
 					}
 
-					idTokenHint, ok := tokens[helpers.MNM_ID_TOKEN_COOKIE_NAME].(string)
+					idTokenHint, ok := tokens[constants.MNM_ID_TOKEN_COOKIE_NAME].(string)
 					if !ok {
 						log.Printf("Failed to get id_token in require middleware: %+v", refreshAccessTokenErr)
 						loginURL := fmt.Sprintf("/auth/login?redirect=%s", url.QueryEscape(redirectUrl))
@@ -316,9 +316,9 @@ func (app *App) addRoute(route Route) {
 					}
 
 					// Store tokens in cookies
-					services.SetSubdomainCookie(w, helpers.MNM_ACCESS_TOKEN_COOKIE_NAME, newAccessToken, false, 0)
-					services.SetSubdomainCookie(w, helpers.MNM_REFRESH_TOKEN_COOKIE_NAME, refreshToken, false, 0)
-					services.SetSubdomainCookie(w, helpers.MNM_ID_TOKEN_COOKIE_NAME, idTokenHint, false, 0)
+					services.SetSubdomainCookie(w, constants.MNM_ACCESS_TOKEN_COOKIE_NAME, newAccessToken, false, 0)
+					services.SetSubdomainCookie(w, constants.MNM_REFRESH_TOKEN_COOKIE_NAME, refreshToken, false, 0)
+					services.SetSubdomainCookie(w, constants.MNM_ID_TOKEN_COOKIE_NAME, idTokenHint, false, 0)
 					accessToken = newAccessToken
 					http.Redirect(w, r, redirectUrl, http.StatusFound)
 					return
@@ -345,7 +345,7 @@ func (app *App) addRoute(route Route) {
 			claims := authCtx.Claims
 			roleClaims, userMetaClaims := services.ExtractClaimsMeta(claims)
 
-			userInfo := helpers.UserInfo{}
+			userInfo := constants.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
 			if err != nil {
 				http.Redirect(w, r, "/auth/login"+"?redirect="+redirectUrl, http.StatusFound)
@@ -403,7 +403,7 @@ func (app *App) addRoute(route Route) {
 	case Check:
 		handler = func(w http.ResponseWriter, r *http.Request) {
 			// Get the access token from cookies
-			accessTokenCookie, err = r.Cookie(helpers.MNM_ACCESS_TOKEN_COOKIE_NAME)
+			accessTokenCookie, err = r.Cookie(constants.MNM_ACCESS_TOKEN_COOKIE_NAME)
 			if err != nil {
 				route.Handler(w, r).ServeHTTP(w, r)
 				return
@@ -421,7 +421,7 @@ func (app *App) addRoute(route Route) {
 			claims := authCtx.Claims
 			roleClaims, userMetaClaims := services.ExtractClaimsMeta(claims)
 
-			userInfo := helpers.UserInfo{}
+			userInfo := constants.UserInfo{}
 			data, err := json.MarshalIndent(authCtx, "", "	")
 			if err != nil {
 				route.Handler(w, r).ServeHTTP(w, r)
@@ -445,7 +445,7 @@ func (app *App) addRoute(route Route) {
 		}
 	case RequireServiceUser:
 		handler = func(w http.ResponseWriter, r *http.Request) {
-			accessTokenCookie, err = r.Cookie(helpers.MNM_ACCESS_TOKEN_COOKIE_NAME)
+			accessTokenCookie, err = r.Cookie(constants.MNM_ACCESS_TOKEN_COOKIE_NAME)
 			if err != nil {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
@@ -532,8 +532,8 @@ func withContext(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		// Add a dummy APIGatewayV2HTTPRequest for testing
-		if _, ok := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest); !ok {
-			ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		if _, ok := ctx.Value(constants.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest); !ok {
+			ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				RequestContext: events.APIGatewayV2HTTPRequestContext{
 					HTTP: events.APIGatewayV2HTTPRequestContextHTTPDescription{
 						Method: r.Method,
@@ -558,8 +558,8 @@ func stateRedirectMiddleware(next http.Handler) http.Handler {
 			decodedBytes, err := base64.URLEncoding.DecodeString(stateParam)
 			if err == nil {
 				decodedState := string(decodedBytes)
-				if strings.Contains(decodedState, helpers.FINAL_REDIRECT_URI_KEY+"=") {
-					parts := strings.Split(decodedState, helpers.FINAL_REDIRECT_URI_KEY+"=")
+				if strings.Contains(decodedState, constants.FINAL_REDIRECT_URI_KEY+"=") {
+					parts := strings.Split(decodedState, constants.FINAL_REDIRECT_URI_KEY+"=")
 					if len(parts) > 1 {
 						redirectURI := parts[1]
 						// Remove any additional parameters if present
@@ -598,7 +598,7 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 				if len(kv) == 2 {
 					key := strings.Trim(kv[0], " \"") // trim spaces and quotes
 					value := strings.Trim(kv[1], " \"")
-					if slices.Contains(helpers.AllowedMnmOptionsKeys, key) {
+					if slices.Contains(constants.AllowedMnmOptionsKeys, key) {
 						mnmOptions[key] = value
 					} else {
 						log.Printf("Warning: Invalid option key '%s' (not in allowed keys)", key)
@@ -613,7 +613,7 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 		}
 
 		// Always set the context with at least an empty map
-		ctx := context.WithValue(r.Context(), helpers.MNM_OPTIONS_CTX_KEY, mnmOptions)
+		ctx := context.WithValue(r.Context(), constants.MNM_OPTIONS_CTX_KEY, mnmOptions)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -650,7 +650,7 @@ func startSeshuLoop(ctx context.Context) {
 			}
 			jsonData, _ := json.Marshal(payload)
 
-			resp, err := http.Post("http://localhost:"+helpers.GO_ACT_SERVER_PORT+"/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
+			resp, err := http.Post("http://localhost:"+constants.GO_ACT_SERVER_PORT+"/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
 			if err != nil {
 				log.Printf("[ERROR] Failed to send request: %v", err)
 				continue
@@ -751,7 +751,7 @@ func main() {
 	defer app.Nats.Close()
 
 	// Run startup tasks BEFORE setting up routes or starting the server
-	if os.Getenv("GO_ENV") != helpers.GO_TEST_ENV {
+	if os.Getenv("GO_ENV") != constants.GO_TEST_ENV {
 		if err := app.runStartupTasks(); err != nil {
 			log.Fatalf("Startup tasks failed: %v", err)
 		}
@@ -762,7 +762,7 @@ func main() {
 
 	if deploymentTarget == "ACT" {
 
-		actServerPort := helpers.GO_ACT_SERVER_PORT
+		actServerPort := constants.GO_ACT_SERVER_PORT
 
 		seshuCtx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -808,7 +808,7 @@ func main() {
 		adapter := gorillamux.NewV2(app.Router)
 
 		lambda.Start(func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-			ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, request)
+			ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, request)
 			return adapter.ProxyWithContext(ctx, request)
 		})
 	}

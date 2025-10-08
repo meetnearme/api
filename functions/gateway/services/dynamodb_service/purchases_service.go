@@ -13,15 +13,16 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var purchasesTableName = helpers.GetDbTableName(helpers.PurchasesTablePrefix)
+var purchasesTableName = helpers.GetDbTableName(constants.PurchasesTablePrefix)
 
 func init() {
-	purchasesTableName = helpers.GetDbTableName(helpers.PurchasesTablePrefix)
+	purchasesTableName = helpers.GetDbTableName(constants.PurchasesTablePrefix)
 }
 
 type PurchaseService struct{}

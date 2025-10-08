@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/transport"
 )
@@ -32,7 +32,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 	}
 
-	services.SetSubdomainCookie(w, helpers.PKCE_VERIFIER_COOKIE_NAME, codeVerifier, false, 600)
+	services.SetSubdomainCookie(w, constants.PKCE_VERIFIER_COOKIE_NAME, codeVerifier, false, 600)
 
 	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectQueryParam)
 	if err != nil {
@@ -71,7 +71,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// distributed ephemeral lambda environments can have a conflict
 	// where the lambda instance issuing the auth request can be
 	// different from the lambda instance receiving the callback
-	verifierCookie, err := r.Cookie(helpers.PKCE_VERIFIER_COOKIE_NAME)
+	verifierCookie, err := r.Cookie(constants.PKCE_VERIFIER_COOKIE_NAME)
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
 			transport.SendHtmlErrorPage([]byte("Invalid or expired authorization session"), http.StatusBadRequest, false)(w, r)
@@ -86,7 +86,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	// PKCE verifiier token is now consumed, clear it
-	services.ClearSubdomainCookie(w, helpers.PKCE_VERIFIER_COOKIE_NAME)
+	services.ClearSubdomainCookie(w, constants.PKCE_VERIFIER_COOKIE_NAME)
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
@@ -97,7 +97,7 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	var zitadelRes map[string]interface{}
-	if os.Getenv("GO_ENV") == helpers.GO_TEST_ENV {
+	if os.Getenv("GO_ENV") == constants.GO_TEST_ENV {
 		zitadelRes = map[string]interface{}{
 			"access_token":  "test-access-token",
 			"refresh_token": "test-refresh-token",
@@ -156,9 +156,9 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	// Store tokens in cookies
-	services.SetSubdomainCookie(w, helpers.MNM_ACCESS_TOKEN_COOKIE_NAME, accessToken, false, 0)
-	services.SetSubdomainCookie(w, helpers.MNM_REFRESH_TOKEN_COOKIE_NAME, refreshToken, false, 0)
-	services.SetSubdomainCookie(w, helpers.MNM_ID_TOKEN_COOKIE_NAME, idTokenHint, false, 0)
+	services.SetSubdomainCookie(w, constants.MNM_ACCESS_TOKEN_COOKIE_NAME, accessToken, false, 0)
+	services.SetSubdomainCookie(w, constants.MNM_REFRESH_TOKEN_COOKIE_NAME, refreshToken, false, 0)
+	services.SetSubdomainCookie(w, constants.MNM_ID_TOKEN_COOKIE_NAME, idTokenHint, false, 0)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, userRedirectURL, http.StatusFound)

@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -172,7 +172,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 
 			log.Printf("Processing scraping job for URL: %s", seshuJob.NormalizedUrlKey)
 
-			events, _, err := ExtractEventsFromHTML(seshuJob, helpers.SESHU_MODE_SCRAPE, "init", &RealScrapingService{})
+			events, _, err := ExtractEventsFromHTML(seshuJob, constants.SESHU_MODE_SCRAPE, "init", &RealScrapingService{})
 			if err != nil {
 				log.Printf("Failed to extract events from %s: %v", seshuJob.NormalizedUrlKey, err)
 				// TODO: Update job status to reflect failure in database
@@ -209,17 +209,17 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 					searchResponse, err := SearchWeaviateEvents(
 						context.Background(),
 						weaviateClient,
-						"",                                // no text query
-						nil,                               // no location filter
-						0,                                 // no distance filter
-						currentTime,                       // startTime = current time (future events only)
-						0,                                 // endTime = 0 (no end time limit)
-						nil,                               // no owner filter
-						"",                                // no category filter
-						"",                                // no address filter
-						"",                                // no date parsing
-						[]string{helpers.ES_SINGLE_EVENT}, // eventSourceTypes filter
-						[]string{eventSourceId},           // eventSourceIds filter
+						"",                                  // no text query
+						nil,                                 // no location filter
+						0,                                   // no distance filter
+						currentTime,                         // startTime = current time (future events only)
+						0,                                   // endTime = 0 (no end time limit)
+						nil,                                 // no owner filter
+						"",                                  // no category filter
+						"",                                  // no address filter
+						"",                                  // no date parsing
+						[]string{constants.ES_SINGLE_EVENT}, // eventSourceTypes filter
+						[]string{eventSourceId},             // eventSourceIds filter
 					)
 					if err != nil {
 						log.Printf("Failed to search for existing future events with EventSourceId %s: %v", eventSourceId, err)

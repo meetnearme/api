@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/go-playground/validator"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -24,9 +26,8 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
-	"github.com/stripe/stripe-go/v80"
-	"github.com/stripe/stripe-go/v80/checkout/session"
-	"github.com/stripe/stripe-go/v80/webhook"
+	"github.com/stripe/stripe-go/v83"
+	"github.com/stripe/stripe-go/v83/webhook"
 )
 
 var validate *validator.Validate = validator.New()
@@ -202,7 +203,7 @@ func (h *WeaviateHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
 		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
 	parseDates := r.URL.Query().Get("parse_dates")
 	var event *types.Event
 	event, err = services.GetWeaviateEventByID(r.Context(), weaviateClient, eventId, parseDates)
@@ -323,7 +324,7 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				continue // Skip the numeric validation below for tm_ prefixed IDs
 			}
 			// Check if ID is exactly 18 characters
-			if len(id) != helpers.ZITADEL_USER_ID_LEN {
+			if len(id) != constants.ZITADEL_USER_ID_LEN {
 				transport.SendServerRes(w,
 					[]byte(fmt.Sprintf("Invalid ID length: %s. Must be exactly 18 characters", id)),
 					http.StatusBadRequest,
@@ -465,7 +466,7 @@ func (h *WeaviateHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Event must have an id "), http.StatusInternalServerError, err)
 		return
@@ -537,10 +538,10 @@ func SearchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFun
 func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
-	eventId := vars[helpers.EVENT_ID_KEY]
+	eventId := vars[constants.EVENT_ID_KEY]
 	eventSourceId := r.URL.Query().Get("event_source_id")
 	eventSourceType := r.URL.Query().Get("event_source_type")
-	if eventSourceId != "" && eventSourceType == helpers.ES_EVENT_SERIES {
+	if eventSourceId != "" && eventSourceType == constants.ES_EVENT_SERIES {
 		eventId = eventSourceId
 	}
 	if eventId == "" {
@@ -548,9 +549,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		return
 	}
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 	userId := userInfo.Sub
 	if userId == "" {
@@ -689,7 +690,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// need to create a Stripe checkout session
 	if createPurchase.Total == 0 {
 		// Skip Stripe checkout for free items
-		createPurchase.Status = helpers.PurchaseStatus.Registered // Mark as registered immediately since it's free
+		createPurchase.Status = constants.PurchaseStatus.Registered // Mark as registered immediately since it's free
 
 		db := transport.GetDB()
 		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
@@ -716,18 +717,19 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	}
 
 	// Continue with existing Stripe checkout logic for paid items
-	_, stripePrivKey := services.GetStripeKeyPair()
-	stripe.Key = stripePrivKey
+	// Initialize Stripe client
+	services.InitStripe()
+	stripeClient := services.GetStripeClient()
 
-	lineItems := make([]*stripe.CheckoutSessionLineItemParams, len(createPurchase.PurchasedItems))
+	lineItems := make([]*stripe.CheckoutSessionCreateLineItemParams, len(createPurchase.PurchasedItems))
 
 	for i, item := range createPurchase.PurchasedItems {
-		lineItems[i] = &stripe.CheckoutSessionLineItemParams{
+		lineItems[i] = &stripe.CheckoutSessionCreateLineItemParams{
 			Quantity: stripe.Int64(int64(item.Quantity)),
-			PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
+			PriceData: &stripe.CheckoutSessionCreateLineItemPriceDataParams{
 				Currency:   stripe.String("USD"),
 				UnitAmount: stripe.Int64(int64(item.Cost)), // Convert to cents
-				ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
+				ProductData: &stripe.CheckoutSessionCreateLineItemPriceDataProductDataParams{
 					Name: stripe.String(item.Name + " (" + createPurchase.EventName + ")"),
 					Metadata: map[string]string{
 						"EventId":       eventId,
@@ -739,7 +741,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
-	params := &stripe.CheckoutSessionParams{
+	params := &stripe.CheckoutSessionCreateParams{
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
 		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin/profile?new_purch_key=" + createPurchase.CompositeKey),
 		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=cancel"),
@@ -751,7 +753,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		ExpiresAt: stripe.Int64(time.Now().Add(30 * time.Minute).Unix()),
 	}
 
-	stripeCheckoutResult, err := session.New(params)
+	stripeCheckoutResult, err := stripeClient.V1CheckoutSessions.Create(context.Background(), params)
 
 	if err != nil {
 		needsRevert = true
@@ -768,7 +770,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	defer func() {
 		purchaseService := dynamodb_service.NewPurchaseService()
 		h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
-		createPurchase.Status = helpers.PurchaseStatus.Pending
+		createPurchase.Status = constants.PurchaseStatus.Pending
 
 		// Create the composite key
 		compositeKey := fmt.Sprintf("%s_%s_%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
@@ -851,7 +853,16 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 
 	endpointSecret := services.GetStripeCheckoutWebhookSecret()
 	ctx := r.Context()
-	apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	apiGwV2Req := events.APIGatewayV2HTTPRequest{}
+	if raw := ctx.Value(constants.ApiGwV2ReqKey); raw != nil {
+		if req, ok := raw.(events.APIGatewayV2HTTPRequest); ok {
+			apiGwV2Req = req
+		} else {
+			log.Println("Warning: ApiGwV2ReqKey value is not of expected type")
+		}
+	} else {
+		log.Println("Warning: No ApiGwV2ReqKey found in context")
+	}
 	stripeHeader := apiGwV2Req.Headers["stripe-signature"]
 	event, err := webhook.ConstructEvent(payload, stripeHeader,
 		endpointSecret)
@@ -888,7 +899,7 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			return err
 		}
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
-		purchaseUpdate.Status = helpers.PurchaseStatus.Settled
+		purchaseUpdate.Status = constants.PurchaseStatus.Settled
 		if checkoutSession.PaymentIntent != nil {
 			purchaseUpdate.StripeTransactionId = checkoutSession.PaymentIntent.ID
 		}
@@ -972,7 +983,7 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			return err
 		}
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
-		purchaseUpdate.Status = helpers.PurchaseStatus.Canceled
+		purchaseUpdate.Status = constants.PurchaseStatus.Canceled
 
 		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, createdAt, purchaseUpdate)
 		if err != nil {
@@ -1072,14 +1083,14 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		vars := mux.Vars(r)
-		eventId := vars[helpers.EVENT_ID_KEY]
+		eventId := vars[constants.EVENT_ID_KEY]
 
-		userInfo := helpers.UserInfo{}
-		if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-			userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+		userInfo := constants.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(constants.UserInfo)
 		}
-		roleClaims := []helpers.RoleClaim{}
-		if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims := []constants.RoleClaim{}
+		if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 			roleClaims = claims
 		}
 
@@ -1125,7 +1136,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			updateEventRegPurchPayload.Events[0].Id = eventId
 			updateEventRegPurchPayload.RegistrationFieldsUpdate.EventId = eventId
 			updateEventRegPurchPayload.PurchasableUpdate.EventId = eventId
-			if helpers.ES_SERIES_PARENT == updateEventRegPurchPayload.Events[0].EventSourceType {
+			if constants.ES_SERIES_PARENT == updateEventRegPurchPayload.Events[0].EventSourceType {
 				updateEventRegPurchPayload.Events[0].EventSourceId = nil
 				for i, event := range updateEventRegPurchPayload.Events {
 					if i == 0 {
@@ -1133,7 +1144,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 						updateEventRegPurchPayload.Events[i] = event
 					} else {
 						event.EventSourceId = &eventId
-						event.EventSourceType = helpers.ES_SINGLE_EVENT
+						event.EventSourceType = constants.ES_SINGLE_EVENT
 					}
 				}
 			}
@@ -1195,7 +1206,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 		}
 		for i, rawEvent := range updateEventRegPurchPayload.Events {
 			rawEvent.Description = updateEventRegPurchPayload.Events[0].Description
-			if updateEventRegPurchPayload.Events[0].EventSourceType == helpers.ES_SERIES_PARENT {
+			if updateEventRegPurchPayload.Events[0].EventSourceType == constants.ES_SERIES_PARENT {
 				rawEvent.EventSourceId = &eventId
 			}
 
@@ -1212,7 +1223,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 		// delete "sweeper" we do in the `defer` function below
 
 		farFutureTime, _ := time.Parse(time.RFC3339, "2099-05-01T12:00:00Z")
-		childEventsToDelete, err := services.SearchWeaviateEvents(ctx, weaviateClient, "", []float64{0, 0}, 1000000, 0, farFutureTime.Unix(), []string{}, "", "", "", []string{helpers.ES_EVENT_SERIES, helpers.ES_EVENT_SERIES_UNPUB}, []string{eventId})
+		childEventsToDelete, err := services.SearchWeaviateEvents(ctx, weaviateClient, "", []float64{0, 0}, 1000000, 0, farFutureTime.Unix(), []string{}, "", "", "", []string{constants.ES_EVENT_SERIES, constants.ES_EVENT_SERIES_UNPUB}, []string{eventId})
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to search for existing child events: "+err.Error()), http.StatusInternalServerError, err)
 			return
@@ -1325,17 +1336,17 @@ func BulkDeleteEvents(w http.ResponseWriter, r *http.Request) {
 
 func (h *WeaviateHandler) PostReShare(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 		roleClaims = claims
 	}
 
-	validRoles := []string{string(helpers.SyndicateAdmin), string(helpers.SuperAdmin)}
+	validRoles := []string{string(constants.SyndicateAdmin), string(constants.SuperAdmin)}
 	if !helpers.HasRequiredRole(roleClaims, validRoles) {
 		err := errors.New("only event syndicators can add or edit events")
 		transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)
@@ -1357,7 +1368,7 @@ func (h *WeaviateHandler) PostReShare(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := weaviateClient.Data().ObjectsGetter().
 		WithID(eventId).
-		WithClassName(helpers.WeaviateEventClassName).
+		WithClassName(constants.WeaviateEventClassName).
 		Do(ctx)
 
 	var existingShadowOwners []string
@@ -1392,7 +1403,7 @@ func (h *WeaviateHandler) PostReShare(w http.ResponseWriter, r *http.Request) {
 	err = weaviateClient.Data().Updater().
 		WithMerge(). // merges properties into the object
 		WithID(eventId).
-		WithClassName(helpers.WeaviateEventClassName).
+		WithClassName(constants.WeaviateEventClassName).
 		WithProperties(map[string]interface{}{
 			"shadowOwners": existingShadowOwners, // Only the 'points' property is updated
 		}).

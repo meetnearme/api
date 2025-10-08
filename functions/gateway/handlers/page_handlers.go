@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
@@ -91,7 +92,7 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	return startTimeUnix, endTimeUnix
 }
 
-func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation, ownerIds []string, categories string, address string, parseDatesBool string, eventSourceTypes []string, eventSourceIds []string) {
+func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation constants.CdnLocation, ownerIds []string, categories string, address string, parseDatesBool string, eventSourceTypes []string, eventSourceIds []string) {
 	startTimeStr := r.URL.Query().Get("start_time")
 	endTimeStr := r.URL.Query().Get("end_time")
 	latStr := r.URL.Query().Get("lat")
@@ -107,8 +108,8 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	cfRay := GetCfRay(r)
 	rayCode := ""
 
-	cfLocationLat := helpers.INITIAL_EMPTY_LAT_LONG
-	cfLocationLon := helpers.INITIAL_EMPTY_LAT_LONG
+	cfLocationLat := constants.INITIAL_EMPTY_LAT_LONG
+	cfLocationLon := constants.INITIAL_EMPTY_LAT_LONG
 
 	if len(cfRay) > 2 {
 		rayCode = cfRay[len(cfRay)-3:]
@@ -125,13 +126,13 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	if latStr != "" {
 		lat64, _ := strconv.ParseFloat(latStr, 32)
 		lat = float64(lat64)
-	} else if cfLocationLat != helpers.INITIAL_EMPTY_LAT_LONG {
+	} else if cfLocationLat != constants.INITIAL_EMPTY_LAT_LONG {
 		lat = float64(cfLocationLat)
 	}
 	if longStr != "" {
 		long64, _ := strconv.ParseFloat(longStr, 32)
 		long = float64(long64)
-	} else if cfLocationLon != helpers.INITIAL_EMPTY_LAT_LONG {
+	} else if cfLocationLon != constants.INITIAL_EMPTY_LAT_LONG {
 		long = float64(cfLocationLon)
 	}
 
@@ -149,14 +150,14 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	// is not the initial empty value (can't use 0.0, a valid lat/lon) we assume
 	// cfLocation has given us a reasonable local guess
 
-	if radius < 0.0001 && (cfLocationLat != helpers.INITIAL_EMPTY_LAT_LONG && cfLocationLon != helpers.INITIAL_EMPTY_LAT_LONG ||
+	if radius < 0.0001 && (cfLocationLat != constants.INITIAL_EMPTY_LAT_LONG && cfLocationLon != constants.INITIAL_EMPTY_LAT_LONG ||
 		lat != US_GEO_DEFAULT_LAT && long != US_GEO_DEFAULT_LONG) {
-		radius = helpers.DEFAULT_SEARCH_RADIUS
+		radius = constants.DEFAULT_SEARCH_RADIUS
 		// we still don't have lat/lon, which means we'll be using "geographic center of US"
 		// which is in the middle of nowhere. Expand the radius to show all of the country
 		// showing events from anywhere
 	} else if radius == 0.0 {
-		radius = helpers.DEFAULT_EXPANDED_SEARCH_RADIUS
+		radius = constants.DEFAULT_EXPANDED_SEARCH_RADIUS
 	}
 
 	startTimeUnix, endTimeUnix := ParseStartEndTime(startTimeStr, endTimeStr)
@@ -189,10 +190,10 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, address, parseDates, eventSourceTypes, eventSourceIds
 }
 
-func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocation, []float64, *types.UserSearchResult, int, error) {
+func DeriveEventsFromRequest(r *http.Request) ([]types.Event, constants.CdnLocation, []float64, *types.UserSearchResult, int, error) {
 	// Extract parameter values from the request query parameters
 	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
-	userId := mux.Vars(r)[helpers.USER_ID_KEY]
+	userId := mux.Vars(r)[constants.USER_ID_KEY]
 	ctx := r.Context()
 
 	// Setup channels for concurrent operations
@@ -238,7 +239,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 			userChan <- userResult{user, nil}
 
 			// Get about data - soft fail if this errors
-			aboutData, err := helpers.GetOtherUserMetaByID(userId, helpers.META_ABOUT_KEY)
+			aboutData, err := helpers.GetOtherUserMetaByID(userId, constants.META_ABOUT_KEY)
 			if err != nil {
 				// Check if it's a 4xx error (we can soft fail)
 				if strings.HasPrefix(err.Error(), "4") {
@@ -292,7 +293,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	var aboutData string
 	if userId != "" {
 		// NOTE: here we ignore the error because we allow the page/user to not have an about section
-		aboutData, _ = helpers.GetOtherUserMetaByID(userId, helpers.META_ABOUT_KEY)
+		aboutData, _ = helpers.GetOtherUserMetaByID(userId, constants.META_ABOUT_KEY)
 		// Get user result from channel
 		userResult := <-userChan
 		if userResult.err != nil {
@@ -313,7 +314,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 		// Initialize the metadata map if it's nil
 		if aboutData != "" && pageUser.Metadata == nil {
 			pageUser.Metadata = make(map[string]string)
-			pageUser.Metadata[helpers.META_ABOUT_KEY] = aboutData
+			pageUser.Metadata[constants.META_ABOUT_KEY] = aboutData
 		}
 	}
 
@@ -335,9 +336,9 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		return transport.SendHtmlRes(w, []byte(err.Error()), status, "page", err)
 	}
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 
 	homePage := pages.HomePage(
@@ -352,7 +353,7 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		originalQueryLocation,
 	)
 
-	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage, types.Event{}, false, ctx, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
+	layoutTemplate := pages.Layout(constants.SitePages["home"], userInfo, homePage, types.Event{}, false, ctx, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
 
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
@@ -367,7 +368,7 @@ func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	aboutPage := pages.AboutPage()
 	ctx := r.Context()
 
-	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage, types.Event{}, false, ctx, []string{})
+	layoutTemplate := pages.Layout(constants.SitePages["about"], constants.UserInfo{}, aboutPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -380,13 +381,13 @@ func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	// TODO: add a unit test that verifies each page handler works both WITH and also
 	// WITHOUT a user present in context
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 		roleClaims = claims
 	}
 
@@ -394,9 +395,9 @@ func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
 		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
 	}
-	userInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
-	userSubdomain := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.SUBDOMAIN_KEY)
-	userAboutData, err := helpers.GetOtherUserMetaByID(userInfo.Sub, helpers.META_ABOUT_KEY)
+	userInterests := helpers.GetUserInterestFromMap(userMetaClaims, constants.INTERESTS_KEY)
+	userSubdomain := helpers.GetBase64ValueFromMap(userMetaClaims, constants.SUBDOMAIN_KEY)
+	userAboutData, err := helpers.GetOtherUserMetaByID(userInfo.Sub, constants.META_ABOUT_KEY)
 
 	mnmOptions := ""
 	if userSubdomain != "" {
@@ -405,7 +406,7 @@ func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	adminPage := pages.AdminPage(userInfo, roleClaims, userInterests, userSubdomain, mnmOptions, userAboutData, ctx)
-	layoutTemplate := pages.Layout(helpers.SitePages["admin"], userInfo, adminPage, types.Event{}, false, ctx, []string{})
+	layoutTemplate := pages.Layout(constants.SitePages["admin"], userInfo, adminPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -417,18 +418,18 @@ func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 
 	userMetaClaims := map[string]interface{}{}
 	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
 		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
 	}
-	parsedInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
+	parsedInterests := helpers.GetUserInterestFromMap(userMetaClaims, constants.INTERESTS_KEY)
 	settingsPage := pages.ProfileSettingsPage(parsedInterests, ctx)
-	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, types.Event{}, false, ctx, []string{})
+	layoutTemplate := pages.Layout(constants.SitePages["settings"], userInfo, settingsPage, types.Event{}, false, ctx, []string{})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
@@ -441,29 +442,29 @@ func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.Handler
 func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 		roleClaims = claims
 	}
 
-	validRoles := []string{helpers.Roles[helpers.SuperAdmin], helpers.Roles[helpers.EventAdmin]}
+	validRoles := []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.EventAdmin]}
 	if !helpers.HasRequiredRole(roleClaims, validRoles) {
 		err := errors.New("Only event editors can add or edit events")
 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
 	}
 
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
-	var pageObj helpers.SitePage
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
+	var pageObj constants.SitePage
 	var event internal_types.Event
 	var isEditor bool = false
 	if eventId == "" {
-		pageObj = helpers.SitePages["add-event"]
+		pageObj = constants.SitePages["add-event"]
 	} else {
-		pageObj = helpers.SitePages["edit-event"]
+		pageObj = constants.SitePages["edit-event"]
 		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
 			return transport.SendHtmlRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, "page", err)
@@ -488,9 +489,9 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 	cfRay := GetCfRay(r)
 	rayCode := ""
-	cfLocation := helpers.CdnLocation{}
-	cfLocationLat := helpers.INITIAL_EMPTY_LAT_LONG
-	cfLocationLon := helpers.INITIAL_EMPTY_LAT_LONG
+	cfLocation := constants.CdnLocation{}
+	cfLocationLat := constants.INITIAL_EMPTY_LAT_LONG
+	cfLocationLon := constants.INITIAL_EMPTY_LAT_LONG
 
 	if len(cfRay) > 2 {
 		rayCode = cfRay[len(cfRay)-3:]
@@ -516,12 +517,12 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 func GetEventAttendeesPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 		roleClaims = claims
 	}
 
@@ -531,9 +532,9 @@ func GetEventAttendeesPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
 	}
 
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
-	var pageObj helpers.SitePage
-	pageObj = helpers.SitePages["attendees-event"]
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
+	var pageObj constants.SitePage
+	pageObj = constants.SitePages["attendees-event"]
 	var event types.Event
 	var isEditor bool = false
 	if eventId != "" {
@@ -575,15 +576,13 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	// apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
 	queryParameters := r.URL.Query()
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	// queryParameters := apiGwV2Req.QueryStringParameters
-	log.Println("mapEmbedPage address", queryParameters["address"][0])
 
 	mapEmbedPage := pages.MapEmbedPage(queryParameters["address"][0])
-	layoutTemplate := pages.Layout(helpers.SitePages["embed"], userInfo, mapEmbedPage, types.Event{}, false, ctx, []string{})
+	layoutTemplate := pages.Layout(constants.SitePages["map-embed"], userInfo, mapEmbedPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -595,12 +594,12 @@ func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 func GetPrivacyPolicyPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	privacyPolicyPage := pages.PrivacyPolicyPage(helpers.SitePages["privacy-policy"])
-	layoutTemplate := pages.Layout(helpers.SitePages["privacy-policy"], userInfo, privacyPolicyPage, types.Event{}, false, ctx, []string{})
+	privacyPolicyPage := pages.PrivacyPolicyPage(constants.SitePages["privacy-policy"])
+	layoutTemplate := pages.Layout(constants.SitePages["privacy-policy"], userInfo, privacyPolicyPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -611,12 +610,12 @@ func GetPrivacyPolicyPage(w http.ResponseWriter, r *http.Request) http.HandlerFu
 
 func GetDataRequestPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	dataRequestPage := pages.DataRequestPage(helpers.SitePages["data-request"])
-	layoutTemplate := pages.Layout(helpers.SitePages["data-request"], userInfo, dataRequestPage, types.Event{}, false, ctx, []string{})
+	dataRequestPage := pages.DataRequestPage(constants.SitePages["data-request"])
+	layoutTemplate := pages.Layout(constants.SitePages["data-request"], userInfo, dataRequestPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -627,12 +626,12 @@ func GetDataRequestPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 func GetTermsOfServicePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	termsOfServicePage := pages.TermsOfServicePage(helpers.SitePages["terms-of-service"], userInfo)
-	layoutTemplate := pages.Layout(helpers.SitePages["terms-of-service"], userInfo, termsOfServicePage, types.Event{}, false, ctx, []string{})
+	termsOfServicePage := pages.TermsOfServicePage(constants.SitePages["terms-of-service"], userInfo)
+	layoutTemplate := pages.Layout(constants.SitePages["terms-of-service"], userInfo, termsOfServicePage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -651,7 +650,7 @@ func GetCfRay(r *http.Request) string {
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// TODO: Extract reading param values into a helper method.
 	ctx := r.Context()
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
 	parseDates := r.URL.Query().Get("parse_dates")
 	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
@@ -661,17 +660,17 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	if err != nil || event.Id == "" {
 		event = &internal_types.Event{}
 	}
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	roleClaims := []helpers.RoleClaim{}
-	if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
-		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
+	roleClaims := []constants.RoleClaim{}
+	if _, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = ctx.Value("roleClaims").([]constants.RoleClaim)
 	}
 	canEdit := helpers.CanEditEvent(event, &userInfo, roleClaims)
 	eventDetailsPage := pages.EventDetailsPage(*event, userInfo, canEdit)
-	layoutTemplate := pages.Layout(helpers.SitePages["event-detail"], userInfo, eventDetailsPage, *event, false, ctx, []string{})
+	layoutTemplate := pages.Layout(constants.SitePages["event-detail"], userInfo, eventDetailsPage, *event, false, ctx, []string{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -683,12 +682,12 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 	adminPage := pages.AddEventSource()
-	layoutTemplate := pages.Layout(helpers.SitePages["add-event-source"], userInfo, adminPage, types.Event{}, false, ctx, []string{})
+	layoutTemplate := pages.Layout(constants.SitePages["add-event-source"], userInfo, adminPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -701,14 +700,14 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 	ctx := r.Context()
 	db := transport.GetDB()
 	// Get user info from context
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 
 	// Get role claims from context
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 		roleClaims = claims
 	}
 
@@ -721,15 +720,15 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 
 	// Get competition ID and event ID from URL
 	vars := mux.Vars(r)
-	competitionId := vars[helpers.COMPETITIONS_ID_KEY]
+	competitionId := vars[constants.COMPETITIONS_ID_KEY]
 
-	var pageObj helpers.SitePage
+	var pageObj constants.SitePage
 	var competitionConfig internal_types.CompetitionConfig
 	var users []types.UserSearchResultDangerous
-	pageObj = helpers.SitePages["add-competition"]
+	pageObj = constants.SitePages["add-competition"]
 	// Check if we are editing or adding
 	if competitionId == "" {
-		pageObj = helpers.SitePages["competition-new"]
+		pageObj = constants.SitePages["competition-new"]
 		// Set default values for new competition
 		competitionConfig = internal_types.CompetitionConfig{
 			EventIds:     []string{},
@@ -739,7 +738,7 @@ func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.Ha
 
 	} else {
 		eventCompetitionRoundService := dynamodb_service.NewCompetitionConfigService()
-		pageObj = helpers.SitePages["competition-edit"]
+		pageObj = constants.SitePages["competition-edit"]
 		competitionConfigResponse, err := eventCompetitionRoundService.GetCompetitionConfigById(ctx, db, competitionId)
 		if err != nil {
 			return transport.SendHtmlRes(w, []byte("Failed to get competition: "+err.Error()),

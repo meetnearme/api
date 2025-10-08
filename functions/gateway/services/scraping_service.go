@@ -16,6 +16,7 @@ import (
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"github.com/ringsaturn/tzf"
@@ -47,7 +48,7 @@ func DeriveTimezoneFromCoordinates(lat, lng float64) string {
 	}
 
 	// Check for our custom "empty" value
-	if lat == helpers.INITIAL_EMPTY_LAT_LONG || lng == helpers.INITIAL_EMPTY_LAT_LONG {
+	if lat == constants.INITIAL_EMPTY_LAT_LONG || lng == constants.INITIAL_EMPTY_LAT_LONG {
 		return ""
 	}
 
@@ -414,7 +415,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 			return nil, "", err
 		}
 
-		if mode != helpers.SESHU_MODE_ONBOARD {
+		if mode != constants.SESHU_MODE_ONBOARD {
 			childScrapeQueue := []types.EventInfo{}
 			urlToIndex := make(map[string]int)
 
@@ -503,7 +504,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 
 	var response string
 
-	if mode == helpers.SESHU_MODE_ONBOARD {
+	if mode == constants.SESHU_MODE_ONBOARD {
 
 		// Set system prompt based on action
 		var localPrompt string
@@ -660,7 +661,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 
 		// Set latitude - use parsed value if available, otherwise fall back to seshuJob location
 		var finalLat float64
-		if lat == "" && (seshuJob.LocationLatitude == 0 || seshuJob.LocationLatitude == helpers.INITIAL_EMPTY_LAT_LONG) {
+		if lat == "" && (seshuJob.LocationLatitude == 0 || seshuJob.LocationLatitude == constants.INITIAL_EMPTY_LAT_LONG) {
 			return fmt.Errorf("ERR: couldn't find latittude for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
 		} else if latFloat != 0 {
 			finalLat = latFloat
@@ -670,7 +671,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 
 		// Set longitude - use parsed value if available, otherwise fall back to seshuJob location
 		var finalLon float64
-		if lon == "" && (seshuJob.LocationLongitude == 0 || seshuJob.LocationLongitude == helpers.INITIAL_EMPTY_LAT_LONG) {
+		if lon == "" && (seshuJob.LocationLongitude == 0 || seshuJob.LocationLongitude == constants.INITIAL_EMPTY_LAT_LONG) {
 			return fmt.Errorf("couldn't find longitude for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
 		} else if lonFloat != 0 {
 			finalLon = lonFloat
@@ -770,7 +771,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 			RawEventData: RawEventData{
 				EventOwners:     []string{seshuJob.OwnerID},
 				EventOwnerName:  ownerName,
-				EventSourceType: helpers.ES_SINGLE_EVENT,
+				EventSourceType: constants.ES_SINGLE_EVENT,
 				Name:            eventInfo.EventTitle,
 				Description:     eventInfo.EventDescription,
 				Address:         address,

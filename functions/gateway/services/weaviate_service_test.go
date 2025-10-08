@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-openapi/strfmt"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -19,7 +20,7 @@ import (
 )
 
 func TestGetWeaviateClient(t *testing.T) {
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
 
 	// Save original environment variables
@@ -137,7 +138,7 @@ func TestGetWeaviateClient(t *testing.T) {
 
 func TestBulkUpsertEventsToWeaviate(t *testing.T) {
 	// --- Standard Test Setup ---
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
 
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
@@ -253,7 +254,7 @@ func TestBulkUpsertEventsToWeaviate(t *testing.T) {
 }
 
 func TestSearchWeaviateEvents(t *testing.T) {
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
 
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
@@ -300,7 +301,7 @@ func TestSearchWeaviateEvents(t *testing.T) {
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
 						// The key here should match the Class name your code expects.
-						helpers.WeaviateEventClassName: []interface{}{
+						constants.WeaviateEventClassName: []interface{}{
 							map[string]interface{}{
 								"ClassName":   "Event", // The field your code was looking for.
 								"name":        "Rock Concert",
@@ -364,7 +365,7 @@ func TestSearchWeaviateEvents(t *testing.T) {
 }
 
 func TestBulkDeleteEventsFromWeaviate(t *testing.T) {
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
 
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
@@ -476,7 +477,7 @@ func TestBulkDeleteEventsFromWeaviate(t *testing.T) {
 }
 
 func TestGetWeaviateEventByID(t *testing.T) {
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
 
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
@@ -524,7 +525,7 @@ func TestGetWeaviateEventByID(t *testing.T) {
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
 						// The key is the Class Name your code is querying
-						helpers.WeaviateEventClassName: []interface{}{
+						constants.WeaviateEventClassName: []interface{}{
 							// This map represents the single event object found
 							map[string]interface{}{
 								"name":        expectedName,
@@ -588,7 +589,7 @@ func TestGetWeaviateEventByID(t *testing.T) {
 
 func TestBulkGetWeaviateEventByID(t *testing.T) {
 	// --- Standard Test Setup ---
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
 
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
@@ -635,7 +636,7 @@ func TestBulkGetWeaviateEventByID(t *testing.T) {
 				Data: map[string]models.JSONObject{
 					"Get": map[string]interface{}{
 						// The key is the Class Name
-						helpers.WeaviateEventClassName: []interface{}{
+						constants.WeaviateEventClassName: []interface{}{
 							// First event object
 							map[string]interface{}{
 								"name":        "First Mock Event",

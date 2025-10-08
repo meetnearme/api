@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/go-playground/validator"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers"
-	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -132,7 +133,7 @@ func injectMockServices(db PostgresService, nats NatsService) context.Context {
 // --- Tests ---
 
 func newAPIGatewayContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+	return context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		RequestContext: events.APIGatewayV2HTTPRequestContext{
 			RequestID: "test-request-id",
 		},
@@ -152,7 +153,12 @@ func TestGetSeshuJobs(t *testing.T) {
 	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = newAPIGatewayContext(ctx)
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -227,7 +233,12 @@ func TestCreateSeshuJob(t *testing.T) {
 	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = newAPIGatewayContext(ctx)
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -275,7 +286,12 @@ func TestCreateSeshuJob_DBError(t *testing.T) {
 	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = newAPIGatewayContext(ctx)
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -381,7 +397,12 @@ func TestUpdateSeshuJob(t *testing.T) {
 	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = newAPIGatewayContext(ctx)
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -460,7 +481,12 @@ func TestDeleteSeshuJob(t *testing.T) {
 	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = newAPIGatewayContext(ctx)
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -572,7 +598,12 @@ func TestGatherSeshuJobsHandler(t *testing.T) {
 	ctx = context.WithValue(ctx, "mockNatsService", mockNats)
 
 	// Add AWS Lambda context (required for transport layer)
-	ctx = newAPIGatewayContext(ctx)
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			RequestID: "test-request-id",
+		},
+		PathParameters: map[string]string{},
+	})
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -807,4 +838,95 @@ func TestGatherSeshuJobsHandler_PublishError(t *testing.T) {
 	if !strings.Contains(w.Body.String(), "successful") {
 		t.Errorf("Expected successful response despite publish errors, got %s", w.Body.String())
 	}
+}
+
+// TestSeshuJobScheduledHourValidation tests the validation bounds for ScheduledHour field
+func TestSeshuJobScheduledHourValidation(t *testing.T) {
+	// Create a new validator instance for testing
+	validate := validator.New()
+
+	// Helper function to create a valid SeshuJob with a specific ScheduledHour
+	createValidSeshuJob := func(scheduledHour int) internal_types.SeshuJob {
+		return internal_types.SeshuJob{
+			NormalizedUrlKey:         "test-url-key",
+			LocationLatitude:         1.3521,
+			LocationLongitude:        103.8198,
+			LocationAddress:          "Test Location",
+			ScheduledHour:            scheduledHour,
+			TargetNameCSSPath:        ".event-title",
+			TargetLocationCSSPath:    ".event-location",
+			TargetStartTimeCSSPath:   ".event-start",
+			TargetEndTimeCSSPath:     ".event-end",
+			TargetDescriptionCSSPath: ".event-desc",
+			TargetHrefCSSPath:        "a.event-link",
+			Status:                   "HEALTHY",
+			LastScrapeSuccess:        time.Now().Unix(),
+			LastScrapeFailure:        0,
+			LastScrapeFailureCount:   0,
+			OwnerID:                  "test-owner",
+			KnownScrapeSource:        "TEST",
+		}
+	}
+
+	t.Run("ValidBounds", func(t *testing.T) {
+		testCases := []struct {
+			name          string
+			scheduledHour int
+		}{
+			{"LowerBound", 0},   // Midnight (12:00 AM)
+			{"UpperBound", 23},  // 11:00 PM
+			{"MiddleRange", 12}, // Noon (12:00 PM)
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				job := createValidSeshuJob(tc.scheduledHour)
+				err := validate.Struct(job)
+				if err != nil {
+					t.Errorf("Expected valid ScheduledHour %d, but got validation error: %v", tc.scheduledHour, err)
+				}
+			})
+		}
+	})
+
+	t.Run("InvalidBounds", func(t *testing.T) {
+		testCases := []struct {
+			name          string
+			scheduledHour int
+			expectedError string
+		}{
+			{"BelowLowerBound", -1, "min"},
+			{"AboveUpperBound", 24, "max"},
+			{"WayBelowLowerBound", -10, "min"},
+			{"WayAboveUpperBound", 100, "max"},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				job := createValidSeshuJob(tc.scheduledHour)
+				err := validate.Struct(job)
+				if err == nil {
+					t.Errorf("Expected validation error for ScheduledHour %d, but got no error", tc.scheduledHour)
+				} else if !strings.Contains(err.Error(), tc.expectedError) {
+					t.Errorf("Expected error to contain '%s' for ScheduledHour %d, but got: %v", tc.expectedError, tc.scheduledHour, err)
+				}
+			})
+		}
+	})
+
+	t.Run("EdgeCases", func(t *testing.T) {
+		// Test that 0 (midnight) is specifically allowed - this was the original issue
+		job := createValidSeshuJob(0)
+		err := validate.Struct(job)
+		if err != nil {
+			t.Errorf("ScheduledHour 0 (midnight) should be valid, but got error: %v", err)
+		}
+
+		// Test that 23 (11 PM) is specifically allowed
+		job = createValidSeshuJob(23)
+		err = validate.Struct(job)
+		if err != nil {
+			t.Errorf("ScheduledHour 23 (11 PM) should be valid, but got error: %v", err)
+		}
+	})
 }
