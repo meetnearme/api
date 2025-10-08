@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
@@ -42,7 +41,6 @@ func (s *RealGeoService) GetGeo(locationQuery string, baseUrl string) (lat strin
 		return "", "", "", fmt.Errorf("base URL is empty")
 	}
 	targetUrl := constants.GEO_BASE_URL + "?address=" + locationQuery
-	log.Println("targetUrl", targetUrl)
 	// Log escaped for clarity (scraper will escape internally)
 	// escaped := url.QueryEscape(targetUrl)
 	// log.Println("targetUrl (escaped)", escaped)
