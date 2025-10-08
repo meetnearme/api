@@ -117,7 +117,7 @@ func HandleSeshuSessionSubmit(w http.ResponseWriter, r *http.Request) http.Handl
 
 	var events []types.EventInfo
 
-	events, htmlContent, err := services.ExtractEventsFromHTML(types.SeshuJob{NormalizedUrlKey: urlToScrape}, constants.SESHU_MODE_ONBOARD, scrapingService)
+	events, htmlContent, err := services.ExtractEventsFromHTML(types.SeshuJob{NormalizedUrlKey: urlToScrape}, constants.SESHU_MODE_ONBOARD, action, scrapingService)
 	if err != nil {
 		log.Println("Event extraction error:", err)
 		return transport.SendHtmlErrorPartial([]byte(err.Error()), http.StatusInternalServerError)

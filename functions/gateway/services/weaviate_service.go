@@ -60,6 +60,7 @@ type RawEvent struct {
 	StartingPrice         *int32      `json:"startingPrice,omitempty"`
 	Currency              *string     `json:"currency,omitempty"`
 	PayeeId               *string     `json:"payeeId,omitempty"`
+	SourceUrl             *string     `json:"sourceUrl,omitempty"`
 	CompetitionConfigId   *string     `json:"competitionConfigId,omitempty"`
 	HasRegistrationFields *bool       `json:"hasRegistrationFields,omitempty"`
 	HasPurchasable        *bool       `json:"hasPurchasable,omitempty"`
@@ -210,6 +211,9 @@ func CreateWeaviateSchemaIfMissing(ctx context.Context, client *weaviate.Client)
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 				Tokenization: "field", // Use "field" tokenization for exact matching (not substring matching)
 			},
+			{Name: "sourceUrl", DataType: []string{"text"}, Description: "Optional source URL",
+				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
+			},
 			{Name: "hasRegistrationFields", DataType: []string{"boolean"}, Description: "Flag for registration fields", // Use "boolean" for bool
 				ModuleConfig: map[string]interface{}{vectorizer: map[string]interface{}{"skip": true}},
 			},
@@ -305,6 +309,9 @@ func EventStructToMap(e types.Event) map[string]interface{} {
 	if e.PayeeId != "" {
 		props["payeeId"] = e.PayeeId
 	}
+	if e.SourceUrl != "" {
+		props["sourceUrl"] = e.SourceUrl
+	}
 	if e.ImageUrl != "" {
 		props["imageUrl"] = e.ImageUrl
 	}
@@ -354,6 +361,9 @@ func ConvertRawEventToEvent(raw RawEvent, requireId bool) (types.Event, error) {
 	}
 	if raw.PayeeId != nil {
 		event.PayeeId = *raw.PayeeId
+	}
+	if raw.SourceUrl != nil {
+		event.SourceUrl = *raw.SourceUrl
 	}
 	if raw.HasRegistrationFields != nil {
 		event.HasRegistrationFields = *raw.HasRegistrationFields
@@ -831,7 +841,7 @@ func BulkGetWeaviateEventByID(ctx context.Context, client *weaviate.Client, docI
 		{Name: "name"}, {Name: "description"}, {Name: "eventOwners"}, {Name: "eventOwnerName"},
 		{Name: "eventSourceType"}, {Name: "startTime"}, {Name: "endTime"}, {Name: "address"},
 		{Name: "lat"}, {Name: "long"}, {Name: "eventSourceId"}, {Name: "startingPrice"},
-		{Name: "currency"}, {Name: "payeeId"}, {Name: "hasRegistrationFields"}, {Name: "hasPurchasable"},
+		{Name: "currency"}, {Name: "payeeId"}, {Name: "sourceUrl"}, {Name: "hasRegistrationFields"}, {Name: "hasPurchasable"},
 		{Name: "imageUrl"}, {Name: "timezone"}, {Name: "categories"}, {Name: "tags"},
 		{Name: "updatedBy"}, {Name: "refUrl"},
 		{Name: "hideCrossPromo"}, {Name: "competitionConfigId"},

@@ -335,14 +335,14 @@ func GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor 
 	return GetHTMLFromURLWithBase(defaultBaseURL, seshuJob.NormalizedUrlKey, waitMs, jsRender, waitFor, 1, nil)
 }
 
-func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
+func CreateChatSession(markdownLinesAsArr string, localPrompt string) (string, string, error) {
 	client := &http.Client{}
 	payload := CreateChatSessionPayload{
 		Model: "gpt-4o-mini",
 		Messages: []Message{
 			{
 				Role:    "user",
-				Content: systemPrompt + markdownLinesAsArr,
+				Content: localPrompt + markdownLinesAsArr,
 			},
 		},
 	}
@@ -352,8 +352,6 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 		return "", "", err
 	}
 
-	log.Println(os.Getenv("OPENAI_API_BASE_URL") + "/chat/completions")
-
 	req, err := http.NewRequest("POST", os.Getenv("OPENAI_API_BASE_URL")+"/chat/completions", bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return "", "", err
@@ -362,17 +360,11 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	req.Header.Add("Authorization", "Bearer "+os.Getenv("OPENAI_API_KEY"))
 	req.Header.Add("Content-Type", "application/json")
 
-	log.Println(req)
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", err
 	}
 	defer resp.Body.Close()
-
-	log.Println(resp)
-
-	log.Println("501~")
 
 	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("%d: Completion API request not successful", resp.StatusCode)
@@ -408,7 +400,7 @@ func CreateChatSession(markdownLinesAsArr string) (string, string, error) {
 	return sessionId, unpaddedJSON, nil
 }
 
-func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper ScrapingService) (eventsFound []types.EventInfo, htmlContent string, err error) {
+func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, scraper ScrapingService) (eventsFound []types.EventInfo, htmlContent string, err error) {
 	knownScrapeSource := ""
 	isFacebook := IsFacebookEventsURL(seshuJob.NormalizedUrlKey)
 
@@ -428,7 +420,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper Scrapin
 			urlToIndex := make(map[string]int)
 
 			// Use the list mode function for the main page
-			eventsFound, err = FindFacebookEventListData(html, seshuJob.LocationTimezone)
+			eventsFound, err = FindFacebookEventListData(html, seshuJob.NormalizedUrlKey, seshuJob.LocationTimezone)
 			if err != nil {
 				log.Printf("ERR: Failed to extract Facebook event list data: %v", err)
 				return nil, "", err
@@ -457,7 +449,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper Scrapin
 					continue
 				}
 				// Use the single event mode function for child pages
-				childEvArrayOfOne, err := FindFacebookSingleEventData(childHtml, seshuJob.LocationTimezone)
+				childEvArrayOfOne, err := FindFacebookSingleEventData(childHtml, seshuJob.NormalizedUrlKey, seshuJob.LocationTimezone)
 				if err != nil {
 					log.Printf("ERR: Failed to extract single event data from child page: %v", err)
 					continue
@@ -472,7 +464,10 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper Scrapin
 					eventsFound[originalIndex].EventLocation = childEvArrayOfOne[0].EventLocation
 				}
 
-				// If we still don't have a timezone, try to derive it from coordinates
+				// Store the event URL as the source URL for the child event
+				childEvArrayOfOne[0].SourceUrl = event.EventURL
+
+				// derive timezone from coordinates, without it all time data is unstable
 				if eventsFound[originalIndex].EventTimezone == "" &&
 					childEvArrayOfOne[0].EventLatitude != 0 &&
 					childEvArrayOfOne[0].EventLongitude != 0 {
@@ -491,7 +486,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper Scrapin
 		} else {
 			// For validate mode, we still need to extract events to return them
 			// Use the list mode function to get events from the main page
-			eventsFound, err = FindFacebookEventListData(html, seshuJob.LocationTimezone)
+			eventsFound, err = FindFacebookEventListData(html, seshuJob.NormalizedUrlKey, seshuJob.LocationTimezone)
 			if err != nil {
 				log.Printf("ERR: Failed to extract Facebook event list data in %s mode: %v", mode, err)
 				return nil, "", err
@@ -510,6 +505,15 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper Scrapin
 	var response string
 
 	if mode == constants.SESHU_MODE_ONBOARD {
+
+		// Set system prompt based on action
+		var localPrompt string
+		if action == "init" {
+			localPrompt = GetSystemPrompt(false)
+		} else {
+			localPrompt = GetSystemPrompt(true)
+		}
+
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 		if err != nil {
 			return nil, "", err
@@ -537,7 +541,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, scraper Scrapin
 			return nil, "", err
 		}
 
-		_, response, err = CreateChatSession(string(jsonPayload))
+		_, response, err = CreateChatSession(string(jsonPayload), localPrompt)
 		if err != nil {
 			return nil, "", err
 		}
@@ -761,7 +765,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 		}
 
 		tzString := tz.String()
-		eventSourceID := eventInfo.EventURL
+		eventSourceID := eventInfo.SourceUrl
 
 		event := RawEvent{
 			RawEventData: RawEventData{
@@ -778,6 +782,11 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 			EventSourceId: &eventSourceID,
 			StartTime:     startRFC3339,
 			EndTime:       endVal,
+		}
+
+		// Set SourceUrl if available from EventInfo
+		if eventInfo.SourceUrl != "" {
+			event.SourceUrl = &eventInfo.EventURL
 		}
 		weaviateEvents = append(weaviateEvents, event)
 	}
