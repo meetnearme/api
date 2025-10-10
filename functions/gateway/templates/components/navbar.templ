@@ -3,15 +3,15 @@ package components
 import (
 	"context"
 	"fmt"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
 	"strconv"
-	"time"
 )
 
-templ MiniProfileInNav(userInfo helpers.UserInfo, ctx context.Context) {
-	{{ roleClaims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim) }}
+templ MiniProfileInNav(userInfo constants.UserInfo, ctx context.Context) {
+	{{ roleClaims, ok := ctx.Value("roleClaims").([]constants.RoleClaim) }}
 	<strong>{ string(userInfo.Name) }</strong>
 	<br/>
 	{ string(userInfo.Email) }
@@ -25,14 +25,14 @@ templ MiniProfileInNav(userInfo helpers.UserInfo, ctx context.Context) {
 				// <span class="badge">New</span>
 			</a>
 		</li>
-		if ok && helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.EventAdmin], helpers.Roles[helpers.SuperAdmin]}) {
+		if ok && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.EventAdmin], constants.Roles[constants.SuperAdmin]}) {
 			<li>
 				<a href="/admin/event/new">
 					Create Event
 				</a>
 			</li>
 		}
-		if ok && helpers.HasRequiredRole(roleClaims, []string{helpers.Roles[helpers.CompetitionAdmin], helpers.Roles[helpers.SuperAdmin]}) {
+		if ok && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.CompetitionAdmin], constants.Roles[constants.SuperAdmin]}) {
 			<li>
 				<a href="/admin/competition/new">
 					Create Competition
@@ -40,14 +40,14 @@ templ MiniProfileInNav(userInfo helpers.UserInfo, ctx context.Context) {
 			</li>
 		}
 		<li class="border-t-2 mt-2 pt-2 border-base-300">
-			<a x-data="" :href={ " '/auth/logout?" + helpers.POST_LOGOUT_REDIRECT_URI_KEY + "=' + window.location.href " }>
+			<a x-data="" :href={ " '/auth/logout?" + constants.POST_LOGOUT_REDIRECT_URI_KEY + "=' + window.location.href " }>
 				Logout
 			</a>
 		</li>
 	</ul>
 }
 
-templ NavListItems(userInfo helpers.UserInfo) {
+templ NavListItems(userInfo constants.UserInfo) {
 	if userInfo.Email == "" {
 		<li>
 			<a
@@ -225,15 +225,15 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 	</template>
 }
 
-templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, ctx context.Context) {
+templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event, ctx context.Context) {
 	<div class="drawer drawer-end">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content flex flex-col">
 			<!-- Navbar -->
-			<div id="main-nav" class="navbar fixed z-50 top-0 w-full bg-base-100 bg-opacity-75 shadow-md mb-5">
+			<div id="main-nav" class="navbar fixed z-50 top-0 w-full bg-base-100 shadow-md mb-5">
 				<div class="container mx-auto flex items-center">
 					<div class="flex flex-1">
-						<a href="/" class="btn btn-ghost pl-2 text-xl flex flex-col bg-black">
+						<a href="/" class="btn pl-2 text-xl bg-black rounded-lg">
 							<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
 							<img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
 						</a>
@@ -246,11 +246,11 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 							if userInfo.Email != "" {
 								<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
-										<div class="border-2 w-24 rounded-full">
+										<div class="border w-24 rounded-full">
 											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
 										</div>
 									</div>
-									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow-lg border-2 border-base-300">
+									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-4 shadow-lg border border-base-300">
 										@MiniProfileInNav(userInfo, ctx)
 									</div>
 								</div>
@@ -265,64 +265,17 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 				</div>
 			</div>
 			{ children... }
-			<footer class="footer footer-center p-10 mt-20 bg-primary text-primary-content">
-				<aside>
-					<a href="/" class="btn h-auto text-xl bg-black hover:bg-opacity-80">
-						<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
-					</a>
-					<p>
-						<br/>
-						<em>I saw a friend of mine the other day</em>
-						<br/>
-						<em>And he told me that my eyes were gleaming</em>
-						<br/>
-						<em>I said I had been away</em>
-						<br/>
-						<em>And he knew, oh, he knew the depths I was meaning</em>
-						<br/>
-						<em>It felt so good to see his face</em>
-						<br/>
-						<em>The comfort invested in my soul</em>
-						<br/>
-						<em>To feel the warmth of his smile</em>
-						<br/>
-						<em>When he said &lsquo;I'm happy to have you home&rsquo;</em>
-						<br/>
-						<br/>
-						~ <a href="https://open.spotify.com/track/5fpEDGQX0Ah3utGnFYulQZ?si=608b29dece2c4e74&nd=1&dlsi=4e5280a68a5544b7" target="_blank">Ben Howard</a>
-					</p>
-					<br/>
-					<br/>
-					<p>
-						&copy; 2024-{ time.Now().Format("2006") }
-						<span class="font-bold">
-							Meet Near Me LLC.
-						</span> All rights reserved.
-					</p>
-					<p>
-						<a href={ templ.URL(os.Getenv("APEX_URL") + "/terms-of-service") }>Terms of Service</a> &bull;&nbsp;
-						<a href={ templ.URL(os.Getenv("APEX_URL") + "/privacy-policy") }>Privacy Policy</a>
-					</p>
-				</aside>
-				<nav>
-					<div class="grid grid-flow-col gap-4">
-						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path></svg></a>
-						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"></path></svg></a>
-						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"></path></svg></a>
-					</div>
-				</nav>
-			</footer>
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-			<div class="border-2 border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
+			<div class="border border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
 				<div class="block justify-end pb-5">
 					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click();"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
 				</div>
 				if userInfo.Email != "" {
 					<div class="p-2 m-1 card bg-base-200 lg:hidden">
 						<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
-							<div class="border-2 w-24 rounded-full">
+							<div class="border w-24 rounded-full">
 								<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
 							</div>
 							// <div class="w-10 rounded-full">
@@ -347,7 +300,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 							@NavListItems(userInfo)
 						</ul>
 					</div>
-					if helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvFilters]}) != "" {
+					if helpers.ArrFindFirst(subnavTabs, []string{constants.SubnavItems[constants.NvFilters]}) != "" {
 						<input
 							id="flyout-tab-filters"
 							type="radio"
@@ -363,6 +316,27 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 							class="tab-content pt-4 relative"
 							@location-dropdown.window="locationDropdown = $event.detail.option;"
 						>
+							<h3 class="text-xl my-3">Search</h3>
+							<form id="query-search-form" novalidate>
+								<div class="join rounded-full w-full">
+									<div class="w-full">
+										<input
+											id="search-input"
+											class="input join-item input-bordered w-full"
+											type="text"
+											placeholder="I want to exercise with a group"
+											:value="$store.urlState.q || ''"
+											required
+										/>
+									</div>
+									<button
+										type="submit"
+										id="search-submit-btn"
+										@click.prevent="$store.urlState.setParam('q', $event.target.closest('form').querySelector('input[type=text]').value); document.getElementById('main-drawer').click();"
+										class="btn btn-primary join-item"
+									>Search</button>
+								</div>
+							</form>
 							<form
 								id="category-search-form"
 								novalidate
@@ -378,13 +352,17 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 								>
 									Apply Filters
 								</button>
-								<br/>
-								<br/>
 								// Source: https://www.penguinui.com/components/combobox
 								<div x-data="getLocationSearchState()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
 									<h3 class="text-xl my-3">
 										Location <span x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? '(Geocoordinates)' : '' "></span>
 									</h3>
+									<span x-show="locationAccessDeclined" class="badge badge-error text-sm mb-2">
+										Location access was declined.
+									</span>
+									<span x-show="cityNotFound" class="badge badge-error text-sm mb-2">
+										Error: City not found.
+									</span>
 									<div class="relative">
 										<!-- trigger button  -->
 										<button
@@ -443,22 +421,36 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 												</svg>
 												<input
 													type="text"
-													class="w-full border-b py-2.5 pl-11 pr-4 text-sm focus:outline-none focus-visible:border-green-700 disabled:cursor-not-allowed disabled:opacity-75   dark:focus-visible:border-green-600"
+													class="w-full border-b py-2.5 pl-11 pr-4 text-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-75"
 													name="loc_search"
-													aria-label="Search"
+													aria-label="Search Locations"
 													@input.throttle="fetchLocations($event.target.value)"
 													x-ref="loc_search"
 													placeholder="Search"
 												/>
 											</div>
+											<progress :class="{ 'opacity-0': !isLoading }" class="progress absolute input-bottom h-2 w-full -m-[5px]"></progress>
 											<!-- Options  -->
 											<ul class="flex max-h-44 flex-col overflow-y-auto">
 												<li class="hidden px-4 py-2 text-sm" x-ref="noResultsMessage">
 													<span>No matches found</span>
 												</li>
+												<li
+													class="px-4 py-2 text-sm cursor-pointer bg-primary text-primary-content focus-visible:bg-secondary focus-visible:outline-none focus-visible:text-secondary-content hover:bg-secondary hover:text-secondary-content"
+													tabindex="0"
+													role="option"
+													@click="findAndSetLocation"
+													@keydown.enter="findAndSetLocation"
+													:id="'option-locateme'"
+												>
+													<span class="flex gap-2">
+														@Icon("location-outline")
+														Locate Me
+													</span>
+												</li>
 												<template x-for="(item, index) in options" :key="index">
 													<li
-														class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-base-200 px-4 py-2 text-sm hover:text-primary focus-visible:bg-slate-800/5 focus-visible:text-primary focus-visible:outline-none"
+														class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-base-200 px-4 py-2 text-sm hover:text-secondary focus-visible:bg-slate-800/5 focus-visible:text-primary focus-visible:outline-none"
 														role="option"
 														@click="setSelectedOption(item)"
 														@keydown.enter="setSelectedOption(item)"
@@ -479,8 +471,6 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 										</div>
 									</div>
 								</div>
-								<br/>
-								<br/>
 								<h3 class="text-xl my-3">Distance</h3>
 								<div class="flex items-center">
 									<label class="form-control w-full max-w-xs">
@@ -500,14 +490,12 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 										</select>
 									</label>
 								</div>
-								<br/>
-								<br/>
 								<h3 class="text-xl my-3">Categories</h3>
 								@NestedCheckboxList(false, []string{})
 							</form>
 						</div>
 					}
-					if (event.HasPurchasable || event.HasRegistrationFields) && helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvCart]}) != "" {
+					if (event.HasPurchasable || event.HasRegistrationFields) && helpers.ArrFindFirst(subnavTabs, []string{constants.SubnavItems[constants.NvCart]}) != "" {
 						<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
 						<div x-data="getCartRegistrationState()" role="tabpanel" class="tab-content p-2">
 							<template x-if="registrationFields?.length">
@@ -589,8 +577,8 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event, 
 			</div>
 		</div>
 	</div>
-	if helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvCart]}) != "" {
-		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub } data-default-radius={ strconv.FormatFloat(helpers.DEFAULT_SEARCH_RADIUS, 'f', -1, 64) }>
+	if helpers.ArrFindFirst(subnavTabs, []string{constants.SubnavItems[constants.NvCart]}) != "" {
+		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub } data-default-radius={ strconv.FormatFloat(constants.DEFAULT_SEARCH_RADIUS, 'f', -1, 64) }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,

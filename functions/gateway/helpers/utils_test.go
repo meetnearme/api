@@ -10,12 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func init() {
-	os.Setenv("GO_ENV", GO_TEST_ENV)
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 }
 
 func TestFormatDateL(t *testing.T) {
@@ -769,6 +770,286 @@ func TestUpdateUserMetadataKey(t *testing.T) {
 	}
 }
 
+func TestUtcToUnix64(t *testing.T) {
+	// Load test timezone
+	chicagoTZ, err := time.LoadLocation("America/Chicago")
+	if err != nil {
+		t.Fatalf("Failed to load Chicago timezone: %v", err)
+	}
+
+	// Load UTC timezone for comparison
+	utcTZ := time.UTC
+
+	tests := []struct {
+		name        string
+		input       interface{}
+		timezone    *time.Location
+		expected    int64
+		expectError bool
+		errorMsg    string
+	}{
+		// Tests for default UtcToUnix64() behavior (trimZ=true - old behavior)
+		{
+			name:        "UTC format with Z suffix (trimZ behavior)",
+			input:       "2026-09-12T17:00:00Z",
+			timezone:    chicagoTZ,
+			expected:    1789250400, // Unix timestamp for 2026-09-12T17:00:00 in Chicago time (trimmed Z, parsed as local)
+			expectError: false,
+		},
+		{
+			name:        "UTC format with Z suffix in UTC timezone (trimZ behavior)",
+			input:       "2026-09-12T17:00:00Z",
+			timezone:    utcTZ,
+			expected:    1789232400, // Unix timestamp for 2026-09-12T17:00:00 in UTC time (trimmed Z, parsed as local)
+			expectError: false,
+		},
+		{
+			name:        "leap year date (trimZ behavior)",
+			input:       "2024-02-29T12:00:00Z",
+			timezone:    chicagoTZ,
+			expected:    1709229600, // Unix timestamp for 2024-02-29T12:00:00 in Chicago time (trimmed Z, parsed as local)
+			expectError: false,
+		},
+		{
+			name:        "end of year (trimZ behavior)",
+			input:       "2023-12-31T23:59:59Z",
+			timezone:    chicagoTZ,
+			expected:    1704088799, // Unix timestamp for 2023-12-31T23:59:59 in Chicago time (trimmed Z, parsed as local)
+			expectError: false,
+		},
+		// Error cases
+		{
+			name:        "invalid format (missing T separator)",
+			input:       "2026-09-12 17:00:00", // Missing T separator
+			timezone:    chicagoTZ,
+			expected:    0,
+			expectError: true,
+			errorMsg:    "invalid date format",
+		},
+		{
+			name:        "empty string",
+			input:       "",
+			timezone:    chicagoTZ,
+			expected:    0,
+			expectError: true,
+			errorMsg:    "invalid date format",
+		},
+		{
+			name:        "unsupported type (int)",
+			input:       1234567890,
+			timezone:    chicagoTZ,
+			expected:    0,
+			expectError: true,
+			errorMsg:    "unsupported time format",
+		},
+		{
+			name:        "unsupported type (nil)",
+			input:       nil,
+			timezone:    chicagoTZ,
+			expected:    0,
+			expectError: true,
+			errorMsg:    "unsupported time format",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := UtcToUnix64(tt.input, tt.timezone)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("UtcToUnix64() expected error but got none")
+					return
+				}
+				if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("UtcToUnix64() error = %v, expected to contain %v", err, tt.errorMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("UtcToUnix64() unexpected error = %v", err)
+				return
+			}
+
+			if result != tt.expected {
+				t.Errorf("UtcToUnix64() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestUtcToUnix64WithTrimZ(t *testing.T) {
+	// Load test timezone
+	chicagoTZ, err := time.LoadLocation("America/Chicago")
+	if err != nil {
+		t.Fatalf("Failed to load Chicago timezone: %v", err)
+	}
+
+	// Load UTC timezone for comparison
+	utcTZ := time.UTC
+
+	tests := []struct {
+		name        string
+		input       interface{}
+		timezone    *time.Location
+		trimZ       bool
+		expected    int64
+		expectError bool
+		errorMsg    string
+	}{
+		// Tests for trimZ=true (old behavior)
+		{
+			name:        "trimZ=true: UTC format with Z suffix",
+			input:       "2026-09-12T17:00:00Z",
+			timezone:    chicagoTZ,
+			trimZ:       true,
+			expected:    1789250400, // Unix timestamp for 2026-09-12T17:00:00 in Chicago time (trimmed Z, parsed as local)
+			expectError: false,
+		},
+		{
+			name:        "trimZ=true: UTC format with Z suffix in UTC timezone",
+			input:       "2026-09-12T17:00:00Z",
+			timezone:    utcTZ,
+			trimZ:       true,
+			expected:    1789232400, // Unix timestamp for 2026-09-12T17:00:00 in UTC time (trimmed Z, parsed as local)
+			expectError: false,
+		},
+		// Tests for trimZ=false (new behavior)
+		{
+			name:        "trimZ=false: UTC format with Z suffix",
+			input:       "2026-09-12T17:00:00Z",
+			timezone:    chicagoTZ,
+			trimZ:       false,
+			expected:    1789232400, // Unix timestamp for 2026-09-12T12:00:00-05:00 (Chicago time, parsed as UTC first)
+			expectError: false,
+		},
+		{
+			name:        "trimZ=false: UTC format with Z suffix in UTC timezone",
+			input:       "2026-09-12T17:00:00Z",
+			timezone:    utcTZ,
+			trimZ:       false,
+			expected:    1789232400, // Unix timestamp for 2026-09-12T17:00:00Z (UTC time, parsed as UTC first)
+			expectError: false,
+		},
+		{
+			name:        "trimZ=false: timezone offset format with -05:00",
+			input:       "2026-09-12T12:00:00-05:00",
+			timezone:    chicagoTZ,
+			trimZ:       false,
+			expected:    1789232400, // Unix timestamp for 2026-09-12T12:00:00-05:00 (Chicago time)
+			expectError: false,
+		},
+		{
+			name:        "trimZ=false: timezone offset format with +09:00",
+			input:       "2026-09-12T02:00:00+09:00",
+			timezone:    chicagoTZ,
+			trimZ:       false,
+			expected:    1789146000, // Same moment in time, different timezone
+			expectError: false,
+		},
+		{
+			name:        "trimZ=false: timezone offset format with +00:00 (UTC)",
+			input:       "2026-09-12T17:00:00+00:00",
+			timezone:    chicagoTZ,
+			trimZ:       false,
+			expected:    1789232400, // Same as Z format
+			expectError: false,
+		},
+		// Edge cases for trimZ=false
+		{
+			name:        "trimZ=false: leap year date",
+			input:       "2024-02-29T12:00:00Z",
+			timezone:    chicagoTZ,
+			trimZ:       false,
+			expected:    1709208000, // Unix timestamp for 2024-02-29T06:00:00-06:00 (Chicago time)
+			expectError: false,
+		},
+		{
+			name:        "trimZ=false: end of year",
+			input:       "2023-12-31T23:59:59Z",
+			timezone:    chicagoTZ,
+			trimZ:       false,
+			expected:    1704067199, // Unix timestamp for 2023-12-31T17:59:59-06:00 (Chicago time)
+			expectError: false,
+		},
+		// Error cases for trimZ=false
+		{
+			name:        "trimZ=false: invalid RFC3339 format",
+			input:       "2026-09-12 17:00:00", // Missing T separator
+			timezone:    chicagoTZ,
+			trimZ:       false,
+			expected:    0,
+			expectError: true,
+			errorMsg:    "invalid date format",
+		},
+		{
+			name:        "trimZ=false: malformed timezone offset",
+			input:       "2026-09-12T17:00:00-25:00", // Invalid timezone offset
+			timezone:    chicagoTZ,
+			trimZ:       false,
+			expected:    0,
+			expectError: true,
+			errorMsg:    "invalid date format",
+		},
+		// DST transition tests for trimZ=false
+		{
+			name:        "trimZ=false: DST start (spring forward)",
+			input:       "2024-03-10T07:00:00Z", // 2 AM local time (spring forward)
+			timezone:    chicagoTZ,
+			trimZ:       false,
+			expected:    1710054000, // Unix timestamp for 2024-03-10T01:00:00-06:00 (Chicago time)
+			expectError: false,
+		},
+		{
+			name:        "trimZ=false: DST end (fall back)",
+			input:       "2024-11-03T06:00:00Z", // 1 AM local time (fall back)
+			timezone:    chicagoTZ,
+			trimZ:       false,
+			expected:    1730613600, // Unix timestamp for 2024-11-03T01:00:00-05:00 (Chicago time)
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := UtcToUnix64WithTrimZ(tt.input, tt.timezone, tt.trimZ)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("UtcToUnix64WithTrimZ() expected error but got none")
+					return
+				}
+				if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("UtcToUnix64WithTrimZ() error = %v, expected to contain %v", err, tt.errorMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("UtcToUnix64WithTrimZ() unexpected error = %v", err)
+				return
+			}
+
+			if result != tt.expected {
+				t.Errorf("UtcToUnix64WithTrimZ() = %v, want %v", result, tt.expected)
+			}
+
+			// Additional verification for trimZ=false: convert back to time and check it's correct
+			if !tt.trimZ {
+				convertedTime := time.Unix(result, 0).In(tt.timezone)
+				expectedTime, _ := time.Parse(time.RFC3339, tt.input.(string))
+				expectedTimeInTZ := expectedTime.In(tt.timezone)
+
+				if !convertedTime.Equal(expectedTimeInTZ) {
+					t.Errorf("UtcToUnix64WithTrimZ() conversion verification failed: got %v, want %v",
+						convertedTime.Format(time.RFC3339), expectedTimeInTZ.Format(time.RFC3339))
+				}
+			}
+		})
+	}
+}
+
 func TestGetBase64ValueFromMap(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -931,3 +1212,66 @@ func TestGetCloudflareMnmOptions(t *testing.T) {
 		})
 	}
 }
+
+// func TestNormalizeURL(t *testing.T) {
+// 	tests := []struct {
+// 		name     string
+// 		input    string
+// 		expected string
+// 		wantErr  bool
+// 	}{
+// 		{"Basic HTTP", "http://example.com", "https://example.com", false},
+// 		{"Basic HTTPS", "https://example.com", "https://example.com", false},
+// 		{"Uppercase Scheme and Host", "HTTP://EXAMPLE.COM", "https://example.com", false},
+// 		{"URL with fragment", "http://example.com#section", "https://example.com", false},
+// 		{"URL with user info", "http://user:pass@example.com", "https://example.com", false},
+// 		{"URL with default port 80", "http://example.com:80", "https://example.com", false},
+// 		{"URL with default port 443", "https://example.com:443", "https://example.com", false},
+// 		{"URL with non-default port", "https://example.com:8443", "https://example.com:8443", false},
+// 		{"HTTPS with sorted query", "https://example.com?b=2&a=1", "https://example.com?a=1&b=2", false},
+// 		{"Query with multiple values", "https://example.com?b=2&b=1", "https://example.com?b=1&b=2", false},
+// 		{"Query with encoded characters", "https://example.com?q=a+b", "https://example.com?q=a%2Bb", false},
+// 		{"Missing scheme (defaults to HTTPS)", "example.com", "https://example.com", false},
+// 		{"Unsupported scheme", "ftp://example.com", "", true},
+// 		{"Malformed URL", "http://%41", "", true},
+// 	}
+
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			got, err := NormalizeURL(tt.input)
+// 			if (err != nil) != tt.wantErr {
+// 				t.Fatalf("NormalizeURL(%q) error = %v, wantErr = %v", tt.input, err, tt.wantErr)
+// 			}
+// 			if got != tt.expected && !tt.wantErr {
+// 				t.Errorf("NormalizeURL(%q) = %q, want %q", tt.input, got, tt.expected)
+// 			}
+// 		})
+// 	}
+// }
+
+// func TestDomainFromURL(t *testing.T) {
+// 	tests := []struct {
+// 		name     string
+// 		input    string
+// 		expected string
+// 		wantErr  bool
+// 	}{
+// 		{"Valid URL", "https://example.com/path", "example.com", false},
+// 		{"URL with subdomain", "https://sub.example.com/path", "sub.example.com", false},
+// 		{"URL with port", "https://example.com:8080/path", "example.com:8080", false},
+// 		{"URL with query", "https://example.com/path?query=1", "example.com", false},
+// 		{"Invalid URL format", "not-a-url", "", true},
+// 	}
+
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			got, err := ExtractBaseDomain(tt.input)
+// 			if (err != nil) != tt.wantErr {
+// 				t.Fatalf("ExtractBaseDomain(%q) error = %v, wantErr = %v", tt.input, err, tt.wantErr)
+// 			}
+// 			if got != tt.expected && !tt.wantErr {
+// 				t.Errorf("ExtractBaseDomain(%q) = %q, want %q", tt.input, got, tt.expected)
+// 			}
+// 		})
+// 	}
+// }

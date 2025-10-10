@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -15,9 +15,9 @@ func TestAddEventSource(t *testing.T) {
 	component := AddEventSource()
 	fakeContext := context.Background()
 	// Add MNM_OPTIONS_CTX_KEY to context
-	fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
+	fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
 	// Create a layout template
-	layoutTemplate := Layout(helpers.SitePages["add-event-source"], helpers.UserInfo{}, component, types.Event{}, fakeContext, []string{})
+	layoutTemplate := Layout(constants.SitePages["add-event-source"], constants.UserInfo{}, component, types.Event{}, false, fakeContext, []string{})
 
 	// Render the template using the same context
 	var buf bytes.Buffer
@@ -32,7 +32,7 @@ func TestAddEventSource(t *testing.T) {
 	renderedContent := buf.String()
 	expectedContent := []string{
 		"Add an Event Source",
-		"Add a Target URL",
+		"Search for Events",
 		"Verify Events",
 		"Add to Site",
 		"event-source-steps",

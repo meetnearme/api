@@ -2,7 +2,6 @@ package helpers
 
 import (
 	"os"
-	"strings"
 )
 
 func IsRemoteDB() bool {
@@ -11,9 +10,8 @@ func IsRemoteDB() bool {
 	if remoteDbFlag == "true" {
 		return true
 	}
-	sstStage := os.Getenv("SST_STAGE")
-	// `.github/workflows/deploy-feature.yml` deploys any branch that begins with `feature/*` to aws as `feature-*`
-	return sstStage == "prod" || sstStage == "dev" || strings.HasPrefix(sstStage, "feature-")
+	actStage := os.Getenv("ACT_STAGE")
+	return actStage == "prod" || actStage == "dev"
 }
 
 func GetDbTableName(tableName string) string {

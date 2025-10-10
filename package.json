@@ -7,20 +7,33 @@
     "node": ">=21.6.0"
   },
   "scripts": {
-    "dev": "concurrently \"npm:dev:*\"",
-    "build": "sst build",
-    "dev:sst": "sst dev",
-    "dev:serve-static": "npx http-server -o /static -a localhost -p 3001 --cors",
+    "dev": "concurrently --kill-others-on-fail --handle-input --graceful-kill --prefix-colors \"red,blue\" \"npm:dev:watchers\" \"npm:dev:docker\"",
+    "dev:watchers": "concurrently --kill-others-on-fail --handle-input --graceful-kill --prefix-colors \"blue,green,yellow\" \"npm:dev:templ\" \"npm:dev:serve-static\" \"npm:dev:tailwind\"",
+    "dev:docker": "docker compose up --remove-orphans",
+    "dev:docker:build": "docker compose up --build --remove-orphans",
+    "dev:docker:rebuild": "docker compose down && docker compose up --build --remove-orphans",
+    "docker:clean": "docker compose down --remove-orphans && docker image prune -f && docker image prune -a -f",
+    "dev:serve-static": "cross-env NODE_ENV=development npx http-server -o /static -a localhost -p 8001 --cors",
     "dev:tailwind": "tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --watch",
-    "dev:templ": "node scripts/watchTempl.js ./functions/gateway/templates ./functions/lambda/go/seshu/templates",
+    "dev:templ": "node scripts/watchTempl.js ./functions/gateway/templates",
+    "tailwind:prod": "cross-env NODE_ENV=production tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --minify",
+    "typecheck": "tsc --noEmit",
+    "lint:templ:dev": "eslint --ext .templ --fix .",
+    "lint:templ:prod": "eslint --ext .templ --max-warnings 0 .",
+    "docker:weaviate:create-schema": "cross-env WEAVIATE_HOST=localhost WEAVIATE_PORT=8080 go run cmd/startup/weaviate_setup/main.go",
+    "docker:migrations:run": "cross-env DB_HOST=localhost DB_PORT=5433 DB_NAME=postgres DB_USER=postgres DB_PASSWORD=postgres go run cmd/startup/run_migrations/main.go",
+    "docker:weaviate:seed-json": "cross-env WEAVIATE_HOST=localhost WEAVIATE_PORT=8080 go run cmd/seed_weaviate_db/main.go",
+    "docker:weaviate:clean-schema": "cross-env WEAVIATE_HOST=localhost WEAVIATE_PORT=8080 go run cmd/clean_weaviate_db/main.go",
+    "docker:shell:app": "docker-compose exec go-app sh",
+    "docker:shell:db": "docker-compose exec postgres bash",
+    "build": "sst build",
+    "sst-dev": "sst dev",
     "deploy": "sst deploy",
     "deploy:prod": "sst deploy --stage prod",
     "remove": "sst remove",
     "console": "sst console",
-    "tailwind:prod": "NODE_ENV=production tailwindcss --postcss -i ./static/assets/global.css -o ./static/assets/styles.css --minify",
-    "typecheck": "tsc --noEmit",
-    "lint:templ:dev": "eslint --ext .templ --fix .",
-    "lint:templ:prod": "eslint --ext .templ --max-warnings 0 ."
+    "generate:env:dev": "node .github/scripts/generate-env-inline.js --dev",
+    "generate:env:prod": "node .github/scripts/generate-env-inline.js --prod"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.14",
@@ -28,6 +41,7 @@
     "aws-cdk-lib": "2.110.1",
     "concurrently": "^8.2.2",
     "constructs": "10.3.0",
+    "cross-env": "^7.0.3",
     "daisyui": "^4.12.14",
     "eslint": "^8.57.1",
     "eslint-plugin-html": "^7.1.0",
@@ -43,5 +57,9 @@
   },
   "eslintConfig": {
     "sourceType": "commonjs"
+  },
+  "volta": {
+    "node": "21.6.0",
+    "npm": "10.2.4"
   }
 }

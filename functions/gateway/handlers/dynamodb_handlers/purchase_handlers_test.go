@@ -14,38 +14,37 @@ import (
 
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
+	"github.com/weaviate/weaviate/entities/models"
 )
 
 func TestGetPurchasesByEventID(t *testing.T) {
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	// --- Standard Test Setup (same pattern as other tests) ---
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
 	defer os.Unsetenv("GO_ENV")
-	// Save original environment variables
-	originalMarqoApiKey := os.Getenv("MARQO_API_KEY")
-	originalMarqoEndpoint := os.Getenv("DEV_MARQO_API_BASE_URL")
-	originalMarqoIndexName := os.Getenv("DEV_MARQO_INDEX_NAME")
 
-	// Set test environment variables
-	testMarqoApiKey := "test-marqo-api-key"
-	// Get port and create full URL
-	port := test_helpers.GetNextPort()
-	testMarqoEndpoint := fmt.Sprintf("http://%s", port)
-	testMarqoIndexName := "testing-index"
+	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+	originalTransport := http.DefaultTransport
 
-	os.Setenv("MARQO_API_KEY", testMarqoApiKey)
-	// os.Setenv("DEV_MARQO_API_BASE_URL", testMarqoEndpoint)
-	os.Setenv("DEV_MARQO_INDEX_NAME", testMarqoIndexName)
-
-	// Defer resetting environment variables
 	defer func() {
-		os.Setenv("MARQO_API_KEY", originalMarqoApiKey)
-		os.Setenv("DEV_MARQO_API_BASE_URL", originalMarqoEndpoint)
-		os.Setenv("DEV_MARQO_INDEX_NAME", originalMarqoIndexName)
+		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+		http.DefaultTransport = originalTransport
 	}()
+
+	// Set up logging transport
+	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
+
+	// Mock server setup (same as working pattern)
+	hostAndPort := test_helpers.GetNextPort()
 
 	const (
 		testEventID          = "123"
@@ -55,46 +54,94 @@ func TestGetPurchasesByEventID(t *testing.T) {
 	)
 
 	loc, _ := time.LoadLocation("America/New_York")
-	testEventStartTime, tmErr := helpers.UtcToUnix64("2099-05-01T12:00:00Z", loc)
+	testEventStartTime, tmErr := helpers.UtcToUnix64WithTrimZ("2099-05-01T12:00:00Z", loc, false)
 	if tmErr != nil || testEventStartTime == 0 {
 		t.Logf("Error converting tm UTC to unix: %v", tmErr)
 	}
 
-	// Create a mock HTTP server for Marqo
-	mockMarqoServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		response := map[string]interface{}{
-			"results": []map[string]interface{}{
-				{
-					"_id":            testEventID,
-					"startTime":      testEventStartTime,
-					"eventOwners":    []interface{}{testEventOwnerID},
-					"eventOwnerName": "Event Host Test",
-					"name":           testEventName,
-					"description":    testEventDescription,
-				},
-			},
-		}
-		responseBytes, err := json.Marshal(response)
-		if err != nil {
-			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write(responseBytes)
-	}))
-	// Set up mock Marqo server
-	mockMarqoServer.Listener.Close()
-	listener, err := test_helpers.BindToPort(t, testMarqoEndpoint)
-	if err != nil {
-		t.Fatalf("Failed to start mock Marqo server after retries: %v", err)
-	}
-	mockMarqoServer.Listener = listener
-	mockMarqoServer.Start()
-	defer mockMarqoServer.Close()
+	// Create mock Weaviate server (following established pattern)
+	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("🎯 MOCK SERVER HIT: %s %s", r.Method, r.URL.Path)
 
-	// Update the environment variable with the actual bound address
-	boundAddress := mockMarqoServer.Listener.Addr().String()
-	os.Setenv("DEV_MARQO_API_BASE_URL", fmt.Sprintf("http://%s", boundAddress))
+		switch r.URL.Path {
+		case "/":
+			// Handle root path requests (from BindToPort connection test)
+			t.Logf("   └─ Handling / (connection test)")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+
+		case "/v1/meta":
+			t.Logf("   └─ Handling /v1/meta")
+			metaResponse := `{"version":"1.23.4"}`
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(metaResponse))
+
+		case "/v1/graphql":
+			t.Logf("   └─ Handling /v1/graphql (event lookup for authorization)")
+			if r.Method != "POST" {
+				t.Errorf("expected method POST for /v1/graphql, got %s", r.Method)
+			}
+
+			// Return event data for authorization check
+			mockResponse := models.GraphQLResponse{
+				Data: map[string]models.JSONObject{
+					"Get": map[string]interface{}{
+						constants.WeaviateEventClassName: []interface{}{
+							map[string]interface{}{
+								"name":           testEventName,
+								"description":    testEventDescription,
+								"eventOwners":    []interface{}{testEventOwnerID},
+								"eventOwnerName": "Event Host Test",
+								"startTime":      testEventStartTime,
+								"timezone":       "America/New_York",
+								"_additional": map[string]interface{}{
+									"id": testEventID,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			responseBytes, err := json.Marshal(mockResponse)
+			if err != nil {
+				t.Fatalf("failed to marshal mock GraphQL response: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+
+		default:
+			t.Logf("   └─ ⚠️  UNHANDLED PATH: %s", r.URL.Path)
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}
+	}))
+
+	// Use the same binding pattern as working tests
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("BindToPort failed: %v", err)
+	}
+	mockWeaviateServer.Listener = listener
+	mockWeaviateServer.Start()
+	defer mockWeaviateServer.Close()
+
+	// Set environment variables to the actual bound port
+	actualAddr := listener.Addr().String()
+	actualParts := strings.Split(actualAddr, ":")
+	actualHost, actualPort := actualParts[0], actualParts[1]
+
+	os.Setenv("WEAVIATE_HOST", actualHost)
+	os.Setenv("WEAVIATE_PORT", actualPort)
+	os.Setenv("WEAVIATE_SCHEME", "http")
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
+
+	t.Logf("🔧 PURCHASE TEST SETUP COMPLETE")
+	t.Logf("   └─ Mock Server bound to: %s", actualAddr)
+	t.Logf("   └─ WEAVIATE_HOST: %s", os.Getenv("WEAVIATE_HOST"))
+	t.Logf("   └─ WEAVIATE_PORT: %s", os.Getenv("WEAVIATE_PORT"))
 
 	tests := []struct {
 		name          string
@@ -125,10 +172,10 @@ func TestGetPurchasesByEventID(t *testing.T) {
 			}
 			handler := NewPurchaseHandler(mockService)
 			req := httptest.NewRequest(http.MethodGet, "/purchases/event_id", nil)
-			req = mux.SetURLVars(req, map[string]string{helpers.EVENT_ID_KEY: testEventID})
+			req = mux.SetURLVars(req, map[string]string{constants.EVENT_ID_KEY: testEventID})
 
 			// Add authentication context with test user
-			userInfo := helpers.UserInfo{
+			userInfo := constants.UserInfo{
 				Sub: tt.userID,
 			}
 			ctx := context.WithValue(req.Context(), "userInfo", userInfo)
@@ -186,7 +233,7 @@ func TestGetPurchasesByUserID(t *testing.T) {
 			req = mux.SetURLVars(req, map[string]string{"user_id": tt.requestUserID})
 
 			// Add authentication context with test user
-			userInfo := helpers.UserInfo{
+			userInfo := constants.UserInfo{
 				Sub: tt.contextUserID,
 			}
 			ctx := context.WithValue(req.Context(), "userInfo", userInfo)
@@ -225,12 +272,12 @@ func TestDeletePurchase(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/purchases/%s/%s", testEventID, testUserID), nil)
 	req = mux.SetURLVars(req, map[string]string{
-		helpers.EVENT_ID_KEY: testEventID,
-		"user_id":            testUserID,
+		constants.EVENT_ID_KEY: testEventID,
+		"user_id":              testUserID,
 	})
 
 	// Add user context
-	userInfo := helpers.UserInfo{
+	userInfo := constants.UserInfo{
 		Sub: testUserID, // Using the same user ID to test authorized deletion
 	}
 	ctx := context.WithValue(req.Context(), "userInfo", userInfo)

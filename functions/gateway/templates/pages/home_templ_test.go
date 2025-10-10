@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -25,7 +25,7 @@ func TestHomePage(t *testing.T) {
 		},
 	}
 
-	cfLocation := helpers.CdnLocation{
+	cfLocation := constants.CdnLocation{
 		City: "New York",
 		CCA2: "US",
 	}
@@ -76,7 +76,7 @@ func TestHomePage(t *testing.T) {
 				UserID:      "1234567890",
 				DisplayName: "Brian's Pub",
 				Metadata: map[string]string{
-					helpers.META_ABOUT_KEY: "Welcome to Brian's Pub",
+					constants.META_ABOUT_KEY: "Welcome to Brian's Pub",
 				},
 			},
 			latStr:            "",
@@ -97,7 +97,7 @@ func TestHomePage(t *testing.T) {
 				UserID:      "1234567890",
 				DisplayName: "Brian's Pub",
 				Metadata: map[string]string{
-					helpers.META_ABOUT_KEY: "Welcome to Brian's Pub",
+					constants.META_ABOUT_KEY: "Welcome to Brian's Pub",
 				},
 			},
 			latStr:            "29.760427",
@@ -119,7 +119,7 @@ func TestHomePage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Call the HomePage function
-			component := HomePage(events, tt.pageUser, cfLocation, tt.latStr, tt.lonStr, origLatStr, origLonStr, tt.origQueryLocation)
+			component := HomePage(context.Background(), events, tt.pageUser, cfLocation, tt.latStr, tt.lonStr, origLatStr, origLonStr, tt.origQueryLocation)
 
 			// Render the component
 			var buf bytes.Buffer
@@ -137,5 +137,69 @@ func TestHomePage(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestReShareButton(t *testing.T) {
+	component := ReShareButton(types.Event{
+		Id:          "123",
+		Name:        "Test Event 1",
+		Description: "Description for Test Event 1",
+	})
+
+	var buf bytes.Buffer
+	err := component.Render(context.Background(), &buf)
+	if err != nil {
+		t.Fatalf("Error rendering ReShareButton: %v", err)
+	}
+
+	renderedContent := buf.String()
+	if !strings.Contains(renderedContent, "Re share") {
+		t.Errorf("Expected rendered content to contain 'Re share', but it didn't")
+	}
+	if !strings.Contains(renderedContent, "re-share-123") {
+		t.Errorf("Expected rendered content to contain button ID 're-share-123', but it didn't")
+	}
+}
+
+func TestHomeWithReShareButton(t *testing.T) {
+	events := []types.Event{
+		{
+			Id:          "123",
+			Name:        "Test Event 1",
+			Description: "Description for Test Event 1",
+		},
+	}
+	pageUser := &types.UserSearchResult{
+		UserID:      "1234567890",
+		DisplayName: "Brian Feister",
+	}
+	cfLocation := constants.CdnLocation{
+		City: "New York",
+		CCA2: "US",
+	}
+	component := HomePage(context.Background(), events, pageUser, cfLocation, "40.7128", "-74.0060", "", "", "")
+
+	var buf bytes.Buffer
+	err := component.Render(context.Background(), &buf)
+	if err != nil {
+		t.Fatalf("Error rendering HomePage: %v", err)
+	}
+
+	renderedContent := buf.String()
+	if !strings.Contains(renderedContent, "Test Event 1") {
+		t.Errorf("Expected rendered content to contain 'Test Event 1', but it didn't")
+	}
+	if !strings.Contains(renderedContent, "data-page-user-id=\"1234567890\"") {
+		t.Errorf("Expected rendered content to contain 'data-page-user-id=\"1234567890\"', but it didn't")
+	}
+	if !strings.Contains(renderedContent, "data-city-label-initial=\"New York, US\"") {
+		t.Errorf("Expected rendered content to contain 'data-city-label-initial=\"New York, US\"', but it didn't")
+	}
+	if !strings.Contains(renderedContent, "data-city-latitude-initial=\"40.7128\"") {
+		t.Errorf("Expected rendered content to contain 'data-city-latitude-initial=\"40.7128\"', but it didn't")
+	}
+	if !strings.Contains(renderedContent, "data-city-longitude-initial=\"-74.0060\"") {
+		t.Errorf("Expected rendered content to contain 'data-city-longitude-initial=\"-74.0060\"', but it didn't")
 	}
 }

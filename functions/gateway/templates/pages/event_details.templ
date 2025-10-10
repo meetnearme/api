@@ -2,7 +2,9 @@ package pages
 
 import (
 	"fmt"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"net/url"
 	"os"
@@ -20,10 +22,10 @@ templ Icon(icon string) {
 					</g>
 				</g>
 			</svg>
+		case "link":
+			@components.Icon("link")
 		case "location":
-			<svg width="16" height="20" viewBox="0 0 16 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-				<path d="M8 0C5.879 0.00238211 3.84555 0.846002 2.34578 2.34578C0.846002 3.84555 0.00238211 5.879 0 8C0 11.255 2.363 13.958 4.866 16.819C5.658 17.725 6.478 18.662 7.208 19.61C7.30142 19.7312 7.4214 19.8293 7.55871 19.8968C7.69602 19.9644 7.84699 19.9995 8 19.9995C8.15301 19.9995 8.30398 19.9644 8.44129 19.8968C8.5786 19.8293 8.69858 19.7312 8.792 19.61C9.522 18.662 10.342 17.725 11.134 16.819C13.637 13.958 16 11.255 16 8C15.9976 5.879 15.154 3.84555 13.6542 2.34578C12.1544 0.846002 10.121 0.00238211 8 0ZM8 11C7.40666 11 6.82664 10.8241 6.33329 10.4944C5.83994 10.1648 5.45542 9.69623 5.22836 9.14805C5.0013 8.59987 4.94189 7.99667 5.05764 7.41473C5.1734 6.83279 5.45912 6.29824 5.87868 5.87868C6.29824 5.45912 6.83279 5.1734 7.41473 5.05764C7.99667 4.94189 8.59987 5.0013 9.14805 5.22836C9.69623 5.45542 10.1648 5.83994 10.4944 6.33329C10.8241 6.82664 11 7.40666 11 8C11 8.79565 10.6839 9.55871 10.1213 10.1213C9.55871 10.6839 8.79565 11 8 11Z"></path>
-			</svg>
+			@components.Icon("location-filled")
 		case "calendar":
 			<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<path d="M17 2H16V1C16 0.4 15.6 0 15 0C14.4 0 14 0.4 14 1V2H6V1C6 0.4 5.6 0 5 0C4.4 0 4 0.4 4 1V2H3C1.3 2 0 3.3 0 5V6H20V5C20 3.3 18.7 2 17 2ZM0 17C0 18.7 1.3 20 3 20H17C18.7 20 20 18.7 20 17V8H0V17ZM15 10C15.6 10 16 10.4 16 11C16 11.6 15.6 12 15 12C14.4 12 14 11.6 14 11C14 10.4 14.4 10 15 10ZM15 14C15.6 14 16 14.4 16 15C16 15.6 15.6 16 15 16C14.4 16 14 15.6 14 15C14 14.4 14.4 14 15 14ZM10 10C10.6 10 11 10.4 11 11C11 11.6 10.6 12 10 12C9.4 12 9 11.6 9 11C9 10.4 9.4 10 10 10ZM10 14C10.6 14 11 14.4 11 15C11 15.6 10.6 16 10 16C9.4 16 9 15.6 9 15C9 14.4 9.4 14 10 14ZM5 10C5.6 10 6 10.4 6 11C6 11.6 5.6 12 5 12C4.4 12 4 11.6 4 11C4 10.4 4.4 10 5 10ZM5 14C5.6 14 6 14.4 6 15C6 15.6 5.6 16 5 16C4.4 16 4 15.6 4 15C4 14.4 4.4 14 5 14Z" fill="currentColor"></path>
@@ -53,27 +55,27 @@ templ IconLeftSection(labelText, labelValue, icon string, urlString string, sect
 				if sectionType == "OWNER_NAME" {
 					<strong>{ labelText }:</strong>
 					// TODO: rewrite this after migrating to `event.EventOwners` array (required marqo db migration)
-					{{ eventOwnersArr := strings.Split(event.EventOwnerName, helpers.EventOwnerNameDelimiter) }}
+					{{ eventOwnersArr := strings.Split(event.EventOwnerName, constants.EventOwnerNameDelimiter) }}
 					// Fallback: if no delimiter was found, use the entire EventOwnerName
 					if len(eventOwnersArr) == 1 && len(event.EventOwners) > 0 {
-						<a class="link link-primary" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + event.EventOwners[0]) }>{ event.EventOwnerName }</a>
+						<a class="link link-text" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + event.EventOwners[0]) }>{ event.EventOwnerName }</a>
 					} else {
 						for idx, owner := range event.EventOwners {
 							if idx > 0 {
 								,&nbsp;
 							}
-							<a class="link link-primary" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + owner) }>{ eventOwnersArr[idx] }</a>
+							<a class="link link-text" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + owner) }>{ eventOwnersArr[idx] }</a>
 						}
 					}
 				} else if urlString != "" {
-					<strong>{ labelText }:</strong> <a class="link link-primary" href={ templ.URL(urlString) }>{ labelValue }</a>
+					<strong>{ labelText }:</strong> <a class="link link-text" href={ templ.URL(urlString) }>{ labelValue }</a>
 				} else {
 					<strong>{ labelText }:</strong> { labelValue }
 				}
 				// This is a hack because it wasn't clear how to get nested templ components working
 				if sectionType == "venue" {
 					<p>
-						<a class="link link-primary" href={ templ.URL(fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=%f,%f", event.Lat, event.Long)) }>
+						<a class="link link-text" href={ templ.URL(fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=%f,%f", event.Lat, event.Long)) }>
 							{ "(Map Link)" }
 						</a>
 					</p>
@@ -83,8 +85,8 @@ templ IconLeftSection(labelText, labelValue, icon string, urlString string, sect
 	</div>
 }
 
-templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit bool) {
-	<div class="max-w-prose mx-auto" x-data="getEventDetailsState()">
+templ EventDetailsPage(event types.Event, userInfo constants.UserInfo, canEdit bool) {
+	<div x-data="getEventDetailsState()">
 		if event.Id == "" {
 			<br/>
 			<br/>
@@ -101,7 +103,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			<br/>
 			<br/>
 			<br/>
-		} else if strings.Contains(event.EventSourceType, helpers.UNPUB_SUFFIX) && !canEdit {
+		} else if strings.Contains(event.EventSourceType, constants.UNPUB_SUFFIX) && !canEdit {
 			<br/>
 			<br/>
 			<br/>
@@ -150,24 +152,24 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			if (canEdit) {
 				<div class="alert alert-success">
 					You are an editor for this event.
-					if event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB {
+					if event.EventSourceType == constants.ES_EVENT_SERIES || event.EventSourceType == constants.ES_EVENT_SERIES_UNPUB {
 						<a
 							class="btn btn-sm"
-							href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.EventSourceId, 1), "{trailingslash:\\/?}", "", 1)) }
+							href={ templ.URL(strings.Replace(strings.Replace(constants.SitePages["edit-event"].Slug, "{"+constants.EVENT_ID_KEY+"}", event.EventSourceId, 1), "{trailingslash:\\/?}", "", 1)) }
 						>Edit Series</a>
 					} else {
 						<a
 							class="btn btn-sm"
-							href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }
+							href={ templ.URL(strings.Replace(strings.Replace(constants.SitePages["edit-event"].Slug, "{"+constants.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }
 						>Edit Event</a>
 					}
 				</div>
 			}
 			<h1 class="text-3xl mt-2">{ event.Name }</h1>
-			if event.EventSourceType == helpers.ES_SERIES_PARENT || event.EventSourceType == helpers.ES_SERIES_PARENT_UNPUB {
+			if event.EventSourceType == constants.ES_SERIES_PARENT || event.EventSourceType == constants.ES_SERIES_PARENT_UNPUB {
 				<h3 class="text-xl mt-2">Event Series</h3>
 				<div
-					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=" + strconv.Itoa(helpers.DEFAULT_MAX_RADIUS) + "&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id + "&event_source_types=" + helpers.ES_EVENT_SERIES + "," + helpers.ES_EVENT_SERIES_UNPUB }
+					hx-get={ "/api/html/events?list_mode=" + constants.EV_MODE_CAROUSEL + "&radius=" + strconv.Itoa(constants.DEFAULT_MAX_RADIUS) + "&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id + "&event_source_types=" + constants.ES_EVENT_SERIES + "," + constants.ES_EVENT_SERIES_UNPUB }
 					hx-trigger="load"
 					hx-swap="outerHTML"
 				>
@@ -176,8 +178,13 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			}
 			<br/>
 			<p>
-				if event.EventOwnerName != "" {
+				if event.EventSourceId == "" && event.EventOwnerName != "" {
 					@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				} else if event.EventSourceId != "" {
+					@IconLeftSection("Curator", event.EventSourceId, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				}
+				if event.SourceUrl != "" {
+					@IconLeftSection("Source", event.SourceUrl, "link", event.SourceUrl, "SOURCE_URL", event)
 				}
 				<br/>
 				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, "VENUE", event)
@@ -196,11 +203,11 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 					// TODO: handle basecurrency
 					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", "", event)
 				}
-				if (event.EventSourceType == helpers.ES_EVENT_SERIES || event.EventSourceType == helpers.ES_EVENT_SERIES_UNPUB) && event.EventSourceId != "" {
+				if (event.EventSourceType == constants.ES_EVENT_SERIES || event.EventSourceType == constants.ES_EVENT_SERIES_UNPUB) && event.EventSourceId != "" {
 					<div class="divider my-3"></div>
 					<h3 class="text-xl mt-2 mb-2">All Events in this Series</h3>
 					<div
-						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId + "&event_source_types=" + helpers.ES_EVENT_SERIES + "," + helpers.ES_EVENT_SERIES_UNPUB }
+						hx-get={ "/api/html/events?list_mode=" + constants.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId + "&event_source_types=" + constants.ES_EVENT_SERIES + "," + constants.ES_EVENT_SERIES_UNPUB }
 						hx-trigger="load"
 						hx-swap="outerHTML"
 					>
@@ -213,6 +220,21 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				<div class="whitespace-pre-wrap">
 					@templ.Raw(event.Description)
 				</div>
+				<br/>
+				<br/>
+				<h3 class="text-xl">EVENT LOCATION</h3>
+				<br/>
+				<iframe
+					src={ "https://www.google.com/maps/embed/v1/place?key=" + os.Getenv("GOOGLE_API_KEY") + "&q=" + url.QueryEscape(event.Address) }
+					width="100%"
+					height="300px"
+					style="border:0;"
+					allowfullscreen=""
+					loading="lazy"
+				></iframe>
+				<br/>
+				<br/>
+				<br/>
 				<template x-if="competitionConfigId && userId">
 					<div class="mt-4" id="voting-section">
 						<h3 class="text-xl">VOTING</h3>
@@ -318,7 +340,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 							data-umami-event={ "intrst-click" }
 							data-umami-event-event-id={ event.Id }
 							@click="document.getElementById('icmi-modal').showModal(); handleCtaClick('icmi')"
-							class="btn btn-block btn-primary btn-outline btn-bold-outline text-black"
+							class="btn btn-block btn-primary btn-outline btn-bold-outline"
 						>Interested, can't make it!</button>
 						<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
 							<div class="modal-box">
@@ -335,8 +357,12 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			</div>
 		}
 	</div>
-	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
-	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ helpers.ES_SINGLE_EVENT } data-event-type-series-parent={ helpers.ES_SERIES_PARENT } data-event-type-series-child={ helpers.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId }>
+	// this div is only to shim the main-bg against the parent space-y-4 class
+	// so that it doesn't inherit the margin-top
+	<div>
+		<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
+	</div>
+	<script id="event-details-script" data-interested-status={ constants.PurchaseStatus.Interested } data-registered-status={ constants.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ constants.ES_SINGLE_EVENT } data-event-type-series-parent={ constants.ES_SERIES_PARENT } data-event-type-series-child={ constants.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId }>
 		function getEventDetailsState() {
 			return {
 				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),

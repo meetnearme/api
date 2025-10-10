@@ -6,13 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func TestAboutPage(t *testing.T) {
 	// Create mock user info
-	mockUserInfo := helpers.UserInfo{
+	mockUserInfo := constants.UserInfo{
 		Email:             "test@example.com",
 		EmailVerified:     true,
 		FamilyName:        "Doe",
@@ -25,12 +25,12 @@ func TestAboutPage(t *testing.T) {
 		Metadata:          "",
 	}
 	fakeContext := context.Background()
-	fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123", "--p": "#000000", "themeMode": "dark"})
+	fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123", "--p": "#000000", "themeMode": "dark"})
 
 	// Call the AboutPage function
 	aboutPage := AboutPage()
 	// Create a layout template
-	layoutTemplate := Layout(helpers.SitePages["admin"], mockUserInfo, aboutPage, types.Event{}, fakeContext, []string{})
+	layoutTemplate := Layout(constants.SitePages["about"], mockUserInfo, aboutPage, types.Event{}, false, fakeContext, []string{})
 
 	// Render the template using the same context
 	var buf bytes.Buffer

@@ -11,8 +11,10 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/imroc/req"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
@@ -44,22 +47,31 @@ func init() {
 }
 
 func UtcToUnix64(t interface{}, timezone *time.Location) (int64, error) {
+	return UtcToUnix64WithTrimZ(t, timezone, true)
+}
+
+func UtcToUnix64WithTrimZ(t interface{}, timezone *time.Location, trimZ bool) (int64, error) {
 	switch v := t.(type) {
 	case string:
-		// First validate by parsing as RFC3339
-		_, err := time.Parse(time.RFC3339, v)
-		if err != nil {
-			return 0, fmt.Errorf("invalid date format: %v", err)
+		if trimZ {
+			// Previous behavior: trim Z suffix and parse as local time
+			timeStr := strings.TrimSuffix(v, "Z")
+			// Note the time layout here MUST NOT be RFC3339, it must be the local time layout
+			localTime, err := time.ParseInLocation("2006-01-02T15:04:05", timeStr, timezone)
+			if err != nil {
+				return 0, fmt.Errorf("invalid date format: %v", err)
+			}
+			return localTime.Unix(), nil
+		} else {
+			// New behavior: parse as RFC3339 (UTC) then convert to timezone
+			parsedTime, err := time.Parse(time.RFC3339, v)
+			if err != nil {
+				return 0, fmt.Errorf("invalid date format: %v", err)
+			}
+			// Convert the parsed time to the specified timezone
+			localTime := parsedTime.In(timezone)
+			return localTime.Unix(), nil
 		}
-
-		// Now do local time parsing
-		timeStr := strings.TrimSuffix(v, "Z")
-		// Note the time layout here MUST NOT be RFC3339, it must be the local time layout
-		localTime, err := time.ParseInLocation("2006-01-02T15:04:05", timeStr, timezone)
-		if err != nil {
-			return 0, fmt.Errorf("invalid date format: %v", err)
-		}
-		return localTime.Unix(), nil
 
 	default:
 		return 0, fmt.Errorf("unsupported time format")
@@ -171,7 +183,7 @@ func GetCloudflareMnmOptions(subdomainValue string) (string, error) {
 }
 
 func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]string, cfMetadataValue string) error {
-	mnmOptionsKey := SUBDOMAIN_KEY
+	mnmOptionsKey := constants.SUBDOMAIN_KEY
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
 	baseURL := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
@@ -221,7 +233,7 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 
 	// check for pattern [0-9]{18} => Zitadel UserID pattern
 	hasLegacyUserID := false
-	if !regexp.MustCompile(`^[0-9]{` + fmt.Sprint(ZITADEL_USER_ID_LEN) + `}$`).MatchString(userID) {
+	if !regexp.MustCompile(`^[0-9]{` + fmt.Sprint(constants.ZITADEL_USER_ID_LEN) + `}$`).MatchString(userID) {
 		hasLegacyUserID = true
 	}
 
@@ -237,7 +249,7 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 	}
 
 	if existingValueStr != userID && resp != nil && resp.StatusCode == http.StatusOK {
-		return fmt.Errorf(ERR_KV_KEY_EXISTS)
+		return fmt.Errorf(constants.ERR_KV_KEY_EXISTS)
 	}
 
 	existingUserSubdomain, err := GetUserMetadataByKey(userID, mnmOptionsKey)
@@ -917,7 +929,7 @@ func ToJSON(v interface{}) []byte {
 	return b
 }
 
-func IsAuthorizedEventEditor(event *types.Event, userInfo *UserInfo) bool {
+func IsAuthorizedEventEditor(event *types.Event, userInfo *constants.UserInfo) bool {
 	for _, ownerId := range event.EventOwners {
 		if ownerId == userInfo.Sub {
 			return true
@@ -926,7 +938,7 @@ func IsAuthorizedEventEditor(event *types.Event, userInfo *UserInfo) bool {
 	return false
 }
 
-func IsAuthorizedCompetitionEditor(competition types.CompetitionConfig, userInfo *UserInfo) bool {
+func IsAuthorizedCompetitionEditor(competition types.CompetitionConfig, userInfo *constants.UserInfo) bool {
 	allOwners := []string{competition.PrimaryOwner}
 	for _, owner := range competition.AuxilaryOwners {
 		allOwners = append(allOwners, owner)
@@ -939,7 +951,7 @@ func IsAuthorizedCompetitionEditor(competition types.CompetitionConfig, userInfo
 	return false
 }
 
-func HasRequiredRole(roleClaims []RoleClaim, requiredRoles []string) bool {
+func HasRequiredRole(roleClaims []constants.RoleClaim, requiredRoles []string) bool {
 	for _, claim := range roleClaims {
 		for _, validRole := range requiredRoles {
 			if claim.Role == validRole {
@@ -950,13 +962,13 @@ func HasRequiredRole(roleClaims []RoleClaim, requiredRoles []string) bool {
 	return false
 }
 
-func CanEditEvent(event *types.Event, userInfo *UserInfo, roleClaims []RoleClaim) bool {
+func CanEditEvent(event *types.Event, userInfo *constants.UserInfo, roleClaims []constants.RoleClaim) bool {
 	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin"})
 	isEditor := IsAuthorizedEventEditor(event, userInfo)
 	return hasSuperAdminRole || isEditor
 }
 
-func CanEditCompetition(competition types.CompetitionConfig, userInfo *UserInfo, roleClaims []RoleClaim) bool {
+func CanEditCompetition(competition types.CompetitionConfig, userInfo *constants.UserInfo, roleClaims []constants.RoleClaim) bool {
 	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin", "competitionAdmin"})
 	isEditor := IsAuthorizedCompetitionEditor(competition, userInfo)
 	return hasSuperAdminRole || isEditor
@@ -1019,8 +1031,64 @@ func FormatMatchup(competitorA, competitorB string) string {
 // GetMnmOptionsFromContext safely retrieves mnmOptions from context
 // Returns an empty map if not found
 func GetMnmOptionsFromContext(ctx context.Context) map[string]string {
-	if mnmOptions, ok := ctx.Value(MNM_OPTIONS_CTX_KEY).(map[string]string); ok {
+	if mnmOptions, ok := ctx.Value(constants.MNM_OPTIONS_CTX_KEY).(map[string]string); ok {
 		return mnmOptions
 	}
 	return map[string]string{}
+}
+
+func NormalizeURL(input string) (string, error) {
+	parsedURL, err := url.Parse(input)
+	if err != nil {
+		return "", err
+	}
+
+	parsedURL.Scheme = strings.ToLower(parsedURL.Scheme)
+	parsedURL.Host = strings.ToLower(parsedURL.Hostname())
+
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return "", fmt.Errorf("unsupported URL scheme: %s", parsedURL.Scheme)
+	}
+
+	if parsedURL.Port() == "443" || parsedURL.Port() == "80" {
+		parsedURL.Host = strings.ToLower(parsedURL.Hostname())
+	}
+
+	if parsedURL.Scheme == "" || parsedURL.Scheme == "http" {
+		parsedURL.Scheme = "https"
+	}
+
+	if parsedURL.User != nil {
+		parsedURL.User = nil
+	}
+
+	parsedURL.Fragment = ""
+
+	queryParams := parsedURL.Query()
+	pairs := make([]string, 0, len(queryParams)*2)
+
+	for key, values := range queryParams {
+		sort.Strings(values)
+		for _, value := range values {
+			encodedKey := url.QueryEscape(key)
+			encodedValue := url.QueryEscape(value)
+			pairs = append(pairs, fmt.Sprintf("%s=%s", encodedKey, encodedValue))
+		}
+	}
+
+	sort.Strings(pairs)
+	parsedURL.RawQuery = strings.Join(pairs, "&")
+
+	return parsedURL.String(), nil
+}
+
+func ExtractBaseDomain(rawURL string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+
+	host := parsed.Hostname()
+
+	return host, nil
 }

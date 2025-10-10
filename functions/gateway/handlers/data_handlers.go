@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/go-playground/validator"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -24,19 +26,18 @@ import (
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
-	"github.com/stripe/stripe-go/v80"
-	"github.com/stripe/stripe-go/v80/checkout/session"
-	"github.com/stripe/stripe-go/v80/webhook"
+	"github.com/stripe/stripe-go/v83"
+	"github.com/stripe/stripe-go/v83/webhook"
 )
 
 var validate *validator.Validate = validator.New()
 
-type MarqoHandler struct {
-	MarqoService services.MarqoServiceInterface
+type WeaviateHandler struct {
+	WeaviateService services.WeaviateServiceInterface
 }
 
-func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler {
-	return &MarqoHandler{MarqoService: marqoService}
+func NewWeaviateHandler(weaviateService services.WeaviateServiceInterface) *WeaviateHandler {
+	return &WeaviateHandler{WeaviateService: weaviateService}
 }
 
 type PurchasableWebhookHandler struct {
@@ -46,40 +47,6 @@ type PurchasableWebhookHandler struct {
 
 func NewPurchasableWebhookHandler(purchasableService internal_types.PurchasableServiceInterface, purchaseService internal_types.PurchaseServiceInterface) *PurchasableWebhookHandler {
 	return &PurchasableWebhookHandler{PurchasableService: purchasableService, PurchaseService: purchaseService}
-}
-
-// Create a new struct for raw JSON operations
-type rawEventData struct {
-	Id              string   `json:"id"`
-	EventOwners     []string `json:"eventOwners" validate:"required,min=1"`
-	EventOwnerName  string   `json:"eventOwnerName" validate:"required"`
-	EventSourceType string   `json:"eventSourceType" validate:"required"`
-	Name            string   `json:"name" validate:"required"`
-	Description     string   `json:"description" validate:"required"`
-	Address         string   `json:"address" validate:"required"`
-	Lat             float64  `json:"lat" validate:"required"`
-	Long            float64  `json:"long" validate:"required"`
-	Timezone        string   `json:"timezone" validate:"required"`
-}
-
-type rawEvent struct {
-	rawEventData
-	EventSourceId         *string     `json:"eventSourceId,omitempty"`
-	StartTime             interface{} `json:"startTime" validate:"required"`
-	EndTime               interface{} `json:"endTime,omitempty"`
-	StartingPrice         *int32      `json:"startingPrice,omitempty"`
-	Currency              *string     `json:"currency,omitempty"`
-	PayeeId               *string     `json:"payeeId,omitempty"`
-	CompetitionConfigId   *string     `json:"competitionConfigId,omitempty"`
-	HasRegistrationFields *bool       `json:"hasRegistrationFields,omitempty"`
-	HasPurchasable        *bool       `json:"hasPurchasable,omitempty"`
-	ImageUrl              *string     `json:"imageUrl,omitempty"`
-	Categories            *[]string   `json:"categories,omitempty"`
-	Tags                  *[]string   `json:"tags,omitempty"`
-	CreatedAt             *int64      `json:"createdAt,omitempty"`
-	UpdatedAt             *int64      `json:"updatedAt,omitempty"`
-	UpdatedBy             *string     `json:"updatedBy,omitempty"`
-	HideCrossPromo        *bool       `json:"hideCrossPromo,omitempty"`
 }
 
 // Create a new struct that includes the createPurchase fields and the Stripe checkout URL
@@ -103,104 +70,8 @@ type searchResult struct {
 	err        error
 }
 
-func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
-	loc, err := time.LoadLocation(raw.Timezone)
-	if err != nil {
-		return types.Event{}, fmt.Errorf("invalid timezone: %w", err)
-	}
-	event := types.Event{
-		Id:              raw.Id,
-		EventOwners:     raw.EventOwners,
-		EventOwnerName:  raw.EventOwnerName,
-		EventSourceType: raw.EventSourceType,
-		Name:            raw.Name,
-		Description:     raw.Description,
-		Address:         raw.Address,
-		Lat:             raw.Lat,
-		Long:            raw.Long,
-		Timezone:        *loc,
-	}
-
-	// Safely assign pointer values
-	if raw.StartingPrice != nil {
-		event.StartingPrice = *raw.StartingPrice
-	}
-	if raw.Currency != nil {
-		event.Currency = *raw.Currency
-	}
-	if raw.PayeeId != nil {
-		event.PayeeId = *raw.PayeeId
-	}
-	if raw.HasRegistrationFields != nil {
-		event.HasRegistrationFields = *raw.HasRegistrationFields
-	}
-	if raw.HasPurchasable != nil {
-		event.HasPurchasable = *raw.HasPurchasable
-	}
-	if raw.ImageUrl != nil {
-		event.ImageUrl = *raw.ImageUrl
-	}
-	if raw.Categories != nil {
-		event.Categories = *raw.Categories
-	}
-	if raw.Tags != nil {
-		event.Tags = *raw.Tags
-	}
-	if raw.CreatedAt != nil {
-		event.CreatedAt = *raw.CreatedAt
-	}
-	if raw.UpdatedAt != nil {
-		event.UpdatedAt = *raw.UpdatedAt
-	}
-	if raw.UpdatedBy != nil {
-		event.UpdatedBy = *raw.UpdatedBy
-	}
-	if raw.HideCrossPromo != nil {
-		event.HideCrossPromo = *raw.HideCrossPromo
-	}
-	if raw.EventSourceId != nil {
-		event.EventSourceId = *raw.EventSourceId
-	}
-	if raw.CompetitionConfigId != nil {
-		event.CompetitionConfigId = *raw.CompetitionConfigId
-	}
-	if raw.StartTime == nil {
-		return types.Event{}, fmt.Errorf("startTime is required")
-	}
-	startTime, err := helpers.UtcToUnix64(raw.StartTime, loc)
-	if err != nil || startTime == 0 {
-		return types.Event{}, fmt.Errorf("invalid StartTime: %w", err)
-	}
-	event.StartTime = startTime
-
-	if raw.EndTime != nil {
-		endTime, err := helpers.UtcToUnix64(raw.EndTime, loc)
-		if err != nil || endTime == 0 {
-			return types.Event{}, fmt.Errorf("invalid EndTime: %w", err)
-		}
-		event.EndTime = endTime
-	}
-	if raw.PayeeId != nil || raw.StartingPrice != nil || raw.Currency != nil {
-
-		if raw.PayeeId == nil || raw.StartingPrice == nil || raw.Currency == nil {
-			return types.Event{}, fmt.Errorf("all of 'PayeeId', 'StartingPrice', and 'Currency' are required if any are present")
-		}
-
-		if raw.PayeeId != nil {
-			event.PayeeId = *raw.PayeeId
-		}
-		if raw.Currency != nil {
-			event.Currency = *raw.Currency
-		}
-		if raw.StartingPrice != nil {
-			event.StartingPrice = *raw.StartingPrice
-		}
-	}
-	return event, nil
-}
-
 func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId bool) (event types.Event, status int, err error) {
-	var raw rawEvent
+	var raw services.RawEvent
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -212,7 +83,7 @@ func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId
 		return types.Event{}, http.StatusUnprocessableEntity, fmt.Errorf("invalid JSON payload: %w", err)
 	}
 
-	event, status, err = HandleSingleEventValidation(raw, requireId)
+	event, status, err = services.SingleValidateEvent(raw, requireId)
 	if err != nil {
 		return types.Event{}, status, fmt.Errorf("invalid body: %w", err)
 	}
@@ -220,22 +91,22 @@ func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId
 	return event, status, nil
 }
 
-func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
+func (h *WeaviateHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
 	createEvent, status, err := ValidateSingleEventPaylod(w, r, false)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to extract event from payload: "+err.Error()), status, err)
 		return
 	}
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
 	createEvents := []types.Event{createEvent}
-
-	res, err := services.BulkUpsertEventToMarqo(marqoClient, createEvents)
+	ctx := r.Context()
+	res, err := services.BulkUpsertEventsToWeaviate(ctx, weaviateClient, createEvents)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -251,59 +122,16 @@ func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.PostEvent(w, r)
 	}
 }
 
-func HandleSingleEventValidation(rawEvent rawEvent, requireId bool) (types.Event, int, error) {
-	if err := validate.Struct(rawEvent); err != nil {
-		// Type assert to get validation errors
-		if validationErrors, ok := err.(validator.ValidationErrors); ok {
-			// Get just the first validation error
-			firstErr := validationErrors[0]
-			// Extract just the field name and error
-			return types.Event{}, http.StatusBadRequest,
-				fmt.Errorf("Field validation for '%s' failed on the '%s' tag",
-					firstErr.Field(), firstErr.Tag())
-		}
-		return types.Event{}, http.StatusBadRequest, err
-	}
-	if requireId && rawEvent.Id == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event has no id")
-	}
-	if len(rawEvent.EventOwners) == 0 {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwners")
-	}
-	if requireId && rawEvent.Id == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event has no id")
-	}
-	if len(rawEvent.EventOwners) == 0 {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwners")
-	}
-
-	if rawEvent.EventOwnerName == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwnerName")
-	}
-
-	if rawEvent.Timezone == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing timezone")
-	}
-	if helpers.ArrFindFirst([]string{rawEvent.EventSourceType}, helpers.ALL_EVENT_SOURCE_TYPES) == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid eventSourceType: %s", rawEvent.EventSourceType)
-	}
-	event, err := ConvertRawEventToEvent(rawEvent, requireId)
-	if err != nil {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid event : %s", err.Error())
-	}
-	return event, http.StatusOK, nil
-}
-
 func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireIds bool) ([]types.Event, int, error) {
 	var payload struct {
-		Events []rawEvent `json:"events"`
+		Events []services.RawEvent `json:"events" validate:"required,min=1"`
 	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -320,19 +148,20 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
 		return nil, http.StatusBadRequest, fmt.Errorf("invalid body: %w", err)
 	}
 
-	events := make([]types.Event, len(payload.Events))
-	for i, rawEvent := range payload.Events {
-		event, statusCode, err := HandleSingleEventValidation(rawEvent, requireIds)
-		if err != nil {
-			return nil, statusCode, fmt.Errorf("invalid body: invalid event at index %d: %w", i, err)
-		}
-		events[i] = event
+	// Additional check with custom message
+	if len(payload.Events) == 0 {
+		return nil, http.StatusBadRequest, fmt.Errorf("events array must contain at least one event")
+	}
+
+	events, statusCode, err := services.BulkValidateEvents(payload.Events, requireIds)
+	if err != nil {
+		return nil, statusCode, fmt.Errorf("invalid body: %w", err)
 	}
 
 	return events, http.StatusOK, nil
 }
 
-func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
+func (h *WeaviateHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 	events, status, err := HandleBatchEventValidation(w, r, false)
 
 	if err != nil {
@@ -340,13 +169,13 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	res, err := services.BulkUpsertEventToMarqo(marqoClient, events)
+	res, err := services.BulkUpsertEventsToWeaviate(r.Context(), weaviateClient, events)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert events: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -361,23 +190,23 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostBatchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.PostBatchEvents(w, r)
 	}
 }
 
-func (h *MarqoHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
-	marqoClient, err := services.GetMarqoClient()
+func (h *WeaviateHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
 	parseDates := r.URL.Query().Get("parse_dates")
 	var event *types.Event
-	event, err = services.GetMarqoEventByID(marqoClient, eventId, parseDates)
+	event, err = services.GetWeaviateEventByID(r.Context(), weaviateClient, eventId, parseDates)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -392,17 +221,17 @@ func (h *MarqoHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.GetOneEvent(w, r)
 	}
 }
 
-func (h *MarqoHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) {
-	marqoClient, err := services.GetMarqoClient()
+func (h *WeaviateHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) {
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
@@ -411,7 +240,7 @@ func (h *MarqoHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) 
 		transport.SendServerRes(w, []byte("Failed to extract event from payload: "+err.Error()), status, err)
 		return
 	}
-	res, err := services.BulkUpdateMarqoEventByID(marqoClient, events)
+	res, err := services.BulkUpdateWeaviateEventsByID(r.Context(), weaviateClient, events)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -426,8 +255,8 @@ func (h *MarqoHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) 
 }
 
 func BulkUpdateEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.BulkUpdateEvents(w, r)
 	}
@@ -486,7 +315,8 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				err := helpers.ValidateTeamUUID(id)
 				if err != nil {
 					transport.SendServerRes(w,
-						[]byte(fmt.Sprintf(err.Error())),
+						// []byte(fmt.Sprintf(err.Error())),
+						[]byte(err.Error()),
 						http.StatusBadRequest,
 						nil)
 					return
@@ -494,7 +324,7 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				continue // Skip the numeric validation below for tm_ prefixed IDs
 			}
 			// Check if ID is exactly 18 characters
-			if len(id) != helpers.ZITADEL_USER_ID_LEN {
+			if len(id) != constants.ZITADEL_USER_ID_LEN {
 				transport.SendServerRes(w,
 					[]byte(fmt.Sprintf("Invalid ID length: %s. Must be exactly 18 characters", id)),
 					http.StatusBadRequest,
@@ -629,14 +459,14 @@ func SearchUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	}
 }
 
-func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
-	marqoClient, err := services.GetMarqoClient()
+func (h *WeaviateHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Event must have an id "), http.StatusInternalServerError, err)
 		return
@@ -651,7 +481,7 @@ func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
 	updateEvent.Id = eventId
 	updateEvents := []types.Event{updateEvent}
 
-	res, err := services.BulkUpdateMarqoEventByID(marqoClient, updateEvents)
+	res, err := services.BulkUpdateWeaviateEventsByID(r.Context(), weaviateClient, updateEvents)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -666,25 +496,25 @@ func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.UpdateOneEvent(w, r)
 	}
 }
 
-func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
+func (h *WeaviateHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
 	// Extract parameter values from the request query parameters
 	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
 	var res types.EventSearchResponse
-	res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+	res, err = services.SearchWeaviateEvents(r.Context(), weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to search events: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -698,8 +528,8 @@ func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func SearchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.SearchEvents(w, r)
 	}
@@ -708,10 +538,10 @@ func SearchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFun
 func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
-	eventId := vars[helpers.EVENT_ID_KEY]
+	eventId := vars[constants.EVENT_ID_KEY]
 	eventSourceId := r.URL.Query().Get("event_source_id")
 	eventSourceType := r.URL.Query().Get("event_source_type")
-	if eventSourceId != "" && eventSourceType == helpers.ES_EVENT_SERIES {
+	if eventSourceId != "" && eventSourceType == constants.ES_EVENT_SERIES {
 		eventId = eventSourceId
 	}
 	if eventId == "" {
@@ -719,9 +549,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		return
 	}
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 	userId := userInfo.Sub
 	if userId == "" {
@@ -860,7 +690,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// need to create a Stripe checkout session
 	if createPurchase.Total == 0 {
 		// Skip Stripe checkout for free items
-		createPurchase.Status = helpers.PurchaseStatus.Registered // Mark as registered immediately since it's free
+		createPurchase.Status = constants.PurchaseStatus.Registered // Mark as registered immediately since it's free
 
 		db := transport.GetDB()
 		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
@@ -887,18 +717,19 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	}
 
 	// Continue with existing Stripe checkout logic for paid items
-	_, stripePrivKey := services.GetStripeKeyPair()
-	stripe.Key = stripePrivKey
+	// Initialize Stripe client
+	services.InitStripe()
+	stripeClient := services.GetStripeClient()
 
-	lineItems := make([]*stripe.CheckoutSessionLineItemParams, len(createPurchase.PurchasedItems))
+	lineItems := make([]*stripe.CheckoutSessionCreateLineItemParams, len(createPurchase.PurchasedItems))
 
 	for i, item := range createPurchase.PurchasedItems {
-		lineItems[i] = &stripe.CheckoutSessionLineItemParams{
+		lineItems[i] = &stripe.CheckoutSessionCreateLineItemParams{
 			Quantity: stripe.Int64(int64(item.Quantity)),
-			PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
+			PriceData: &stripe.CheckoutSessionCreateLineItemPriceDataParams{
 				Currency:   stripe.String("USD"),
 				UnitAmount: stripe.Int64(int64(item.Cost)), // Convert to cents
-				ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
+				ProductData: &stripe.CheckoutSessionCreateLineItemPriceDataProductDataParams{
 					Name: stripe.String(item.Name + " (" + createPurchase.EventName + ")"),
 					Metadata: map[string]string{
 						"EventId":       eventId,
@@ -910,7 +741,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
-	params := &stripe.CheckoutSessionParams{
+	params := &stripe.CheckoutSessionCreateParams{
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
 		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin/profile?new_purch_key=" + createPurchase.CompositeKey),
 		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=cancel"),
@@ -922,7 +753,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		ExpiresAt: stripe.Int64(time.Now().Add(30 * time.Minute).Unix()),
 	}
 
-	stripeCheckoutResult, err := session.New(params)
+	stripeCheckoutResult, err := stripeClient.V1CheckoutSessions.Create(context.Background(), params)
 
 	if err != nil {
 		needsRevert = true
@@ -939,7 +770,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	defer func() {
 		purchaseService := dynamodb_service.NewPurchaseService()
 		h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
-		createPurchase.Status = helpers.PurchaseStatus.Pending
+		createPurchase.Status = constants.PurchaseStatus.Pending
 
 		// Create the composite key
 		compositeKey := fmt.Sprintf("%s_%s_%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
@@ -1022,7 +853,16 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 
 	endpointSecret := services.GetStripeCheckoutWebhookSecret()
 	ctx := r.Context()
-	apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	apiGwV2Req := events.APIGatewayV2HTTPRequest{}
+	if raw := ctx.Value(constants.ApiGwV2ReqKey); raw != nil {
+		if req, ok := raw.(events.APIGatewayV2HTTPRequest); ok {
+			apiGwV2Req = req
+		} else {
+			log.Println("Warning: ApiGwV2ReqKey value is not of expected type")
+		}
+	} else {
+		log.Println("Warning: No ApiGwV2ReqKey found in context")
+	}
 	stripeHeader := apiGwV2Req.Headers["stripe-signature"]
 	event, err := webhook.ConstructEvent(payload, stripeHeader,
 		endpointSecret)
@@ -1059,7 +899,7 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			return err
 		}
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
-		purchaseUpdate.Status = helpers.PurchaseStatus.Settled
+		purchaseUpdate.Status = constants.PurchaseStatus.Settled
 		if checkoutSession.PaymentIntent != nil {
 			purchaseUpdate.StripeTransactionId = checkoutSession.PaymentIntent.ID
 		}
@@ -1119,7 +959,6 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			transport.SendServerRes(w, []byte("Failed to get purchase for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
 			return err
 		}
-		log.Printf("purchase: %+v", purchase)
 		// Create a map of updates to restore the previously decremented inventory
 		incrementUpdates := make([]internal_types.PurchasableInventoryUpdate, len(purchase.PurchasedItems))
 		for i, item := range purchase.PurchasedItems {
@@ -1144,7 +983,7 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			return err
 		}
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
-		purchaseUpdate.Status = helpers.PurchaseStatus.Canceled
+		purchaseUpdate.Status = constants.PurchaseStatus.Canceled
 
 		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, createdAt, purchaseUpdate)
 		if err != nil {
@@ -1234,7 +1073,7 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 }
 
 type UpdateEventRegPurchPayload struct {
-	Events                   []rawEvent                              `json:"events" validate:"required"`
+	Events                   []services.RawEvent                     `json:"events" validate:"required"`
 	RegistrationFieldsUpdate internal_types.RegistrationFieldsUpdate `json:"registrationFieldsUpdate"`
 	PurchasableUpdate        internal_types.PurchasableUpdate        `json:"purchasableUpdate"`
 	Rounds                   []internal_types.CompetitionRoundUpdate `json:"rounds"`
@@ -1244,14 +1083,14 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		vars := mux.Vars(r)
-		eventId := vars[helpers.EVENT_ID_KEY]
+		eventId := vars[constants.EVENT_ID_KEY]
 
-		userInfo := helpers.UserInfo{}
-		if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-			userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+		userInfo := constants.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(constants.UserInfo)
 		}
-		roleClaims := []helpers.RoleClaim{}
-		if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+		roleClaims := []constants.RoleClaim{}
+		if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 			roleClaims = claims
 		}
 
@@ -1286,8 +1125,8 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 
 		var createdAt int64
 		updatedAt := time.Now().Unix()
-		if updateEventRegPurchPayload.Events[0].CreatedAt != nil {
-			createdAt = *updateEventRegPurchPayload.Events[0].CreatedAt
+		if updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.Unix() > 0 {
+			createdAt = updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.Unix()
 		} else {
 			createdAt = time.Now().Unix()
 		}
@@ -1297,7 +1136,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			updateEventRegPurchPayload.Events[0].Id = eventId
 			updateEventRegPurchPayload.RegistrationFieldsUpdate.EventId = eventId
 			updateEventRegPurchPayload.PurchasableUpdate.EventId = eventId
-			if helpers.ES_SERIES_PARENT == updateEventRegPurchPayload.Events[0].EventSourceType {
+			if constants.ES_SERIES_PARENT == updateEventRegPurchPayload.Events[0].EventSourceType {
 				updateEventRegPurchPayload.Events[0].EventSourceId = nil
 				for i, event := range updateEventRegPurchPayload.Events {
 					if i == 0 {
@@ -1305,7 +1144,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 						updateEventRegPurchPayload.Events[i] = event
 					} else {
 						event.EventSourceId = &eventId
-						event.EventSourceType = helpers.ES_SINGLE_EVENT
+						event.EventSourceType = constants.ES_SINGLE_EVENT
 					}
 				}
 			}
@@ -1355,9 +1194,9 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 		}
 
 		// Update events
-		marqoClient, err := services.GetMarqoClient()
+		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 			return
 		}
 
@@ -1366,16 +1205,12 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			events[0].Id = eventId
 		}
 		for i, rawEvent := range updateEventRegPurchPayload.Events {
-			if rawEvent.CreatedAt == nil {
-				rawEvent.CreatedAt = &createdAt
-			}
-			rawEvent.UpdatedAt = &updatedAt
 			rawEvent.Description = updateEventRegPurchPayload.Events[0].Description
-			if updateEventRegPurchPayload.Events[0].EventSourceType == helpers.ES_SERIES_PARENT {
+			if updateEventRegPurchPayload.Events[0].EventSourceType == constants.ES_SERIES_PARENT {
 				rawEvent.EventSourceId = &eventId
 			}
 
-			event, statusCode, err := HandleSingleEventValidation(rawEvent, false)
+			event, statusCode, err := services.SingleValidateEvent(rawEvent, false)
 			if err != nil {
 				transport.SendServerRes(w, []byte("Failed to validate events: "+err.Error()), statusCode, err)
 				return
@@ -1388,7 +1223,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 		// delete "sweeper" we do in the `defer` function below
 
 		farFutureTime, _ := time.Parse(time.RFC3339, "2099-05-01T12:00:00Z")
-		childEventsToDelete, err := services.SearchMarqoEvents(marqoClient, "", []float64{0, 0}, 1000000, 0, farFutureTime.Unix(), []string{}, "", "", "", []string{helpers.ES_EVENT_SERIES, helpers.ES_EVENT_SERIES_UNPUB}, []string{eventId})
+		childEventsToDelete, err := services.SearchWeaviateEvents(ctx, weaviateClient, "", []float64{0, 0}, 1000000, 0, farFutureTime.Unix(), []string{}, "", "", "", []string{constants.ES_EVENT_SERIES, constants.ES_EVENT_SERIES_UNPUB}, []string{eventId})
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to search for existing child events: "+err.Error()), http.StatusInternalServerError, err)
 			return
@@ -1417,7 +1252,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 					deleteEventsArr[i] = event.Id
 				}
 
-				_, err = services.BulkDeleteEventsFromMarqo(marqoClient, deleteEventsArr)
+				_, err = services.BulkDeleteEventsFromWeaviate(ctx, weaviateClient, deleteEventsArr)
 				if err != nil {
 					transport.SendServerRes(w, []byte("Failed to delete old child events: "+err.Error()), http.StatusInternalServerError, err)
 					return
@@ -1425,10 +1260,17 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			}
 		}()
 
-		eventsRes, err := services.BulkUpsertEventToMarqo(marqoClient, events)
+		eventsRes, err := services.BulkUpsertEventsToWeaviate(ctx, weaviateClient, events)
 		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to upsert events to marqo: "+err.Error()), http.StatusInternalServerError, err)
+			transport.SendServerRes(w, []byte("Failed to upsert events to weaviate: "+err.Error()), http.StatusInternalServerError, err)
 			return
+		}
+
+		var parentEventData types.Event
+		if len(events) > 0 {
+			parentEventData = events[0]
+		} else {
+			transport.SendServerRes(w, []byte("No event data was processed."), http.StatusInternalServerError, errors.New("no event data processed"))
 		}
 
 		// Create response object
@@ -1436,7 +1278,7 @@ func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.Han
 			"status":  "success",
 			"message": "Event(s), registration fields, and purchasable(s) updated successfully",
 			"data": map[string]interface{}{
-				"parentEvent": eventsRes.Items[0],
+				"parentEvent": parentEventData,
 				"events":      eventsRes,
 				"regFields":   regFieldsRes,
 				"purchasable": purchRes,
@@ -1475,19 +1317,110 @@ func BulkDeleteEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
 	// TODO: check that the event user has permission to delete via `eventOwners` array
 
-	_, err = services.BulkDeleteEventsFromMarqo(marqoClient, bulkDeleteEventsPayload.Events)
+	_, err = services.BulkDeleteEventsFromWeaviate(r.Context(), weaviateClient, bulkDeleteEventsPayload.Events)
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to delete events from marqo: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to delete events from weaviate: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
 	transport.SendServerRes(w, []byte("Events deleted successfully"), http.StatusOK, nil)
+}
+
+func (h *WeaviateHandler) PostReShare(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	validRoles := []string{string(constants.SyndicateAdmin), string(constants.SuperAdmin)}
+	if !helpers.HasRequiredRole(roleClaims, validRoles) {
+		err := errors.New("only event syndicators can add or edit events")
+		transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)
+		return
+	}
+
+	userId := ""
+	if userInfo.Sub != "" {
+		userId = userInfo.Sub
+	}
+
+	eventId := r.URL.Query().Get("event_id")
+
+	weaviateClient, err := services.GetWeaviateClient()
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	resp, err := weaviateClient.Data().ObjectsGetter().
+		WithID(eventId).
+		WithClassName(constants.WeaviateEventClassName).
+		Do(ctx)
+
+	var existingShadowOwners []string
+	if resp != nil && len(resp) > 0 && resp[0] != nil {
+		if props, ok := resp[0].Properties.(map[string]interface{}); ok {
+			if shadowOwners, exists := props["shadowOwners"]; exists {
+				if shadowOwnersSlice, ok := shadowOwners.([]interface{}); ok {
+					for _, owner := range shadowOwnersSlice {
+						if ownerStr, ok := owner.(string); ok {
+							existingShadowOwners = append(existingShadowOwners, ownerStr)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Always append the current userId
+	existingShadowOwners = append(existingShadowOwners, userId)
+
+	// Remove duplicates
+	seen := make(map[string]bool)
+	unique := []string{}
+	for _, owner := range existingShadowOwners {
+		if !seen[owner] {
+			seen[owner] = true
+			unique = append(unique, owner)
+		}
+	}
+	existingShadowOwners = unique
+
+	err = weaviateClient.Data().Updater().
+		WithMerge(). // merges properties into the object
+		WithID(eventId).
+		WithClassName(constants.WeaviateEventClassName).
+		WithProperties(map[string]interface{}{
+			"shadowOwners": existingShadowOwners, // Only the 'points' property is updated
+		}).
+		Do(ctx)
+
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to re share event: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	transport.SendServerRes(w, []byte("Event re-shared successfully"), http.StatusOK, nil)
+}
+
+func PostReShareHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
+	return func(w http.ResponseWriter, r *http.Request) {
+		handler.PostReShare(w, r)
+	}
 }

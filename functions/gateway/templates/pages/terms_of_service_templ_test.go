@@ -5,12 +5,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 )
 
 func TestTermsOfService(t *testing.T) {
 	// Create test data
-	page := helpers.SitePage{
+	page := constants.SitePage{
 		Name: "Terms of Service",
 	}
 

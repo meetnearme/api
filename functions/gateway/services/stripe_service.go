@@ -2,37 +2,36 @@ package services
 
 import (
 	"os"
+	"sync"
 
-	"github.com/stripe/stripe-go/v80/client"
+	"github.com/stripe/stripe-go/v83"
 )
 
-var sc = &client.API{}
+var sc *stripe.Client
+var stripeOnce sync.Once
 
 func InitStripe() {
-	once.Do(func() {
+	stripeOnce.Do(func() {
 		_, priv := GetStripeKeyPair()
-		sc.Init(priv, nil) // the second parameter overrides the backends used if needed for mocking
+		sc = stripe.NewClient(priv)
 	})
 }
 
 func GetStripeKeyPair() (publishableKey string, privateKey string) {
-	sstStage := os.Getenv("SST_STAGE")
-	if sstStage == "prod" {
-		return os.Getenv("PROD_STRIPE_PUBLISHABLE_KEY"), os.Getenv("PROD_STRIPE_SECRET_KEY")
-	} else {
-		return os.Getenv("DEV_STRIPE_PUBLISHABLE_KEY"), os.Getenv("DEV_STRIPE_SECRET_KEY")
-	}
+	return os.Getenv("STRIPE_PUBLISHABLE_KEY"), os.Getenv("STRIPE_SECRET_KEY")
 }
 
-func GetStripeClient() *client.API {
+func GetStripeClient() *stripe.Client {
 	return sc
 }
 
 func GetStripeCheckoutWebhookSecret() string {
-	sstStage := os.Getenv("SST_STAGE")
-	if sstStage == "prod" {
-		return os.Getenv("PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET")
-	} else {
-		return os.Getenv("DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET")
-	}
+	return os.Getenv("STRIPE_CHECKOUT_WEBHOOK_SECRET")
+}
+
+// GetStripeSubscriptionPlanIDs returns the subscription plan IDs for the current environment
+func GetStripeSubscriptionPlanIDs() (growthPlanID, seedPlanID string) {
+	growthPlanID = os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	seedPlanID = os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	return growthPlanID, seedPlanID
 }

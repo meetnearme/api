@@ -10,16 +10,17 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var competitionConfigTableName = helpers.GetDbTableName(helpers.CompetitionConfigTablePrefix)
+var competitionConfigTableName = helpers.GetDbTableName(constants.CompetitionConfigTablePrefix)
 
 func init() {
-	competitionConfigTableName = helpers.GetDbTableName(helpers.CompetitionConfigTablePrefix)
+	competitionConfigTableName = helpers.GetDbTableName(constants.CompetitionConfigTablePrefix)
 }
 
 type CompetitionConfigService struct{}
@@ -50,14 +51,14 @@ func (s *CompetitionConfigService) UpdateCompetitionConfig(ctx context.Context, 
 		}
 	}
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 
-	roleClaims := []helpers.RoleClaim{}
-	if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
-		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
+	roleClaims := []constants.RoleClaim{}
+	if _, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = ctx.Value("roleClaims").([]constants.RoleClaim)
 	}
 
 	validRoles := []string{"superAdmin", "competitionAdmin"}
@@ -140,13 +141,13 @@ func (s *CompetitionConfigService) GetCompetitionConfigById(ctx context.Context,
 
 	var users []types.UserSearchResultDangerous
 	var competitionConfigResponse internal_types.CompetitionConfigResponse
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	roleClaims := []helpers.RoleClaim{}
-	if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
-		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
+	roleClaims := []constants.RoleClaim{}
+	if _, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = ctx.Value("roleClaims").([]constants.RoleClaim)
 	}
 
 	input := &dynamodb.GetItemInput{

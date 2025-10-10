@@ -10,6 +10,7 @@ import (
 
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
@@ -27,7 +28,7 @@ func NewPurchaseHandler(eventPurchaseService internal_types.PurchaseServiceInter
 
 func (h *PurchaseHandler) CreatePurchase(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars[helpers.EVENT_ID_KEY]
+	eventId := vars[constants.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
@@ -82,7 +83,7 @@ func (h *PurchaseHandler) CreatePurchase(w http.ResponseWriter, r *http.Request)
 
 func (h *PurchaseHandler) GetPurchaseByPk(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars[helpers.EVENT_ID_KEY]
+	eventId := vars[constants.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing eventPurchase ID"), http.StatusBadRequest, nil)
 		return
@@ -132,9 +133,9 @@ func (h *PurchaseHandler) GetPurchasesByUserID(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	id := vars["user_id"]
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 	userId := userInfo.Sub
 	if userId == "" {
@@ -150,7 +151,7 @@ func (h *PurchaseHandler) GetPurchasesByUserID(w http.ResponseWriter, r *http.Re
 	limit := r.URL.Query().Get("limit")
 	limitInt, err := strconv.ParseInt(limit, 10, 32)
 	if err != nil || limit == "" {
-		limitInt = helpers.DEFAULT_PAGINATION_LIMIT
+		limitInt = constants.DEFAULT_PAGINATION_LIMIT
 	}
 	startKey := r.URL.Query().Get("start_key")
 	if id == "" {
@@ -187,16 +188,16 @@ func (h *PurchaseHandler) GetPurchasesByUserID(w http.ResponseWriter, r *http.Re
 func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	ctx := r.Context()
-	eventId := vars[helpers.EVENT_ID_KEY]
+	eventId := vars[constants.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
 	}
 
 	// Get user info from context
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 	userId := userInfo.Sub
 	if userId == "" {
@@ -204,17 +205,17 @@ func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	roleClaims := []helpers.RoleClaim{}
-	if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
-		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
+	roleClaims := []constants.RoleClaim{}
+	if _, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = ctx.Value("roleClaims").([]constants.RoleClaim)
 	}
 	// Validate event ownership
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get Marqo client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
-	event, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+	event, err := services.GetWeaviateEventByID(ctx, weaviateClient, eventId, "")
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -231,7 +232,7 @@ func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.R
 	limit := r.URL.Query().Get("limit")
 	limitInt, err := strconv.ParseInt(limit, 10, 32)
 	if err != nil || limit == "" {
-		limitInt = helpers.DEFAULT_PAGINATION_LIMIT
+		limitInt = constants.DEFAULT_PAGINATION_LIMIT
 	}
 	startKey := r.URL.Query().Get("start_key")
 
@@ -263,7 +264,7 @@ func (h *PurchaseHandler) GetPurchasesByEventID(w http.ResponseWriter, r *http.R
 
 func (h *PurchaseHandler) UpdatePurchase(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars[helpers.EVENT_ID_KEY]
+	eventId := vars[constants.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing eventPurchase ID"), http.StatusBadRequest, nil)
 		return
@@ -322,7 +323,7 @@ func (h *PurchaseHandler) UpdatePurchase(w http.ResponseWriter, r *http.Request)
 
 func (h *PurchaseHandler) DeletePurchase(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	eventId := vars[helpers.EVENT_ID_KEY]
+	eventId := vars[constants.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Missing event ID"), http.StatusBadRequest, nil)
 		return
@@ -346,9 +347,9 @@ func (h *PurchaseHandler) DeletePurchase(w http.ResponseWriter, r *http.Request)
 func HasPurchaseForEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		userInfo := helpers.UserInfo{}
-		if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-			userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+		userInfo := constants.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(constants.UserInfo)
 		}
 		userId := userInfo.Sub
 
