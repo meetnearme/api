@@ -1,0 +1,104 @@
+package partials
+
+import (
+	"fmt"
+	"github.com/meetnearme/api/functions/gateway/types"
+)
+
+templ EventCandidatesPartial(eventCandidates []types.EventInfo) {
+	<form class="group" novalidate>
+		<div role="alert" class="alert alert-info mt-3 mb-11">
+			Mark each field such as "title" and "location" as correct or incorrect with the adjacent toggle. If the proposed event is not an event, toggle "This is an event" to "This is not an event".
+		</div>
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
+			for index, candidate := range eventCandidates {
+				<div class="checkbox-card card card-compact shadow-lg">
+					<div class="checkbox-card-header bg-success content-success has-toggleable-text">
+						<label class="label cursor-pointer justify-normal">
+							<input value={ "candidate-" + candidate.ScrapeMode + "-" + fmt.Sprint(index) } x-model.fill="eventCandidates" id={ "main-toggle-" + candidate.ScrapeMode + "-" + fmt.Sprint(index) } type="checkbox" class="toggle main-toggle mr-4" @change="disableTogglesFromRequiredField($el)" checked/>
+							<span class="flex contents">This is <strong class="hidden-when-checked">not </strong>an event</span>
+						</label>
+					</div>
+					<div class="card-body">
+						<h2 class="card-title">{ candidate.EventTitle }</h2>
+						<p>
+							<label for={ "cand_title_" + fmt.Sprint(index) } class="label items-start justify-normal cursor-pointer">
+								<input
+									name={ "cand_title_" + fmt.Sprint(index) }
+									type="checkbox"
+									class="toggle toggle-sm toggle-success -mb-1 mr-2"
+									if len(candidate.EventTitle) > 0 {
+										checked
+									}
+									@change="!$data.isDisabling && disableTogglesFromRequiredField($el)"
+								/><span class="label-text"><strong>Title:</strong> { candidate.EventTitle }</span>
+							</label>
+						</p>
+						<p>
+							<label for={ "cand_location_" + fmt.Sprint(index) } class="label items-start justify-normal cursor-pointer">
+								<input
+									name={ "cand_location_" + fmt.Sprint(index) }
+									type="checkbox"
+									class="toggle toggle-sm toggle-success -mb-1 mr-2"
+									if len(candidate.EventLocation) > 0 {
+										checked
+									}
+									@change="!$data.isDisabling && disableTogglesFromRequiredField($el)"
+								/><span class="label-text"><strong>Location:</strong> { candidate.EventLocation }</span>
+							</label>
+						</p>
+						<p>
+							<label for={ "cand_date_" + fmt.Sprint(index) } class="label items-start justify-normal cursor-pointer">
+								<input
+									name={ "cand_date_" + fmt.Sprint(index) }
+									type="checkbox"
+									class="toggle toggle-sm toggle-success -mb-1 mr-2"
+									if len(candidate.EventStartTime) > 0 {
+										checked
+									}
+									@change="!$data.isDisabling && disableTogglesFromRequiredField($el)"
+								/><span class="label-text"><strong>Start Time:</strong> { candidate.EventStartTime }</span>
+							</label>
+						</p>
+						<p>
+							<label for={ "cand_date_" + fmt.Sprint(index) } class="label items-start justify-normal cursor-pointer">
+								<input
+									name={ "cand_date_" + fmt.Sprint(index) }
+									type="checkbox"
+									class="toggle toggle-sm toggle-success -mb-1 mr-2"
+									if len(candidate.EventEndTime) > 0 {
+										checked
+									}
+								/><span class="label-text"><strong>End Time:</strong> { candidate.EventEndTime }</span>
+							</label>
+						</p>
+						<p>
+							<label for={ "cand_url_" + fmt.Sprint(index) } class="label items-start justify-normal cursor-pointer">
+								<input
+									name={ "cand_url_" + fmt.Sprint(index) }
+									type="checkbox"
+									class="toggle toggle-sm toggle-success -mb-1 mr-2"
+									if len(candidate.EventURL) > 0 {
+										checked
+									}
+								/><span class="label-text break-all"><strong>URL:</strong> { candidate.EventURL }</span>
+							</label>
+						</p>
+						<p>
+							<label for={ "cand_description_" + fmt.Sprint(index) } class="label items-start justify-normal cursor-pointer">
+								<input
+									name={ "cand_description_" + fmt.Sprint(index) }
+									type="checkbox"
+									class="toggle toggle-sm toggle-success -mb-1 mr-2"
+									if len(candidate.EventDescription) > 0 {
+										checked
+									}
+								/><span class="label-text"><strong>Description:</strong> { candidate.EventDescription }</span>
+							</label>
+						</p>
+					</div>
+				</div>
+			}
+		</div>
+	</form>
+}

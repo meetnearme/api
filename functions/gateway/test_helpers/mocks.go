@@ -5,15 +5,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"errors"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/rdsdata"
@@ -91,6 +95,14 @@ func (m *MockGeoService) GetGeo(location, baseUrl string) (string, string, strin
 	return "40.7128", "-74.0060", "New York, NY 10001, USA", nil
 }
 
+type MockCityService struct {
+	GetCityFunc func(location string) (string, error)
+}
+
+func (m *MockCityService) GetCity(location string) (string, error) {
+	return "New York", nil
+}
+
 // MochSeshuService mocks the UpdateSeshuSession function
 type MockSeshuService struct{}
 
@@ -101,9 +113,21 @@ func (m *MockSeshuService) UpdateSeshuSession(ctx context.Context, db types.Dyna
 func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionGet) (*types.SeshuSession, error) {
 	// Return mock data
 	return &types.SeshuSession{
-		OwnerId: "mockOwner",
-		Url:     seshuPayload.Url,
-		Status:  "draft",
+		OwnerId:           "mockOwner",
+		Url:               seshuPayload.Url,
+		Status:            "draft",
+		LocationLatitude:  9e+10, // INITIAL_EMPTY_LAT_LONG
+		LocationLongitude: 9e+10, // INITIAL_EMPTY_LAT_LONG
+		EventValidations: []types.EventBoolValid{
+			{
+				EventValidateTitle:       true,
+				EventValidateLocation:    true,
+				EventValidateStartTime:   true,
+				EventValidateEndTime:     false,
+				EventValidateURL:         true,
+				EventValidateDescription: false,
+			},
+		},
 		// Fill in other fields as needed
 	}, nil
 }
@@ -111,9 +135,11 @@ func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoD
 func (m *MockSeshuService) InsertSeshuSession(ctx context.Context, db types.DynamoDBAPI, seshuPayload types.SeshuSessionInput) (*types.SeshuSessionInsert, error) {
 	// Return mock data
 	return &types.SeshuSessionInsert{
-		OwnerId: seshuPayload.OwnerId,
-		Url:     seshuPayload.Url,
-		Status:  "draft",
+		OwnerId:           seshuPayload.OwnerId,
+		Url:               seshuPayload.Url,
+		Status:            "draft",
+		LocationLatitude:  seshuPayload.LocationLatitude,
+		LocationLongitude: seshuPayload.LocationLongitude,
 		// Fill in other fields as needed
 	}, nil
 }
@@ -127,13 +153,37 @@ func (m *MockTemplateRenderer) Render(ctx context.Context, buf *bytes.Buffer) er
 	return err
 }
 
-var PortCounter int32 = 8000
+var (
+	PortCounter int32 = 8001
+	portMutex   sync.Mutex
+	usedPorts   = make(map[string]bool)
+)
 
-// NOTE: this is due to an issue where github auto paralellizes these
-// test to run in serial, which causes port collisions
+// GetNextPort returns a unique port that is guaranteed to be available
+// Uses a mutex to ensure thread-safe port allocation and prevent collisions
 func GetNextPort() string {
-	port := atomic.AddInt32(&PortCounter, 1)
-	return fmt.Sprintf("localhost:%d", port)
+	portMutex.Lock()
+	defer portMutex.Unlock()
+
+	// Find the next available port
+	for {
+		port := atomic.AddInt32(&PortCounter, 1)
+		portStr := fmt.Sprintf("localhost:%d", port)
+
+		// Check if this port is already marked as used
+		if !usedPorts[portStr] {
+			// Mark this port as used
+			usedPorts[portStr] = true
+			return portStr
+		}
+	}
+}
+
+// ReleasePort marks a port as available again
+func ReleasePort(port string) {
+	portMutex.Lock()
+	defer portMutex.Unlock()
+	delete(usedPorts, port)
 }
 
 // Go tests run in parallel by default, which causes port collisions
@@ -164,6 +214,7 @@ func BindToPort(t *testing.T, endpoint string) (net.Listener, error) {
 		if err != nil {
 			isPortAvailable := strings.Contains(err.Error(), "connection refused") ||
 				strings.Contains(err.Error(), "connect: connection refused") ||
+				strings.Contains(err.Error(), "actively refused") ||
 				strings.Contains(err.Error(), "EOF") || // Add EOF as an indicator of available port
 				strings.Contains(err.Error(), "no response")
 
@@ -175,11 +226,15 @@ func BindToPort(t *testing.T, endpoint string) (net.Listener, error) {
 					return listener, nil
 				}
 				t.Logf("Failed to bind despite port appearing available: %v", err)
+				// Release the port since we couldn't bind to it
+				ReleasePort(hostPort)
 			} else {
 				t.Logf("Port %s has existing server or other issue: %v", hostPort, err)
 			}
 		} else {
 			t.Logf("Port %s is already in use (received HTTP response)", hostPort)
+			// Release the port since it's already in use
+			ReleasePort(hostPort)
 		}
 
 		currentEndpoint = GetNextPort()
@@ -268,6 +323,9 @@ func ScreenshotToStandardDir(t *testing.T, page playwright.Page, screenshotName 
 func GetPlaywrightBrowser() (*playwright.Browser, error) {
 	pw, err := playwright.Run()
 	if err != nil {
+		if strings.Contains(err.Error(), "driver") {
+			return nil, errors.New("playwright driver not installed")
+		}
 		return nil, err
 	}
 
@@ -298,4 +356,155 @@ func GetPlaywrightBrowser() (*playwright.Browser, error) {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return !os.IsNotExist(err)
+}
+
+// Custom HTTP transport that logs all requests
+type LoggingTransport struct {
+	base http.RoundTripper
+	t    *testing.T
+}
+
+// NewLoggingTransport creates a new LoggingTransport
+func NewLoggingTransport(base http.RoundTripper, t *testing.T) *LoggingTransport {
+	return &LoggingTransport{
+		base: base,
+		t:    t,
+	}
+}
+
+func (lt *LoggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Log the outgoing request
+	lt.t.Logf("🌐 HTTP REQUEST: %s %s", req.Method, req.URL.String())
+	lt.t.Logf("   └─ Host: %s", req.URL.Host)
+	lt.t.Logf("   └─ Path: %s", req.URL.Path)
+	if req.Body != nil {
+		// Read body for logging (need to restore it after)
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err == nil && len(bodyBytes) > 0 {
+			// Restore the body for the actual request
+			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			// Log first 200 chars of body
+			bodyStr := string(bodyBytes)
+			if len(bodyStr) > 200 {
+				bodyStr = bodyStr[:200] + "..."
+			}
+			lt.t.Logf("   └─ Body: %s", bodyStr)
+		}
+	}
+
+	// Make the actual request
+	resp, err := lt.base.RoundTrip(req)
+
+	// Log the response
+	if err != nil {
+		lt.t.Logf("❌ HTTP ERROR: %v", err)
+	} else {
+		lt.t.Logf("✅ HTTP RESPONSE: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	return resp, err
+}
+
+type MockPostgresService struct {
+	GetSeshuJobsFunc            func(ctx context.Context) ([]types.SeshuJob, error)
+	CreateSeshuJobFunc          func(ctx context.Context, job types.SeshuJob) error
+	UpdateSeshuJobFunc          func(ctx context.Context, job types.SeshuJob) error
+	DeleteSeshuJobFunc          func(ctx context.Context, id string) error
+	ScanSeshuJobsWithInHourFunc func(ctx context.Context, hours int) ([]types.SeshuJob, error)
+}
+
+func (m *MockPostgresService) GetSeshuJobs(ctx context.Context) ([]types.SeshuJob, error) {
+	if m.GetSeshuJobsFunc != nil {
+		return m.GetSeshuJobsFunc(ctx)
+	}
+	return []types.SeshuJob{}, nil
+}
+
+func (m *MockPostgresService) CreateSeshuJob(ctx context.Context, job types.SeshuJob) error {
+	if m.CreateSeshuJobFunc != nil {
+		return m.CreateSeshuJobFunc(ctx, job)
+	}
+	return nil
+}
+
+func (m *MockPostgresService) UpdateSeshuJob(ctx context.Context, job types.SeshuJob) error {
+	if m.UpdateSeshuJobFunc != nil {
+		return m.UpdateSeshuJobFunc(ctx, job)
+	}
+	return nil
+}
+
+func (m *MockPostgresService) DeleteSeshuJob(ctx context.Context, id string) error {
+	if m.DeleteSeshuJobFunc != nil {
+		return m.DeleteSeshuJobFunc(ctx, id)
+	}
+	return nil
+}
+
+func (m *MockPostgresService) ScanSeshuJobsWithInHour(ctx context.Context, hours int) ([]types.SeshuJob, error) {
+	if m.ScanSeshuJobsWithInHourFunc != nil {
+		return m.ScanSeshuJobsWithInHourFunc(ctx, hours)
+	}
+	return []types.SeshuJob{}, nil
+}
+
+func (m *MockPostgresService) Close() error {
+	return nil
+}
+
+type MockNatsService struct {
+	mu             sync.Mutex
+	PublishedMsgs  [][]byte // all published messages
+	SimulatedQueue [][]byte // messages waiting to be consumed
+}
+
+// NewMockNatsService initializes a new mock
+func NewMockNatsService() *MockNatsService {
+	return &MockNatsService{
+		PublishedMsgs:  make([][]byte, 0),
+		SimulatedQueue: make([][]byte, 0),
+	}
+}
+
+// PublishMsg simulates pushing a message to the queue
+func (m *MockNatsService) PublishMsg(ctx context.Context, payload interface{}) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal error: %w", err)
+	}
+
+	m.PublishedMsgs = append(m.PublishedMsgs, data)
+	m.SimulatedQueue = append(m.SimulatedQueue, data)
+	return nil
+}
+
+// PeekTopOfQueue returns the first message without removing it
+func (m *MockNatsService) PeekTopOfQueue(ctx context.Context) ([]byte, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.SimulatedQueue) == 0 {
+		return nil, nil
+	}
+	return m.SimulatedQueue[0], nil
+}
+
+// ConsumeMsg processes each message one by one (no concurrency)
+func (m *MockNatsService) ConsumeMsg(ctx context.Context) error {
+	for {
+		m.mu.Lock()
+		if len(m.SimulatedQueue) == 0 {
+			m.mu.Unlock()
+			break
+		}
+		msg := m.SimulatedQueue[0]
+		m.SimulatedQueue = m.SimulatedQueue[1:]
+		m.mu.Unlock()
+
+		fmt.Printf("Processing: %s\n", string(msg))
+	}
+	return nil
 }

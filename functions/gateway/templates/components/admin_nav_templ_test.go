@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 )
 
 func TestAdminLeftNavContents(t *testing.T) {
 	// Create mock user info
-	mockUserInfo := helpers.UserInfo{
+	mockUserInfo := constants.UserInfo{
 		Email:             "test@example.com",
 		EmailVerified:     true,
 		FamilyName:        "Doe",
@@ -26,13 +26,13 @@ func TestAdminLeftNavContents(t *testing.T) {
 	// Test cases for different role scenarios
 	tests := []struct {
 		name             string
-		roleClaims       []helpers.RoleClaim
+		roleClaims       []constants.RoleClaim
 		expectedLinks    []string
 		notExpectedLinks []string
 	}{
 		{
 			name:       "User with no special roles",
-			roleClaims: []helpers.RoleClaim{},
+			roleClaims: []constants.RoleClaim{},
 			expectedLinks: []string{
 				"<a href=\"/admin/home\">Home</a>",
 				"<a href=\"/admin/profile/settings\">Interests</a>",
@@ -46,8 +46,8 @@ func TestAdminLeftNavContents(t *testing.T) {
 		},
 		{
 			name: "User with event admin role",
-			roleClaims: []helpers.RoleClaim{
-				{Role: helpers.Roles[helpers.EventAdmin], ProjectID: "project-id"},
+			roleClaims: []constants.RoleClaim{
+				{Role: constants.Roles[constants.EventAdmin], ProjectID: "project-id"},
 			},
 			expectedLinks: []string{
 				"<a href=\"/admin/home\">Home</a>",
@@ -61,8 +61,8 @@ func TestAdminLeftNavContents(t *testing.T) {
 		},
 		{
 			name: "User with super admin role",
-			roleClaims: []helpers.RoleClaim{
-				{Role: helpers.Roles[helpers.SuperAdmin], ProjectID: "project-id"},
+			roleClaims: []constants.RoleClaim{
+				{Role: constants.Roles[constants.SuperAdmin], ProjectID: "project-id"},
 			},
 			expectedLinks: []string{
 				"<a href=\"/admin/home\">Home</a>",
@@ -127,7 +127,7 @@ func TestAdminLeftNavContents(t *testing.T) {
 
 func TestAdminNav(t *testing.T) {
 	// Create mock user info
-	mockUserInfo := helpers.UserInfo{
+	mockUserInfo := constants.UserInfo{
 		Email:             "test@example.com",
 		EmailVerified:     true,
 		FamilyName:        "Doe",
@@ -156,7 +156,7 @@ func TestAdminNav(t *testing.T) {
 	renderedContent := buf.String()
 
 	// Check for proper container structure
-	expectedContainer := `<div class="self-start sticky top-0 col-span-2 md:mr-5 mb-5 card border-2 border-base-300 bg-base-200 rounded-box md:place-items-center ">`
+	expectedContainer := `<div class="self-start sticky top-0 col-span-2 md:mr-5 mb-5 card border border-base-300 bg-base-200 rounded-box md:place-items-center ">`
 	if !strings.Contains(renderedContent, expectedContainer) {
 		t.Error("Expected proper container structure with correct classes")
 	}

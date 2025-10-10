@@ -1,6 +1,20 @@
 # Meet Near Me API
 
-## Running the Lambda Project
+## Running the Docker Project
+
+1. Install Docker via [`Download Docker Desktop button here`](https://www.docker.com/products/docker-desktop/)
+2. Get the latest `.env` file variables from someone on the team
+3. Install npm
+4. Git clone this repo
+5. `npm install`
+6. Open two terminal tabs
+7. In the first, execute `npm run dev:docker:rebuild`, this will build the multi-container project (you can view the various containers [here](https://github.com/meetnearme/api/blob/develop/docker-compose.yml)) and expose the main project on `localhost:8000`
+8. In the second, execute `npm run dev:watchers`, this will run a few things
+    1. Tailwind (with a special watcher that can update the css hash in `layout.templ`
+    2. The `*.templ` template file watcher and a trigger to compile new Go builds
+    3. local npm static asset server
+
+## (⚠️ Deprecaated) Running the Lambda Project
 
 ### Prerequisites
 
@@ -67,8 +81,10 @@
    *Note*: This file is used to intercept incoming request headers and look at the `Request['Headers']['Cf-Ray']` string, which terminates with a 3 letter code like `EWR` which correlates with an `iata` airport code. This is the Cloudflare datacenter serving the request
 3. **Deploy the project:**
    ```bash
-   npm run dev:sst
+   npm run sst-dev
+
    ```
+   *NOTE: This should be run a single time after the aws credentials are setup to deploy your AWS Dynamodb tables
    *NOTE: If you are encountering problem as a Window user, due to `'NODE_ENV' is not recognized as an internal or external command` do check Project Maintenance for troubleshooting*
 
     **⚠️IMPORTANT:** that you will NOT use the same command after the initial deployment of your project
@@ -84,6 +100,10 @@
      npm run dev
      ```
     You will use ```npm run dev``` command for all subsequent attempts to start the project
+
+7. Please look at the .env.example file for the bottom env variables. Please fill these out with the tables names found in your AWS account under dynamodb tables section.
+
+8. Please see below for the up to date Docker commands to build the project.
 
 - The following processes will run with `npm run dev`:
   1. **SST Go Lambda server:** Hot reload with Go rebuild.
@@ -215,6 +235,31 @@ For `*.meetnear.me` and `*.devnear.me` there is some custom configuration requir
       for the deployment, which typically looks like
       `ApiEndpoint: https://<alpha-numeric>.execute-api.us-east-1.amazonaws.com`.
       The alpha-numeric characters will not match, and the correct `A` record should be prefixed with `d-`
+
+## Docker Compose For Local Development. 
+
+**note that we build the go binary locally so go must be installed, this allows for our watchGolang.js script to rebuild on changes**
+
+Summary of this workflow:
+
+1. Initial/Full Start (or after changes requiring rebuild):
+
+    - npm run docker:up (builds Go app, creates/starts fresh containers, shows logs)
+    - OR npm run docker:rebuild (cleans everything including data, builds, starts fresh, shows logs)
+
+2. Temporary Pause:
+
+    - npm run docker:stop (or docker compose stop)
+
+3. Quick Resume (from paused state):
+
+    - npm run docker:start (or docker compose start)
+
+4. After docker is up and running run the command below to setup weaviate schema and then seed with the test json data:
+ 
+    - `npm run docker:weaviate:create-schema && npm run docker:weaviate:seed-json --file=test_events_for_seeding.json`
+
+
 ## Legacy Details
 
 ### Running Local SAM DynamoDB Docker Container
@@ -224,4 +269,3 @@ For `*.meetnear.me` and `*.devnear.me` there is some custom configuration requir
    docker compose build
    docker compose up
    ```
-

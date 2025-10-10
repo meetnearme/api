@@ -2,12 +2,12 @@ package components
 
 import (
 	"fmt"
-	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"os"
 )
 
-templ LocationLookupPartial(hxMethod string, hxApiPath string, hxAfterReqStr string, inputModelStr string, buttonPreText, buttonPostText string, lat float64, lon float64, address string, cfLocationLat float64, cfLocationLon float64) {
+templ LocationLookupPartial(hxMethod string, hxApiPath string, hxAfterReqStr string, inputModelStr string, buttonPreText, buttonPostText string, lat float64, lon float64, address string, cfLocationLat float64, cfLocationLon float64, titleStr string) {
 	<form
 		class="group"
 		novalidate
@@ -44,7 +44,7 @@ templ LocationLookupPartial(hxMethod string, hxApiPath string, hxAfterReqStr str
 			type="hidden"
 		/>
 		<label for="location" class="form-control w-full">
-			Address
+			{ titleStr }
 			<input
 				name="location"
 				x-model.debounce.500ms="formData.addressInput"
@@ -108,7 +108,7 @@ templ LocationLookupPartial(hxMethod string, hxApiPath string, hxAfterReqStr str
 		</template>
 		@partials.GeoLookup(lat, lon, address, "form-hidden")
 	</form>
-	<script id="location-lookup" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") } data-event-address={ address } data-event-lat={ fmt.Sprintf("%.6f", lat) } data-event-lon={ fmt.Sprintf("%.6f", lon) } data-cf-lat={ fmt.Sprintf("%.6f", cfLocationLat) } data-cf-lon={ fmt.Sprintf("%.6f", cfLocationLon) } data-lat-lon-unknown={ fmt.Sprintf("%.6f", services.InitialEmptyLatLong) }>
+	<script id="location-lookup" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") } data-event-address={ address } data-event-lat={ fmt.Sprintf("%.6f", lat) } data-event-lon={ fmt.Sprintf("%.6f", lon) } data-cf-lat={ fmt.Sprintf("%.6f", cfLocationLat) } data-cf-lon={ fmt.Sprintf("%.6f", cfLocationLon) } data-lat-lon-unknown={ fmt.Sprintf("%.6f", constants.INITIAL_EMPTY_LAT_LONG) }>
 		function getLocationLookupState() {
 			return {
 				cfLocationLat: document.querySelector('#location-lookup').getAttribute('data-cf-lat') ?? 0,

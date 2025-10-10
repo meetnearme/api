@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -28,36 +29,24 @@ func init() {
 }
 
 func CreateDbClient() internal_types.DynamoDBAPI {
-
-	// used for local dev via aws sam in docker container
-	dbUrl := "http://localhost:8000"
-
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if service == dynamodb.ServiceID && region == "us-east-1" {
-			return aws.Endpoint{
-				PartitionID:   "aws",
-				URL:           dbUrl,
-				SigningRegion: "us-east-1",
-			}, nil
-		}
-		// returning EndpointNotFoundError will allow the service to fallback to it's default resolution
-		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-	})
-
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(constants.AWS_REGION))
 
 	if err != nil {
 		fmt.Println("Error loading default Dynamo client config", err)
 	}
+	accessKeyId := os.Getenv("AWS_ACCESS_KEY")
+	secretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
 
-	if !helpers.IsRemoteDB() {
+	if helpers.IsRemoteDB() {
 		optionalCredentials := config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
 			Value: aws.Credentials{
-				AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test",
-				Source: "Hard-coded credentials; values are irrelevant for local dynamo",
+				AccessKeyID: accessKeyId, SecretAccessKey: secretAccessKey,
+				Source: ".env file",
 			},
 		})
-		cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
+		// This is being changed to remove clutter from config for the previous early SAM testing
+		// cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver), optionalCredentials)
+		cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithRegion(constants.AWS_REGION), optionalCredentials)
 	}
 
 	if err != nil {

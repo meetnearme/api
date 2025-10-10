@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
@@ -41,7 +42,7 @@ func TestEventDetailsPage(t *testing.T) {
 				StartTime:       validEventDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
-				EventSourceType: helpers.ES_SINGLE_EVENT,
+				EventSourceType: constants.ES_SINGLE_EVENT,
 				Lat:             38.896305,
 				Long:            -77.023289,
 				Timezone:        *loc,
@@ -67,7 +68,7 @@ func TestEventDetailsPage(t *testing.T) {
 				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
-				EventSourceType: helpers.ES_SINGLE_EVENT,
+				EventSourceType: constants.ES_SINGLE_EVENT,
 				Lat:             38.896305,
 				Long:            -77.023289,
 				Timezone:        *loc,
@@ -93,7 +94,7 @@ func TestEventDetailsPage(t *testing.T) {
 				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
-				EventSourceType: helpers.ES_SINGLE_EVENT,
+				EventSourceType: constants.ES_SINGLE_EVENT,
 				Lat:             38.896305,
 				Long:            -77.023289,
 				Timezone:        *loc,
@@ -120,7 +121,7 @@ func TestEventDetailsPage(t *testing.T) {
 				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
-				EventSourceType: helpers.ES_EVENT_SERIES,
+				EventSourceType: constants.ES_EVENT_SERIES,
 				Lat:             38.896305,
 				Long:            -77.023289,
 				Timezone:        *loc,
@@ -147,7 +148,7 @@ func TestEventDetailsPage(t *testing.T) {
 				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
-				EventSourceType: helpers.ES_SINGLE_EVENT,
+				EventSourceType: constants.ES_SINGLE_EVENT,
 				Lat:             38.896305,
 				Long:            -77.023289,
 				Timezone:        *loc,
@@ -174,7 +175,7 @@ func TestEventDetailsPage(t *testing.T) {
 				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
-				EventSourceType: helpers.ES_SINGLE_EVENT_UNPUB,
+				EventSourceType: constants.ES_SINGLE_EVENT_UNPUB,
 			},
 			expected: []string{
 				"This event is unpublished",
@@ -191,7 +192,7 @@ func TestEventDetailsPage(t *testing.T) {
 				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
-				EventSourceType: helpers.ES_SINGLE_EVENT_UNPUB,
+				EventSourceType: constants.ES_SINGLE_EVENT_UNPUB,
 			},
 			expected: []string{
 				"Test Event",
@@ -228,7 +229,7 @@ func TestEventDetailsPage(t *testing.T) {
 				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
-				EventSourceType: helpers.ES_SERIES_PARENT,
+				EventSourceType: constants.ES_SERIES_PARENT,
 				EventSourceId:   "parent-123",
 				Lat:             38.896305,
 				Long:            -77.023289,
@@ -254,7 +255,7 @@ func TestEventDetailsPage(t *testing.T) {
 				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
-				EventSourceType: helpers.ES_SERIES_PARENT_UNPUB,
+				EventSourceType: constants.ES_SERIES_PARENT_UNPUB,
 				EventSourceId:   "parent-123",
 				Lat:             38.896305,
 				Long:            -77.023289,
@@ -280,7 +281,7 @@ func TestEventDetailsPage(t *testing.T) {
 				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
-				EventSourceType: helpers.ES_EVENT_SERIES,
+				EventSourceType: constants.ES_EVENT_SERIES,
 				EventSourceId:   "parent-123",
 				Lat:             38.896305,
 				Long:            -77.023289,
@@ -308,7 +309,7 @@ func TestEventDetailsPage(t *testing.T) {
 				StartTime:       validEventNonDSTStartTime,
 				EventOwners:     []string{"abc-uuid"},
 				EventOwnerName:  "Brians Pub",
-				EventSourceType: helpers.ES_EVENT_SERIES_UNPUB,
+				EventSourceType: constants.ES_EVENT_SERIES_UNPUB,
 				EventSourceId:   "parent-123",
 				Lat:             38.896305,
 				Long:            -77.023289,
@@ -330,11 +331,11 @@ func TestEventDetailsPage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := EventDetailsPage(tt.event, helpers.UserInfo{}, tt.canEdit)
+			component := EventDetailsPage(tt.event, constants.UserInfo{}, tt.canEdit)
 			fakeContext := context.Background()
-			fakeContext = context.WithValue(fakeContext, helpers.MNM_OPTIONS_CTX_KEY, map[string]string{})
+			fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
 			// Wrap the component with Layout
-			layoutTemplate := Layout(helpers.SitePages["event-detail"], helpers.UserInfo{}, component, tt.event, fakeContext, []string{})
+			layoutTemplate := Layout(constants.SitePages["event-detail"], constants.UserInfo{}, component, tt.event, true, fakeContext, []string{})
 
 			// Render the component to a string using the same context
 			var buf bytes.Buffer

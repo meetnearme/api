@@ -1,4 +1,4 @@
-name: Deploy Prod (SST)
+name: Deploy Prod (ACT + SST)
 on:
   push:
     branches:
@@ -10,80 +10,183 @@ concurrency:
 
 permissions:
   id-token: write # This is required for requesting the JWT
-  contents: read # This is required for actions/checkout
+  contents: write # This is required for actions/checkout
+  pull-requests: write # This is required for comitting templ generated code
+  packages: write # This is required for publishing Docker images to GitHub Packages
+  attestations: write # This is required for artifact attestations
+
+env:
+  IMG_REGISTRY: ghcr.io
+  IMG_NAME: ${{ github.repository }}
+  ACT_STAGE: prod
 
 jobs:
-  DeployProdSST:
+  BuildAndDeploy:
     runs-on: ubuntu-latest
     steps:
       - name: Git clone the repository
         uses: actions/checkout@v4
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23.x'
+          go-version: '1.24.x'
+
       - name: npm install
         run: |
           npm i
+
       - name: Generate Tailwind CSS
         # 🚨 Must come before `templ_generate` to ensure CSS hash in
         # layout.templ is updated first, before go templates compile
         run: |
           npm run tailwind:prod
+
       - name: Generate templ code
         uses: './.github/actions/templ_generate'
         with:
           templ-version: 'v0.2.793'
           setup-go: 'false'
           commit: 'false'
+
       - name: Breakpoint if `templ` generate failed
         if: failure()
         uses: namespacelabs/breakpoint-action@v0
         with:
           duration: 30m
           authorized-users: brianfeister
-      - name: Configure AWS & Create env file
-        uses: './.github/actions/set_aws_creds_env_vars'
-        with:
-          APEX_URL: ${{ secrets.APEX_URL }}
-          APEX_DEV_URL: ${{ secrets.APEX_DEV_URL }}
-          SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
-          SCRAPINGBEE_API_URL_BASE: ${{ secrets.SCRAPINGBEE_API_URL_BASE }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          OPENAI_API_BASE_URL: ${{ secrets.OPENAI_API_BASE_URL }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ZITADEL_CLIENT_ID: ${{ secrets.ZITADEL_CLIENT_ID }}
-          ZITADEL_CLIENT_SECRET: ${{ secrets.ZITADEL_CLIENT_SECRET }}
-          ZITADEL_PROJECT_ID: ${{ secrets.ZITADEL_PROJECT_ID }}
-          ZITADEL_ENCRYPTION_KEY: ${{ secrets.ZITADEL_ENCRYPTION_KEY }}
-          ZITADEL_INSTANCE_HOST: ${{ secrets.ZITADEL_INSTANCE_HOST }}
-          ZITADEL_BOT_ADMIN_TOKEN: ${{ secrets.ZITADEL_BOT_ADMIN_TOKEN }}
-          MARQO_API_KEY: ${{ secrets.MARQO_API_KEY }}
-          PROD_MARQO_API_BASE_URL: ${{ secrets.PROD_MARQO_API_BASE_URL }}
-          DEV_MARQO_API_BASE_URL: ${{ secrets.DEV_MARQO_API_BASE_URL }}
-          PROD_MARQO_INDEX_NAME: ${{ secrets.PROD_MARQO_INDEX_NAME }}
-          DEV_MARQO_INDEX_NAME: ${{ secrets.DEV_MARQO_INDEX_NAME }}
-          PROD_STRIPE_SECRET_KEY: ${{ secrets.PROD_STRIPE_SECRET_KEY }}
-          PROD_STRIPE_PUBLISHABLE_KEY:
-            ${{ secrets.PROD_STRIPE_PUBLISHABLE_KEY }}
-          DEV_STRIPE_SECRET_KEY: ${{ secrets.DEV_STRIPE_SECRET_KEY }}
-          DEV_STRIPE_PUBLISHABLE_KEY: ${{ secrets.DEV_STRIPE_PUBLISHABLE_KEY }}
-          DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET: ${{ secrets.DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
-          PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET: ${{ secrets.PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
-          CLOUDFLARE_API_BASE_URL: ${{ secrets.CLOUDFLARE_API_BASE_URL }}
-          CLOUDFLARE_API_CLIENT_BASE_URL: ${{ secrets.CLOUDFLARE_API_CLIENT_BASE_URL }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE: ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE }}
-          CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }}
-          USER_TEAM_EMAIL_SCHEMA: ${{ secrets.USER_TEAM_EMAIL_SCHEMA }}
-          USER_TEAM_PASSWORD: ${{ secrets.USER_TEAM_PASSWORD }}
+
       - name: Generate Cloudflare locations Go file
         uses: './.github/actions/generate_cloudflare_locations_file'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::626762246796:role/GitHub
+          role-duration-seconds: 1200
+          aws-region: us-east-1
+
+      # 🚨 This implicitly uses AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+      # which is set in `Configure AWS credentials`, but we
+      # also use this for DynamoDB connection in dynamodb.go
+      # we deploy to SST first to prevent conflicts with OIDC credentials
       - name: Deploy AWS resources via SST
+        id: deploy-sst
         run: |
-          npm i && npx sst deploy --stage prod
-   # TODO: this mysteriously started failing between Jan 17 ~ Jan 22, 20205
+          # Capture SST output directly to a variable and file
+          npm i && npx sst deploy --stage dev --print-logs | tee sst-output.log
+
+          # Store the output as a job output
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          cat sst-output.log >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          - name: Generate .env file from configuration
+          env:
+            # Pass all secrets as environment variables to the Node.js script
+            APEX_URL: ${{ secrets.APEX_URL }}
+            _DEV_APEX_URL: ${{ secrets._DEV_APEX_URL }}
+            _PROD_APEX_URL: ${{ secrets._PROD_APEX_URL }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
+            SCRAPINGBEE_API_URL_BASE: ${{ secrets.SCRAPINGBEE_API_URL_BASE }}
+            GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+            OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+            OPENAI_API_BASE_URL: ${{ secrets.OPENAI_API_BASE_URL }}
+            ZITADEL_CLIENT_ID: ${{ secrets.ZITADEL_CLIENT_ID }}
+            ZITADEL_CLIENT_SECRET: ${{ secrets.ZITADEL_CLIENT_SECRET }}
+            ZITADEL_PROJECT_ID: ${{ secrets.ZITADEL_PROJECT_ID }}
+            ZITADEL_ENCRYPTION_KEY: ${{ secrets.ZITADEL_ENCRYPTION_KEY }}
+            ZITADEL_INSTANCE_HOST: ${{ secrets.ZITADEL_INSTANCE_HOST }}
+            ZITADEL_BOT_ADMIN_TOKEN: ${{ secrets.ZITADEL_BOT_ADMIN_TOKEN }}
+            _PROD_STRIPE_SECRET_KEY: ${{ secrets._PROD_STRIPE_SECRET_KEY }}
+            _PROD_STRIPE_PUBLISHABLE_KEY:
+              ${{ secrets._PROD_STRIPE_PUBLISHABLE_KEY }}
+            _DEV_STRIPE_SECRET_KEY: ${{ secrets._DEV_STRIPE_SECRET_KEY }}
+            _DEV_STRIPE_PUBLISHABLE_KEY:
+              ${{ secrets._DEV_STRIPE_PUBLISHABLE_KEY }}
+            _DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET:
+              ${{ secrets._DEV_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
+            _PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET:
+              ${{ secrets._PROD_STRIPE_CHECKOUT_WEBHOOK_SECRET }}
+            _DEV_STRIPE_SUBSCRIPTION_PLAN_GROWTH: ${{ secrets._DEV_STRIPE_SUBSCRIPTION_PLAN_GROWTH }}
+            _PROD_STRIPE_SUBSCRIPTION_PLAN_GROWTH: ${{ secrets._PROD_STRIPE_SUBSCRIPTION_PLAN_GROWTH }}
+            _DEV_STRIPE_SUBSCRIPTION_PLAN_SEED: ${{ secrets._DEV_STRIPE_SUBSCRIPTION_PLAN_SEED }}
+            _PROD_STRIPE_SUBSCRIPTION_PLAN_SEED: ${{ secrets._PROD_STRIPE_SUBSCRIPTION_PLAN_SEED }}
+            _DEV_STRIPE_SUBSCRIPTION_WEBHOOK_SECRET: ${{ secrets._DEV_STRIPE_SUBSCRIPTION_WEBHOOK_SECRET }}
+            _PROD_STRIPE_SUBSCRIPTION_WEBHOOK_SECRET: ${{ secrets._PROD_STRIPE_SUBSCRIPTION_WEBHOOK_SECRET }}
+            CLOUDFLARE_API_BASE_URL: ${{ secrets.CLOUDFLARE_API_BASE_URL }}
+            CLOUDFLARE_API_CLIENT_BASE_URL:
+              ${{ secrets.CLOUDFLARE_API_CLIENT_BASE_URL }}
+            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+            CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE:
+              ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE }}
+            CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID:
+              ${{ secrets.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID }}
+            USER_TEAM_EMAIL_SCHEMA: ${{ secrets.USER_TEAM_EMAIL_SCHEMA }}
+            USER_TEAM_PASSWORD: ${{ secrets.USER_TEAM_PASSWORD }}
+            WEAVIATE_API_KEY_ALLOWED_KEYS:
+              ${{ secrets.WEAVIATE_API_KEY_ALLOWED_KEYS }}
+            WEAVIATE_API_KEY_USERS: ${{ secrets.WEAVIATE_API_KEY_USERS }}
+            SESHUJOBS_URL: ${{ secrets.SESHUJOBS_URL }}
+            NATS_URL: ${{ secrets.NATS_URL }}
+            NATS_SESHU_STREAM_NAME: ${{ secrets.NATS_SESHU_STREAM_NAME }}
+            NATS_SESHU_STREAM_SUBJECT: ${{ secrets.NATS_SESHU_STREAM_SUBJECT }}
+            POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+            POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+            POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+            POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+            POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+            VOCALCAT_CLIENT_ID: ${{ secrets.VOCALCAT_CLIENT_ID }}
+            VOCALCAT_CLIENT_SECRET: ${{ secrets.VOCALCAT_CLIENT_SECRET }}
+            VOCALCAT_API_ENDPOINT: ${{ secrets.VOCALCAT_API_ENDPOINT }}
+          run: |
+            # Use the Node.js script to generate .env file from JSON configuration
+            # This replaces the custom action entirely and validates required variables
+            node .github/scripts/generate-env-inline.js --prod
+
+      - name: Generate deployment tag
+        id: generate-tag
+        run: |
+          # Get short SHA (first 7 characters)
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          # Generate tag in format: {branch}-YYYY-MM-DD-{SHORT SHA}
+          echo "tag=main-$(date +%Y-%m-%d)-$SHORT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Add StaticEndpoint to .env file
+        run: |
+          # Extract StaticEndpoint value from SST output
+          STATIC_BASE_URL=$(grep "StaticEndpoint:" sst-output.log | sed 's/.*StaticEndpoint: //')
+
+          # Add StaticEndpoint to the existing .env file
+          echo "STATIC_BASE_URL=$STATIC_BASE_URL" >> .env
+
+          # Create a copy with the tag name for the ACT server
+          cp .env ${{ steps.generate-tag.outputs.tag }}.env
+
+      - name: Send .env file to ACT server
+        run: |
+          # Setup SSH key
+          echo "${{ secrets._PROD_ACT_SSH_KEY }}" > ssh_key
+          chmod 600 ssh_key
+
+          # Create remote directory if it doesn't exist
+          ssh -i ssh_key -o StrictHostKeyChecking=no root@178.156.187.191 "mkdir -p /root/docker/env"
+
+          # Copy .env file to ACT server
+          scp -i ssh_key -o StrictHostKeyChecking=no ${{ steps.generate-tag.outputs.tag }}.env root@178.156.187.191:/root/docker/env/
+
+          # Clean up SSH key
+          rm ssh_key
+
+      - name: Breakpoint if `npx sst deploy` failed
+        if: failure()
+        uses: namespacelabs/breakpoint-action@v0
+        with:
+          duration: 30m
+          authorized-users: brianfeister
+
       # https://github.com/meetnearme/api/actions/runs/12915247314
       # TODO: can't figure out how to get this to work with the new version of wrangler
       # https://discord.com/channels/595317990191398933/1368769100192420010/1368769100192420010
@@ -95,4 +198,50 @@ jobs:
       #     apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       #     accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       #     wranglerVersion: '4.14.1'
-      #     command: deploy --env dev
+      #     command: deploy --env prod
+      # TODO: this mysteriously started failing between Jan 17 ~ Jan 22, 20205
+
+      # Docker build and publish steps
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.IMG_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: |
+            ${{ env.IMG_REGISTRY }}/${{ env.IMG_NAME }}/go-app-prod
+          tags: |
+            # Human-readable tags with ISO date/time and short SHA
+            type=raw,value={{branch}}-{{date 'YYYY-MM-DDTHH-mm-ss'}}-{{sha}}
+            type=raw,value={{branch}}-{{date 'YYYY-MM-DD'}}-{{sha}}
+            # Verbose tags
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Build and push production image
+      - name: Build and push production Docker image
+        id: push-prod
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          target: production
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # Generate artifact attestations for security
+      - name: Generate artifact attestation for prod image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMG_REGISTRY }}/${{ env.IMG_NAME }}/go-app-prod
+          subject-digest: ${{ steps.push-prod.outputs.digest }}
+          push-to-registry: true

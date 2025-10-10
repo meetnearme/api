@@ -10,14 +10,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var competitionWaitingRoomParticipantTableName = helpers.GetDbTableName(helpers.CompetitionWaitingRoomParticipantTablePrefix)
+var competitionWaitingRoomParticipantTableName = helpers.GetDbTableName(constants.CompetitionWaitingRoomParticipantTablePrefix)
 
 func init() {
-	competitionWaitingRoomParticipantTableName = helpers.GetDbTableName(helpers.CompetitionWaitingRoomParticipantTablePrefix)
+	competitionWaitingRoomParticipantTableName = helpers.GetDbTableName(constants.CompetitionWaitingRoomParticipantTablePrefix)
 }
 
 type CompetitionWaitingRoomParticipantService struct{}
@@ -45,8 +46,6 @@ func (s *CompetitionWaitingRoomParticipantService) PutCompetitionWaitingRoomPart
 		Item:      item,
 		TableName: aws.String(competitionWaitingRoomParticipantTableName),
 	}
-
-	log.Printf("Item before Item put waiting: %+v", input)
 
 	res, err := dynamodbClient.PutItem(ctx, input)
 	if err != nil {
@@ -83,8 +82,6 @@ func (s *CompetitionWaitingRoomParticipantService) GetCompetitionWaitingRoomPart
 		return nil, fmt.Errorf("failed to query rounds: %w", err)
 	}
 
-	log.Printf("Query returned %d items", len(result.Items))
-
 	// If no items found, return empty slice
 	if len(result.Items) == 0 {
 		log.Printf("No items found for competitionId: %s", competitionId)
@@ -115,6 +112,5 @@ func (s *CompetitionWaitingRoomParticipantService) DeleteCompetitionWaitingRoomP
 		return err
 	}
 
-	log.Printf("competition round successfully deleted")
 	return nil
 }

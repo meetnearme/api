@@ -47,6 +47,14 @@
   .carousel-control-right {
     @apply no-animation absolute right-0 ml-8 -m-1 top-1/2 -translate-y-1/2 translate-x-full;
   }
+
+  .icon-circle {
+    @apply flex justify-center items-center w-8 h-8 bg-primary hover:bg-secondary rounded-full;
+  }
+
+  .icon-circle svg {
+    @apply w-5 h-5 text-primary-content;
+  }
 }
 
 body {
@@ -66,7 +74,7 @@ body:has(.bottom-drawer) {
 }
 
 .sticky-under-top-nav.subheader {
-  top: 8rem;
+  top: 8.4rem;
 }
 
 .sticky-under-top-nav + *:first-child {
@@ -75,7 +83,7 @@ body:has(.bottom-drawer) {
 
 .brand-logo {
   width: 3rem;
-  height: 4.8rem;
+  /* height: 4.8rem; */
   /* TODO: this shouldn't be hard coded  */
   padding: 0.5rem;
 }
@@ -246,15 +254,18 @@ body:has(.bottom-drawer) {
   padding: 20px;
 }
 
-.btn.carousel-control-left:active:hover, .btn.carousel-control-left:active:focus {
-  transform: translate(-100%, -50%)
+.btn.carousel-control-left:active:hover,
+.btn.carousel-control-left:active:focus {
+  transform: translate(-100%, -50%);
 }
 
-.btn.carousel-control-right:active:hover, .btn.carousel-control-right:active:focus {
-  transform: translate(100%, -50%)
+.btn.carousel-control-right:active:hover,
+.btn.carousel-control-right:active:focus {
+  transform: translate(100%, -50%);
 }
 
-.btn.btn-bold-outline {
+.btn.btn-bold-outline,
+.btn.btn-bold-outline:hover {
   border: 5px solid oklch(var(--p));
 }
 
@@ -306,7 +317,7 @@ input[type='number'] {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1.5rem;
 }
 
@@ -316,4 +327,112 @@ input[type='number'] {
 
 .object-position-25-25 {
   object-position: 25% 25%;
+}
+
+.link-text {
+  color: var(--fallback-s, oklch(var(--s)));
+  /*  background-color: var(--fallback-pc, oklch(var(--pc))); */
+  padding: 0.125rem 0.25rem;
+}
+
+.link-text:hover {
+  color: var(--fallback-sc, oklch(var(--sc)));
+  background-color: var(--fallback-s, oklch(var(--s)));
+  border-radius: 5px;
+}
+
+/* Show an item only when an item within the parenthas focus */
+.show-on-focus-parent:focus-within .show-on-focus-child {
+  opacity: 1;
+  max-height: 200px;
+  visibility: visible;
+  transform: translateY(0);
+  transition: all 0.2s ease-in-out;
+}
+
+.show-on-focus-child {
+  opacity: 0;
+  max-height: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.2s ease-in-out;
+}
+
+.body-font {
+  font-family: inherit;
+}
+.rainbow-box {
+  border-radius: 9999px;
+  padding: 10px;
+  overflow: hidden;
+  position: relative;
+}
+.rainbow-box:before {
+  content: '';
+  position: absolute;
+  height: 50rem;
+  width: 50rem;
+  left: -50rem;
+  right: -50rem;
+  top: -50rem;
+  bottom: -50rem;
+  border-radius: 50%;
+  margin: auto;
+  background: oklch(var(--b1));
+  z-index: -2;
+  pointer-events: none;
+  animation: rotate-then-fade 3.5s linear 1 forwards;
+  background: conic-gradient(
+    #fd004c,
+    #fe9000,
+    #fff020,
+    #3edf4b,
+    #3363ff,
+    #b102b7,
+    #fd004c
+  );
+}
+.rainbow-box:after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  right: 3px;
+  bottom: 3px;
+  background: oklch(var(--b1));
+  z-index: -2;
+  pointer-events: none;
+  border-radius: 9999px;
+}
+@keyframes rotate-then-fade {
+  0% {
+    transform: rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    transform: rotate(0deg);
+    opacity: 0;
+  }
+  25% {
+    transform: rotate(20deg);
+    opacity: 0.9;
+  }
+  50% {
+    transform: rotate(180deg);
+    opacity: 1;
+  }
+  90% {
+    transform: rotate(340deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Add bottom padding to footer when bottom-drawer is present */
+html:has(.bottom-drawer) body .space-y-4 > footer,
+html:has(.bottom-drawer) footer {
+  margin-bottom: 10rem !important;
 }

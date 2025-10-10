@@ -1,8 +1,8 @@
 package pages
 
-import "github.com/meetnearme/api/functions/gateway/helpers"
+import "github.com/meetnearme/api/functions/gateway/constants"
 
-templ DataRequestPage(page helpers.SitePage) {
+templ DataRequestPage(page constants.SitePage) {
 	<div class="data-request">
 		<h1 class="text-3xl font-bold my-4">{ page.Name }</h1>
 		<div class="intro mb-6">
@@ -16,7 +16,7 @@ templ DataRequestPage(page helpers.SitePage) {
 		</div>
 		<div class="instructions mb-8">
 			<h2 class="text-xl font-bold mb-4">How to Submit a Request</h2>
-			<p class="mb-4">To submit a data request, please email <a href="mailto:brian+data-request@meetnear.me" class="link link-primary">brian+data-request@meetnear.me</a> with the following information:</p>
+			<p class="mb-4">To submit a data request, please email <a href="mailto:brian+data-request@meetnear.me" class="link link-text">brian+data-request@meetnear.me</a> with the following information:</p>
 			<div class="bg-base-200 p-4 rounded-lg">
 				<h3 class="font-bold mb-2">Please include in your email:</h3>
 				<ol class="list-decimal pl-6">
@@ -45,7 +45,7 @@ templ DataRequestPage(page helpers.SitePage) {
 			</ol>
 		</div>
 		<div class="mt-8 p-4 bg-base-200 rounded-lg">
-			<p class="text-sm">For any questions about data requests or their status, please contact us at <a href="mailto:brian+data-request@meetnear.me" class="link link-primary">brian+data-request@meetnear.me</a></p>
+			<p class="text-sm">For any questions about data requests or their status, please contact us at <a href="mailto:brian+data-request@meetnear.me" class="link link-text">brian+data-request@meetnear.me</a></p>
 		</div>
 	</div>
 }

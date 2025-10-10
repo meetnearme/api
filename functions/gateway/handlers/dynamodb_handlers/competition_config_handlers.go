@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
@@ -40,9 +41,9 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 	}
 
 	ctx := r.Context()
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 
 	err = json.Unmarshal(body, &updateCompetitionConfigPayload)
@@ -246,7 +247,7 @@ func (h *CompetitionConfigHandler) UpdateCompetitionConfig(w http.ResponseWriter
 		// Group rounds by whether they need eventId update
 		var unassignedEventRounds, assignedEventRounds []internal_types.CompetitionRoundUpdate
 		for _, round := range normalizedRounds {
-			if round.EventId == helpers.COMP_UNASSIGNED_ROUND_EVENT_ID {
+			if round.EventId == constants.COMP_UNASSIGNED_ROUND_EVENT_ID {
 				unassignedEventRounds = append(unassignedEventRounds, round)
 			} else {
 				assignedEventRounds = append(assignedEventRounds, round)
@@ -347,15 +348,15 @@ func (h *CompetitionConfigHandler) GetCompetitionConfigsById(w http.ResponseWrit
 // Get all configs that a primaryOwner has
 func (h *CompetitionConfigHandler) GetCompetitionConfigsByPrimaryOwner(w http.ResponseWriter, r *http.Request, isHtml bool) {
 	ctx := r.Context()
-	userInfo := helpers.UserInfo{}
+	userInfo := constants.UserInfo{}
 	// implicitly we fetch from the `primaryOwner` index if `ownerId` is not provided, if
 	// provided, such as for community pages showing a DIFFERENT owner's configs,
 	// we fetch from the `endTime` index
-	ownerId := mux.Vars(r)[helpers.USER_ID_KEY]
+	ownerId := mux.Vars(r)[constants.USER_ID_KEY]
 	isSelf := true
 
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 		if ownerId == "" {
 			ownerId = userInfo.Sub
 			isSelf = false

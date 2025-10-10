@@ -7,24 +7,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
-	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func TestAddOrEditEventPage(t *testing.T) {
 	lALoc, _ := time.LoadLocation("America/Los_Angeles")
-	userInfo := helpers.UserInfo{
+	userInfo := constants.UserInfo{
 		Sub:  "abc-uuid",
 		Name: "Test User",
 	}
 	tests := []struct {
 		name               string
-		userInfo           helpers.UserInfo
+		userInfo           constants.UserInfo
 		event              types.Event
 		isEditor           bool
 		isCompetitionAdmin bool
-		sitePage           helpers.SitePage
+		sitePage           constants.SitePage
 		cfLat              float64
 		cfLon              float64
 		expected           []string
@@ -36,9 +35,9 @@ func TestAddOrEditEventPage(t *testing.T) {
 			event:              types.Event{},
 			isEditor:           false,
 			isCompetitionAdmin: false,
-			sitePage:           helpers.SitePages["add-event"],
-			cfLat:              services.InitialEmptyLatLong,
-			cfLon:              services.InitialEmptyLatLong,
+			sitePage:           constants.SitePages["add-event"],
+			cfLat:              constants.INITIAL_EMPTY_LAT_LONG,
+			cfLon:              constants.INITIAL_EMPTY_LAT_LONG,
 			expected: []string{
 				"Event Name",
 				"Description",
@@ -56,7 +55,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 			event:              types.Event{},
 			isEditor:           false,
 			isCompetitionAdmin: false,
-			sitePage:           helpers.SitePages["add-event"],
+			sitePage:           constants.SitePages["add-event"],
 			cfLat:              38.893725,
 			cfLon:              -77.096975,
 			expected: []string{
@@ -86,7 +85,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 			},
 			isEditor:           true,
 			isCompetitionAdmin: false,
-			sitePage:           helpers.SitePages["edit-event"],
+			sitePage:           constants.SitePages["edit-event"],
 			cfLat:              39.764252,
 			cfLon:              -104.937511,
 			expected: []string{
@@ -124,7 +123,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 			},
 			isEditor:           true,
 			isCompetitionAdmin: true,
-			sitePage:           helpers.SitePages["edit-event"],
+			sitePage:           constants.SitePages["edit-event"],
 			cfLat:              39.764252,
 			cfLon:              -104.937511,
 			expected: []string{
@@ -155,11 +154,11 @@ func TestAddOrEditEventPage(t *testing.T) {
 				EventOwners:         []string{"abc-uuid"},
 				EventOwnerName:      "Brians Pub",
 				Timezone:            *lALoc,
-				EventSourceType:     helpers.ES_SINGLE_EVENT_UNPUB,
+				EventSourceType:     constants.ES_SINGLE_EVENT_UNPUB,
 			},
 			isEditor:           true,
 			isCompetitionAdmin: true,
-			sitePage:           helpers.SitePages["edit-event"],
+			sitePage:           constants.SitePages["edit-event"],
 			cfLat:              39.764252,
 			cfLon:              -104.937511,
 			expected: []string{
@@ -170,7 +169,7 @@ func TestAddOrEditEventPage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := AddOrEditEventPage(helpers.SitePages["event-detail"], tt.userInfo, tt.event, tt.isEditor, tt.cfLat, tt.cfLon, tt.isCompetitionAdmin)
+			component := AddOrEditEventPage(constants.SitePages["event-detail"], tt.userInfo, tt.event, tt.isEditor, tt.cfLat, tt.cfLon, tt.isCompetitionAdmin)
 
 			// Render the component to a string
 			var buf bytes.Buffer

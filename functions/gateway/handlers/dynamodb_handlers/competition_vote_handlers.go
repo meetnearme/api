@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -37,9 +36,9 @@ func (h *CompetitionVoteHandler) PutCompetitionVote(w http.ResponseWriter, r *ht
 	}
 
 	ctx := r.Context()
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 	userId := userInfo.Sub
 
@@ -65,8 +64,6 @@ func (h *CompetitionVoteHandler) PutCompetitionVote(w http.ResponseWriter, r *ht
 		transport.SendServerRes(w, []byte("Invalid body: "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
-
-	log.Printf("Vote struct for vote: %+v", createCompetitionVote)
 
 	db := transport.GetDB()
 	res, err := h.CompetitionVoteService.PutCompetitionVote(r.Context(), db, createCompetitionVote)

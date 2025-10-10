@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/lucasb-eyer/go-colorful"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"io"
@@ -25,6 +25,80 @@ func maxContrastColor(hex string) (string, error) {
 		return "#000000", nil // dark text on light background
 	}
 	return "#ffffff", nil // light text on dark background
+}
+
+// returns 1-21, where 21 is maximum contrast
+func calculateContrast(color1, color2 string) (float64, error) {
+	c1, err := colorful.Hex(color1)
+	if err != nil {
+		return 0, err
+	}
+	c2, err := colorful.Hex(color2)
+	if err != nil {
+		return 0, err
+	}
+
+	relLum1 := relativeLuminance(c1.R, c1.G, c1.B)
+	relLum2 := relativeLuminance(c2.R, c2.G, c2.B)
+
+	// calculate ratio as higher / lower
+	if relLum1 > relLum2 {
+		return (relLum1 + 0.05) / (relLum2 + 0.05), nil
+	}
+	return (relLum2 + 0.05) / (relLum1 + 0.05), nil
+}
+
+func relativeLuminance(r, g, b float64) float64 {
+	toLinear := func(c float64) float64 {
+		if c <= 0.04045 {
+			return c / 12.92
+		}
+		return math.Pow((c+0.055)/1.055, 2.4)
+	}
+
+	rLin := toLinear(r)
+	gLin := toLinear(g)
+	bLin := toLinear(b)
+
+	return 0.2126*rLin + 0.7152*gLin + 0.0722*bLin
+}
+
+func generateSecondaryColor(primaryHex, colorScheme string) (string, error) {
+	primaryColor, err := colorful.Hex(primaryHex)
+	if err != nil {
+		return primaryHex, err
+	}
+
+	// this is only used for contrast calculations, not actually setting the background.
+	var backgroundHex string
+	if colorScheme == "light" {
+		backgroundHex = "#ffffff" // Light theme base-100 as hex
+	} else {
+		backgroundHex = "#121216" // Dark theme base-100 as hex
+	}
+
+	contrast, err := calculateContrast(primaryHex, backgroundHex)
+	if err != nil {
+		log.Printf("warning: could not calculate contrast, using basic secondary generation: %s", err)
+		return primaryHex, err // make secondary same as primary if there's an error
+	}
+
+	// If contrast is good enough (>= 4.5 for AA accessibility), use same as primary.
+	// This means for some custom colors with good contrast, there won't be a hover state that's different from the primary since primary and secondary will be the same.
+	if contrast >= 4.5 {
+		return primaryHex, nil
+	}
+
+	h, s, l := primaryColor.Hsl()
+	if colorScheme == "dark" {
+		newL := math.Min(0.9, l+0.15) // Add 15% luminance, cap at 90%
+		secondaryColor := colorful.Hsl(h, s, newL)
+		return secondaryColor.Hex(), nil
+	} else {
+		newL := math.Max(0.1, l-0.15) // Subtract 15% luminance, cap at 10%
+		secondaryColor := colorful.Hsl(h, s, newL)
+		return secondaryColor.Hex(), nil
+	}
 }
 
 func hexToSrgb(hex string) (r, g, b float64) {
@@ -89,7 +163,8 @@ type themeStyleTag struct{}
 
 func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	// Safely get the MNM_OPTIONS from context
-	mnmOptionsValue := ctx.Value(helpers.MNM_OPTIONS_CTX_KEY)
+	mnmOptionsValue := ctx.Value(constants.MNM_OPTIONS_CTX_KEY)
+
 	if mnmOptionsValue == nil {
 		// If no options are set, return without error
 		return nil
@@ -118,7 +193,7 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 
 	primaryLinkColor := hexPrimaryColor
 
-	// Calculate adjusted color with modified luminance for link-primary
+	// Calculate adjusted color with modified luminance for link-text
 	c, err := colorful.Hex(hexPrimaryColor)
 	if err == nil {
 		// Convert to HSL to modify luminance
@@ -146,6 +221,20 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	}
 
 	maxContrastColorOklch := hexToOklch(maxContrastColorHex)
+
+	hexSecondaryColor, err := generateSecondaryColor(hexPrimaryColor, colorScheme)
+	if err != nil {
+		log.Printf("error generating secondary color: %s", err)
+		hexSecondaryColor = hexPrimaryColor
+	}
+
+	oklchSecondaryColor := hexToOklch(hexSecondaryColor)
+	hexSecondaryContrastColor, err := maxContrastColor(hexSecondaryColor)
+	if err != nil {
+		log.Printf("error calculating secondary contrast color: %s", err)
+		hexSecondaryContrastColor = maxContrastColorHex
+	}
+	oklchSecondaryContrastColor := hexToOklch(hexSecondaryContrastColor)
 
 	rootLightThemeStyles := ""
 	lightThemeExtraStyles := ""
@@ -178,9 +267,6 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 				color: oklch(var(--b1));
 			}
 		}
-		.from-black\/70 {
-				--tw-gradient-from: rgb(255 255 255 / 0.7);
-		}
 		`
 	} else {
 		colorScheme = "color-scheme: dark;"
@@ -194,12 +280,16 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 				--fallback-p: %s;
 				--pc: %s;
 				--fallback-pc: %s;
-				--link-primary: %s;
+				--s: %s;
+				--fallback-s: %s;
+				--sc: %s;
+				--fallback-sc: %s;
+				--link-text: %s;
 				%s
 			}
 			%s
-			.link-primary {
-				color: var(--link-primary);
+			.link-text {
+				color: var(--link-text);
 			}
 		</style>`,
 		colorScheme,
@@ -207,7 +297,11 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 		hexPrimaryColor,
 		maxContrastColorOklch,
 		maxContrastColorHex,
-		primaryLinkColor,
+		oklchSecondaryColor,
+		hexSecondaryColor,
+		oklchSecondaryContrastColor,
+		hexSecondaryContrastColor,
+		primaryLinkColor, // not currently used
 		rootLightThemeStyles,
 		lightThemeExtraStyles,
 	)
@@ -215,9 +309,9 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	return nil
 }
 
-templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event, ctx context.Context, scripts []string) {
+templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageContent templ.Component, event types.Event, narrowLayout bool, ctx context.Context, scripts []string) {
 	<!DOCTYPE html>
-	<html>
+	<html data-theme="auto">
 		<head>
 			if event.Id != "" && sitePage.Key == "event-detail" {
 				<title>Meet Near Me - { event.Name }</title>
@@ -231,7 +325,11 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap" rel="stylesheet"/>
 			// 🚨 WARNING 🚨 This filename is automatically updated by PostCSS
 			// ✅ DO commit it to version control whenever you see it change
-			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.35358b03.css") }/>
+			if os.Getenv("IS_LOCAL_ACT") != "true" {
+				<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.82a6336e.css") }/>
+			} else {
+				<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.css") }/>
+			}
 			{{ styleTag := themeStyleTag{} }}
 			@themeStyleTag(styleTag)
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -241,7 +339,7 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 				<script defer src={ script }></script>
 			}
 			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-			if os.Getenv("SST_STAGE") == "prod" {
+			if os.Getenv("ACT_STAGE") == "prod" {
 				<script defer src="https://cloud.umami.is/script.js" data-website-id="63a857ef-7639-4db5-b627-99621b1a38ec"></script>
 			} else {
 				<script defer src="https://cloud.umami.is/script.js" data-website-id="bdab8c3c-5643-4045-95af-0ce95c104ab9"></script>
@@ -251,8 +349,16 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<div id="top-loading-bar" class="hidden fixed top-0 left-0 w-0 h-[3px] bg-[#00ff00] transition-[width] duration-300 ease-out z-[9999]"></div>
 			@components.Navbar(userInfo, sitePage.SubnavItems, event, ctx) {
 				<div class="container mx-auto">
-					<div id="content" class="p-4 space-y-4 relative">
-						@pageContent
+					<div id="content" class="p-4 relative">
+						if narrowLayout {
+							<div class="max-w-prose mx-auto">
+								@pageContent
+								@components.Footer(userInfo.Email != "")
+							</div>
+						} else {
+							@pageContent
+							@components.Footer(userInfo.Email != "")
+						}
 					</div>
 				</div>
 			}
@@ -304,3 +410,5 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 		</script>
 	</html>
 }
+
+// test

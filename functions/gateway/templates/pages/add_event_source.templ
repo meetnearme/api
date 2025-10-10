@@ -6,44 +6,57 @@ templ AddEventSource() {
 	<h1 class="text-3xl">Add an Event Source</h1>
 	<br/>
 	<br/>
-	<div class="grid grid-cols-7" x-data="getWizardState()">
-		<div class="self-start sticky top-0 col-span-2 mr-5 card border-2 border-base-300 bg-base-200 rounded-box place-items-center ">
+	<div class="md:grid md:grid-cols-7" x-data="getWizardState()">
+		<div class="self-start sticky top-0 md:col-span-2 md:mr-5 mb-4 md:mb-0 card border border-base-300 bg-base-200 rounded-box md:place-items-center">
 			<ul id="event-source-steps" class="steps steps-vertical">
 				<li
-					class="step"
+					class="step p-2"
 					:class="{'step-primary':
-             formStep >= 1}"
-				>Add a Target URL</li>
+						 formStep >= 1}"
+				>Search for Events</li>
 				<li
-					class="step"
+					class="step p-2"
 					:class="{'step-primary':
-             formStep >= 2}"
+						 formStep >= 2}"
 				>Verify Events</li>
 				<li
-					class="step"
+					class="step p-2"
 					:class="{'step-primary':
-             formStep >= 3}"
+						 formStep >= 3}"
 				>Add to Site</li>
 			</ul>
-			<button @click="incrementFormStep()">Increment Step</button>
+			// <button @click="incrementFormStep()">Increment Step</button>
 		</div>
-		<div id="event-source-container" class="col-span-5 card border-2 border-base-300 bg-base-200 p-10 rounded-box">
-			<h2 class="text-3xl font-bold">Add a Target URL</h2>
-			<form class="group" novalidate hx-post={ templ.EscapeString(os.Getenv("SESHU_FN_URL")) } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? handleURLSubmit() : ''" @htmx:after-request="handleUrlRes(event)">
-				<label for="url">Enter a URL that lists events and we will check the site and propose some events that might be on that page (this will take some time)</label>
+		<div id="event-source-container" class="col-span-5 card border border-base-300 bg-base-200 p-10 rounded-box">
+			<h2 class="text-3xl font-bold">Search for Events</h2>
+			<form class="group" novalidate hx-post={ templ.EscapeString("/api/html/session/submit/?action=init") } hx-ext="json-enc" hx-target="#event-candidates-inner" hx-disabled-elt="input[name='url'], button[type='submit']" @submit.prevent="formStep < 2 ? handleURLSubmit() : ''" @htmx:after-request="handleUrlRes(event)">
+				<label for="url">
+					Have a site or URL with local events? Drop it below. We'll identify and organize the events on that page for you so you can publish or share them quickly.
+					(scanning will take some time)
+				</label>
 				<input
 					x-model="formData.url"
 					name="url"
 					id="url"
 					type="url"
 					class="input input-bordered w-full p-2 mt-5 w-full"
-					:class="{'border-red-500': formData.url && !isURL(formData.url)}"
+					:class="{'border-red-500': formData.urlTouched && formData.url && !isURL(formData.url)}"
 					placeholder="Event source URL"
+					@blur="formData.urlTouched = true"
 				/>
-				<span aria-live="polite" x-text="formData.url && !isURL(formData.url) ? 'Please enter a valid URL (must start with http:// or https://)' : ''" :class="{'visible': formData.url && !isURL(formData.url)}" class="mt-2 text-sm text-red-500"></span>
+				<span
+					aria-live="polite"
+					x-text="formData.urlTouched && formData.url && !isURL(formData.url) ? 'Please enter a valid Facebook.com events page URL (must look like https://facebook.com/{page name}/events or https://www.facebook.com/people/{page name}/123/?sk=events)' : ''"
+					:class="{'visible': formData.urlTouched && formData.url && !isURL(formData.url)}"
+					class="mt-2 text-sm text-red-500"
+				></span>
 				<br/>
 				<br/>
-				<button type="submit" :disabled="!formData.url || !isURL(formData.url)" class="btn btn-primary">Search for Events <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+				<button
+					type="submit"
+					:disabled="!formData.url || (formData.urlTouched && !isURL(formData.url))"
+					class="btn btn-primary"
+				>Search for Events <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 			</form>
 			<br/>
 			<br/>
@@ -64,30 +77,10 @@ templ AddEventSource() {
 						<p class="font-bold">What we need from you is to confirm if our guesses are accurate.</p>
 					</div>
 				</div>
-				<br/>
-				<br/>
+				// <br/>
+				// <br/>
 			</div>
 			<div id="event-candidates" :class="{'opacity-100 h-auto': formStep >= 2}" aria-live="polite" class="w-full opacity-0 h-0 transition-all">
-				<h3 class="text-2xl font-bold">Are these events?</h3>
-				// note that the input[type='checkbox'] items come back in response to the SESHU_FN_URL
-				// call and the checkboxes are not present by default
-				<form id="event-candidates-form" class="group" novalidate hx-patch="/api/html/seshu/session/events" hx-ext="json-enc" hx-target="#events-valid-confirmation" hx-vals="js:{eventValidations: getEventValidationsState()}" hx-disabled-elt="input[type='checkbox'], button[type='submit']" @htmx:after-request="updateEventsValidated(event)">
-					<input
-						x-model="formData.url"
-						name="url"
-						id="url"
-						type="hidden"
-					/>
-					<div id="event-candidates-inner" class="mb-8">
-						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-stretch">
-							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
-							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
-							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
-						</div>
-					</div>
-					<button type="submit" :disabled="!hasEvents || eventCandidates.length === 0" class="btn btn-primary"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Event Data <span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
-				</form>
-				<div id="events-valid-confirmation" class="margins-when-children my-8"></div>
 				<div id="event-candidates-location" class="has-toggleable-text">
 					<h3 class="text-2xl font-bold mt-16">Are all events at the target URL located in the same geography?</h3>
 					<label class="label cursor-pointer justify-normal">
@@ -96,10 +89,11 @@ templ AddEventSource() {
 					</label>
 					<div class="hidden-when-not-checked">
 						<div id="location-type-address" :class="{'opacity-100 h-auto': formData.selectedLocationType === 'address'}" aria-live="polite" class="opacity-0 h-0 w-full mt-5 mb-5 transition-all">
+							// @components.LocationLookupPartial("post", "/api/html/seshu/session/location", "", "formData.url", "Confirm Address", "Address Confirmed", 0, 0, "", 0, 0, "Enter an Address, ZIP / Postal Code, or City (more specific is better!)")
 							<form
 								class="group"
 								novalidate
-								hx-patch="/api/html/seshu/session/location"
+								hx-put="/api/html/seshu/session/location"
 								hx-ext="json-enc"
 								hx-target="#location-confirmation"
 								hx-disabled-elt="input[name='location'], button[type='submit']"
@@ -108,8 +102,7 @@ templ AddEventSource() {
 							>
 								<input
 									x-model="formData.url"
-									name="url"
-									id="url"
+									name="source_url"
 									type="hidden"
 								/>
 								<label for="location" class="form-control w-full">
@@ -128,8 +121,8 @@ templ AddEventSource() {
 									:style="formData.address?.length ? 'display: block;' : 'display: none;'"
 									:src="getAddress()"
 								></iframe>
-								<br/>
-								<br/>
+								// <br/>
+								// <br/>
 								<button type="submit" :disabled="formData.address?.length < 1 || !formData.url?.length" class="btn btn-primary mt-3">
 									<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Confirm Location <span class="htmx-indicator loading loading-spinner loading-sm"></span>
 								</button>
@@ -138,13 +131,57 @@ templ AddEventSource() {
 							</form>
 						</div>
 					</div>
+					<br/>
+					<br/>
 				</div>
+				<h3 class="text-2xl font-bold">Are these events?</h3>
+				// note that the input[type='checkbox'] items come back in response to the SESHU_FN_URL
+				// call and the checkboxes are not present by default
+				<form
+					x-ref="eventForm"
+					class="group"
+					novalidate
+					hx-ext="json-enc"
+					hx-disabled-elt="input[type='checkbox'], button[type='submit']"
+					@htmx:after-request="updateEventsValidated(event)"
+				>
+					<input
+						x-model="formData.url"
+						name="event_source_url"
+						type="hidden"
+					/>
+					<div id="event-candidates-inner" :class="{'hidden': formStep < 2, 'mb-8': formStep >= 2}" @change="updateMissingFieldsCheck()">
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-2 justify-stretch">
+							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
+							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
+							<div class="skeleton card card-compact h-96 w-full shadow-lg"></div>
+						</div>
+					</div>
+					<div id="event-recursive-confirmation" class="margins-when-children my-8"></div>
+					<button
+						type="button"
+						class="btn mb-4"
+						:class="missingFieldsCheck ? 'btn-warning' : 'btn-primary'"
+						:disabled="!hasEvents || eventCandidates.length === 0"
+						@click="submitDynamicForm()"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+						Confirm Event Data
+						<span class="htmx-indicator loading loading-spinner loading-sm ml-2"></span>
+					</button>
+				</form>
+				<div id="events-valid-confirmation" class="margins-when-children my-8"></div>
 			</div>
 			<div class="divider divider-horizontal"></div>
-			<div aria-live="polite">
-				<p aria-live="polite" x-text="getSubmissionStateText()"></p>
-				<br/>
-				<br/>
+			<div
+				aria-live="polite"
+				:class="{'opacity-100 h-auto': formStep >= 2}"
+				class="w-full opacity-0 h-0 transition-all"
+				:aria-hidden="formStep < 2"
+				:aria-expanded="formStep >= 2"
+			>
 				<form
 					class="group"
 					novalidate
@@ -152,14 +189,23 @@ templ AddEventSource() {
 					hx-ext="json-enc"
 					hx-target="#final-submission"
 					hx-disabled-elt="button[type='submit']"
+					@submit.prevent=""
 					@htmx:after-request="handleFinalSubmission(event)"
 				>
 					<input
 						x-model="formData.url"
-						name="url"
-						id="url"
+						name="event_source_url"
+						id="final_submission_url"
 						type="hidden"
 					/>
+					<template x-if="getSubmissionStateText() !== ''">
+						<div class="alert alert-info mb-4">
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+							</svg>
+							<p aria-live="polite" x-text="getSubmissionStateText()"></p>
+						</div>
+					</template>
 					<button
 						:disabled="!hasEvents || !eventsValidated || (hasFallbackLocation && !locationValidated) || formStep < 2 || eventCandidates.length === 0"
 						type="submit"
@@ -172,36 +218,135 @@ templ AddEventSource() {
 				</form>
 			</div>
 		</div>
+		<template x-if="showToast === true">
+			<div class="toast m-4 z-50">
+				<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border border-base-300">
+					<span x-text="toastContent.message"></span>
+					<div class="block justify-end">
+						<button class="btn btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
+							<svg class="svg-icon" style="width: 1em; height: 1em; vertical-align: middle; fill: currentColor; overflow: hidden;" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg>
+						</button>
+					</div>
+				</div>
+			</div>
+		</template>
 	</div>
-	<script id="alpine-state" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") }>
-		function getEventValidationsState() {
-			const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'))
-			const outerArr = []
+	<script id="alpine-state" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") } data-rs-endpoint={ templ.EscapeString("/api/html/session/submit/?action=rs") }>
+		function getEventValidationsFromContainer(selector) {
+			const cards = Array.from(document.querySelectorAll(`${selector} .checkbox-card`));
+			const eventValidations = [];
+
 			cards.forEach(card => {
-				const checkboxes = card.querySelectorAll('input[type="checkbox"]')
-				if (!checkboxes[0].checked) {
-					// Note that 5 here is a value determined by the API in seshu_services/EventInfo
-					outerArr.push(Array(5).fill(false))
+				const mainToggle = card.querySelector('input[type="checkbox"].toggle');
+				const eventData = {};
+
+				if (!mainToggle?.checked) {
+					eventData["event_title"] = false;
+					eventData["event_location"] = false;
+					eventData["event_start_datetime"] = false;
 				} else {
-					outerArr.push(Array.from(checkboxes).map(checkbox => checkbox.checked).slice(1))
+					const checkboxes = card.querySelectorAll('.card-body input[type="checkbox"]');
+					checkboxes.forEach(checkbox => {
+						const labelText = checkbox.closest('label')?.querySelector('.label-text');
+						if (labelText) {
+							// eslint-disable-next-line no-unused-vars
+							const parts = labelText.innerText.split(/:\s(.+)/);
+							if (parts && parts.length > 0) {
+								const key = parts[0].trim();
+								switch (key) {
+									case "Title":
+										eventData["event_title"] = checkbox.checked;
+										break;
+									case "Location":
+										eventData["event_location"] = checkbox.checked;
+										break;
+									case "Start Time":
+										eventData["event_start_datetime"] = checkbox.checked;
+										break;
+									case "End Time":
+										eventData["event_end_datetime"] = checkbox.checked;
+										break;
+									case "URL":
+										eventData["event_url"] = checkbox.checked;
+										break;
+									case "Description":
+										eventData["event_description"] = checkbox.checked;
+										break;
+								}
+							}
+						}
+					});
+
+					// Ensure required fields are always present
+					eventData["event_title"] = eventData["event_title"] ?? false;
+					eventData["event_location"] = eventData["event_location"] ?? false;
+					eventData["event_start_datetime"] = eventData["event_start_datetime"] ?? false;
 				}
-			})
-			return outerArr
+
+				eventValidations.push(eventData);
+			});
+
+			return eventValidations;
+		}
+		function getRecursiveScrapePayload() {
+			const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
+
+			for (let index = 0; index < cards.length; index++) {
+				const card = cards[index];
+				const mainToggle = card.querySelector('input[type="checkbox"].main-toggle');
+				if (!mainToggle?.checked) continue;
+
+				const requiredKeys = ["Title", "Location", "Start Time", "URL"];
+				let hasMissingRequiredField = false;
+
+				for (const key of requiredKeys) {
+					const label = Array.from(card.querySelectorAll('label')).find(l => l.innerText.includes(`${key}:`));
+					const checkbox = label?.querySelector('input[type="checkbox"]');
+					if (!checkbox?.checked) {
+						hasMissingRequiredField = true;
+						break;
+					}
+				}
+
+				if (!hasMissingRequiredField) continue;
+
+				const urlLabel = Array.from(card.querySelectorAll('label')).find(label =>
+					label.innerText.includes("URL:")
+				);
+				const urlText = urlLabel?.innerText.split("URL:")[1]?.trim();
+				if (!urlText) continue;
+
+				// Return only the first matching card's URL
+				return urlText;
+			}
 		}
 		function getWizardState() {
+			const params = new URLSearchParams(document.location.search);
+			const importFrom = params.get('import_from') ? decodeURIComponent(params.get('import_from')) : "";
 			return {
 				formData: {
-					url: "",
+					url: importFrom ?? "",
 					selectedLocationType: "address",
 					address: "",
+					urlTouched: false,
+				},
+				showToast: false,
+				toastContent: {
+					type: '',
+					message: '',
 				},
 				formStep: 1,
 				hasEvents: false,
 				eventsValidated: false,
 				eventsLoading: false,
 				eventCandidates: [],
-				hasFallbackLocation: true,
+				hasFallbackLocation: false,
 				locationValidated: false,
+				isDisabling: false,
+				missingFieldsCheck: false,
+				updateMissingFieldsCheck() {
+					this.missingFieldsCheck = this.hasMissingRequiredFields();
+				},
 				updateHasEvents(event) {
 					if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
 						this.hasEvents = true;
@@ -222,8 +367,23 @@ templ AddEventSource() {
 				isURL(url) {
 					// NOTE: unsure if this is a useless escape or not
 					// eslint-disable-next-line no-useless-escape
-					var re = /[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z0-9]{2,}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/;
-					return re.test(url);
+					try {
+						const u = new URL(url);
+						// Enforce HTTPS + allowed hosts
+						if (u.protocol !== 'https:') return false;
+						const allowedHosts = new Set(['www.facebook.com', 'facebook.com']);
+						if (!allowedHosts.has(u.host)) return false;
+						// Reject single-event URLs like /events/1234567890
+						if (/^\/events\/.+/.test(u.pathname)) return false;
+						// Accept page events: /{page}/events or /{page}/events/
+						const isPageEvents = /^\/[^/]+\/events\/?$/.test(u.pathname);
+						// Accept “people” pages when ?sk=events
+						const isPeopleBase = /^\/people\/[^/]+\/\d+\/?$/.test(u.pathname);
+						const isPeopleEvents = isPeopleBase && new URLSearchParams(u.search).get('sk') === 'events';
+						return isPageEvents || isPeopleEvents;
+					} catch {
+						return false;
+					}
 				},
 				handleURLSubmit() {
 					this.setEventsLoading(true);
@@ -251,7 +411,7 @@ templ AddEventSource() {
 				},
 				getSubmissionStateText() {
 					if (this.formStep === 1 || !this.formData.url) {
-						return "In order to submit, a URL is required"
+						return "In order to submit, search for events first"
 					} else if (this.eventsLoading) {
 						return "Checking the provided URL for event listings ..."
 					} else if (!this.hasEvents) {
@@ -267,6 +427,144 @@ templ AddEventSource() {
 					} else if (this.formStep === 2) {
 						return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
 					}
+					return "";
+				},
+				submitDynamicForm() {
+					const form = this.$refs.eventForm;
+
+					const hasMissing = this.hasMissingRequiredFields();
+
+					const validationsInitial = getEventValidationsFromContainer('#event-candidates-inner');
+					const validationsRecursive = getEventValidationsFromContainer('#event-recursive-confirmation');
+
+					const hxVals = hasMissing
+					? {
+						parent_url: this.formData.url,
+						url: getRecursiveScrapePayload(),
+					}
+					: {
+						eventValidations: validationsInitial,
+						...(validationsRecursive.length > 0 ? { eventValidationRecursive: validationsRecursive } : {})
+					};
+
+					form.setAttribute('hx-vals', JSON.stringify(hxVals));
+
+					const rsEndpoint = document.querySelector('#alpine-state').getAttribute('data-rs-endpoint')
+					const endpoint = hasMissing ? rsEndpoint : '/api/html/seshu/session/events';
+
+					form.removeAttribute('hx-post');
+					form.removeAttribute('hx-put');
+
+					if (hasMissing){
+						form.setAttribute('hx-post', endpoint);
+					}
+					else{
+						form.setAttribute('hx-put', endpoint);
+					}
+
+					form.setAttribute(
+						'hx-target',
+						hasMissing ? '#event-recursive-confirmation' : '#events-valid-confirmation'
+					);
+
+					if (hasMissing) {
+						this.showToast = true;
+						this.toastContent = {
+							type: 'info',
+							message: 'Some required fields are missing. Attempting to fetch missing data...',
+						};
+					}
+
+					requestAnimationFrame(() => {
+						// eslint-disable-next-line no-undef
+						htmx.process(form);
+						// eslint-disable-next-line no-undef
+						htmx.trigger(form, 'submit');
+					});
+				},
+
+				disableTogglesFromRequiredField(el) {
+					const currentCard = el.closest('.checkbox-card');
+					const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
+
+					const isMainToggle = el.classList.contains('main-toggle');
+
+					// Helper to check if a label is for a required field
+					const isRequiredField = (() => {
+						const labelText = el.closest('label')?.querySelector('.label-text')?.innerText || "";
+						return ["Title", "Location", "Start Time"].some(field => labelText.includes(field));
+					})();
+
+					if (isMainToggle) {
+						const isChecked = el.checked;
+						currentCard.querySelectorAll('.card-body input[type="checkbox"]').forEach(cb => {
+							cb.checked = isChecked;
+						});
+						return;
+					}
+
+					const currentMainToggle = currentCard.querySelector('input[type="checkbox"].main-toggle');
+					if (!currentMainToggle?.checked) return;
+
+					if (isRequiredField && !el.checked) {
+						cards.forEach(card => {
+							if (card === currentCard) return;
+
+							const mainToggle = card.querySelector('input[type="checkbox"].main-toggle');
+							if (mainToggle?.checked) {
+								mainToggle.checked = false;
+							}
+
+							card.querySelectorAll('.card-body input[type="checkbox"]').forEach(cb => {
+								cb.checked = false;
+							});
+						});
+					}
+				},
+				// Sync toggles within one card
+				toggleAllWithinCard(mainToggleEl) {
+					const card = mainToggleEl.closest('.checkbox-card');
+					const children = [...card.querySelectorAll('input.toggle')].filter(cb => cb !== mainToggleEl);
+					children.forEach(cb => cb.checked = mainToggleEl.checked);
+				},
+				hasMissingRequiredFields() {
+					const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
+
+					return cards.some(card => {
+						const mainToggle = card.querySelector('input[type="checkbox"].toggle');
+						if (!mainToggle?.checked) return false;
+
+						const requiredFields = {
+							event_title: false,
+							event_location: false,
+							event_start_datetime: false,
+							// event_url: false,
+						};
+
+						const checkboxes = card.querySelectorAll('.card-body input[type="checkbox"]');
+						checkboxes.forEach(checkbox => {
+							const labelText = checkbox.closest('label')?.querySelector('.label-text')?.innerText || "";
+							const [key] = labelText.split(/:\s(.+)/);
+
+							switch (key.trim()) {
+								case "Title":
+									requiredFields.event_title = checkbox.checked;
+									break;
+								case "Location":
+									requiredFields.event_location = checkbox.checked;
+									break;
+								case "Start Time":
+									requiredFields.event_start_datetime = checkbox.checked;
+									break;
+								// case "URL":
+								// 	requiredFields.event_url = checkbox.checked;
+								// 	break;
+							}
+						});
+
+						// If any required field is unchecked
+						return Object.values(requiredFields).some(v => !v);
+					});
 				}
 			}
 		}

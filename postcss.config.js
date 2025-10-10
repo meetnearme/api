@@ -1,95 +1,60 @@
 import tailwindcss from 'tailwindcss';
+import { readFile, writeFile, unlink } from 'fs/promises';
+import { readdirSync } from 'fs';
 import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
+import process from 'node:process';
 
-let previousHash = '';
-let previousTemplateHash = '';
+// Helper function to generate unique hash for filename
+function generateHash(content) {
+  return crypto.createHash('md5').update(content).digest('hex').slice(0, 8);
+}
 
-function updateCSSFiles(css, result) {
-  const resultString = JSON.stringify(result.messages);
-  const combinedContent = css + resultString;
-  const newHash = crypto.createHash('md5').update(combinedContent).digest('hex').slice(0, 8);
+async function updateCSSFiles(finalCSS, result) {
+  const outputPath = result.opts.to;
+  if (!outputPath) return;
 
-  // Define paths
-  const baseStylesPath = './static/assets/styles';
-  const tempFile = `${baseStylesPath}.css`;
+  // Check if we're in production mode
+  const isProduction = process.env.NODE_ENV === 'production';
 
-  // Add initial file creation
-  if (!fs.existsSync(tempFile)) {
-    console.log('Creating initial styles.css file');
-    fs.writeFileSync(tempFile, css);
+  if (!isProduction) {
+    // In dev mode, just write the CSS file without hashing
+    console.log(`📦 CSS file created: styles.css (dev mode)`);
+    return;
   }
 
-  const newFileName = `${baseStylesPath}.${newHash}.css`;
-  const templatePath = 'functions/gateway/templates/pages/layout.templ';
-  // Always copy the file in production mode
-  // eslint-disable-next-line no-undef
-  if (process.env.NODE_ENV === 'production') {
-    if (fs.existsSync(tempFile)) {
-      fs.copyFileSync(tempFile, newFileName);
+  // Production mode: apply hashing
+  const hash = generateHash(finalCSS);
+  const hashedFilename = `styles.${hash}.css`;
+  const hashedPath = outputPath.replace(/styles\.css$/, hashedFilename);
 
-      // Update template with new hash
-      if (fs.existsSync(templatePath)) {
-        const template = fs.readFileSync(templatePath, 'utf8');
-        const pattern = /styles\..*?\.css/;
-        const updatedTemplate = template.replace(pattern, `styles.${newHash}.css`);
-        fs.writeFileSync(templatePath, updatedTemplate);
-      }
-
-      console.log(`📦 Production CSS generated: ${newFileName}`);
-      return;
-    }
-  }
-
-  // Rest of the watch mode logic
   try {
-    // Read the template file
-    const template = fs.readFileSync(templatePath, 'utf8');
+    // Write the new hashed file
+    await writeFile(hashedPath, finalCSS);
+    console.log(`📦 CSS file created: ${hashedFilename}`);
 
-    // Hash the template content to detect changes
-    const templateHash = crypto.createHash('md5').update(template).digest('hex').slice(0, 8);
+    // Read current layout.templ content
+    const layoutPath = './functions/gateway/templates/pages/layout.templ';
+    const layoutContent = await readFile(layoutPath, 'utf8');
 
-    // Extract current hash from filename in template
-    const hashMatch = template.match(/styles\.(.*?)\.css/);
-    const currentHash = hashMatch ? hashMatch[1] : null;
+    // Update the CSS filename reference
+    const updatedContent = layoutContent.replace(
+      /styles\.[a-f0-9]{8}\.css/g,
+      hashedFilename,
+    );
 
-    // Check if we need to update based on:
-    // 1. Hash differences
-    // 2. Missing hashed CSS file
-    // 3. Template content hasn't changed
-    const currentHashedFile = currentHash ? `${baseStylesPath}.${currentHash}.css` : null;
-    const needsUpdate = (newHash !== currentHash && newHash !== previousHash ||
-                       (currentHash && !fs.existsSync(currentHashedFile))) &&
-                       templateHash !== previousTemplateHash;
-
-    if (needsUpdate) {
-      previousTemplateHash = templateHash;  // Store the new template hash
-      const pattern = /styles\..*?\.css/;
-      const updatedTemplate = template.replace(pattern, `styles.${newHash}.css`);
-      fs.writeFileSync(templatePath, updatedTemplate);
-
-      // Ensure the temp file exists and copy it
-      if (fs.existsSync(tempFile)) {
-        fs.copyFileSync(tempFile, newFileName);
-
-        // Remove old CSS file if it exists
-        if (previousHash) {
-          const oldFile = `${baseStylesPath}.${previousHash}.css`;
-          if (fs.existsSync(oldFile)) {
-            fs.unlinkSync(oldFile);
-          }
-        }
-
-        console.log(`🔄 CSS updated: ${newFileName}`);
-      } else {
-        console.warn('Warning: styles.css not found for initial copy');
-      }
+    if (updatedContent !== layoutContent) {
+      await writeFile(layoutPath, updatedContent);
+      console.log(
+        `✅ Updated layout.templ with new CSS filename: ${hashedFilename}`,
+      );
+    } else {
+      console.log('>> No layout.templ update needed');
     }
-
-    previousHash = newHash;
   } catch (error) {
-    console.warn('Warning: Could not update CSS:', error.message);
+    console.warn(
+      'Warning: Could not update CSS filename in layout.templ:',
+      error.message,
+    );
   }
 }
 
@@ -99,8 +64,13 @@ export default {
     {
       postcssPlugin: 'css-watch-logger',
       Once(root, { result }) {
-        updateCSSFiles(root.toString(), result);
-      }
-    }
-  ]
+        // Only update CSS files in production mode
+        if (process.env.NODE_ENV === 'production') {
+          updateCSSFiles(root.toString(), result).catch(console.error);
+        } else {
+          console.log(`📦 CSS file updated: styles.css (dev mode)`);
+        }
+      },
+    },
+  ],
 };

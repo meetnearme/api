@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	dynamodb_service "github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -26,9 +26,9 @@ func (h *CompetitionWaitingRoomParticipantHandler) PutCompetitionWaitingRoomPart
 	competitionId := vars["competitionId"]
 
 	ctx := r.Context()
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 
 	var competitionWaitingRoomParticipantUpdate internal_types.CompetitionWaitingRoomParticipantUpdate
