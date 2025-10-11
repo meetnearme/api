@@ -2,6 +2,8 @@ package types
 
 import (
 	"net/url"
+
+	"github.com/meetnearme/api/functions/gateway/constants"
 )
 
 type EventInfo struct {
@@ -116,4 +118,84 @@ type SeshuJob struct {
 	OwnerID                  string  `json:"owner_id" validate:"required"`
 	KnownScrapeSource        string  `json:"known_scrape_source"` // e.g. "MEETUP", "EVENTBRITE", etc.
 	LocationTimezone         string  `json:"location_timezone,omitempty"`
+}
+
+func (s *SeshuSession) ApplyDefaults() {
+	if s == nil {
+		return
+	}
+
+	if s.LocationLatitude == 0 {
+		s.LocationLatitude = constants.INITIAL_EMPTY_LAT_LONG
+	}
+
+	if s.LocationLongitude == 0 {
+		s.LocationLongitude = constants.INITIAL_EMPTY_LAT_LONG
+	}
+
+	if s.EventCandidates == nil {
+		s.EventCandidates = []EventInfo{}
+	}
+
+	if s.EventValidations == nil {
+		s.EventValidations = []EventBoolValid{}
+	}
+}
+
+func (s *SeshuSessionInput) ApplyDefaults() {
+	if s == nil {
+		return
+	}
+	s.SeshuSession.ApplyDefaults()
+}
+
+func (s *SeshuSessionInsert) ApplyDefaults() {
+	if s == nil {
+		return
+	}
+
+	if s.LocationLatitude == 0 {
+		s.LocationLatitude = constants.INITIAL_EMPTY_LAT_LONG
+	}
+
+	if s.LocationLongitude == 0 {
+		s.LocationLongitude = constants.INITIAL_EMPTY_LAT_LONG
+	}
+
+	if s.EventCandidates == nil {
+		s.EventCandidates = []EventInfo{}
+	}
+
+	if s.EventValidations == nil {
+		s.EventValidations = []EventBoolValid{}
+	}
+}
+
+func (s *SeshuSessionUpdate) ApplyDefaults() {
+	if s == nil {
+		return
+	}
+
+	if s.LocationLatitude != nil && *s.LocationLatitude == 0 {
+		value := constants.INITIAL_EMPTY_LAT_LONG
+		s.LocationLatitude = &value
+	}
+
+	if s.LocationLongitude != nil && *s.LocationLongitude == 0 {
+		value := constants.INITIAL_EMPTY_LAT_LONG
+		s.LocationLongitude = &value
+	}
+}
+
+func (j *SeshuJob) ApplyDefaults() {
+	if j == nil {
+		return
+	}
+	if j.LocationLatitude == 0 {
+		j.LocationLatitude = constants.INITIAL_EMPTY_LAT_LONG
+	}
+	if j.LocationLongitude == 0 {
+		j.LocationLongitude = constants.INITIAL_EMPTY_LAT_LONG
+	}
+
 }

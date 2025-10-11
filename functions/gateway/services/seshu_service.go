@@ -66,10 +66,14 @@ func GetSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPa
 		return nil, err
 	}
 
+	seshuSession.ApplyDefaults()
+
 	return &seshuSession, nil
 }
 
 func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionInput) (*internal_types.SeshuSessionInsert, error) {
+	seshuPayload.ApplyDefaults()
+
 	currentTime := time.Now().Unix()
 	if len(seshuPayload.EventCandidates) < 1 {
 		seshuPayload.EventCandidates = []internal_types.EventInfo{}
@@ -97,6 +101,8 @@ func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		CreatedAt:        currentTime,
 		UpdatedAt:        currentTime,
 	}
+
+	newSeshuSession.ApplyDefaults()
 
 	item, err := attributevalue.MarshalMap(newSeshuSession)
 	if err != nil {
@@ -134,6 +140,7 @@ func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionUpdate) (*internal_types.SeshuSessionUpdate, error) {
 
 	// TODO: DB call to check if it exists first, and the the owner is the same as the one updating
+	seshuPayload.ApplyDefaults()
 
 	if seshuSessionsTableName == "" {
 		return nil, fmt.Errorf("ERR: seshuSessionsTableName is empty")
