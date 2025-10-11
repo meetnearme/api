@@ -100,24 +100,30 @@ type SeshuSessionUpdate struct {
 }
 
 type SeshuJob struct {
-	NormalizedUrlKey         string  `json:"normalized_url_key" validate:"required"`
-	LocationLatitude         float64 `json:"location_latitude,omitempty"`
-	LocationLongitude        float64 `json:"location_longitude,omitempty"`
-	LocationAddress          string  `json:"location_address,omitempty"`
-	ScheduledHour            int     `json:"scheduled_hour,omitempty" validate:"min=0,max=23"` // Hour of the day (0-23)
-	TargetNameCSSPath        string  `json:"target_name_css_path" validate:"required"`
-	TargetLocationCSSPath    string  `json:"target_location_css_path" validate:"required"`
-	TargetStartTimeCSSPath   string  `json:"target_start_time_css_path" validate:"required"`
-	TargetEndTimeCSSPath     string  `json:"target_end_time_css_path,omitempty"`
-	TargetDescriptionCSSPath string  `json:"target_description_css_path,omitempty" validate:"required"`
-	TargetHrefCSSPath        string  `json:"target_href_css_path,omitempty" validate:"required"`
-	Status                   string  `json:"status" validate:"required"` // e.g. "HEALTHY", "WARNING", "FAILING"
-	LastScrapeSuccess        int64   `json:"last_scrape_success,omitempty" validate:"required"`
-	LastScrapeFailure        int64   `json:"last_scrape_failure,omitempty" validate:"gte=0"`
-	LastScrapeFailureCount   int     `json:"last_scrape_failure_count" validate:"gte=0"`
-	OwnerID                  string  `json:"owner_id" validate:"required"`
-	KnownScrapeSource        string  `json:"known_scrape_source"` // e.g. "MEETUP", "EVENTBRITE", etc.
-	LocationTimezone         string  `json:"location_timezone,omitempty"`
+	NormalizedUrlKey              string  `json:"normalized_url_key" validate:"required"`
+	LocationLatitude              float64 `json:"location_latitude,omitempty"`
+	LocationLongitude             float64 `json:"location_longitude,omitempty"`
+	LocationAddress               string  `json:"location_address,omitempty"`
+	ScheduledHour                 int     `json:"scheduled_hour,omitempty" validate:"min=0,max=23"` // Hour of the day (0-23)
+	TargetNameCSSPath             string  `json:"target_name_css_path" validate:"required"`
+	TargetLocationCSSPath         string  `json:"target_location_css_path" validate:"required"`
+	TargetStartTimeCSSPath        string  `json:"target_start_time_css_path" validate:"required"`
+	TargetEndTimeCSSPath          string  `json:"target_end_time_css_path,omitempty"`
+	TargetDescriptionCSSPath      string  `json:"target_description_css_path,omitempty" validate:"required"`
+	TargetHrefCSSPath             string  `json:"target_href_css_path,omitempty" validate:"required"`
+	TargetChildNameCSSPath        string  `json:"target_child_name_css_path,omitempty"`
+	TargetChildLocationCSSPath    string  `json:"target_child_location_css_path,omitempty"`
+	TargetChildStartTimeCSSPath   string  `json:"target_child_start_time_css_path,omitempty"`
+	TargetChildEndTimeCSSPath     string  `json:"target_child_end_time_css_path,omitempty"`
+	TargetChildDescriptionCSSPath string  `json:"target_child_description_css_path,omitempty"`
+	IsRecursive                   bool    `json:"is_recursive,omitempty"`
+	Status                        string  `json:"status" validate:"required"` // e.g. "HEALTHY", "WARNING", "FAILING"
+	LastScrapeSuccess             int64   `json:"last_scrape_success,omitempty" validate:"required"`
+	LastScrapeFailure             int64   `json:"last_scrape_failure,omitempty" validate:"gte=0"`
+	LastScrapeFailureCount        int     `json:"last_scrape_failure_count" validate:"gte=0"`
+	OwnerID                       string  `json:"owner_id" validate:"required"`
+	KnownScrapeSource             string  `json:"known_scrape_source"` // e.g. "MEETUP", "EVENTBRITE", etc.
+	LocationTimezone              string  `json:"location_timezone,omitempty"`
 }
 
 func (s *SeshuSession) ApplyDefaults() {
