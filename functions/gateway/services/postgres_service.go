@@ -4,22 +4,23 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
+	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/meetnearme/api/functions/gateway/constants"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 type PostgresService struct {
-	DB *pgxpool.Pool
+	DB *gorm.DB
 }
 
-func NewPostgresService(db *pgxpool.Pool) *PostgresService {
+func NewPostgresService(db *gorm.DB) *PostgresService {
 	return &PostgresService{DB: db}
 }
 
-func GetPostgresClient(ctx context.Context) (*pgxpool.Pool, error) {
+func GetPostgresClient(ctx context.Context) (*gorm.DB, error) {
 	host := os.Getenv("POSTGRES_HOST")
 	port := os.Getenv("POSTGRES_PORT")
 	user := os.Getenv("POSTGRES_USER")
@@ -31,7 +32,21 @@ func GetPostgresClient(ctx context.Context) (*pgxpool.Pool, error) {
 	}
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, password, host, port, dbname)
-	return pgxpool.New(ctx, dsn)
+	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, err
+	}
+
+	sqlDB, err := gormDB.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetMaxOpenConns(20)
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
+
+	return gormDB, nil
 }
 
 func (s *PostgresService) GetSeshuJobs(ctx context.Context) ([]internal_types.SeshuJob, error) {
@@ -40,175 +55,51 @@ func (s *PostgresService) GetSeshuJobs(ctx context.Context) ([]internal_types.Se
 
 	targetUrl := ctx.Value("targetUrl").(string)
 
-	query := "SELECT * FROM seshujobs"
-	var args []interface{}
-	var conditions []string
-	argCount := 1
+	var jobs []internal_types.SeshuJob
+	query := s.DB.WithContext(ctx).Model(&internal_types.SeshuJob{})
 
 	if userId != "" {
-		conditions = append(conditions, fmt.Sprintf("owner_id = $%d", argCount))
-		args = append(args, userId)
-		argCount++
+		query = query.Where("owner_id = ?", userId)
 	}
 
 	if targetUrl != "" {
-		conditions = append(conditions, fmt.Sprintf("normalized_url_key = $%d", argCount))
-		args = append(args, targetUrl)
-		argCount++
+		query = query.Where("normalized_url_key = ?", targetUrl)
 	}
 
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	rows, err := s.DB.Query(ctx, query, args...)
-
-	if err != nil {
+	if err := query.Find(&jobs).Error; err != nil {
 		return nil, err
-	}
-
-	defer rows.Close()
-
-	var jobs []internal_types.SeshuJob
-
-	for rows.Next() {
-		var job internal_types.SeshuJob
-
-		err := rows.Scan(
-			&job.NormalizedUrlKey,
-			&job.LocationLatitude,
-			&job.LocationLongitude,
-			&job.LocationAddress,
-			&job.ScheduledHour,
-			&job.TargetNameCSSPath,
-			&job.TargetLocationCSSPath,
-			&job.TargetStartTimeCSSPath,
-			&job.TargetEndTimeCSSPath,
-			&job.TargetDescriptionCSSPath,
-			&job.TargetHrefCSSPath,
-			&job.Status,
-			&job.LastScrapeSuccess,
-			&job.LastScrapeFailure,
-			&job.LastScrapeFailureCount,
-			&job.OwnerID,
-			&job.KnownScrapeSource,
-			&job.LocationTimezone,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		jobs = append(jobs, job)
 	}
 
 	return jobs, nil
 }
 
 func (s *PostgresService) CreateSeshuJob(ctx context.Context, job internal_types.SeshuJob) error {
-	_, err := s.DB.Exec(ctx, `
-		INSERT INTO seshujobs (
-			normalized_url_key, location_latitude, location_longitude, location_address,
-			scheduled_hour, target_name_css_path, target_location_css_path,
-			target_start_time_css_path, target_end_time_css_path, target_description_css_path, target_href_css_path,
-			status, last_scrape_success, last_scrape_failure, last_scrape_failure_count,
-			owner_id, known_scrape_source, location_timezone
-		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7,
-			$8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
-		)`,
-		job.NormalizedUrlKey, job.LocationLatitude, job.LocationLongitude, job.LocationAddress,
-		job.ScheduledHour,
-		job.TargetNameCSSPath, job.TargetLocationCSSPath, job.TargetStartTimeCSSPath,
-		job.TargetEndTimeCSSPath, job.TargetDescriptionCSSPath, job.TargetHrefCSSPath,
-		job.Status,
-		job.LastScrapeSuccess,
-		job.LastScrapeFailure,
-		job.LastScrapeFailureCount, job.OwnerID, job.KnownScrapeSource,
-		job.LocationTimezone,
-	)
-	return err
+	return s.DB.WithContext(ctx).Create(&job).Error
 }
 
 func (s *PostgresService) UpdateSeshuJob(ctx context.Context, job internal_types.SeshuJob) error {
-	_, err := s.DB.Exec(ctx, `
-		UPDATE seshujobs SET
-			location_latitude = $1,
-			location_longitude = $2,
-			location_address = $3,
-			scheduled_hour = $4,
-			target_name_css_path = $5,
-			target_location_css_path = $6,
-			target_start_time_css_path = $7,
-			target_end_time_css_path = $8,
-			target_description_css_path = $9,
-			target_href_css_path = $10,
-			status = $11,
-			last_scrape_success = $12,
-			last_scrape_failure = $13,
-			last_scrape_failure_count = $14,
-			owner_id = $15,
-			known_scrape_source = $16,
-			location_timezone = $17
-		WHERE normalized_url_key = $18
-	`,
-		job.LocationLatitude, job.LocationLongitude, job.LocationAddress,
-		job.ScheduledHour, job.TargetNameCSSPath, job.TargetLocationCSSPath,
-		job.TargetStartTimeCSSPath, job.TargetEndTimeCSSPath, job.TargetDescriptionCSSPath, job.TargetHrefCSSPath,
-		job.Status, job.LastScrapeSuccess, job.LastScrapeFailure,
-		job.LastScrapeFailureCount, job.OwnerID, job.KnownScrapeSource, job.NormalizedUrlKey, job.LocationTimezone, job.NormalizedUrlKey,
-	)
-	return err
+	return s.DB.WithContext(ctx).
+		Model(&internal_types.SeshuJob{}).
+		Where("normalized_url_key = ?", job.NormalizedUrlKey).
+		Select("*").
+		Updates(job).
+		Error
 }
 
 func (s *PostgresService) DeleteSeshuJob(ctx context.Context, id string) error {
-	_, err := s.DB.Exec(ctx, "DELETE FROM seshujobs WHERE normalized_url_key = $1", id)
-	return err
+	return s.DB.WithContext(ctx).
+		Where("normalized_url_key = ?", id).
+		Delete(&internal_types.SeshuJob{}).
+		Error
 }
 
 func (s *PostgresService) ScanSeshuJobsWithInHour(ctx context.Context, currentHour int) ([]internal_types.SeshuJob, error) {
-
-	rows, err := s.DB.Query(ctx, `
-		SELECT
-			normalized_url_key, location_latitude, location_longitude, location_address,
-			scheduled_hour , target_name_css_path, target_location_css_path,
-			target_start_time_css_path, target_end_time_css_path, target_description_css_path, target_href_css_path,
-			status, last_scrape_success, last_scrape_failure, last_scrape_failure_count,
-			owner_id, known_scrape_source, location_timezone
-		FROM seshujobs
-		WHERE scheduled_hour = $1
-	`, currentHour)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
 	var jobs []internal_types.SeshuJob
-	for rows.Next() {
-		var job internal_types.SeshuJob
-		err := rows.Scan(
-			&job.NormalizedUrlKey,
-			&job.LocationLatitude,
-			&job.LocationLongitude,
-			&job.LocationAddress,
-			&job.ScheduledHour,
-			&job.TargetNameCSSPath,
-			&job.TargetLocationCSSPath,
-			&job.TargetStartTimeCSSPath,
-			&job.TargetEndTimeCSSPath,
-			&job.TargetDescriptionCSSPath,
-			&job.TargetHrefCSSPath,
-			&job.Status,
-			&job.LastScrapeSuccess,
-			&job.LastScrapeFailure,
-			&job.LastScrapeFailureCount,
-			&job.OwnerID,
-			&job.KnownScrapeSource,
-			&job.LocationTimezone,
-		)
-		if err != nil {
-			return nil, err
-		}
-		jobs = append(jobs, job)
+	if err := s.DB.WithContext(ctx).
+		Where("scheduled_hour = ?", currentHour).
+		Find(&jobs).
+		Error; err != nil {
+		return nil, err
 	}
 
 	return jobs, nil
@@ -216,7 +107,11 @@ func (s *PostgresService) ScanSeshuJobsWithInHour(ctx context.Context, currentHo
 
 func (s *PostgresService) Close() error {
 	if s.DB != nil {
-		s.DB.Close()
+		sqlDB, err := s.DB.DB()
+		if err != nil {
+			return err
+		}
+		return sqlDB.Close()
 	}
 	return nil
 }

@@ -100,30 +100,34 @@ type SeshuSessionUpdate struct {
 }
 
 type SeshuJob struct {
-	NormalizedUrlKey              string  `json:"normalized_url_key" validate:"required"`
-	LocationLatitude              float64 `json:"location_latitude,omitempty"`
-	LocationLongitude             float64 `json:"location_longitude,omitempty"`
-	LocationAddress               string  `json:"location_address,omitempty"`
-	ScheduledHour                 int     `json:"scheduled_hour,omitempty" validate:"min=0,max=23"` // Hour of the day (0-23)
-	TargetNameCSSPath             string  `json:"target_name_css_path" validate:"required"`
-	TargetLocationCSSPath         string  `json:"target_location_css_path" validate:"required"`
-	TargetStartTimeCSSPath        string  `json:"target_start_time_css_path" validate:"required"`
-	TargetEndTimeCSSPath          string  `json:"target_end_time_css_path,omitempty"`
-	TargetDescriptionCSSPath      string  `json:"target_description_css_path,omitempty" validate:"required"`
-	TargetHrefCSSPath             string  `json:"target_href_css_path,omitempty" validate:"required"`
-	TargetChildNameCSSPath        string  `json:"target_child_name_css_path,omitempty"`
-	TargetChildLocationCSSPath    string  `json:"target_child_location_css_path,omitempty"`
-	TargetChildStartTimeCSSPath   string  `json:"target_child_start_time_css_path,omitempty"`
-	TargetChildEndTimeCSSPath     string  `json:"target_child_end_time_css_path,omitempty"`
-	TargetChildDescriptionCSSPath string  `json:"target_child_description_css_path,omitempty"`
-	IsRecursive                   bool    `json:"is_recursive,omitempty"`
-	Status                        string  `json:"status" validate:"required"` // e.g. "HEALTHY", "WARNING", "FAILING"
-	LastScrapeSuccess             int64   `json:"last_scrape_success,omitempty" validate:"required"`
-	LastScrapeFailure             int64   `json:"last_scrape_failure,omitempty" validate:"gte=0"`
-	LastScrapeFailureCount        int     `json:"last_scrape_failure_count" validate:"gte=0"`
-	OwnerID                       string  `json:"owner_id" validate:"required"`
-	KnownScrapeSource             string  `json:"known_scrape_source"` // e.g. "MEETUP", "EVENTBRITE", etc.
-	LocationTimezone              string  `json:"location_timezone,omitempty"`
+	NormalizedUrlKey              string  `json:"normalized_url_key" validate:"required" gorm:"column:normalized_url_key;primaryKey"`
+	LocationLatitude              float64 `json:"location_latitude,omitempty" gorm:"column:location_latitude"`
+	LocationLongitude             float64 `json:"location_longitude,omitempty" gorm:"column:location_longitude"`
+	LocationAddress               string  `json:"location_address,omitempty" gorm:"column:location_address"`
+	ScheduledHour                 int     `json:"scheduled_hour,omitempty" validate:"min=0,max=23" gorm:"column:scheduled_hour"` // Hour of the day (0-23)
+	TargetNameCSSPath             string  `json:"target_name_css_path" validate:"required" gorm:"column:target_name_css_path"`
+	TargetLocationCSSPath         string  `json:"target_location_css_path" validate:"required" gorm:"column:target_location_css_path"`
+	TargetStartTimeCSSPath        string  `json:"target_start_time_css_path" validate:"required" gorm:"column:target_start_time_css_path"`
+	TargetEndTimeCSSPath          string  `json:"target_end_time_css_path,omitempty" gorm:"column:target_end_time_css_path"`
+	TargetDescriptionCSSPath      string  `json:"target_description_css_path,omitempty" validate:"required" gorm:"column:target_description_css_path"`
+	TargetHrefCSSPath             string  `json:"target_href_css_path,omitempty" validate:"required" gorm:"column:target_href_css_path"`
+	TargetChildNameCSSPath        string  `json:"target_child_name_css_path,omitempty" gorm:"column:target_child_name_css_path"`
+	TargetChildLocationCSSPath    string  `json:"target_child_location_css_path,omitempty" gorm:"column:target_child_location_css_path"`
+	TargetChildStartTimeCSSPath   string  `json:"target_child_start_time_css_path,omitempty" gorm:"column:target_child_start_time_css_path"`
+	TargetChildEndTimeCSSPath     string  `json:"target_child_end_time_css_path,omitempty" gorm:"column:target_child_end_time_css_path"`
+	TargetChildDescriptionCSSPath string  `json:"target_child_description_css_path,omitempty" gorm:"column:target_child_description_css_path"`
+	IsRecursive                   bool    `json:"is_recursive,omitempty" gorm:"column:is_recursive"`
+	Status                        string  `json:"status" validate:"required" gorm:"column:status"` // e.g. "HEALTHY", "WARNING", "FAILING"
+	LastScrapeSuccess             int64   `json:"last_scrape_success,omitempty" validate:"required" gorm:"column:last_scrape_success"`
+	LastScrapeFailure             int64   `json:"last_scrape_failure,omitempty" validate:"gte=0" gorm:"column:last_scrape_failure"`
+	LastScrapeFailureCount        int     `json:"last_scrape_failure_count" validate:"gte=0" gorm:"column:last_scrape_failure_count"`
+	OwnerID                       string  `json:"owner_id" validate:"required" gorm:"column:owner_id"`
+	KnownScrapeSource             string  `json:"known_scrape_source" gorm:"column:known_scrape_source"` // e.g. "MEETUP", "EVENTBRITE", etc.
+	LocationTimezone              string  `json:"location_timezone,omitempty" gorm:"column:location_timezone"`
+}
+
+func (SeshuJob) TableName() string {
+	return "seshujobs"
 }
 
 func (s *SeshuSession) ApplyDefaults() {
