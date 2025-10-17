@@ -369,6 +369,15 @@ func GetUserMetadataByKey(userID, key string) (string, error) {
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		var respData map[string]interface{}
+		if err := json.Unmarshal(body, &respData); err != nil {
+			return "", err
+		}
+		return "", fmt.Errorf("failed to get user metadata: %s, reason: %s", res.Status, respData)
+	}
+
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", err

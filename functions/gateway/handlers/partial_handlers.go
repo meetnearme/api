@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -61,6 +62,12 @@ type SetMnmOptionsRequestPayload struct {
 
 type UpdateUserAboutRequestPayload struct {
 	About string `json:"about" validate:"required"`
+}
+
+type UpdateUserLocationRequestPayload struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	City      string  `json:"loc-search"`
 }
 
 type eventSearchResult struct {
@@ -1223,6 +1230,53 @@ func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	var inputPayload UpdateUserLocationRequestPayload
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	err = json.Unmarshal([]byte(body), &inputPayload)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
+	}
+	ctx := r.Context()
+	userInfo := ctx.Value("userInfo").(constants.UserInfo)
+	userID := userInfo.Sub
+
+	err = helpers.UpdateUserMetadataKey(userID, "latitude", strconv.FormatFloat(inputPayload.Latitude, 'f', -1, 64))
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to update latitude: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	err = helpers.UpdateUserMetadataKey(userID, "longitude", strconv.FormatFloat(inputPayload.Longitude, 'f', -1, 64))
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to update longitude: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	err = helpers.UpdateUserMetadataKey(userID, "city", inputPayload.City)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to update 'city' field: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	var buf bytes.Buffer
+	city, getErr := helpers.GetUserMetadataByKey(userID, "city")
+	cityStr, _ := base64.StdEncoding.DecodeString(city)
+	log.Printf("city is saved as %s and err %s", cityStr, getErr)
+
+	latitude, getErr2 := helpers.GetUserMetadataByKey(userID, "latitude")
+	latitudeStr, _ := base64.StdEncoding.DecodeString(latitude)
+	log.Printf("latitude is saved as %s and err %s", latitudeStr, getErr2)
+
+	longitude, getErr2 := helpers.GetUserMetadataByKey(userID, "latitude")
+	longitudeStr, _ := base64.StdEncoding.DecodeString(longitude)
+	log.Printf("longitude is saved as %s and err %s", longitudeStr, getErr2)
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
