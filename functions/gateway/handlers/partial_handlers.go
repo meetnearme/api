@@ -831,7 +831,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			}
 		}
 
-		var scheduledHour = time.Now().UTC().Hour() - 1 // will not immediately scrape, wait for a day after
+		var scheduledHour = (time.Now().UTC().Hour() + 23) % 24
 
 		if anchorEvent != nil {
 			// Find the DOM paths for the main event
@@ -1036,7 +1036,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				return
 			}
 
-			extractedEvents, _, err := services.ExtractEventsFromHTML(seshuJob, constants.SESHU_MODE_SCRAPE, "init", &services.RealScrapingService{})
+			extractedEvents, _, err := services.ExtractEventsFromHTML(seshuJob, constants.SESHU_MODE_SCRAPE, "init", &services.RealScrapingService{}) // change this with rs
 			if err != nil {
 				log.Printf("Failed to extract events from %s: %v", seshuJob.NormalizedUrlKey, err)
 			}
