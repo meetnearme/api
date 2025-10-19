@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"github.com/meetnearme/api/functions/gateway/constants"
+	"gorm.io/gorm"
 )
 
 type EventInfo struct {
@@ -126,86 +127,65 @@ type SeshuJob struct {
 	LocationTimezone              string  `json:"location_timezone,omitempty" gorm:"column:location_timezone"`
 }
 
-func (SeshuJob) TableName() string {
-	return "seshujobs"
+type Locatable interface {
+	GetLocationLatitude() float64
+	GetLocationLongitude() float64
+	SetLocationLatitude(lat float64)
+	SetLocationLongitude(lng float64)
 }
 
-func (s *SeshuSession) ApplyDefaults() {
-	if s == nil {
-		return
-	}
+func (s *SeshuSession) GetLocationLatitude() float64     { return s.LocationLatitude }
+func (s *SeshuSession) GetLocationLongitude() float64    { return s.LocationLongitude }
+func (s *SeshuSession) SetLocationLatitude(lat float64)  { s.LocationLatitude = lat }
+func (s *SeshuSession) SetLocationLongitude(lng float64) { s.LocationLongitude = lng }
 
-	if s.LocationLatitude == 0 {
-		s.LocationLatitude = constants.INITIAL_EMPTY_LAT_LONG
-	}
+func (s *SeshuSessionInsert) GetLocationLatitude() float64     { return s.LocationLatitude }
+func (s *SeshuSessionInsert) GetLocationLongitude() float64    { return s.LocationLongitude }
+func (s *SeshuSessionInsert) SetLocationLatitude(lat float64)  { s.LocationLatitude = lat }
+func (s *SeshuSessionInsert) SetLocationLongitude(lng float64) { s.LocationLongitude = lng }
 
-	if s.LocationLongitude == 0 {
-		s.LocationLongitude = constants.INITIAL_EMPTY_LAT_LONG
+func (s *SeshuSessionUpdate) GetLocationLatitude() float64 {
+	if s.LocationLatitude == nil {
+		return 0
 	}
-
-	if s.EventCandidates == nil {
-		s.EventCandidates = []EventInfo{}
-	}
-
-	if s.EventValidations == nil {
-		s.EventValidations = []EventBoolValid{}
-	}
+	return *s.LocationLatitude
 }
 
-func (s *SeshuSessionInput) ApplyDefaults() {
-	if s == nil {
-		return
+func (s *SeshuSessionUpdate) GetLocationLongitude() float64 {
+	if s.LocationLongitude == nil {
+		return 0
 	}
-	s.SeshuSession.ApplyDefaults()
+	return *s.LocationLongitude
 }
 
-func (s *SeshuSessionInsert) ApplyDefaults() {
-	if s == nil {
-		return
-	}
-
-	if s.LocationLatitude == 0 {
-		s.LocationLatitude = constants.INITIAL_EMPTY_LAT_LONG
-	}
-
-	if s.LocationLongitude == 0 {
-		s.LocationLongitude = constants.INITIAL_EMPTY_LAT_LONG
-	}
-
-	if s.EventCandidates == nil {
-		s.EventCandidates = []EventInfo{}
-	}
-
-	if s.EventValidations == nil {
-		s.EventValidations = []EventBoolValid{}
-	}
+func (s *SeshuSessionUpdate) SetLocationLatitude(lat float64) {
+	s.LocationLatitude = &lat
 }
 
-func (s *SeshuSessionUpdate) ApplyDefaults() {
-	if s == nil {
-		return
-	}
-
-	if s.LocationLatitude != nil && *s.LocationLatitude == 0 {
-		value := constants.INITIAL_EMPTY_LAT_LONG
-		s.LocationLatitude = &value
-	}
-
-	if s.LocationLongitude != nil && *s.LocationLongitude == 0 {
-		value := constants.INITIAL_EMPTY_LAT_LONG
-		s.LocationLongitude = &value
-	}
+func (s *SeshuSessionUpdate) SetLocationLongitude(lng float64) {
+	s.LocationLongitude = &lng
 }
 
-func (j *SeshuJob) ApplyDefaults() {
-	if j == nil {
-		return
-	}
-	if j.LocationLatitude == 0 {
+func (j *SeshuJob) GetLocationLatitude() float64     { return j.LocationLatitude }
+func (j *SeshuJob) GetLocationLongitude() float64    { return j.LocationLongitude }
+func (j *SeshuJob) SetLocationLatitude(lat float64)  { j.LocationLatitude = lat }
+func (j *SeshuJob) SetLocationLongitude(lng float64) { j.LocationLongitude = lng }
+
+// Ensures defaults are set before creating a new record
+// GORM automatically invokes these hooks
+func (j *SeshuJob) BeforeCreate(tx *gorm.DB) (err error) {
+	if j.LocationLatitude == 0 && j.LocationLongitude == 0 {
 		j.LocationLatitude = constants.INITIAL_EMPTY_LAT_LONG
-	}
-	if j.LocationLongitude == 0 {
 		j.LocationLongitude = constants.INITIAL_EMPTY_LAT_LONG
 	}
+	return nil
+}
 
+// BeforeSave is called both for create and update, ensuring consistency
+func (j *SeshuJob) BeforeSave(tx *gorm.DB) (err error) {
+	if j.LocationLatitude == 0 && j.LocationLongitude == 0 {
+		j.LocationLatitude = constants.INITIAL_EMPTY_LAT_LONG
+		j.LocationLongitude = constants.INITIAL_EMPTY_LAT_LONG
+	}
+	return nil
 }
