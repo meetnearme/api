@@ -658,7 +658,7 @@ func normalizeEventInfo(
 		return internal_types.EventInfo{}, fmt.Errorf("date string is empty")
 	}
 
-	startTimeRFC3339, err := ParseMaybeMultiDayEvent(dateStr)
+	startTime, err := ParseMaybeMultiDayEvent(dateStr)
 	if err != nil {
 		return internal_types.EventInfo{}, fmt.Errorf("failed to parse date string: %s: error: %w", dateStr, err)
 	}
@@ -677,7 +677,7 @@ func normalizeEventInfo(
 	evt := internal_types.EventInfo{
 		EventTitle:       title,
 		EventLocation:    location,
-		EventStartTime:   startTimeRFC3339, // Use parsed RFC3339 time
+		EventStartTime:   startTime, // Use parsed start time
 		EventURL:         url,
 		EventDescription: description,
 		EventTimezone:    "", // Will be resolved later via coordinates
