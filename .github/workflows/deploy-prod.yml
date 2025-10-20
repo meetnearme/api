@@ -175,7 +175,8 @@ jobs:
       - name: Send .env file to ACT server
         run: |
           # Setup SSH key
-          echo "${{ secrets._PROD_ACT_SSH_KEY }}" > ssh_key
+          # TODO: separate SSH key for prod and dev
+          echo "${{ secrets._DEV_ACT_SSH_KEY }}" > ssh_key
           chmod 600 ssh_key
 
           # Create remote directory if it doesn't exist
