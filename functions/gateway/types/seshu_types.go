@@ -127,6 +127,13 @@ type SeshuJob struct {
 	LocationTimezone              string  `json:"location_timezone,omitempty" gorm:"column:location_timezone"`
 }
 
+// TableName tells GORM the exact table name to use for SeshuJob.
+// The existing DB uses the singular/concatenated name `seshujobs` (see seshujobs_init.sql),
+// while GORM's default pluralization would look for `seshu_jobs` which causes "relation does not exist" errors.
+func (SeshuJob) TableName() string {
+	return "seshujobs"
+}
+
 type Locatable interface {
 	GetLocationLatitude() float64
 	GetLocationLongitude() float64
