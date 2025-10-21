@@ -721,16 +721,13 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 		body, _ := io.ReadAll(res.Body)
 		var respData map[string]interface{}
 		if err := json.Unmarshal(body, &respData); err != nil {
+			log.Println("error unmarshaling json: ", err)
 			return err
 		}
 		return fmt.Errorf("failed to update user metadata: %s, reason: %s", res.Status, respData)
 	}
 	defer res.Body.Close()
 
-	if err != nil {
-		log.Println(err)
-		return err
-	}
 	return nil
 }
 
