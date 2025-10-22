@@ -352,21 +352,28 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 								>
 									Apply Filters
 								</button>
-								<dialog id="update-location-modal" class="modal modal-bottom sm:modal-middle bg-base-100 bg-opacity-90">
-									<div class="modal-box relative">
-										Do you want to save this as your default location?
-										<div class="modal-action">
+								<dialog id="update-location-modal" class="modal modal-bottom md:modal-middle bg-base-100 bg-opacity-90">
+									<div class="modal-box border-2 border-secondary relative">
+										<span x-show="!savingLocation">
+											Do you want to save <span x-text="Alpine.store('location').selected.label"></span> as your default location?
+										</span>
+										<div class="modal-action gap-4" x-show="!savingLocation">
 											<button
 												class="btn btn-primary w-1/5"
 												hx-post="api/auth/users/update-location"
 												hx-ext="json-enc"
 												hx-vals='js:{"latitude": Alpine.store("location").selected.latitude, "longitude": Alpine.store("location").selected.longitude, "city": Alpine.store("location").selected.label}'
-												onclick="document.getElementById('update-location-modal').close()"
+												@click="savingLocation = true"
+												hx-swap="none"
 											>Yes</button>
 											<button
 												class="btn btn-secondary btn-outline w-1/5"
 												onclick="document.getElementById('update-location-modal').close()"
 											>No</button>
+										</div>
+										<div x-show="savingLocation" class="mt-4 text-center">
+											<span class="loading loading-spinner loading-md text-primary"></span>
+											<p class="text-sm text-base-content mt-2">Saving <span x-text="Alpine.store('location').selected.label"></span> as your default location...</p>
 										</div>
 										<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick="document.getElementById('update-location-modal').close()">
 											@Icon("close")

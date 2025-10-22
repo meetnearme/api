@@ -1180,9 +1180,32 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							// Update every 5 seconds
 							setInterval(updatePlaceholder, 2500)
 						}
+
+						// Add HTMX event listeners for location saving
+						document.addEventListener('htmx:beforeRequest', (event) => {
+							if (event.detail.elt.getAttribute('hx-post') === 'api/auth/users/update-location') {
+								this.savingLocation = true;
+							}
+						});
+
+						document.addEventListener('htmx:afterRequest', (event) => {
+							if (event.detail.elt.getAttribute('hx-post') === 'api/auth/users/update-location') {
+								if (event.detail.xhr.status === 200) {
+									// Success - add delay then close modal
+									setTimeout(() => {
+										document.getElementById('update-location-modal').close();
+										this.savingLocation = false;
+									}, 1);
+								} else {
+									// Error - reset loading state
+									this.savingLocation = false;
+								}
+							}
+						});
 					},
 					radius: null,
 					locationDropdown: null,
+					savingLocation: false,
 					sendCategoriesToQueryParams() {
 						const form = document.getElementById('category-search-form')
 						// Collect form values
@@ -1199,7 +1222,25 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						// Commit categories to URL (triggers syncFromURL automatically)
 						Alpine.store('urlState').setParam('categories', categoriesString)
 					},
-					handleFilterSubmit() {
+					async handleFilterSubmit() {
+
+						let currentCity = ''
+						try {
+								const response = await fetch('/api/auth/users/city');
+								if (response.ok) {
+										const data = await response.json();
+										if (data.city && data.city.trim() !== '') {
+												currentCity = data.city;
+										}
+								}
+						} catch (error) {
+								currentCity = ''
+						}
+
+						if (currentCity != this.locationDropdown.label) {
+							document.getElementById('update-location-modal').showModal();
+						}
+
 						// Commit all draft changes to URL state
 						this.sendCategoriesToQueryParams();
 
@@ -1217,7 +1258,6 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 
 						// close the drawer
 						document.getElementById('main-drawer').click();
-            document.getElementById('update-location-modal').showModal();
 					},
 				}
 			}
