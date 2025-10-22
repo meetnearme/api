@@ -1181,7 +1181,6 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							setInterval(updatePlaceholder, 2500)
 						}
 
-						// Add HTMX event listeners for location saving
 						document.addEventListener('htmx:beforeRequest', (event) => {
 							if (event.detail.elt.getAttribute('hx-post') === 'api/auth/users/update-location') {
 								this.savingLocation = true;
@@ -1191,13 +1190,11 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						document.addEventListener('htmx:afterRequest', (event) => {
 							if (event.detail.elt.getAttribute('hx-post') === 'api/auth/users/update-location') {
 								if (event.detail.xhr.status === 200) {
-									// Success - add delay then close modal
 									setTimeout(() => {
 										document.getElementById('update-location-modal').close();
 										this.savingLocation = false;
 									}, 1);
 								} else {
-									// Error - reset loading state
 									this.savingLocation = false;
 								}
 							}
