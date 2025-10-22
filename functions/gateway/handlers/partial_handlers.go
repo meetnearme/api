@@ -67,7 +67,7 @@ type UpdateUserAboutRequestPayload struct {
 type UpdateUserLocationRequestPayload struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
-	City      string  `json:"loc-search"`
+	City      string  `json:"city"`
 }
 
 type eventSearchResult struct {
@@ -1250,33 +1250,37 @@ func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	userInfo := ctx.Value("userInfo").(constants.UserInfo)
 	userID := userInfo.Sub
 
-	err = helpers.UpdateUserMetadataKey(userID, "latitude", strconv.FormatFloat(inputPayload.Latitude, 'f', -1, 64))
+	err = helpers.UpdateUserMetadataKey(userID, constants.META_LATITUDE_KEY, strconv.FormatFloat(inputPayload.Latitude, 'f', -1, 64))
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to update latitude: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	err = helpers.UpdateUserMetadataKey(userID, "longitude", strconv.FormatFloat(inputPayload.Longitude, 'f', -1, 64))
+	err = helpers.UpdateUserMetadataKey(userID, constants.META_LONGITUDE_KEY, strconv.FormatFloat(inputPayload.Longitude, 'f', -1, 64))
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to update longitude: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	err = helpers.UpdateUserMetadataKey(userID, "city", inputPayload.City)
+	err = helpers.UpdateUserMetadataKey(userID, constants.META_CITY_KEY, inputPayload.City)
 	if err != nil {
+		log.Printf("There's an error updating city: %s", inputPayload.City)
+		city, cityErr := helpers.GetUserMetadataByKey(userID, constants.META_CITY_KEY)
+		cityStr, decodingErr := base64.StdEncoding.DecodeString(city)
+		log.Printf("city is saved as %s and err %s with decoding err %s", cityStr, cityErr, decodingErr)
 		return transport.SendHtmlErrorPartial([]byte("Failed to update 'city' field: "+err.Error()), http.StatusInternalServerError)
 	}
 
 	var buf bytes.Buffer
-	city, getErr := helpers.GetUserMetadataByKey(userID, "city")
-	cityStr, _ := base64.StdEncoding.DecodeString(city)
-	log.Printf("city is saved as %s and err %s", cityStr, getErr)
+	city, cityErr := helpers.GetUserMetadataByKey(userID, constants.META_CITY_KEY)
+	cityStr, decodingErr := base64.StdEncoding.DecodeString(city)
+	log.Printf("city is saved %s or decoded: %s and err %s with decoding err %s", city, cityStr, cityErr, decodingErr)
 
-	latitude, getErr2 := helpers.GetUserMetadataByKey(userID, "latitude")
+	latitude, latErr := helpers.GetUserMetadataByKey(userID, constants.META_LATITUDE_KEY)
 	latitudeStr, _ := base64.StdEncoding.DecodeString(latitude)
-	log.Printf("latitude is saved as %s and err %s", latitudeStr, getErr2)
+	log.Printf("latitude is saved as %s and err %s", latitudeStr, latErr)
 
-	longitude, getErr2 := helpers.GetUserMetadataByKey(userID, "latitude")
+	longitude, lonErr := helpers.GetUserMetadataByKey(userID, constants.META_LONGITUDE_KEY)
 	longitudeStr, _ := base64.StdEncoding.DecodeString(longitude)
-	log.Printf("longitude is saved as %s and err %s", longitudeStr, getErr2)
+	log.Printf("longitude is saved as %s and err %s", longitudeStr, lonErr)
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }

@@ -846,8 +846,8 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					this.isLoading = true;
 					this.locationAccessDeclined = false;
 					this.cityNotFound = false;
-					const latitude = position.coords.latitude.toFixed(3);
-					const longitude = position.coords.longitude.toFixed(3);
+					const latitude = position.coords.latitude.toFixed(2);
+					const longitude = position.coords.longitude.toFixed(2);
 					const query = `lat=${latitude}&lon=${longitude}`
 					fetch(`/api/location/city?${query}`)
 					.then(async (response) => {
@@ -860,8 +860,8 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						if (data.city != "") {
 							this.selectedOption = {
 								label: data.city,
-								latitude: latitude,
-								longitude: longitude,
+								latitude: parseFloat(latitude),
+								longitude: parseFloat(longitude),
 							}
 							// changing the locationDropdown triggers the url params to update
 							this.locationDropdown = this.selectedOption
@@ -1217,6 +1217,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 
 						// close the drawer
 						document.getElementById('main-drawer').click();
+            document.getElementById('update-location-modal').showModal();
 					},
 				}
 			}

@@ -352,6 +352,27 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 								>
 									Apply Filters
 								</button>
+								<dialog id="update-location-modal" class="modal modal-bottom sm:modal-middle bg-base-100 bg-opacity-90">
+									<div class="modal-box relative">
+										Do you want to save this as your default location?
+										<div class="modal-action">
+											<button
+												class="btn btn-primary w-1/5"
+												hx-post="api/auth/users/update-location"
+												hx-ext="json-enc"
+												hx-vals='js:{"latitude": Alpine.store("location").selected.latitude, "longitude": Alpine.store("location").selected.longitude, "city": Alpine.store("location").selected.label}'
+												onclick="document.getElementById('update-location-modal').close()"
+											>Yes</button>
+											<button
+												class="btn btn-secondary btn-outline w-1/5"
+												onclick="document.getElementById('update-location-modal').close()"
+											>No</button>
+										</div>
+										<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick="document.getElementById('update-location-modal').close()">
+											@Icon("close")
+										</button>
+									</div>
+								</dialog>
 								// Source: https://www.penguinui.com/components/combobox
 								<div x-data="getLocationSearchState()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
 									<h3 class="text-xl my-3">
