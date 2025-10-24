@@ -170,3 +170,48 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		services.HandleLogout(w, r)
 	}
 }
+
+func HandleRefresh(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get the refresh token from cookies
+		refreshTokenCookie, err := r.Cookie(constants.MNM_REFRESH_TOKEN_COOKIE_NAME)
+		if err != nil {
+			log.Printf("Refresh endpoint: missing refresh token cookie: %v", err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Call the refresh service to get new tokens from Zitadel
+		tokens, err := services.RefreshAccessToken(refreshTokenCookie.Value)
+		if err != nil {
+			log.Printf("Refresh endpoint: failed to refresh access token: %v", err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Extract and set the new access token
+		newAccessToken, ok := tokens["access_token"].(string)
+		if !ok {
+			log.Printf("Refresh endpoint: failed to get access token from response: %+v", tokens)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Set the new access token cookie
+		services.SetSubdomainCookie(w, constants.MNM_ACCESS_TOKEN_COOKIE_NAME, newAccessToken, false, 0)
+
+		// Update refresh token if provided in response
+		if newRefreshToken, ok := tokens["refresh_token"].(string); ok {
+			services.SetSubdomainCookie(w, constants.MNM_REFRESH_TOKEN_COOKIE_NAME, newRefreshToken, false, 0)
+		}
+
+		// Update ID token if provided in response
+		if newIdToken, ok := tokens["id_token"].(string); ok {
+			services.SetSubdomainCookie(w, constants.MNM_ID_TOKEN_COOKIE_NAME, newIdToken, false, 0)
+		}
+
+		// Return success response
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success": true}`))
+	}
+}
