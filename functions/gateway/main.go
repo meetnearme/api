@@ -64,7 +64,7 @@ func (app *App) InitRoutes() []Route {
 	return []Route{
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
-		{"/auth/refresh", "POST", handlers.HandleRefresh, Require},
+		{"/auth/refresh", "GET", handlers.HandleRefresh, Require},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
 		{constants.SitePages["home"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
 		{constants.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
