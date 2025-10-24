@@ -1092,3 +1092,14 @@ func ExtractBaseDomain(rawURL string) (string, error) {
 
 	return host, nil
 }
+
+// EnsureValidCoordinates ensures lat/lon default to 9e+10 if unset (0)
+func EnsureValidCoordinates(loc types.Locatable) {
+	lat := loc.GetLocationLatitude()
+	lng := loc.GetLocationLongitude()
+
+	if lat == 0 && lng == 0 {
+		loc.SetLocationLatitude(constants.INITIAL_EMPTY_LAT_LONG)
+		loc.SetLocationLongitude(constants.INITIAL_EMPTY_LAT_LONG)
+	}
+}
