@@ -6,21 +6,21 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
 func TestEventAttendeesPage(t *testing.T) {
 	tests := []struct {
 		name     string
-		pageObj  helpers.SitePage
+		pageObj  constants.SitePage
 		event    types.Event
 		isEditor bool
 		expected []string
 	}{
 		{
 			name: "Empty event shows 404",
-			pageObj: helpers.SitePage{
+			pageObj: constants.SitePage{
 				Name: "Event Attendees",
 			},
 			event:    types.Event{},
@@ -31,7 +31,7 @@ func TestEventAttendeesPage(t *testing.T) {
 		},
 		{
 			name: "Valid event with purchasable items",
-			pageObj: helpers.SitePage{
+			pageObj: constants.SitePage{
 				Name: "Event Attendees",
 			},
 			event: types.Event{
@@ -51,7 +51,7 @@ func TestEventAttendeesPage(t *testing.T) {
 		},
 		{
 			name: "Valid event with both purchasable and registration fields",
-			pageObj: helpers.SitePage{
+			pageObj: constants.SitePage{
 				Name: "Event Attendees",
 			},
 			event: types.Event{

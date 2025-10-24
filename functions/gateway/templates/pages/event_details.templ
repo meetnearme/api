@@ -2,19 +2,52 @@ package pages
 
 import (
 	"fmt"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 )
+
+templ Icon(icon string) {
+	switch icon {
+		case "community":
+			<svg width="28" height="28" viewBox="0 0 28 28" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+				<g id="Product-Icons" stroke="none" stroke-width="1" fill="currentColor" fill-rule="evenodd">
+					<g id="ic_fluent_people_community_28_filled" fill="currentColor" fill-rule="nonzero">
+						<path d="M17.75,18 C18.7164983,18 19.5,18.7835017 19.5,19.75 L19.5,21.7519766 L19.4921156,21.8604403 C19.1813607,23.9866441 17.2715225,25.0090369 14.0667905,25.0090369 C10.8736123,25.0090369 8.93330141,23.9983408 8.51446278,21.8965776 L8.5,21.75 L8.5,19.75 C8.5,18.7835017 9.28350169,18 10.25,18 L17.75,18 Z M18.2439108,11.9999135 L24.25,12 C25.2164983,12 26,12.7835017 26,13.75 L26,15.7519766 L25.9921156,15.8604403 C25.6813607,17.9866441 23.7715225,19.0090369 20.5667905,19.0090369 L20.3985759,19.007437 C20.0900029,17.9045277 19.1110503,17.0815935 17.9288034,17.0057197 L17.75,17 L16.8277704,17.0007255 C17.8477843,16.1757619 18.5,14.9140475 18.5,13.5 C18.5,12.9740145 18.4097576,12.4691063 18.2439108,11.9999135 Z M3.75,12 L9.75608915,11.9999135 C9.59024243,12.4691063 9.5,12.9740145 9.5,13.5 C9.5,14.8308682 10.0777413,16.0267978 10.996103,16.8506678 L11.1722296,17.0007255 L10.25,17 C8.9877951,17 7.92420242,17.85036 7.60086562,19.0094363 L7.5667905,19.0090369 C4.37361228,19.0090369 2.43330141,17.9983408 2.01446278,15.8965776 L2,15.75 L2,13.75 C2,12.7835017 2.78350169,12 3.75,12 Z M14,10 C15.9329966,10 17.5,11.5670034 17.5,13.5 C17.5,15.4329966 15.9329966,17 14,17 C12.0670034,17 10.5,15.4329966 10.5,13.5 C10.5,11.5670034 12.0670034,10 14,10 Z M20.5,4 C22.4329966,4 24,5.56700338 24,7.5 C24,9.43299662 22.4329966,11 20.5,11 C18.5670034,11 17,9.43299662 17,7.5 C17,5.56700338 18.5670034,4 20.5,4 Z M7.5,4 C9.43299662,4 11,5.56700338 11,7.5 C11,9.43299662 9.43299662,11 7.5,11 C5.56700338,11 4,9.43299662 4,7.5 C4,5.56700338 5.56700338,4 7.5,4 Z"></path>
+					</g>
+				</g>
+			</svg>
+		case "link":
+			@components.Icon("link")
+		case "location":
+			@components.Icon("location-filled")
+		case "calendar":
+			<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<path d="M17 2H16V1C16 0.4 15.6 0 15 0C14.4 0 14 0.4 14 1V2H6V1C6 0.4 5.6 0 5 0C4.4 0 4 0.4 4 1V2H3C1.3 2 0 3.3 0 5V6H20V5C20 3.3 18.7 2 17 2ZM0 17C0 18.7 1.3 20 3 20H17C18.7 20 20 18.7 20 17V8H0V17ZM15 10C15.6 10 16 10.4 16 11C16 11.6 15.6 12 15 12C14.4 12 14 11.6 14 11C14 10.4 14.4 10 15 10ZM15 14C15.6 14 16 14.4 16 15C16 15.6 15.6 16 15 16C14.4 16 14 15.6 14 15C14 14.4 14.4 14 15 14ZM10 10C10.6 10 11 10.4 11 11C11 11.6 10.6 12 10 12C9.4 12 9 11.6 9 11C9 10.4 9.4 10 10 10ZM10 14C10.6 14 11 14.4 11 15C11 15.6 10.6 16 10 16C9.4 16 9 15.6 9 15C9 14.4 9.4 14 10 14ZM5 10C5.6 10 6 10.4 6 11C6 11.6 5.6 12 5 12C4.4 12 4 11.6 4 11C4 10.4 4.4 10 5 10ZM5 14C5.6 14 6 14.4 6 15C6 15.6 5.6 16 5 16C4.4 16 4 15.6 4 15C4 14.4 4.4 14 5 14Z" fill="currentColor"></path>
+			</svg>
+		case "clock":
+			<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+				<path d="M12 1C9.82441 1 7.69767 1.64514 5.88873 2.85383C4.07979 4.06253 2.66989 5.78049 1.83733 7.79048C1.00477 9.80047 0.786929 12.0122 1.21137 14.146C1.6358 16.2798 2.68345 18.2398 4.22183 19.7782C5.76021 21.3166 7.72022 22.3642 9.85401 22.7886C11.9878 23.2131 14.1995 22.9952 16.2095 22.1627C18.2195 21.3301 19.9375 19.9202 21.1462 18.1113C22.3549 16.3023 23 14.1756 23 12C23 9.08262 21.8411 6.28473 19.7782 4.22183C17.7153 2.15893 14.9174 1 12 1ZM16 13H12C11.7348 13 11.4804 12.8946 11.2929 12.7071C11.1054 12.5196 11 12.2652 11 12V6C11 5.73478 11.1054 5.48043 11.2929 5.29289C11.4804 5.10536 11.7348 5 12 5C12.2652 5 12.5196 5.10536 12.7071 5.29289C12.8946 5.48043 13 5.73478 13 6V11H16C16.2652 11 16.5196 11.1054 16.7071 11.2929C16.8946 11.4804 17 11.7348 17 12C17 12.2652 16.8946 12.5196 16.7071 12.7071C16.5196 12.8946 16.2652 13 16 13Z"></path>
+			</svg>
+		case "price":
+			<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+				<path d="M24 0H0.5V23.5H24V0Z" fill="none"></path>
+				<path fill-rule="evenodd" clip-rule="evenodd" d="M0.5 11.75C0.5 18.2125 5.7875 23.5 12.25 23.5C18.7125 23.5 24 18.2125 24 11.75C24 5.2875 18.7125 0 12.25 0C5.7875 0 0.5 5.2875 0.5 11.75ZM12.2502 19.5834C11.6627 19.5834 11.271 19.1917 11.271 18.6042V17.5144C9.5866 17.1265 8.3335 15.7667 8.3335 14.198C8.3335 13.9043 8.3335 13.7084 8.43141 13.5126C8.52933 13.023 9.11683 12.6313 9.60641 12.8272C10.096 12.9251 10.4877 13.5126 10.2918 14.0022V14.2959C10.2918 14.9816 10.9671 15.5923 11.8578 15.7338C11.975 15.69 12.1068 15.6667 12.2502 15.6667C12.3936 15.6667 12.5253 15.69 12.6425 15.7338C13.5333 15.5923 14.2085 14.9816 14.2085 14.2959V14.0022C14.0127 13.3168 13.2293 12.8272 12.2502 12.8272C12.0491 12.8272 11.871 12.7813 11.7237 12.6974C10.1 12.5001 8.78551 11.4039 8.43141 9.9875C8.3335 9.79167 8.3335 9.59583 8.3335 9.30208C8.3335 7.73339 9.5866 6.37354 11.271 5.98565V4.89585C11.271 4.30835 11.6627 3.91669 12.2502 3.91669C12.8377 3.91669 13.2293 4.30835 13.2293 4.89585V5.98565C14.9137 6.37354 16.1668 7.73339 16.1668 9.30208C16.1668 9.43386 16.1668 9.54594 16.158 9.64714C16.1639 9.69272 16.1668 9.74073 16.1668 9.79169C16.1668 10.0854 16.0689 10.2813 15.8731 10.4771C15.6772 10.6729 15.4814 10.7709 15.1877 10.7709C14.8939 10.7709 14.6981 10.6729 14.5022 10.4771L14.4982 10.473C14.2241 10.2363 14.0705 9.84282 14.2085 9.49792V9.20417C14.2085 8.52003 13.3305 7.83589 12.2562 7.83334L12.2502 7.83335L12.2441 7.83334C11.1698 7.8359 10.2918 8.52021 10.2918 9.30208V9.59583C10.4877 10.2812 11.271 10.7708 12.2502 10.7708C12.4512 10.7708 12.6293 10.8167 12.7766 10.9006C14.4003 11.0979 15.7148 12.1941 16.0689 13.6105C16.1668 13.7084 16.1668 13.9043 16.1668 14.198C16.1668 15.7667 14.9137 17.1265 13.2293 17.5144V18.6042C13.2293 19.1917 12.8377 19.5834 12.2502 19.5834Z"></path>
+			</svg>
+	}
+}
 
 templ IconLeftSection(labelText, labelValue, icon string, urlString string, sectionType string, event types.Event) {
 	<div class="flex">
 		<div class="flex-none">
 			// Left column content (fit to width)
 			<div class="icon-container w-6 mr-2">
-				<img class="fill-current" alt={ icon + "icon " } src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/" + icon + ".svg") }/>
+				@Icon(icon)
 			</div>
 		</div>
 		<div class="flex-grow">
@@ -22,23 +55,27 @@ templ IconLeftSection(labelText, labelValue, icon string, urlString string, sect
 				if sectionType == "OWNER_NAME" {
 					<strong>{ labelText }:</strong>
 					// TODO: rewrite this after migrating to `event.EventOwners` array (required marqo db migration)
-					{{ eventOwnersArr := strings.Split(event.EventOwnerName, helpers.EventOwnerNameDelimiter) }}
-					for idx, owner := range event.EventOwners {
-						if idx > 0 {
-							,&nbsp;
+					{{ eventOwnersArr := strings.Split(event.EventOwnerName, constants.EventOwnerNameDelimiter) }}
+					// Fallback: if no delimiter was found, use the entire EventOwnerName
+					if len(eventOwnersArr) == 1 && len(event.EventOwners) > 0 {
+						<a class="link link-text" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + event.EventOwners[0]) }>{ event.EventOwnerName }</a>
+					} else {
+						for idx, owner := range event.EventOwners {
+							if idx > 0 {
+								,&nbsp;
+							}
+							<a class="link link-text" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + owner) }>{ eventOwnersArr[idx] }</a>
 						}
-						<a class="link link-primary" href={ templ.URL(os.Getenv("APEX_URL") + "/user/" + owner) }>{ eventOwnersArr[idx] }</a>
-						// <a class="link link-primary" href={ templ.URL("https://" + owner + "." + os.Getenv("APEX_URL")) }>{ eventOwnersArr[idx] }</a>
 					}
 				} else if urlString != "" {
-					<strong>{ labelText }:</strong> <a class="link link-primary" href={ templ.URL(urlString) }>{ labelValue }</a>
+					<strong>{ labelText }:</strong> <a class="link link-text" href={ templ.URL(urlString) }>{ labelValue }</a>
 				} else {
 					<strong>{ labelText }:</strong> { labelValue }
 				}
 				// This is a hack because it wasn't clear how to get nested templ components working
 				if sectionType == "venue" {
 					<p>
-						<a class="link link-primary" href={ templ.URL(fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=%f,%f", event.Lat, event.Long)) }>
+						<a class="link link-text" href={ templ.URL(fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=%f,%f", event.Lat, event.Long)) }>
 							{ "(Map Link)" }
 						</a>
 					</p>
@@ -48,15 +85,33 @@ templ IconLeftSection(labelText, labelValue, icon string, urlString string, sect
 	</div>
 }
 
-templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit bool) {
-	<div class="max-w-prose mx-auto" x-data="getEventDetailsState()">
+templ EventDetailsPage(event types.Event, userInfo constants.UserInfo, canEdit bool) {
+	<div x-data="getEventDetailsState()">
 		if event.Id == "" {
 			<br/>
 			<br/>
 			<br/>
 			<br/>
 			<br/>
-			<h2 class="text-3xl mt-2 text-center">404 - Can't Find That Event</h2>
+			<h1 class="text-3xl mt-2 text-center">404 - Can't Find That Event</h1>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+		} else if strings.Contains(event.EventSourceType, constants.UNPUB_SUFFIX) && !canEdit {
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<h1 class="text-3xl mt-2 text-center">
+				This event is unpublished
+			</h1>
 			<br/>
 			<br/>
 			<br/>
@@ -67,27 +122,54 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			<br/>
 			<br/>
 		} else {
+			if event.CompetitionConfigId != "" {
+				<template x-if="shouldShowCompetitionCta()">
+					<div id="vote-header" class="fixed sticky-under-top-nav alert alert-info rounded-none left-0 w-full z-50 flex items-center">
+						<div class="container mx-auto flex items-center justify-center">
+							<div role="alert">
+								<p>This event is part of a competition, log in to participate <a class="btn btn-xs" x-data="" :href="'/auth/login?redirect=' + window.location.href">Login</a></p>
+							</div>
+						</div>
+					</div>
+				</template>
+				<template x-if="userId && shouldShowVoteHeader()">
+					<div id="vote-header" class="fixed sticky-under-top-nav alert alert-info rounded-none left-0 w-full z-50 flex items-center">
+						<div class="container mx-auto flex items-center justify-center">
+							<div role="alert">
+								<p>Voting for this event is open <a class="btn btn-xs" @click="scrollToVotingSection">Cast your vote now!</a></p>
+							</div>
+						</div>
+					</div>
+				</template>
+				// These are just added body top padding to avoid page content being cut off by the navbar
+				<template x-if="shouldShowVoteHeader() || shouldShowCompetitionCta()">
+					<div>
+						<br/>
+						<br/>
+					</div>
+				</template>
+			}
 			if (canEdit) {
 				<div class="alert alert-success">
 					You are an editor for this event.
-					if event.EventSourceType == helpers.ES_EVENT_SERIES {
+					if event.EventSourceType == constants.ES_EVENT_SERIES || event.EventSourceType == constants.ES_EVENT_SERIES_UNPUB {
 						<a
 							class="btn btn-sm"
-							href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.EventSourceId, 1), "{trailingslash:\\/?}", "", 1)) }
+							href={ templ.URL(strings.Replace(strings.Replace(constants.SitePages["edit-event"].Slug, "{"+constants.EVENT_ID_KEY+"}", event.EventSourceId, 1), "{trailingslash:\\/?}", "", 1)) }
 						>Edit Series</a>
 					} else {
 						<a
 							class="btn btn-sm"
-							href={ templ.URL(strings.Replace(strings.Replace(helpers.SitePages["edit-event"].Slug, "{"+helpers.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }
+							href={ templ.URL(strings.Replace(strings.Replace(constants.SitePages["edit-event"].Slug, "{"+constants.EVENT_ID_KEY+"}", event.Id, 1), "{trailingslash:\\/?}", "", 1)) }
 						>Edit Event</a>
 					}
 				</div>
 			}
-			<h2 class="text-3xl mt-2">{ event.Name }</h2>
-			if event.EventSourceType == helpers.ES_SERIES_PARENT {
+			<h1 class="text-3xl mt-2">{ event.Name }</h1>
+			if event.EventSourceType == constants.ES_SERIES_PARENT || event.EventSourceType == constants.ES_SERIES_PARENT_UNPUB {
 				<h3 class="text-xl mt-2">Event Series</h3>
 				<div
-					hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&end_time=2099-10-18T10:00:00Z&radius=20000&event_source_ids=" + event.Id }
+					hx-get={ "/api/html/events?list_mode=" + constants.EV_MODE_CAROUSEL + "&radius=" + strconv.Itoa(constants.DEFAULT_MAX_RADIUS) + "&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id + "&event_source_types=" + constants.ES_EVENT_SERIES + "," + constants.ES_EVENT_SERIES_UNPUB }
 					hx-trigger="load"
 					hx-swap="outerHTML"
 				>
@@ -96,7 +178,14 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			}
 			<br/>
 			<p>
-				@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				if event.EventSourceId == "" && event.EventOwnerName != "" {
+					@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				} else if event.EventSourceId != "" {
+					@IconLeftSection("Curator", event.EventSourceId, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				}
+				if event.SourceUrl != "" {
+					@IconLeftSection("Source", event.SourceUrl, "link", event.SourceUrl, "SOURCE_URL", event)
+				}
 				<br/>
 				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, "VENUE", event)
 				<br/>
@@ -114,11 +203,11 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 					// TODO: handle basecurrency
 					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", "", event)
 				}
-				if event.EventSourceType == helpers.ES_EVENT_SERIES {
+				if (event.EventSourceType == constants.ES_EVENT_SERIES || event.EventSourceType == constants.ES_EVENT_SERIES_UNPUB) && event.EventSourceId != "" {
 					<div class="divider my-3"></div>
 					<h3 class="text-xl mt-2 mb-2">All Events in this Series</h3>
 					<div
-						hx-get={ "/api/html/events?list_mode=" + helpers.EV_MODE_CAROUSEL + "&end_time=2099-10-18T10:00:00Z&radius=20000&event_source_ids=" + event.EventSourceId }
+						hx-get={ "/api/html/events?list_mode=" + constants.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId + "&event_source_types=" + constants.ES_EVENT_SERIES + "," + constants.ES_EVENT_SERIES_UNPUB }
 						hx-trigger="load"
 						hx-swap="outerHTML"
 					>
@@ -128,12 +217,98 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				<br/>
 				<h3 class="text-xl">EVENT DESCRIPTION</h3>
 				<br/>
-				<div class="whitespace-pre-wrap">{ event.Description }</div>
+				<div class="whitespace-pre-wrap">
+					@templ.Raw(event.Description)
+				</div>
+				<br/>
+				<br/>
+				<h3 class="text-xl">EVENT LOCATION</h3>
+				<br/>
+				<iframe
+					src={ "https://www.google.com/maps/embed/v1/place?key=" + os.Getenv("GOOGLE_API_KEY") + "&q=" + url.QueryEscape(event.Address) }
+					width="100%"
+					height="300px"
+					style="border:0;"
+					allowfullscreen=""
+					loading="lazy"
+				></iframe>
+				<br/>
+				<br/>
+				<br/>
+				<template x-if="competitionConfigId && userId">
+					<div class="mt-4" id="voting-section">
+						<h3 class="text-xl">VOTING</h3>
+						<template x-if="roundsDataFetching">
+							<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+						</template>
+						<template x-if="!roundsDataFetching && rounds?.filter(round => round.isVotingOpen).length === 0">
+							<p class="text-lg">(No rounds are open for voting)</p>
+						</template>
+						<template x-if="Boolean(rounds?.[0]?.competitorADisplayName)">
+							<template x-for="round in rounds">
+								<template x-if="round.isVotingOpen">
+									<div>
+										<h3 class="text-lg text-bold" x-text="round.roundName"></h3>
+										<p class="text-lg" x-text="round.description"></p>
+										<div class="flex items-center justify-between gap-4 w-full mt-2">
+											<button
+												:disabled="voteSubmitting === `${round.competitorA}-${round.roundNumber}`"
+												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA }"
+												class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
+												data-umami-event={ "comp-vote-clk" }
+												data-umami-event-event-id={ event.Id }
+												data-umami-event-user-id={ userInfo.Sub }
+												@click="submitVote(round.competitorA, round.roundNumber)"
+											>
+												<span x-text="'Vote ' + round?.competitorADisplayName" class="flex-grow"></span>
+												<div class="flex-none">
+													<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorA && voteSubmitting !== `${round.competitorA}-${round.roundNumber}`">
+														<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+													</template>
+													<template x-if="voteSubmitting === `${round.competitorA}-${round.roundNumber}`">
+														<span class="loading loading-spinner loading-md text-primary"></span>
+													</template>
+												</div>
+											</button>
+											<div class="text-3xl font-bold">&larr; VS &rarr;</div>
+											<button
+												:disabled="voteSubmitting === `${round.competitorB}-${round.roundNumber}`"
+												:class="{ 'btn-bg-inverted': votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB }"
+												class="btn btn-block btn-primary btn-bold-outline flex-1 flex-nowrap h-auto"
+												data-umami-event={ "comp-vote-clk" }
+												data-umami-event-event-id={ event.Id }
+												data-umami-event-user-id={ userInfo.Sub }
+												@click="submitVote(round.competitorB, round.roundNumber)"
+											>
+												<span x-text="' Vote ' + round?.competitorBDisplayName"></span>
+												<template x-if="voteSubmitting === `${round.competitorB}-${round.roundNumber}`">
+													<span class="loading loading-spinner loading-md text-primary"></span>
+												</template>
+												<template x-if="votesSubmitted[`${round.roundNumber}`]?.voteRecipientId === round.competitorB && voteSubmitting !== `${round.competitorB}-${round.roundNumber}`">
+													<div class="flex-none">
+														<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+													</div>
+												</template>
+											</button>
+										</div>
+										<div class="divider"></div>
+									</div>
+								</template>
+							</template>
+						</template>
+					</div>
+				</template>
 			</p>
 			<div class="bottom-drawer">
 				<div class="container mx-auto">
 					if event.StartingPrice > 0 {
-						<button data-umami-event={ "buy-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">BUY TICKETS</button>
+						<button
+							id="buy-tkts"
+							data-umami-event={ "buy-tkts-clk" }
+							data-umami-event-event-id={ event.Id }
+							@click="handleCtaClick('cart')"
+							class="btn btn-block btn-primary"
+						>BUY TICKETS</button>
 					} else if event.HasRegistrationFields && event.StartingPrice == 0 {
 						<button data-umami-event={ "reg-tkts-clk" } data-umami-event-event-id={ event.Id } @click="handleCtaClick('cart')" class="btn btn-block btn-primary">REGISTER NOW</button>
 					} else {
@@ -165,7 +340,7 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 							data-umami-event={ "intrst-click" }
 							data-umami-event-event-id={ event.Id }
 							@click="document.getElementById('icmi-modal').showModal(); handleCtaClick('icmi')"
-							class="btn btn-block btn-primary btn-outline btn-bold-outline text-neutral-content"
+							class="btn btn-block btn-primary btn-outline btn-bold-outline"
 						>Interested, can't make it!</button>
 						<dialog id="icmi-modal" class="modal modal-bottom sm:modal-middle bg-base-200 bg-opacity-90">
 							<div class="modal-box">
@@ -182,8 +357,12 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 			</div>
 		}
 	</div>
-	<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
-	<script id="event-details-script" data-interested-status={ helpers.PurchaseStatus.Interested } data-registered-status={ helpers.PurchaseStatus.Registered }>
+	// this div is only to shim the main-bg against the parent space-y-4 class
+	// so that it doesn't inherit the margin-top
+	<div>
+		<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
+	</div>
+	<script id="event-details-script" data-interested-status={ constants.PurchaseStatus.Interested } data-registered-status={ constants.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ constants.ES_SINGLE_EVENT } data-event-type-series-parent={ constants.ES_SERIES_PARENT } data-event-type-series-child={ constants.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId }>
 		function getEventDetailsState() {
 			return {
 				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),
@@ -191,8 +370,150 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 				eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
 				interestedStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-interested-status'),
 				registeredStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-registered-status'),
-				init() {},
-				formData: {},
+				competitionConfigId: document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id'),
+				init() {
+						(async () => {
+								const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
+								if (this.userId !== '' && competitionConfigId !== '') {
+										await this.fetchInitialData();
+										// Start polling after initial fetch
+										this.pollInterval = setInterval(() => this.pollRoundsData(), 10000);
+								}
+						})();
+
+						// Cleanup on component destroy
+						this.$cleanup = () => {
+								if (this.pollInterval) clearInterval(this.pollInterval);
+						};
+				},
+				async fetchInitialData() {
+						try {
+								this.roundsDataFetching = true;
+								await this.fetchAndUpdateRounds();
+						} catch (e) {
+								// eslint-disable-next-line no-console
+								console.error(e);
+						} finally {
+								this.roundsDataFetching = false;
+						}
+				},
+
+				async fetchAndUpdateRounds() {
+					if (this.userId !== '' && this.competitionConfigId !== '') {
+							const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
+									method: 'GET',
+							});
+							const roundsData = await roundsResponse.json();
+
+							if (roundsData.length > 0) {
+									const competitorIds = roundsData.flatMap(round => [round.competitorA, round.competitorB]);
+									const missingIds = competitorIds.filter(id => !this.competitors[id]);
+
+									if (missingIds.length > 0) {
+											const usersRes = await fetch(`/api/users?ids=${missingIds.join(',')}`, {
+													method: 'GET',
+											});
+											const usersData = await usersRes.json();
+
+											usersData.forEach(user => {
+													this.competitors[user.userId] = user;
+											});
+									}
+
+									this.rounds = roundsData.map(round => ({
+											...round,
+											competitorADisplayName: this.competitors[round.competitorA]?.displayName,
+											competitorBDisplayName: this.competitors[round.competitorB]?.displayName,
+									}));
+							} else {
+									this.rounds = [];
+							}
+					}
+				},
+
+				async pollRoundsData() {
+						if (!this.roundsDataFetching) {
+								try {
+										await this.fetchAndUpdateRounds();
+								} catch (e) {
+										// eslint-disable-next-line no-console
+										console.error('Error polling rounds data:', e);
+								}
+						}
+				},
+
+				// this is pre-LLM rewrite code, saving for reference, can delete once we
+				// are sure the replacement code is 100% working
+				// init() {
+				// 	(async () => {
+				// 		try {
+				// 			const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
+				// 			if (this.userId !== '' && competitionConfigId !== '') {
+				// 				this.roundsDataFetching = true
+				// 				const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
+				// 					method: 'GET',
+				// 				});
+				// 				const roundsData = await roundsResponse.json();
+				// 				this.rounds = roundsData
+				// 				if (this.rounds.length > 0) {
+				// 					const ids = this.rounds.flatMap(round => [round.competitorA, round.competitorB]).join(',')
+
+				// 					const usersRes = await fetch(`/api/users?ids=${ids}`, {
+				// 						method: 'GET',
+				// 					});
+				// 					const usersData = await usersRes.json();
+				// 					this.rounds = this.rounds.map(round => {
+				// 						// round.user = usersData.find(user => user.id === round.userId)
+				// 						return {
+				// 							competitorADisplayName: usersData.find(user => user.userId === round.competitorA).displayName,
+				// 							competitorBDisplayName: usersData.find(user => user.userId === round.competitorB).displayName,
+				// 							...round
+				// 						}
+				// 					})
+				// 				}
+				// 			}
+				// 		} catch (e ) {
+				// 			// eslint-disable-next-line no-console
+				// 			console.error(e);
+				// 		} finally {
+				// 			this.roundsDataFetching = false
+				// 		}
+				// 	})();
+				// },
+				eventTypeSingleConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-single'),
+				eventTypeSeriesParentConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-parent'),
+				eventTypeSeriesChildConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-child'),
+				rounds: [],
+				voteSubmitting: null,
+				votesSubmitted: {},
+				competitors: {},
+				pollInterval: null,
+				roundsDataFetching: false,
+
+				async submitVote(competitorId, roundNumber) {
+					this.voteSubmitting = `${competitorId}-${roundNumber}`
+					try {
+						const response = await fetch(`/api/votes/${this.competitionConfigId}/${roundNumber}`, {
+							method: 'PUT',
+							body: JSON.stringify({
+								voteRecipientId: competitorId,
+								voteValue: 1,
+							}),
+						});
+
+						const data = await response.json();
+						if (response.status > 400) {
+							throw new Error(data.message || 'Vote submission failed')
+						}
+
+						this.votesSubmitted[`${roundNumber}`] = { voteRecipientId: competitorId}
+					} catch (e) {
+						// eslint-disable-next-line no-console
+						console.error(e);
+					} finally {
+						this.voteSubmitting = null
+					}
+				},
 				handleCtaClick(tab) {
 					if (tab === 'rsvp' || tab === 'icmi' && this.userId) {
 						const body = {
@@ -215,6 +536,28 @@ templ EventDetailsPage(event types.Event, userInfo helpers.UserInfo, canEdit boo
 						document.getElementById(`main-drawer`).click();
 					}
 
+				},
+				shouldShowVoteHeader() {
+					return this.rounds.filter(round => round.isVotingOpen).length > 0
+				},
+				shouldShowCompetitionCta() {
+					return this.competitionConfigId && !this.userId
+				},
+				scrollToVotingSection() {
+					const el = document.getElementById('voting-section');
+					if (el) {
+						// Calculate offset from fixed elements
+						const voteHeader = document.getElementById('vote-header');
+						const mainNav = document.getElementById('main-nav');
+						const offset = (voteHeader?.offsetHeight || 0) + (mainNav?.offsetHeight || 0);
+
+						// Scroll with offset
+						const elementPosition = el.getBoundingClientRect().top + window.pageYOffset;
+						window.scrollTo({
+							top: elementPosition - offset,
+							behavior: 'smooth'
+						});
+					}
 				}
 			}
 		}

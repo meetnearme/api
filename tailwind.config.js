@@ -1,5 +1,22 @@
 /** @type {import('tailwindcss').Config} */
 
+const sharedTheme = {
+  fontFamily:
+    'Ubuntu Mono,ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace',
+  '--rounded-box': '0.5rem',
+  '--rounded-btn': '0.25rem',
+  '--rounded-badge': '1rem',
+  '--tab-radius': '0.25rem',
+  info: '#84ccff',
+  'info-content': '#000000',
+  success: '#74ea62',
+  'success-content': '#000000',
+  warning: '#ffc458',
+  'warning-content': '#000000',
+  error: '#AE1335',
+  'error-content': '#FFFFFF',
+};
+
 export default {
   mode: 'jit',
   purge: ['**/*.templ'],
@@ -35,7 +52,9 @@ export default {
     container: false,
   },
   plugins: [
+    // eslint-disable-next-line no-undef
     require('daisyui'),
+    // eslint-disable-next-line no-undef
     require('@tailwindcss/typography'),
     ({ addComponents }) => {
       addComponents({
@@ -55,12 +74,21 @@ export default {
             width: '960px',
           },
         },
+        '.select-bordered': {
+          borderColor: 'var(--fallback-bc,oklch(var(--bc)/0.6))',
+        },
+        '.input-bordered': {
+          borderColor: 'var(--fallback-bc,oklch(var(--bc)/0.6))',
+        },
+        '.textarea-bordered': {
+          borderColor: 'var(--fallback-bc,oklch(var(--bc)/0.6))',
+        },
         '.main-bg': {
           width: '100vw',
           position: 'fixed',
           left: '0',
           top: '40vw',
-          opacity: '0.25',
+          opacity: '0.15',
           zIndex: '-1',
           '@screen sm': {
             top: '50vw',
@@ -101,46 +129,70 @@ export default {
           borderBottomRightRadius: 'inherit',
           borderBottomLeftRadius: 'inherit',
         },
+        '.carousel-control-left': {
+          display: 'none',
+          '@screen md': {
+            display: 'block',
+          },
+        },
+        '.carousel-control-right': {
+          display: 'none',
+          '@screen md': {
+            display: 'block',
+          },
+        },
+        '.progress.input-bottom': {
+          borderRadius: '0',
+          height: '0.25rem',
+        },
+        '.btn': {
+          borderRadius: '4rem',
+        },
+        '.checkbox': {
+          borderWidth: '2px',
+        },
       });
     },
   ],
   daisyui: {
-    darkTheme: 'meetnearme',
+    defaultTheme: 'meetnearmelight',
+    darkTheme: 'meetnearmedark',
+    lightTheme: 'meetnearmelight',
     themes: [
       {
-        meetnearme: {
-          ...require('daisyui/src/theming/themes')['dark'],
+        // Light theme
+        meetnearmelight: {
+          'color-scheme': 'light',
+          primary: 'hsl(239, 84%, 67%)',
+          'primary-content': '#ffffff',
+          secondary: 'hsl(242, 84%, 60%)',
+          'secondary-content': '#ffffff',
+          accent: 'hsl(239, 84%, 67%)', // not currently used
+          'accent-content': '#ffffff',
+          'base-100': '#ffffff',
+          'base-200': '#f0f0f0',
+          'base-300': '#e1e1e1',
+          'base-content': '#202020',
+          '--btn-bg-inverted': '100% 0 0', // White in OKLCH
+          '--btn-bg-inverted-content': '0% 0 0', // Black in OKLCH
+          ...sharedTheme,
+        },
+        // Dark theme
+        meetnearmedark: {
           'color-scheme': 'dark',
-          fontFamily:
-            'Ubuntu Mono,ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace',
-          // '--rounded-box': '1rem', // border radius rounded-box utility class, used in card and other large boxes
-          // '--rounded-btn': '0.5rem', // border radius rounded-btn utility class, used in buttons and similar element
-          // '--rounded-badge': '1.9rem',
-          // '--tab-radius': '0.5rem',
-          '--rounded-box': '0.5rem',
-          '--rounded-btn': '0.25rem',
-          '--rounded-badge': '1rem',
-          '--tab-radius': '0.25rem',
-          primary: '#39FF14',
-          'primary-content': '#011600',
-          secondary: '#FF4500',
-          'secondary-content': '#eeeeee',
-          accent: '#FF69B4',
-          'accent-content': '#16040c',
-          neutral: '#cccccc',
-          'neutral-content': '#000000',
-          'base-100': '#000000',
-          'base-200': '#2a2a2a',
-          'base-300': '#454545',
+          primary: 'hsl(239, 84%, 67%)',
+          'primary-content': '#ffffff',
+          secondary: 'hsl(235, 100%, 86%)',
+          'secondary-content': 'hsl(240, 10%, 8%)',
+          accent: 'hsl(239, 84%, 80%)', // not currently used
+          'accent-content': '#000000',
+          'base-100': 'hsl(240, 10%, 8%)',
+          'base-200': 'hsl(240, 8%, 12%)',
+          'base-300': '#48414e',
           'base-content': '#F5F5F5',
-          info: '#7cbbee',
-          'info-content': '#000000',
-          success: '#74ea62',
-          'success-content': '#000000',
-          warning: '#ffc458',
-          'warning-content': '#000000',
-          error: '#e11d48',
-          'error-content': '#000000',
+          '--btn-bg-inverted': '0% 0 0', // Black in OKLCH
+          '--btn-bg-inverted-content': '100% 0 0', // White in OKLCH
+          ...sharedTheme,
         },
       },
     ],

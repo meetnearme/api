@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 )
 
 func TestSendHtmlRes(t *testing.T) {
@@ -48,11 +48,13 @@ func TestSendHtmlRes(t *testing.T) {
 
 			req := httptest.NewRequest("GET", "/", nil)
 			// Set up context with APIGatewayV2HTTPRequest
-			ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 				RequestContext: events.APIGatewayV2HTTPRequestContext{
 					RequestID: "test-request-id",
 				},
 			})
+			// Add MNM_OPTIONS_CTX_KEY to context
+			ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
 			req = req.WithContext(ctx)
 
 			handler.ServeHTTP(rr, req)
@@ -76,11 +78,13 @@ func TestSendHtmlErrorPartial(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/", nil)
 	// Set up context with APIGatewayV2HTTPRequest
-	ctx := context.WithValue(req.Context(), helpers.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+	ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
 		RequestContext: events.APIGatewayV2HTTPRequestContext{
 			RequestID: "test-request-id",
 		},
 	})
+	// Add MNM_OPTIONS_CTX_KEY to context
+	ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
 	req = req.WithContext(ctx)
 
 	handler := SendHtmlErrorPartial(body, status)
@@ -128,6 +132,7 @@ func TestSendServerRes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Set up context with APIGatewayV2HTTPRequest
 			rr := httptest.NewRecorder()
 			handler := SendServerRes(rr, tt.body, tt.status, tt.err)
 			if handler != nil {
@@ -151,7 +156,7 @@ func TestSendHtmlErrorPage(t *testing.T) {
 	r := httptest.NewRequest("GET", "/", nil)
 
 	// Mock user info
-	userInfo := helpers.UserInfo{}
+	userInfo := constants.UserInfo{}
 
 	// Mock API Gateway request context
 	apiGwReq := events.APIGatewayV2HTTPRequest{
@@ -162,12 +167,14 @@ func TestSendHtmlErrorPage(t *testing.T) {
 
 	// Add values to context
 	ctx := context.WithValue(r.Context(), "userInfo", userInfo)
-	ctx = context.WithValue(ctx, helpers.ApiGwV2ReqKey, apiGwReq)
+	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, apiGwReq)
+	// Add MNM_OPTIONS_CTX_KEY to context
+	ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
 	r = r.WithContext(ctx)
 
 	// Test
 	errorBody := []byte("test error message")
-	handler := SendHtmlErrorPage(errorBody, http.StatusBadRequest)
+	handler := SendHtmlErrorPage(errorBody, http.StatusBadRequest, false)
 	handler.ServeHTTP(w, r)
 
 	// Assertions
