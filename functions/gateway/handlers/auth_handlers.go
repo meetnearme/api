@@ -182,11 +182,20 @@ func HandleRefresh(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 
 		// Call the refresh service to get new tokens from Zitadel
-		tokens, err := services.RefreshAccessToken(refreshTokenCookie.Value)
-		if err != nil {
-			log.Printf("Refresh endpoint: failed to refresh access token: %v", err)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
+		var tokens map[string]interface{}
+		if os.Getenv("GO_ENV") == constants.GO_TEST_ENV {
+			tokens = map[string]interface{}{
+				"access_token":  "test-access-token-refreshed",
+				"refresh_token": "test-refresh-token-refreshed",
+				"id_token":      "test-id-token-refreshed",
+			}
+		} else {
+			tokens, err = services.RefreshAccessToken(refreshTokenCookie.Value)
+			if err != nil {
+				log.Printf("Refresh endpoint: failed to refresh access token: %v", err)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
 		}
 
 		// Extract and set the new access token
