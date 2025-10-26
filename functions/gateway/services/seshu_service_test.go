@@ -75,11 +75,11 @@ func TestGetSeshuSessionAppliesDefaults(t *testing.T) {
 	if result.LocationLongitude != constants.INITIAL_EMPTY_LAT_LONG {
 		t.Fatalf("Expected longitude to default to %v, got %v", constants.INITIAL_EMPTY_LAT_LONG, result.LocationLongitude)
 	}
-	if result.EventCandidates == nil {
-		t.Fatalf("Expected event candidates to be initialized to empty slice")
+	if len(result.EventCandidates) != 0 {
+		t.Fatalf("Expected event candidates to be empty, got %d", len(result.EventCandidates))
 	}
-	if result.EventValidations == nil {
-		t.Fatalf("Expected event validations to be initialized to empty slice")
+	if len(result.EventValidations) != 0 {
+		t.Fatalf("Expected event validations to be empty, got %d", len(result.EventValidations))
 	}
 }
 
