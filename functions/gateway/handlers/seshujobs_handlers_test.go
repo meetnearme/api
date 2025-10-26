@@ -86,7 +86,7 @@ func (m *MockNatsService) PeekTopOfQueue(ctx context.Context) (*jetstream.RawStr
 	return nil, nil
 }
 
-func (m *MockNatsService) PublishMsg(ctx context.Context, job internal_types.SeshuJob) error {
+func (m *MockNatsService) PublishMsg(ctx context.Context, job interface{}) error {
 	if m.PublishFunc != nil {
 		return m.PublishFunc(ctx, job)
 	}
