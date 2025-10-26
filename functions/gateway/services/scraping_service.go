@@ -729,7 +729,6 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 			continue
 		}
 
-		log.Println("~732 StartTime: %v", eventInfo.EventStartTime)
 		tzString := tz.String()
 		// Parse the start time using your new ISO format (no Z)
 		loc, _ := time.LoadLocation(tzString)
@@ -738,8 +737,6 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 			log.Printf("INFO: Skipping event %d: failed to parse event start time: %v", i, err)
 			continue
 		}
-
-		log.Println("~741 StartTime: %v", startTime)
 
 		// // Convert to local time for comparison
 		// startTimeLocal := startTime.In(tz)
