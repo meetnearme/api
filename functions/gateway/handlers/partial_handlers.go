@@ -950,15 +950,21 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				var descriptionTag string
 
 				normalizedChildURL, err := helpers.NormalizeURL(childEvent.EventURL)
-				if err != nil {
-					log.Println("Error normalizing URL:", err)
+				if err != nil || normalizedChildURL == "" {
+					log.Println("Error normalizing URL, falling back to raw:", err)
+					normalizedChildURL = childEvent.EventURL
 				}
 
 				childSession, err := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
 					Url: normalizedChildURL,
 				})
-
+				if err != nil || childSession == nil {
+					log.Println("Could not retrieve child session:", err)
+				}
 				childDoc, err = goquery.NewDocumentFromReader(strings.NewReader(childSession.Html))
+				if err != nil {
+					log.Println("Failed to parse child HTML:", err)
+				}
 
 				// Infer known scrape source from base domain
 				if strings.Contains(baseUrl, "facebook.com") {

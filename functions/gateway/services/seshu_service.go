@@ -67,6 +67,12 @@ func GetSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPa
 	}
 
 	helpers.EnsureValidCoordinates(&seshuSession)
+	if len(seshuSession.EventCandidates) < 1 {
+		seshuSession.EventCandidates = []internal_types.EventInfo{}
+	}
+	if len(seshuSession.EventValidations) < 1 {
+		seshuSession.EventValidations = []internal_types.EventBoolValid{}
+	}
 
 	return &seshuSession, nil
 }

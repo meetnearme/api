@@ -110,7 +110,7 @@ type SeshuJob struct {
 	TargetLocationCSSPath         string  `json:"target_location_css_path" validate:"required" gorm:"column:target_location_css_path"`
 	TargetStartTimeCSSPath        string  `json:"target_start_time_css_path" validate:"required" gorm:"column:target_start_time_css_path"`
 	TargetEndTimeCSSPath          string  `json:"target_end_time_css_path,omitempty" gorm:"column:target_end_time_css_path"`
-	TargetDescriptionCSSPath      string  `json:"target_description_css_path,omitempty" validate:"required" gorm:"column:target_description_css_path"`
+	TargetDescriptionCSSPath      string  `json:"target_description_css_path,omitempty" gorm:"column:target_description_css_path"`
 	TargetHrefCSSPath             string  `json:"target_href_css_path,omitempty" validate:"required" gorm:"column:target_href_css_path"`
 	TargetChildNameCSSPath        string  `json:"target_child_name_css_path,omitempty" gorm:"column:target_child_name_css_path"`
 	TargetChildLocationCSSPath    string  `json:"target_child_location_css_path,omitempty" gorm:"column:target_child_location_css_path"`

@@ -616,8 +616,8 @@ func TestParseMaybeMultiDayEvent(t *testing.T) {
 				}
 
 				// Ensure it's normalized or convertible to UTC (we treat times as UTC)
-				if parsedTime.UTC().Location() != time.UTC {
-					t.Errorf("expected UTC timezone after normalization, got %v", parsedTime.UTC().Location())
+				if parsedTime.Location() != time.UTC {
+					t.Errorf("expected parsed time in UTC location, got %v", parsedTime.Location())
 				}
 
 				// Log the result for debugging

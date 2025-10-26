@@ -53,7 +53,12 @@ func (s *PostgresService) GetSeshuJobs(ctx context.Context) ([]internal_types.Se
 	userInfo := ctx.Value("userInfo").(constants.UserInfo)
 	userId := userInfo.Sub
 
-	targetUrl := ctx.Value("targetUrl").(string)
+	var targetUrl string
+	if v := ctx.Value("targetUrl"); v != nil {
+		if s, ok := v.(string); ok {
+			targetUrl = s
+		}
+	}
 
 	var jobs []internal_types.SeshuJob
 	query := s.DB.WithContext(ctx).Model(&internal_types.SeshuJob{})
@@ -81,7 +86,7 @@ func (s *PostgresService) UpdateSeshuJob(ctx context.Context, job internal_types
 	return s.DB.WithContext(ctx).
 		Model(&internal_types.SeshuJob{}).
 		Where("normalized_url_key = ?", job.NormalizedUrlKey).
-		Select("*").
+		Omit("normalized_url_key").
 		Updates(job).
 		Error
 }

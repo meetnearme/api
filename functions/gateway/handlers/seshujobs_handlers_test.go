@@ -27,7 +27,6 @@ type MockPostgresService struct {
 	CreateJobFunc          func(ctx context.Context, job internal_types.SeshuJob) error
 	UpdateJobFunc          func(ctx context.Context, job internal_types.SeshuJob) error
 	DeleteJobFunc          func(ctx context.Context, id string) error
-	ScanJobsFunc           func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error)
 	ScanJobsWithInHourFunc func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error)
 }
 
@@ -566,7 +565,7 @@ func TestProcessGatherSeshuJobs_PublishFailure(t *testing.T) {
 	handlers.SetLastExecutionTime(0)
 
 	mockDB := &MockPostgresService{
-		ScanJobsFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+		ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
 			return []internal_types.SeshuJob{{NormalizedUrlKey: "job1"}}, nil
 		},
 	}
