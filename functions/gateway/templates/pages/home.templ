@@ -67,7 +67,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-24 md:pb-4">
-					if helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SyndicateAdmin]}) {
+					if helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth]}) {
 						@ReShareButton(ev)
 					}
 					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
@@ -133,7 +133,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 		} else {
 			for _, ev := range events {
 				<div class="flex w-full relative pb-12 md:pb-4">
-					if userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SyndicateAdmin]}) {
+					if userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth]}) {
 						@ReShareButton(ev)
 					}
 					if userId == pageUser.UserID {

@@ -79,6 +79,7 @@ func (app *App) InitRoutes() []Route {
 		{constants.SitePages["privacy-policy"].Slug, "GET", handlers.GetPrivacyPolicyPage, Check},
 		{constants.SitePages["data-request"].Slug, "GET", handlers.GetDataRequestPage, Check},
 		{constants.SitePages["terms-of-service"].Slug, "GET", handlers.GetTermsOfServicePage, Check},
+		{constants.SitePages["pricing"].Slug, "GET", handlers.GetPricingPage, Check},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...
 		// the complexity is we might want "in the middle", which would be "auto-refresh
@@ -110,6 +111,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/auth/users/update-mnm-options{trailingslash:\\/?}", "POST", handlers.SetMnmOptions, Require},
 		{"/api/auth/users/update-interests{trailingslash:\\/?}", "POST", handlers.UpdateUserInterests, Require},
 		{"/api/auth/users/update-about{trailingslash:\\/?}", "POST", handlers.UpdateUserAbout, Require},
+		{"/api/auth/check-role{trailingslash:\\/?}", "GET", handlers.CheckRole, Require},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo{trailingslash:\\/?}", "POST", handlers.GeoLookup, None},
@@ -173,8 +175,11 @@ func (app *App) InitRoutes() []Route {
 		{"/api/votes/tally-votes/{" + constants.COMPETITIONS_ID_KEY + "}/{" + constants.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionVotesTallyForRoundHandler, Require},
 		{"/api/votes", "DELETE", dynamodb_handlers.DeleteCompetitionVoteHandler, Require},
 
-		// Checkout Session
+		// Checkout Sessions
 		{"/api/checkout/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
+		{"/api/checkout-subscription{trailingslash:\\/?}", "GET", handlers.CreateSubscriptionCheckoutSessionHandler, Check},
+
+		// Webhooks
 		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
 
 		//SeshuSession
@@ -225,11 +230,9 @@ func NewApp() *App {
 	app.InitializeAuth()
 	app.InitDataBase()
 	app.InitNats()
+	app.InitStripe()
 	log.Printf("New Go App created at %s", time.Now().Format(time.RFC3339))
 
-	defer func() {
-		app.InitStripe()
-	}()
 	return app
 }
 

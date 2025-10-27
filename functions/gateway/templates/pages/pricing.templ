@@ -1,0 +1,228 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/meetnearme/api/functions/gateway/constants"
+	"github.com/meetnearme/api/functions/gateway/templates/components"
+	"os"
+)
+
+templ PricingPage(isLoggedIn bool) {
+	<div
+		x-data="getPricingPageState()"
+		class="min-h-screen bg-background py-16 px-4 sm:px-6 lg:px-8"
+	>
+		<div class="max-w-7xl mx-auto">
+			<div class="text-center mb-16">
+				<h1 class="text-4xl sm:text-5xl font-bold text-foreground mb-4 text-balance">Plans and Pricing</h1>
+				<p class="text-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
+					Choose the perfect plan to grow your community. Get started today for free.
+				</p>
+			</div>
+			<div class="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+				<div class="bg-card border border-border rounded-lg p-8 flex flex-col">
+					<div class="mb-6">
+						<h2 class="text-xl font-bold mb-2 text-center">Basic Community</h2>
+						<div class="flex items-baseline gap-2 mb-4 justify-center">
+							<span class="text-5xl font-bold">Free</span>
+						</div>
+						<p class="text-muted-foreground">Perfect for getting started with your community.</p>
+					</div>
+					<ul class="space-y-4 mb-8 flex-grow">
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Custom subdomain</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Automatically import events from many websites</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Host Events</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Collect attendee registrations</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Custom registration forms</span>
+						</li>
+					</ul>
+					if isLoggedIn {
+						<button class="pointer-events-none w-full btn no-animation btn-active">
+							Current Plan
+						</button>
+					} else {
+						<button
+							data-umami-event={ "pricing-reg-clk" }
+							data-umami-event-event-id="basic-community"
+							class="w-full btn btn-primary"
+							@click="handleGetStartedClick('basic')"
+						>
+							Get Started
+						</button>
+					}
+				</div>
+				<div class="bg-card border border-border rounded-lg p-8 flex flex-col">
+					<div class="mb-6">
+						<h2 class="text-xl font-bold mb-2 text-center">Seed Community</h2>
+						<div class="flex items-baseline gap-2 mb-4 justify-center">
+							<span class="text-5xl font-bold">$15</span>
+							<span class="text-muted-foreground">/month</span>
+						</div>
+						<p class="text-muted-foreground">Perfect for getting started with your community.</p>
+					</div>
+					<ul class="space-y-4 mb-8 flex-grow">
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Custom theme and branding</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Share & Host your own events</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Smart Search</span>
+						</li>
+					</ul>
+					<button
+						data-umami-event={ "pricing-reg-clk" }
+						data-umami-event-event-id="seed-community"
+						class="w-full btn btn-primary"
+						@click="handleGetStartedClick(seedPlanId)"
+					>
+						Get Started
+					</button>
+				</div>
+				<div class="bg-card border-2 border-primary rounded-lg p-8 flex flex-col relative">
+					<div class="absolute -top-3 left-1/2 transform -translate-x-1/2">
+						<span class="bg-primary text-primary-content text-sm font-semibold px-4 py-1 rounded-full whitespace-nowrap">
+							Publishers &amp; Newsletters
+						</span>
+					</div>
+					<div class="mb-6">
+						<h2 class="text-xl font-bold mb-2 text-center">Growth Community</h2>
+						<div class="flex items-baseline gap-2 mb-4 justify-center">
+							<span class="text-5xl font-bold">$50</span>
+							<span class="text-muted-foreground">/month</span>
+						</div>
+						<p class="text-muted-foreground">For communities ready to scale and engage.</p>
+					</div>
+					<ul class="space-y-4 mb-8 flex-grow">
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span class="font-semibold">Everything in Seed tier</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Syndicate and re-publish events</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Export events to newsletter</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Embed widget</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>API Access for your app / website</span>
+						</li>
+					</ul>
+					<button
+						data-umami-event={ "pricing-reg-clk" }
+						data-umami-event-event-id="growth-community"
+						class="w-full btn btn-primary"
+						@click="handleGetStartedClick(growthPlanId)"
+					>
+						Get Started
+					</button>
+				</div>
+			</div>
+		</div>
+		<template x-if="showToast === true">
+			<div class="toast m-4 z-50">
+				<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border border-base-300">
+					<span x-text="toastContent.message"></span>
+					<div class="block justify-end">
+						<button class="btn btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
+							<svg class="svg-icon" style="width: 1em; height: 1em; vertical-align: middle; fill: currentColor; overflow: hidden;" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg>
+						</button>
+					</div>
+				</div>
+			</div>
+		</template>
+		<script id="pricing-page" data-basic-plan-id={ constants.BASIC_SUBSCRIPTION_PLAN_ID } data-seed-plan-id={ os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") } data-growth-plan-id={ os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") } data-is-logged-in={ fmt.Sprintf("%t", isLoggedIn) } data-return-url={ constants.CUSTOMER_PORTAL_RETURN_URL_PATH }>
+      function getPricingPageState() {
+        // Check for error parameter in URL
+        const urlParams = new URLSearchParams(window.location.search)
+        const errorParam = urlParams.get('error')
+        const shouldShowToast = errorParam === 'checkout_failed'
+
+        return {
+          showToast: shouldShowToast,
+          toastContent: {
+            type: shouldShowToast ? 'error' : '',
+            message: shouldShowToast ? 'Failed to initiate checkout' : ''
+          },
+          basicPlanId: document.querySelector('#pricing-page').getAttribute('data-basic-plan-id'),
+          seedPlanId: document.querySelector('#pricing-page').getAttribute('data-seed-plan-id'),
+          growthPlanId: document.querySelector('#pricing-page').getAttribute('data-growth-plan-id'),
+          isLoggedIn: document.querySelector('#pricing-page').getAttribute('data-is-logged-in') === 'true',
+          returnUrl: document.querySelector('#pricing-page').getAttribute('data-return-url'),
+          async handleGetStartedClick(eventId) {
+            try {
+              if (eventId === this.basicPlanId) {
+                // Basic plan: redirect to login (only shown when not logged in)
+                window.location.assign(`/auth/login?redirect=${this.returnUrl}`)
+              } else {
+                // Paid plans: go to checkout (with auth check if needed)
+                if (this.isLoggedIn) {
+                  window.location.assign(`/api/checkout-subscription?subscription_plan_id=${eventId}`)
+                } else {
+                  window.location.assign(`/auth/login?redirect=/api/checkout-subscription?subscription_plan_id=${eventId}`)
+                }
+              }
+            } catch (error) {
+              this.showToast = true
+              this.toastContent = {
+                type: 'error',
+                message: 'Failed to create checkout session'
+              }
+            }
+          }
+        }
+      }
+    </script>
+	</div>
+}

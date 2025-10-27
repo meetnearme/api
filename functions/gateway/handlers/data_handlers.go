@@ -14,13 +14,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/go-playground/validator"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/interfaces"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -47,6 +47,14 @@ type PurchasableWebhookHandler struct {
 
 func NewPurchasableWebhookHandler(purchasableService internal_types.PurchasableServiceInterface, purchaseService internal_types.PurchaseServiceInterface) *PurchasableWebhookHandler {
 	return &PurchasableWebhookHandler{PurchasableService: purchasableService, PurchaseService: purchaseService}
+}
+
+type SubscriptionWebhookHandler struct {
+	SubscriptionService interfaces.StripeSubscriptionServiceInterface
+}
+
+func NewSubscriptionWebhookHandler(subscriptionService interfaces.StripeSubscriptionServiceInterface) *SubscriptionWebhookHandler {
+	return &SubscriptionWebhookHandler{SubscriptionService: subscriptionService}
 }
 
 // Create a new struct that includes the createPurchase fields and the Stripe checkout URL
@@ -535,6 +543,114 @@ func SearchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFun
 	}
 }
 
+func CreateSubscriptionCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
+	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+	userId := userInfo.Sub
+	if userId == "" {
+		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
+		return
+	}
+
+	subscriptionPlanID := r.URL.Query().Get("subscription_plan_id")
+	growthPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	seedPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	if subscriptionPlanID == "" || (subscriptionPlanID != growthPlanID && subscriptionPlanID != seedPlanID) {
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=checkout_failed", http.StatusSeeOther)
+		return nil
+	}
+
+	subscriptionService := services.NewStripeSubscriptionService()
+	subscriptions, err := subscriptionService.GetSubscriptionPlans()
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get subscription plans: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	var subscriptionPlan *types.SubscriptionPlan
+	for _, subscription := range subscriptions {
+		if subscription.ID == subscriptionPlanID {
+			subscriptionPlan = subscription
+			break
+		}
+	}
+
+	if subscriptionPlan == nil {
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=checkout_failed", http.StatusSeeOther)
+		return nil
+	}
+
+	// Continue with existing Stripe checkout logic for paid items
+	stripeClient := services.GetStripeClient()
+
+	// Search for existing Stripe customer by Zitadel user ID in metadata
+	stripeCustomer, searchErr := subscriptionService.SearchCustomerByExternalID(userInfo.Sub)
+	if searchErr != nil {
+		log.Printf("Error searching for Stripe customer: %v", searchErr)
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=checkout_failed", http.StatusSeeOther)
+		return nil
+	}
+
+	// If customer doesn't exist, create it
+	var createErr error
+	if stripeCustomer == nil {
+		log.Printf("Stripe customer not found, creating new customer for Zitadel user %s", userInfo.Sub)
+		stripeCustomer, createErr = subscriptionService.CreateCustomer(userInfo.Sub, userInfo.Email, userInfo.Name)
+		if createErr != nil {
+			log.Printf("Error creating Stripe customer: %v", createErr)
+			http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=checkout_failed", http.StatusSeeOther)
+			return nil
+		}
+		log.Printf("Created Stripe customer %s for Zitadel user %s", stripeCustomer.ID, userInfo.Sub)
+	} else {
+		log.Printf("Found existing Stripe customer %s for Zitadel user %s", stripeCustomer.ID, userInfo.Sub)
+	}
+
+	lineItems := make([]*stripe.CheckoutSessionCreateLineItemParams, 0)
+
+	lineItems = append(lineItems, &stripe.CheckoutSessionCreateLineItemParams{
+		Quantity: stripe.Int64(1),
+		Price:    stripe.String(subscriptionPlan.PriceID),
+	})
+
+	// Map subscription plan ID to role name
+	roleMap := map[string]string{
+		os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED"):   constants.Roles[constants.SubSeed],
+		os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH"): constants.Roles[constants.SubGrowth],
+	}
+	roleName := roleMap[subscriptionPlanID]
+
+	params := &stripe.CheckoutSessionCreateParams{
+		SuccessURL: stripe.String(constants.CUSTOMER_PORTAL_RETURN_URL_PATH + "?new_role=" + roleName),
+		CancelURL:  stripe.String(os.Getenv("APEX_URL") + strings.Replace(constants.SitePages["pricing"].Slug, "{trailingslash:\\/?}", "", 1)),
+		Customer:   stripe.String(stripeCustomer.ID),
+		LineItems:  lineItems,
+		// NOTE: `mode` needs to be "subscription" if there's a subscription / recurring item,
+		// use `add_invoice_item` to then append the one-time payment items:
+		// https://stackoverflow.com/questions/64011643/how-to-combine-a-subscription-and-single-payments-in-one-charge-stripe-ap
+		Mode: stripe.String(string(stripe.CheckoutSessionModeSubscription)),
+	}
+	stripeCheckoutResult, err := stripeClient.V1CheckoutSessions.Create(context.Background(), params)
+	if err != nil {
+		log.Printf("Error creating Stripe checkout session: %v", err)
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=checkout_failed", http.StatusSeeOther)
+		return nil
+	}
+
+	// Send the response - redirect to Stripe checkout URL
+	http.Redirect(w, r, stripeCheckoutResult.URL, http.StatusSeeOther)
+	return nil
+}
+
+func CreateSubscriptionCheckoutSessionHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		CreateSubscriptionCheckoutSession(w, r)
+	}
+}
+
 func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
@@ -717,9 +833,35 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	}
 
 	// Continue with existing Stripe checkout logic for paid items
-	// Initialize Stripe client
-	services.InitStripe()
 	stripeClient := services.GetStripeClient()
+
+	// Search for existing Stripe customer by Zitadel user ID in metadata
+	subscriptionService := services.NewStripeSubscriptionService()
+	stripeCustomer, searchErr := subscriptionService.SearchCustomerByExternalID(userInfo.Sub)
+	if searchErr != nil {
+		log.Printf("Error searching for Stripe customer: %v", searchErr)
+		var errMsg = []byte("ERR: Failed to search for Stripe customer: " + searchErr.Error())
+		log.Println(string(errMsg))
+		transport.SendServerRes(w, errMsg, http.StatusInternalServerError, searchErr)
+		return nil
+	}
+
+	// If customer doesn't exist, create it
+	var createErr error
+	if stripeCustomer == nil {
+		log.Printf("Stripe customer not found, creating new customer for Zitadel user %s", userInfo.Sub)
+		stripeCustomer, createErr = subscriptionService.CreateCustomer(userInfo.Sub, userInfo.Email, userInfo.Name)
+		if createErr != nil {
+			log.Printf("Error creating Stripe customer: %v", createErr)
+			var errMsg = []byte("ERR: Failed to create Stripe customer: " + createErr.Error())
+			log.Println(string(errMsg))
+			transport.SendServerRes(w, errMsg, http.StatusInternalServerError, createErr)
+			return nil
+		}
+		log.Printf("Created Stripe customer %s for Zitadel user %s", stripeCustomer.ID, userInfo.Sub)
+	} else {
+		log.Printf("Found existing Stripe customer %s for Zitadel user %s", stripeCustomer.ID, userInfo.Sub)
+	}
 
 	lineItems := make([]*stripe.CheckoutSessionCreateLineItemParams, len(createPurchase.PurchasedItems))
 
@@ -745,6 +887,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
 		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin/profile?new_purch_key=" + createPurchase.CompositeKey),
 		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=cancel"),
+		Customer:          stripe.String(stripeCustomer.ID),
 		LineItems:         lineItems,
 		// NOTE: `mode` needs to be "subscription" if there's a subscription / recurring item,
 		// use `add_invoice_item` to then append the one-time payment items:
@@ -852,18 +995,7 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 	// in the Developer Dashboard
 
 	endpointSecret := services.GetStripeCheckoutWebhookSecret()
-	ctx := r.Context()
-	apiGwV2Req := events.APIGatewayV2HTTPRequest{}
-	if raw := ctx.Value(constants.ApiGwV2ReqKey); raw != nil {
-		if req, ok := raw.(events.APIGatewayV2HTTPRequest); ok {
-			apiGwV2Req = req
-		} else {
-			log.Println("Warning: ApiGwV2ReqKey value is not of expected type")
-		}
-	} else {
-		log.Println("Warning: No ApiGwV2ReqKey found in context")
-	}
-	stripeHeader := apiGwV2Req.Headers["stripe-signature"]
+	stripeHeader := r.Header.Get("stripe-signature")
 	event, err := webhook.ConstructEvent(payload, stripeHeader,
 		endpointSecret)
 	if err != nil {
@@ -1346,9 +1478,9 @@ func (h *WeaviateHandler) PostReShare(w http.ResponseWriter, r *http.Request) {
 		roleClaims = claims
 	}
 
-	validRoles := []string{string(constants.SyndicateAdmin), string(constants.SuperAdmin)}
+	validRoles := []string{string(constants.SubGrowth), string(constants.SubSeed), string(constants.SuperAdmin)}
 	if !helpers.HasRequiredRole(roleClaims, validRoles) {
-		err := errors.New("only event syndicators can add or edit events")
+		err := errors.New("only Growth tier subscribers can re share events")
 		transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)
 		return
 	}

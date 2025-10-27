@@ -344,9 +344,9 @@ func TestStripeAPIContractValidation(t *testing.T) {
 			planName     string
 			expectedRole string
 		}{
-			{"Growth", constants.Roles[constants.SubscrGrowth]},
-			{"Seed Community", constants.Roles[constants.SubscrSeed]},
-			{"Unknown Plan", constants.Roles[constants.SubscrGrowth]}, // Default fallback
+			{"Growth", constants.Roles[constants.SubGrowth]},
+			{"Seed Community", constants.Roles[constants.SubSeed]},
+			{"Unknown Plan", constants.Roles[constants.SubGrowth]}, // Default fallback
 		}
 
 		for _, tc := range testCases {

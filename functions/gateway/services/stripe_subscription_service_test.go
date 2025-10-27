@@ -65,19 +65,19 @@ func TestStripeSubscriptionService_GetZitadelRole(t *testing.T) {
 		expectedRole string
 	}{
 		{
-			name:         "Growth plan maps to subscrGrowth",
+			name:         "Growth plan maps to subGrowth",
 			planName:     "Growth",
-			expectedRole: constants.Roles[constants.SubscrGrowth],
+			expectedRole: constants.Roles[constants.SubGrowth],
 		},
 		{
-			name:         "Seed Community plan maps to subscrSeed",
+			name:         "Seed Community plan maps to subSeed",
 			planName:     "Seed Community",
-			expectedRole: constants.Roles[constants.SubscrSeed],
+			expectedRole: constants.Roles[constants.SubSeed],
 		},
 		{
-			name:         "Unknown plan defaults to subscrGrowth",
+			name:         "Unknown plan defaults to subGrowth",
 			planName:     "Unknown Plan",
-			expectedRole: constants.Roles[constants.SubscrGrowth],
+			expectedRole: constants.Roles[constants.SubGrowth],
 		},
 	}
 
