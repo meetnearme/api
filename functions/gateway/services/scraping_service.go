@@ -510,7 +510,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 		var localPrompt string
 		if action == "init" {
 			localPrompt = GetSystemPrompt(false)
-		} else {
+		} else if action == "rs" {
 			localPrompt = GetSystemPrompt(true)
 		}
 
