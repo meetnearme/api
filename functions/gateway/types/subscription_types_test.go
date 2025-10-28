@@ -193,8 +193,13 @@ func TestStripeTypeConversions(t *testing.T) {
 
 		result := ConvertStripeProduct(mockProduct, mockPrice)
 
-		if result.ID != mockPrice.ID {
-			t.Errorf("Expected ID %s, got %s", mockPrice.ID, result.ID)
+		// ID should now be the product ID, and PriceID should be the price ID
+		if result.ID != mockProduct.ID {
+			t.Errorf("Expected ID %s, got %s", mockProduct.ID, result.ID)
+		}
+
+		if result.PriceID != mockPrice.ID {
+			t.Errorf("Expected PriceID %s, got %s", mockPrice.ID, result.PriceID)
 		}
 
 		if result.Name != mockProduct.Name {
