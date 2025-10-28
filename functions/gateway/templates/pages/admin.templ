@@ -342,14 +342,17 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						}
 						this.newKeyId = new URLSearchParams(searchQuery).get('new_purch_key');
 						this.newRole = new URLSearchParams(searchQuery).get('new_role');
+					const promises = [];
 
-						const promises = [];
-
-						// Poll for role if new_role param is present
-						if (this.newRole) {
-							promises.push(this.pollForRole());
-						}
-
+					// Poll for role if new_role param is present
+					if (this.newRole) {
+						promises.push(this.pollForRole());
+					}
+					// Otherwise, render roles immediately
+					else {
+						this.roleResolved = true;
+						this.roleFound = true;
+					}
 						const fetchPurchases = async () => {
 							const startKey = new URLSearchParams(window.location.search).get('purch_start_key') ?? '';
 							const reqUrl = `/api/purchases/user/${this.userId}${ startKey ? `?start_key=${encodeURIComponent(startKey)}` : '' }`;
