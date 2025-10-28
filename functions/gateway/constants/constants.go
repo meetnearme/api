@@ -123,6 +123,7 @@ const (
 var CUSTOMER_PORTAL_RETURN_URL_PATH = os.Getenv("APEX_URL") + "/admin/home"
 
 const ROLE_NOT_FOUND_MESSAGE = "Role not found"
+const ROLE_ACTIVE_MESSAGE = "Role is active"
 
 // NOTE: these are the default searchable event source types that show up in the home event list view
 var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT, ES_SINGLE_EVENT}

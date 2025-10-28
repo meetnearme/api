@@ -1227,54 +1227,6 @@ func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
-func CheckRole(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-	userInfo := constants.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(constants.UserInfo)
-	}
-
-	if userInfo.Sub == "" {
-		return transport.SendHtmlRes(w, []byte("Unauthorized"), http.StatusUnauthorized, "partial", nil)
-	}
-
-	expectedRole := r.URL.Query().Get("role")
-	if expectedRole == "" {
-		return transport.SendHtmlRes(w, []byte("Missing role parameter"), http.StatusBadRequest, "partial", nil)
-	}
-
-	// Get role claims from context
-	roleClaims := []constants.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
-		roleClaims = claims
-	}
-
-	// Check if user has the expected role
-	hasRole := false
-	for _, roleClaim := range roleClaims {
-		if roleClaim.Role == expectedRole {
-			hasRole = true
-			break
-		}
-	}
-
-	if !hasRole {
-		// Role not found yet, return 404 so client can retry
-		return transport.SendHtmlRes(w, []byte(constants.ROLE_NOT_FOUND_MESSAGE), http.StatusNotFound, "partial", nil)
-	}
-
-	// Role found! Return success alert using the partials package
-	successPartial := partials.SuccessBannerHTML(fmt.Sprintf("✓ Your %s subscription is now active!", expectedRole))
-
-	var buf bytes.Buffer
-	err := successPartial.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
-	}
-
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
-}
-
 func getFullDomPath(element *goquery.Selection) string {
 	var path []string
 

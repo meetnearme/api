@@ -51,16 +51,10 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			id="admin-content"
 			class="htmx-hide-in-flight overflow-scroll col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box"
 		>
-			<template x-if="roleResolved && !roleFound">
-				<div class="alert alert-warning mb-4">
-					@components.Icon("triangle-alert")
-					<span>Your subscription is being processed. If you need assistance, please reach out via <a class="link link-primary" href="https://discord.gg/zfXWhGHs8T">Discord</a> or <a class="link link-primary" href="mailto:info@meetnear.me">email</a>.</span>
-				</div>
-			</template>
-			<template x-if="roleResolved && roleFound">
-				<div class="alert alert-success mb-4">
-					@components.Icon("check-circle")
-					<span>Your subscription is now active!</span>
+			<template x-if="newRole && !roleResolved">
+				<div class="alert alert-info mb-4">
+					<span class="candidates-loading-visible loading loading-ball loading-lg h-auto"></span>
+					<span>Checking your subscription status...</span>
 				</div>
 			</template>
 			<h2 id="registration-history" class="text-2xl font-bold mt-4">Event Purchases &amp; Registrations</h2>
@@ -154,30 +148,51 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					</tfoot>
 				</table>
 			</div>
-			<h2 class="text-2xl font-bold ">My Info</h2>
+			<h2 class="text-2xl font-bold ">User Info</h2>
 			Name: { userInfo.Name }
 			<br/>
 			Email: { userInfo.Email }
 			<br/>
-			Verified:
+			Email Verified:
 			if userInfo.EmailVerified {
 				Yes
 			} else {
 				No
 			}
 			<br/>
-			ID: { userInfo.Sub }
-			<br/>
-			Locale: { userInfo.Locale }
+			User ID: { userInfo.Sub }
 			<br/>
 			<br/>
-			<h3 class="text-2xl font-bold">My Roles</h3>
-			<div class="flex space-x-4 mb-4">
-				for _, roleClaim := range roleClaims {
-					<span class="badge badge-lg badge-primary">{ roleClaim.Role }</span>
-				}
-			</div>
-			<h3 class="text-2xl font-bold">My Interests</h3>
+			<h3 id="roles-section" class="text-2xl font-bold scroll-margin-top">Subscriptions</h3>
+			<template x-if="newRole && roleResolved && !roleFound">
+				<div class="alert alert-warning mb-4">
+					@components.Icon("triangle-alert")
+					<span>Your subscription is being processed. If you need assistance, please reach out via <a class="link link-primary" href="https://discord.gg/zfXWhGHs8T">Discord</a> or <a class="link link-primary" href="mailto:info@meetnear.me">email</a>.</span>
+				</div>
+			</template>
+			<template x-if="newRole && roleResolved && roleFound">
+				<div class="alert alert-success mb-4">
+					@components.Icon("check-circle")
+					<span>Your subscription is now active!</span>
+				</div>
+			</template>
+			<template x-if="roleResolved && roleFound">
+				<div class="flex flex-wrap space-x-4 mb-4 gap-2">
+					for _, roleClaim := range roleClaims {
+						<span class="badge badge-lg badge-primary whitespace-nowrap">
+							if roleClaim.Role == string(constants.SubGrowth) {
+								Growth Community
+							} else if roleClaim.Role == string(constants.SubSeed) {
+								Seed Community
+							} else {
+								{ roleClaim.Role }
+							}
+						</span>
+						<br/>
+					}
+				</div>
+			</template>
+			<h3 class="text-2xl font-bold">Interests</h3>
 			if len(interests) > 1 {
 				<div class="mb-4">
 					<ul>
@@ -190,7 +205,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 				</div>
 			}
 			<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/profile/settings">interests page</a>.</p>
-			<h3 class="text-2xl font-bold mb-4">My Subdomain</h3>
+			<h3 class="text-2xl font-bold mb-4">Subdomain</h3>
 			{{ baseDomain := strings.TrimPrefix(os.Getenv("APEX_URL"), "https://") }}
 			<div
 				x-data={ `{
@@ -328,18 +343,12 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						this.newKeyId = new URLSearchParams(searchQuery).get('new_purch_key');
 						this.newRole = new URLSearchParams(searchQuery).get('new_role');
 
+						const promises = [];
+
 						// Poll for role if new_role param is present
 						if (this.newRole) {
-							await this.pollForRole();
+							promises.push(this.pollForRole());
 						}
-
-            const pollRoles = async () => {
-              const reqUrl = `/auth/refresh`;
-              const refreshResponse = await fetch(reqUrl);
-              const refreshResData = await refreshResponse.json();
-              this.refreshToken = refreshResData.refresh_token ?? '';
-              this.hasRefreshResults = true;
-            };
 
 						const fetchPurchases = async () => {
 							const startKey = new URLSearchParams(window.location.search).get('purch_start_key') ?? '';
@@ -363,7 +372,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 									if (this.purchases.some(p => p.composite_key === this.newKeyId)) {
 										const purchaseRow = document.querySelector(`[data-purch-key="${this.newKeyId}"]`);
 										if (purchaseRow) {
-											purchaseRow.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+											purchaseRow.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
 										}
 									}
 									return;
@@ -381,7 +390,9 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 							}
 						};
 
-						await pollPurchases();
+						promises.push(pollPurchases());
+
+						await Promise.all(promises);
 					})()
 				},
 				newKeyId: null,
@@ -407,37 +418,33 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 
 							// Then check if role is present
 							const response = await fetch(`/api/auth/check-role?role=${encodeURIComponent(this.newRole)}`);
-							const html = await response.text();
-
+							const jsonResponse = await response.json();
+							console.log('jsonResponse', jsonResponse);
 							// Check if the HTML content indicates role not found
-							if (html.includes(this.roleNotFoundMessage)) {
+							if (jsonResponse.error && jsonResponse.error.message.includes(this.roleNotFoundMessage)) {
 								// Role not found yet, continue polling - this is expected
 								console.log(`Role ${this.newRole} not found yet, continuing to poll...`);
 								continue;
 							}
 
 							// Role found! Display the success message
-							const container = document.getElementById('role-check-container');
-							if (container) {
-								container.innerHTML = html;
-								// Scroll to the success message
-								container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-							}
+							const rolesSection = document.querySelector('#roles-section');
+							rolesSection.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
 							// Role found, stop polling
 							this.roleResolved = true;
-              this.roleFound = true;
+							this.roleFound = true;
 							return;
 						} catch (error) {
 							// eslint-disable-next-line no-console
 							console.error('Failed to check role:', error);
 							this.roleResolved = true;
-              this.roleFound = false;
+							this.roleFound = false;
 						}
 					}
 
 					// If we've exhausted all retries, show a message to refresh manually
 					this.roleResolved = true;
-          this.roleFound = false;
+					this.roleFound = false;
 				},
 				getPurchasesNextLink() {
 					return window.location.href + '?purch_start_key=' + this.purchasesNextCursor + '_' + this.userId;

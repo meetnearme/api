@@ -1151,6 +1151,133 @@ func HandleCheckoutWebhookHandler(w http.ResponseWriter, r *http.Request) http.H
 	}
 }
 
+func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWriter, r *http.Request) (err error) {
+	const MaxBodyBytes = int64(65536)
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+	payload, err := io.ReadAll(r.Body)
+	if err != nil {
+		msg := fmt.Sprintf("ERR: Error reading request body: %v\n", err)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, nil)
+		return err
+	}
+
+	endpointSecret := services.GetStripeCheckoutWebhookSecret()
+	stripeHeader := r.Header.Get("stripe-signature")
+	event, err := webhook.ConstructEvent(payload, stripeHeader,
+		endpointSecret)
+	if err != nil {
+		msg := fmt.Sprintf("ERR: Error verifying webhook signature: %v\n", err)
+		transport.SendServerRes(w, []byte(msg), http.StatusBadRequest, nil)
+		return err
+	}
+
+	switch event.Type {
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_CREATED:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		addedGrowthPlan := false
+		addedSeedPlan := false
+		for _, item := range subscription.Items.Data {
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
+				addedGrowthPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
+				addedSeedPlan = true
+			}
+		}
+
+		// Get the Stripe customer
+		s := services.GetStripeClient()
+		customer, err := s.V1Customers.Retrieve(context.Background(), subscription.Customer.ID, nil)
+		if err != nil {
+			log.Printf("Error retrieving customer: %v", err)
+			transport.SendServerRes(w, []byte("Error retrieving customer"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Extract the Zitadel user ID from metadata
+		var zitadelUserID string
+		if customer.Metadata != nil {
+			if extID, exists := customer.Metadata["zitadel_user_id"]; exists {
+				zitadelUserID = extID
+			}
+		}
+
+		log.Printf("Subscription created for Zitadel user: %s, Customer: %s, Growth: %v, Seed: %v", zitadelUserID, subscription.Customer.ID, addedGrowthPlan, addedSeedPlan)
+
+		roles, err := helpers.GetUserRoles(zitadelUserID)
+		if err != nil {
+			log.Printf("Error getting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error getting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		if addedGrowthPlan && helpers.ArrFindFirst(roles, []string{constants.Roles[constants.SubGrowth]}) == "" {
+			roles = append(roles, constants.Roles[constants.SubGrowth])
+		}
+		if addedSeedPlan && helpers.ArrFindFirst(roles, []string{constants.Roles[constants.SubSeed]}) == "" {
+			roles = append(roles, constants.Roles[constants.SubSeed])
+		}
+
+		err = helpers.SetUserRoles(zitadelUserID, roles)
+		if err != nil {
+			log.Printf("Error setting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error setting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription: %s created for customer: %s", subscription.ID, subscription.Customer.ID)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_UPDATED:
+		// TODO:
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_DELETED:
+		// TODO:
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PAUSED:
+		// TODO:
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PENDING_UPDATE_APPLIED:
+		// TODO:
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PENDING_UPDATE_EXPIRED:
+		// TODO:
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_RESUMED:
+		// TODO:
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_TRIAL_WILL_END:
+		// TODO:
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_UPDATED:
+		// TODO:
+		return nil
+	default:
+		transport.SendServerRes(w, []byte("Unhandled event type"), http.StatusOK, nil)
+		return nil
+	}
+}
+
+func HandleSubscriptionWebhookHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	subscriptionService := services.NewStripeSubscriptionService()
+
+	handler := NewSubscriptionWebhookHandler(subscriptionService)
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := handler.HandleSubscriptionWebhook(w, r)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to handle subscription webhook: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+	}
+}
+
 func validatePurchase(purchasable *internal_types.Purchasable, createPurchase internal_types.PurchaseInsert) (purchasableItems map[string]internal_types.PurchasableItemInsert, err error) {
 	purchases := make([]*internal_types.PurchasedItem, len(purchasable.PurchasableItems))
 
@@ -1554,5 +1681,74 @@ func PostReShareHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.PostReShare(w, r)
+	}
+}
+
+func CheckRole(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		userInfo := constants.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(constants.UserInfo)
+		}
+
+		if userInfo.Sub == "" {
+			transport.SendServerRes(w, []byte("Unauthorized"), http.StatusUnauthorized, nil)
+			return
+		}
+
+		expectedRole := r.URL.Query().Get("role")
+		if expectedRole == "" {
+			transport.SendServerRes(w, []byte("Missing role parameter"), http.StatusBadRequest, nil)
+			return
+		}
+
+		// Get role claims from context
+		roleClaims := []constants.RoleClaim{}
+		if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+			roleClaims = claims
+		}
+
+		// Check if user has the expected role
+		hasRole := false
+		for _, roleClaim := range roleClaims {
+			if roleClaim.Role == expectedRole {
+				hasRole = true
+				break
+			}
+		}
+
+		if !hasRole {
+			jsonResponse := map[string]interface{}{
+				"status":  "error",
+				"message": constants.ROLE_NOT_FOUND_MESSAGE,
+			}
+			bytes, err := json.Marshal(jsonResponse)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to marshal JSON: "+err.Error()), http.StatusInternalServerError, err)
+				return
+			}
+			// Role not found yet, return 404 so client can retry
+			transport.SendServerRes(w, bytes, http.StatusNotFound, nil)
+			return
+		}
+
+		// Role found! Return success response
+		jsonResponse := map[string]interface{}{
+			"status":  "success",
+			"message": constants.ROLE_ACTIVE_MESSAGE,
+		}
+		bytes, err := json.Marshal(jsonResponse)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to marshal JSON: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+		transport.SendServerRes(w, bytes, http.StatusOK, nil)
+	}
+}
+
+func CheckRoleHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		CheckRole(w, r)
 	}
 }
