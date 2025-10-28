@@ -361,7 +361,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						};
 
 						const pollPurchases = async () => {
-              const maxAttempts = 10;
+							const maxAttempts = 10;
 							const delayMs = 250;
 							let attempts = 0;
 							try {
@@ -419,18 +419,18 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 							// Then check if role is present
 							const response = await fetch(`/api/auth/check-role?role=${encodeURIComponent(this.newRole)}`);
 							const jsonResponse = await response.json();
-							console.log('jsonResponse', jsonResponse);
 							// Check if the HTML content indicates role not found
 							if (jsonResponse.error && jsonResponse.error.message.includes(this.roleNotFoundMessage)) {
 								// Role not found yet, continue polling - this is expected
+								// eslint-disable-next-line no-console
 								console.log(`Role ${this.newRole} not found yet, continuing to poll...`);
 								continue;
 							}
 
 							// Role found! Display the success message
-							const rolesSection = document.querySelector('#roles-section');
+							const rolesSection = document.querySelectorg('#roles-section');
 							rolesSection.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
-							// Role found, stop polling
+							// Role found, stop pollging
 							this.roleResolved = true;
 							this.roleFound = true;
 							return;
