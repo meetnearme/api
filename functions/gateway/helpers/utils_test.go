@@ -3,6 +3,7 @@ package helpers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1416,7 +1417,9 @@ func TestGetUserRoles(t *testing.T) {
 			defer mockServer.Close()
 
 			// Set environment variables
-			os.Setenv("ZITADEL_INSTANCE_HOST", strings.TrimPrefix(mockServer.URL, "https://"))
+			zitadelURL := strings.TrimPrefix(mockServer.URL, "http://")
+			zitadelURL = strings.TrimPrefix(zitadelURL, "https://")
+			os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
 			os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
 
 			// Call the function
@@ -1543,7 +1546,10 @@ func TestGetUserAuthorizationID(t *testing.T) {
 			}))
 			defer mockServer.Close()
 
-			os.Setenv("ZITADEL_INSTANCE_HOST", strings.TrimPrefix(mockServer.URL, "https://"))
+			// Set environment variables
+			zitadelURL := strings.TrimPrefix(mockServer.URL, "http://")
+			zitadelURL = strings.TrimPrefix(zitadelURL, "https://")
+			os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
 			os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
 
 			authID, err := GetUserAuthorizationID(tt.userID)
@@ -1677,7 +1683,10 @@ func TestCreateUserAuthorization(t *testing.T) {
 			}))
 			defer mockServer.Close()
 
-			os.Setenv("ZITADEL_INSTANCE_HOST", strings.TrimPrefix(mockServer.URL, "https://"))
+			// Set environment variables
+			zitadelURL := strings.TrimPrefix(mockServer.URL, "http://")
+			zitadelURL = strings.TrimPrefix(zitadelURL, "https://")
+			os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
 			os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
 
 			authID, err := CreateUserAuthorization(tt.userID, tt.roleKeys)
@@ -1712,19 +1721,19 @@ func TestSetUserRoles(t *testing.T) {
 	}()
 
 	tests := []struct {
-		name                   string
-		userID                 string
-		roleKeys               []string
-		existingAuthID         string
-		listAuthResponse       string
-		listAuthStatusCode     int
-		createAuthResponse     string
-		createAuthStatusCode   int
-		updateAuthResponse     string
-		updateAuthStatusCode   int
-		expectedError          string
-		expectCreateCall       bool
-		expectUpdateCall       bool
+		name                 string
+		userID               string
+		roleKeys             []string
+		existingAuthID       string
+		listAuthResponse     string
+		listAuthStatusCode   int
+		createAuthResponse   string
+		createAuthStatusCode int
+		updateAuthResponse   string
+		updateAuthStatusCode int
+		expectedError        string
+		expectCreateCall     bool
+		expectUpdateCall     bool
 	}{
 		{
 			name:     "Success - Update existing authorization",
@@ -1868,7 +1877,10 @@ func TestSetUserRoles(t *testing.T) {
 			}))
 			defer mockServer.Close()
 
-			os.Setenv("ZITADEL_INSTANCE_HOST", strings.TrimPrefix(mockServer.URL, "https://"))
+			// Set environment variables
+			zitadelURL := strings.TrimPrefix(mockServer.URL, "http://")
+			zitadelURL = strings.TrimPrefix(zitadelURL, "https://")
+			os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
 			os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
 
 			err := SetUserRoles(tt.userID, tt.roleKeys)
@@ -1919,7 +1931,10 @@ func TestSetUserRoles_RaceCondition(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	os.Setenv("ZITADEL_INSTANCE_HOST", strings.TrimPrefix(mockServer.URL, "https://"))
+	// Set environment variables
+	zitadelURL := strings.TrimPrefix(mockServer.URL, "http://")
+	zitadelURL = strings.TrimPrefix(zitadelURL, "https://")
+	os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
 	os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
 
 	// Run multiple concurrent calls
