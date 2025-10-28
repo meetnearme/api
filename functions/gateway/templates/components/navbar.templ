@@ -8,6 +8,8 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
 	"strconv"
+	"strings"
+	"unicode"
 )
 
 templ MiniProfileInNav(userInfo constants.UserInfo, ctx context.Context) {
@@ -226,12 +228,20 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 }
 
 func getFirstChar(userInfo constants.UserInfo) string {
-	var firstChar string
-	if len(userInfo.Name) > 0 {
-		firstChar = string(userInfo.Name[0])
-	} else {
-		firstChar = "?"
+	name := strings.TrimSpace(userInfo.Name)
+	if name == "" {
+		return "?"
 	}
+
+	// Get the first rune (Unicode character) in the string
+	var firstRune rune
+	for _, r := range name {
+		firstRune = r
+		break
+	}
+
+	// Convert to uppercase for consistency
+	firstChar := string(unicode.ToUpper(firstRune))
 	return firstChar
 }
 
