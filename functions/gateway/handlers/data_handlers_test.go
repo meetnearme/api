@@ -36,6 +36,23 @@ import (
 
 var searchUsersByIDs = helpers.SearchUsersByIDs
 
+// customRoundTripperForStripe is a custom HTTP round tripper that redirects Stripe API calls to a mock server
+type customRoundTripperForStripe struct {
+	transport http.RoundTripper
+	mockURL   string
+}
+
+func (c *customRoundTripperForStripe) RoundTrip(req *http.Request) (*http.Response, error) {
+	// If this is a Stripe API request, redirect it to our mock server
+	if strings.Contains(req.URL.Host, "api.stripe.com") {
+		mockURL, _ := url.Parse(c.mockURL)
+		req.URL.Scheme = mockURL.Scheme
+		req.URL.Host = mockURL.Host
+	}
+	// Use the underlying transport to make the request
+	return c.transport.RoundTrip(req)
+}
+
 func TestPostEventHandler(t *testing.T) {
 	// Store original env vars and transport
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
@@ -2434,14 +2451,17 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 	// Setup mock Zitadel server for GetUserRoles and SetUserRoles calls
 	mockZitadelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" && strings.Contains(r.URL.Path, "ListAuthorizations") {
-			// Mock GetUserRoles response
+			// Mock GetUserRoles response - return empty list so we create new auth
 			response := map[string]interface{}{
-				"authorizations": []map[string]interface{}{
-					{
-						"roles": []string{"eventAdmin"},
-					},
-				},
+				"authorizations": []map[string]interface{}{},
 			}
+			json.NewEncoder(w).Encode(response)
+		} else if r.Method == "POST" && strings.Contains(r.URL.Path, "CreateAuthorization") {
+			// Mock CreateAuthorization response
+			response := map[string]interface{}{
+				"id": "auth_123",
+			}
+			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 		} else if r.Method == "POST" && strings.Contains(r.URL.Path, "UpdateAuthorization") {
 			// Mock SetUserRoles response
@@ -2459,15 +2479,48 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 	zitadelURL := strings.TrimPrefix(mockZitadelServer.URL, "http://")
 	os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
 
-	t.Run("handles customer.subscription.created for Growth plan", func(t *testing.T) {
+	t.Run("handles customer.subscription.created with Growth plan", func(t *testing.T) {
+		// Save original transport and stripe key
+		originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
+		originalTransport := http.DefaultTransport
+		defer func() {
+			os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
+			http.DefaultTransport = originalTransport
+		}()
+
+		os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
+
+		// Create mock Stripe server
+		mockStripeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "GET" && strings.Contains(r.URL.Path, "/v1/customers/cus_test123") {
+				customerResponse := map[string]interface{}{
+					"id": "cus_test123",
+					"metadata": map[string]interface{}{
+						"zitadel_user_id": "zitadel_user_123",
+					},
+				}
+				json.NewEncoder(w).Encode(customerResponse)
+			} else {
+				http.Error(w, "Not Found", http.StatusNotFound)
+			}
+		}))
+		defer mockStripeServer.Close()
+
+		// Setup custom round tripper to redirect Stripe API calls to mock
+		customRoundTripper := &customRoundTripperForStripe{
+			transport: http.DefaultTransport,
+			mockURL:   mockStripeServer.URL,
+		}
+		http.DefaultTransport = test_helpers.NewLoggingTransport(customRoundTripper, t)
+		services.ResetStripeClient()
+
 		payload := []byte(`{
-			"id": "evt_test",
 			"type": "customer.subscription.created",
 			"api_version": "2025-09-30.clover",
 			"data": {
 				"object": {
 					"id": "sub_test123",
-					"customer": "cus_test456",
+					"customer": "cus_test123",
 					"items": {
 						"data": [
 							{
@@ -2476,13 +2529,11 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 								}
 							}
 						]
-					},
-					"status": "active"
+					}
 				}
 			}
 		}`)
 
-		// Generate signed payload (similar to TestHandleCheckoutWebhook)
 		now := time.Now()
 		timestamp := now.Unix()
 		mac := hmac.New(sha256.New, []byte(testWebhookSecret))
@@ -2492,48 +2543,10 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 		signature := hex.EncodeToString(mac.Sum(nil))
 		stripeSignature := fmt.Sprintf("t=%d,v1=%s", timestamp, signature)
 
-		// Setup mock Stripe client server for retrieving customer
-		mockStripeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/v1/customers/cus_test456" {
-				response := map[string]interface{}{
-					"id":    "cus_test456",
-					"email": "test@example.com",
-					"name":  "Test User",
-					"metadata": map[string]string{
-						"zitadel_user_id": "zitadel_user_123",
-					},
-				}
-				json.NewEncoder(w).Encode(response)
-			} else {
-				http.Error(w, "Not Found", http.StatusNotFound)
-			}
-		}))
-		defer mockStripeServer.Close()
-
-		// Override HTTP transport to redirect Stripe calls to mock server
-		originalTransport := http.DefaultTransport
-		http.DefaultTransport = &http.Transport{
-			Proxy: func(req *http.Request) (*url.URL, error) {
-				if strings.Contains(req.URL.Host, "api.stripe.com") {
-					mockURL, _ := url.Parse(mockStripeServer.URL)
-					req.URL.Scheme = mockURL.Scheme
-					req.URL.Host = mockURL.Host
-				}
-				return nil, nil
-			},
-		}
-		defer func() {
-			http.DefaultTransport = originalTransport
-		}()
-
-		// Reset Stripe client to use new transport
-		services.ResetStripeClient()
-
 		req := httptest.NewRequest(http.MethodPost, "/webhook/subscription", bytes.NewBuffer(payload))
 		req.Header.Set("stripe-signature", stripeSignature)
 		w := httptest.NewRecorder()
 
-		// Create handler
 		subscriptionService := services.NewStripeSubscriptionService()
 		handler := NewSubscriptionWebhookHandler(subscriptionService)
 
@@ -2545,16 +2558,59 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status code %v, got %v", http.StatusOK, w.Code)
 		}
+
+		// Verify response contains expected subscription and customer IDs
+		expectedSubscriptionID := "sub_test123"
+		expectedCustomerID := "cus_test123"
+		if !strings.Contains(w.Body.String(), expectedSubscriptionID) {
+			t.Errorf("expected body to contain subscription ID '%s', got '%s'", expectedSubscriptionID, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), expectedCustomerID) {
+			t.Errorf("expected body to contain customer ID '%s', got '%s'", expectedCustomerID, w.Body.String())
+		}
 	})
 
-	t.Run("handles customer.subscription.created for Seed plan", func(t *testing.T) {
+	t.Run("handles customer.subscription.created with Seed plan", func(t *testing.T) {
+		// Save original transport and stripe key
+		originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
+		originalTransport := http.DefaultTransport
+		defer func() {
+			os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
+			http.DefaultTransport = originalTransport
+		}()
+
+		os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
+
+		// Create mock Stripe server
+		mockStripeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "GET" && strings.Contains(r.URL.Path, "/v1/customers/cus_test456") {
+				customerResponse := map[string]interface{}{
+					"id": "cus_test456",
+					"metadata": map[string]interface{}{
+						"zitadel_user_id": "zitadel_user_456",
+					},
+				}
+				json.NewEncoder(w).Encode(customerResponse)
+			} else {
+				http.Error(w, "Not Found", http.StatusNotFound)
+			}
+		}))
+		defer mockStripeServer.Close()
+
+		// Setup custom round tripper to redirect Stripe API calls to mock
+		customRoundTripper := &customRoundTripperForStripe{
+			transport: http.DefaultTransport,
+			mockURL:   mockStripeServer.URL,
+		}
+		http.DefaultTransport = test_helpers.NewLoggingTransport(customRoundTripper, t)
+		services.ResetStripeClient()
+
 		payload := []byte(`{
-			"id": "evt_test",
 			"type": "customer.subscription.created",
 			"api_version": "2025-09-30.clover",
 			"data": {
 				"object": {
-					"id": "sub_test789",
+					"id": "sub_test456",
 					"customer": "cus_test456",
 					"items": {
 						"data": [
@@ -2564,13 +2620,11 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 								}
 							}
 						]
-					},
-					"status": "active"
+					}
 				}
 			}
 		}`)
 
-		// Generate signed payload
 		now := time.Now()
 		timestamp := now.Unix()
 		mac := hmac.New(sha256.New, []byte(testWebhookSecret))
@@ -2579,42 +2633,6 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 		mac.Write(payload)
 		signature := hex.EncodeToString(mac.Sum(nil))
 		stripeSignature := fmt.Sprintf("t=%d,v1=%s", timestamp, signature)
-
-		// Setup mock Stripe client server
-		mockStripeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/v1/customers/cus_test456" {
-				response := map[string]interface{}{
-					"id":    "cus_test456",
-					"email": "test@example.com",
-					"name":  "Test User",
-					"metadata": map[string]string{
-						"zitadel_user_id": "zitadel_user_123",
-					},
-				}
-				json.NewEncoder(w).Encode(response)
-			} else {
-				http.Error(w, "Not Found", http.StatusNotFound)
-			}
-		}))
-		defer mockStripeServer.Close()
-
-		// Override HTTP transport
-		originalTransport := http.DefaultTransport
-		http.DefaultTransport = &http.Transport{
-			Proxy: func(req *http.Request) (*url.URL, error) {
-				if strings.Contains(req.URL.Host, "api.stripe.com") {
-					mockURL, _ := url.Parse(mockStripeServer.URL)
-					req.URL.Scheme = mockURL.Scheme
-					req.URL.Host = mockURL.Host
-				}
-				return nil, nil
-			},
-		}
-		defer func() {
-			http.DefaultTransport = originalTransport
-		}()
-
-		services.ResetStripeClient()
 
 		req := httptest.NewRequest(http.MethodPost, "/webhook/subscription", bytes.NewBuffer(payload))
 		req.Header.Set("stripe-signature", stripeSignature)
@@ -2630,6 +2648,16 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status code %v, got %v", http.StatusOK, w.Code)
+		}
+
+		// Verify response contains expected subscription and customer IDs
+		expectedSubscriptionID := "sub_test456"
+		expectedCustomerID := "cus_test456"
+		if !strings.Contains(w.Body.String(), expectedSubscriptionID) {
+			t.Errorf("expected body to contain subscription ID '%s', got '%s'", expectedSubscriptionID, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), expectedCustomerID) {
+			t.Errorf("expected body to contain customer ID '%s', got '%s'", expectedCustomerID, w.Body.String())
 		}
 	})
 
