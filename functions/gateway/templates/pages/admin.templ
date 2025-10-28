@@ -428,7 +428,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 							}
 
 							// Role found! Display the success message
-							const rolesSection = document.querySelectorg('#roles-section');
+							const rolesSection = document.querySelector('#roles-section');
 							rolesSection.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
 							// Role found, stop pollging
 							this.roleResolved = true;

@@ -22,7 +22,6 @@ import (
 
 	// internal_types "github.com/meetnearme/api/functions/gateway/types"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/constants"
@@ -1352,12 +1351,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 		stripeSignature := fmt.Sprintf("t=%d,v1=%s", timestamp, signature)
 
 		r := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer(payload))
-		ctx := context.WithValue(r.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-			Headers: map[string]string{
-				"stripe-signature": stripeSignature,
-			},
-		})
-		r = r.WithContext(ctx)
+		r.Header.Set("stripe-signature", stripeSignature)
 
 		w := httptest.NewRecorder()
 		// Execute handler
@@ -1450,12 +1444,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 
 				// Create request
 				r := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer(payload))
-				ctx := context.WithValue(r.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-					Headers: map[string]string{
-						"stripe-signature": stripeSignature,
-					},
-				})
-				r = r.WithContext(ctx)
+				r.Header.Set("stripe-signature", stripeSignature)
 				w := httptest.NewRecorder()
 
 				mockPurchasableService := &dynamodb_service.MockPurchasableService{
@@ -1525,12 +1514,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 	})
 	t.Run("handles invalid signature", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer([]byte(`{}`)))
-		ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-			Headers: map[string]string{
-				"stripe-signature": "invalid_signature",
-			},
-		})
-		req = req.WithContext(ctx)
+		req.Header.Set("stripe-signature", "invalid_signature")
 		w := httptest.NewRecorder()
 		handler := NewPurchasableWebhookHandler(&dynamodb_service.MockPurchasableService{}, &dynamodb_service.MockPurchaseService{})
 		err := handler.HandleCheckoutWebhook(w, req)

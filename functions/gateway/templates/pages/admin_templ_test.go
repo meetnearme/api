@@ -70,7 +70,6 @@ func TestAdminPage(t *testing.T) {
 		mockUserInfo.Email,
 		mockUserInfo.Name,
 		mockUserInfo.Sub,
-		mockUserInfo.Locale,
 		"Yes", // mockUserInfo.EmailVerified yields a value "Yes" or "No"
 		"Test about me text",
 		"#000000",

@@ -85,23 +85,44 @@ func (s *StripeSubscriptionService) GetSubscriptionPlans() ([]*types.Subscriptio
 	return plans, nil
 }
 
-// getPlanByID fetches a specific subscription plan by its product ID (not price ID)
-func (s *StripeSubscriptionService) getPlanByID(productID string) (*types.SubscriptionPlan, error) {
-	// Get the product details using the client
+// getPlanByID fetches a specific subscription plan by its price ID or product ID
+// Note: The environment variable contains price IDs, so we need to handle both cases
+func (s *StripeSubscriptionService) getPlanByID(priceOrProductID string) (*types.SubscriptionPlan, error) {
+	// First, try to retrieve it as a price
+	priceObj, err := s.client.V1Prices.Retrieve(context.Background(), priceOrProductID, nil)
+	if err != nil || priceObj == nil {
+		// If it fails, it might be a product ID - try to fetch as product
+		productObj, productErr := s.client.V1Products.Retrieve(context.Background(), priceOrProductID, nil)
+		if productErr != nil || productObj == nil {
+			return nil, fmt.Errorf("error fetching price/product %s: %w", priceOrProductID, err)
+		}
+
+		// Product was found, get its default price
+		if productObj.DefaultPrice == nil || productObj.DefaultPrice.ID == "" {
+			return nil, fmt.Errorf("product %s has no default price", priceOrProductID)
+		}
+
+		// Get the price details
+		priceObj, err = s.client.V1Prices.Retrieve(context.Background(), productObj.DefaultPrice.ID, nil)
+		if err != nil || priceObj == nil {
+			return nil, fmt.Errorf("error fetching price %s: %w", productObj.DefaultPrice.ID, err)
+		}
+
+		// Convert to our subscription plan type
+		plan := types.ConvertStripeProduct(productObj, priceObj)
+		return plan, nil
+	}
+
+	// Price was found, now get the product
+	if priceObj.Product == nil {
+		return nil, fmt.Errorf("price %s has no associated product", priceOrProductID)
+	}
+
+	// Product.ID returns the product ID string
+	productID := priceObj.Product.ID
 	productObj, err := s.client.V1Products.Retrieve(context.Background(), productID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching product %s: %w", productID, err)
-	}
-
-	// Get the first recurring price for this product
-	if productObj.DefaultPrice == nil || productObj.DefaultPrice.ID == "" {
-		return nil, fmt.Errorf("product %s has no default price", productID)
-	}
-
-	// Get the price details
-	priceObj, err := s.client.V1Prices.Retrieve(context.Background(), productObj.DefaultPrice.ID, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching price %s: %w", productObj.DefaultPrice.ID, err)
 	}
 
 	// Only include recurring prices (subscriptions)
