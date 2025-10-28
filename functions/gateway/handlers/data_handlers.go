@@ -1236,30 +1236,103 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_UPDATED:
-		// TODO:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription updated: %s", subscription.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_DELETED:
-		// TODO:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription deleted: %s", subscription.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PAUSED:
-		// TODO:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription paused: %s", subscription.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PENDING_UPDATE_APPLIED:
-		// TODO:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription pending update applied: %s", subscription.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PENDING_UPDATE_EXPIRED:
-		// TODO:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription pending update expired: %s", subscription.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_RESUMED:
-		// TODO:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription resumed: %s", subscription.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_TRIAL_WILL_END:
-		// TODO:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription trial will end: %s", subscription.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_UPDATED:
-		// TODO:
+		var customer stripe.Customer
+		err := json.Unmarshal(event.Data.Raw, &customer)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer updated: %s", customer.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	default:
+		// log.Printf("Unhandled event type: %s\n", event.Type)
 		transport.SendServerRes(w, []byte("Unhandled event type"), http.StatusOK, nil)
 		return nil
 	}
