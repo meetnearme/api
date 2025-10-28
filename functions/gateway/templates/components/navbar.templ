@@ -225,6 +225,16 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 	</template>
 }
 
+func getFirstChar(userInfo constants.UserInfo) string {
+	var firstChar string
+	if len(userInfo.Name) > 0 {
+		firstChar = string(userInfo.Name[0])
+	} else {
+		firstChar = "?"
+	}
+	return firstChar
+}
+
 templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event, ctx context.Context) {
 	<div class="drawer drawer-end">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
@@ -247,7 +257,7 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 								<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 										<div class="border w-24 rounded-full">
-											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+											<span class="text-3xl">{ getFirstChar(userInfo) }</span>
 										</div>
 									</div>
 									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-4 shadow-lg border border-base-300">
@@ -276,7 +286,7 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 					<div class="p-2 m-1 card bg-base-200 lg:hidden">
 						<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 							<div class="border w-24 rounded-full">
-								<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+								<span class="text-3xl">{ string(getFirstChar(userInfo)) }</span>
 							</div>
 							// <div class="w-10 rounded-full">
 							// 	<img
