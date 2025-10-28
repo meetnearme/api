@@ -175,15 +175,15 @@ jobs:
       - name: Send .env file to ACT server
         run: |
           # Setup SSH key
-          # TODO: separate SSH key for prod and dev
+          # TODO: create and use a separate SSH key for prod and dev
           echo "${{ secrets._DEV_ACT_SSH_KEY }}" > ssh_key
           chmod 600 ssh_key
 
           # Create remote directory if it doesn't exist
-          ssh -i ssh_key -o StrictHostKeyChecking=no root@178.156.187.191 "mkdir -p /root/docker/env"
+          ssh -i ssh_key -o StrictHostKeyChecking=no root@178.156.189.213 "mkdir -p /root/docker/env"
 
           # Copy .env file to ACT server
-          scp -i ssh_key -o StrictHostKeyChecking=no ${{ steps.generate-tag.outputs.tag }}.env root@178.156.187.191:/root/docker/env/
+          scp -i ssh_key -o StrictHostKeyChecking=no ${{ steps.generate-tag.outputs.tag }}.env root@178.156.189.213:/root/docker/env/
 
           # Clean up SSH key
           rm ssh_key

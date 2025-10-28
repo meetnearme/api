@@ -1,17 +1,15 @@
 package services
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/meetnearme/api/functions/gateway/interfaces"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"github.com/stripe/stripe-go/v83"
 	"github.com/stripe/stripe-go/v83/billingportal/session"
-	"github.com/stripe/stripe-go/v83/customer"
-	"github.com/stripe/stripe-go/v83/price"
-	"github.com/stripe/stripe-go/v83/product"
-	"github.com/stripe/stripe-go/v83/subscription"
 )
 
 // StripeSubscriptionService implements the StripeSubscriptionServiceInterface
@@ -87,27 +85,53 @@ func (s *StripeSubscriptionService) GetSubscriptionPlans() ([]*types.Subscriptio
 	return plans, nil
 }
 
-// getPlanByID fetches a specific subscription plan by its price ID
-func (s *StripeSubscriptionService) getPlanByID(priceID string) (*types.SubscriptionPlan, error) {
-	// Get the price details
-	price, err := price.Get(priceID, nil)
+// getPlanByID fetches a specific subscription plan by its price ID or product ID
+// Note: The environment variable contains price IDs, so we need to handle both cases
+func (s *StripeSubscriptionService) getPlanByID(priceOrProductID string) (*types.SubscriptionPlan, error) {
+	// First, try to retrieve it as a price
+	priceObj, err := s.client.V1Prices.Retrieve(context.Background(), priceOrProductID, nil)
+	if err != nil || priceObj == nil {
+		// If it fails, it might be a product ID - try to fetch as product
+		productObj, productErr := s.client.V1Products.Retrieve(context.Background(), priceOrProductID, nil)
+		if productErr != nil || productObj == nil {
+			return nil, fmt.Errorf("error fetching price/product %s: %w", priceOrProductID, err)
+		}
+
+		// Product was found, get its default price
+		if productObj.DefaultPrice == nil || productObj.DefaultPrice.ID == "" {
+			return nil, fmt.Errorf("product %s has no default price", priceOrProductID)
+		}
+
+		// Get the price details
+		priceObj, err = s.client.V1Prices.Retrieve(context.Background(), productObj.DefaultPrice.ID, nil)
+		if err != nil || priceObj == nil {
+			return nil, fmt.Errorf("error fetching price %s: %w", productObj.DefaultPrice.ID, err)
+		}
+
+		// Convert to our subscription plan type
+		plan := types.ConvertStripeProduct(productObj, priceObj)
+		return plan, nil
+	}
+
+	// Price was found, now get the product
+	if priceObj.Product == nil {
+		return nil, fmt.Errorf("price %s has no associated product", priceOrProductID)
+	}
+
+	// Product.ID returns the product ID string
+	productID := priceObj.Product.ID
+	productObj, err := s.client.V1Products.Retrieve(context.Background(), productID, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching price %s: %w", priceID, err)
+		return nil, fmt.Errorf("error fetching product %s: %w", productID, err)
 	}
 
 	// Only include recurring prices (subscriptions)
-	if price.Recurring == nil {
-		return nil, fmt.Errorf("price %s is not a recurring subscription", priceID)
-	}
-
-	// Get the product details
-	product, err := product.Get(price.Product.ID, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching product %s: %w", price.Product.ID, err)
+	if priceObj.Recurring == nil {
+		return nil, fmt.Errorf("price %s is not a recurring subscription", priceObj.ID)
 	}
 
 	// Convert to our subscription plan type
-	plan := types.ConvertStripeProduct(product, price)
+	plan := types.ConvertStripeProduct(productObj, priceObj)
 	return plan, nil
 }
 
@@ -118,17 +142,17 @@ func (s *StripeSubscriptionService) GetCustomerSubscriptions(customerID string) 
 		Status:   stripe.String("all"), // Get all subscriptions regardless of status
 	}
 
-	iter := subscription.List(params)
+	ctx := context.Background()
+	subs := s.client.V1Subscriptions.List(ctx, params)
 	var subscriptions []*types.CustomerSubscription
 
-	for iter.Next() {
-		sub := iter.Subscription()
+	// Iterate over the sequence
+	for sub, err := range subs {
+		if err != nil {
+			return nil, fmt.Errorf("error fetching subscriptions for customer %s: %w", customerID, err)
+		}
 		customerSub := types.ConvertStripeSubscription(sub)
 		subscriptions = append(subscriptions, customerSub)
-	}
-
-	if err := iter.Err(); err != nil {
-		return nil, fmt.Errorf("error fetching subscriptions for customer %s: %w", customerID, err)
 	}
 
 	return subscriptions, nil
@@ -155,23 +179,18 @@ func (s *StripeSubscriptionService) CreateCustomerPortalSession(customerID, retu
 
 // SearchCustomerByExternalID searches for a customer by Zitadel user ID in metadata
 func (s *StripeSubscriptionService) SearchCustomerByExternalID(externalID string) (*stripe.Customer, error) {
-	// For now, we'll use a simple approach - list customers and filter by metadata
-	// This is not ideal for production but works for the current implementation
-	// TODO: Implement proper customer search when Stripe API supports it
-	params := &stripe.CustomerListParams{}
 
-	iter := customer.List(params)
-	for iter.Next() {
-		customer := iter.Customer()
-		if customer.Metadata != nil {
-			if extID, exists := customer.Metadata["external_id"]; exists && extID == externalID {
-				return customer, nil
+	customers := s.client.V1Customers.Search(context.Background(), &stripe.CustomerSearchParams{
+		SearchParams: stripe.SearchParams{
+			Query: fmt.Sprintf("metadata['zitadel_user_id']:'%s'", externalID),
+		},
+	})
+	for cust := range customers {
+		if cust.Metadata != nil {
+			if extID, exists := cust.Metadata["zitadel_user_id"]; exists && extID == externalID {
+				return cust, nil
 			}
 		}
-	}
-
-	if err := iter.Err(); err != nil {
-		return nil, fmt.Errorf("error searching for customer with external_id %s: %w", externalID, err)
 	}
 
 	return nil, nil // Customer not found
@@ -179,13 +198,13 @@ func (s *StripeSubscriptionService) SearchCustomerByExternalID(externalID string
 
 // UpdateCustomerMetadata updates customer metadata with Zitadel user ID
 func (s *StripeSubscriptionService) UpdateCustomerMetadata(customerID, externalID string) error {
-	params := &stripe.CustomerParams{
+	params := &stripe.CustomerUpdateParams{
 		Metadata: map[string]string{
-			"external_id": externalID,
+			"zitadel_user_id": externalID,
 		},
 	}
 
-	_, err := customer.Update(customerID, params)
+	_, err := s.client.V1Customers.Update(context.Background(), customerID, params)
 	if err != nil {
 		return fmt.Errorf("error updating customer metadata: %w", err)
 	}
@@ -195,20 +214,23 @@ func (s *StripeSubscriptionService) UpdateCustomerMetadata(customerID, externalI
 
 // CreateCustomer creates a new Stripe customer with external_id metadata
 func (s *StripeSubscriptionService) CreateCustomer(externalID, email, name string) (*stripe.Customer, error) {
-	params := &stripe.CustomerParams{
+	log.Printf("Creating Stripe customer with email: %s, name: %s, zitadel_user_id: %s", email, name, externalID)
+	params := &stripe.CustomerCreateParams{
 		Email: stripe.String(email),
 		Name:  stripe.String(name),
 		Metadata: map[string]string{
-			"external_id": externalID,
+			"zitadel_user_id": externalID,
 		},
 	}
 
-	customer, err := customer.New(params)
+	cust, err := s.client.V1Customers.Create(context.Background(), params)
 	if err != nil {
+		log.Printf("Failed to create Stripe customer: %v", err)
 		return nil, fmt.Errorf("error creating customer: %w", err)
 	}
+	log.Printf("Successfully created Stripe customer %s", cust.ID)
 
-	return customer, nil
+	return cust, nil
 }
 
 // GetOrCreateCustomerByExternalID gets an existing customer or creates a new one

@@ -10,6 +10,136 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 )
 
+func TestGetFirstChar(t *testing.T) {
+	tests := []struct {
+		name     string
+		userInfo constants.UserInfo
+		expected string
+	}{
+		{
+			name: "ASCII uppercase",
+			userInfo: constants.UserInfo{
+				Name: "John Doe",
+			},
+			expected: "J",
+		},
+		{
+			name: "ASCII lowercase",
+			userInfo: constants.UserInfo{
+				Name: "john doe",
+			},
+			expected: "J",
+		},
+		{
+			name: "Spanish name with accent",
+			userInfo: constants.UserInfo{
+				Name: "Énrique García",
+			},
+			expected: "É",
+		},
+		{
+			name: "Chinese name",
+			userInfo: constants.UserInfo{
+				Name: "张伟",
+			},
+			expected: "张",
+		},
+		{
+			name: "Emoji flag as first character",
+			userInfo: constants.UserInfo{
+				Name: "🇨🇦 John Smith",
+			},
+			expected: "🇨",
+		},
+		{
+			name: "Emoji name",
+			userInfo: constants.UserInfo{
+				Name: "😀 Happy User",
+			},
+			expected: "😀",
+		},
+		{
+			name: "Emoji name with multiple emojis",
+			userInfo: constants.UserInfo{
+				Name: "🎉✨ Party Person",
+			},
+			expected: "🎉",
+		},
+		{
+			name: "Name with leading whitespace",
+			userInfo: constants.UserInfo{
+				Name: "  Alice Brown",
+			},
+			expected: "A",
+		},
+		{
+			name: "Name with trailing whitespace",
+			userInfo: constants.UserInfo{
+				Name: "Bob Wilson  ",
+			},
+			expected: "B",
+		},
+		{
+			name: "Name with surrounding whitespace",
+			userInfo: constants.UserInfo{
+				Name: "  Carol White  ",
+			},
+			expected: "C",
+		},
+		{
+			name: "Empty string",
+			userInfo: constants.UserInfo{
+				Name: "",
+			},
+			expected: "?",
+		},
+		{
+			name: "Whitespace only",
+			userInfo: constants.UserInfo{
+				Name: "   ",
+			},
+			expected: "?",
+		},
+		{
+			name: "Single emoji",
+			userInfo: constants.UserInfo{
+				Name: "🎵",
+			},
+			expected: "🎵",
+		},
+		{
+			name: "Japanese name",
+			userInfo: constants.UserInfo{
+				Name: "山田太郎",
+			},
+			expected: "山",
+		},
+		{
+			name: "Russian name",
+			userInfo: constants.UserInfo{
+				Name: "Александр",
+			},
+			expected: "А",
+		},
+		{
+			name: "Arabic name",
+			userInfo: constants.UserInfo{
+				Name: "أحمد محمد",
+			},
+			expected: "أ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getFirstChar(tt.userInfo)
+			if result != tt.expected {
+				t.Errorf("getFirstChar(%q) = %q, want %q", tt.userInfo.Name, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestAddEventSource(t *testing.T) {
 
 	// Define test cases

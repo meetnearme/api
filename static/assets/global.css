@@ -69,6 +69,10 @@ body:has(.bottom-drawer) {
   min-height: 4.8rem;
 }
 
+.scroll-margin-top {
+  scroll-margin-top: 11rem;
+}
+
 .sticky-under-top-nav {
   top: 4.8rem;
 }
