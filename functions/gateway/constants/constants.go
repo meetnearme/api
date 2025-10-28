@@ -120,7 +120,10 @@ const (
 )
 
 // Customer portal configuration
-var CUSTOMER_PORTAL_RETURN_URL_PATH = os.Getenv("APEX_URL") + "/admin/subscriptions"
+var CUSTOMER_PORTAL_RETURN_URL_PATH = os.Getenv("APEX_URL") + "/admin/home"
+
+const ROLE_NOT_FOUND_MESSAGE = "Role not found"
+const ROLE_ACTIVE_MESSAGE = "Role is active"
 
 // NOTE: these are the default searchable event source types that show up in the home event list view
 var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT, ES_SINGLE_EVENT}
@@ -194,9 +197,8 @@ const (
 	OrgAdmin         Role = "orgAdmin"
 	CompetitionAdmin Role = "competitionAdmin"
 	EventAdmin       Role = "eventAdmin"
-	SyndicateAdmin   Role = "syndicateAdmin"
-	SubscrGrowth     Role = "subscrGrowth"
-	SubscrSeed       Role = "subscrSeed"
+	SubGrowth        Role = "subGrowth"
+	SubSeed          Role = "subSeed"
 )
 
 var Roles = map[Role]string{
@@ -204,10 +206,11 @@ var Roles = map[Role]string{
 	OrgAdmin:         string(OrgAdmin),
 	CompetitionAdmin: string(CompetitionAdmin),
 	EventAdmin:       string(EventAdmin),
-	SyndicateAdmin:   string(SyndicateAdmin),
-	SubscrGrowth:     string(SubscrGrowth),
-	SubscrSeed:       string(SubscrSeed),
+	SubGrowth:        string(SubGrowth),
+	SubSeed:          string(SubSeed),
 }
+
+const BASIC_SUBSCRIPTION_PLAN_ID = "basic"
 
 var AllowedMnmOptionsKeys = []string{
 	"userId",
@@ -274,6 +277,7 @@ var SitePages = map[string]SitePage{
 	"privacy-policy":     {Key: "privacy-policy", Slug: "/privacy-policy{trailingslash:\\/?}", Name: "Privacy Policy", SubnavItems: []string{SubnavItems[NvMain]}},
 	"data-request":       {Key: "data-request", Slug: "/data-request{trailingslash:\\/?}", Name: "Data Request", SubnavItems: []string{SubnavItems[NvMain]}},
 	"terms-of-service":   {Key: "terms-of-service", Slug: "/terms-of-service{trailingslash:\\/?}", Name: "Terms of Service", SubnavItems: []string{SubnavItems[NvMain]}},
+	"pricing":            {Key: "pricing", Slug: "/pricing{trailingslash:\\/?}", Name: "Pricing", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 // EventFields holds references to all fields in the Event struct

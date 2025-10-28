@@ -640,6 +640,23 @@ func GetTermsOfServicePage(w http.ResponseWriter, r *http.Request) http.HandlerF
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
+func GetPricingPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+	isLoggedIn := userInfo.Sub != ""
+	pricingPage := pages.PricingPage(isLoggedIn)
+	layoutTemplate := pages.Layout(constants.SitePages["pricing"], userInfo, pricingPage, types.Event{}, false, ctx, []string{})
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
+}
+
 func GetCfRay(r *http.Request) string {
 	if cfRay := r.Header.Get("Cf-Ray"); cfRay != "" {
 		return cfRay

@@ -193,8 +193,13 @@ func TestStripeTypeConversions(t *testing.T) {
 
 		result := ConvertStripeProduct(mockProduct, mockPrice)
 
-		if result.ID != mockPrice.ID {
-			t.Errorf("Expected ID %s, got %s", mockPrice.ID, result.ID)
+		// ID should now be the product ID, and PriceID should be the price ID
+		if result.ID != mockProduct.ID {
+			t.Errorf("Expected ID %s, got %s", mockProduct.ID, result.ID)
+		}
+
+		if result.PriceID != mockPrice.ID {
+			t.Errorf("Expected PriceID %s, got %s", mockPrice.ID, result.PriceID)
 		}
 
 		if result.Name != mockProduct.Name {
@@ -344,9 +349,9 @@ func TestStripeAPIContractValidation(t *testing.T) {
 			planName     string
 			expectedRole string
 		}{
-			{"Growth", constants.Roles[constants.SubscrGrowth]},
-			{"Seed Community", constants.Roles[constants.SubscrSeed]},
-			{"Unknown Plan", constants.Roles[constants.SubscrGrowth]}, // Default fallback
+			{"Growth", constants.Roles[constants.SubGrowth]},
+			{"Seed Community", constants.Roles[constants.SubSeed]},
+			{"Unknown Plan", constants.Roles[constants.SubGrowth]}, // Default fallback
 		}
 
 		for _, tc := range testCases {

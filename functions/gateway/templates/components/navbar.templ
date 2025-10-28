@@ -8,6 +8,8 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
 	"strconv"
+	"strings"
+	"unicode"
 )
 
 templ MiniProfileInNav(userInfo constants.UserInfo, ctx context.Context) {
@@ -65,6 +67,7 @@ templ NavListItems(userInfo constants.UserInfo) {
 		</li>
 	}
 	<li><a href="/about" class="px-5 py-3">About</a></li>
+	<li><a href="/pricing" class="px-5 py-3">Pricing</a></li>
 	// Change back to "Add an Event" when we release Seshu
 	// if userInfo.Email != "" {
 	// 	<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
@@ -225,6 +228,24 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 	</template>
 }
 
+func getFirstChar(userInfo constants.UserInfo) string {
+	name := strings.TrimSpace(userInfo.Name)
+	if name == "" {
+		return "?"
+	}
+
+	// Get the first rune (Unicode character) in the string
+	var firstRune rune
+	for _, r := range name {
+		firstRune = r
+		break
+	}
+
+	// Convert to uppercase for consistency
+	firstChar := string(unicode.ToUpper(firstRune))
+	return firstChar
+}
+
 templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event, ctx context.Context) {
 	<div class="drawer drawer-end">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
@@ -247,7 +268,7 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 								<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 										<div class="border w-24 rounded-full">
-											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+											<span class="text-3xl">{ getFirstChar(userInfo) }</span>
 										</div>
 									</div>
 									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-4 shadow-lg border border-base-300">
@@ -276,7 +297,7 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 					<div class="p-2 m-1 card bg-base-200 lg:hidden">
 						<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 							<div class="border w-24 rounded-full">
-								<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+								<span class="text-3xl">{ string(getFirstChar(userInfo)) }</span>
 							</div>
 							// <div class="w-10 rounded-full">
 							// 	<img
