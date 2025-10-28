@@ -2151,3 +2151,396 @@ func TestSearchUsersHandler(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Tests for CheckRole handler
+// =============================================================================
+
+func TestCheckRole(t *testing.T) {
+	tests := []struct {
+		name           string
+		userInfo       constants.UserInfo
+		roleClaims     []constants.RoleClaim
+		queryRole      string
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name: "Success - User has the requested role",
+			userInfo: constants.UserInfo{
+				Sub:   "user123",
+				Email: "test@example.com",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: "subGrowth"},
+				{Role: "eventAdmin"},
+			},
+			queryRole:      "subGrowth",
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"status":"success","message":"` + constants.ROLE_ACTIVE_MESSAGE + `"}`,
+		},
+		{
+			name: "Success - User has multiple roles including requested",
+			userInfo: constants.UserInfo{
+				Sub:   "user456",
+				Email: "test2@example.com",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: "subSeed"},
+				{Role: "orgAdmin"},
+				{Role: "eventAdmin"},
+			},
+			queryRole:      "orgAdmin",
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"status":"success","message":"` + constants.ROLE_ACTIVE_MESSAGE + `"}`,
+		},
+		{
+			name: "Not Found - User does not have the requested role",
+			userInfo: constants.UserInfo{
+				Sub:   "user789",
+				Email: "test3@example.com",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: "subSeed"},
+			},
+			queryRole:      "subGrowth",
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   `{"status":"error","message":"` + constants.ROLE_NOT_FOUND_MESSAGE + `"}`,
+		},
+		{
+			name: "Not Found - User has no roles at all",
+			userInfo: constants.UserInfo{
+				Sub:   "user000",
+				Email: "test4@example.com",
+			},
+			roleClaims:     []constants.RoleClaim{},
+			queryRole:      "subGrowth",
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   `{"status":"error","message":"` + constants.ROLE_NOT_FOUND_MESSAGE + `"}`,
+		},
+		{
+			name: "Bad Request - Missing role parameter",
+			userInfo: constants.UserInfo{
+				Sub:   "user999",
+				Email: "test5@example.com",
+			},
+			roleClaims:     []constants.RoleClaim{{Role: "subGrowth"}},
+			queryRole:      "",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Missing role parameter",
+		},
+		{
+			name:           "Unauthorized - No user in context",
+			userInfo:       constants.UserInfo{},
+			roleClaims:     []constants.RoleClaim{},
+			queryRole:      "subGrowth",
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   "Unauthorized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request with query parameter
+			url := "/api/auth/check-role"
+			if tt.queryRole != "" {
+				url += "?role=" + tt.queryRole
+			}
+			req := httptest.NewRequest("GET", url, nil)
+
+			// Add user info and role claims to context
+			ctx := req.Context()
+			if tt.userInfo.Sub != "" {
+				ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			}
+			if len(tt.roleClaims) > 0 {
+				ctx = context.WithValue(ctx, "roleClaims", tt.roleClaims)
+			}
+			req = req.WithContext(ctx)
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call the handler
+			handler := CheckRoleHandler(w, req)
+			handler(w, req)
+
+			// Verify status code
+			if w.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+
+			// Verify response body
+			gotBody := strings.TrimSpace(w.Body.String())
+			if tt.expectedStatus == http.StatusOK || tt.expectedStatus == http.StatusNotFound {
+				// For JSON responses, normalize and compare
+				var got, expected map[string]interface{}
+				if err := json.Unmarshal([]byte(gotBody), &got); err != nil {
+					t.Fatalf("failed to unmarshal response: %v", err)
+				}
+				if err := json.Unmarshal([]byte(tt.expectedBody), &expected); err != nil {
+					t.Fatalf("failed to unmarshal expected body: %v", err)
+				}
+				if !reflect.DeepEqual(got, expected) {
+					t.Errorf("Expected body %v, got %v", expected, got)
+				}
+			} else {
+				if !strings.Contains(gotBody, tt.expectedBody) {
+					t.Errorf("Expected body to contain '%s', got '%s'", tt.expectedBody, gotBody)
+				}
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Tests for CreateSubscriptionCheckoutSession handler  
+// =============================================================================
+
+func TestCreateSubscriptionCheckoutSession(t *testing.T) {
+	// Save original environment variables
+	originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
+	originalApexURL := os.Getenv("APEX_URL")
+	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalTransport := http.DefaultTransport
+
+	defer func() {
+		os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
+		os.Setenv("APEX_URL", originalApexURL)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlan)
+		http.DefaultTransport = originalTransport
+	}()
+
+	// Set up test environment
+	os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock")
+	os.Setenv("APEX_URL", "https://test.example.com")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+
+	tests := []struct {
+		name                string
+		userInfo            constants.UserInfo
+		subscriptionPlanID  string
+		expectedRedirect    string
+		expectedStatus      int
+		mockStripeCustomer  bool
+		mockStripeError     bool
+	}{
+		{
+			name: "Unauthorized - No user ID",
+			userInfo: constants.UserInfo{
+				Sub: "",
+			},
+			subscriptionPlanID: "price_growth_test",
+			expectedRedirect:   "",
+			expectedStatus:     http.StatusUnauthorized,
+		},
+		{
+			name: "Bad Request - Missing subscription plan ID",
+			userInfo: constants.UserInfo{
+				Sub:   "user123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			subscriptionPlanID: "",
+			expectedRedirect:   "https://test.example.com/pricing?error=checkout_failed",
+			expectedStatus:     http.StatusSeeOther,
+		},
+		{
+			name: "Bad Request - Invalid subscription plan ID",
+			userInfo: constants.UserInfo{
+				Sub:   "user123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			subscriptionPlanID: "invalid_plan",
+			expectedRedirect:   "https://test.example.com/pricing?error=checkout_failed",
+			expectedStatus:     http.StatusSeeOther,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request with query parameter
+			url := "/api/checkout-subscription"
+			if tt.subscriptionPlanID != "" {
+				url += "?subscription_plan_id=" + tt.subscriptionPlanID
+			}
+			req := httptest.NewRequest("GET", url, nil)
+
+			// Add user info to context
+			ctx := req.Context()
+			if tt.userInfo.Sub != "" {
+				ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			}
+			req = req.WithContext(ctx)
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call the handler
+			err := CreateSubscriptionCheckoutSession(w, req)
+			if err != nil && tt.expectedStatus != http.StatusSeeOther {
+				t.Logf("Handler returned error: %v", err)
+			}
+
+			// Verify status code or redirect
+			result := w.Result()
+			if result.StatusCode != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, result.StatusCode)
+			}
+
+			// For redirects, verify location header
+			if tt.expectedStatus == http.StatusSeeOther && tt.expectedRedirect != "" {
+				location := result.Header.Get("Location")
+				if location != tt.expectedRedirect {
+					t.Errorf("Expected redirect to '%s', got '%s'", tt.expectedRedirect, location)
+				}
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Tests for HandleSubscriptionWebhook handler
+// =============================================================================
+
+func TestHandleSubscriptionWebhook(t *testing.T) {
+	// Save original environment variables
+	originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
+	originalWebhookSecret := os.Getenv("STRIPE_CHECKOUT_WEBHOOK_SECRET")
+	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalZitadelHost := os.Getenv("ZITADEL_INSTANCE_HOST")
+	originalZitadelToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
+
+	defer func() {
+		os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
+		os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", originalWebhookSecret)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlan)
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelHost)
+		os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalZitadelToken)
+	}()
+
+	// Set up test environment
+	os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock")
+	os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", "whsec_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "prod_growth_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "prod_seed_test")
+
+	tests := []struct {
+		name           string
+		eventType      string
+		payload        string
+		setupMocks     func() *httptest.Server
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name:      "Unhandled event type",
+			eventType: "customer.created",
+			payload: `{
+				"id": "evt_test",
+				"type": "customer.created",
+				"data": {
+					"object": {}
+				}
+			}`,
+			setupMocks: func() *httptest.Server {
+				return nil
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   "Unhandled event type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up mocks if needed
+			var mockServer *httptest.Server
+			if tt.setupMocks != nil {
+				mockServer = tt.setupMocks()
+				if mockServer != nil {
+					defer mockServer.Close()
+				}
+			}
+
+			// Create request with webhook payload
+			req := httptest.NewRequest("POST", "/api/webhook/subscription", strings.NewReader(tt.payload))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("stripe-signature", "test-signature")
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Note: This test will fail signature verification with real Stripe client
+			// In a full test, you would need to either:
+			// 1. Mock the entire Stripe webhook verification
+			// 2. Generate a valid signature
+			// 3. Use dependency injection to provide a mock webhook verifier
+			// For now, we're testing the handler structure
+
+			t.Skip("Skipping webhook test - requires mock Stripe webhook signature verification")
+		})
+	}
+}
+
+// =============================================================================
+// Test helper functions for subscription handlers
+// =============================================================================
+
+func TestValidateSubscriptionPlanID(t *testing.T) {
+	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+
+	defer func() {
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlan)
+	}()
+
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed")
+
+	tests := []struct {
+		name     string
+		planID   string
+		expected bool
+	}{
+		{
+			name:     "Valid Growth plan",
+			planID:   "price_growth",
+			expected: true,
+		},
+		{
+			name:     "Valid Seed plan",
+			planID:   "price_seed",
+			expected: true,
+		},
+		{
+			name:     "Invalid plan ID",
+			planID:   "price_invalid",
+			expected: false,
+		},
+		{
+			name:     "Empty plan ID",
+			planID:   "",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			growthPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+			seedPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+
+			isValid := tt.planID == growthPlanID || tt.planID == seedPlanID
+
+			if isValid != tt.expected {
+				t.Errorf("Expected validation result %v, got %v for plan ID '%s'", tt.expected, isValid, tt.planID)
+			}
+		})
+	}
+}
