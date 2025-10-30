@@ -1024,6 +1024,153 @@ func TestUpdateUserAbout(t *testing.T) {
 	}
 }
 
+func TestUpdateUserLocation(t *testing.T) {
+	// Initialize and setup environment
+	helpers.InitDefaultProtocol()
+	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
+	originalGoEnv := os.Getenv("GO_ENV")
+	testZitadelEndpoint := test_helpers.GetNextPort()
+	os.Setenv("GO_ENV", "test")
+	os.Setenv("ZITADEL_INSTANCE_HOST", testZitadelEndpoint)
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
+		os.Setenv("GO_ENV", originalGoEnv)
+	}()
+
+	helpers.InitDefaultProtocol()
+
+	mockZitadelServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && strings.Contains(r.URL.Path, "/management/v1/users/") && strings.Contains(r.URL.Path, "/metadata/") {
+
+			var requestBody struct {
+				Value string `json:"value"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+				http.Error(w, "invalid request body", http.StatusBadRequest)
+				return
+			}
+
+			pathParts := strings.Split(r.URL.Path, "/")
+			if len(pathParts) < 7 {
+				http.Error(w, "invalid URL path", http.StatusBadRequest)
+				return
+			}
+
+			userID := pathParts[4]
+			key := pathParts[6]
+
+			t.Logf("🎯 MOCK ZITADEL HIT: %s %s (user: %s, key: %s)", r.Method, r.URL.Path, userID, key)
+
+			switch {
+			case userID == "error_user":
+				http.Error(w, `{"error": "user not found"}`, http.StatusNotFound)
+				return
+			case key != constants.META_LOC_KEY:
+				http.Error(w, `{"error": "unexpected metadata key"}`, http.StatusBadRequest)
+				return
+			default:
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"status": "success"}`))
+				return
+			}
+		}
+		http.Error(w, "unexpected request", http.StatusBadRequest)
+	}))
+
+	// Set up mock server
+	listener, err := test_helpers.BindToPort(t, testZitadelEndpoint)
+	if err != nil {
+		t.Fatalf("Failed to bind to port: %v", err)
+	}
+	mockZitadelServer.Listener = listener
+	mockZitadelServer.Start()
+	defer mockZitadelServer.Close()
+
+	// Set ZITADEL_INSTANCE_HOST to the actual bound address
+	boundAddress := mockZitadelServer.Listener.Addr().String()
+	os.Setenv("ZITADEL_INSTANCE_HOST", boundAddress)
+	t.Logf("🔧 Mock Zitadel Server bound to: %s", boundAddress)
+
+	tests := []struct {
+		name           string
+		payload        UpdateUserLocationRequestPayload
+		userInfo       constants.UserInfo
+		expectedStatus int
+		shouldContain  string
+	}{
+		{
+			name: "successful location update",
+			payload: UpdateUserLocationRequestPayload{
+				Latitude:  30.0,
+				Longitude: 45.0,
+				City:      "Georgetown, TX",
+			},
+			userInfo: constants.UserInfo{
+				Sub: "user123",
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain:  "Location info successfully saved",
+		},
+		{
+			name: "empty city field - should still succeed",
+			payload: UpdateUserLocationRequestPayload{
+				Latitude:  30,
+				Longitude: 45,
+				City:      "",
+			},
+			userInfo: constants.UserInfo{
+				Sub: "user123",
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain:  "Location info successfully saved",
+		},
+		{
+			name: "Zitadel API error",
+			payload: UpdateUserLocationRequestPayload{
+				Latitude:  30,
+				Longitude: 45,
+				City:      "Georgetown, TX",
+			},
+			userInfo: constants.UserInfo{
+				Sub: "error_user", // zitadel mock returns error for this case
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain:  "Failed to update location",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request
+			payloadBytes, _ := json.Marshal(tt.payload)
+			req := httptest.NewRequest("POST", "/update-location", bytes.NewReader(payloadBytes))
+			req.Header.Set("Content-Type", "application/json")
+
+			// Add AWS Lambda context and user info to context (required for transport layer)
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				PathParameters: map[string]string{},
+			})
+			ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			req = req.WithContext(ctx)
+
+			rr := httptest.NewRecorder()
+
+			// Execute handler
+			handler := UpdateUserLocation(rr, req)
+			handler(rr, req)
+
+			// Verify response
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rr.Code)
+			}
+
+			if tt.shouldContain != "" && !strings.Contains(rr.Body.String(), tt.shouldContain) {
+				t.Errorf("Expected response to contain '%s', got '%s'", tt.shouldContain, rr.Body.String())
+			}
+		})
+	}
+}
+
 func TestHelperFunctions(t *testing.T) {
 	t.Run("isFakeData", func(t *testing.T) {
 		if !isFakeData(services.FakeCity) {

@@ -1257,9 +1257,9 @@ func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlErrorPartial([]byte("Failed to update location: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	loc, _ := helpers.GetUserMetadataByKey(userID, constants.META_LOC_KEY)
-	locStr, _ := base64.StdEncoding.DecodeString(loc)
-	log.Printf("Successfully saved location to Zitadel: %s", locStr)
+	// loc, _ := helpers.GetUserMetadataByKey(userID, constants.META_LOC_KEY)
+	// locStr, _ := base64.StdEncoding.DecodeString(loc)
+	// log.Printf("Location info successfully saved: %s", locStr)
 
 	// err = helpers.UpdateUserMetadataKey(userID, constants.META_LATITUDE_KEY, strconv.FormatFloat(inputPayload.Latitude, 'f', -1, 64))
 	// if err != nil {
@@ -1292,6 +1292,8 @@ func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	// log.Printf("Successfully saved to Zitadel: city: %s, latitude: %s, longitude: %s", cityStr, latitudeStr, longitudeStr)
 
 	var buf bytes.Buffer
+	// this doesn't get displayed in UI, it's just for the tests to verify success
+	buf.WriteString("Location info successfully saved.")
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
@@ -1402,7 +1404,7 @@ func GetUserCity(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	userID := userInfo.Sub
-	city, err := helpers.GetUserMetadataByKey(userID, constants.META_CITY_KEY)
+	city, err := helpers.GetUserMetadataByKey(userID, constants.META_LOC_KEY)
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
 			response := map[string]string{"city": ""}
