@@ -879,6 +879,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						this.isLoading = false;
 						this.isOpen = false;
 						this.openedWithKeyboard = false;
+						setTimeout(() => {
+							document.getElementById('update-location-modal').showModal();
+						}, 900); // this lets the user see the location dropdown populate and close before showing the modal.
 					})
 
 				}
@@ -1220,23 +1223,6 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						Alpine.store('urlState').setParam('categories', categoriesString)
 					},
 					async handleFilterSubmit() {
-
-						let currentCity = ''
-						try {
-								const response = await fetch('/api/auth/users/city');
-								if (response.ok) {
-										const data = await response.json();
-										if (data.city && data.city.trim() !== '') {
-												currentCity = data.city;
-										}
-								}
-						} catch (error) {
-								currentCity = ''
-						}
-
-						if (currentCity != this.locationDropdown.label) {
-							document.getElementById('update-location-modal').showModal();
-						}
 
 						// Commit all draft changes to URL state
 						this.sendCategoriesToQueryParams();

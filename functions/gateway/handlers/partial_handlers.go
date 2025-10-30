@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -1257,39 +1256,10 @@ func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlErrorPartial([]byte("Failed to update location: "+err.Error()), http.StatusInternalServerError)
 	}
 
+	// This can be used to see what actually gets saved in Zitadel. But it's an extra api call so I'm leaving it commented out.
 	// loc, _ := helpers.GetUserMetadataByKey(userID, constants.META_LOC_KEY)
 	// locStr, _ := base64.StdEncoding.DecodeString(loc)
 	// log.Printf("Location info successfully saved: %s", locStr)
-
-	// err = helpers.UpdateUserMetadataKey(userID, constants.META_LATITUDE_KEY, strconv.FormatFloat(inputPayload.Latitude, 'f', -1, 64))
-	// if err != nil {
-	// 	return transport.SendHtmlErrorPartial([]byte("Failed to update latitude: "+err.Error()), http.StatusInternalServerError)
-	// }
-
-	// err = helpers.UpdateUserMetadataKey(userID, constants.META_LONGITUDE_KEY, strconv.FormatFloat(inputPayload.Longitude, 'f', -1, 64))
-	// if err != nil {
-	// 	return transport.SendHtmlErrorPartial([]byte("Failed to update longitude: "+err.Error()), http.StatusInternalServerError)
-	// }
-
-	// err = helpers.UpdateUserMetadataKey(userID, constants.META_CITY_KEY, inputPayload.City)
-	// if err != nil {
-	// 	// log.Printf("There's an error updating city: %s", inputPayload.City)
-	// 	// city, cityErr := helpers.GetUserMetadataByKey(userID, constants.META_CITY_KEY)
-	// 	// cityStr, decodingErr := base64.StdEncoding.DecodeString(city)
-	// 	// log.Printf("city is saved as %s and err %s with decoding err %s", cityStr, cityErr, decodingErr)
-	// 	return transport.SendHtmlErrorPartial([]byte("Failed to update 'city' field: "+err.Error()), http.StatusInternalServerError)
-	// }
-
-	// city, _ := helpers.GetUserMetadataByKey(userID, constants.META_CITY_KEY)
-	// cityStr, _ := base64.StdEncoding.DecodeString(city)
-
-	// latitude, _ := helpers.GetUserMetadataByKey(userID, constants.META_LATITUDE_KEY)
-	// latitudeStr, _ := base64.StdEncoding.DecodeString(latitude)
-
-	// longitude, _ := helpers.GetUserMetadataByKey(userID, constants.META_LONGITUDE_KEY)
-	// longitudeStr, _ := base64.StdEncoding.DecodeString(longitude)
-
-	// log.Printf("Successfully saved to Zitadel: city: %s, latitude: %s, longitude: %s", cityStr, latitudeStr, longitudeStr)
 
 	var buf bytes.Buffer
 	// this doesn't get displayed in UI, it's just for the tests to verify success
@@ -1376,64 +1346,4 @@ func findTagByPartialText(doc *goquery.Document, targetSubstring string) string 
 		return getFullDomPath(bestMatch)
 	}
 	return ""
-}
-
-func GetUserCity(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-	userInfoRaw := ctx.Value("userInfo")
-
-	if userInfoRaw == nil {
-		return func(w http.ResponseWriter, r *http.Request) {
-			response := map[string]string{"city": ""}
-			jsonResponse, _ := json.Marshal(response)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write(jsonResponse)
-		}
-	}
-
-	userInfo, ok := userInfoRaw.(constants.UserInfo)
-	if !ok {
-		return func(w http.ResponseWriter, r *http.Request) {
-			response := map[string]string{"city": ""}
-			jsonResponse, _ := json.Marshal(response)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write(jsonResponse)
-		}
-	}
-
-	userID := userInfo.Sub
-	city, err := helpers.GetUserMetadataByKey(userID, constants.META_LOC_KEY)
-	if err != nil {
-		return func(w http.ResponseWriter, r *http.Request) {
-			response := map[string]string{"city": ""}
-			jsonResponse, _ := json.Marshal(response)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write(jsonResponse)
-		}
-	}
-
-	cityStr, err := base64.StdEncoding.DecodeString(city)
-	if err != nil {
-		return func(w http.ResponseWriter, r *http.Request) {
-			response := map[string]string{"city": ""}
-			jsonResponse, _ := json.Marshal(response)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write(jsonResponse)
-		}
-	}
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		response := map[string]string{
-			"city": string(cityStr),
-		}
-		jsonResponse, _ := json.Marshal(response)
-		// log.Printf("city successfully retrieved: %s", string(cityStr))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(jsonResponse)
-	}
 }
