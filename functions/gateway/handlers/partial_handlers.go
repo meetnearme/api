@@ -1250,27 +1250,35 @@ func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	userInfo := ctx.Value("userInfo").(constants.UserInfo)
 	userID := userInfo.Sub
 
-	err = helpers.UpdateUserMetadataKey(userID, constants.META_LATITUDE_KEY, strconv.FormatFloat(inputPayload.Latitude, 'f', -1, 64))
+	userLocation := fmt.Sprintf("%s;%v;%v", inputPayload.City, inputPayload.Latitude, inputPayload.Longitude)
+
+	err = helpers.UpdateUserMetadataKey(userID, constants.META_LOC_KEY, userLocation)
 	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to update latitude: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial([]byte("Failed to update location: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	err = helpers.UpdateUserMetadataKey(userID, constants.META_LONGITUDE_KEY, strconv.FormatFloat(inputPayload.Longitude, 'f', -1, 64))
-	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to update longitude: "+err.Error()), http.StatusInternalServerError)
-	}
+	loc, _ := helpers.GetUserMetadataByKey(userID, constants.META_LOC_KEY)
+	locStr, _ := base64.StdEncoding.DecodeString(loc)
+	log.Printf("Successfully saved location to Zitadel: %s", locStr)
 
-	err = helpers.UpdateUserMetadataKey(userID, constants.META_CITY_KEY, inputPayload.City)
-	if err != nil {
-		log.Printf("There's an error updating city: %s", inputPayload.City)
-		city, cityErr := helpers.GetUserMetadataByKey(userID, constants.META_CITY_KEY)
-		cityStr, decodingErr := base64.StdEncoding.DecodeString(city)
-		log.Printf("city is saved as %s and err %s with decoding err %s", cityStr, cityErr, decodingErr)
-		return transport.SendHtmlErrorPartial([]byte("Failed to update 'city' field: "+err.Error()), http.StatusInternalServerError)
-	}
+	// err = helpers.UpdateUserMetadataKey(userID, constants.META_LATITUDE_KEY, strconv.FormatFloat(inputPayload.Latitude, 'f', -1, 64))
+	// if err != nil {
+	// 	return transport.SendHtmlErrorPartial([]byte("Failed to update latitude: "+err.Error()), http.StatusInternalServerError)
+	// }
 
-	var buf bytes.Buffer
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+	// err = helpers.UpdateUserMetadataKey(userID, constants.META_LONGITUDE_KEY, strconv.FormatFloat(inputPayload.Longitude, 'f', -1, 64))
+	// if err != nil {
+	// 	return transport.SendHtmlErrorPartial([]byte("Failed to update longitude: "+err.Error()), http.StatusInternalServerError)
+	// }
+
+	// err = helpers.UpdateUserMetadataKey(userID, constants.META_CITY_KEY, inputPayload.City)
+	// if err != nil {
+	// 	// log.Printf("There's an error updating city: %s", inputPayload.City)
+	// 	// city, cityErr := helpers.GetUserMetadataByKey(userID, constants.META_CITY_KEY)
+	// 	// cityStr, decodingErr := base64.StdEncoding.DecodeString(city)
+	// 	// log.Printf("city is saved as %s and err %s with decoding err %s", cityStr, cityErr, decodingErr)
+	// 	return transport.SendHtmlErrorPartial([]byte("Failed to update 'city' field: "+err.Error()), http.StatusInternalServerError)
+	// }
 
 	// city, _ := helpers.GetUserMetadataByKey(userID, constants.META_CITY_KEY)
 	// cityStr, _ := base64.StdEncoding.DecodeString(city)
@@ -1282,6 +1290,9 @@ func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	// longitudeStr, _ := base64.StdEncoding.DecodeString(longitude)
 
 	// log.Printf("Successfully saved to Zitadel: city: %s, latitude: %s, longitude: %s", cityStr, latitudeStr, longitudeStr)
+
+	var buf bytes.Buffer
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func getFullDomPath(element *goquery.Selection) string {
@@ -1366,72 +1377,59 @@ func findTagByPartialText(doc *goquery.Document, targetSubstring string) string 
 }
 
 func GetUserCity(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	userInfoRaw := ctx.Value("userInfo")
+
+	if userInfoRaw == nil {
+		return func(w http.ResponseWriter, r *http.Request) {
+			response := map[string]string{"city": ""}
+			jsonResponse, _ := json.Marshal(response)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(jsonResponse)
+		}
+	}
+
+	userInfo, ok := userInfoRaw.(constants.UserInfo)
+	if !ok {
+		return func(w http.ResponseWriter, r *http.Request) {
+			response := map[string]string{"city": ""}
+			jsonResponse, _ := json.Marshal(response)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write(jsonResponse)
+		}
+	}
+
+	userID := userInfo.Sub
+	city, err := helpers.GetUserMetadataByKey(userID, constants.META_CITY_KEY)
+	if err != nil {
+		return func(w http.ResponseWriter, r *http.Request) {
+			response := map[string]string{"city": ""}
+			jsonResponse, _ := json.Marshal(response)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(jsonResponse)
+		}
+	}
+
+	cityStr, err := base64.StdEncoding.DecodeString(city)
+	if err != nil {
+		return func(w http.ResponseWriter, r *http.Request) {
+			response := map[string]string{"city": ""}
+			jsonResponse, _ := json.Marshal(response)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(jsonResponse)
+		}
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		userInfoRaw := ctx.Value("userInfo")
-		if userInfoRaw == nil {
-			response := map[string]string{"city": ""}
-			jsonResponse, _ := json.Marshal(response)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write(jsonResponse)
-			return
-		}
-
-		userInfo, ok := userInfoRaw.(constants.UserInfo)
-		if !ok {
-			response := map[string]string{"city": ""}
-			jsonResponse, _ := json.Marshal(response)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write(jsonResponse)
-			return
-		}
-
-		userID := userInfo.Sub
-		if userID == "" {
-			response := map[string]string{"city": ""}
-			jsonResponse, _ := json.Marshal(response)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write(jsonResponse)
-			return
-		}
-
-		city, err := helpers.GetUserMetadataByKey(userID, constants.META_CITY_KEY)
-		if err != nil {
-			response := map[string]string{"city": ""}
-			jsonResponse, _ := json.Marshal(response)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write(jsonResponse)
-			return
-		}
-
-		if city == "" {
-			response := map[string]string{"city": ""}
-			jsonResponse, _ := json.Marshal(response)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write(jsonResponse)
-			return
-		}
-
-		cityStr, err := base64.StdEncoding.DecodeString(city)
-		if err != nil {
-			response := map[string]string{"city": ""}
-			jsonResponse, _ := json.Marshal(response)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write(jsonResponse)
-			return
-		}
-
 		response := map[string]string{
 			"city": string(cityStr),
 		}
-
 		jsonResponse, _ := json.Marshal(response)
+		// log.Printf("city successfully retrieved: %s", string(cityStr))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(jsonResponse)
