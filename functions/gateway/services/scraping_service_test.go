@@ -390,7 +390,7 @@ func TestGetHTMLFromURLWithBase_DefaultsRetryToOne(t *testing.T) {
 }
 
 // New: verify in SCRAPE mode, non-Facebook uses OpenAI, Facebook does not.
-func TestExtractEventsFromHTML_ScrapeMode_Facebook_vs_Random(t *testing.T) {
+func TestExtractEventsFromHTML_ScrapeMode(t *testing.T) {
 
 	// OpenAI mock that counts calls
 	makeAI := func(resp string) (base string, cleanup func(), calls *int32) {
