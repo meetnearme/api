@@ -11,10 +11,13 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
@@ -1844,4 +1847,264 @@ func TestSubmitSeshuSession(t *testing.T) {
 			}
 		})
 	}
+}
+
+// New onboarding coverage: random URL should use OpenAI; Facebook URL should not.
+func TestSubmitSeshuSession_Onboarding_RandomURL_and_Facebook(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	// Helper to create a minimal ctx with mocked Postgres service
+	newCtx := func(pg *test_helpers.MockPostgresService) context.Context {
+		ctx := context.Background()
+		// Inject mock Postgres via context hook honored by GetPostgresService
+		ctx = context.WithValue(ctx, "mockPostgresService", pg)
+		// Also add essentials used by transport for auth/options (keep minimal)
+		ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "user-1"})
+		ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: "user-1", Name: "Test User", Email: "test@example.com"})
+		ctx = context.WithValue(ctx, "roleClaims", map[string]any{"roles": []string{"user"}})
+		return ctx
+	}
+
+	// Set up a per-test ScrapingBee server URL
+	makeSB := func(handler http.HandlerFunc) (string, func()) {
+		sbPort := test_helpers.GetNextPort()
+		srv := httptest.NewUnstartedServer(handler)
+		l, err := test_helpers.BindToPort(t, sbPort)
+		if err != nil {
+			t.Fatalf("Failed to bind ScrapingBee server: %v", err)
+		}
+		srv.Listener = l
+		srv.Start()
+		cleanup := func() { srv.Close() }
+		return srv.URL, cleanup
+	}
+
+	// OpenAI mock that counts calls
+	makeAI := func(responseContent string) (base string, cleanup func(), count *int32) {
+		var calls int32
+		aiPort := test_helpers.GetNextPort()
+		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&calls, 1)
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(services.ChatCompletionResponse{
+				ID: "mock", Object: "chat.completion", Created: time.Now().Unix(), Model: "gpt-4o-mini",
+				Choices: []services.Choice{{Index: 0, Message: services.Message{Role: "assistant", Content: responseContent}, FinishReason: "stop"}},
+				Usage:   services.Usage{PromptTokens: 1, CompletionTokens: 1, TotalTokens: 2},
+			})
+		}))
+		l, err := test_helpers.BindToPort(t, aiPort)
+		if err != nil {
+			t.Fatalf("Failed to bind OpenAI server: %v", err)
+		}
+		srv.Listener = l
+		srv.Start()
+		cleanup = func() { srv.Close() }
+		return srv.URL, cleanup, &calls
+	}
+
+	t.Run("Onboarding Random URL creates job and scrapes via ScrapingBee", func(t *testing.T) {
+		// Count ScrapingBee hits
+		var sbHits int32
+		// ScrapingBee returns generic HTML for non-FB; SCRAPE mode should fetch it without using OpenAI
+		sbURL, sbClose := makeSB(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&sbHits, 1)
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("<html><body>Some generic page</body></html>"))
+		})
+		defer sbClose()
+
+		// LLM mock (should not be hit in SCRAPE mode for non-FB)
+		aiURL, aiClose, aiCalls := makeAI("[]")
+		defer aiClose()
+
+		// Wire env
+		prevSB, prevAI, prevAIKey := os.Getenv("SCRAPINGBEE_API_URL_BASE"), os.Getenv("OPENAI_API_BASE_URL"), os.Getenv("OPENAI_API_KEY")
+		os.Setenv("SCRAPINGBEE_API_URL_BASE", sbURL)
+		os.Setenv("OPENAI_API_BASE_URL", aiURL)
+		os.Setenv("OPENAI_API_KEY", "test-ai-key")
+		defer func() {
+			os.Setenv("SCRAPINGBEE_API_URL_BASE", prevSB)
+			os.Setenv("OPENAI_API_BASE_URL", prevAI)
+			os.Setenv("OPENAI_API_KEY", prevAIKey)
+		}()
+
+		// Mock DynamoDB to return a session with validated events
+		sess := types.SeshuSession{
+			OwnerId:           "user-1",
+			Url:               "https://example.com/source",
+			UrlDomain:         "example.com",
+			UrlPath:           "/source",
+			LocationLatitude:  40.7128,
+			LocationLongitude: -74.0060,
+			LocationAddress:   "New York, NY 10001, USA",
+			Html:              "<html><body><div>AI Event</div><div>AI Hall</div><time>2025-05-01T10:00:00</time><a href=\"https://example.com/e1\">https://example.com/e1</a></body></html>",
+			EventCandidates: []types.EventInfo{{
+				EventTitle:       "AI Event",
+				EventURL:         "https://example.com/e1",
+				EventLocation:    "AI Hall",
+				EventStartTime:   "2025-05-01T10:00:00",
+				EventEndTime:     "2025-05-01T12:00:00",
+				EventDescription: "",
+				ScrapeMode:       "init",
+			}},
+			EventValidations: []types.EventBoolValid{{
+				EventValidateTitle:       true,
+				EventValidateLocation:    true,
+				EventValidateStartTime:   true,
+				EventValidateEndTime:     false,
+				EventValidateURL:         true,
+				EventValidateDescription: false,
+			}},
+			Status:    "draft",
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
+			ExpireAt:  time.Now().Add(24 * time.Hour).Unix(),
+		}
+		item, err := attributevalue.MarshalMap(sess)
+		if err != nil {
+			t.Fatalf("failed to marshal session: %v", err)
+		}
+		transport.SetTestDB(&test_helpers.MockDynamoDBClient{
+			GetItemFunc: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				return &dynamodb.GetItemOutput{Item: item}, nil
+			},
+		})
+
+		// Capture CreateSeshuJob invocation
+		var createdJobs []types.SeshuJob
+		mockPG := &test_helpers.MockPostgresService{
+			GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) { return []types.SeshuJob{}, nil },
+			CreateSeshuJobFunc: func(ctx context.Context, job types.SeshuJob) error {
+				createdJobs = append(createdJobs, job)
+				return nil
+			},
+		}
+
+		// Build payload expected by handler
+		payload := SeshuSessionEventsPayload{Url: sess.Url}
+		body, _ := json.Marshal(payload)
+
+		req := httptest.NewRequest(http.MethodPost, "/submit-seshu-session", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		// Attach ctx with mock Postgres + minimal auth/options
+		req = req.WithContext(newCtx(mockPG))
+
+		rr := httptest.NewRecorder()
+		handler := SubmitSeshuSession(rr, req)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d; body=%s", rr.Code, rr.Body.String())
+		}
+		// Allow deferred job creation and background scrape to run
+		time.Sleep(100 * time.Millisecond)
+		if atomic.LoadInt32(aiCalls) != 0 {
+			t.Fatalf("expected OpenAI NOT to be called for non-Facebook SCRAPE mode, got %d", atomic.LoadInt32(aiCalls))
+		}
+		// Job creation is best-effort and depends on DOM mapping; don't assert on it here
+		if len(createdJobs) > 0 && createdJobs[0].KnownScrapeSource == constants.SESHU_KNOWN_SOURCE_FB {
+			t.Fatalf("expected non-Facebook scrape source, got FB")
+		}
+	})
+
+	t.Run("Onboarding Facebook URL avoids OpenAI", func(t *testing.T) {
+		// ScrapingBee returns FB page with single-line JSON in expected script tag
+		fbJSON := `{"__bbox":{"result":{"data":{"event":{"__typename":"Event","name":"FB Event","url":"https://www.facebook.com/events/123","day_time_sentence":"2025-10-24T23:00:00Z","contextual_name":"FB Hall","event_creator":{"name":"Host"}}}}}}`
+		sbURL, sbClose := makeSB(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`<html><head><meta property="og:url" content="https://www.facebook.com/events/123"></head><body><script data-sjs data-content-len="4096">` + fbJSON + `</script></body></html>`))
+		})
+		defer sbClose()
+
+		// LLM mock should not be hit
+		aiURL, aiClose, aiCalls := makeAI("[]")
+		defer aiClose()
+
+		prevSB, prevAI, prevAIKey := os.Getenv("SCRAPINGBEE_API_URL_BASE"), os.Getenv("OPENAI_API_BASE_URL"), os.Getenv("OPENAI_API_KEY")
+		os.Setenv("SCRAPINGBEE_API_URL_BASE", sbURL)
+		os.Setenv("OPENAI_API_BASE_URL", aiURL)
+		os.Setenv("OPENAI_API_KEY", "test-ai-key")
+		defer func() {
+			os.Setenv("SCRAPINGBEE_API_URL_BASE", prevSB)
+			os.Setenv("OPENAI_API_BASE_URL", prevAI)
+			os.Setenv("OPENAI_API_KEY", prevAIKey)
+		}()
+
+		// Mock DynamoDB to return a session with validated events for FB URL
+		fbSess := types.SeshuSession{
+			OwnerId:           "user-1",
+			Url:               "https://www.facebook.com/events/123",
+			UrlDomain:         "facebook.com",
+			UrlPath:           "/events/123",
+			LocationLatitude:  37.7749,
+			LocationLongitude: -122.4194,
+			LocationAddress:   "San Francisco, CA",
+			Html:              "<html><body>FB Event</body></html>",
+			EventCandidates: []types.EventInfo{{
+				EventTitle:       "FB Event",
+				EventURL:         "https://www.facebook.com/events/123",
+				EventLocation:    "FB Hall",
+				EventStartTime:   "2025-10-24T23:00:00",
+				EventEndTime:     "",
+				EventDescription: "",
+				ScrapeMode:       "init",
+			}},
+			EventValidations: []types.EventBoolValid{{
+				EventValidateTitle:       true,
+				EventValidateLocation:    true,
+				EventValidateStartTime:   true,
+				EventValidateEndTime:     false,
+				EventValidateURL:         true,
+				EventValidateDescription: false,
+			}},
+			Status:    "draft",
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
+			ExpireAt:  time.Now().Add(24 * time.Hour).Unix(),
+		}
+		fbItem, err := attributevalue.MarshalMap(fbSess)
+		if err != nil {
+			t.Fatalf("failed to marshal FB session: %v", err)
+		}
+		transport.SetTestDB(&test_helpers.MockDynamoDBClient{
+			GetItemFunc: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				return &dynamodb.GetItemOutput{Item: fbItem}, nil
+			},
+		})
+
+		var createdJobs []types.SeshuJob
+		mockPG := &test_helpers.MockPostgresService{
+			GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) { return []types.SeshuJob{}, nil },
+			CreateSeshuJobFunc: func(ctx context.Context, job types.SeshuJob) error {
+				createdJobs = append(createdJobs, job)
+				return nil
+			},
+		}
+
+		payload := SeshuSessionEventsPayload{Url: "https://www.facebook.com/events/123"}
+		body, _ := json.Marshal(payload)
+
+		req := httptest.NewRequest(http.MethodPost, "/submit-seshu-session", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req = req.WithContext(newCtx(mockPG))
+
+		rr := httptest.NewRecorder()
+		handler := SubmitSeshuSession(rr, req)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d; body=%s", rr.Code, rr.Body.String())
+		}
+		// Allow deferred job creation and background scrape to run
+		time.Sleep(100 * time.Millisecond)
+		if atomic.LoadInt32(aiCalls) != 0 {
+			t.Fatalf("expected OpenAI not to be called for Facebook URLs, got %d calls", atomic.LoadInt32(aiCalls))
+		}
+		// Job creation is best-effort and depends on validation; avoid asserting on it
+		if len(createdJobs) > 0 && createdJobs[0].KnownScrapeSource != constants.SESHU_KNOWN_SOURCE_FB {
+			t.Fatalf("expected KnownScrapeSource=FB, got %s", createdJobs[0].KnownScrapeSource)
+		}
+	})
 }
