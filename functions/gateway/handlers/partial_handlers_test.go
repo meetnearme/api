@@ -1849,7 +1849,6 @@ func TestSubmitSeshuSession(t *testing.T) {
 	}
 }
 
-// New onboarding coverage: random URL should use OpenAI; Facebook URL should not.
 func TestSubmitSeshuSession_Onboarding_RandomURL_and_Facebook(t *testing.T) {
 	os.Setenv("GO_ENV", "test")
 
