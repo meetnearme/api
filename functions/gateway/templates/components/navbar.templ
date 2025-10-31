@@ -337,27 +337,6 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 							class="tab-content pt-4 relative"
 							@location-dropdown.window="locationDropdown = $event.detail.option;"
 						>
-							<h3 class="text-xl my-3">Search</h3>
-							<form id="query-search-form" novalidate>
-								<div class="join rounded-full w-full">
-									<div class="w-full">
-										<input
-											id="search-input"
-											class="input join-item input-bordered w-full"
-											type="text"
-											placeholder="I want to exercise with a group"
-											:value="$store.urlState.q || ''"
-											required
-										/>
-									</div>
-									<button
-										type="submit"
-										id="search-submit-btn"
-										@click.prevent="$store.urlState.setParam('q', $event.target.closest('form').querySelector('input[type=text]').value); document.getElementById('main-drawer').click();"
-										class="btn btn-primary join-item"
-									>Search</button>
-								</div>
-							</form>
 							<form
 								id="category-search-form"
 								novalidate
