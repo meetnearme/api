@@ -615,6 +615,217 @@ func TestProcessGatherSeshuJobs_SkipDueToCooldown(t *testing.T) {
 	}
 }
 
+// Additional coverage for ProcessGatherSeshuJobs edge cases and error paths
+func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	// Use a fixed trigger time to make Hour deterministic (UTC noon)
+	fixedTrigger := int64(12 * 3600) // 12:00:00 UTC on epoch day
+	currentHour := 12
+
+	t.Run("NonEmptyQueue_CurrentHour_NoScan_NoPublish", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+
+		// Head of queue is for the current hour, so we should not scan DB
+		head := internal_types.SeshuJob{NormalizedUrlKey: "queued-job", ScheduledHour: currentHour}
+		headBytes, _ := json.Marshal(head)
+
+		mockPg := &MockPostgresService{ // if called, fail the test
+			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+				t.Fatalf("ScanSeshuJobsWithInHour should NOT be called when queue head is current hour")
+				return nil, nil
+			},
+		}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+				return &jetstream.RawStreamMsg{Data: headBytes}, nil
+			},
+			PublishFunc: func(ctx context.Context, job interface{}) error {
+				t.Fatalf("PublishMsg should NOT be called when no scan occurs")
+				return nil
+			},
+		}
+
+		ctx := setupMockServices(mockPg, mockNats)
+		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err != nil || status != http.StatusOK {
+			t.Fatalf("expected OK with no publish, got status=%d err=%v", status, err)
+		}
+		if skipped {
+			t.Errorf("did not expect skipped due to cooldown")
+		}
+		if published != 0 {
+			t.Errorf("expected 0 published, got %d", published)
+		}
+	})
+
+	t.Run("NonEmptyQueue_OlderHour_ScansAndPublishes", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+
+		head := internal_types.SeshuJob{NormalizedUrlKey: "old-queued-job", ScheduledHour: currentHour - 1}
+		headBytes, _ := json.Marshal(head)
+
+		jobs := []internal_types.SeshuJob{{NormalizedUrlKey: "jobA"}, {NormalizedUrlKey: "jobB"}}
+		publishCount := 0
+
+		mockPg := &MockPostgresService{
+			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+				if hour != currentHour {
+					t.Errorf("expected scan hour=%d, got %d", currentHour, hour)
+				}
+				return jobs, nil
+			},
+		}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+				return &jetstream.RawStreamMsg{Data: headBytes}, nil
+			},
+			PublishFunc: func(ctx context.Context, job interface{}) error {
+				publishCount++
+				return nil
+			},
+		}
+
+		ctx := setupMockServices(mockPg, mockNats)
+		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err != nil || status != http.StatusOK {
+			t.Fatalf("expected OK, got status=%d err=%v", status, err)
+		}
+		if skipped {
+			t.Errorf("did not expect skipped")
+		}
+		if published != len(jobs) || publishCount != len(jobs) {
+			t.Errorf("expected %d published, got %d (publishCount=%d)", len(jobs), published, publishCount)
+		}
+	})
+
+	t.Run("PeekTopOfQueue_Error", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+		mockPg := &MockPostgresService{}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+				return nil, errors.New("peek error")
+			},
+		}
+		ctx := setupMockServices(mockPg, mockNats)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err == nil || status != http.StatusBadRequest {
+			t.Fatalf("expected 400 with error, got status=%d err=%v", status, err)
+		}
+	})
+
+	t.Run("TopOfQueue_InvalidJSON", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+		mockPg := &MockPostgresService{}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+				return &jetstream.RawStreamMsg{Data: []byte("{bad json}")}, nil
+			},
+		}
+		ctx := setupMockServices(mockPg, mockNats)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err == nil || status != http.StatusBadRequest {
+			t.Fatalf("expected 400 for invalid JSON, got status=%d err=%v", status, err)
+		}
+	})
+
+	t.Run("ScanError_EmptyQueue", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+		mockPg := &MockPostgresService{
+			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+				return nil, errors.New("scan error")
+			},
+		}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) { return nil, nil },
+		}
+		ctx := setupMockServices(mockPg, mockNats)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err == nil || status != http.StatusBadRequest {
+			t.Fatalf("expected 400 for scan error, got status=%d err=%v", status, err)
+		}
+	})
+
+	t.Run("ScanError_WithOlderQueueHead", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+		head := internal_types.SeshuJob{NormalizedUrlKey: "old", ScheduledHour: currentHour - 1}
+		headBytes, _ := json.Marshal(head)
+		mockPg := &MockPostgresService{
+			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+				return nil, errors.New("scan error")
+			},
+		}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+				return &jetstream.RawStreamMsg{Data: headBytes}, nil
+			},
+		}
+		ctx := setupMockServices(mockPg, mockNats)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err == nil || status != http.StatusBadRequest {
+			t.Fatalf("expected 400 for scan error with older head, got status=%d err=%v", status, err)
+		}
+	})
+
+	t.Run("PartialPublishFailures_CountOnlySuccesses", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+		jobs := []internal_types.SeshuJob{{NormalizedUrlKey: "ok"}, {NormalizedUrlKey: "fail"}}
+		mockPg := &MockPostgresService{
+			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+				return jobs, nil
+			},
+		}
+		publishCalls := 0
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) { return nil, nil },
+			PublishFunc: func(ctx context.Context, job interface{}) error {
+				publishCalls++
+				j := job.(internal_types.SeshuJob)
+				if j.NormalizedUrlKey == "fail" {
+					return errors.New("nats publish failed")
+				}
+				return nil
+			},
+		}
+		ctx := setupMockServices(mockPg, mockNats)
+		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err != nil || status != http.StatusOK {
+			t.Fatalf("expected OK despite partial failures, got status=%d err=%v", status, err)
+		}
+		if skipped {
+			t.Errorf("did not expect skipped")
+		}
+		if published != 1 || publishCalls != 2 {
+			t.Errorf("expected published=1, calls=2; got published=%d calls=%d", published, publishCalls)
+		}
+	})
+
+	t.Run("LastExecutionTime_UpdatesOnlyWhenNotSkipped", func(t *testing.T) {
+		// Ensure update on non-skipped path
+		handlers.SetLastExecutionTime(0)
+		mockPg := &MockPostgresService{}
+		mockNats := &MockNatsService{}
+		ctx := setupMockServices(mockPg, mockNats)
+		_, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err != nil || status != http.StatusOK || skipped {
+			t.Fatalf("unexpected result err=%v status=%d skipped=%v", err, status, skipped)
+		}
+		if handlers.GetLastExecutionTime() != fixedTrigger {
+			t.Errorf("expected lastExecutionTime=%d, got %d", fixedTrigger, handlers.GetLastExecutionTime())
+		}
+
+		// Cooldown path should NOT update lastExecutionTime
+		later := fixedTrigger + 30 // within 60s
+		_, skipped2, status2, err2 := handlers.ProcessGatherSeshuJobs(ctx, later)
+		if err2 != nil || status2 != http.StatusOK || !skipped2 {
+			t.Fatalf("expected cooldown skip, got err=%v status=%d skipped=%v", err2, status2, skipped2)
+		}
+		if handlers.GetLastExecutionTime() != fixedTrigger {
+			t.Errorf("expected lastExecutionTime unchanged=%d, got %d", fixedTrigger, handlers.GetLastExecutionTime())
+		}
+	})
+}
+
 func TestSeshuJobScheduledHourValidation(t *testing.T) {
 	// Create a new validator instance for testing
 	validate := validator.New()

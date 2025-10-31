@@ -662,8 +662,6 @@ func startSeshuLoop(ctx context.Context) {
 			}
 
 			log.Printf("[INFO] Successfully gathered %d seshu jobs", count)
-			log.Println("[INFO] Job triggered successfully.")
-			log.Printf("[INFO] counter: %d", seshulooptimecount)
 			seshulooptimecount++
 			if seshulooptimecount >= maxseshuloopcount { // limit write frequency
 				overwriteTimestamp("last_update.txt", lastUpdate)
