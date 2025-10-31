@@ -885,7 +885,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 
 	params := &stripe.CheckoutSessionCreateParams{
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
-		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin/profile?new_purch_key=" + createPurchase.CompositeKey),
+		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin?new_purch_key=" + createPurchase.CompositeKey),
 		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=cancel"),
 		Customer:          stripe.String(stripeCustomer.ID),
 		LineItems:         lineItems,

@@ -415,30 +415,6 @@ func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
-func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-
-	userInfo := constants.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(constants.UserInfo)
-	}
-
-	userMetaClaims := map[string]interface{}{}
-	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
-		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
-	}
-	parsedInterests := helpers.GetUserInterestFromMap(userMetaClaims, constants.INTERESTS_KEY)
-	settingsPage := pages.ProfileSettingsPage(parsedInterests, ctx)
-	layoutTemplate := pages.Layout(constants.SitePages["settings"], userInfo, settingsPage, types.Event{}, false, ctx, []string{})
-
-	var buf bytes.Buffer
-	err := layoutTemplate.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
-	}
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
-}
-
 func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 

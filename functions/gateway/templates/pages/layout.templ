@@ -335,6 +335,8 @@ templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageConte
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
+			// Navigation API polyfill for browsers that don't support it yet
+			<script src="https://cdn.jsdelivr.net/npm/navigation-polyfill@0.0.2/lib/index.min.js"></script>
 			for _, script := range scripts {
 				<script defer src={ script }></script>
 			}

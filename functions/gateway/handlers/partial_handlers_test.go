@@ -1845,3 +1845,115 @@ func TestSubmitSeshuSession(t *testing.T) {
 		})
 	}
 }
+
+func TestGetProfileInterestsPartial(t *testing.T) {
+	tests := []struct {
+		name           string
+		userMetaClaims map[string]interface{}
+		expectedStatus int
+		shouldContain  []string
+		shouldNotContain []string
+	}{
+		{
+			name: "successful render with interests",
+			userMetaClaims: map[string]interface{}{
+				constants.INTERESTS_KEY: []string{"Concerts", "Photography", "Sports"},
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"My Interests",
+				"update-interests-result",
+				"/api/auth/users/update-interests",
+				"hx-post",
+				"hx-target",
+			},
+			shouldNotContain: []string{"error", "Error"},
+		},
+		{
+			name: "successful render with empty interests",
+			userMetaClaims: map[string]interface{}{
+				constants.INTERESTS_KEY: []string{},
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"My Interests",
+				"update-interests-result",
+				"/api/auth/users/update-interests",
+			},
+			shouldNotContain: []string{"error", "Error"},
+		},
+		{
+			name:            "successful render with no userMetaClaims",
+			userMetaClaims:  map[string]interface{}{},
+			expectedStatus:  http.StatusOK,
+			shouldContain: []string{
+				"My Interests",
+				"update-interests-result",
+				"/api/auth/users/update-interests",
+			},
+			shouldNotContain: []string{"error", "Error"},
+		},
+		{
+			name: "successful render with nil interests",
+			userMetaClaims: map[string]interface{}{
+				constants.INTERESTS_KEY: nil,
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"My Interests",
+				"update-interests-result",
+				"/api/auth/users/update-interests",
+			},
+			shouldNotContain: []string{"error", "Error"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request
+			req := httptest.NewRequest("GET", "/api/html/profile-interests", nil)
+
+			// Add AWS Lambda context and userMetaClaims to context (required for transport layer)
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				PathParameters: map[string]string{},
+			})
+			ctx = context.WithValue(ctx, "userMetaClaims", tt.userMetaClaims)
+			req = req.WithContext(ctx)
+
+			rr := httptest.NewRecorder()
+
+			// Execute handler
+			handler := GetProfileInterestsPartial(rr, req)
+			handler(rr, req)
+
+			// Verify response
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rr.Code)
+			}
+
+			// Log the response for debugging
+			t.Logf("Response status: %d", rr.Code)
+			t.Logf("Response body length: %d", len(rr.Body.String()))
+
+			// Check all required strings are present
+			responseBody := rr.Body.String()
+			for _, expectedStr := range tt.shouldContain {
+				if !strings.Contains(responseBody, expectedStr) {
+					t.Errorf("Expected response to contain '%s', got '%s'", expectedStr, responseBody)
+				}
+			}
+
+			// Check strings that should not be present
+			for _, unexpectedStr := range tt.shouldNotContain {
+				if strings.Contains(responseBody, unexpectedStr) {
+					t.Errorf("Expected response to NOT contain '%s', got '%s'", unexpectedStr, responseBody)
+				}
+			}
+
+			// Verify it's a partial (HTML fragment, not full page)
+			if strings.Contains(responseBody, "<!DOCTYPE html>") || strings.Contains(responseBody, "<html") {
+				t.Errorf("Expected partial HTML, but got full page HTML")
+			}
+		})
+	}
+}

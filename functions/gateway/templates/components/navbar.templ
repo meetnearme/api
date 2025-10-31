@@ -22,7 +22,7 @@ templ MiniProfileInNav(userInfo constants.UserInfo, ctx context.Context) {
 		class="menu menu-sm"
 	>
 		<li>
-			<a href="/admin/home" class="justify-between">
+			<a href="/admin" class="justify-between">
 				Admin
 				// <span class="badge">New</span>
 			</a>
@@ -724,7 +724,7 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 							} else if (total <= 0) {
 								// `?new_purch_key` is received by the profile page to both highlight, scroll to, and poll in
 								// wait for the new event because of dynamo's eventual consistency.
-								window.location.href = window.location.origin + `/admin/profile#registration-history${this.userId ? `?new_purch_key=${json?.composite_key}` : ''}`;
+								window.location.href = window.location.origin + `/admin#registration-history${this.userId ? `?new_purch_key=${json?.composite_key}` : ''}`;
 							} else {
 								if (json?.error?.message) {
 									this.errors['checkout'] = json.error.message;
