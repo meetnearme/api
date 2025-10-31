@@ -21,6 +21,18 @@ func extractMnmOptions(mnmOptions string) map[string]string {
 	return mnmOptionsMap
 }
 
+func getEventsAdminUrl(userInfo constants.UserInfo) string {
+	return "/api/html/events?list_mode=" + constants.EV_MODE_ADMIN_LIST + "&radius=" + strconv.Itoa(constants.DEFAULT_MAX_RADIUS) + "&start_time=1971-01-01T10:00:00Z&end_time=2099-10-18T10:00:00Z&owners=" + userInfo.Sub + "&event_source_types=" + constants.ES_SINGLE_EVENT + "," + constants.ES_SINGLE_EVENT_UNPUB + "," + constants.ES_SERIES_PARENT + "," + constants.ES_SERIES_PARENT_UNPUB
+}
+
+func getCompetitionsAdminUrl(userInfo constants.UserInfo) string {
+	return "/api/html/competition-config/owner/" + userInfo.Sub
+}
+
+func getProfileInterestsAdminUrl() string {
+	return "/api/html/profile-interests"
+}
+
 templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, interests []string, userSubdomain, mnmOptions, userAbout string, ctx context.Context) {
 	<h1 class="text-3xl">Admin</h1>
 	<br/>
@@ -204,7 +216,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					</ul>
 				</div>
 			}
-			<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/profile/settings">interests page</a>.</p>
+			<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/interests">interests page</a>.</p>
 			<h3 class="text-2xl font-bold mb-4">Subdomain</h3>
 			{{ baseDomain := strings.TrimPrefix(os.Getenv("APEX_URL"), "https://") }}
 			<div
@@ -321,7 +333,169 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			<div id="about-result" class="margins-when-children my-8"></div>
 		</div>
 	</div>
-	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled } data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE }>
+	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled } data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() }>
+		// Admin sub-routing with Navigation API
+		(function() {
+			const adminStateEl = document.querySelector('#admin-state');
+			if (!adminStateEl) return;
+
+			// Route mapping for admin sub-pages
+			const adminRoutes = {
+				'/admin/events': {
+					url: adminStateEl.getAttribute('data-events-url'),
+					title: 'Admin - Events'
+				},
+				'/admin/competitions': {
+					url: adminStateEl.getAttribute('data-competitions-url'),
+					title: 'Admin - Competitions'
+				},
+				'/admin/interests': {
+					url: adminStateEl.getAttribute('data-profile-interests-url'),
+					title: 'Admin - Interests'
+				}
+			};
+
+			// Handle direct navigation (browser back/forward or direct URL access)
+			function handleAdminRoute(event) {
+				const url = event ? (event.destination?.url || window.location.href) : window.location.href;
+				const path = new URL(url).pathname;
+
+				const route = adminRoutes[path];
+				if (!route) return; // Not an admin sub-route
+
+				const adminContent = document.getElementById('admin-content');
+				if (!adminContent) return;
+
+				// Update page title
+				if (route.title) {
+					document.title = route.title;
+				}
+
+				// Load content via HTMX
+				if (window.htmx) {
+					// eslint-disable-next-line no-undef
+					htmx.ajax('GET', route.url, {
+						target: '#admin-content',
+						swap: 'innerHTML'
+					});
+				} else {
+					// Fallback if HTMX not ready
+					fetch(route.url)
+						.then(res => res.text())
+						.then(html => {
+							adminContent.innerHTML = html;
+						})
+						.catch(err => {
+							// eslint-disable-next-line no-console
+							console.error('Failed to load admin route:', err);
+						});
+				}
+			}
+
+			if (!window.navigation) {
+				// Navigation API not supported, fallback to popstate
+				window.addEventListener('popstate', handleAdminRoute);
+				// Handle initial load if on a sub-route
+				if (adminRoutes[window.location.pathname]) {
+					if (document.readyState === 'loading') {
+						document.addEventListener('DOMContentLoaded', () => handleAdminRoute());
+					} else {
+						handleAdminRoute();
+					}
+				}
+				return;
+			}
+
+			// Track when HTMX is handling navigation to prevent double-firing
+			let htmxIsNavigating = false;
+			let htmxNavigationTimeout = null;
+
+			// Listen to HTMX events to track when it's handling a navigation with hx-push-url
+			if (window.htmx) {
+				// Mark when HTMX starts a request that will push URL
+				document.body.addEventListener('htmx:beforeRequest', function(event) {
+					const el = event.detail.elt;
+					if (el && el.hasAttribute('hx-push-url')) {
+						htmxIsNavigating = true;
+						// Clear any existing timeout
+						if (htmxNavigationTimeout) {
+							clearTimeout(htmxNavigationTimeout);
+						}
+					}
+				});
+
+				// Clear the flag after HTMX completes and URL push has time to happen
+				document.body.addEventListener('htmx:afterSwap', function() {
+					// Give enough time for hx-push-url to trigger Navigation API
+					htmxNavigationTimeout = setTimeout(() => {
+						htmxIsNavigating = false;
+					}, 200);
+				});
+
+				// Also clear on error
+				document.body.addEventListener('htmx:responseError', function() {
+					if (htmxNavigationTimeout) {
+						clearTimeout(htmxNavigationTimeout);
+					}
+					htmxIsNavigating = false;
+				});
+			}
+
+			// Listen for navigate events (Navigation API)
+			// Only intercept navigations that are NOT HTMX-initiated
+			window.navigation.addEventListener('navigate', (event) => {
+				const url = new URL(event.destination.url);
+				if (url.pathname.startsWith('/admin/') && adminRoutes[url.pathname]) {
+					// Skip if HTMX is currently handling this navigation
+					if (htmxIsNavigating) {
+						return;
+					}
+
+					// Check if this navigation was triggered by an HTMX link
+					const sourceElement = event.sourceElement;
+					const isFromHtmxLink = sourceElement && (
+						sourceElement.hasAttribute('hx-get') ||
+						sourceElement.hasAttribute('hx-post') ||
+						sourceElement.hasAttribute('hx-push-url')
+					);
+
+					// Skip HTMX-initiated navigations - let HTMX handle them
+					if (isFromHtmxLink) {
+						return;
+					}
+
+					// Only intercept browser-initiated navigations:
+					// - traverse: back/forward buttons
+					// - reload: page refresh
+					// - push/replace: programmatic navigations (not from HTMX)
+					if (event.navigationType === 'traverse' || event.navigationType === 'reload') {
+						event.intercept({
+							handler() {
+								handleAdminRoute(event);
+							}
+						});
+					} else if ((event.navigationType === 'push' || event.navigationType === 'replace') && !isFromHtmxLink) {
+						// Only intercept programmatic navigations that aren't from HTMX
+						event.intercept({
+							handler() {
+								handleAdminRoute(event);
+							}
+						});
+					}
+				}
+			});
+
+			// Handle initial load if on a sub-route
+			if (adminRoutes[window.location.pathname]) {
+				// Wait for page to be fully loaded
+				if (document.readyState === 'loading') {
+					document.addEventListener('DOMContentLoaded', () => handleAdminRoute());
+				} else {
+					handleAdminRoute();
+				}
+			}
+		})();
+
 		// eslint-disable-next-line no-unused-vars
 		function getMnmOptionsPayload() {
 			const payload = {
