@@ -934,6 +934,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				TargetDescriptionCSSPath: descriptionTag, // optional
 				TargetHrefCSSPath:        eventURLTag,
 				Status:                   "HEALTHY", // assume healthy if parse succeeded
+				IsRecursive:              false,
 				LastScrapeSuccess:        time.Now().Unix(),
 				LastScrapeFailure:        0,
 				LastScrapeFailureCount:   0,
@@ -1110,6 +1111,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 					TargetDescriptionCSSPath: descriptionTag, // optional
 					TargetHrefCSSPath:        eventURLTag,
 					Status:                   "HEALTHY", // assume healthy if parse succeeded
+					IsRecursive:              true,
 					LastScrapeSuccess:        time.Now().Unix(),
 					LastScrapeFailure:        0,
 					LastScrapeFailureCount:   0,

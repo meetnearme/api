@@ -150,7 +150,7 @@ func ProcessGatherSeshuJobs(ctx context.Context, triggerTime int64) (int, bool, 
 	log.Printf("Received request to gather seshu jobs at time: %d", triggerTime)
 	log.Printf("Last execution time: %d", lastExecutionTime)
 
-	if triggerTime-lastExecutionTime <= 60 { // change this for HOUR
+	if triggerTime-lastExecutionTime <= 120 { // change this for HOUR
 		return 0, true, http.StatusOK, nil
 	}
 
