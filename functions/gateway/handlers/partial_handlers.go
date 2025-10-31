@@ -1249,7 +1249,7 @@ func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	userInfo := ctx.Value("userInfo").(constants.UserInfo)
 	userID := userInfo.Sub
 
-	userLocation := fmt.Sprintf("%s;%v;%v", inputPayload.City, inputPayload.Latitude, inputPayload.Longitude)
+	userLocation := fmt.Sprintf("%s;%.2f;%.2f", inputPayload.City, inputPayload.Latitude, inputPayload.Longitude)
 
 	err = helpers.UpdateUserMetadataKey(userID, constants.META_LOC_KEY, userLocation)
 	if err != nil {
