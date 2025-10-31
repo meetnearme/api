@@ -819,19 +819,20 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		geoService := services.GetGeoService()
 
 		var anchorEvent *internal_types.EventInfo
-		var rsEvents []internal_types.EventInfo // Identify all validated events that are recursive scrape (rs) mode (future proofing for multiple children)
+		var childEvent *internal_types.EventInfo
+		var seshuJob internal_types.SeshuJob
+		var scrapeType string
+
 		for i := range validatedEvents {
 			e := &validatedEvents[i]
 			if e.ScrapeMode != "rs" && anchorEvent == nil {
 				anchorEvent = e
 			} else if e.ScrapeMode == "rs" {
-				rsEvents = append(rsEvents, *e)
+				childEvent = e
 			}
 		}
 
-		var scheduledHour = time.Now().UTC().Hour() - 1 // will not immediately scrape, wait for a day after
-
-		finalSeshuJobsList := []internal_types.SeshuJob{}
+		var scheduledHour = (time.Now().UTC().Hour() + 23) % 24
 
 		if anchorEvent != nil {
 			// Find the DOM paths for the main event
@@ -856,11 +857,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				log.Println("Error normalizing URL:", err)
 			}
 
-			// if session.LocationAddress == "" {
-			// 	location = anchorEvent.EventLocation
-			// } else {
-			// 	location = session.LocationAddress
-			// }
 			location = session.LocationAddress
 
 			baseUrl, err := helpers.ExtractBaseDomain(session.Url)
@@ -924,7 +920,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 			locationTimezone := services.DeriveTimezoneFromCoordinates(anchorLatFloat, anchorLonFloat)
 
-			seshuJob := internal_types.SeshuJob{
+			seshuJob = internal_types.SeshuJob{
 				NormalizedUrlKey:         normalizedUrl,
 				LocationLatitude:         anchorLatFloat, // can this be empty?
 				LocationLongitude:        anchorLonFloat, // can this be empty?
@@ -938,6 +934,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				TargetDescriptionCSSPath: descriptionTag, // optional
 				TargetHrefCSSPath:        eventURLTag,
 				Status:                   "HEALTHY", // assume healthy if parse succeeded
+				IsRecursive:              false,
 				LastScrapeSuccess:        time.Now().Unix(),
 				LastScrapeFailure:        0,
 				LastScrapeFailureCount:   0,
@@ -945,14 +942,82 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				KnownScrapeSource:        scrapeSource,    // or infer from URL pattern/domain
 			}
 
-			finalSeshuJobsList = append(finalSeshuJobsList, seshuJob)
-		}
+			//if rs exist
+			if childEvent != nil {
+				var childDoc *goquery.Document
+				var titleTag string
+				var locationTag string
+				var startTag string
+				var endTag string
+				var descriptionTag string
 
-		// If there's a child session, we need to create a job for it as well
-		for _, event := range rsEvents {
+				normalizedChildURL, err := helpers.NormalizeURL(childEvent.EventURL)
+				if err != nil || normalizedChildURL == "" {
+					log.Println("Error normalizing URL, falling back to raw:", err)
+					normalizedChildURL = childEvent.EventURL
+				}
 
+				childSession, err := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
+					Url: normalizedChildURL,
+				})
+				if err != nil || childSession == nil {
+					log.Println("Could not retrieve child session:", err)
+				}
+				childDoc, err = goquery.NewDocumentFromReader(strings.NewReader(childSession.Html))
+				if err != nil {
+					log.Println("Failed to parse child HTML:", err)
+				}
+
+				// Infer known scrape source from base domain
+				if strings.Contains(baseUrl, "facebook.com") {
+					scrapeSource = constants.SESHU_KNOWN_SOURCE_FB
+				}
+
+				switch scrapeSource {
+				case constants.SESHU_KNOWN_SOURCE_FB:
+					titleTag = "_BYPASS_"
+					locationTag = "_BYPASS_"
+					startTag = "_BYPASS_"
+					endTag = "_BYPASS_"
+					descriptionTag = "_BYPASS_"
+					eventURLTag = "_BYPASS_"
+				default:
+					titleTag = findTagByExactText(childDoc, childEvent.EventTitle)
+					locationTag = findTagByExactText(childDoc, childEvent.EventLocation)
+					startTag = findTagByExactText(childDoc, childEvent.EventStartTime)
+
+					if childEvent.EventEndTime == "" {
+						endTag = ""
+					} else {
+						endTag = findTagByPartialText(childDoc, childEvent.EventEndTime)
+					}
+
+					if childEvent.EventDescription == "" {
+						descriptionTag = ""
+					} else {
+						// Use half the length of the description to find a partial match
+						descriptionTag = findTagByPartialText(childDoc, childEvent.EventDescription[:utf8.RuneCountInString(childEvent.EventDescription)/2])
+					}
+
+					if childEvent.EventURL == "" {
+						eventURLTag = ""
+					} else {
+						eventURLTag = findTagByPartialText(childDoc, childEvent.EventURL)
+					}
+
+					// Seshu children DOM Path
+					seshuJob.TargetChildNameCSSPath = titleTag
+					seshuJob.TargetChildLocationCSSPath = locationTag
+					seshuJob.TargetChildStartTimeCSSPath = startTag
+					seshuJob.TargetChildEndTimeCSSPath = endTag
+					seshuJob.TargetChildDescriptionCSSPath = descriptionTag
+				}
+			}
+
+			scrapeType = "init" // initial scrape + optional rs
+
+		} else if childEvent != nil && anchorEvent == nil {
 			var childDoc *goquery.Document
-			var location string
 			var titleTag string
 			var locationTag string
 			var startTag string
@@ -960,33 +1025,25 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			var descriptionTag string
 			var eventURLTag string
 
-			normalizedChildURL, err := helpers.NormalizeURL(event.EventURL)
-			if err != nil {
-				log.Println("Error normalizing URL:", err)
-				continue
+			normalizedChildURL, err := helpers.NormalizeURL(childEvent.EventURL)
+			if err != nil || normalizedChildURL == "" {
+				log.Println("Error normalizing URL, falling back to raw:", err)
+				normalizedChildURL = childEvent.EventURL
 			}
 
 			childSession, err := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
 				Url: normalizedChildURL,
 			})
-
-			childDoc, err = goquery.NewDocumentFromReader(strings.NewReader(childSession.Html))
-			docToUse = childDoc
-
-			// Assuming that location can be found in event, might not be accurate if events are not in the same area
-			if childSession.LocationAddress == "" {
-				location = event.EventLocation
-			} else {
-				location = childSession.LocationAddress
+			if err != nil || childSession == nil {
+				log.Println("Could not retrieve child session:", err)
 			}
-
-			baseUrl, err := helpers.ExtractBaseDomain(childSession.Url)
+			childDoc, err = goquery.NewDocumentFromReader(strings.NewReader(childSession.Html))
 			if err != nil {
-				log.Println("Error extracting base domain:", err)
+				log.Println("Failed to parse child HTML:", err)
 			}
 
 			// Infer known scrape source from base domain
-			if strings.Contains(baseUrl, "facebook.com") {
+			if strings.Contains(childEvent.EventURL, "facebook.com") {
 				scrapeSource = constants.SESHU_KNOWN_SOURCE_FB
 			}
 
@@ -999,77 +1056,74 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				descriptionTag = "_BYPASS_"
 				eventURLTag = "_BYPASS_"
 			default:
-				titleTag = findTagByExactText(docToUse, event.EventTitle)
-				locationTag = findTagByExactText(docToUse, event.EventLocation)
-				startTag = findTagByExactText(docToUse, event.EventStartTime)
+				titleTag = findTagByExactText(childDoc, childEvent.EventTitle)
+				locationTag = findTagByExactText(childDoc, childEvent.EventLocation)
+				startTag = findTagByExactText(childDoc, childEvent.EventStartTime)
 
-				if event.EventEndTime == "" {
+				if childEvent.EventEndTime == "" {
 					endTag = ""
 				} else {
-					endTag = findTagByPartialText(docToUse, event.EventEndTime)
+					endTag = findTagByPartialText(childDoc, childEvent.EventEndTime)
 				}
 
-				if event.EventDescription == "" {
+				if childEvent.EventDescription == "" {
 					descriptionTag = ""
 				} else {
 					// Use half the length of the description to find a partial match
-					descriptionTag = findTagByPartialText(docToUse, event.EventDescription[:utf8.RuneCountInString(event.EventDescription)/2])
+					descriptionTag = findTagByPartialText(childDoc, childEvent.EventDescription[:utf8.RuneCountInString(childEvent.EventDescription)/2])
 				}
 
-				if event.EventURL == "" {
+				if childEvent.EventURL == "" {
 					eventURLTag = ""
 				} else {
-					eventURLTag = findTagByPartialText(docToUse, event.EventURL)
+					eventURLTag = findTagByPartialText(childDoc, childEvent.EventURL)
 				}
+
+				var anchorLatFloat, anchorLonFloat float64
+				if childSession.LocationLatitude == constants.INITIAL_EMPTY_LAT_LONG || childSession.LocationLongitude == constants.INITIAL_EMPTY_LAT_LONG {
+					lat, lon, _, err := geoService.GetGeo(childEvent.EventLocation, constants.GEO_BASE_URL)
+					if err != nil {
+						log.Println("Error getting geocoordinates for session:", err)
+					}
+					anchorLatFloat, err = strconv.ParseFloat(lat, 64)
+					if err != nil {
+						log.Println("Invalid latitude value for session:", err)
+					}
+					anchorLonFloat, err = strconv.ParseFloat(lon, 64)
+					if err != nil {
+						log.Println("Invalid longitude value for session:", err)
+					}
+				}
+
+				locationTimezone := services.DeriveTimezoneFromCoordinates(anchorLatFloat, anchorLonFloat)
+
+				seshuJob = internal_types.SeshuJob{
+					NormalizedUrlKey:         normalizedChildURL,
+					LocationLatitude:         anchorLatFloat, // can this be empty?
+					LocationLongitude:        anchorLonFloat, // can this be empty?
+					LocationAddress:          childEvent.EventLocation,
+					LocationTimezone:         locationTimezone, // can this be empty?
+					ScheduledHour:            scheduledHour,
+					TargetNameCSSPath:        titleTag,
+					TargetLocationCSSPath:    locationTag,
+					TargetStartTimeCSSPath:   startTag,
+					TargetEndTimeCSSPath:     endTag,         // optional
+					TargetDescriptionCSSPath: descriptionTag, // optional
+					TargetHrefCSSPath:        eventURLTag,
+					Status:                   "HEALTHY", // assume healthy if parse succeeded
+					IsRecursive:              true,
+					LastScrapeSuccess:        time.Now().Unix(),
+					LastScrapeFailure:        0,
+					LastScrapeFailureCount:   0,
+					OwnerID:                  session.OwnerId, // ideally from auth context
+					KnownScrapeSource:        scrapeSource,    // or infer from URL pattern/domain
+				}
+
+				scrapeType = "rs" // rs only
 			}
 
-			var childLatFloat, childLonFloat float64
-			if childSession.LocationLatitude == constants.INITIAL_EMPTY_LAT_LONG || childSession.LocationLongitude == constants.INITIAL_EMPTY_LAT_LONG {
-				geoService := services.GetGeoService()
-				lat, lon, _, err := geoService.GetGeo(location, constants.GEO_BASE_URL)
-				if err != nil {
-					log.Println("Error getting geocoordinates for child session:", err)
-				}
-				childLatFloat, err = strconv.ParseFloat(lat, 64)
-				if err != nil {
-					log.Println("Invalid latitude value for child session:", err)
-				}
-				childLonFloat, err = strconv.ParseFloat(lon, 64)
-				if err != nil {
-					log.Println("Invalid longitude value for child session:", err)
-				}
-			}
+			db, _ := services.GetPostgresService(ctx)
 
-			locationTimezone := services.DeriveTimezoneFromCoordinates(childLatFloat, childLonFloat)
-
-			seshuJob := internal_types.SeshuJob{
-				NormalizedUrlKey:         normalizedChildURL,
-				LocationLatitude:         childLatFloat, // can this be empty?
-				LocationLongitude:        childLonFloat, // can this be empty?
-				LocationAddress:          location,
-				LocationTimezone:         locationTimezone, // can this be empty?
-				ScheduledHour:            scheduledHour,
-				TargetNameCSSPath:        titleTag,
-				TargetLocationCSSPath:    locationTag,
-				TargetStartTimeCSSPath:   startTag,
-				TargetEndTimeCSSPath:     endTag,         // optional
-				TargetDescriptionCSSPath: descriptionTag, // optional
-				TargetHrefCSSPath:        eventURLTag,
-				Status:                   "HEALTHY", // assume healthy if parse succeeded
-				LastScrapeSuccess:        time.Now().Unix(),
-				LastScrapeFailure:        0,
-				LastScrapeFailureCount:   0,
-				OwnerID:                  childSession.OwnerId, // ideally from auth context
-				KnownScrapeSource:        scrapeSource,         // or infer from URL pattern/domain
-			}
-
-			finalSeshuJobsList = append(finalSeshuJobsList, seshuJob)
-		}
-
-		db, _ := services.GetPostgresService(ctx)
-
-		for _, seshuJob := range finalSeshuJobsList {
-			// Validate the seshuJob
 			err = validate.Struct(seshuJob)
 			if err != nil {
 				log.Println("Error validating SeshuJob:", err)
@@ -1081,7 +1135,6 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				log.Println("Error creating SeshuJob:", err)
 				return
 			}
-
 		}
 
 		// NOTE: `natsService.PublishMsg` would put the job in the queue, but we don't yet
@@ -1099,25 +1152,24 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				return
 			}
 
-			for _, seshuJob := range finalSeshuJobsList {
-				extractedEvents, _, err := services.ExtractEventsFromHTML(seshuJob, constants.SESHU_MODE_SCRAPE, "init", &services.RealScrapingService{})
-				if err != nil {
-					log.Printf("Failed to extract events from %s: %v", seshuJob.NormalizedUrlKey, err)
-				}
+			extractedEvents, _, err := services.ExtractEventsFromHTML(seshuJob, constants.SESHU_MODE_SCRAPE, scrapeType, &services.RealScrapingService{})
+			if err != nil {
+				log.Printf("Failed to extract events from %s: %v", seshuJob.NormalizedUrlKey, err)
+			}
 
-				if len(extractedEvents) == 0 {
-					log.Printf("No events extracted from %s", seshuJob.NormalizedUrlKey)
-				} else {
-					log.Printf("Extracted %d events from %s", len(extractedEvents), seshuJob.NormalizedUrlKey)
-				}
+			if len(extractedEvents) == 0 {
+				log.Printf("No events extracted from %s", seshuJob.NormalizedUrlKey)
+			} else {
+				log.Printf("Extracted %d events from %s", len(extractedEvents), seshuJob.NormalizedUrlKey)
+			}
 
-				err = services.PushExtractedEventsToDB(extractedEvents, seshuJob)
-				if err != nil {
-					log.Println("Error pushing ingested events to DB:", err)
-				}
+			err = services.PushExtractedEventsToDB(extractedEvents, seshuJob)
+			if err != nil {
+				log.Println("Error pushing ingested events to DB:", err)
 			}
 
 		}()
+
 	}()
 
 	updateSeshuSession.Url = inputPayload.Url

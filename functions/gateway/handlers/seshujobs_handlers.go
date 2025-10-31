@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -144,87 +145,74 @@ func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
-func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-	var req TriggerRequest
-	db, _ := services.GetPostgresService(ctx)
-	nats, _ := services.GetNatsService(ctx)
+func ProcessGatherSeshuJobs(ctx context.Context, triggerTime int64) (int, bool, int, error) {
 
-	if db == nil || nats == nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to initialize services"), http.StatusInternalServerError)
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
-	}
-
-	err = json.Unmarshal(body, &req)
-	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusBadRequest)
-	}
-
-	log.Printf("Received request to gather seshu jobs at time: %d", req.Time)
+	log.Printf("Received request to gather seshu jobs at time: %d", triggerTime)
 	log.Printf("Last execution time: %d", lastExecutionTime)
 
-	if req.Time-lastExecutionTime <= 60 { // change this for HOUR
-		return transport.SendHtmlRes(w, []byte(""), http.StatusOK, "partial", nil)
+	if triggerTime-lastExecutionTime <= 60 { // change this for HOUR
+		return 0, true, http.StatusOK, nil
 	}
 
-	lastExecutionTime = req.Time
-	currentHour := time.Unix(req.Time, 0).UTC().Hour()
-
-	// Call NATS to look at the top of the queue for jobs
-	topOfQueue, err := nats.PeekTopOfQueue(r.Context())
-
+	db, err := services.GetPostgresService(ctx)
 	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to get top of NATS queue:"+err.Error()), http.StatusBadRequest)
+		return 0, false, http.StatusInternalServerError, fmt.Errorf("failed to initialize Postgres service: %w", err)
+	}
+	if db == nil {
+		return 0, false, http.StatusInternalServerError, fmt.Errorf("failed to initialize Postgres service")
+	}
+
+	nats, err := services.GetNatsService(ctx)
+	if err != nil {
+		return 0, false, http.StatusInternalServerError, fmt.Errorf("failed to initialize NATS service: %w", err)
+	}
+	if nats == nil {
+		return 0, false, http.StatusInternalServerError, fmt.Errorf("failed to initialize NATS service")
+	}
+
+	lastExecutionTime = triggerTime
+	currentHour := time.Unix(triggerTime, 0).UTC().Hour()
+
+	topOfQueue, err := nats.PeekTopOfQueue(ctx)
+	if err != nil {
+		return 0, false, http.StatusBadRequest, fmt.Errorf("failed to get top of NATS queue: %w", err)
 	}
 
 	var jobs []internal_types.SeshuJob
 
-	// If the top of the queue is not within the last 60 minutes or query is empty, do a full DB scan of seshu jobs
 	if topOfQueue == nil || len(topOfQueue.Data) == 0 {
-
-		// The scan will be index scan on index seshu_jobs.scheduled_scrape_time
-		jobs, err = db.ScanSeshuJobsWithInHour(r.Context(), currentHour)
+		jobs, err = db.ScanSeshuJobsWithInHour(ctx, currentHour)
 		if err != nil {
-			return transport.SendHtmlErrorPartial([]byte("Unable to obtain Jobs: "+err.Error()), http.StatusBadRequest)
+			return 0, false, http.StatusBadRequest, fmt.Errorf("unable to obtain Jobs: %w", err)
 		}
-
-	} else if topOfQueue != nil && topOfQueue.Data != nil && len(topOfQueue.Data) > 0 {
-
+	} else if topOfQueue.Data != nil && len(topOfQueue.Data) > 0 {
 		var job internal_types.SeshuJob
-
-		err := json.Unmarshal(topOfQueue.Data, &job)
-
-		if err != nil {
-			return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusBadRequest)
+		if err := json.Unmarshal(topOfQueue.Data, &job); err != nil {
+			return 0, false, http.StatusBadRequest, fmt.Errorf("invalid JSON payload: %w", err)
 		}
 
 		if currentHour-job.ScheduledHour > 0 {
-
-			// The scan will be index scan on index seshu_jobs.scheduled_scrape_time
-			jobs, err = db.ScanSeshuJobsWithInHour(r.Context(), currentHour)
+			jobs, err = db.ScanSeshuJobsWithInHour(ctx, currentHour)
 			if err != nil {
-				return transport.SendHtmlErrorPartial([]byte("Unable to obtain Jobs: "+err.Error()), http.StatusBadRequest)
+				return 0, false, http.StatusBadRequest, fmt.Errorf("unable to obtain Jobs: %w", err)
 			}
 		}
 	}
 
-	// Push Found DB items onto the NATS queue
+	published := 0
 	for _, job := range jobs {
-		if err := nats.PublishMsg(r.Context(), job); err != nil {
+		if err := nats.PublishMsg(ctx, job); err != nil {
 			jobKey := "unknown"
 			if job.NormalizedUrlKey != "" {
 				jobKey = job.NormalizedUrlKey
 			}
 			log.Printf("Failed to push job %s to NATS: %v", jobKey, err)
+			continue
 		}
+		published++
 	}
 
-	return transport.SendHtmlRes(w, []byte("successful"), http.StatusOK, "partial", nil)
-
+	return published, false, http.StatusOK, nil
 }
 
 func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary

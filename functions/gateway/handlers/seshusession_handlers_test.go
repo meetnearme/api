@@ -36,7 +36,7 @@ func (m *MockScrapingService) GetHTMLFromURLWithRetries(unescapedURL string, tim
 	return m.GetHTMLFromURL(unescapedURL, timeout, jsRender, waitFor)
 }
 
-func TestHandleSeshuSessionSubmit(t *testing.T) {
+func TestHandleSeshuSessionSubmit_RandomURL(t *testing.T) {
 	// Save original environment variables
 	originalScrapingBeeAPIBaseURL := os.Getenv("SCRAPINGBEE_API_URL_BASE")
 	originalOpenAIAPIBaseURL := os.Getenv("OPENAI_API_BASE_URL")
@@ -140,6 +140,22 @@ func TestHandleSeshuSessionSubmit(t *testing.T) {
 			expectBodyText: "Mock Event",
 		},
 		{
+			name:           "GET not allowed",
+			method:         "GET",
+			action:         "init",
+			body:           "",
+			expectedStatus: http.StatusOK,
+			expectBodyText: "Method Not Allowed",
+		},
+		{
+			name:           "Missing action param",
+			method:         "POST",
+			action:         "",
+			body:           `{"url":"https://example.com"}`,
+			expectedStatus: http.StatusOK,
+			expectBodyText: "invalid action",
+		},
+		{
 			name:           "Invalid action param",
 			method:         "POST",
 			action:         "invalid",
@@ -151,6 +167,46 @@ func TestHandleSeshuSessionSubmit(t *testing.T) {
 			name:           "Malformed JSON",
 			method:         "POST",
 			action:         "init",
+			body:           `{"url":}`,
+			expectedStatus: http.StatusOK,
+			expectBodyText: "unprocessable",
+		},
+		{
+			name:           "Init empty body",
+			method:         "POST",
+			action:         "init",
+			body:           "",
+			expectedStatus: http.StatusOK,
+			expectBodyText: "unprocessable",
+		},
+		{
+			name:           "Init empty URL",
+			method:         "POST",
+			action:         "init",
+			body:           `{"url":""}`,
+			expectedStatus: http.StatusOK,
+			expectBodyText: "badrequest",
+		},
+		{
+			name:           "Recursive missing parent_url",
+			method:         "POST",
+			action:         "rs",
+			body:           `{"url":"https://child.com"}`,
+			expectedStatus: http.StatusOK,
+			expectBodyText: "badrequest",
+		},
+		{
+			name:           "Recursive missing url",
+			method:         "POST",
+			action:         "rs",
+			body:           `{"parent_url":"https://parent.com"}`,
+			expectedStatus: http.StatusOK,
+			expectBodyText: "badrequest",
+		},
+		{
+			name:           "Recursive malformed JSON",
+			method:         "POST",
+			action:         "rs",
 			body:           `{"url":}`,
 			expectedStatus: http.StatusOK,
 			expectBodyText: "unprocessable",
@@ -201,6 +257,185 @@ func TestHandleSeshuSessionSubmit(t *testing.T) {
 			}
 			if tt.expectBodyText != "" && !strings.Contains(rec.Body.String(), tt.expectBodyText) {
 				t.Errorf("Expected response to contain %q, got %q", tt.expectBodyText, rec.Body.String())
+			}
+		})
+	}
+}
+
+func setScrapingBeeEnv(baseURL string) func() {
+	prevBase := os.Getenv("SCRAPINGBEE_API_URL_BASE")
+	prevKey := os.Getenv("SCRAPINGBEE_API_KEY")
+	_ = os.Setenv("SCRAPINGBEE_API_URL_BASE", baseURL)
+	_ = os.Setenv("SCRAPINGBEE_API_KEY", "test-key")
+	return func() {
+		if prevBase == "" {
+			_ = os.Unsetenv("SCRAPINGBEE_API_URL_BASE")
+		} else {
+			_ = os.Setenv("SCRAPINGBEE_API_URL_BASE", prevBase)
+		}
+		if prevKey == "" {
+			_ = os.Unsetenv("SCRAPINGBEE_API_KEY")
+		} else {
+			_ = os.Setenv("SCRAPINGBEE_API_KEY", prevKey)
+		}
+	}
+}
+
+func TestHandleSeshuSessionSubmit_Facebook(t *testing.T) {
+	// Save/restore env for OpenAI
+	origAI := os.Getenv("OPENAI_API_BASE_URL")
+	origAIKey := os.Getenv("OPENAI_API_KEY")
+	defer func() {
+		os.Setenv("OPENAI_API_BASE_URL", origAI)
+		os.Setenv("OPENAI_API_KEY", origAIKey)
+	}()
+
+	type fbCase struct {
+		name              string
+		sbHandler         func() http.HandlerFunc
+		expectBodyText    string
+		expectStatus      int
+		expectOpenAICalls int
+	}
+
+	cases := []fbCase{
+		{
+			name: "List success (single-line JSON)",
+			sbHandler: func() http.HandlerFunc {
+				return func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "text/html")
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte(`<html><head><meta property="og:url" content="https://www.facebook.com/events/1719880215557306"></head><body><script data-sjs data-content-len="4096">{"__bbox":{"result":{"data":{"event":{"__typename":"Event","name":"FB Mock Event","url":"https://www.facebook.com/events/1719880215557306","day_time_sentence":"2025-10-24T23:00:00Z","contextual_name":"FB Hall","description":"FB Mock Description","event_creator":{"name":"FB Host"}}}}}}</script></body></html>`))
+				}
+			},
+			expectBodyText:    "FB Mock Event",
+			expectStatus:      http.StatusOK,
+			expectOpenAICalls: 0,
+		},
+		{
+			name: "List requires retry then success",
+			sbHandler: func() http.HandlerFunc {
+				var count int
+				return func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "text/html")
+					w.WriteHeader(http.StatusOK)
+					if count == 0 {
+						count++
+						// First attempt: script present but no __typename -> triggers retry
+						_, _ = w.Write([]byte(`<html><body><script data-sjs data-content-len="1000">{"data":{"event":{}}}</script></body></html>`))
+						return
+					}
+					// Second attempt: success
+					_, _ = w.Write([]byte(`<html><head><meta property="og:url" content="https://www.facebook.com/events/1719880215557306"></head><body><script data-sjs data-content-len="4096">{"__bbox":{"result":{"data":{"event":{"__typename":"Event","name":"Retry Event","url":"https://www.facebook.com/events/1719880215557306","day_time_sentence":"2025-10-24T23:00:00-05:00","contextual_name":"Retry Hall","description":"Desc","event_creator":{"name":"Host"}}}}}}</script></body></html>`))
+				}
+			},
+			expectBodyText:    "Retry Event",
+			expectStatus:      http.StatusOK,
+			expectOpenAICalls: 0,
+		},
+		{
+			name: "List invalid (missing url)",
+			sbHandler: func() http.HandlerFunc {
+				return func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "text/html")
+					w.WriteHeader(http.StatusOK)
+					// __typename present but missing url -> no valid events
+					_, _ = w.Write([]byte(`<html><body><script data-sjs data-content-len="4096">{"data":{"edges":[{"node":{"__typename":"Event","name":"No URL Event","day_time_sentence":"2025-10-24T23:00:00Z","contextual_name":"Hall"}}]}}</script></body></html>`))
+				}
+			},
+			expectBodyText:    "no valid events extracted",
+			expectStatus:      http.StatusOK,
+			expectOpenAICalls: 0,
+		},
+		{
+			name: "List invalid (missing name)",
+			sbHandler: func() http.HandlerFunc {
+				return func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "text/html")
+					w.WriteHeader(http.StatusOK)
+					// Missing name -> invalid
+					_, _ = w.Write([]byte(`<html><body><script data-sjs data-content-len="4096">{"data":{"edges":[{"node":{"__typename":"Event","url":"https://www.facebook.com/events/1719880215557306","day_time_sentence":"2025-10-24T23:00:00Z"}}]}}</script></body></html>`))
+				}
+			},
+			expectBodyText:    "no valid events extracted",
+			expectStatus:      http.StatusOK,
+			expectOpenAICalls: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Per-test OpenAI mock (to count calls)
+			openaiCalls := 0
+			aiPort := test_helpers.GetNextPort()
+			mockOpenAI := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				openaiCalls++
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(services.ChatCompletionResponse{
+					ID: "mock", Object: "chat.completion", Created: time.Now().Unix(), Model: "gpt-4o-mini",
+					Choices: []services.Choice{{Index: 0, Message: services.Message{Role: "assistant", Content: "[]"}, FinishReason: "stop"}},
+					Usage:   services.Usage{PromptTokens: 1, CompletionTokens: 1, TotalTokens: 2},
+				})
+			}))
+			aiListener, err := test_helpers.BindToPort(t, aiPort)
+			if err != nil {
+				t.Fatalf("Failed to bind OpenAI server: %v", err)
+			}
+			mockOpenAI.Listener = aiListener
+			mockOpenAI.Start()
+			defer mockOpenAI.Close()
+
+			// Per-test ScrapingBee mock
+			sbPort := test_helpers.GetNextPort()
+			mockScrapingBee := httptest.NewUnstartedServer(tc.sbHandler())
+			sbListener, err := test_helpers.BindToPort(t, sbPort)
+			if err != nil {
+				t.Fatalf("Failed to bind ScrapingBee server: %v", err)
+			}
+			mockScrapingBee.Listener = sbListener
+			mockScrapingBee.Start()
+			defer mockScrapingBee.Close()
+
+			restoreSB := setScrapingBeeEnv(mockScrapingBee.URL)
+			defer restoreSB()
+			os.Setenv("OPENAI_API_BASE_URL", mockOpenAI.URL)
+			os.Setenv("OPENAI_API_KEY", "mock-api-key")
+
+			// Mock DB insert
+			db = &test_helpers.MockDynamoDBClient{
+				PutItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+					return &dynamodb.PutItemOutput{}, nil
+				},
+			}
+
+			// Build request
+			body := `{"url":"https://www.facebook.com/events/1719880215557306"}`
+			req := httptest.NewRequest(http.MethodPost, "/?action=init", bytes.NewBufferString(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			// Lambda + auth context
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				RequestContext: events.APIGatewayV2HTTPRequestContext{RequestID: "fb-" + tc.name},
+				PathParameters: map[string]string{},
+			})
+			ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: "fb-user-1"})
+			ctx = context.WithValue(ctx, "roleClaims", map[string]any{"roles": []string{"user"}})
+			ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "fb-user-1"})
+			req = req.WithContext(ctx)
+
+			// Execute
+			rec := httptest.NewRecorder()
+			h := HandleSeshuSessionSubmit(rec, req)
+			h.ServeHTTP(rec, req)
+
+			if rec.Code != tc.expectStatus {
+				t.Fatalf("expected %d, got %d; body=%s", tc.expectStatus, rec.Code, rec.Body.String())
+			}
+			if tc.expectBodyText != "" && !strings.Contains(strings.ToLower(rec.Body.String()), strings.ToLower(tc.expectBodyText)) {
+				t.Fatalf("expected response to contain %q; body=%s", tc.expectBodyText, rec.Body.String())
+			}
+			if openaiCalls != tc.expectOpenAICalls {
+				t.Fatalf("expected %d OpenAI calls, got %d", tc.expectOpenAICalls, openaiCalls)
 			}
 		})
 	}

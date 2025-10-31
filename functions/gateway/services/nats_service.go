@@ -172,7 +172,14 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 
 			log.Printf("Processing scraping job for URL: %s", seshuJob.NormalizedUrlKey)
 
-			events, _, err := ExtractEventsFromHTML(seshuJob, constants.SESHU_MODE_SCRAPE, "init", &RealScrapingService{})
+			var scrapeMode string
+			if seshuJob.IsRecursive {
+				scrapeMode = "rs"
+			} else {
+				scrapeMode = "init"
+			}
+
+			events, _, err := ExtractEventsFromHTML(seshuJob, constants.SESHU_MODE_SCRAPE, scrapeMode, &RealScrapingService{})
 			if err != nil {
 				log.Printf("Failed to extract events from %s: %v", seshuJob.NormalizedUrlKey, err)
 				// TODO: Update job status to reflect failure in database
