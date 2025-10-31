@@ -1188,13 +1188,13 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						}
 
 						document.addEventListener('htmx:beforeRequest', (event) => {
-							if (event.detail.elt.getAttribute('hx-post') === 'api/auth/users/update-location') {
+							if (event.detail.elt.getAttribute('hx-post') === '/api/auth/users/update-location') {
 								this.savingLocation = true;
 							}
 						});
 
 						document.addEventListener('htmx:afterRequest', (event) => {
-							if (event.detail.elt.getAttribute('hx-post') === 'api/auth/users/update-location') {
+							if (event.detail.elt.getAttribute('hx-post') === '/api/auth/users/update-location') {
 								if (event.detail.xhr.status === 200) {
 									setTimeout(() => {
 										document.getElementById('update-location-modal').close();

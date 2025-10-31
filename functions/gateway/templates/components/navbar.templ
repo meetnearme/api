@@ -360,7 +360,7 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 										<div class="modal-action gap-4" x-show="!savingLocation">
 											<button
 												class="btn btn-primary w-1/5"
-												hx-post="api/auth/users/update-location"
+												hx-post="/api/auth/users/update-location"
 												hx-ext="json-enc"
 												hx-vals='js:{"latitude": Alpine.store("location").selected.latitude, "longitude": Alpine.store("location").selected.longitude, "city": Alpine.store("location").selected.label}'
 												@click="savingLocation = true"
