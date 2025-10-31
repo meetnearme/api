@@ -70,7 +70,6 @@ func (app *App) InitRoutes() []Route {
 		{constants.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
 		{constants.SitePages["user"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
 		{constants.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
-		{constants.SitePages["admin"].Slug, "GET", handlers.GetAdminPage, Require},
 		{constants.SitePages["add-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
 		{constants.SitePages["edit-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
 		{constants.SitePages["attendees-event"].Slug, "GET", handlers.GetEventAttendeesPage, Require},
@@ -90,6 +89,9 @@ func (app *App) InitRoutes() []Route {
 		{constants.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 		{constants.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 
+		// NOTE: ⚠️⚠️⚠️⚠️ we use a catch-all route for `admin` here but it needs to come LAST
+		// moving this higher will break admin sub-routes that are not handled by this catch-all route
+		{constants.SitePages["admin"].Slug, "GET", handlers.GetAdminPage, Require},
 		// API routes
 
 		// == START == need to expose these via permanent key for headless clients
