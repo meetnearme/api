@@ -1225,8 +1225,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						// Commit categories to URL (triggers syncFromURL automatically)
 						Alpine.store('urlState').setParam('categories', categoriesString)
 					},
-					async handleFilterSubmit() {
-
+					handleFilterSubmit() {
 						// Commit all draft changes to URL state
 						this.sendCategoriesToQueryParams();
 

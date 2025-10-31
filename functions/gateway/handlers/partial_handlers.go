@@ -1252,7 +1252,7 @@ func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlErrorPartial([]byte("Invalid Body: "+err.Error()), http.StatusBadRequest)
 	}
 
-	if inputPayload.City == "" {
+	if strings.TrimSpace(inputPayload.City) == "" {
 		return transport.SendHtmlErrorPartial([]byte("City field is required"), http.StatusBadRequest)
 	}
 
