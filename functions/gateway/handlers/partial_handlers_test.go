@@ -1112,7 +1112,7 @@ func TestUpdateUserLocation(t *testing.T) {
 			shouldContain:  "Location info successfully saved",
 		},
 		{
-			name: "empty city field - should still succeed",
+			name: "empty city field - should error",
 			payload: UpdateUserLocationRequestPayload{
 				Latitude:  30,
 				Longitude: 45,
@@ -1122,7 +1122,20 @@ func TestUpdateUserLocation(t *testing.T) {
 				Sub: "user123",
 			},
 			expectedStatus: http.StatusOK,
-			shouldContain:  "Location info successfully saved",
+			shouldContain:  "Error:Field validation for &#39;City&#39",
+		},
+		{
+			name: "invalid latitude",
+			payload: UpdateUserLocationRequestPayload{
+				Latitude:  -240,
+				Longitude: 45,
+				City:      "Philadelphia, PA",
+			},
+			userInfo: constants.UserInfo{
+				Sub: "user123",
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain:  "Latitude must be between -90 and 90.",
 		},
 		{
 			name: "Zitadel API error",
