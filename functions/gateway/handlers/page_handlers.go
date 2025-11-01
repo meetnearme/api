@@ -365,10 +365,15 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 }
 
 func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	aboutPage := pages.AboutPage()
 	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
 
-	layoutTemplate := pages.Layout(constants.SitePages["about"], constants.UserInfo{}, aboutPage, types.Event{}, false, ctx, []string{})
+	aboutPage := pages.AboutPage()
+
+	layoutTemplate := pages.Layout(constants.SitePages["about"], userInfo, aboutPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
