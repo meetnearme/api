@@ -1848,10 +1848,10 @@ func TestSubmitSeshuSession(t *testing.T) {
 
 func TestGetProfileInterestsPartial(t *testing.T) {
 	tests := []struct {
-		name           string
-		userMetaClaims map[string]interface{}
-		expectedStatus int
-		shouldContain  []string
+		name             string
+		userMetaClaims   map[string]interface{}
+		expectedStatus   int
+		shouldContain    []string
 		shouldNotContain []string
 	}{
 		{
@@ -1861,7 +1861,7 @@ func TestGetProfileInterestsPartial(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			shouldContain: []string{
-				"My Interests",
+				"Interests",
 				"update-interests-result",
 				"/api/auth/users/update-interests",
 				"hx-post",
@@ -1876,18 +1876,18 @@ func TestGetProfileInterestsPartial(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			shouldContain: []string{
-				"My Interests",
+				"Interests",
 				"update-interests-result",
 				"/api/auth/users/update-interests",
 			},
 			shouldNotContain: []string{"error", "Error"},
 		},
 		{
-			name:            "successful render with no userMetaClaims",
-			userMetaClaims:  map[string]interface{}{},
-			expectedStatus:  http.StatusOK,
+			name:           "successful render with no userMetaClaims",
+			userMetaClaims: map[string]interface{}{},
+			expectedStatus: http.StatusOK,
 			shouldContain: []string{
-				"My Interests",
+				"Interests",
 				"update-interests-result",
 				"/api/auth/users/update-interests",
 			},
@@ -1900,7 +1900,7 @@ func TestGetProfileInterestsPartial(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			shouldContain: []string{
-				"My Interests",
+				"Interests",
 				"update-interests-result",
 				"/api/auth/users/update-interests",
 			},
@@ -1947,6 +1947,431 @@ func TestGetProfileInterestsPartial(t *testing.T) {
 			for _, unexpectedStr := range tt.shouldNotContain {
 				if strings.Contains(responseBody, unexpectedStr) {
 					t.Errorf("Expected response to NOT contain '%s', got '%s'", unexpectedStr, responseBody)
+				}
+			}
+
+			// Verify it's a partial (HTML fragment, not full page)
+			if strings.Contains(responseBody, "<!DOCTYPE html>") || strings.Contains(responseBody, "<html") {
+				t.Errorf("Expected partial HTML, but got full page HTML")
+			}
+		})
+	}
+}
+
+func TestGetSubscriptionsPartial(t *testing.T) {
+	// Save original environment variables
+	originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
+	defer func() {
+		os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
+	}()
+
+	// Set up test environment
+	os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
+
+	// Set up logging transport
+	originalTransport := http.DefaultTransport
+	defer func() {
+		http.DefaultTransport = originalTransport
+	}()
+	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
+
+	tests := []struct {
+		name             string
+		userInfo         constants.UserInfo
+		hasCustomer      bool
+		customerID       string
+		subscriptions    []map[string]interface{}
+		expectedStatus   int
+		shouldContain    []string
+		shouldNotContain []string
+	}{
+		{
+			name: "no subscriptions - empty state",
+			userInfo: constants.UserInfo{
+				Sub:   "zitadel_user_123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			hasCustomer:    true,
+			customerID:     "cus_test_customer",
+			subscriptions:  []map[string]interface{}{},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Subscriptions",
+				"You don't have any subscriptions yet",
+				"pricing page",
+			},
+			shouldNotContain: []string{
+				"Billing Cycle",
+				"billing cycle",
+				"Active Subscriptions",
+				"Subscription History",
+			},
+		},
+		{
+			name: "active subscription only",
+			userInfo: constants.UserInfo{
+				Sub:   "zitadel_user_123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			hasCustomer: true,
+			customerID:  "cus_test_customer",
+			subscriptions: []map[string]interface{}{
+				{
+					"id":                   "sub_active_123",
+					"object":               "subscription",
+					"status":               "active",
+					"customer":             "cus_test_customer",
+					"cancel_at_period_end": false,
+					"created":              1234567890,
+					"canceled_at":          nil,
+					"items": map[string]interface{}{
+						"object": "list",
+						"data": []interface{}{
+							map[string]interface{}{
+								"id":                   "si_item_1",
+								"object":               "subscription_item",
+								"current_period_start": 1234567890,
+								"current_period_end":   1234567890 + 2592000,
+								"price": map[string]interface{}{
+									"id":     "price_growth",
+									"object": "price",
+									"product": map[string]interface{}{
+										"id":   "prod_growth",
+										"name": "Growth",
+									},
+									"unit_amount": 9999,
+									"currency":    "usd",
+									"recurring": map[string]interface{}{
+										"interval": "month",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Subscriptions",
+				"Active Subscriptions",
+				"Growth",
+				"Actions",
+				"Update Subscription",
+				"Cancel Subscription",
+				"Update Payment Method",
+			},
+			shouldNotContain: []string{
+				"Billing Cycle",
+				"billing cycle",
+				"Subscription History",
+				"Canceling at period end",
+			},
+		},
+		{
+			name: "canceled subscription only",
+			userInfo: constants.UserInfo{
+				Sub:   "zitadel_user_123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			hasCustomer: true,
+			customerID:  "cus_test_customer",
+			subscriptions: []map[string]interface{}{
+				{
+					"id":                   "sub_canceled_123",
+					"object":               "subscription",
+					"status":               "canceled",
+					"customer":             "cus_test_customer",
+					"cancel_at_period_end": false,
+					"created":              1234567890,
+					"canceled_at":          1234567890 + 2592000,
+					"items": map[string]interface{}{
+						"object": "list",
+						"data": []interface{}{
+							map[string]interface{}{
+								"id":                   "si_item_1",
+								"object":               "subscription_item",
+								"current_period_start": 1234567890,
+								"current_period_end":   1234567890 + 2592000,
+								"price": map[string]interface{}{
+									"id":     "price_seed",
+									"object": "price",
+									"product": map[string]interface{}{
+										"id":   "prod_seed",
+										"name": "Seed Community",
+									},
+									"unit_amount": 4999,
+									"currency":    "usd",
+									"recurring": map[string]interface{}{
+										"interval": "month",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Subscriptions",
+				"Subscription History",
+				"Seed Community",
+				"Canceled",
+			},
+			shouldNotContain: []string{
+				"Billing Cycle",
+				"billing cycle",
+				"Active Subscriptions",
+				"Manage",
+			},
+		},
+		{
+			name: "mixed active and canceled subscriptions",
+			userInfo: constants.UserInfo{
+				Sub:   "zitadel_user_123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			hasCustomer: true,
+			customerID:  "cus_test_customer",
+			subscriptions: []map[string]interface{}{
+				{
+					"id":                   "sub_active_123",
+					"object":               "subscription",
+					"status":               "active",
+					"customer":             "cus_test_customer",
+					"cancel_at_period_end": true,
+					"created":              1234567890,
+					"canceled_at":          nil,
+					"items": map[string]interface{}{
+						"object": "list",
+						"data": []interface{}{
+							map[string]interface{}{
+								"id":                   "si_item_1",
+								"object":               "subscription_item",
+								"current_period_start": 1234567890,
+								"current_period_end":   1234567890 + 2592000,
+								"price": map[string]interface{}{
+									"id":     "price_growth",
+									"object": "price",
+									"product": map[string]interface{}{
+										"id":   "prod_growth",
+										"name": "Growth",
+									},
+									"unit_amount": 9999,
+									"currency":    "usd",
+									"recurring": map[string]interface{}{
+										"interval": "month",
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					"id":                   "sub_canceled_123",
+					"object":               "subscription",
+					"status":               "canceled",
+					"customer":             "cus_test_customer",
+					"cancel_at_period_end": false,
+					"created":              1234567890,
+					"canceled_at":          1234567890 + 2592000,
+					"items": map[string]interface{}{
+						"object": "list",
+						"data": []interface{}{
+							map[string]interface{}{
+								"id":                   "si_item_2",
+								"object":               "subscription_item",
+								"current_period_start": 1234567890,
+								"current_period_end":   1234567890 + 2592000,
+								"price": map[string]interface{}{
+									"id":     "price_seed",
+									"object": "price",
+									"product": map[string]interface{}{
+										"id":   "prod_seed",
+										"name": "Seed Community",
+									},
+									"unit_amount": 4999,
+									"currency":    "usd",
+									"recurring": map[string]interface{}{
+										"interval": "month",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Subscriptions",
+				"Active Subscriptions",
+				"Subscription History",
+				"Growth",
+				"Seed Community",
+				"Canceling at period end",
+				"Actions",
+				"Update Subscription",
+				"Update Payment Method",
+			},
+			shouldNotContain: []string{
+				"Billing Cycle",
+				"billing cycle",
+				"Cancel Subscription", // Should not appear when cancel_at_period_end is true
+			},
+		},
+		{
+			name:           "missing user ID returns unauthorized",
+			userInfo:       constants.UserInfo{},
+			hasCustomer:    false,
+			expectedStatus: http.StatusOK, // SendHtmlErrorPartial returns 200 even for errors
+			shouldContain: []string{
+				"Unauthorized",
+				"Missing user ID",
+			},
+		},
+		{
+			name: "customer not found - returns empty state",
+			userInfo: constants.UserInfo{
+				Sub:   "zitadel_user_123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			hasCustomer:    false,
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Subscriptions",
+				"You don't have any subscriptions yet",
+				"pricing page",
+			},
+			shouldNotContain: []string{
+				"Billing Cycle",
+				"billing cycle",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock Stripe server
+			mockStripeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				t.Logf("🎯 MOCK STRIPE HIT: %s %s", r.Method, r.URL.Path)
+
+				switch {
+				case strings.Contains(r.URL.Path, "/v1/customers/search"):
+					t.Logf("   └─ Handling customer search")
+					if tt.hasCustomer && tt.customerID != "" {
+						// Mock customer found
+						mockSearchResponse := map[string]interface{}{
+							"object": "search_result",
+							"data": []interface{}{
+								map[string]interface{}{
+									"id":    tt.customerID,
+									"email": "test@example.com",
+									"name":  "Test User",
+									"metadata": map[string]interface{}{
+										"zitadel_user_id": tt.userInfo.Sub,
+									},
+								},
+							},
+							"has_more": false,
+						}
+						responseBytes, _ := json.Marshal(mockSearchResponse)
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusOK)
+						w.Write(responseBytes)
+					} else {
+						// Mock customer not found
+						mockSearchResponse := map[string]interface{}{
+							"object":   "search_result",
+							"data":     []interface{}{},
+							"has_more": false,
+						}
+						responseBytes, _ := json.Marshal(mockSearchResponse)
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusOK)
+						w.Write(responseBytes)
+					}
+
+				case r.URL.Path == "/v1/subscriptions":
+					t.Logf("   └─ Handling subscriptions list request")
+					mockSubscriptionsResponse := map[string]interface{}{
+						"object":   "list",
+						"data":     tt.subscriptions,
+						"has_more": false,
+					}
+					responseBytes, _ := json.Marshal(mockSubscriptionsResponse)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					w.Write(responseBytes)
+
+				default:
+					t.Logf("   └─ ⚠️  UNHANDLED STRIPE PATH: %s", r.URL.Path)
+					t.Errorf("mock Stripe server received request to unhandled path: %s", r.URL.Path)
+					http.Error(w, "Not Found", http.StatusNotFound)
+				}
+			}))
+			defer mockStripeServer.Close()
+
+			// Create custom RoundTripper to redirect Stripe calls to mock server
+			customTransport := &http.Transport{
+				Proxy: func(req *http.Request) (*url.URL, error) {
+					if strings.Contains(req.URL.Host, "api.stripe.com") {
+						mockURL, _ := url.Parse(mockStripeServer.URL)
+						return mockURL, nil
+					}
+					return nil, nil
+				},
+			}
+
+			customRoundTripper := &customRoundTripperForStripe{
+				transport: customTransport,
+				mockURL:   mockStripeServer.URL,
+			}
+
+			http.DefaultTransport = customRoundTripper
+			services.ResetStripeClient()
+
+			// Create request
+			req := httptest.NewRequest("GET", "/api/html/subscriptions", nil)
+
+			// Add context with user info
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				PathParameters: map[string]string{},
+			})
+			ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			req = req.WithContext(ctx)
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call handler
+			handler := GetSubscriptionsPartial(w, req)
+			handler(w, req)
+
+			// Verify response
+			if w.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+
+			// Log the response for debugging
+			t.Logf("Response status: %d", w.Code)
+			t.Logf("Response body length: %d", len(w.Body.String()))
+
+			// Check all required strings are present
+			responseBody := w.Body.String()
+			for _, expectedStr := range tt.shouldContain {
+				if !strings.Contains(responseBody, expectedStr) {
+					t.Errorf("Expected response to contain '%s'", expectedStr)
+				}
+			}
+
+			// Check strings that should not be present
+			for _, unexpectedStr := range tt.shouldNotContain {
+				if strings.Contains(responseBody, unexpectedStr) {
+					t.Errorf("Expected response to NOT contain '%s'", unexpectedStr)
 				}
 			}
 

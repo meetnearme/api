@@ -609,6 +609,9 @@ func TestStripeSubscriptionService_CreateCustomerPortalSession(t *testing.T) {
 			returnURL := r.Form.Get("return_url")
 			flowType := r.Form.Get("flow_data[type]")
 			subscriptionID := r.Form.Get("flow_data[subscription_update][subscription]")
+			if subscriptionID == "" {
+				subscriptionID = r.Form.Get("flow_data[subscription_cancel][subscription]")
+			}
 
 			if customerID == "" {
 				t.Error("expected customer parameter")
@@ -755,5 +758,34 @@ func TestStripeSubscriptionService_CreateCustomerPortalSession(t *testing.T) {
 		}
 
 		t.Logf("✅ Portal session with update flow created: ID=%s, URL=%s", session.ID, session.URL)
+	})
+
+	t.Run("create portal session with payment method update flow (no subscription ID)", func(t *testing.T) {
+		session, err := service.CreateCustomerPortalSession(
+			"cus_test_customer",
+			"https://example.com/return",
+			"", // No subscription ID needed for payment method update
+			constants.STRIPE_PORTAL_FLOW_PAYMENT_METHOD_UPDATE,
+		)
+
+		if err != nil {
+			t.Errorf("CreateCustomerPortalSession() failed: %v", err)
+			return
+		}
+
+		if session == nil {
+			t.Error("Expected session, got nil")
+			return
+		}
+
+		if session.ID != "bps_test_session_123" {
+			t.Errorf("Expected session ID 'bps_test_session_123', got '%s'", session.ID)
+		}
+
+		if session.URL != "https://billing.stripe.com/p/session/test_session_123" {
+			t.Errorf("Expected session URL 'https://billing.stripe.com/p/session/test_session_123', got '%s'", session.URL)
+		}
+
+		t.Logf("✅ Portal session with payment method update flow created: ID=%s, URL=%s", session.ID, session.URL)
 	})
 }

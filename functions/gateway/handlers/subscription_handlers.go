@@ -26,21 +26,39 @@ func CreateCustomerPortalSession(w http.ResponseWriter, r *http.Request) (err er
 		return nil
 	}
 
-	// Get return URL from query parameter, default to /admin/subscriptions
-	returnURL := r.URL.Query().Get("return_url")
+	// Parse form data (for POST requests from forms) or use query parameters (for GET requests)
+	r.ParseForm()
+
+	// Get return URL from form data or query parameter, default to /admin/subscriptions
+	returnURL := r.PostForm.Get("return_url")
+	if returnURL == "" {
+		returnURL = r.URL.Query().Get("return_url")
+	}
 	if returnURL == "" {
 		returnURL = os.Getenv("APEX_URL") + "/admin/subscriptions"
 	} else {
-		// Ensure return URL is absolute
-		if len(returnURL) > 0 && returnURL[0] != '/' && !isAbsoluteURL(returnURL) {
-			returnURL = os.Getenv("APEX_URL") + returnURL
+		// Ensure return URL is absolute (Stripe requires absolute URLs)
+		if !isAbsoluteURL(returnURL) {
+			// If it starts with /, prepend APEX_URL
+			if len(returnURL) > 0 && returnURL[0] == '/' {
+				returnURL = os.Getenv("APEX_URL") + returnURL
+			} else {
+				// If it doesn't start with /, prepend APEX_URL with /
+				returnURL = os.Getenv("APEX_URL") + "/" + returnURL
+			}
 		}
 	}
 
 	// Get optional subscription ID and flow type for deep linking
 	// If subscription_id is provided, creates a deep link to manage that specific subscription
-	subscriptionID := r.URL.Query().Get("subscription_id")
-	flowType := r.URL.Query().Get("flow_type")
+	subscriptionID := r.PostForm.Get("subscription_id")
+	if subscriptionID == "" {
+		subscriptionID = r.URL.Query().Get("subscription_id")
+	}
+	flowType := r.PostForm.Get("flow_type")
+	if flowType == "" {
+		flowType = r.URL.Query().Get("flow_type")
+	}
 	// Valid flow types: constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_CANCEL, STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE,
 	// STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE_CONFIRM, or STRIPE_PORTAL_FLOW_PAYMENT_METHOD_UPDATE
 	// If subscription_id is provided but flow_type is empty, defaults to STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE
