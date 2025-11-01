@@ -22,7 +22,6 @@ templ Footer(isLoggedIn bool) {
 				<a href="#" @click.prevent="swapQueryParam('')" @keydown.enter.prevent="swapQueryParam('')">All Events</a>
 				<a href="#" @click.prevent="swapQueryParam('music')" @keydown.enter.prevent="swapQueryParam('music')">Music</a>
 				<a href="#" @click.prevent="swapQueryParam('party')" @keydown.enter.prevent="swapQueryParam('party')">Party</a>
-				<a href="#" @click.prevent="swapQueryParam('news')" @keydown.enter.prevent="swapQueryParam('news')">News</a>
 				<a href="/about">About Us</a>
 			</nav>
 			<nav class="flex gap-4 justify-center items-center" aria-label="Social links">
@@ -91,7 +90,7 @@ templ Footer(isLoggedIn bool) {
 						params.delete('q');
 					}
 
-					const newUrl = `/?${params.toString()}`;
+					const newUrl = window.location.origin + `/?${params.toString()}`;
 
 					window.location.href = newUrl;
 				}

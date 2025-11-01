@@ -33,6 +33,10 @@ func getProfileInterestsAdminUrl() string {
 	return "/api/html/profile-interests"
 }
 
+func getSubscriptionsAdminUrl() string {
+	return "/api/html/subscriptions"
+}
+
 templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, interests []string, userSubdomain, mnmOptions, userAbout string, ctx context.Context) {
 	<h1 class="text-3xl">Admin</h1>
 	<br/>
@@ -61,7 +65,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 		</div>
 		<div
 			id="admin-content"
-			class="htmx-hide-in-flight overflow-scroll col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box"
+			class="htmx-hide-in-flight col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box"
 		>
 			<template x-if="newRole && !roleResolved">
 				<div class="alert alert-info mb-4">
@@ -333,7 +337,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			<div id="about-result" class="margins-when-children my-8"></div>
 		</div>
 	</div>
-	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled } data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() }>
+	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled } data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() } data-subscriptions-url={ getSubscriptionsAdminUrl() }>
 		// Admin sub-routing with Navigation API
 		(function() {
 			const adminStateEl = document.querySelector('#admin-state');
@@ -352,6 +356,10 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 				'/admin/interests': {
 					url: adminStateEl.getAttribute('data-profile-interests-url'),
 					title: 'Admin - Interests'
+				},
+				'/admin/subscriptions': {
+					url: adminStateEl.getAttribute('data-subscriptions-url'),
+					title: 'Admin - Subscriptions'
 				}
 			};
 

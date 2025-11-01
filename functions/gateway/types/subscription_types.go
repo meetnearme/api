@@ -29,7 +29,8 @@ type CustomerSubscription struct {
 	CurrentPeriodStart time.Time          `json:"current_period_start"`
 	CurrentPeriodEnd   time.Time          `json:"current_period_end"`
 	CancelAtPeriodEnd  bool               `json:"cancel_at_period_end"`
-	CanceledAt         *time.Time         `json:"canceled_at,omitempty"`
+	CancelAt           *time.Time         `json:"cancel_at,omitempty"`   // When the subscription will be canceled
+	CanceledAt         *time.Time         `json:"canceled_at,omitempty"` // When the subscription was canceled
 	PlanID             string             `json:"plan_id"`
 	PlanName           string             `json:"plan_name"`
 	PlanAmount         int64              `json:"plan_amount"`
@@ -90,6 +91,13 @@ func ConvertStripeSubscription(stripeSub *stripe.Subscription) *CustomerSubscrip
 		UpdatedAt:         time.Unix(stripeSub.Created, 0), // Use Created as fallback since Updated doesn't exist
 	}
 
+	// Handle cancel_at (scheduled cancellation timestamp)
+	if stripeSub.CancelAt > 0 {
+		cancelAt := time.Unix(stripeSub.CancelAt, 0)
+		subscription.CancelAt = &cancelAt
+	}
+
+	// Handle canceled_at (actual cancellation timestamp)
 	if stripeSub.CanceledAt > 0 {
 		canceledAt := time.Unix(stripeSub.CanceledAt, 0)
 		subscription.CanceledAt = &canceledAt
@@ -153,6 +161,12 @@ func (s *CustomerSubscription) IsCanceled() bool {
 // IsPastDue returns true if the subscription is past due
 func (s *CustomerSubscription) IsPastDue() bool {
 	return s.Status == SubscriptionStatusPastDue
+}
+
+// IsScheduledToCancel returns true if the subscription is scheduled to cancel
+// This checks both cancel_at_period_end (boolean) and cancel_at (timestamp)
+func (s *CustomerSubscription) IsScheduledToCancel() bool {
+	return s.CancelAtPeriodEnd || (s.CancelAt != nil && s.CancelAt.After(time.Now()))
 }
 
 // GetZitadelRole returns the corresponding Zitadel role for this subscription plan

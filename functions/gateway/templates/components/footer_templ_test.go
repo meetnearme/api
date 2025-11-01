@@ -30,7 +30,6 @@ func TestFooter(t *testing.T) {
 			"Privacy Policy",
 			"Music",
 			"Party",
-			"News",
 		}
 
 		for _, element := range expectedContent {
@@ -58,7 +57,6 @@ func TestFooter(t *testing.T) {
 			"Privacy Policy",
 			"Music",
 			"Party",
-			"News",
 		}
 
 		for _, element := range expectedContent {

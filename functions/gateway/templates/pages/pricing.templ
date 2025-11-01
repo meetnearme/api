@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-templ PricingPage(isLoggedIn bool) {
+templ PricingPage(isLoggedIn bool, hasSeedSubscription bool, hasGrowthSubscription bool) {
 	<div
 		x-data="getPricingPageState()"
 		class="min-h-screen bg-background py-16 px-4 sm:px-6 lg:px-8"
@@ -62,7 +62,7 @@ templ PricingPage(isLoggedIn bool) {
 					</ul>
 					if isLoggedIn {
 						<button class="pointer-events-none w-full btn no-animation btn-active">
-							Current Plan
+							Registered
 						</button>
 					} else {
 						<button
@@ -110,14 +110,20 @@ templ PricingPage(isLoggedIn bool) {
 							<span>Smart Search</span>
 						</li>
 					</ul>
-					<button
-						data-umami-event={ "pricing-reg-clk" }
-						data-umami-event-event-id="seed-community"
-						class="w-full btn btn-primary"
-						@click="handleGetStartedClick(seedPlanId)"
-					>
-						Get Started
-					</button>
+					if hasSeedSubscription || hasGrowthSubscription {
+						<button class="pointer-events-none w-full btn no-animation btn-active">
+							Subscribed
+						</button>
+					} else {
+						<button
+							data-umami-event={ "pricing-reg-clk" }
+							data-umami-event-event-id="seed-community"
+							class="w-full btn btn-primary"
+							@click="handleGetStartedClick(seedPlanId)"
+						>
+							Get Started
+						</button>
+					}
 				</div>
 				<div class="bg-card border-2 border-primary rounded-lg p-8 flex flex-col relative">
 					<div class="absolute -top-3 left-1/2 transform -translate-x-1/2">
@@ -165,14 +171,20 @@ templ PricingPage(isLoggedIn bool) {
 							<span>API Access for your app / website</span>
 						</li>
 					</ul>
-					<button
-						data-umami-event={ "pricing-reg-clk" }
-						data-umami-event-event-id="growth-community"
-						class="w-full btn btn-primary"
-						@click="handleGetStartedClick(growthPlanId)"
-					>
-						Get Started
-					</button>
+					if hasGrowthSubscription {
+						<button class="pointer-events-none w-full btn no-animation btn-active">
+							Subscribed
+						</button>
+					} else {
+						<button
+							data-umami-event={ "pricing-reg-clk" }
+							data-umami-event-event-id="growth-community"
+							class="w-full btn btn-primary"
+							@click="handleGetStartedClick(growthPlanId)"
+						>
+							Get Started
+						</button>
+					}
 				</div>
 			</div>
 		</div>
@@ -193,13 +205,13 @@ templ PricingPage(isLoggedIn bool) {
         // Check for error parameter in URL
         const urlParams = new URLSearchParams(window.location.search)
         const errorParam = urlParams.get('error')
-        const shouldShowToast = errorParam === 'checkout_failed'
+        const shouldShowToast = errorParam === 'checkout_failed' || errorParam === 'already_subscribed'
 
         return {
           showToast: shouldShowToast,
           toastContent: {
             type: shouldShowToast ? 'error' : '',
-            message: shouldShowToast ? 'Failed to initiate checkout' : ''
+            message: errorParam === 'already_subscribed' ? 'You already have this subscription. To manage your subscription, visit your admin portal.' : (errorParam === 'checkout_failed' ? 'Failed to initiate checkout' : '')
           },
           basicPlanId: document.querySelector('#pricing-page').getAttribute('data-basic-plan-id'),
           seedPlanId: document.querySelector('#pricing-page').getAttribute('data-seed-plan-id'),

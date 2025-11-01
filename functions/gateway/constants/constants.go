@@ -119,6 +119,16 @@ const (
 	STRIPE_WEBHOOK_EVENT_CUSTOMER_UPDATED                             = "customer.updated"
 )
 
+// Stripe customer portal flow types for deep linking
+// These are used to create portal sessions that deep link to specific subscription actions
+// See: https://docs.stripe.com/customer-management/portal-deep-links
+const (
+	STRIPE_PORTAL_FLOW_PAYMENT_METHOD_UPDATE       = "payment_method_update"
+	STRIPE_PORTAL_FLOW_SUBSCRIPTION_CANCEL         = "subscription_cancel"
+	STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE         = "subscription_update"
+	STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE_CONFIRM = "subscription_update_confirm"
+)
+
 // Customer portal configuration
 var CUSTOMER_PORTAL_RETURN_URL_PATH = os.Getenv("APEX_URL") + "/admin"
 

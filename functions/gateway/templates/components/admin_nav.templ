@@ -21,6 +21,15 @@ templ AdminLeftNavContents(ctx context.Context) {
 					hx-push-url="/admin/interests"
 				>Interests</a>
 			</li>
+			<li>
+				<a
+					hx-get="/api/html/subscriptions"
+					hx-target="#admin-content"
+					hx-indicator="#admin-content-container"
+					hx-swap="innerHTML"
+					hx-push-url="/admin/subscriptions"
+				>Subscriptions</a>
+			</li>
 		</ul>
 	</li>
 	<li>
