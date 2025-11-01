@@ -660,7 +660,7 @@ func getValidatedEvents(candidates []internal_types.EventInfo, validations []int
 
 func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	db := transport.GetDB()
+	dDb := transport.GetDB()
 	// natsService, _ := services.GetNatsService(ctx)
 
 	var inputPayload SeshuSessionEventsPayload
@@ -686,7 +686,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	seshuSessionGet.Url = payload.Url
 	seshuService := services.GetSeshuService()
 
-	session, err := seshuService.GetSeshuSession(ctx, db, seshuSessionGet)
+	session, err := seshuService.GetSeshuSession(ctx, dDb, seshuSessionGet)
 	if err != nil {
 		log.Println("Failed to get SeshuSession. ID: ", session, err)
 	}
@@ -957,7 +957,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 					normalizedChildURL = childEvent.EventURL
 				}
 
-				childSession, err := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
+				childSession, err := seshuService.GetSeshuSession(ctx, dDb, internal_types.SeshuSessionGet{
 					Url: normalizedChildURL,
 				})
 				if err != nil || childSession == nil {
@@ -1031,7 +1031,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				normalizedChildURL = childEvent.EventURL
 			}
 
-			childSession, err := seshuService.GetSeshuSession(ctx, db, internal_types.SeshuSessionGet{
+			childSession, err := seshuService.GetSeshuSession(ctx, dDb, internal_types.SeshuSessionGet{
 				Url: normalizedChildURL,
 			})
 			if err != nil || childSession == nil {
@@ -1122,7 +1122,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				scrapeType = "rs" // rs only
 			}
 
-			db, _ := services.GetPostgresService(ctx)
+			pgDb, _ := services.GetPostgresService(ctx)
 
 			err = validate.Struct(seshuJob)
 			if err != nil {
@@ -1130,7 +1130,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				return
 			}
 
-			err = db.CreateSeshuJob(ctx, seshuJob)
+			err = pgDb.CreateSeshuJob(ctx, seshuJob)
 			if err != nil {
 				log.Println("Error creating SeshuJob:", err)
 				return
@@ -1175,7 +1175,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	updateSeshuSession.Url = inputPayload.Url
 	updateSeshuSession.Status = "submitted"
 
-	_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
+	_, err = services.UpdateSeshuSession(ctx, dDb, updateSeshuSession)
 
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
@@ -1185,7 +1185,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		updateSeshuSession.Url = session.ChildId
 		updateSeshuSession.Status = "submitted"
 
-		_, err = services.UpdateSeshuSession(ctx, db, updateSeshuSession)
+		_, err = services.UpdateSeshuSession(ctx, dDb, updateSeshuSession)
 		if err != nil {
 			return transport.SendHtmlRes(w, []byte("Failed to update Event Target URL session"), http.StatusBadRequest, "partial", err)
 		}
