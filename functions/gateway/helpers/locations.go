@@ -33,8 +33,6 @@ func ParseCities(citiesJson string) {
 		return
 	}
 
-	// log.Println("\n\n\n\n\n\n\n")
-
 	log.Println("var Cities = []City{")
 	for _, rawCity := range rawCities {
 		city := City{
@@ -58,7 +56,6 @@ func ParseCities(citiesJson string) {
 
 	log.Println("}")
 
-	// log.Println("\n\n\n\n\n\n\n")
 }
 
 var CityIndex map[string][]int

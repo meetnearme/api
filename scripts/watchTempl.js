@@ -2,6 +2,7 @@ import watch from 'node-watch';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import process from 'node:process';
 const dirs = process.argv.slice(2);
 
 const layoutTemplPath = 'functions/gateway/templates/pages/layout.templ';
@@ -26,7 +27,9 @@ dirs.forEach((dir) => {
 
           // Check if the content has changed
           if (currentContent === prevLayoutTempl) {
-            console.log(`No changes detected in layout.templ. Skipping 'templ generate' command.`);
+            console.log(
+              `No changes detected in layout.templ. Skipping 'templ generate' command.`,
+            );
             return;
           }
 

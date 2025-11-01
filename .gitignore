@@ -9,3 +9,7 @@ coverage.out
 coverage.txt
 functions/gateway/helpers/cloudflare_locations.go
 cdk.context.json
+screenshots/*
+docker_build/**
+tmp/**
+last_update.txt

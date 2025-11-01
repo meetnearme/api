@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
@@ -10,12 +11,26 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/cloudflare/cloudflare-go/v3"
+	"github.com/cloudflare/cloudflare-go/v3/kv"
+	"github.com/cloudflare/cloudflare-go/v3/option"
+	"github.com/go-playground/validator"
+	"github.com/google/uuid"
+	_ "github.com/imroc/req"
+
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
+
+var validate *validator.Validate = validator.New()
 
 var DefaultProtocol string
 
@@ -32,22 +47,31 @@ func init() {
 }
 
 func UtcToUnix64(t interface{}, timezone *time.Location) (int64, error) {
+	return UtcToUnix64WithTrimZ(t, timezone, true)
+}
+
+func UtcToUnix64WithTrimZ(t interface{}, timezone *time.Location, trimZ bool) (int64, error) {
 	switch v := t.(type) {
 	case string:
-		// First validate by parsing as RFC3339
-		_, err := time.Parse(time.RFC3339, v)
-		if err != nil {
-			return 0, fmt.Errorf("invalid date format: %v", err)
+		if trimZ {
+			// Previous behavior: trim Z suffix and parse as local time
+			timeStr := strings.TrimSuffix(v, "Z")
+			// Note the time layout here MUST NOT be RFC3339, it must be the local time layout
+			localTime, err := time.ParseInLocation("2006-01-02T15:04:05", timeStr, timezone)
+			if err != nil {
+				return 0, fmt.Errorf("invalid date format: %v", err)
+			}
+			return localTime.Unix(), nil
+		} else {
+			// New behavior: parse as RFC3339 (UTC) then convert to timezone
+			parsedTime, err := time.Parse(time.RFC3339, v)
+			if err != nil {
+				return 0, fmt.Errorf("invalid date format: %v", err)
+			}
+			// Convert the parsed time to the specified timezone
+			localTime := parsedTime.In(timezone)
+			return localTime.Unix(), nil
 		}
-
-		// Now do local time parsing
-		timeStr := strings.TrimSuffix(v, "Z")
-		// Note the time layout here MUST NOT be RFC3339, it must be the local time layout
-		localTime, err := time.ParseInLocation("2006-01-02T15:04:05", timeStr, timezone)
-		if err != nil {
-			return 0, fmt.Errorf("invalid date format: %v", err)
-		}
-		return localTime.Unix(), nil
 
 	default:
 		return 0, fmt.Errorf("unsupported time format")
@@ -93,7 +117,7 @@ func GetImgUrlFromHash(event types.Event) string {
 	noneCatImgCount := 18
 	catNumString := "_"
 	if len(event.Categories) > 0 {
-		firstCat := ArrFindFirst(event.Categories, []string{"Karaoke", "Bocce Ball", "Trivia Night"})
+		firstCat := ArrFindFirst(event.Categories, []string{"Karaoke", "Karaoke Quirky", "Bocce Ball", "Trivia Night", "Soccer"})
 		firstCat = strings.ToLower(strings.ReplaceAll(firstCat, " ", "-"))
 		if firstCat == "" {
 			firstCat = "none"
@@ -104,10 +128,14 @@ func GetImgUrlFromHash(event types.Event) string {
 			catImgCountRange = noneCatImgCount
 		case "karaoke":
 			catImgCountRange = 4
+		case "karaoke-quirky":
+			catImgCountRange = 9
 		case "bocce-ball":
 			catImgCountRange = 4
 		case "trivia-night":
 			catImgCountRange = 4
+		case "soccer":
+			catImgCountRange = 10
 		}
 		imgNum := HashIDtoImgRange(event.Id, catImgCountRange)
 		if imgNum < 10 {
@@ -124,33 +152,107 @@ func GetImgUrlFromHash(event types.Event) string {
 	return baseUrl + "cat_none" + catNumString + fmt.Sprint(imgNum) + ".jpeg"
 }
 
-func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata map[string]string) error {
+func GetCloudflareMnmOptions(subdomainValue string) (string, error) {
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
+	baseURL := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
+	cfClient := cloudflare.NewClient(
+		option.WithAPIKey(accountID),
+		option.WithBaseURL(baseURL),
+	)
+
+	resp, err := cfClient.KV.Namespaces.Values.Get(
+		context.TODO(),
+		namespaceID,
+		subdomainValue,
+		kv.NamespaceValueGetParams{
+			AccountID: cloudflare.F(accountID),
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("error getting cloudflare mnm options: %w", err)
+	}
+
+	// return the response body as a string
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading cloudflare mnm options: %w", err)
+	}
+
+	return string(body), nil
+}
+
+func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]string, cfMetadataValue string) error {
+	mnmOptionsKey := constants.SUBDOMAIN_KEY
+	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
+	baseURL := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
+
+	cfClient := cloudflare.NewClient(
+		option.WithAPIKey(accountID),
+		option.WithBaseURL(baseURL),
+	)
 
 	// First, check if the key already exists
-	readURL := fmt.Sprintf("%s/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s",
-		os.Getenv("CLOUDFLARE_API_BASE_URL"), accountID, namespaceID, subdomainValue)
+	resp, err := cfClient.KV.Namespaces.Values.Get(
+		context.TODO(),
+		namespaceID,
+		subdomainValue,
+		kv.NamespaceValueGetParams{
+			AccountID: cloudflare.F(accountID),
+		},
+	)
 
-	req, err := http.NewRequest("GET", readURL, nil)
+	// Handle the case where the key doesn't exist (404 is expected)
 	if err != nil {
-		return fmt.Errorf("error creating read request: %w", err)
+		// Check if the error is due to a 404 (key not found)
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
+			// This is expected for new subdomains, continue with the flow
+			resp = nil
+		} else {
+			return fmt.Errorf("error checking if key exists: %w", err)
+		}
 	}
 
-	req.Header.Set("Authorization", "Bearer "+os.Getenv("CLOUDFLARE_API_TOKEN"))
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("error sending read request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusOK {
-		return fmt.Errorf(ERR_KV_KEY_EXISTS)
+	kvValueExists := false
+	if resp != nil && resp.StatusCode == http.StatusOK {
+		kvValueExists = true
 	}
 
-	existingUserSubdomain, err := GetUserMetadataByKey(userID, userMetadataKey)
+	existingValueStr := ""
+	if resp != nil && resp.Body != nil {
+		existingRespBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("error reading existing user subdomain body request: %+v", err.Error())
+		}
+		existingRespBodyStr := string(existingRespBody)
+		if resp.StatusCode == http.StatusOK {
+			existingValueStr = existingRespBodyStr
+		}
+	}
+
+	// check for pattern [0-9]{18} => Zitadel UserID pattern
+	hasLegacyUserID := false
+	if !regexp.MustCompile(`^[0-9]{` + fmt.Sprint(constants.ZITADEL_USER_ID_LEN) + `}$`).MatchString(userID) {
+		hasLegacyUserID = true
+	}
+
+	// from the `existingValueStr` `<key1>=<val1>;<key2>=<val2>;...`
+	// parse the userId from the string, don't assume position, instead
+	// search for `userId=` and get the value after it
+
+	// also handle for the case where the value is simply `123` lacking
+	// colons `=` and `;`
+	if !hasLegacyUserID && strings.Contains(existingValueStr, "userId=") {
+		existingValueStr = strings.Split(existingValueStr, "userId=")[1]
+		existingValueStr = strings.Split(existingValueStr, ";")[0]
+	}
+
+	if existingValueStr != userID && resp != nil && resp.StatusCode == http.StatusOK {
+		return fmt.Errorf(constants.ERR_KV_KEY_EXISTS)
+	}
+
+	existingUserSubdomain, err := GetUserMetadataByKey(userID, mnmOptionsKey)
 	if err != nil {
 		return fmt.Errorf("error getting user metadata key: %w", err)
 	}
@@ -161,13 +263,15 @@ func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata ma
 	}
 	existingUserSubdomain = string(decodedValue)
 
-	// Next check if the user already has a subdomain set
-	err = UpdateUserMetadataKey(userID, userMetadataKey, subdomainValue)
+	// Write the new subdomain value to the user's metadata in zitadel
+	err = UpdateUserMetadataKey(userID, mnmOptionsKey, subdomainValue)
 	if err != nil {
 		return fmt.Errorf("error updating user metadata: %w", err)
 	}
 
-	// If the key doesn't exist, proceed with writing
+	// If the user metadata write was successful, write the new subdomain value to the KV store in Cloudflare
+	// NOTE: importantly, we write directly rather than using the cloudflare client
+	// because the client does not allow raw stings, but enforces JSON in the field value
 	writeURL := fmt.Sprintf("%s/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s",
 		os.Getenv("CLOUDFLARE_API_BASE_URL"), accountID, namespaceID, subdomainValue)
 
@@ -175,7 +279,7 @@ func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata ma
 	writer := multipart.NewWriter(body)
 
 	// Add value
-	_ = writer.WriteField("value", userID)
+	_ = writer.WriteField("value", cfMetadataValue)
 
 	// Add metadata
 	metadataJSON, err := json.Marshal(metadata)
@@ -183,29 +287,34 @@ func SetCloudflareKV(subdomainValue, userID, userMetadataKey string, metadata ma
 		return fmt.Errorf("error marshaling metadata: %w", err)
 	}
 	_ = writer.WriteField("metadata", string(metadataJSON))
-
 	writer.Close()
 
-	req, err = http.NewRequest("PUT", writeURL, body)
+	req, err := http.NewRequest("PUT", writeURL, body)
 	if err != nil {
 		return fmt.Errorf("error creating write request: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+os.Getenv("CLOUDFLARE_API_TOKEN"))
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-
+	client := &http.Client{}
 	resp, err = client.Do(req)
 	if err != nil {
 		return fmt.Errorf("error sending write request: %w", err)
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Printf("failed to read error response body: %v", err)
+			return fmt.Errorf("failed to set KV: %s", resp.Status)
+		}
+		log.Printf("failed to set KV, writing to %s: response: %s: %s", writeURL, resp.Status, string(bodyBytes))
 		return fmt.Errorf("failed to set KV: %s", resp.Status)
 	}
 
 	defer func() {
-		if existingUserSubdomain != "" {
+		// if the key already exists, and the userID is different, delete the existing key
+		if kvValueExists && existingUserSubdomain != "" && existingValueStr != userID {
 			DeleteCloudflareKV(existingUserSubdomain, userID)
 		}
 	}()
@@ -306,13 +415,7 @@ type ZitadelUserSearchResponse struct {
 	} `json:"result"`
 }
 
-type UserSearchResult struct {
-	UserID      string            `json:"userId"`
-	DisplayName string            `json:"displayName"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
-}
-
-func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
+func SearchUsersByIDs(userIDs []string, dangerous bool) ([]types.UserSearchResultDangerous, error) {
 	if len(userIDs) == 0 {
 		return nil, fmt.Errorf("userIDs must contain at least one element")
 	}
@@ -339,7 +442,7 @@ func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, strings.NewReader(payload))
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResultDangerous{}, err
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -348,13 +451,13 @@ func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResultDangerous{}, err
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResultDangerous{}, err
 	}
 
 	var respData ZitadelUserSearchResponse
@@ -364,22 +467,28 @@ func SearchUsersByIDs(userIDs []string) ([]UserSearchResult, error) {
 
 	// Return empty array if no results
 	if len(respData.Result) == 0 {
-		return []UserSearchResult{}, nil
+		return []types.UserSearchResultDangerous{}, nil
 	}
 
 	// Map users to UserSearchResult
-	var results []UserSearchResult
+	var results []types.UserSearchResultDangerous
 	for _, user := range respData.Result {
-		results = append(results, UserSearchResult{
+		appendItem := types.UserSearchResultDangerous{
 			UserID:      user.UserID,
 			DisplayName: user.Human.Profile.DisplayName,
-		})
+		}
+		// WARNING: enabling this is a security risk if not
+		// done with extreme caution
+		if dangerous {
+			appendItem.Email = user.Human.Email["email"].(string)
+		}
+		results = append(results, appendItem)
 	}
 
 	return results, nil
 }
 
-func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
+func SearchUserByEmailOrName(query string) ([]types.UserSearchResult, error) {
 	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users", os.Getenv("ZITADEL_INSTANCE_HOST"))
 	method := "POST"
 
@@ -421,7 +530,7 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, readerPayload)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResult{}, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
@@ -429,12 +538,12 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResult{}, err
 	}
 	defer res.Body.Close()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return []UserSearchResult{}, err
+		return []types.UserSearchResult{}, err
 	}
 	var respData ZitadelUserSearchResponse
 	if err := json.Unmarshal(body, &respData); err != nil {
@@ -443,13 +552,13 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 
 	// Return empty array if no results
 	if len(respData.Result) == 0 {
-		return []UserSearchResult{}, nil
+		return []types.UserSearchResult{}, nil
 	}
 
 	// Filter and map active users to UserSearchResult
-	var results []UserSearchResult
+	var results []types.UserSearchResult
 	for _, user := range respData.Result {
-		results = append(results, UserSearchResult{
+		results = append(results, types.UserSearchResult{
 			// we specifically omit `preferredLoginName` because it's an email address and we want
 			// to prevent a scenario where we expose a user's email address to a unauthorized party
 			UserID:      user.UserID,
@@ -461,7 +570,7 @@ func SearchUserByEmailOrName(query string) ([]UserSearchResult, error) {
 	return results, nil
 }
 
-func GetOtherUserByID(userID string) (UserSearchResult, error) {
+func GetOtherUserByID(userID string) (types.UserSearchResult, error) {
 	// https://zitadel.com/docs/apis/resources/user_service_v2/user-service-get-user-by-id
 	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID)
 	method := "GET"
@@ -469,7 +578,7 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
-		return UserSearchResult{}, err
+		return types.UserSearchResult{}, err
 	}
 
 	req.Header.Add("Accept", "application/json")
@@ -477,13 +586,13 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return UserSearchResult{}, err
+		return types.UserSearchResult{}, err
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return UserSearchResult{}, err
+		return types.UserSearchResult{}, err
 	}
 
 	// Check for error status codes
@@ -496,9 +605,9 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 			} `json:"details"`
 		}
 		if err := json.Unmarshal(body, &errResp); err != nil {
-			return UserSearchResult{}, fmt.Errorf("failed to get user: status %d", res.StatusCode)
+			return types.UserSearchResult{}, fmt.Errorf("failed to get user: status %d", res.StatusCode)
 		}
-		return UserSearchResult{}, fmt.Errorf("failed to get user: %s", errResp.Message)
+		return types.UserSearchResult{}, fmt.Errorf("failed to get user: %s", errResp.Message)
 	}
 
 	var respData struct {
@@ -514,10 +623,10 @@ func GetOtherUserByID(userID string) (UserSearchResult, error) {
 	}
 
 	if err := json.Unmarshal(body, &respData); err != nil {
-		return UserSearchResult{}, fmt.Errorf("failed to unmarshal response: %w", err)
+		return types.UserSearchResult{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	result := UserSearchResult{
+	result := types.UserSearchResult{
 		UserID:      respData.User.ID,
 		DisplayName: respData.User.Human.Profile.DisplayName,
 	}
@@ -550,7 +659,6 @@ func GetOtherUserMetaByID(userID, key string) (string, error) {
 		return "", err
 	}
 	if res.StatusCode > 400 {
-		log.Printf("res.StatusCode: %v", res.StatusCode)
 		return "", fmt.Errorf("failed to get user metadata: %v", res.StatusCode)
 	}
 
@@ -572,6 +680,250 @@ func GetOtherUserMetaByID(userID, key string) (string, error) {
 	}
 
 	return decodedValue, nil
+}
+
+// GetUserAuthorizations fetches all authorizations (roles) for a given user
+func GetUserRoles(userID string) ([]string, error) {
+	// https://zitadel.com/docs/apis/resources/authorization_service_v2/zitadel-authorization-v-2-beta-authorization-service-list-authorizations
+	// This is a gRPC endpoint, so we need to use POST with JSON
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/ListAuthorizations", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	// Query for this specific user's authorizations
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"pagination": {
+			"limit": 0,
+			"asc": true
+		},
+		"filters": [
+			{
+      			"userId": {
+         			"id": "%s"
+       			}
+     		}
+   		]
+	}`, userID))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get authorizations: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	var respData struct {
+		Authorizations []struct {
+			Roles []string `json:"roles"`
+		} `json:"authorizations"`
+	}
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Collect all roles from all authorizations
+	var allRoles []string
+	for _, auth := range respData.Authorizations {
+		allRoles = append(allRoles, auth.Roles...)
+	}
+
+	return allRoles, nil
+}
+
+// GetUserAuthorizationID gets the authorization ID for a user if it exists
+func GetUserAuthorizationID(userID string) (string, error) {
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/ListAuthorizations", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"pagination": {
+			"limit": 0,
+			"asc": true
+		},
+		"filters": [
+			{
+      			"userId": {
+         			"id": "%s"
+       			}
+     		}
+   		]
+	}`, userID))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get authorizations: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	var respData struct {
+		Authorizations []struct {
+			ID string `json:"id"`
+		} `json:"authorizations"`
+	}
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if len(respData.Authorizations) == 0 {
+		return "", nil // No authorizations found, not an error
+	}
+
+	return respData.Authorizations[0].ID, nil
+}
+
+// CreateUserAuthorization creates a new authorization for a user
+// https://zitadel.com/docs/apis/resources/authorization_service_v2/zitadel-authorization-v-2-beta-authorization-service-create-authorization
+func CreateUserAuthorization(userID string, roleKeys []string) (string, error) {
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/CreateAuthorization", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	// Build the roleKeys array in JSON format
+	roleKeysJSON, err := json.Marshal(roleKeys)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal role keys: %w", err)
+	}
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"userId": "%s",
+		"roleKeys": %s
+	}`, userID, string(roleKeysJSON)))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to create authorization: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	var respData struct {
+		ID string `json:"id"`
+	}
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return respData.ID, nil
+}
+
+// SetUserRoles updates or creates the roles for a user's authorization
+// Note: Any role keys previously granted and not present in roleKeys will be revoked
+// https://zitadel.com/docs/apis/resources/authorization_service_v2/zitadel-authorization-v-2-beta-authorization-service-update-authorization
+func SetUserRoles(userID string, roleKeys []string) error {
+	// First, check if the user already has an authorization
+	authID, err := GetUserAuthorizationID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing authorizations: %w", err)
+	}
+
+	// If no authorization exists, create one
+	if authID == "" {
+		log.Printf("No existing authorization found for user %s, creating new authorization", userID)
+		_, err = CreateUserAuthorization(userID, roleKeys)
+		if err != nil {
+			return fmt.Errorf("failed to create authorization: %w", err)
+		}
+		// Authorization created successfully
+		return nil
+	}
+
+	// Authorization exists, update it
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/UpdateAuthorization", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	// Build the roleKeys array in JSON format
+	roleKeysJSON, err := json.Marshal(roleKeys)
+	if err != nil {
+		return fmt.Errorf("failed to marshal role keys: %w", err)
+	}
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"id": "%s",
+		"roleKeys": %s
+	}`, authID, string(roleKeysJSON)))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to set user roles: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	return nil
 }
 
 func UpdateUserMetadataKey(userID, key, value string) error {
@@ -610,12 +962,134 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 	}
 	defer res.Body.Close()
 
-	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
-	log.Println("saved user metadata body response: ", string(body))
+	return nil
+}
+
+// Define a struct for the request payload
+type createUserPayload struct {
+	UserID string `json:"userId"`
+	Email  struct {
+		Email      string `json:"email"`
+		IsVerified bool   `json:"isVerified"`
+	} `json:"email"`
+	Password struct {
+		Password       string `json:"password"`
+		ChangeRequired bool   `json:"changeRequired"`
+	} `json:"password"`
+	Profile struct {
+		GivenName   string `json:"givenName"`
+		FamilyName  string `json:"familyName"`
+		NickName    string `json:"nickName"`
+		DisplayName string `json:"displayName"`
+	} `json:"profile"`
+	Metadata []struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	} `json:"metadata"`
+}
+
+func CreateTeamUserWithMembers(displayName, candidateUUID string, members []string) (types.UserSearchResultDangerous, error) {
+	err := ValidateTeamUUID(candidateUUID)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	emailSchema := os.Getenv("USER_TEAM_EMAIL_SCHEMA")
+	password := os.Getenv("USER_TEAM_PASSWORD")
+	email := strings.Replace(emailSchema, "<replace>", candidateUUID, 1)
+
+	nameParts := strings.SplitN(displayName, " ", 2)
+	firstPartName := nameParts[0]
+	// NOTE: this is a hack, zitadel doesn't accept omission of first + last names
+	secondPartName := "."
+	if strings.Contains(displayName, " ") {
+		secondPartName = nameParts[1]
+	}
+
+	// Create the payload struct
+	payload := createUserPayload{
+		UserID: candidateUUID,
+	}
+	payload.Email.Email = email
+	payload.Email.IsVerified = true
+	payload.Password.Password = password
+	payload.Password.ChangeRequired = false
+	payload.Profile.GivenName = firstPartName
+	payload.Profile.FamilyName = secondPartName
+	payload.Profile.NickName = displayName
+	payload.Profile.DisplayName = displayName
+
+	// Add metadata
+	if len(members) > 0 {
+		payload.Metadata = append(payload.Metadata, struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		}{
+			Key:   "members",
+			Value: base64.StdEncoding.EncodeToString([]byte(strings.Join(members, ","))),
+		})
+	}
+
+	payload.Metadata = append(payload.Metadata, struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}{
+		Key:   "userType",
+		Value: base64.StdEncoding.EncodeToString([]byte("team")),
+	})
+
+	// Marshal the payload struct to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	url := fmt.Sprintf(DefaultProtocol+"%s/v2/users/human", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	var respData types.UserSearchResultDangerous
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return types.UserSearchResultDangerous{}, err
+	}
+
+	return respData, nil
+}
+
+func ValidateTeamUUID(candidateUUID string) error {
+	parts := strings.SplitN(candidateUUID, "tm_", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid UUID format after 'tm_': %s", parts[1])
+	}
+	_uuid := parts[1]
+	_, err := uuid.Parse(_uuid)
+	if err != nil {
+		return fmt.Errorf("invalid UUID format after 'tm_': %s", _uuid)
+	}
 	return nil
 }
 
@@ -646,8 +1120,11 @@ func GetTimeOrShowNone(datetime int64, timezone time.Location) string {
 	return formattedTime
 }
 
-func GetDatetimePickerFormatted(datetime int64, timezone time.Location) string {
-	return time.Unix(datetime, 0).In(&timezone).Format("2006-01-02T15:04")
+func GetDatetimePickerFormatted(datetime int64, timezone *time.Location) string {
+	if timezone == nil {
+		timezone = time.UTC
+	}
+	return time.Unix(datetime, 0).In(timezone).Format("2006-01-02T15:04")
 }
 
 func GetLocalDateAndTime(datetime int64, timezone time.Location) (string, string) {
@@ -672,6 +1149,11 @@ func FormatTimeRFC3339(unixTimestamp int64) string {
 	return t.Format("20060102T150405Z")
 }
 
+func FormatTimeMMDDYYYY(unixTimestamp int64) string {
+	t := time.Unix(unixTimestamp, 0).UTC()
+	return t.Format("01/02/06 03:04PM")
+}
+
 func FormatTimeForGoogleCalendar(timestamp int64, timezone time.Location) string {
 	loc, err := time.LoadLocation(timezone.String())
 	if err != nil {
@@ -691,7 +1173,7 @@ func ToJSON(v interface{}) []byte {
 	return b
 }
 
-func IsAuthorizedEditor(event *types.Event, userInfo *UserInfo) bool {
+func IsAuthorizedEventEditor(event *types.Event, userInfo *constants.UserInfo) bool {
 	for _, ownerId := range event.EventOwners {
 		if ownerId == userInfo.Sub {
 			return true
@@ -700,7 +1182,20 @@ func IsAuthorizedEditor(event *types.Event, userInfo *UserInfo) bool {
 	return false
 }
 
-func HasRequiredRole(roleClaims []RoleClaim, requiredRoles []string) bool {
+func IsAuthorizedCompetitionEditor(competition types.CompetitionConfig, userInfo *constants.UserInfo) bool {
+	allOwners := []string{competition.PrimaryOwner}
+	for _, owner := range competition.AuxilaryOwners {
+		allOwners = append(allOwners, owner)
+	}
+	for _, owner := range allOwners {
+		if owner == userInfo.Sub {
+			return true
+		}
+	}
+	return false
+}
+
+func HasRequiredRole(roleClaims []constants.RoleClaim, requiredRoles []string) bool {
 	for _, claim := range roleClaims {
 		for _, validRole := range requiredRoles {
 			if claim.Role == validRole {
@@ -711,9 +1206,15 @@ func HasRequiredRole(roleClaims []RoleClaim, requiredRoles []string) bool {
 	return false
 }
 
-func CanEditEvent(event *types.Event, userInfo *UserInfo, roleClaims []RoleClaim) bool {
-	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin", "eventAdmin"})
-	isEditor := IsAuthorizedEditor(event, userInfo)
+func CanEditEvent(event *types.Event, userInfo *constants.UserInfo, roleClaims []constants.RoleClaim) bool {
+	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin"})
+	isEditor := IsAuthorizedEventEditor(event, userInfo)
+	return hasSuperAdminRole || isEditor
+}
+
+func CanEditCompetition(competition types.CompetitionConfig, userInfo *constants.UserInfo, roleClaims []constants.RoleClaim) bool {
+	hasSuperAdminRole := HasRequiredRole(roleClaims, []string{"superAdmin", "competitionAdmin"})
+	isEditor := IsAuthorizedCompetitionEditor(competition, userInfo)
 	return hasSuperAdminRole || isEditor
 }
 
@@ -741,4 +1242,97 @@ func GetBase64ValueFromMap(claimsMeta map[string]interface{}, key string) string
 func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []string {
 	interests := GetBase64ValueFromMap(claimsMeta, key)
 	return strings.Split(interests, "|")
+}
+
+func CalculateTTL(days int) int64 {
+	return time.Now().Add(time.Duration(days) * 24 * time.Hour).Unix()
+}
+
+func NormalizeCompetitionRounds(competitionRounds []internal_types.CompetitionRoundUpdate) ([]internal_types.CompetitionRoundUpdate, error) {
+	now := time.Now().Unix()
+	for i := range competitionRounds {
+		if competitionRounds[i].CreatedAt == 0 {
+			competitionRounds[i].CreatedAt = now
+		}
+		competitionRounds[i].UpdatedAt = now
+		competitionRounds[i].Matchup = FormatMatchup(
+			competitionRounds[i].CompetitorA,
+			competitionRounds[i].CompetitorB,
+		)
+		err := validate.Struct(competitionRounds[i])
+		if err != nil {
+			log.Printf("Handler ERROR: Validation failed for round %d: %v", i+1, err)
+			return competitionRounds, err
+		}
+	}
+	return competitionRounds, nil
+}
+
+func FormatMatchup(competitorA, competitorB string) string {
+	return fmt.Sprintf("%s_%s", competitorA, competitorB)
+}
+
+// GetMnmOptionsFromContext safely retrieves mnmOptions from context
+// Returns an empty map if not found
+func GetMnmOptionsFromContext(ctx context.Context) map[string]string {
+	if mnmOptions, ok := ctx.Value(constants.MNM_OPTIONS_CTX_KEY).(map[string]string); ok {
+		return mnmOptions
+	}
+	return map[string]string{}
+}
+
+func NormalizeURL(input string) (string, error) {
+	parsedURL, err := url.Parse(input)
+	if err != nil {
+		return "", err
+	}
+
+	parsedURL.Scheme = strings.ToLower(parsedURL.Scheme)
+	parsedURL.Host = strings.ToLower(parsedURL.Hostname())
+
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return "", fmt.Errorf("unsupported URL scheme: %s", parsedURL.Scheme)
+	}
+
+	if parsedURL.Port() == "443" || parsedURL.Port() == "80" {
+		parsedURL.Host = strings.ToLower(parsedURL.Hostname())
+	}
+
+	if parsedURL.Scheme == "" || parsedURL.Scheme == "http" {
+		parsedURL.Scheme = "https"
+	}
+
+	if parsedURL.User != nil {
+		parsedURL.User = nil
+	}
+
+	parsedURL.Fragment = ""
+
+	queryParams := parsedURL.Query()
+	pairs := make([]string, 0, len(queryParams)*2)
+
+	for key, values := range queryParams {
+		sort.Strings(values)
+		for _, value := range values {
+			encodedKey := url.QueryEscape(key)
+			encodedValue := url.QueryEscape(value)
+			pairs = append(pairs, fmt.Sprintf("%s=%s", encodedKey, encodedValue))
+		}
+	}
+
+	sort.Strings(pairs)
+	parsedURL.RawQuery = strings.Join(pairs, "&")
+
+	return parsedURL.String(), nil
+}
+
+func ExtractBaseDomain(rawURL string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+
+	host := parsed.Hostname()
+
+	return host, nil
 }

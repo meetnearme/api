@@ -1,0 +1,185 @@
+# Cursor Rules for Go Project Debugging
+
+## Go Toolchain Issues
+
+### Common Go Toolchain Errors
+
+- **"invalid GOTOOLCHAIN" errors** usually indicate malformed environment
+  variables
+- **"invalid minimum toolchain" errors** suggest version conflicts between
+  go.mod and environment
+
+### Go Toolchain Debugging Workflow
+
+1. **Check go.mod requirements**: Look for `go` version and `toolchain`
+   declarations
+2. **Check current Go installation**: `go version` (may fail if toolchain is
+   broken)
+3. **Check Go environment**: `go env GOTOOLCHAIN` and other Go env vars
+4. **Use GOTOOLCHAIN=local override**: `GOTOOLCHAIN=local go version` as
+   temporary fix
+
+### Go Toolchain Fixes
+
+- **Primary fix**: `go env -w GOTOOLCHAIN=auto` (allows automatic toolchain
+  management)
+- **Alternative**: `go env -w GOTOOLCHAIN=local` (uses only local Go
+  installation)
+- **Post-fix verification**: `go version`, `go env GOTOOLCHAIN`, `go mod verify`
+
+### Valid GOTOOLCHAIN Values
+
+- `auto` - Automatically download required toolchain versions
+- `local` - Use only the locally installed Go version
+- `go1.21.0+auto` - Use go1.21.0 or newer with auto-download
+- **Invalid**: `1.23+auto` (missing 'go' prefix)
+
+## Weaviate Mockserver Testing Standards
+
+### Unit Testing Strategy
+
+- **Always use mockservers** for external service dependencies (Weaviate, APIs)
+- **Isolate tests** with environment variable management
+- **Use realistic mock responses** that match actual service behavior
+- **Test both success and failure scenarios** with appropriate mock responses
+
+### Weaviate Mockserver Setup Pattern
+
+```go
+// Standard environment variable backup/restore
+originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+defer func() {
+    os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+    os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+    os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+}()
+
+// Dynamic port allocation to prevent collisions
+hostAndPort := test_helpers.GetNextPort()
+mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    switch r.URL.Path {
+    case "/v1/meta":
+        // Handle handshake/meta endpoint
+    case "/v1/graphql":
+        // Handle GraphQL queries
+    case "/v1/batch/objects":
+        // Handle batch operations
+    default:
+        t.Errorf("unhandled path: %s", r.URL.Path)
+    }
+}))
+
+// Custom port binding for test isolation
+listener, err := test_helpers.BindToPort(t, hostAndPort)
+mockWeaviateServer.Listener = listener
+mockWeaviateServer.Start()
+defer mockWeaviateServer.Close()
+```
+
+### Required Weaviate Mock Endpoints
+
+- **`/v1/meta`** - Always handle this "handshake" endpoint first
+- **`/v1/graphql`** - For search and query operations
+- **`/v1/batch/objects`** - For bulk insert/update/delete operations
+- **Error handling** - Return proper HTTP status codes and error responses
+
+### Mock Response Patterns
+
+- **Use real Weaviate types**: `models.GraphQLResponse`,
+  `models.ObjectsGetResponse`
+- **Include `_additional.id` fields** for object identification
+- **Match expected data structure** from actual Weaviate responses
+- **Use `strfmt.UUID()` for UUID fields** to match expected types
+
+### Test Environment Management
+
+- **Set `GO_ENV=test`** for test-specific behavior
+- **Use `test_helpers.NewLoggingTransport()`** for HTTP request debugging
+- **Save/restore HTTP transport** to avoid affecting other tests
+- **Set all required environment variables** for service initialization
+
+### Port Collision Prevention
+
+- **Use `test_helpers.GetNextPort()`** for dynamic port allocation
+- **Use `test_helpers.BindToPort()`** with retry logic for robust binding
+- **Run tests in parallel** safely with isolated ports
+- **Clean up listeners** with proper defer statements
+
+### Mockserver Debugging
+
+- **Add logging**: Use
+  `t.Logf("🎯 MOCK SERVER HIT: %s %s", r.Method, r.URL.Path)` for request
+  tracing
+- **Handle unmatched paths**: Always include default case with error logging
+- **Log request bodies**: For POST/PUT requests, log the request body for
+  debugging
+- **Check environment variables**: Verify mock server URL is correctly set
+- **Verify HTTP transport**: Use `test_helpers.NewLoggingTransport()` to see all
+  HTTP calls
+
+## Error Message Interpretation
+
+### Go-Specific Error Patterns
+
+- **"invalid GOTOOLCHAIN"** → Environment variable malformed
+- **"invalid minimum toolchain"** → Version requirement mismatch
+- **"toolchain directive"** → go.mod toolchain conflicts
+- **Binary execution failures** → PATH or installation issues
+
+### Systematic Error Analysis
+
+1. **Read the complete error message** (not just the first line)
+2. **Identify the failing component** (toolchain, dependency, code)
+3. **Check configuration before code** (environment before application)
+4. **Test fixes in isolation** (one change at a time)
+
+## Best Practices for AI Agents
+
+### Debugging Priority
+
+1. **Version conflicts** (language, toolchain, dependencies)
+2. **Environment variables** (PATH, language-specific vars)
+3. **Configuration files** (go.mod, package.json, etc.)
+4. **Installation issues** (missing binaries, incorrect paths)
+
+### Solution Implementation
+
+- **Explain the root cause** clearly before implementing fixes
+- **Test fixes incrementally** and verify each step
+
+### General Guidelines
+
+- **Use parallel tool calls** when gathering multiple pieces of information
+- **Check configuration files** (go.mod) before assuming code issues
+- **Test fixes incrementally** and provide verification commands
+- **Restart development tools** (VSCode, language servers) after environment
+  changes
+- **Follow established mockserver patterns** when creating new tests
+- **Use the standard test helpers** (`test_helpers.GetNextPort()`,
+  `test_helpers.BindToPort()`) to prevent parallelization issues with multiple
+  parallel tests creating a mock server on conflicting ports
+
+## Environment File Protection
+
+### Critical File Protection
+
+- **NEVER modify `.env` files** - These contain sensitive production credentials
+- **NEVER write to `.env` files** - Only read them for debugging, and only afer
+  asking permission first
+- **When debugging environment issues**: Only suggest what values should be in
+  `.env`, never modify the file directly
+- **For environment variable issues**: Provide the exact values that should be
+  set, but let the user make the changes
+
+### Environment File Guidelines
+
+- **Read-only access**: Only use `read_file` to examine `.env` files for
+  debugging
+- **Value suggestions**: When environment variables are missing or incorrect,
+  provide the exact values that should be set
+- **User responsibility**: Always remind users that they are responsible for
+  managing their own `.env` files
+- **Security first**: Never expose or suggest exposing sensitive credentials in
+  code or logs
