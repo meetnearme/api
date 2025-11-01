@@ -6,6 +6,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/interfaces"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"github.com/stripe/stripe-go/v83"
@@ -159,10 +160,45 @@ func (s *StripeSubscriptionService) GetCustomerSubscriptions(customerID string) 
 }
 
 // CreateCustomerPortalSession creates a customer portal session for subscription management
-func (s *StripeSubscriptionService) CreateCustomerPortalSession(customerID, returnURL string) (*types.CustomerPortalSession, error) {
+// If subscriptionID is provided, creates a deep link to manage that specific subscription
+// flowType can be: constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_CANCEL, STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE,
+// STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE_CONFIRM, or STRIPE_PORTAL_FLOW_PAYMENT_METHOD_UPDATE
+// If flowType is empty and subscriptionID is provided, defaults to STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE
+func (s *StripeSubscriptionService) CreateCustomerPortalSession(customerID, returnURL string, subscriptionID, flowType string) (*types.CustomerPortalSession, error) {
 	params := &stripe.BillingPortalSessionParams{
 		Customer:  stripe.String(customerID),
 		ReturnURL: stripe.String(returnURL),
+	}
+
+	// If subscriptionID is provided, create a deep link flow to that specific subscription
+	if subscriptionID != "" {
+		// Default flow type if not specified
+		if flowType == "" {
+			flowType = constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE
+		}
+
+		params.FlowData = &stripe.BillingPortalSessionFlowDataParams{
+			Type: stripe.String(flowType),
+		}
+
+		// Set subscription-specific flow data based on flow type
+		switch flowType {
+		case constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_CANCEL:
+			params.FlowData.SubscriptionCancel = &stripe.BillingPortalSessionFlowDataSubscriptionCancelParams{
+				Subscription: stripe.String(subscriptionID),
+			}
+		case constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE:
+			params.FlowData.SubscriptionUpdate = &stripe.BillingPortalSessionFlowDataSubscriptionUpdateParams{
+				Subscription: stripe.String(subscriptionID),
+			}
+		case constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE_CONFIRM:
+			params.FlowData.SubscriptionUpdateConfirm = &stripe.BillingPortalSessionFlowDataSubscriptionUpdateConfirmParams{
+				Subscription: stripe.String(subscriptionID),
+			}
+		case constants.STRIPE_PORTAL_FLOW_PAYMENT_METHOD_UPDATE:
+			// payment_method_update doesn't need a subscription ID
+			// Flow data type is sufficient
+		}
 	}
 
 	session, err := session.New(params)

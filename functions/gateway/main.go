@@ -181,6 +181,9 @@ func (app *App) InitRoutes() []Route {
 		{"/api/checkout/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
 		{"/api/checkout-subscription{trailingslash:\\/?}", "GET", handlers.CreateSubscriptionCheckoutSessionHandler, Check},
 
+		// Customer Portal
+		{"/api/customer-portal/session{trailingslash:\\/?}", "POST", handlers.CreateCustomerPortalSessionHandler, Require},
+
 		// Webhooks
 		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
 		{"/api/webhook/subscription", "POST", handlers.HandleSubscriptionWebhookHandler, None},
