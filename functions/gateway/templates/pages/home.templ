@@ -636,6 +636,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				<div class="toast m-4 z-50">
 					<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border border-base-300">
 						<span x-text="toastContent.message"></span>
+						<template x-if="toastContent.link">
+							<span><a class="link link-text" :href="toastContent.link" x-text="toastContent.linkText"></a></span>
+						</template>
 						<div class="block justify-end">
 							<button class="btn btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
 								<svg class="svg-icon" style="width: 1em; height: 1em; vertical-align: middle; fill: currentColor; overflow: hidden;" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg>
@@ -646,7 +649,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 			</template>
 		</div>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ constants.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ constants.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId } data-event-collection-url={ components.GetUserPageURL(userInfo, ctx) }>
 		document.addEventListener('alpine:init', () => {
 			// Reactive URL store - single source of truth with reactivity
 			Alpine.store('urlState', {
@@ -929,6 +932,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
 				defaultRadius: document.querySelector('#alpine-state').getAttribute('data-default-radius'),
+				eventCollectionUrl: document.querySelector('#alpine-state').getAttribute('data-event-collection-url') || '',
 				showToast: false,
 				toastContent: {
 					type: '',
@@ -982,6 +986,8 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							this.toastContent = {
 								type: 'success',
 								message: 'Event re-shared successfully!',
+								link: this.eventCollectionUrl,
+								linkText: 'View your events collection',
 							};
 						} else {
 							this.showToast = true;

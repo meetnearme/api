@@ -12,6 +12,27 @@ import (
 	"unicode"
 )
 
+func getSubdomain(ctx context.Context) string {
+	userSubdomain := ""
+	userMetaClaims := map[string]interface{}{}
+	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
+		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
+	}
+	userSubdomain = helpers.GetBase64ValueFromMap(userMetaClaims, constants.SUBDOMAIN_KEY)
+	return userSubdomain
+}
+
+func GetUserPageURL(userInfo constants.UserInfo, ctx context.Context) string {
+	subdomain := getSubdomain(ctx)
+	url := os.Getenv("APEX_URL")
+	if subdomain != "" && strings.Contains(url, ".") && strings.HasPrefix(url, "https://") {
+		// inject the subdomain between the protocol and the domain
+		url = strings.Replace(url, "https://", "https://"+subdomain+".", 1)
+		return url
+	}
+	return "/user/" + userInfo.Sub
+}
+
 templ MiniProfileInNav(userInfo constants.UserInfo, ctx context.Context) {
 	{{ roleClaims, ok := ctx.Value("roleClaims").([]constants.RoleClaim) }}
 	<strong>{ string(userInfo.Name) }</strong>
@@ -24,6 +45,12 @@ templ MiniProfileInNav(userInfo constants.UserInfo, ctx context.Context) {
 		<li>
 			<a href="/admin" class="justify-between">
 				Admin
+				// <span class="badge">New</span>
+			</a>
+		</li>
+		<li>
+			<a href={ templ.SafeURL(GetUserPageURL(userInfo, ctx)) } class="justify-between">
+				Event Collection
 				// <span class="badge">New</span>
 			</a>
 		</li>
