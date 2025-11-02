@@ -2106,12 +2106,13 @@ func TestSubmitSeshuSession_Onboarding_RandomURL_and_Facebook(t *testing.T) {
 			t.Fatalf("expected KnownScrapeSource=FB, got %s", createdJobs[0].KnownScrapeSource)
 		}
 	})
+}
 func TestGetProfileInterestsPartial(t *testing.T) {
 	tests := []struct {
-		name           string
-		userMetaClaims map[string]interface{}
-		expectedStatus int
-		shouldContain  []string
+		name             string
+		userMetaClaims   map[string]interface{}
+		expectedStatus   int
+		shouldContain    []string
 		shouldNotContain []string
 	}{
 		{
@@ -2143,9 +2144,9 @@ func TestGetProfileInterestsPartial(t *testing.T) {
 			shouldNotContain: []string{"error", "Error"},
 		},
 		{
-			name:            "successful render with no userMetaClaims",
-			userMetaClaims:  map[string]interface{}{},
-			expectedStatus:  http.StatusOK,
+			name:           "successful render with no userMetaClaims",
+			userMetaClaims: map[string]interface{}{},
+			expectedStatus: http.StatusOK,
 			shouldContain: []string{
 				"My Interests",
 				"update-interests-result",
