@@ -118,6 +118,19 @@ func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoD
 		Status:            "draft",
 		LocationLatitude:  9e+10, // INITIAL_EMPTY_LAT_LONG
 		LocationLongitude: 9e+10, // INITIAL_EMPTY_LAT_LONG
+		// Provide minimal HTML that contains common markers; non-FB path may try DOM searches
+		Html:              "<html><body><div>AI Event</div><div>AI Hall</div><time>2025-05-01T10:00:00Z</time></body></html>",
+		EventCandidates: []types.EventInfo{
+			{
+				EventTitle:       "AI Event",
+				EventURL:         "https://example.com/e1",
+				EventLocation:    "AI Hall",
+				EventStartTime:   "2025-05-01T10:00:00Z",
+				EventEndTime:     "2025-05-01T12:00:00Z",
+				EventDescription: "",
+				ScrapeMode:       "init",
+			},
+		},
 		EventValidations: []types.EventBoolValid{
 			{
 				EventValidateTitle:       true,

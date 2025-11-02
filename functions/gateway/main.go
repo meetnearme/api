@@ -4,7 +4,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -198,7 +197,7 @@ func (app *App) InitRoutes() []Route {
 		// {"/api/seshujob", "POST", handlers.CreateSeshuJob, Require},
 		// {"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, Require},
 		// {"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, Require},
-		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
+		// {"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
 
 		// Re-share
 		{"/api/data/re-share", "POST", handlers.PostReShareHandler, Require},
@@ -656,31 +655,29 @@ func startSeshuLoop(ctx context.Context) {
 
 			// helpers.MarkSeshuLoopAlive()
 
-			payload := map[string]interface{}{
-				"time": lastUpdate,
-			}
-			jsonData, _ := json.Marshal(payload)
-
-			resp, err := http.Post("http://localhost:"+constants.GO_ACT_SERVER_PORT+"/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
+			count, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, lastUpdate)
 			if err != nil {
-				log.Printf("[ERROR] Failed to send request: %v", err)
+				log.Printf("[ERROR] Failed to process gather seshu jobs: %v", err)
 				continue
 			}
-			defer resp.Body.Close()
 
-			var body bytes.Buffer
-			body.ReadFrom(resp.Body)
-
-			if bytes.Contains(body.Bytes(), []byte("successful")) {
-				log.Println("[INFO] Job triggered successfully.")
-				log.Printf("[INFO] counter: %d", seshulooptimecount)
-				seshulooptimecount++
-				if seshulooptimecount >= maxseshuloopcount { // limit write frequency
-					overwriteTimestamp("last_update.txt", lastUpdate)
-					seshulooptimecount = 0
-				}
+			if skipped {
+				lastUpdate = time.Now().UTC().Unix()
+				log.Printf("[INFO] Skipped gathering seshu jobs; updated last update timestamp to %d", lastUpdate)
+				continue
 			}
 
+			if status != http.StatusOK {
+				log.Printf("[WARN] Unexpected status code: %d", status)
+				continue
+			}
+
+			log.Printf("[INFO] Successfully gathered %d seshu jobs", count)
+			seshulooptimecount++
+			if seshulooptimecount >= maxseshuloopcount { // limit write frequency
+				overwriteTimestamp("last_update.txt", lastUpdate)
+				seshulooptimecount = 0
+			}
 			lastUpdate = time.Now().UTC().Unix()
 		}
 	}

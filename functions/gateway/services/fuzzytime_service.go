@@ -27,149 +27,130 @@ func getCurrentTime() time.Time {
 // Note: Offset resolution is handled separately via geolocation + tzf library
 // to avoid conflicts between timezone abbreviations and location-based timezone detection
 func ParseMaybeMultiDayEvent(input string) (string, error) {
-	// Step 1: Clean the date string to extract just the start time portion
-	// This handles date ranges, time ranges, and other complex formats
 	cleanedDateStr := cleanDateString(input)
 
 	// Step 2: Try dateparse first
 	startDt, err := dateparse.ParseAny(cleanedDateStr)
 	if err == nil {
-		// Check if dateparse returned year 0
 		year, month, day := startDt.Date()
 		if year == 0 {
-			// dateparse returned year 0, apply next future logic
+			// dateparse returned year 0 → fallback to fuzzytime
 			patchedDateStr := addNextFutureYear(cleanedDateStr)
 			dt, _, err := fuzzytime.Extract(patchedDateStr)
 			if err != nil || dt.Empty() {
 				return "", fmt.Errorf("dateparse returned year 0 and fuzzytime failed: %s", input)
 			}
-			// Handle fuzzytime result (including year 0 detection)
+
 			isoFormat := dt.ISOFormat()
 			if strings.Contains(isoFormat, "0000") {
-				// fuzzytime also returned year 0, handle it directly
 				now := getCurrentTime()
 				currentYear := now.Year()
 
-				// Parse the ISO format to extract month, day, hour, minute, second
-				parsedTime, err := time.Parse("2006-01-02T15:04:05Z", isoFormat)
-				if err != nil {
-					// Try alternative formats
-					formats := []string{"2006-01-02T15:04Z", "2006-01-02T15:04:05", "2006-01-02T15:04"}
-					for _, format := range formats {
-						parsedTime, err = time.Parse(format, isoFormat)
-						if err == nil {
-							break
-						}
-					}
-					if err != nil {
-						return "", fmt.Errorf("failed to parse fuzzytime result with year 0: %s", isoFormat)
+				// Parse without timezone
+				formats := []string{"2006-01-02T15:04:05", "2006-01-02T15:04"}
+				var parsedTime time.Time
+				for _, f := range formats {
+					parsedTime, err = time.Parse(f, isoFormat)
+					if err == nil {
+						break
 					}
 				}
+				if err != nil {
+					return "", fmt.Errorf("failed to parse fuzzytime result with year 0: %s", isoFormat)
+				}
 
-				// Apply next future logic
 				testDate := time.Date(currentYear, parsedTime.Month(), parsedTime.Day(),
 					parsedTime.Hour(), parsedTime.Minute(), parsedTime.Second(), 0, time.UTC)
 				if testDate.Before(now) {
-					// Date has passed, use next year
 					testDate = time.Date(currentYear+1, parsedTime.Month(), parsedTime.Day(),
 						parsedTime.Hour(), parsedTime.Minute(), parsedTime.Second(), 0, time.UTC)
 				}
 
-				return testDate.Format(time.RFC3339), nil
+				return testDate.Format("2006-01-02T15:04:05"), nil
 			}
-			// fuzzytime succeeded with proper year, continue with normal processing
-			// (this will be handled by the existing fuzzytime processing logic below)
 		} else {
-			// dateparse succeeded with proper year, extract time components and reconstruct as UTC (ignoring timezone)
+			// dateparse succeeded with proper year, ignore timezone
 			hour, min, sec := startDt.Clock()
 			utcTime := time.Date(year, month, day, hour, min, sec, 0, time.UTC)
-			return utcTime.Format(time.RFC3339), nil
+			return utcTime.Format("2006-01-02T15:04:05"), nil
 		}
 	}
 
-	// Step 3: Apply next future logic to cleaned string before trying fuzzytime
-	// This ensures we have a year for fuzzytime to work with
+	// Step 3: Patch year for fuzzytime
 	patchedDateStr := addNextFutureYear(cleanedDateStr)
 
-	// Step 4: Try fuzzytime with the patched string
 	dt, _, err := fuzzytime.Extract(patchedDateStr)
 	if err != nil || dt.Empty() {
 		return "", fmt.Errorf("both dateparse and fuzzytime failed to parse: %s", input)
 	}
 
-	// Step 5: Check if fuzzytime returned year 0 and handle it directly
 	isoFormat := dt.ISOFormat()
 
 	if strings.Contains(isoFormat, "0000") {
-		// fuzzytime returned year 0, we need to manually construct the date with proper year
-		// Extract the time components from the fuzzytime result and apply next future logic
 		now := getCurrentTime()
 		currentYear := now.Year()
 
-		// Parse the ISO format to extract month, day, hour, minute, second
-		parsedTime, err := time.Parse("2006-01-02T15:04:05Z", isoFormat)
-		if err != nil {
-			// Try alternative formats
-			formats := []string{"2006-01-02T15:04Z", "2006-01-02T15:04:05", "2006-01-02T15:04"}
-			for _, format := range formats {
-				parsedTime, err = time.Parse(format, isoFormat)
-				if err == nil {
-					break
-				}
-			}
-			if err != nil {
-				return "", fmt.Errorf("failed to parse fuzzytime result with year 0: %s", isoFormat)
+		formats := []string{"2006-01-02T15:04:05", "2006-01-02T15:04"}
+		var parsedTime time.Time
+		for _, f := range formats {
+			parsedTime, err = time.Parse(f, isoFormat)
+			if err == nil {
+				break
 			}
 		}
+		if err != nil {
+			return "", fmt.Errorf("failed to parse fuzzytime result with year 0: %s", isoFormat)
+		}
 
-		// Apply next future logic
 		testDate := time.Date(currentYear, parsedTime.Month(), parsedTime.Day(),
 			parsedTime.Hour(), parsedTime.Minute(), parsedTime.Second(), 0, time.UTC)
 		if testDate.Before(now) {
-			// Date has passed, use next year
 			testDate = time.Date(currentYear+1, parsedTime.Month(), parsedTime.Day(),
 				parsedTime.Hour(), parsedTime.Minute(), parsedTime.Second(), 0, time.UTC)
 		}
 
-		return testDate.Format(time.RFC3339), nil
+		return testDate.Format("2006-01-02T15:04:05"), nil
 	}
 
-	// Step 6: Convert fuzzytime result to RFC3339, ignoring timezone information
-	// fuzzytime.ISOFormat() returns various formats, we need to extract time components only
-
-	// Try different parsing formats until we find one that works
-	formats := []string{
-		time.RFC3339,                // "2006-01-02T15:04:05Z07:00"
-		"2006-01-02T15:04:05-07:00", // Full date with timezone offset (with seconds)
-		"2006-01-02T15:04-07:00",    // Full date with timezone offset (without seconds)
-		"2006-01-02T15:04:05",       // Full date without timezone (with seconds)
-		"2006-01-02T15:04",          // Full date without timezone (without seconds)
-		"2006-01-02",                // Date-only format (YYYY-MM-DD)
-		"T15:04:05-07:00",           // Time-only with timezone (with seconds)
-		"T15:04-07:00",              // Time-only with timezone (without seconds)
-		"T15:04:05",                 // Time-only without timezone (with seconds)
-		"T15:04",                    // Time-only without timezone (without seconds)
+	// Step 6: Convert fuzzytime result. First try RFC3339-like layouts (with timezone offsets)
+	// because fuzzytime may include a timezone offset like "-05:00" or a trailing Z.
+	rfcLayouts := []string{
+		time.RFC3339,             // "2006-01-02T15:04:05Z07:00"
+		"2006-01-02T15:04Z07:00", // "2006-01-02T15:04-05:00" (no seconds)
+		"2025-12-17T17:00-06:00",
 	}
-
 	var parsedTime time.Time
-	for _, format := range formats {
-		parsedTime, err = time.Parse(format, isoFormat)
+	for _, l := range rfcLayouts {
+		parsedTime, err = time.Parse(l, isoFormat)
 		if err == nil {
-			break // Found a working format
+			return parsedTime.Format("2006-01-02T15:04:05"), nil
 		}
 	}
 
+	// Fallback: try date/time formats without timezone information
+	formats := []string{
+		"2006-01-02T15:04:05", // full date and time
+		"2006-01-02T15:04",
+		"2006-01-02",
+		"15:04:05",
+		"15:04",
+	}
+
+	for _, f := range formats {
+		parsedTime, err = time.Parse(f, isoFormat)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return "", fmt.Errorf("failed to parse fuzzytime result as time: %s", isoFormat)
 	}
 
-	// Extract time components and reconstruct as UTC (ignoring timezone)
-	// This ensures we get the literal time without timezone conversion
 	year, month, day := parsedTime.Date()
 	hour, min, sec := parsedTime.Clock()
 	utcTime := time.Date(year, month, day, hour, min, sec, 0, time.UTC)
 
-	return utcTime.Format(time.RFC3339), nil
+	return utcTime.Format("2006-01-02T15:04:05"), nil
 }
 
 // cleanDateString implements the cleaning logic from seshu_service.go
@@ -475,4 +456,21 @@ func getNextOccurrenceYear(month, day int) int {
 
 	// If current year has passed, try next year
 	return currentYear + 1
+}
+
+func PrettifyTime(t string) string {
+	layouts := []string{
+		"2006-01-02T15:04:05", // with seconds
+		"2006-01-02T15:04",    // without seconds
+	}
+
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, t)
+		if err == nil {
+			return parsed.Format("Jan 2, 2006 3:04 PM")
+		}
+	}
+
+	// fallback if unparseable
+	return t
 }
