@@ -682,6 +682,250 @@ func GetOtherUserMetaByID(userID, key string) (string, error) {
 	return decodedValue, nil
 }
 
+// GetUserAuthorizations fetches all authorizations (roles) for a given user
+func GetUserRoles(userID string) ([]string, error) {
+	// https://zitadel.com/docs/apis/resources/authorization_service_v2/zitadel-authorization-v-2-beta-authorization-service-list-authorizations
+	// This is a gRPC endpoint, so we need to use POST with JSON
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/ListAuthorizations", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	// Query for this specific user's authorizations
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"pagination": {
+			"limit": 0,
+			"asc": true
+		},
+		"filters": [
+			{
+      			"userId": {
+         			"id": "%s"
+       			}
+     		}
+   		]
+	}`, userID))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get authorizations: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	var respData struct {
+		Authorizations []struct {
+			Roles []string `json:"roles"`
+		} `json:"authorizations"`
+	}
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Collect all roles from all authorizations
+	var allRoles []string
+	for _, auth := range respData.Authorizations {
+		allRoles = append(allRoles, auth.Roles...)
+	}
+
+	return allRoles, nil
+}
+
+// GetUserAuthorizationID gets the authorization ID for a user if it exists
+func GetUserAuthorizationID(userID string) (string, error) {
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/ListAuthorizations", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"pagination": {
+			"limit": 0,
+			"asc": true
+		},
+		"filters": [
+			{
+      			"userId": {
+         			"id": "%s"
+       			}
+     		}
+   		]
+	}`, userID))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get authorizations: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	var respData struct {
+		Authorizations []struct {
+			ID string `json:"id"`
+		} `json:"authorizations"`
+	}
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if len(respData.Authorizations) == 0 {
+		return "", nil // No authorizations found, not an error
+	}
+
+	return respData.Authorizations[0].ID, nil
+}
+
+// CreateUserAuthorization creates a new authorization for a user
+// https://zitadel.com/docs/apis/resources/authorization_service_v2/zitadel-authorization-v-2-beta-authorization-service-create-authorization
+func CreateUserAuthorization(userID string, roleKeys []string) (string, error) {
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/CreateAuthorization", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	// Build the roleKeys array in JSON format
+	roleKeysJSON, err := json.Marshal(roleKeys)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal role keys: %w", err)
+	}
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"userId": "%s",
+		"roleKeys": %s
+	}`, userID, string(roleKeysJSON)))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to create authorization: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	var respData struct {
+		ID string `json:"id"`
+	}
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return respData.ID, nil
+}
+
+// SetUserRoles updates or creates the roles for a user's authorization
+// Note: Any role keys previously granted and not present in roleKeys will be revoked
+// https://zitadel.com/docs/apis/resources/authorization_service_v2/zitadel-authorization-v-2-beta-authorization-service-update-authorization
+func SetUserRoles(userID string, roleKeys []string) error {
+	// First, check if the user already has an authorization
+	authID, err := GetUserAuthorizationID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing authorizations: %w", err)
+	}
+
+	// If no authorization exists, create one
+	if authID == "" {
+		log.Printf("No existing authorization found for user %s, creating new authorization", userID)
+		_, err = CreateUserAuthorization(userID, roleKeys)
+		if err != nil {
+			return fmt.Errorf("failed to create authorization: %w", err)
+		}
+		// Authorization created successfully
+		return nil
+	}
+
+	// Authorization exists, update it
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/UpdateAuthorization", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	// Build the roleKeys array in JSON format
+	roleKeysJSON, err := json.Marshal(roleKeys)
+	if err != nil {
+		return fmt.Errorf("failed to marshal role keys: %w", err)
+	}
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"id": "%s",
+		"roleKeys": %s
+	}`, authID, string(roleKeysJSON)))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to set user roles: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 func UpdateUserMetadataKey(userID, key, value string) error {
 	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "POST"

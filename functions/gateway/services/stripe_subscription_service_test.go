@@ -65,19 +65,19 @@ func TestStripeSubscriptionService_GetZitadelRole(t *testing.T) {
 		expectedRole string
 	}{
 		{
-			name:         "Growth plan maps to subscrGrowth",
+			name:         "Growth plan maps to subGrowth",
 			planName:     "Growth",
-			expectedRole: constants.Roles[constants.SubscrGrowth],
+			expectedRole: constants.Roles[constants.SubGrowth],
 		},
 		{
-			name:         "Seed Community plan maps to subscrSeed",
+			name:         "Seed Community plan maps to subSeed",
 			planName:     "Seed Community",
-			expectedRole: constants.Roles[constants.SubscrSeed],
+			expectedRole: constants.Roles[constants.SubSeed],
 		},
 		{
-			name:         "Unknown plan defaults to subscrGrowth",
+			name:         "Unknown plan defaults to subGrowth",
 			planName:     "Unknown Plan",
-			expectedRole: constants.Roles[constants.SubscrGrowth],
+			expectedRole: constants.Roles[constants.SubGrowth],
 		},
 	}
 
@@ -327,6 +327,9 @@ func TestStripeSubscriptionService_GetSubscriptionPlans(t *testing.T) {
 	// Override the default HTTP transport to intercept Stripe requests
 	http.DefaultTransport = customRoundTripper
 
+	// Reset the Stripe client so it uses the new transport
+	ResetStripeClient()
+
 	// Create service and test the parallelized GetSubscriptionPlans method
 	service := NewStripeSubscriptionService()
 
@@ -351,26 +354,32 @@ func TestStripeSubscriptionService_GetSubscriptionPlans(t *testing.T) {
 
 	// Check Growth plan
 	if growthPlan, exists := planMap["Growth"]; exists {
-		if growthPlan.ID != "price_growth_test" {
-			t.Errorf("Expected Growth plan ID 'price_growth_test', got '%s'", growthPlan.ID)
+		if growthPlan.ID != "prod_growth_test" {
+			t.Errorf("Expected Growth plan ID 'prod_growth_test', got '%s'", growthPlan.ID)
+		}
+		if growthPlan.PriceID != "price_growth_test" {
+			t.Errorf("Expected Growth plan PriceID 'price_growth_test', got '%s'", growthPlan.PriceID)
 		}
 		if growthPlan.Amount != 2000 {
 			t.Errorf("Expected Growth plan amount 2000, got %d", growthPlan.Amount)
 		}
-		t.Logf("✅ Growth plan: ID=%s, Name=%s, Amount=%d", growthPlan.ID, growthPlan.Name, growthPlan.Amount)
+		t.Logf("✅ Growth plan: ID=%s, PriceID=%s, Name=%s, Amount=%d", growthPlan.ID, growthPlan.PriceID, growthPlan.Name, growthPlan.Amount)
 	} else {
 		t.Error("Growth plan not found in results")
 	}
 
 	// Check Seed plan
 	if seedPlan, exists := planMap["Seed Community"]; exists {
-		if seedPlan.ID != "price_seed_test" {
-			t.Errorf("Expected Seed plan ID 'price_seed_test', got '%s'", seedPlan.ID)
+		if seedPlan.ID != "prod_seed_test" {
+			t.Errorf("Expected Seed plan ID 'prod_seed_test', got '%s'", seedPlan.ID)
+		}
+		if seedPlan.PriceID != "price_seed_test" {
+			t.Errorf("Expected Seed plan PriceID 'price_seed_test', got '%s'", seedPlan.PriceID)
 		}
 		if seedPlan.Amount != 1000 {
 			t.Errorf("Expected Seed plan amount 1000, got %d", seedPlan.Amount)
 		}
-		t.Logf("✅ Seed plan: ID=%s, Name=%s, Amount=%d", seedPlan.ID, seedPlan.Name, seedPlan.Amount)
+		t.Logf("✅ Seed plan: ID=%s, PriceID=%s, Name=%s, Amount=%d", seedPlan.ID, seedPlan.PriceID, seedPlan.Name, seedPlan.Amount)
 	} else {
 		t.Error("Seed Community plan not found in results")
 	}

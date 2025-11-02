@@ -180,6 +180,26 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
+func GetProfileInterestsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+
+	userMetaClaims := map[string]interface{}{}
+	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
+		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
+	}
+	parsedInterests := helpers.GetUserInterestFromMap(userMetaClaims, constants.INTERESTS_KEY)
+
+	settingsPartial := pages.ProfileInterestsPartial(parsedInterests)
+
+	var buf bytes.Buffer
+	err := settingsPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
 func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 

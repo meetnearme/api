@@ -49,7 +49,8 @@ type WebhookEvent struct {
 
 // SubscriptionPlan represents a subscription plan from Stripe
 type SubscriptionPlan struct {
-	ID            string            `json:"id"`
+	ID            string            `json:"id"`       // Product ID
+	PriceID       string            `json:"price_id"` // Price ID for checkout
 	Name          string            `json:"name"`
 	Description   string            `json:"description"`
 	Amount        int64             `json:"amount"`
@@ -121,7 +122,8 @@ func ConvertStripeSubscription(stripeSub *stripe.Subscription) *CustomerSubscrip
 // ConvertStripeProduct converts a Stripe product to our SubscriptionPlan type
 func ConvertStripeProduct(product *stripe.Product, price *stripe.Price) *SubscriptionPlan {
 	plan := &SubscriptionPlan{
-		ID:          price.ID,
+		ID:          product.ID, // Product ID
+		PriceID:     price.ID,   // Price ID for checkout
 		Name:        product.Name,
 		Description: product.Description,
 		Amount:      price.UnitAmount,
@@ -158,10 +160,10 @@ func (s *CustomerSubscription) GetZitadelRole() string {
 	// Map subscription plans to Zitadel roles based on plan name
 	switch s.PlanName {
 	case "Growth":
-		return constants.Roles[constants.SubscrGrowth]
+		return constants.Roles[constants.SubGrowth]
 	case "Seed Community":
-		return constants.Roles[constants.SubscrSeed]
+		return constants.Roles[constants.SubSeed]
 	default:
-		return constants.Roles[constants.SubscrGrowth] // Default to Growth role
+		return constants.Roles[constants.SubGrowth] // Default to Growth role
 	}
 }

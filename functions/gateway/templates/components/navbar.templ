@@ -8,7 +8,30 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
 	"strconv"
+	"strings"
+	"unicode"
 )
+
+func getSubdomain(ctx context.Context) string {
+	userSubdomain := ""
+	userMetaClaims := map[string]interface{}{}
+	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
+		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
+	}
+	userSubdomain = helpers.GetBase64ValueFromMap(userMetaClaims, constants.SUBDOMAIN_KEY)
+	return userSubdomain
+}
+
+func GetUserPageURL(userInfo constants.UserInfo, ctx context.Context) string {
+	subdomain := getSubdomain(ctx)
+	url := os.Getenv("APEX_URL")
+	if subdomain != "" && strings.Contains(url, ".") && strings.HasPrefix(url, "https://") {
+		// inject the subdomain between the protocol and the domain
+		url = strings.Replace(url, "https://", "https://"+subdomain+".", 1)
+		return url
+	}
+	return "/user/" + userInfo.Sub
+}
 
 templ MiniProfileInNav(userInfo constants.UserInfo, ctx context.Context) {
 	{{ roleClaims, ok := ctx.Value("roleClaims").([]constants.RoleClaim) }}
@@ -20,8 +43,14 @@ templ MiniProfileInNav(userInfo constants.UserInfo, ctx context.Context) {
 		class="menu menu-sm"
 	>
 		<li>
-			<a href="/admin/home" class="justify-between">
+			<a href="/admin" class="justify-between">
 				Admin
+				// <span class="badge">New</span>
+			</a>
+		</li>
+		<li>
+			<a href={ templ.SafeURL(GetUserPageURL(userInfo, ctx)) } class="justify-between">
+				Event Collection
 				// <span class="badge">New</span>
 			</a>
 		</li>
@@ -65,6 +94,7 @@ templ NavListItems(userInfo constants.UserInfo) {
 		</li>
 	}
 	<li><a href="/about" class="px-5 py-3">About</a></li>
+	<li><a href="/pricing" class="px-5 py-3">Pricing</a></li>
 	// Change back to "Add an Event" when we release Seshu
 	// if userInfo.Email != "" {
 	// 	<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
@@ -225,6 +255,24 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 	</template>
 }
 
+func getFirstChar(userInfo constants.UserInfo) string {
+	name := strings.TrimSpace(userInfo.Name)
+	if name == "" {
+		return "?"
+	}
+
+	// Get the first rune (Unicode character) in the string
+	var firstRune rune
+	for _, r := range name {
+		firstRune = r
+		break
+	}
+
+	// Convert to uppercase for consistency
+	firstChar := string(unicode.ToUpper(firstRune))
+	return firstChar
+}
+
 templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event, ctx context.Context) {
 	<div class="drawer drawer-end">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
@@ -247,7 +295,7 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 								<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 										<div class="border w-24 rounded-full">
-											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+											<span class="text-3xl">{ getFirstChar(userInfo) }</span>
 										</div>
 									</div>
 									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-4 shadow-lg border border-base-300">
@@ -276,7 +324,7 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 					<div class="p-2 m-1 card bg-base-200 lg:hidden">
 						<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
 							<div class="border w-24 rounded-full">
-								<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+								<span class="text-3xl">{ string(getFirstChar(userInfo)) }</span>
 							</div>
 							// <div class="w-10 rounded-full">
 							// 	<img
@@ -703,7 +751,7 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 							} else if (total <= 0) {
 								// `?new_purch_key` is received by the profile page to both highlight, scroll to, and poll in
 								// wait for the new event because of dynamo's eventual consistency.
-								window.location.href = window.location.origin + `/admin/profile#registration-history${this.userId ? `?new_purch_key=${json?.composite_key}` : ''}`;
+								window.location.href = window.location.origin + `/admin#registration-history${this.userId ? `?new_purch_key=${json?.composite_key}` : ''}`;
 							} else {
 								if (json?.error?.message) {
 									this.errors['checkout'] = json.error.message;

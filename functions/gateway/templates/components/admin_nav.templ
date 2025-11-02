@@ -11,8 +11,16 @@ templ AdminLeftNavContents(ctx context.Context) {
 	<li>
 		<h3 class="font-bold menu-title my-2">Admin</h3>
 		<ul>
-			<li><a href="/admin/home">Home</a></li>
-			<li><a href="/admin/profile/settings">Interests</a></li>
+			<li><a href="/admin">Home</a></li>
+			<li>
+				<a
+					hx-get="/api/html/profile-interests"
+					hx-target="#admin-content"
+					hx-indicator="#admin-content-container"
+					hx-swap="innerHTML"
+					hx-push-url="/admin/interests"
+				>Interests</a>
+			</li>
 		</ul>
 	</li>
 	<li>
@@ -29,6 +37,7 @@ templ AdminLeftNavContents(ctx context.Context) {
 						hx-target="#admin-content"
 						hx-indicator="#admin-content-container"
 						hx-swap="innerHTML"
+						hx-push-url="/admin/events"
 					>Event Admin</a>
 				</li>
 			} else {
@@ -45,6 +54,7 @@ templ AdminLeftNavContents(ctx context.Context) {
 						hx-target="#admin-content"
 						hx-indicator="#admin-content-container"
 						hx-swap="innerHTML"
+						hx-push-url="/admin/competitions"
 					>Competition Admin</a>
 				</li>
 			} else {

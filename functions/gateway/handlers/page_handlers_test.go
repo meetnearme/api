@@ -1244,3 +1244,263 @@ func TestGetEventAttendeesPage(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Tests for GetPricingPage handler
+// =============================================================================
+
+func TestGetPricingPage(t *testing.T) {
+	// Save original environment variables
+	originalStripeGrowth := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalStripeSeed := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalApexURL := os.Getenv("APEX_URL")
+
+	defer func() {
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalStripeGrowth)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalStripeSeed)
+		os.Setenv("APEX_URL", originalApexURL)
+	}()
+
+	// Set up test environment variables
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+	os.Setenv("APEX_URL", "https://test.example.com")
+
+	tests := []struct {
+		name               string
+		userInfo           constants.UserInfo
+		expectedStatusCode int
+		shouldContain      []string
+		shouldNotContain   []string
+	}{
+		{
+			name: "Success - Logged in user",
+			userInfo: constants.UserInfo{
+				Sub:   "user123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			expectedStatusCode: http.StatusOK,
+			shouldContain: []string{
+				"Plans and Pricing",
+				"Basic Community",
+				"Seed Community",
+				"Growth Community",
+				"Free",
+				"$15",
+				"$50",
+				"Get Started",
+			},
+			shouldNotContain: []string{},
+		},
+		{
+			name:               "Success - Not logged in",
+			userInfo:           constants.UserInfo{},
+			expectedStatusCode: http.StatusOK,
+			shouldContain: []string{
+				"Plans and Pricing",
+				"Basic Community",
+				"Seed Community",
+				"Growth Community",
+				"Free",
+				"$15",
+				"$50",
+				"Get Started",
+			},
+			shouldNotContain: []string{},
+		},
+		{
+			name: "Success - Displays subscription features",
+			userInfo: constants.UserInfo{
+				Sub:   "user456",
+				Email: "user2@example.com",
+			},
+			expectedStatusCode: http.StatusOK,
+			shouldContain: []string{
+				"Custom subdomain",
+				"Host Events",
+				"Custom registration forms",
+				"Custom theme and branding",
+				"Syndicate and re-publish events",
+				"API Access",
+			},
+			shouldNotContain: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request
+			req := httptest.NewRequest("GET", "/pricing", nil)
+
+			// Add user info to context if provided
+			ctx := req.Context()
+			if tt.userInfo.Sub != "" {
+				ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			}
+			req = req.WithContext(ctx)
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call the handler
+			handler := GetPricingPage(w, req)
+			handler(w, req)
+
+			// Verify status code
+			if w.Code != tt.expectedStatusCode {
+				t.Errorf("Expected status code %d, got %d", tt.expectedStatusCode, w.Code)
+			}
+
+			// Verify response body contains expected strings
+			body := w.Body.String()
+			for _, expected := range tt.shouldContain {
+				if !strings.Contains(body, expected) {
+					t.Errorf("Expected response to contain '%s'", expected)
+				}
+			}
+
+			// Verify response body doesn't contain unexpected strings
+			for _, unexpected := range tt.shouldNotContain {
+				if strings.Contains(body, unexpected) {
+					t.Errorf("Expected response to NOT contain '%s'", unexpected)
+				}
+			}
+
+			// Verify Content-Type is HTML
+			contentType := w.Header().Get("Content-Type")
+			if !strings.Contains(contentType, "text/html") {
+				t.Errorf("Expected Content-Type to contain 'text/html', got '%s'", contentType)
+			}
+		})
+	}
+}
+
+func TestGetPricingPage_WithQueryParams(t *testing.T) {
+	// Save original environment variables
+	originalStripeGrowth := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalStripeSeed := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalApexURL := os.Getenv("APEX_URL")
+
+	defer func() {
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalStripeGrowth)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalStripeSeed)
+		os.Setenv("APEX_URL", originalApexURL)
+	}()
+
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+	os.Setenv("APEX_URL", "https://test.example.com")
+
+	tests := []struct {
+		name               string
+		queryParams        string
+		userInfo           constants.UserInfo
+		expectedStatusCode int
+		shouldContain      []string
+	}{
+		{
+			name:        "Success - With error query param",
+			queryParams: "?error=checkout_failed",
+			userInfo: constants.UserInfo{
+				Sub: "user123",
+			},
+			expectedStatusCode: http.StatusOK,
+			shouldContain: []string{
+				"Plans and Pricing",
+				// The error handling is done in JavaScript, so we just verify the page renders
+			},
+		},
+		{
+			name:        "Success - With success query param",
+			queryParams: "?success=true",
+			userInfo: constants.UserInfo{
+				Sub: "user456",
+			},
+			expectedStatusCode: http.StatusOK,
+			shouldContain: []string{
+				"Plans and Pricing",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request with query params
+			url := "/pricing" + tt.queryParams
+			req := httptest.NewRequest("GET", url, nil)
+
+			// Add user info to context
+			ctx := req.Context()
+			if tt.userInfo.Sub != "" {
+				ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			}
+			req = req.WithContext(ctx)
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call the handler
+			handler := GetPricingPage(w, req)
+			handler(w, req)
+
+			// Verify status code
+			if w.Code != tt.expectedStatusCode {
+				t.Errorf("Expected status code %d, got %d", tt.expectedStatusCode, w.Code)
+			}
+
+			// Verify expected content
+			body := w.Body.String()
+			for _, expected := range tt.shouldContain {
+				if !strings.Contains(body, expected) {
+					t.Errorf("Expected response to contain '%s'", expected)
+				}
+			}
+		})
+	}
+}
+
+func TestGetPricingPage_RendersCorrectPlanIDs(t *testing.T) {
+	// This test verifies that the correct Stripe plan IDs are embedded in the page
+	originalStripeGrowth := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalStripeSeed := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalApexURL := os.Getenv("APEX_URL")
+
+	defer func() {
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalStripeGrowth)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalStripeSeed)
+		os.Setenv("APEX_URL", originalApexURL)
+	}()
+
+	testGrowthPlan := "price_1234567890growth"
+	testSeedPlan := "price_1234567890seed"
+
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", testGrowthPlan)
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", testSeedPlan)
+	os.Setenv("APEX_URL", "https://test.example.com")
+
+	req := httptest.NewRequest("GET", "/pricing", nil)
+	ctx := context.WithValue(req.Context(), "userInfo", constants.UserInfo{Sub: "user123"})
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler := GetPricingPage(w, req)
+	handler(w, req)
+
+	// Verify the response contains the plan IDs in the JavaScript
+	body := w.Body.String()
+	if !strings.Contains(body, testGrowthPlan) {
+		t.Errorf("Expected response to contain Growth plan ID '%s'", testGrowthPlan)
+	}
+	if !strings.Contains(body, testSeedPlan) {
+		t.Errorf("Expected response to contain Seed plan ID '%s'", testSeedPlan)
+	}
+
+	// Verify data attributes are set correctly
+	if !strings.Contains(body, `data-growth-plan-id="`+testGrowthPlan+`"`) {
+		t.Error("Expected response to contain data-growth-plan-id attribute with correct value")
+	}
+	if !strings.Contains(body, `data-seed-plan-id="`+testSeedPlan+`"`) {
+		t.Error("Expected response to contain data-seed-plan-id attribute with correct value")
+	}
+}

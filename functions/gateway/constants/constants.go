@@ -120,7 +120,10 @@ const (
 )
 
 // Customer portal configuration
-var CUSTOMER_PORTAL_RETURN_URL_PATH = os.Getenv("APEX_URL") + "/admin/subscriptions"
+var CUSTOMER_PORTAL_RETURN_URL_PATH = os.Getenv("APEX_URL") + "/admin"
+
+const ROLE_NOT_FOUND_MESSAGE = "Role not found"
+const ROLE_ACTIVE_MESSAGE = "Role is active"
 
 // NOTE: these are the default searchable event source types that show up in the home event list view
 var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT, ES_SINGLE_EVENT}
@@ -194,9 +197,8 @@ const (
 	OrgAdmin         Role = "orgAdmin"
 	CompetitionAdmin Role = "competitionAdmin"
 	EventAdmin       Role = "eventAdmin"
-	SyndicateAdmin   Role = "syndicateAdmin"
-	SubscrGrowth     Role = "subscrGrowth"
-	SubscrSeed       Role = "subscrSeed"
+	SubGrowth        Role = "subGrowth"
+	SubSeed          Role = "subSeed"
 )
 
 var Roles = map[Role]string{
@@ -204,10 +206,11 @@ var Roles = map[Role]string{
 	OrgAdmin:         string(OrgAdmin),
 	CompetitionAdmin: string(CompetitionAdmin),
 	EventAdmin:       string(EventAdmin),
-	SyndicateAdmin:   string(SyndicateAdmin),
-	SubscrGrowth:     string(SubscrGrowth),
-	SubscrSeed:       string(SubscrSeed),
+	SubGrowth:        string(SubGrowth),
+	SubSeed:          string(SubSeed),
 }
+
+const BASIC_SUBSCRIPTION_PLAN_ID = "basic"
 
 var AllowedMnmOptionsKeys = []string{
 	"userId",
@@ -259,9 +262,8 @@ var SitePages = map[string]SitePage{
 	// solution is from this github comment (see discussion as well) https://github.com/gorilla/mux/issues/30#issuecomment-1666428538
 	"home":               {Key: "home", Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
 	"about":              {Key: "about", Slug: "/about{trailingslash:\\/?}", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
-	"admin":              {Key: "admin", Slug: "/admin/home{trailingslash:\\/?}", Name: "Admin", SubnavItems: []string{SubnavItems[NvMain]}},
+	"admin":              {Key: "admin", Slug: "/admin{trailingslash:\\/?}{path:.*}", Name: "Admin", SubnavItems: []string{SubnavItems[NvMain]}},
 	"add-event-source":   {Key: "add-event-source", Slug: "/admin/add-event-source{trailingslash:\\/?}", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
-	"settings":           {Key: "settings", Slug: "/admin/profile/settings{trailingslash:\\/?}", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
 	"map-embed":          {Key: "map-embed", Slug: "/map-embed{trailingslash:\\/?}", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
 	"user":               {Key: "user", Slug: "/user/{" + USER_ID_KEY + "}{trailingslash:\\/?}", Name: "User", SubnavItems: []string{SubnavItems[NvMain]}},
 	"event-detail":       {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}{trailingslash:\\/?}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
@@ -274,6 +276,7 @@ var SitePages = map[string]SitePage{
 	"privacy-policy":     {Key: "privacy-policy", Slug: "/privacy-policy{trailingslash:\\/?}", Name: "Privacy Policy", SubnavItems: []string{SubnavItems[NvMain]}},
 	"data-request":       {Key: "data-request", Slug: "/data-request{trailingslash:\\/?}", Name: "Data Request", SubnavItems: []string{SubnavItems[NvMain]}},
 	"terms-of-service":   {Key: "terms-of-service", Slug: "/terms-of-service{trailingslash:\\/?}", Name: "Terms of Service", SubnavItems: []string{SubnavItems[NvMain]}},
+	"pricing":            {Key: "pricing", Slug: "/pricing{trailingslash:\\/?}", Name: "Pricing", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 // EventFields holds references to all fields in the Event struct

@@ -25,6 +25,12 @@ func GetStripeClient() *stripe.Client {
 	return sc
 }
 
+// ResetStripeClient resets the Stripe client (useful for testing)
+func ResetStripeClient() {
+	_, priv := GetStripeKeyPair()
+	sc = stripe.NewClient(priv)
+}
+
 func GetStripeCheckoutWebhookSecret() string {
 	return os.Getenv("STRIPE_CHECKOUT_WEBHOOK_SECRET")
 }

@@ -63,13 +63,12 @@ func (app *App) InitRoutes() []Route {
 	return []Route{
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
+		{"/auth/refresh", "GET", handlers.HandleRefresh, Require},
 		{"/auth/logout", "GET", handlers.HandleLogout, None},
 		{constants.SitePages["home"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
 		{constants.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
 		{constants.SitePages["user"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
 		{constants.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
-		{constants.SitePages["admin"].Slug, "GET", handlers.GetAdminPage, Require},
-		{constants.SitePages["settings"].Slug, "GET", handlers.GetProfileSettingsPage, Require},
 		{constants.SitePages["add-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
 		{constants.SitePages["edit-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
 		{constants.SitePages["attendees-event"].Slug, "GET", handlers.GetEventAttendeesPage, Require},
@@ -77,6 +76,7 @@ func (app *App) InitRoutes() []Route {
 		{constants.SitePages["privacy-policy"].Slug, "GET", handlers.GetPrivacyPolicyPage, Check},
 		{constants.SitePages["data-request"].Slug, "GET", handlers.GetDataRequestPage, Check},
 		{constants.SitePages["terms-of-service"].Slug, "GET", handlers.GetTermsOfServicePage, Check},
+		{constants.SitePages["pricing"].Slug, "GET", handlers.GetPricingPage, Check},
 		// TODO: sometimes `Check` will fail to retrieve the user info, this is different
 		// from `Require` which always creates a new session if the user isn't logged in...
 		// the complexity is we might want "in the middle", which would be "auto-refresh
@@ -88,6 +88,9 @@ func (app *App) InitRoutes() []Route {
 		{constants.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 		{constants.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 
+		// NOTE: ⚠️⚠️⚠️⚠️ we use a catch-all route for `admin` here but it needs to come LAST
+		// moving this higher will break admin sub-routes that are not handled by this catch-all route
+		{constants.SitePages["admin"].Slug, "GET", handlers.GetAdminPage, Require},
 		// API routes
 
 		// == START == need to expose these via permanent key for headless clients
@@ -108,6 +111,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/auth/users/update-mnm-options{trailingslash:\\/?}", "POST", handlers.SetMnmOptions, Require},
 		{"/api/auth/users/update-interests{trailingslash:\\/?}", "POST", handlers.UpdateUserInterests, Require},
 		{"/api/auth/users/update-about{trailingslash:\\/?}", "POST", handlers.UpdateUserAbout, Require},
+		{"/api/auth/check-role{trailingslash:\\/?}", "GET", handlers.CheckRole, Require},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
 		{"/api/location/geo{trailingslash:\\/?}", "POST", handlers.GeoLookup, None},
@@ -120,6 +124,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/html/seshu/session/location{trailingslash:\\/?}", "PUT", handlers.GeoThenPatchSeshuSession, Require},
 		{"/api/html/seshu/session/events{trailingslash:\\/?}", "PUT", handlers.SubmitSeshuEvents, Require},
 		{"/api/html/competition-config/owner/{" + constants.USER_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigsHtmlByPrimaryOwnerHandler, None},
+		{"/api/html/profile-interests{trailingslash:\\/?}", "GET", handlers.GetProfileInterestsPartial, Require},
 
 		// // Purchasables routes
 		{"/api/purchasables/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, Require},   // Create a new purchasable
@@ -171,9 +176,13 @@ func (app *App) InitRoutes() []Route {
 		{"/api/votes/tally-votes/{" + constants.COMPETITIONS_ID_KEY + "}/{" + constants.ROUND_NUMBER_KEY + "}", "GET", dynamodb_handlers.GetCompetitionVotesTallyForRoundHandler, Require},
 		{"/api/votes", "DELETE", dynamodb_handlers.DeleteCompetitionVoteHandler, Require},
 
-		// Checkout Session
+		// Checkout Sessions
 		{"/api/checkout/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
+		{"/api/checkout-subscription{trailingslash:\\/?}", "GET", handlers.CreateSubscriptionCheckoutSessionHandler, Check},
+
+		// Webhooks
 		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
+		{"/api/webhook/subscription", "POST", handlers.HandleSubscriptionWebhookHandler, None},
 
 		//SeshuSession
 		{"/api/html/session/submit/", "POST", handlers.HandleSeshuSessionSubmit, Require},
@@ -223,11 +232,9 @@ func NewApp() *App {
 	app.InitializeAuth()
 	app.InitDataBase()
 	app.InitNats()
+	app.InitStripe()
 	log.Printf("New Go App created at %s", time.Now().Format(time.RFC3339))
 
-	defer func() {
-		app.InitStripe()
-	}()
 	return app
 }
 
