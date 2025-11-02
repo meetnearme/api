@@ -457,3 +457,20 @@ func getNextOccurrenceYear(month, day int) int {
 	// If current year has passed, try next year
 	return currentYear + 1
 }
+
+func PrettifyTime(t string) string {
+	layouts := []string{
+		"2006-01-02T15:04:05", // with seconds
+		"2006-01-02T15:04",    // without seconds
+	}
+
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, t)
+		if err == nil {
+			return parsed.Format("Jan 2, 2006 3:04 PM")
+		}
+	}
+
+	// fallback if unparseable
+	return t
+}

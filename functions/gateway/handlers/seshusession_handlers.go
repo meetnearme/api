@@ -133,6 +133,12 @@ func HandleSeshuSessionSubmit(w http.ResponseWriter, r *http.Request) http.Handl
 	eventsTruncated := []types.EventInfo{}
 	eventsTruncated = events[:min(len(events), limit)]
 
+	// Prettify event times for display
+	for i := range eventsTruncated {
+		eventsTruncated[i].EventStartTime = services.PrettifyTime(eventsTruncated[i].EventStartTime)
+		eventsTruncated[i].EventEndTime = services.PrettifyTime(eventsTruncated[i].EventEndTime)
+	}
+
 	tmpl := partials.EventCandidatesPartial(eventsTruncated)
 	var buf bytes.Buffer
 	if err := tmpl.Render(ctx, &buf); err != nil {
