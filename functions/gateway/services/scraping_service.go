@@ -436,6 +436,19 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 					childScrapeQueue = append(childScrapeQueue, event)
 					urlToIndex[event.EventURL] = i
 				}
+
+				// If existing seshujobs has location data, means seshujob used "all events at the target URL located in the same geography?"
+				if seshuJob.LocationLatitude != constants.INITIAL_EMPTY_LAT_LONG {
+					eventsFound[i].EventLatitude = seshuJob.LocationLatitude
+				}
+
+				if seshuJob.LocationLongitude != constants.INITIAL_EMPTY_LAT_LONG {
+					eventsFound[i].EventLongitude = seshuJob.LocationLongitude
+				}
+
+				if seshuJob.LocationAddress != "" {
+					eventsFound[i].EventLocation = seshuJob.LocationAddress
+				}
 			}
 
 			if len(childScrapeQueue) <= 0 {

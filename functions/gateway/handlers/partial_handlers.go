@@ -1001,6 +1001,11 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 					endTag = "_BYPASS_"
 					descriptionTag = "_BYPASS_"
 					eventURLTag = "_BYPASS_"
+					titleTag = "_BYPASS_"
+					locationTag = "_BYPASS_"
+					startTag = "_BYPASS_"
+					endTag = "_BYPASS_"
+					descriptionTag = "_BYPASS_"
 				default:
 					titleTag = findTagByExactText(childDoc, childEvent.EventTitle)
 					locationTag = findTagByExactText(childDoc, childEvent.EventLocation)
