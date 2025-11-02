@@ -1119,10 +1119,10 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 				seshuJob = internal_types.SeshuJob{
 					NormalizedUrlKey:         normalizedChildURL,
-					LocationLatitude:         anchorLatFloat, // can this be empty?
-					LocationLongitude:        anchorLonFloat, // can this be empty?
+					LocationLatitude:         childSession.LocationLatitude,
+					LocationLongitude:        childSession.LocationLongitude,
 					LocationAddress:          childEvent.EventLocation,
-					LocationTimezone:         locationTimezone, // can this be empty?
+					LocationTimezone:         locationTimezone,
 					ScheduledHour:            scheduledHour,
 					TargetNameCSSPath:        titleTag,
 					TargetLocationCSSPath:    locationTag,
@@ -1141,20 +1141,20 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 				scrapeType = "rs" // rs only
 			}
+		}
 
-			pgDb, _ := services.GetPostgresService(ctx)
+		pgDb, _ := services.GetPostgresService(ctx)
 
-			err = validate.Struct(seshuJob)
-			if err != nil {
-				log.Println("Error validating SeshuJob:", err)
-				return
-			}
+		err = validate.Struct(seshuJob)
+		if err != nil {
+			log.Println("Error validating SeshuJob:", err)
+			return
+		}
 
-			err = pgDb.CreateSeshuJob(ctx, seshuJob)
-			if err != nil {
-				log.Println("Error creating SeshuJob:", err)
-				return
-			}
+		err = pgDb.CreateSeshuJob(ctx, seshuJob)
+		if err != nil {
+			log.Println("Error creating SeshuJob:", err)
+			return
 		}
 
 		// NOTE: `natsService.PublishMsg` would put the job in the queue, but we don't yet
