@@ -942,10 +942,10 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 			seshuJob = internal_types.SeshuJob{
 				NormalizedUrlKey:         normalizedUrl,
-				LocationLatitude:         anchorLatFloat, // can this be empty?
-				LocationLongitude:        anchorLonFloat, // can this be empty?
+				LocationLatitude:         session.LocationLatitude,
+				LocationLongitude:        session.LocationLongitude,
 				LocationAddress:          location,
-				LocationTimezone:         locationTimezone, // can this be empty?
+				LocationTimezone:         locationTimezone,
 				ScheduledHour:            scheduledHour,
 				TargetNameCSSPath:        titleTag,
 				TargetLocationCSSPath:    locationTag,
