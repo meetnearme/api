@@ -117,14 +117,13 @@ func ParseMaybeMultiDayEvent(input string) (string, error) {
 	rfcLayouts := []string{
 		time.RFC3339,             // "2006-01-02T15:04:05Z07:00"
 		"2006-01-02T15:04Z07:00", // "2006-01-02T15:04-05:00" (no seconds)
+		"2025-12-17T17:00-06:00",
 	}
 	var parsedTime time.Time
 	for _, l := range rfcLayouts {
 		parsedTime, err = time.Parse(l, isoFormat)
 		if err == nil {
-			// Normalize to UTC and return
-			utcTime := parsedTime.UTC()
-			return utcTime.Format("2006-01-02T15:04:05"), nil
+			return parsedTime.Format("2006-01-02T15:04:05"), nil
 		}
 	}
 
