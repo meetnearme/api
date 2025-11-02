@@ -1,17 +1,33 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 )
+
+// mockScraper implements ScrapingService for tests
+type mockScraper struct {
+	html        string
+	htmlRetries string
+}
+
+func (m *mockScraper) GetHTMLFromURL(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string) (string, error) {
+	return m.html, nil
+}
+func (m *mockScraper) GetHTMLFromURLWithRetries(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string, retries int, validate ContentValidationFunc) (string, error) {
+	return m.htmlRetries, nil
+}
 
 func TestGetHTMLFromURL(t *testing.T) {
 	testCases := []struct {
@@ -371,6 +387,80 @@ func TestGetHTMLFromURLWithBase_DefaultsRetryToOne(t *testing.T) {
 	if got := atomic.LoadInt32(&attemptCount); got != 1 {
 		t.Fatalf("Expected one attempt when maxRetries is zero, got %d", got)
 	}
+}
+
+// New: verify in SCRAPE mode, non-Facebook uses OpenAI, Facebook does not.
+func TestExtractEventsFromHTML_ScrapeMode(t *testing.T) {
+
+	// OpenAI mock that counts calls
+	makeAI := func(resp string) (base string, cleanup func(), calls *int32) {
+		var c int32
+		host := test_helpers.GetNextPort()
+		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&c, 1)
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(ChatCompletionResponse{
+				ID: "mock", Object: "chat.completion", Created: time.Now().Unix(), Model: "gpt-4o-mini",
+				Choices: []Choice{{Index: 0, Message: Message{Role: "assistant", Content: resp}, FinishReason: "stop"}},
+				Usage:   Usage{PromptTokens: 1, CompletionTokens: 1, TotalTokens: 2},
+			})
+		}))
+		l, err := test_helpers.BindToPort(t, host)
+		if err != nil {
+			t.Fatalf("bind AI: %v", err)
+		}
+		srv.Listener = l
+		srv.Start()
+		return srv.URL, func() { srv.Close() }, &c
+	}
+
+	t.Run("Random URL uses OpenAI in ONBOARD", func(t *testing.T) {
+		aiURL, aiClose, aiCalls := makeAI(`[{"event_title":"Title","event_location":"Loc","event_start_time":"2025-01-01T10:00:00Z","event_end_time":"2025-01-01T12:00:00Z","event_url":"https://x.com"}]`)
+		defer aiClose()
+		prevAI, prevKey := os.Getenv("OPENAI_API_BASE_URL"), os.Getenv("OPENAI_API_KEY")
+		os.Setenv("OPENAI_API_BASE_URL", aiURL)
+		os.Setenv("OPENAI_API_KEY", "k")
+		defer func() { os.Setenv("OPENAI_API_BASE_URL", prevAI); os.Setenv("OPENAI_API_KEY", prevKey) }()
+
+		ms := &mockScraper{html: "<html><body>hello</body></html>"}
+		job := types.SeshuJob{NormalizedUrlKey: "https://example.com/page"}
+		evs, _, err := ExtractEventsFromHTML(job, constants.SESHU_MODE_ONBOARD, "init", ms)
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if atomic.LoadInt32(aiCalls) == 0 {
+			t.Fatalf("expected OpenAI to be called")
+		}
+		if len(evs) == 0 {
+			t.Fatalf("expected some events from OpenAI path")
+		}
+	})
+
+	t.Run("Facebook URL avoids OpenAI", func(t *testing.T) {
+		// FB single-line JSON in required script tag
+		fbJSON := `{"__bbox":{"result":{"data":{"event":{"__typename":"Event","name":"FB","url":"https://www.facebook.com/events/1","day_time_sentence":"2025-01-01T10:00:00Z"}}}}}`
+		html := `<html><head><meta property="og:url" content="https://www.facebook.com/events/1"></head><body><script data-sjs data-content-len="4096">` + fbJSON + `</script></body></html>`
+		ms := &mockScraper{htmlRetries: html}
+		// AI mock should not be hit
+		aiURL, aiClose, aiCalls := makeAI("[]")
+		defer aiClose()
+		prevAI, prevKey := os.Getenv("OPENAI_API_BASE_URL"), os.Getenv("OPENAI_API_KEY")
+		os.Setenv("OPENAI_API_BASE_URL", aiURL)
+		os.Setenv("OPENAI_API_KEY", "k")
+		defer func() { os.Setenv("OPENAI_API_BASE_URL", prevAI); os.Setenv("OPENAI_API_KEY", prevKey) }()
+
+		job := types.SeshuJob{NormalizedUrlKey: "https://www.facebook.com/events/1"}
+		evs, _, err := ExtractEventsFromHTML(job, constants.SESHU_MODE_SCRAPE, "init", ms)
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if atomic.LoadInt32(aiCalls) != 0 {
+			t.Fatalf("expected no OpenAI calls for FB, got %d", atomic.LoadInt32(aiCalls))
+		}
+		if len(evs) == 0 {
+			t.Fatalf("expected events for FB path")
+		}
+	})
 }
 
 func TestDeriveTimezoneFromCoordinates(t *testing.T) {

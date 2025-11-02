@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
@@ -40,6 +41,51 @@ func TestGetSeshuSession(t *testing.T) {
 	}
 	if result.Status != "draft" {
 		t.Errorf("Expected status 'draft', got '%s'", result.Status)
+	}
+}
+
+func TestGetSeshuSessionAppliesDefaults(t *testing.T) {
+	mockDB := &test_helpers.MockDynamoDBClient{
+		GetItemFunc: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{
+				Item: map[string]types.AttributeValue{
+					"url":               &types.AttributeValueMemberS{Value: "https://defaults.com"},
+					"status":            &types.AttributeValueMemberS{Value: "draft"},
+					"locationLatitude":  &types.AttributeValueMemberN{Value: "0"},
+					"locationLongitude": &types.AttributeValueMemberN{Value: "0"},
+				},
+			}, nil
+		},
+	}
+
+	ctx := context.Background()
+	seshuPayload := internal_types.SeshuSessionGet{Url: "https://defaults.com"}
+
+	result, err := GetSeshuSession(ctx, mockDB, seshuPayload)
+
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatalf("Expected non-nil result")
+	}
+	if result.LocationLatitude != constants.INITIAL_EMPTY_LAT_LONG {
+		t.Fatalf("Expected latitude to default to %v, got %v", constants.INITIAL_EMPTY_LAT_LONG, result.LocationLatitude)
+	}
+	if result.LocationLongitude != constants.INITIAL_EMPTY_LAT_LONG {
+		t.Fatalf("Expected longitude to default to %v, got %v", constants.INITIAL_EMPTY_LAT_LONG, result.LocationLongitude)
+	}
+	if result.EventCandidates == nil {
+		t.Fatalf("Expected event candidates to be initialized, got nil")
+	}
+	if len(result.EventCandidates) != 0 {
+		t.Fatalf("Expected event candidates to be empty, got %d", len(result.EventCandidates))
+	}
+	if result.EventValidations == nil {
+		t.Fatalf("Expected event validations to be initialized, got nil")
+	}
+	if len(result.EventValidations) != 0 {
+		t.Fatalf("Expected event validations to be empty, got %d", len(result.EventValidations))
 	}
 }
 
