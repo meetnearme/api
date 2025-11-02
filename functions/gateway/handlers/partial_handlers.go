@@ -200,6 +200,74 @@ func GetProfileInterestsPartial(w http.ResponseWriter, r *http.Request) http.Han
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
+func GetSubscriptionsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+
+	// Get user info from context
+	userInfo, ok := ctx.Value("userInfo").(constants.UserInfo)
+	if !ok || userInfo.Sub == "" {
+		return transport.SendHtmlErrorPartial([]byte("Unauthorized: Missing user ID"), http.StatusUnauthorized)
+	}
+
+	zitadelUserID := userInfo.Sub
+
+	// Find Stripe customer using Zitadel user ID
+	subscriptionService := services.NewStripeSubscriptionService()
+	stripeCustomer, err := subscriptionService.SearchCustomerByExternalID(zitadelUserID)
+	if err != nil {
+		log.Printf("Error searching for Stripe customer: %v", err)
+		// If customer doesn't exist, return empty subscriptions list
+		subscriptionsPartial := pages.AdminSubscriptionsPartial([]*internal_types.CustomerSubscription{}, []*internal_types.CustomerSubscription{})
+		var buf bytes.Buffer
+		renderErr := subscriptionsPartial.Render(ctx, &buf)
+		if renderErr != nil {
+			return transport.SendHtmlRes(w, []byte(renderErr.Error()), http.StatusInternalServerError, "partial", renderErr)
+		}
+		return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+	}
+
+	// Check if customer was found (SearchCustomerByExternalID returns nil, nil when not found)
+	if stripeCustomer == nil {
+		// Customer doesn't exist, return empty subscriptions list
+		subscriptionsPartial := pages.AdminSubscriptionsPartial([]*internal_types.CustomerSubscription{}, []*internal_types.CustomerSubscription{})
+		var buf bytes.Buffer
+		renderErr := subscriptionsPartial.Render(ctx, &buf)
+		if renderErr != nil {
+			return transport.SendHtmlRes(w, []byte(renderErr.Error()), http.StatusInternalServerError, "partial", renderErr)
+		}
+		return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+	}
+
+	// Fetch subscriptions using Stripe customer ID
+	subscriptions, err := subscriptionService.GetCustomerSubscriptions(stripeCustomer.ID)
+	if err != nil {
+		log.Printf("Error fetching subscriptions: %v", err)
+		return transport.SendHtmlErrorPartial([]byte("Failed to fetch subscriptions: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	// Group subscriptions by status (active first)
+	var activeSubscriptions []*internal_types.CustomerSubscription
+	var otherSubscriptions []*internal_types.CustomerSubscription
+
+	for _, sub := range subscriptions {
+		if sub.IsActive() {
+			activeSubscriptions = append(activeSubscriptions, sub)
+		} else {
+			otherSubscriptions = append(otherSubscriptions, sub)
+		}
+	}
+
+	subscriptionsPartial := pages.AdminSubscriptionsPartial(activeSubscriptions, otherSubscriptions)
+
+	var buf bytes.Buffer
+	err = subscriptionsPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
 func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 

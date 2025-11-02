@@ -16,7 +16,7 @@ templ ProfileInterestsPage(interests []string, ctx context.Context) {
 }
 
 templ ProfileInterestsPartial(interests []string) {
-	<h2 class="text-3xl font-bold ">My Interests</h2>
+	<h2 class="text-3xl font-bold ">Interests</h2>
 	<div id="update-interests-result" class="margins-when-children my-8"></div>
 	<form hx-post="/api/auth/users/update-interests" hx-target="#update-interests-result" hx-swap="outerHTML">
 		@components.NestedCheckboxList(false, interests)

@@ -2339,6 +2339,7 @@ func TestCreateSubscriptionCheckoutSession(t *testing.T) {
 	tests := []struct {
 		name               string
 		userInfo           constants.UserInfo
+		roleClaims         []constants.RoleClaim
 		subscriptionPlanID string
 		expectedRedirect   string
 		expectedStatus     int
@@ -2350,6 +2351,7 @@ func TestCreateSubscriptionCheckoutSession(t *testing.T) {
 			userInfo: constants.UserInfo{
 				Sub: "",
 			},
+			roleClaims:         []constants.RoleClaim{},
 			subscriptionPlanID: "price_growth_test",
 			expectedRedirect:   "",
 			expectedStatus:     http.StatusUnauthorized,
@@ -2361,6 +2363,7 @@ func TestCreateSubscriptionCheckoutSession(t *testing.T) {
 				Email: "test@example.com",
 				Name:  "Test User",
 			},
+			roleClaims:         []constants.RoleClaim{},
 			subscriptionPlanID: "",
 			expectedRedirect:   "https://test.example.com/pricing?error=checkout_failed",
 			expectedStatus:     http.StatusSeeOther,
@@ -2372,8 +2375,51 @@ func TestCreateSubscriptionCheckoutSession(t *testing.T) {
 				Email: "test@example.com",
 				Name:  "Test User",
 			},
+			roleClaims:         []constants.RoleClaim{},
 			subscriptionPlanID: "invalid_plan",
 			expectedRedirect:   "https://test.example.com/pricing?error=checkout_failed",
+			expectedStatus:     http.StatusSeeOther,
+		},
+		{
+			name: "Already Subscribed - User with Seed subscription tries to checkout Seed",
+			userInfo: constants.UserInfo{
+				Sub:   "user_seed",
+				Email: "seed@example.com",
+				Name:  "Seed User",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: constants.Roles[constants.SubSeed]},
+			},
+			subscriptionPlanID: "price_seed_test",
+			expectedRedirect:   "https://test.example.com/pricing?error=already_subscribed",
+			expectedStatus:     http.StatusSeeOther,
+		},
+		{
+			name: "Already Subscribed - User with Growth subscription tries to checkout Growth",
+			userInfo: constants.UserInfo{
+				Sub:   "user_growth",
+				Email: "growth@example.com",
+				Name:  "Growth User",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: constants.Roles[constants.SubGrowth]},
+			},
+			subscriptionPlanID: "price_growth_test",
+			expectedRedirect:   "https://test.example.com/pricing?error=already_subscribed",
+			expectedStatus:     http.StatusSeeOther,
+		},
+		{
+			name: "Already Subscribed - User with Growth subscription tries to checkout Seed (Growth includes Seed)",
+			userInfo: constants.UserInfo{
+				Sub:   "user_growth_seed",
+				Email: "growth@example.com",
+				Name:  "Growth User",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: constants.Roles[constants.SubGrowth]},
+			},
+			subscriptionPlanID: "price_seed_test",
+			expectedRedirect:   "https://test.example.com/pricing?error=already_subscribed",
 			expectedStatus:     http.StatusSeeOther,
 		},
 	}
@@ -2387,10 +2433,13 @@ func TestCreateSubscriptionCheckoutSession(t *testing.T) {
 			}
 			req := httptest.NewRequest("GET", url, nil)
 
-			// Add user info to context
+			// Add user info and role claims to context
 			ctx := req.Context()
 			if tt.userInfo.Sub != "" {
 				ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			}
+			if len(tt.roleClaims) > 0 {
+				ctx = context.WithValue(ctx, "roleClaims", tt.roleClaims)
 			}
 			req = req.WithContext(ctx)
 
