@@ -29,7 +29,7 @@ func getCurrentTime() time.Time {
 func ParseMaybeMultiDayEvent(input string) (string, error) {
 	cleanedDateStr := cleanDateString(input)
 
-	// Step 2: Try dateparse first
+	// Try dateparse first
 	startDt, err := dateparse.ParseAny(cleanedDateStr)
 	if err == nil {
 		year, month, day := startDt.Date()
@@ -42,6 +42,8 @@ func ParseMaybeMultiDayEvent(input string) (string, error) {
 			}
 
 			isoFormat := dt.ISOFormat()
+
+			// Check if fuzzytime returned year 0 and handle it directly
 			if strings.Contains(isoFormat, "0000") {
 				now := getCurrentTime()
 				currentYear := now.Year()
@@ -76,9 +78,10 @@ func ParseMaybeMultiDayEvent(input string) (string, error) {
 		}
 	}
 
-	// Step 3: Patch year for fuzzytime
+	// Patch year for fuzzytime
 	patchedDateStr := addNextFutureYear(cleanedDateStr)
 
+	// Try fuzzytime with the patched string
 	dt, _, err := fuzzytime.Extract(patchedDateStr)
 	if err != nil || dt.Empty() {
 		return "", fmt.Errorf("both dateparse and fuzzytime failed to parse: %s", input)
@@ -112,7 +115,7 @@ func ParseMaybeMultiDayEvent(input string) (string, error) {
 		return testDate.Format("2006-01-02T15:04:05"), nil
 	}
 
-	// Step 6: Convert fuzzytime result. First try RFC3339-like layouts (with timezone offsets)
+	// Convert fuzzytime result. First try RFC3339-like layouts (with timezone offsets)
 	// because fuzzytime may include a timezone offset like "-05:00" or a trailing Z.
 	rfcLayouts := []string{
 		time.RFC3339,             // "2006-01-02T15:04:05Z07:00"
@@ -146,6 +149,7 @@ func ParseMaybeMultiDayEvent(input string) (string, error) {
 		return "", fmt.Errorf("failed to parse fuzzytime result as time: %s", isoFormat)
 	}
 
+	// Extract time components and reconstruct as UTC (ignoring timezone)
 	year, month, day := parsedTime.Date()
 	hour, min, sec := parsedTime.Clock()
 	utcTime := time.Date(year, month, day, hour, min, sec, 0, time.UTC)

@@ -151,6 +151,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     NATS_SESHU_STREAM_NAME: 'SESHU_JOBS_STREAM',
     NATS_SESHU_STREAM_SUBJECT: 'seshu.jobs.queue',
     NATS_SESHU_STREAM_DURABLE_NAME: 'seshu-consume',
+    POSTGRES_MIGRATIONS_DIR: '/go-app/migrations',
   };
 
   if (stage === 'prod') {
