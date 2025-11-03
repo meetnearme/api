@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -61,6 +62,10 @@ type SetMnmOptionsRequestPayload struct {
 
 type UpdateUserAboutRequestPayload struct {
 	About string `json:"about" validate:"required"`
+}
+
+type UpdateUserEmailStatusRequestPayload struct {
+	Status string `json:"status" validate:"required"`
 }
 
 type eventSearchResult struct {
@@ -1218,6 +1223,41 @@ func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	var buf bytes.Buffer
 	successPartial := partials.SuccessBannerHTML(`About section successfully saved`)
+
+	err = successPartial.Render(r.Context(), &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func UpdateUserEmailStatus(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	var inputPayload UpdateUserEmailStatusRequestPayload
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+	}
+	err = json.Unmarshal([]byte(body), &inputPayload)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusInternalServerError)
+	}
+	ctx := r.Context()
+
+	userInfo := ctx.Value("userInfo").(constants.UserInfo)
+	userID := userInfo.Sub
+	err = helpers.UpdateUserMetadataKey(userID, constants.META_EMAIL_STATUS_KEY, inputPayload.Status)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to update 'email status': "+err.Error()), http.StatusInternalServerError)
+	}
+
+	var buf bytes.Buffer
+	successPartial := partials.SuccessBannerHTML(`Email status successfully saved`)
+
+	status, _ := helpers.GetUserMetadataByKey(userID, constants.META_EMAIL_STATUS_KEY)
+	statusStr, _ := base64.StdEncoding.DecodeString(status)
+	log.Printf("Email status successfully saved: %s", statusStr)
 
 	err = successPartial.Render(r.Context(), &buf)
 	if err != nil {

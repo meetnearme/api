@@ -111,6 +111,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/auth/users/update-mnm-options{trailingslash:\\/?}", "POST", handlers.SetMnmOptions, Require},
 		{"/api/auth/users/update-interests{trailingslash:\\/?}", "POST", handlers.UpdateUserInterests, Require},
 		{"/api/auth/users/update-about{trailingslash:\\/?}", "POST", handlers.UpdateUserAbout, Require},
+		{"/api/auth/users/update-email-status{trailingslash:\\/?}", "POST", handlers.UpdateUserEmailStatus, Require},
 		{"/api/auth/check-role{trailingslash:\\/?}", "GET", handlers.CheckRole, Require},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
