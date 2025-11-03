@@ -551,7 +551,7 @@ func TestDeleteSeshuJob_DBError(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
 	}
-	if !strings.Contains(bodyStr, "Failed to delete job") {
+	if !strings.Contains(bodyStr, "Failed to delete event source URL") {
 		t.Errorf("expected DB error message, got: %s", bodyStr)
 	}
 }
@@ -612,8 +612,12 @@ func TestDeleteSeshuJob_JobNotFound(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
 	}
-	if !strings.Contains(bodyStr, "Failed to find Seshu job") {
-		t.Errorf("expected 'Failed to find Seshu job' message, got: %s", bodyStr)
+	if !strings.Contains(bodyStr, "Event source URL not found") {
+		t.Errorf("expected 'Event source URL not found' message, got: %s", bodyStr)
+	}
+	// Verify the ID is not exposed in the error message
+	if strings.Contains(bodyStr, targetUrl) {
+		t.Errorf("expected ID to not be exposed in error message, but found: %s", targetUrl)
 	}
 }
 
@@ -645,8 +649,15 @@ func TestDeleteSeshuJob_GetSeshuJobsError(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
 	}
-	if !strings.Contains(bodyStr, "Failed to find Seshu job") {
-		t.Errorf("expected 'Failed to find Seshu job' message, got: %s", bodyStr)
+	if !strings.Contains(bodyStr, "Internal server error") {
+		t.Errorf("expected 'Internal server error' message, got: %s", bodyStr)
+	}
+	// Verify the ID and error details are not exposed in the error message
+	if strings.Contains(bodyStr, targetUrl) {
+		t.Errorf("expected ID to not be exposed in error message, but found: %s", targetUrl)
+	}
+	if strings.Contains(bodyStr, "failed to get jobs") {
+		t.Errorf("expected error details to not be exposed in error message")
 	}
 }
 
@@ -686,8 +697,8 @@ func TestDeleteSeshuJob_Unauthorized(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
 	}
-	if !strings.Contains(bodyStr, "You are not the owner of this job") {
-		t.Errorf("expected 'You are not the owner of this job' message, got: %s", bodyStr)
+	if !strings.Contains(bodyStr, "You are not the owner of this event source URL") {
+		t.Errorf("expected 'You are not the owner of this event source URL' message, got: %s", bodyStr)
 	}
 }
 

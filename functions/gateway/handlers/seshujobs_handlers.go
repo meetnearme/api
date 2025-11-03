@@ -147,20 +147,27 @@ func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 	ctxWithTargetUrl := context.WithValue(ctx, "targetUrl", id)
 	job, err := db.GetSeshuJobs(ctxWithTargetUrl)
-	if err != nil || len(job) == 0 {
-		return transport.SendHtmlErrorPartial([]byte("Failed to find Seshu job: "+id), http.StatusInternalServerError)
+	if err != nil {
+		// Log the error server-side with details (including the id)
+		log.Printf("Failed to retrieve event source URL with id %s: %v", id, err)
+		// Return generic error message to client without exposing the id or error details
+		return transport.SendHtmlErrorPartial([]byte("Internal server error"), http.StatusInternalServerError)
+	}
+	if len(job) == 0 {
+		// Job not found - return 404 with generic message
+		return transport.SendHtmlErrorPartial([]byte("Event source URL not found"), http.StatusNotFound)
 	}
 
 	// only super admins can delete jobs that are not owned by them
 	if !isSuperAdmin && job[0].OwnerID != userId {
-		return transport.SendHtmlErrorPartial([]byte("You are not the owner of this job"), http.StatusForbidden)
+		return transport.SendHtmlErrorPartial([]byte("You are not the owner of this event source URL"), http.StatusForbidden)
 	}
 
 	err = db.DeleteSeshuJob(ctx, id)
 	if err != nil {
 		// NOTE: this should never leak error messages as they can be leveraged to know the underlying
 		// database schema / structure
-		return transport.SendHtmlErrorPartial([]byte("Failed to delete job "+id), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial([]byte("Failed to delete event source URL: "+id), http.StatusInternalServerError)
 	}
 
 	successPartial := partials.SuccessBannerHTML("Job deleted successfully")
