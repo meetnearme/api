@@ -158,7 +158,9 @@ func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	err = db.DeleteSeshuJob(ctx, id)
 	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to delete job: "+err.Error()), http.StatusInternalServerError)
+		// NOTE: this should never leak error messages as they can be leveraged to know the underlying
+		// database schema / structure
+		return transport.SendHtmlErrorPartial([]byte("Failed to delete job "+id), http.StatusInternalServerError)
 	}
 
 	successPartial := partials.SuccessBannerHTML("Job deleted successfully")
@@ -166,7 +168,7 @@ func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	err = successPartial.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to render template: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial([]byte("Failed to render html template"), http.StatusInternalServerError)
 	}
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
