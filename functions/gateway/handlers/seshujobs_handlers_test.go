@@ -5,82 +5,74 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/go-playground/validator"
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers"
+	"github.com/meetnearme/api/functions/gateway/interfaces"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-type contextKey string
-
-const (
-	PostgresKey contextKey = "postgresService"
-	NatsKey     contextKey = "natsService"
-)
-
-type PostgresService interface {
-	GetSeshuJobs(ctx context.Context) ([]internal_types.SeshuJob, error)
-	CreateSeshuJob(ctx context.Context, job internal_types.SeshuJob) error
-	UpdateSeshuJob(ctx context.Context, job internal_types.SeshuJob) error
-	DeleteSeshuJob(ctx context.Context, id string) error
-	ScanSeshuJobsWithInHour(ctx context.Context, hour int) ([]internal_types.SeshuJob, error)
-}
-
-type NatsService interface {
-	PeekTopOfQueue(ctx context.Context) (*jetstream.RawStreamMsg, error)
-	PublishMsg(ctx context.Context, job interface{}) error
-}
+// --- Mock Services ---
 
 type MockPostgresService struct {
-	GetJobsFunc   func(ctx context.Context) ([]internal_types.SeshuJob, error)
-	CreateJobFunc func(ctx context.Context, job internal_types.SeshuJob) error
-	UpdateJobFunc func(ctx context.Context, job internal_types.SeshuJob) error
-	DeleteJobFunc func(ctx context.Context, id string) error
-	ScanJobsFunc  func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error)
+	GetSeshuJobsFunc       func(ctx context.Context) ([]internal_types.SeshuJob, error)
+	CreateJobFunc          func(ctx context.Context, job internal_types.SeshuJob) error
+	UpdateJobFunc          func(ctx context.Context, job internal_types.SeshuJob) error
+	DeleteJobFunc          func(ctx context.Context, id string) error
+	ScanJobsWithInHourFunc func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error)
 }
 
 func (m *MockPostgresService) GetSeshuJobs(ctx context.Context) ([]internal_types.SeshuJob, error) {
-	if m == nil || m.GetJobsFunc == nil {
-		return nil, nil
+	if m.GetSeshuJobsFunc != nil {
+		return m.GetSeshuJobsFunc(ctx)
 	}
-	return m.GetJobsFunc(ctx)
+	return []internal_types.SeshuJob{}, nil
 }
+
 func (m *MockPostgresService) CreateSeshuJob(ctx context.Context, job internal_types.SeshuJob) error {
-	if m == nil || m.CreateJobFunc == nil {
-		return nil
+	if m.CreateJobFunc != nil {
+		return m.CreateJobFunc(ctx, job)
 	}
-	return m.CreateJobFunc(ctx, job)
+	return nil
 }
+
 func (m *MockPostgresService) UpdateSeshuJob(ctx context.Context, job internal_types.SeshuJob) error {
-	if m == nil || m.UpdateJobFunc == nil {
-		return nil
+	if m.UpdateJobFunc != nil {
+		return m.UpdateJobFunc(ctx, job)
 	}
-	return m.UpdateJobFunc(ctx, job)
+	return nil
 }
+
 func (m *MockPostgresService) DeleteSeshuJob(ctx context.Context, id string) error {
-	if m == nil || m.DeleteJobFunc == nil {
-		return nil
+	if m.DeleteJobFunc != nil {
+		return m.DeleteJobFunc(ctx, id)
 	}
-	return m.DeleteJobFunc(ctx, id)
+	return nil
 }
+
 func (m *MockPostgresService) ScanSeshuJobsWithInHour(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
-	if m == nil || m.ScanJobsFunc == nil {
-		return nil, nil
+	if m.ScanJobsWithInHourFunc != nil {
+		return m.ScanJobsWithInHourFunc(ctx, hour)
 	}
-	return m.ScanJobsFunc(ctx, hour)
+	return nil, nil
 }
 
 func (m *MockPostgresService) Close() error {
 	return nil
 }
+
+// Ensure it satisfies the PostgresServiceInterface
+var _ interfaces.PostgresServiceInterface = (*MockPostgresService)(nil)
 
 type MockNatsService struct {
 	PeekTopFunc func(ctx context.Context) (*jetstream.RawStreamMsg, error)
@@ -90,17 +82,17 @@ type MockNatsService struct {
 }
 
 func (m *MockNatsService) PeekTopOfQueue(ctx context.Context) (*jetstream.RawStreamMsg, error) {
-	if m.PeekTopFunc == nil {
-		return nil, nil
+	if m.PeekTopFunc != nil {
+		return m.PeekTopFunc(ctx)
 	}
-	return m.PeekTopFunc(ctx)
+	return nil, nil
 }
 
 func (m *MockNatsService) PublishMsg(ctx context.Context, job interface{}) error {
-	if m.PublishFunc == nil {
-		return nil
+	if m.PublishFunc != nil {
+		return m.PublishFunc(ctx, job)
 	}
-	return m.PublishFunc(ctx, job)
+	return nil
 }
 
 func (m *MockNatsService) ConsumeMsg(ctx context.Context, workers int) error {
@@ -109,7 +101,6 @@ func (m *MockNatsService) ConsumeMsg(ctx context.Context, workers int) error {
 	}
 	return m.ConsumeFunc(ctx, workers)
 }
-
 func (m *MockNatsService) Close() error {
 	if m.CloseFunc == nil {
 		return nil
@@ -117,730 +108,949 @@ func (m *MockNatsService) Close() error {
 	return m.CloseFunc()
 }
 
-// --- Inject Mock Services into Context ---
-
-func injectMockServices(db PostgresService, nats NatsService) context.Context {
+func setupMockServices(pg *MockPostgresService, nats *MockNatsService) context.Context {
 	ctx := context.Background()
-	if db != nil {
-		ctx = context.WithValue(ctx, PostgresKey, db)
-	}
-	if nats != nil {
-		ctx = context.WithValue(ctx, NatsKey, nats)
-	}
+	ctx = context.WithValue(ctx, "mockPostgresService", pg)
+	ctx = context.WithValue(ctx, "mockNatsService", nats)
 	return ctx
 }
 
 // --- Tests ---
-
-func newAPIGatewayContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			RequestID: "test-request-id",
-		},
-		PathParameters: map[string]string{},
-	})
-}
-
-func TestGetSeshuJobs(t *testing.T) {
-	mockDB := &MockPostgresService{
-		GetJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
-			return []internal_types.SeshuJob{{NormalizedUrlKey: "test-key"}}, nil
-		},
-	}
-	req := httptest.NewRequest(http.MethodGet, "/api/seshujob", nil)
-
-	// Inject mock service via context
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-
-	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			RequestID: "test-request-id",
-		},
-		PathParameters: map[string]string{},
-	})
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.GetSeshuJobs(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Errorf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-}
-
-func TestGetSeshuJobs_DBError(t *testing.T) {
-	mockDB := &MockPostgresService{
-		GetJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
-			return nil, errors.New("db failure")
-		},
-	}
-	req := httptest.NewRequest(http.MethodGet, "/api/seshujob", nil)
-
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.GetSeshuJobs(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-
-	body := w.Body.String()
-	if !strings.Contains(body, "Failed to retrieve jobs") {
-		t.Errorf("Expected error message in response, got %s", body)
-	}
-}
-
-func TestCreateSeshuJob(t *testing.T) {
-	job := internal_types.SeshuJob{
-		NormalizedUrlKey:         "event-123",
-		LocationLatitude:         1.3521,
-		LocationLongitude:        103.8198,
-		LocationAddress:          "Singapore",
-		ScheduledHour:            15,
-		TargetNameCSSPath:        ".event-title",
-		TargetLocationCSSPath:    ".event-location",
-		TargetStartTimeCSSPath:   ".event-start",
-		TargetEndTimeCSSPath:     ".event-end",
-		TargetDescriptionCSSPath: ".event-desc",
-		TargetHrefCSSPath:        "a.event-link",
-		Status:                   "HEALTHY",
-		LastScrapeSuccess:        time.Now().Unix(),
-		LastScrapeFailure:        0,
-		LastScrapeFailureCount:   0,
-		OwnerID:                  "owner-456",
-		KnownScrapeSource:        "MEETUP",
-	}
-
-	body, _ := json.Marshal(job)
-
-	mockDB := &MockPostgresService{
-		CreateJobFunc: func(ctx context.Context, job internal_types.SeshuJob) error {
-			return nil
-		},
-	}
-
-	req := httptest.NewRequest(http.MethodPost, "/api/seshujob", bytes.NewReader(body))
-
-	// Inject mock service via context
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-
-	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			RequestID: "test-request-id",
-		},
-		PathParameters: map[string]string{},
-	})
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.CreateSeshuJob(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusCreated {
-		t.Errorf("Expected 201 Created, got %d", w.Result().StatusCode)
-	}
-}
-
-func TestCreateSeshuJob_DBError(t *testing.T) {
-	job := internal_types.SeshuJob{
-		NormalizedUrlKey:         "event-123",
-		LocationLatitude:         1.3521,
-		LocationLongitude:        103.8198,
-		LocationAddress:          "Singapore",
-		ScheduledHour:            15,
-		TargetNameCSSPath:        ".event-title",
-		TargetLocationCSSPath:    ".event-location",
-		TargetStartTimeCSSPath:   ".event-start",
-		TargetEndTimeCSSPath:     ".event-end",
-		TargetDescriptionCSSPath: ".event-desc",
-		TargetHrefCSSPath:        "a.event-link",
-		Status:                   "HEALTHY",
-		LastScrapeSuccess:        time.Now().Unix(),
-		LastScrapeFailure:        0,
-		LastScrapeFailureCount:   0,
-		OwnerID:                  "owner-456",
-		KnownScrapeSource:        "MEETUP",
-	}
-
-	body, _ := json.Marshal(job)
-
-	mockDB := &MockPostgresService{
-		CreateJobFunc: func(ctx context.Context, job internal_types.SeshuJob) error {
-			return errors.New("mock DB error")
-		},
-	}
-
-	req := httptest.NewRequest(http.MethodPost, "/api/seshujob", bytes.NewReader(body))
-
-	// Inject mock service via context
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-
-	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			RequestID: "test-request-id",
-		},
-		PathParameters: map[string]string{},
-	})
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.CreateSeshuJob(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Errorf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-
-	// Check that the response contains the error message
-	responseBody := w.Body.String()
-	if !strings.Contains(responseBody, "Failed to insert job") {
-		t.Errorf("Expected response to contain 'Failed to insert job', got %s", responseBody)
-	}
-}
-
-func TestCreateSeshuJob_InvalidJSON(t *testing.T) {
-	mockDB := &MockPostgresService{}
-	req := httptest.NewRequest(http.MethodPost, "/api/seshujob", bytes.NewBufferString("not-json"))
-
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.CreateSeshuJob(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-
-	if !strings.Contains(w.Body.String(), "Invalid JSON payload") {
-		t.Errorf("Expected invalid JSON error, got %s", w.Body.String())
-	}
-}
-
-func TestCreateSeshuJob_DuplicateKey(t *testing.T) {
-	job := internal_types.SeshuJob{
-		NormalizedUrlKey: "event-duplicate",
-	}
-	body, _ := json.Marshal(job)
-
-	mockDB := &MockPostgresService{
-		CreateJobFunc: func(ctx context.Context, job internal_types.SeshuJob) error {
-			return errors.New("duplicate key value violates unique constraint \"seshujobs_pkey\"")
-		},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/api/seshujob", bytes.NewReader(body))
-
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.CreateSeshuJob(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-
-	if !strings.Contains(w.Body.String(), "That URL is already owned by another user") {
-		t.Errorf("Expected duplicate key error message, got %s", w.Body.String())
-	}
-}
-func TestUpdateSeshuJob(t *testing.T) {
-	job := internal_types.SeshuJob{
-		NormalizedUrlKey:         "event-456",
-		LocationLatitude:         1.3,
-		LocationLongitude:        103.8,
-		LocationAddress:          "Singapore Update",
-		ScheduledHour:            10,
-		TargetNameCSSPath:        ".name",
-		TargetLocationCSSPath:    ".location",
-		TargetStartTimeCSSPath:   ".start",
-		TargetEndTimeCSSPath:     ".end",
-		TargetDescriptionCSSPath: ".desc",
-		TargetHrefCSSPath:        ".link",
-		Status:                   "HEALTHY",
-		LastScrapeSuccess:        time.Now().Unix(),
-		LastScrapeFailure:        0,
-		LastScrapeFailureCount:   0,
-		OwnerID:                  "owner-update",
-		KnownScrapeSource:        "EVENTBRITE",
-	}
-
-	body, _ := json.Marshal(job)
-
-	mockDB := &MockPostgresService{
-		UpdateJobFunc: func(ctx context.Context, job internal_types.SeshuJob) error {
-			return nil
-		},
-	}
-
-	req := httptest.NewRequest(http.MethodPut, "/api/seshujob", bytes.NewReader(body))
-
-	// Inject mock service via context
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-
-	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			RequestID: "test-request-id",
-		},
-		PathParameters: map[string]string{},
-	})
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.UpdateSeshuJob(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Errorf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-}
-
-func TestUpdateSeshuJob_InvalidJSON(t *testing.T) {
-	mockDB := &MockPostgresService{}
-	req := httptest.NewRequest(http.MethodPut, "/api/seshujob", bytes.NewBufferString("oops"))
-
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.UpdateSeshuJob(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-
-	if !strings.Contains(w.Body.String(), "Invalid JSON payload") {
-		t.Errorf("Expected invalid JSON message, got %s", w.Body.String())
-	}
-}
-
-func TestUpdateSeshuJob_DBError(t *testing.T) {
-	job := internal_types.SeshuJob{NormalizedUrlKey: "event-update"}
-	body, _ := json.Marshal(job)
-
-	mockDB := &MockPostgresService{
-		UpdateJobFunc: func(ctx context.Context, job internal_types.SeshuJob) error {
-			return errors.New("update failed")
-		},
-	}
-	req := httptest.NewRequest(http.MethodPut, "/api/seshujob", bytes.NewReader(body))
-
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.UpdateSeshuJob(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-
-	if !strings.Contains(w.Body.String(), "Failed to update job") {
-		t.Errorf("Expected update failure message, got %s", w.Body.String())
-	}
-}
-
-func TestDeleteSeshuJob(t *testing.T) {
-	mockDB := &MockPostgresService{
-		DeleteJobFunc: func(ctx context.Context, id string) error {
-			if id != "abc123" {
-				t.Errorf("Unexpected ID: %s", id)
-			}
-			return nil
-		},
-	}
-	req := httptest.NewRequest(http.MethodDelete, "/api/seshujob?id=abc123", nil)
-
-	// Inject mock service via context
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-
-	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			RequestID: "test-request-id",
-		},
-		PathParameters: map[string]string{},
-	})
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.DeleteSeshuJob(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Errorf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-}
-
-func TestDeleteSeshuJob_MissingID(t *testing.T) {
-	mockDB := &MockPostgresService{}
-	req := httptest.NewRequest(http.MethodDelete, "/api/seshujob", nil)
-
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.DeleteSeshuJob(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-
-	body := w.Body.String()
-	if !strings.Contains(body, "Missing 'id' query parameter") && !strings.Contains(body, "Missing &#39;id&#39; query parameter") {
-		t.Errorf("Expected missing id error, got %s", body)
-	}
-}
-
-func TestDeleteSeshuJob_DBError(t *testing.T) {
-	mockDB := &MockPostgresService{
-		DeleteJobFunc: func(ctx context.Context, id string) error {
-			return errors.New("delete broke")
-		},
-	}
-	req := httptest.NewRequest(http.MethodDelete, "/api/seshujob?id=abc123", nil)
-
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.DeleteSeshuJob(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-
-	if !strings.Contains(w.Body.String(), "Failed to delete job") {
-		t.Errorf("Expected delete failure message, got %s", w.Body.String())
-	}
-}
-
-func TestGatherSeshuJobsHandler(t *testing.T) {
-	// Reset global state to avoid interference from other tests
-	originalLastExecutionTime := handlers.GetLastExecutionTime()
-	defer handlers.SetLastExecutionTime(originalLastExecutionTime)
-	handlers.SetLastExecutionTime(0) // Reset to 0 for this test
-
-	mockDB := &MockPostgresService{
-		ScanJobsFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+func TestGetSeshuJobs_Success(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	// Mock implementation for GetSeshuJobs
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
 			return []internal_types.SeshuJob{
 				{
-					NormalizedUrlKey:         "event-gather",
-					LocationLatitude:         1.3,
-					LocationLongitude:        103.8,
-					LocationAddress:          "SG",
-					ScheduledHour:            hour,
-					TargetNameCSSPath:        ".name",
-					TargetLocationCSSPath:    ".loc",
-					TargetStartTimeCSSPath:   ".start",
-					TargetEndTimeCSSPath:     ".end",
-					TargetDescriptionCSSPath: ".desc",
-					TargetHrefCSSPath:        ".href",
-					Status:                   "HEALTHY",
-					LastScrapeSuccess:        time.Now().Unix(),
-					LastScrapeFailure:        0,
-					LastScrapeFailureCount:   0,
-					OwnerID:                  "owner-gather",
-					KnownScrapeSource:        "MEETUP",
+					NormalizedUrlKey: "test-key",
+					Status:           "active",
+					OwnerID:          "user123",
 				},
 			}, nil
 		},
 	}
-	mockNats := &MockNatsService{
-		PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
-			return nil, nil
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+
+	req := httptest.NewRequest(http.MethodGet, "/seshu-jobs", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.GetSeshuJobs(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyString := string(bodyBytes)
+
+	t.Logf("Response Body:\n%s", bodyString)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	if !strings.Contains(bodyString, "test-key") {
+		t.Errorf("expected response body to contain job key 'test-key'")
+	}
+}
+
+func TestGetSeshuJobs_DBError(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return nil, errors.New("DB connection failed")
 		},
-		PublishFunc: func(ctx context.Context, job interface{}) error {
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	req := httptest.NewRequest(http.MethodGet, "/seshu-jobs", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.GetSeshuJobs(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyString := string(bodyBytes)
+
+	t.Logf("Error Response Body:\n%s", bodyString)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected http 200 for partial error handler, got %d", resp.StatusCode)
+	}
+
+	if !strings.Contains(bodyString, "Failed to retrieve jobs") {
+		t.Errorf("expected error message in response body, got: %s", bodyString)
+	}
+}
+
+func TestGetSeshuJobs_EmptyList(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return []internal_types.SeshuJob{}, nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	req := httptest.NewRequest(http.MethodGet, "/seshu-jobs", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.GetSeshuJobs(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyString := string(bodyBytes)
+
+	t.Logf("Empty Response Body:\n%s", bodyString)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	// No jobs, so it shouldn't contain any "Key:" lines
+	if strings.Contains(bodyString, "<strong>Key:</strong>") {
+		t.Errorf("expected no job HTML cards, but found one")
+	}
+}
+
+func TestCreateSeshuJob_Success(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	mockService := &MockPostgresService{
+		CreateJobFunc: func(ctx context.Context, job internal_types.SeshuJob) error {
+			if job.NormalizedUrlKey != "new-key" {
+				t.Errorf("expected NormalizedUrlKey=new-key, got %s", job.NormalizedUrlKey)
+			}
 			return nil
 		},
 	}
 
-	trigger := handlers.TriggerRequest{Time: time.Now().Unix()}
-	body, _ := json.Marshal(trigger)
+	payload := internal_types.SeshuJob{
+		NormalizedUrlKey: "new-key",
+		Status:           "active",
+		OwnerID:          "user123",
+	}
+	body, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/gather-seshu-jobs", bytes.NewReader(body))
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	req := httptest.NewRequest(http.MethodPost, "/seshu-jobs", bytes.NewReader(body)).WithContext(ctx)
+	w := httptest.NewRecorder()
 
-	// Inject mock services via context
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = context.WithValue(ctx, "mockNatsService", mockNats)
+	handler := handlers.CreateSeshuJob(w, req)
+	handler(w, req)
 
-	// Add AWS Lambda context (required for transport layer)
-	ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			RequestID: "test-request-id",
+	resp := w.Result()
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	bodyStr := string(b)
+
+	t.Logf("Response: %s", bodyStr)
+
+	// ✅ Expect 201, not 200
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Job created successfully") {
+		t.Errorf("expected success message, got: %s", bodyStr)
+	}
+}
+
+func TestCreateSeshuJob_InvalidJSON(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	mockService := &MockPostgresService{}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	req := httptest.NewRequest(http.MethodPost, "/seshu-jobs", strings.NewReader("{invalid-json")).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.CreateSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	bodyStr := string(b)
+
+	t.Logf("Response: %s", bodyStr)
+
+	// ✅ The handler returns 200 OK even for errors
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (error wrapped in HTML), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Invalid JSON payload") {
+		t.Errorf("expected 'Invalid JSON payload' in response body")
+	}
+}
+
+func TestCreateSeshuJob_DBError(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	mockService := &MockPostgresService{
+		CreateJobFunc: func(ctx context.Context, job internal_types.SeshuJob) error {
+			return errors.New("DB insert failed")
 		},
-		PathParameters: map[string]string{},
+	}
+
+	payload := internal_types.SeshuJob{
+		NormalizedUrlKey: "fail-key",
+		Status:           "inactive",
+		OwnerID:          "user456",
+	}
+	body, _ := json.Marshal(payload)
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	req := httptest.NewRequest(http.MethodPost, "/seshu-jobs", bytes.NewReader(body)).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.CreateSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	bodyStr := string(b)
+
+	t.Logf("DB Error Response: %s", bodyStr)
+
+	// ✅ The handler uses 200 OK even on failure
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Failed to insert job") {
+		t.Errorf("expected DB error message, got: %s", bodyStr)
+	}
+}
+
+func TestUpdateSeshuJob_Success(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	mockService := &MockPostgresService{
+		UpdateJobFunc: func(ctx context.Context, job internal_types.SeshuJob) error {
+			if job.NormalizedUrlKey != "update-key" {
+				t.Errorf("expected NormalizedUrlKey=update-key, got %s", job.NormalizedUrlKey)
+			}
+			return nil
+		},
+	}
+
+	payload := internal_types.SeshuJob{
+		NormalizedUrlKey: "update-key",
+		Status:           "done",
+	}
+	body, _ := json.Marshal(payload)
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	req := httptest.NewRequest(http.MethodPut, "/seshu-jobs/update", bytes.NewReader(body)).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.UpdateSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	bodyStr := string(b)
+
+	t.Logf("Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Job updated successfully") {
+		t.Errorf("expected success message, got: %s", bodyStr)
+	}
+}
+
+func TestUpdateSeshuJob_InvalidJSON(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	mockService := &MockPostgresService{}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	req := httptest.NewRequest(http.MethodPut, "/seshu-jobs/update", strings.NewReader("{invalid-json")).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.UpdateSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	bodyStr := string(b)
+
+	t.Logf("Invalid JSON Response: %s", bodyStr)
+
+	// Handler likely returns 200 with HTML error
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Invalid JSON payload") {
+		t.Errorf("expected 'Invalid JSON payload' in response, got: %s", bodyStr)
+	}
+}
+
+func TestUpdateSeshuJob_DBError(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	mockService := &MockPostgresService{
+		UpdateJobFunc: func(ctx context.Context, job internal_types.SeshuJob) error {
+			return errors.New("update failed")
+		},
+	}
+
+	payload := internal_types.SeshuJob{
+		NormalizedUrlKey: "fail-key",
+		Status:           "error",
+	}
+	body, _ := json.Marshal(payload)
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	req := httptest.NewRequest(http.MethodPut, "/seshu-jobs/update", bytes.NewReader(body)).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.UpdateSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	bodyStr := string(b)
+
+	t.Logf("DB Error Response: %s", bodyStr)
+
+	// Handler likely returns 200 even on failure
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Failed to update job") {
+		t.Errorf("expected DB error message, got: %s", bodyStr)
+	}
+}
+
+func TestDeleteSeshuJob_Success(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	userId := "user123"
+	targetUrl := "https://example.com/events"
+	mockJob := internal_types.SeshuJob{
+		NormalizedUrlKey: targetUrl,
+		OwnerID:          userId,
+	}
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			// Verify that targetUrl is in the context
+			ctxTargetUrl, ok := ctx.Value("targetUrl").(string)
+			if !ok || ctxTargetUrl != targetUrl {
+				t.Errorf("expected targetUrl=%s in context, got %v", targetUrl, ctxTargetUrl)
+			}
+			return []internal_types.SeshuJob{mockJob}, nil
+		},
+		DeleteJobFunc: func(ctx context.Context, id string) error {
+			if id != targetUrl {
+				t.Errorf("expected ID=%s, got %s", targetUrl, id)
+			}
+			return nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: userId})
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Job deleted successfully") {
+		t.Errorf("expected success message, got: %s", bodyStr)
+	}
+}
+
+func TestDeleteSeshuJob_InvalidID(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	mockService := &MockPostgresService{}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: "user123"})
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Invalid ID Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Missing &#39;id&#39; query parameter") {
+		t.Errorf("expected 'Missing &#39;id&#39; query parameter' message, got: %s", bodyStr)
+	}
+}
+
+func TestDeleteSeshuJob_DBError(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	userId := "user123"
+	targetUrl := "https://example.com/events/456"
+	mockJob := internal_types.SeshuJob{
+		NormalizedUrlKey: targetUrl,
+		OwnerID:          userId,
+	}
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return []internal_types.SeshuJob{mockJob}, nil
+		},
+		DeleteJobFunc: func(ctx context.Context, id string) error {
+			return errors.New("delete failed")
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: userId})
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("DB Error Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Failed to delete event source URL") {
+		t.Errorf("expected DB error message, got: %s", bodyStr)
+	}
+}
+
+func TestDeleteSeshuJob_MissingUserID(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	mockService := &MockPostgresService{}
+
+	targetUrl := "https://example.com/events/123"
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Missing User ID Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Missing user ID") {
+		t.Errorf("expected 'Missing user ID' message, got: %s", bodyStr)
+	}
+}
+
+func TestDeleteSeshuJob_JobNotFound(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	targetUrl := "https://example.com/events/999"
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return []internal_types.SeshuJob{}, nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: "user123"})
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Job Not Found Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Event source URL not found") {
+		t.Errorf("expected 'Event source URL not found' message, got: %s", bodyStr)
+	}
+	// Verify the ID is not exposed in the error message
+	if strings.Contains(bodyStr, targetUrl) {
+		t.Errorf("expected ID to not be exposed in error message, but found: %s", targetUrl)
+	}
+}
+
+func TestDeleteSeshuJob_GetSeshuJobsError(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	targetUrl := "https://example.com/events/999"
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return nil, errors.New("failed to get jobs")
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: "user123"})
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Get Jobs Error Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Internal server error") {
+		t.Errorf("expected 'Internal server error' message, got: %s", bodyStr)
+	}
+	// Verify the ID and error details are not exposed in the error message
+	if strings.Contains(bodyStr, targetUrl) {
+		t.Errorf("expected ID to not be exposed in error message, but found: %s", targetUrl)
+	}
+	if strings.Contains(bodyStr, "failed to get jobs") {
+		t.Errorf("expected error details to not be exposed in error message")
+	}
+}
+
+func TestDeleteSeshuJob_Unauthorized(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	userId := "user123"
+	otherUserId := "other-user"
+	targetUrl := "https://example.com/events/456"
+	mockJob := internal_types.SeshuJob{
+		NormalizedUrlKey: targetUrl,
+		OwnerID:          otherUserId, // Different owner
+	}
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return []internal_types.SeshuJob{mockJob}, nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: userId})
+	ctx = context.WithValue(ctx, "roleClaims", []constants.RoleClaim{}) // No super admin role
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Unauthorized Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "You are not the owner of this event source URL") {
+		t.Errorf("expected 'You are not the owner of this event source URL' message, got: %s", bodyStr)
+	}
+}
+
+func TestDeleteSeshuJob_SuperAdmin(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	userId := "super-admin-user"
+	otherUserId := "other-user"
+	targetUrl := "https://example.com/events/789"
+	mockJob := internal_types.SeshuJob{
+		NormalizedUrlKey: targetUrl,
+		OwnerID:          otherUserId, // Different owner, but super admin can delete
+	}
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return []internal_types.SeshuJob{mockJob}, nil
+		},
+		DeleteJobFunc: func(ctx context.Context, id string) error {
+			if id != targetUrl {
+				t.Errorf("expected ID=%s, got %s", targetUrl, id)
+			}
+			return nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: userId})
+	ctx = context.WithValue(ctx, "roleClaims", []constants.RoleClaim{
+		{Role: constants.Roles[constants.SuperAdmin]},
 	})
-	req = req.WithContext(ctx)
-
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	handler := handlers.GatherSeshuJobsHandler(w, req)
-	handler.ServeHTTP(w, req)
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
 
-	if w.Result().StatusCode != http.StatusOK {
-		t.Errorf("Expected 200 OK, got %d", w.Result().StatusCode)
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Super Admin Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Job deleted successfully") {
+		t.Errorf("expected success message, got: %s", bodyStr)
 	}
 }
 
-func TestGatherSeshuJobsHandler_InvalidJSON(t *testing.T) {
-	mockDB := &MockPostgresService{}
-	mockNats := &MockNatsService{}
-
-	req := httptest.NewRequest(http.MethodPost, "/api/gather-seshu-jobs", bytes.NewBufferString("{"))
-
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = context.WithValue(ctx, "mockNatsService", mockNats)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.GatherSeshuJobsHandler(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
+func TestProcessGatherSeshuJobs_Success_EmptyQueue(t *testing.T) {
+	mockPg := &MockPostgresService{
+		ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+			return []internal_types.SeshuJob{
+				{NormalizedUrlKey: "job1", ScheduledHour: hour},
+				{NormalizedUrlKey: "job2", ScheduledHour: hour},
+			}, nil
+		},
 	}
 
-	if !strings.Contains(w.Body.String(), "Invalid JSON payload") {
-		t.Errorf("Expected invalid JSON error, got %s", w.Body.String())
-	}
-}
-
-func TestGatherSeshuJobsHandler_PeekError(t *testing.T) {
-	mockDB := &MockPostgresService{}
 	mockNats := &MockNatsService{
 		PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
-			return nil, errors.New("peek failed")
+			return nil, nil // empty queue
 		},
-	}
-
-	trigger := handlers.TriggerRequest{Time: time.Now().Unix()}
-	body, _ := json.Marshal(trigger)
-	req := httptest.NewRequest(http.MethodPost, "/api/gather-seshu-jobs", bytes.NewReader(body))
-
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = context.WithValue(ctx, "mockNatsService", mockNats)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.GatherSeshuJobsHandler(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-
-	if !strings.Contains(w.Body.String(), "Failed to get top of NATS queue") {
-		t.Errorf("Expected peek error message, got %s", w.Body.String())
-	}
-}
-
-func TestGatherSeshuJobsHandler_ScanError(t *testing.T) {
-	originalLastExecutionTime := handlers.GetLastExecutionTime()
-	defer handlers.SetLastExecutionTime(originalLastExecutionTime)
-	handlers.SetLastExecutionTime(0)
-
-	mockDB := &MockPostgresService{
-		ScanJobsFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
-			return nil, errors.New("scan blew up")
-		},
-	}
-	mockNats := &MockNatsService{}
-
-	trigger := handlers.TriggerRequest{Time: time.Unix(0, 0).Add(2 * time.Hour).Unix()}
-	body, _ := json.Marshal(trigger)
-	req := httptest.NewRequest(http.MethodPost, "/api/gather-seshu-jobs", bytes.NewReader(body))
-
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = context.WithValue(ctx, "mockNatsService", mockNats)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.GatherSeshuJobsHandler(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-
-	if !strings.Contains(w.Body.String(), "Unable to obtain Jobs") {
-		t.Errorf("Expected scan error message, got %s", w.Body.String())
-	}
-}
-
-func TestGatherSeshuJobsHandler_SkipDueToRecentExecution(t *testing.T) {
-	originalLastExecutionTime := handlers.GetLastExecutionTime()
-	defer handlers.SetLastExecutionTime(originalLastExecutionTime)
-
-	currentTime := time.Now().Unix()
-	handlers.SetLastExecutionTime(currentTime - 30)
-
-	var scanCalled bool
-	mockDB := &MockPostgresService{
-		ScanJobsFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
-			scanCalled = true
-			return nil, nil
-		},
-	}
-	var publishCalled bool
-	mockNats := &MockNatsService{
 		PublishFunc: func(ctx context.Context, job interface{}) error {
-			publishCalled = true
+			// Assert that job is the correct type
+			if _, ok := job.(internal_types.SeshuJob); !ok {
+				t.Errorf("expected SeshuJob type, got %T", job)
+			}
 			return nil
 		},
 	}
 
-	trigger := handlers.TriggerRequest{Time: currentTime}
-	body, _ := json.Marshal(trigger)
-	req := httptest.NewRequest(http.MethodPost, "/api/gather-seshu-jobs", bytes.NewReader(body))
+	ctx := setupMockServices(mockPg, mockNats)
+	trigger := time.Now().Unix()
 
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = context.WithValue(ctx, "mockNatsService", mockNats)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.GatherSeshuJobsHandler(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
+	count, skip, status, err := handlers.ProcessGatherSeshuJobs(ctx, trigger)
+	if err != nil || status != http.StatusOK {
+		t.Fatalf("expected success, got status %d err %v", status, err)
 	}
-
-	if w.Body.Len() != 0 {
-		t.Errorf("Expected empty body for skipped execution, got %s", w.Body.String())
-	}
-
-	if scanCalled {
-		t.Errorf("Scan should not be called when skipping execution")
-	}
-
-	if publishCalled {
-		t.Errorf("Publish should not be called when skipping execution")
+	if count != 2 || skip {
+		t.Errorf("expected count=2 skip=false, got count=%d skip=%v", count, skip)
 	}
 }
 
-func TestGatherSeshuJobsHandler_InvalidQueuePayload(t *testing.T) {
-	originalLastExecutionTime := handlers.GetLastExecutionTime()
-	defer handlers.SetLastExecutionTime(originalLastExecutionTime)
-	handlers.SetLastExecutionTime(0)
-
-	mockDB := &MockPostgresService{}
-	mockNats := &MockNatsService{
-		PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
-			return &jetstream.RawStreamMsg{Data: []byte("not-json")}, nil
-		},
-	}
-
-	trigger := handlers.TriggerRequest{Time: time.Now().Add(time.Hour).Unix()}
-	body, _ := json.Marshal(trigger)
-	req := httptest.NewRequest(http.MethodPost, "/api/gather-seshu-jobs", bytes.NewReader(body))
-
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = context.WithValue(ctx, "mockNatsService", mockNats)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-
-	handler := handlers.GatherSeshuJobsHandler(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
-	}
-
-	if !strings.Contains(w.Body.String(), "Invalid JSON payload") {
-		t.Errorf("Expected invalid queue payload message, got %s", w.Body.String())
-	}
-}
-
-func TestGatherSeshuJobsHandler_PublishError(t *testing.T) {
-	originalLastExecutionTime := handlers.GetLastExecutionTime()
-	defer handlers.SetLastExecutionTime(originalLastExecutionTime)
+func TestProcessGatherSeshuJobs_PublishFailure(t *testing.T) {
 	handlers.SetLastExecutionTime(0)
 
 	mockDB := &MockPostgresService{
-		ScanJobsFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
-			return []internal_types.SeshuJob{{NormalizedUrlKey: "event1"}}, nil
+		ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+			return []internal_types.SeshuJob{{NormalizedUrlKey: "job1"}}, nil
 		},
 	}
-	publishAttempts := 0
 	mockNats := &MockNatsService{
+		PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+			return nil, nil
+		},
 		PublishFunc: func(ctx context.Context, job interface{}) error {
-			publishAttempts++
-			return errors.New("publish fail")
+			return errors.New("failed to publish")
 		},
 	}
 
-	trigger := handlers.TriggerRequest{Time: time.Now().Add(time.Hour).Unix()}
-	body, _ := json.Marshal(trigger)
-	req := httptest.NewRequest(http.MethodPost, "/api/gather-seshu-jobs", bytes.NewReader(body))
+	ctx := setupMockServices(mockDB, mockNats)
 
-	ctx := context.WithValue(req.Context(), "mockPostgresService", mockDB)
-	ctx = context.WithValue(ctx, "mockNatsService", mockNats)
-	ctx = newAPIGatewayContext(ctx)
-	req = req.WithContext(ctx)
+	published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, time.Now().Unix())
 
-	w := httptest.NewRecorder()
-
-	handler := handlers.GatherSeshuJobsHandler(w, req)
-	handler.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("Expected 200 OK, got %d", w.Result().StatusCode)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
 	}
-
-	if publishAttempts != 1 {
-		t.Fatalf("Expected publish attempt once, got %d", publishAttempts)
+	if published != 0 {
+		t.Errorf("Expected 0 published, got %d", published)
 	}
-
-	if !strings.Contains(w.Body.String(), "successful") {
-		t.Errorf("Expected successful response despite publish errors, got %s", w.Body.String())
+	if skipped {
+		t.Errorf("Expected skipped=false, got true")
+	}
+	if status != http.StatusOK {
+		t.Errorf("Expected 200 OK, got %d", status)
 	}
 }
 
-// TestSeshuJobScheduledHourValidation tests the validation bounds for ScheduledHour field
+func TestProcessGatherSeshuJobs_SkipDueToCooldown(t *testing.T) {
+	now := time.Now().Unix()
+	handlers.SetLastExecutionTime(now)
+
+	published, skipped, status, err := handlers.ProcessGatherSeshuJobs(context.Background(), now)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !skipped {
+		t.Errorf("expected skipped=true")
+	}
+	if status != http.StatusOK {
+		t.Errorf("expected status 200")
+	}
+	if published != 0 {
+		t.Errorf("expected 0 published")
+	}
+}
+
+// Additional coverage for ProcessGatherSeshuJobs edge cases and error paths
+func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	// Use a fixed trigger time to make Hour deterministic (UTC noon)
+	fixedTrigger := int64(12 * 3600) // 12:00:00 UTC on epoch day
+	currentHour := 12
+
+	t.Run("NonEmptyQueue_CurrentHour_NoScan_NoPublish", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+
+		// Head of queue is for the current hour, so we should not scan DB
+		head := internal_types.SeshuJob{NormalizedUrlKey: "queued-job", ScheduledHour: currentHour}
+		headBytes, _ := json.Marshal(head)
+
+		mockPg := &MockPostgresService{ // if called, fail the test
+			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+				t.Fatalf("ScanSeshuJobsWithInHour should NOT be called when queue head is current hour")
+				return nil, nil
+			},
+		}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+				return &jetstream.RawStreamMsg{Data: headBytes}, nil
+			},
+			PublishFunc: func(ctx context.Context, job interface{}) error {
+				t.Fatalf("PublishMsg should NOT be called when no scan occurs")
+				return nil
+			},
+		}
+
+		ctx := setupMockServices(mockPg, mockNats)
+		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err != nil || status != http.StatusOK {
+			t.Fatalf("expected OK with no publish, got status=%d err=%v", status, err)
+		}
+		if skipped {
+			t.Errorf("did not expect skipped due to cooldown")
+		}
+		if published != 0 {
+			t.Errorf("expected 0 published, got %d", published)
+		}
+	})
+
+	t.Run("NonEmptyQueue_OlderHour_ScansAndPublishes", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+
+		head := internal_types.SeshuJob{NormalizedUrlKey: "old-queued-job", ScheduledHour: currentHour - 1}
+		headBytes, _ := json.Marshal(head)
+
+		jobs := []internal_types.SeshuJob{{NormalizedUrlKey: "jobA"}, {NormalizedUrlKey: "jobB"}}
+		publishCount := 0
+
+		mockPg := &MockPostgresService{
+			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+				if hour != currentHour {
+					t.Errorf("expected scan hour=%d, got %d", currentHour, hour)
+				}
+				return jobs, nil
+			},
+		}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+				return &jetstream.RawStreamMsg{Data: headBytes}, nil
+			},
+			PublishFunc: func(ctx context.Context, job interface{}) error {
+				publishCount++
+				return nil
+			},
+		}
+
+		ctx := setupMockServices(mockPg, mockNats)
+		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err != nil || status != http.StatusOK {
+			t.Fatalf("expected OK, got status=%d err=%v", status, err)
+		}
+		if skipped {
+			t.Errorf("did not expect skipped")
+		}
+		if published != len(jobs) || publishCount != len(jobs) {
+			t.Errorf("expected %d published, got %d (publishCount=%d)", len(jobs), published, publishCount)
+		}
+	})
+
+	t.Run("PeekTopOfQueue_Error", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+		mockPg := &MockPostgresService{}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+				return nil, errors.New("peek error")
+			},
+		}
+		ctx := setupMockServices(mockPg, mockNats)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err == nil || status != http.StatusBadRequest {
+			t.Fatalf("expected 400 with error, got status=%d err=%v", status, err)
+		}
+	})
+
+	t.Run("TopOfQueue_InvalidJSON", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+		mockPg := &MockPostgresService{}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+				return &jetstream.RawStreamMsg{Data: []byte("{bad json}")}, nil
+			},
+		}
+		ctx := setupMockServices(mockPg, mockNats)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err == nil || status != http.StatusBadRequest {
+			t.Fatalf("expected 400 for invalid JSON, got status=%d err=%v", status, err)
+		}
+	})
+
+	t.Run("ScanError_EmptyQueue", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+		mockPg := &MockPostgresService{
+			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+				return nil, errors.New("scan error")
+			},
+		}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) { return nil, nil },
+		}
+		ctx := setupMockServices(mockPg, mockNats)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err == nil || status != http.StatusBadRequest {
+			t.Fatalf("expected 400 for scan error, got status=%d err=%v", status, err)
+		}
+	})
+
+	t.Run("ScanError_WithOlderQueueHead", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+		head := internal_types.SeshuJob{NormalizedUrlKey: "old", ScheduledHour: currentHour - 1}
+		headBytes, _ := json.Marshal(head)
+		mockPg := &MockPostgresService{
+			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+				return nil, errors.New("scan error")
+			},
+		}
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
+				return &jetstream.RawStreamMsg{Data: headBytes}, nil
+			},
+		}
+		ctx := setupMockServices(mockPg, mockNats)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err == nil || status != http.StatusBadRequest {
+			t.Fatalf("expected 400 for scan error with older head, got status=%d err=%v", status, err)
+		}
+	})
+
+	t.Run("PartialPublishFailures_CountOnlySuccesses", func(t *testing.T) {
+		handlers.SetLastExecutionTime(0)
+		jobs := []internal_types.SeshuJob{{NormalizedUrlKey: "ok"}, {NormalizedUrlKey: "fail"}}
+		mockPg := &MockPostgresService{
+			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
+				return jobs, nil
+			},
+		}
+		publishCalls := 0
+		mockNats := &MockNatsService{
+			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) { return nil, nil },
+			PublishFunc: func(ctx context.Context, job interface{}) error {
+				publishCalls++
+				j := job.(internal_types.SeshuJob)
+				if j.NormalizedUrlKey == "fail" {
+					return errors.New("nats publish failed")
+				}
+				return nil
+			},
+		}
+		ctx := setupMockServices(mockPg, mockNats)
+		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err != nil || status != http.StatusOK {
+			t.Fatalf("expected OK despite partial failures, got status=%d err=%v", status, err)
+		}
+		if skipped {
+			t.Errorf("did not expect skipped")
+		}
+		if published != 1 || publishCalls != 2 {
+			t.Errorf("expected published=1, calls=2; got published=%d calls=%d", published, publishCalls)
+		}
+	})
+
+	t.Run("LastExecutionTime_UpdatesOnlyWhenNotSkipped", func(t *testing.T) {
+		// Ensure update on non-skipped path
+		handlers.SetLastExecutionTime(0)
+		mockPg := &MockPostgresService{}
+		mockNats := &MockNatsService{}
+		ctx := setupMockServices(mockPg, mockNats)
+		_, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		if err != nil || status != http.StatusOK || skipped {
+			t.Fatalf("unexpected result err=%v status=%d skipped=%v", err, status, skipped)
+		}
+		if handlers.GetLastExecutionTime() != fixedTrigger {
+			t.Errorf("expected lastExecutionTime=%d, got %d", fixedTrigger, handlers.GetLastExecutionTime())
+		}
+
+		// Cooldown path should NOT update lastExecutionTime
+		later := fixedTrigger + 30 // within 60s
+		_, skipped2, status2, err2 := handlers.ProcessGatherSeshuJobs(ctx, later)
+		if err2 != nil || status2 != http.StatusOK || !skipped2 {
+			t.Fatalf("expected cooldown skip, got err=%v status=%d skipped=%v", err2, status2, skipped2)
+		}
+		if handlers.GetLastExecutionTime() != fixedTrigger {
+			t.Errorf("expected lastExecutionTime unchanged=%d, got %d", fixedTrigger, handlers.GetLastExecutionTime())
+		}
+	})
+}
+
 func TestSeshuJobScheduledHourValidation(t *testing.T) {
 	// Create a new validator instance for testing
 	validate := validator.New()

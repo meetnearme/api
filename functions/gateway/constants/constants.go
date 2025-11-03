@@ -120,8 +120,18 @@ const (
 	STRIPE_WEBHOOK_EVENT_CUSTOMER_UPDATED                             = "customer.updated"
 )
 
+// Stripe customer portal flow types for deep linking
+// These are used to create portal sessions that deep link to specific subscription actions
+// See: https://docs.stripe.com/customer-management/portal-deep-links
+const (
+	STRIPE_PORTAL_FLOW_PAYMENT_METHOD_UPDATE       = "payment_method_update"
+	STRIPE_PORTAL_FLOW_SUBSCRIPTION_CANCEL         = "subscription_cancel"
+	STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE         = "subscription_update"
+	STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE_CONFIRM = "subscription_update_confirm"
+)
+
 // Customer portal configuration
-var CUSTOMER_PORTAL_RETURN_URL_PATH = os.Getenv("APEX_URL") + "/admin/home"
+var CUSTOMER_PORTAL_RETURN_URL_PATH = os.Getenv("APEX_URL") + "/admin"
 
 const ROLE_NOT_FOUND_MESSAGE = "Role not found"
 const ROLE_ACTIVE_MESSAGE = "Role is active"
@@ -263,9 +273,8 @@ var SitePages = map[string]SitePage{
 	// solution is from this github comment (see discussion as well) https://github.com/gorilla/mux/issues/30#issuecomment-1666428538
 	"home":               {Key: "home", Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
 	"about":              {Key: "about", Slug: "/about{trailingslash:\\/?}", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
-	"admin":              {Key: "admin", Slug: "/admin/home{trailingslash:\\/?}", Name: "Admin", SubnavItems: []string{SubnavItems[NvMain]}},
+	"admin":              {Key: "admin", Slug: "/admin{trailingslash:\\/?}{path:.*}", Name: "Admin", SubnavItems: []string{SubnavItems[NvMain]}},
 	"add-event-source":   {Key: "add-event-source", Slug: "/admin/add-event-source{trailingslash:\\/?}", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
-	"settings":           {Key: "settings", Slug: "/admin/profile/settings{trailingslash:\\/?}", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
 	"map-embed":          {Key: "map-embed", Slug: "/map-embed{trailingslash:\\/?}", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
 	"user":               {Key: "user", Slug: "/user/{" + USER_ID_KEY + "}{trailingslash:\\/?}", Name: "User", SubnavItems: []string{SubnavItems[NvMain]}},
 	"event-detail":       {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}{trailingslash:\\/?}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},

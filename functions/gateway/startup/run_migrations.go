@@ -34,11 +34,11 @@ func InitMigrations() error {
 	// Migration directory
 	migrationsDir := os.Getenv("POSTGRES_MIGRATIONS_DIR")
 
-	fmt.Println("Starting database migrations...")
+	fmt.Println("Starting database migrations, running from dir: ", migrationsDir)
 
 	// Check if migrations directory exists
 	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
-		fmt.Printf("No migrations directory found at %s\n", migrationsDir)
+		fmt.Errorf("migrations directory does not exist: %s (set POSTGRES_MIGRATIONS_DIR to the correct path)", migrationsDir)
 		return nil // Not an error, just no migrations to run
 	}
 

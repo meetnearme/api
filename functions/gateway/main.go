@@ -4,7 +4,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -70,8 +69,6 @@ func (app *App) InitRoutes() []Route {
 		{constants.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
 		{constants.SitePages["user"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
 		{constants.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
-		{constants.SitePages["admin"].Slug, "GET", handlers.GetAdminPage, Require},
-		{constants.SitePages["settings"].Slug, "GET", handlers.GetProfileSettingsPage, Require},
 		{constants.SitePages["add-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
 		{constants.SitePages["edit-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
 		{constants.SitePages["attendees-event"].Slug, "GET", handlers.GetEventAttendeesPage, Require},
@@ -91,6 +88,9 @@ func (app *App) InitRoutes() []Route {
 		{constants.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 		{constants.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 
+		// NOTE: ⚠️⚠️⚠️⚠️ we use a catch-all route for `admin` here but it needs to come LAST
+		// moving this higher will break admin sub-routes that are not handled by this catch-all route
+		{constants.SitePages["admin"].Slug, "GET", handlers.GetAdminPage, Require},
 		// API routes
 
 		// == START == need to expose these via permanent key for headless clients
@@ -125,6 +125,8 @@ func (app *App) InitRoutes() []Route {
 		{"/api/html/seshu/session/location{trailingslash:\\/?}", "PUT", handlers.GeoThenPatchSeshuSession, Require},
 		{"/api/html/seshu/session/events{trailingslash:\\/?}", "PUT", handlers.SubmitSeshuEvents, Require},
 		{"/api/html/competition-config/owner/{" + constants.USER_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigsHtmlByPrimaryOwnerHandler, None},
+		{"/api/html/profile-interests{trailingslash:\\/?}", "GET", handlers.GetProfileInterestsPartial, Require},
+		{"/api/html/subscriptions{trailingslash:\\/?}", "GET", handlers.GetSubscriptionsPartial, Require},
 
 		// // Purchasables routes
 		{"/api/purchasables/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, Require},   // Create a new purchasable
@@ -180,6 +182,9 @@ func (app *App) InitRoutes() []Route {
 		{"/api/checkout/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
 		{"/api/checkout-subscription{trailingslash:\\/?}", "GET", handlers.CreateSubscriptionCheckoutSessionHandler, Check},
 
+		// Customer Portal
+		{"/api/customer-portal/session{trailingslash:\\/?}", "POST", handlers.CreateCustomerPortalSessionHandler, Require},
+
 		// Webhooks
 		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
 		{"/api/webhook/subscription", "POST", handlers.HandleSubscriptionWebhookHandler, None},
@@ -192,8 +197,8 @@ func (app *App) InitRoutes() []Route {
 		// DISABLED to prevent abuse
 		// {"/api/seshujob", "POST", handlers.CreateSeshuJob, Require},
 		// {"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, Require},
-		// {"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, Require},
-		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
+		{"/api/seshujob{trailingslash:\\/?}", "DELETE", handlers.DeleteSeshuJob, Require},
+		// {"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
 
 		// Re-share
 		{"/api/data/re-share", "POST", handlers.PostReShareHandler, Require},
@@ -651,31 +656,29 @@ func startSeshuLoop(ctx context.Context) {
 
 			// helpers.MarkSeshuLoopAlive()
 
-			payload := map[string]interface{}{
-				"time": lastUpdate,
-			}
-			jsonData, _ := json.Marshal(payload)
-
-			resp, err := http.Post("http://localhost:"+constants.GO_ACT_SERVER_PORT+"/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
+			count, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, lastUpdate)
 			if err != nil {
-				log.Printf("[ERROR] Failed to send request: %v", err)
+				log.Printf("[ERROR] Failed to process gather seshu jobs: %v", err)
 				continue
 			}
-			defer resp.Body.Close()
 
-			var body bytes.Buffer
-			body.ReadFrom(resp.Body)
-
-			if bytes.Contains(body.Bytes(), []byte("successful")) {
-				log.Println("[INFO] Job triggered successfully.")
-				log.Printf("[INFO] counter: %d", seshulooptimecount)
-				seshulooptimecount++
-				if seshulooptimecount >= maxseshuloopcount { // limit write frequency
-					overwriteTimestamp("last_update.txt", lastUpdate)
-					seshulooptimecount = 0
-				}
+			if skipped {
+				lastUpdate = time.Now().UTC().Unix()
+				log.Printf("[INFO] Skipped gathering seshu jobs; updated last update timestamp to %d", lastUpdate)
+				continue
 			}
 
+			if status != http.StatusOK {
+				log.Printf("[WARN] Unexpected status code: %d", status)
+				continue
+			}
+
+			log.Printf("[INFO] Successfully gathered %d seshu jobs", count)
+			seshulooptimecount++
+			if seshulooptimecount >= maxseshuloopcount { // limit write frequency
+				overwriteTimestamp("last_update.txt", lastUpdate)
+				seshulooptimecount = 0
+			}
 			lastUpdate = time.Now().UTC().Unix()
 		}
 	}

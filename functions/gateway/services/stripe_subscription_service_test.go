@@ -577,3 +577,215 @@ func TestStripeSubscriptionService_GetCustomerSubscriptions(t *testing.T) {
 	}
 
 }
+
+func TestStripeSubscriptionService_CreateCustomerPortalSession(t *testing.T) {
+	// Save original environment variables
+	originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
+	defer func() {
+		os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
+	}()
+
+	// Set up logging transport for debugging
+	originalTransport := http.DefaultTransport
+	defer func() {
+		http.DefaultTransport = originalTransport
+	}()
+	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
+
+	// Create mock Stripe server
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("🎯 MOCK STRIPE HIT: %s %s", r.Method, r.URL.Path)
+
+		switch r.URL.Path {
+		case "/v1/billing_portal/sessions":
+			t.Logf("   └─ Handling billing portal session creation")
+			if r.Method != "POST" {
+				t.Errorf("expected method POST for /v1/billing_portal/sessions, got %s", r.Method)
+			}
+
+			// Parse form data to check parameters
+			r.ParseForm()
+			customerID := r.Form.Get("customer")
+			returnURL := r.Form.Get("return_url")
+			flowType := r.Form.Get("flow_data[type]")
+			subscriptionID := r.Form.Get("flow_data[subscription_update][subscription]")
+			if subscriptionID == "" {
+				subscriptionID = r.Form.Get("flow_data[subscription_cancel][subscription]")
+			}
+
+			if customerID == "" {
+				t.Error("expected customer parameter")
+			}
+
+			// Mock portal session response
+			mockSessionResponse := map[string]interface{}{
+				"id":  "bps_test_session_123",
+				"url": "https://billing.stripe.com/p/session/test_session_123",
+			}
+
+			responseBytes, _ := json.Marshal(mockSessionResponse)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+
+			t.Logf("   └─ Created portal session: customer=%s, return_url=%s, flow_type=%s, subscription=%s",
+				customerID, returnURL, flowType, subscriptionID)
+
+		default:
+			t.Logf("   └─ ⚠️  UNHANDLED STRIPE PATH: %s", r.URL.Path)
+			t.Errorf("mock Stripe server received request to unhandled path: %s", r.URL.Path)
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}
+	}))
+	defer mockServer.Close()
+
+	// Set up environment variables
+	os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
+
+	// Create a custom RoundTripper that intercepts Stripe API calls
+	customTransport := &http.Transport{
+		Proxy: func(req *http.Request) (*url.URL, error) {
+			if strings.Contains(req.URL.Host, "api.stripe.com") {
+				mockURL, _ := url.Parse(mockServer.URL)
+				return mockURL, nil
+			}
+			return nil, nil
+		},
+	}
+
+	customRoundTripper := &customRoundTripper{
+		transport: customTransport,
+		mockURL:   mockServer.URL,
+	}
+
+	http.DefaultTransport = customRoundTripper
+	ResetStripeClient()
+
+	// Create service
+	service := NewStripeSubscriptionService()
+
+	t.Run("create portal session without subscription ID", func(t *testing.T) {
+		session, err := service.CreateCustomerPortalSession(
+			"cus_test_customer",
+			"https://example.com/return",
+			"",
+			"",
+		)
+
+		if err != nil {
+			t.Errorf("CreateCustomerPortalSession() failed: %v", err)
+			return
+		}
+
+		if session == nil {
+			t.Error("Expected session, got nil")
+			return
+		}
+
+		if session.ID != "bps_test_session_123" {
+			t.Errorf("Expected session ID 'bps_test_session_123', got '%s'", session.ID)
+		}
+
+		if session.URL != "https://billing.stripe.com/p/session/test_session_123" {
+			t.Errorf("Expected session URL 'https://billing.stripe.com/p/session/test_session_123', got '%s'", session.URL)
+		}
+
+		if session.ReturnURL != "https://example.com/return" {
+			t.Errorf("Expected return URL 'https://example.com/return', got '%s'", session.ReturnURL)
+		}
+
+		t.Logf("✅ Portal session created: ID=%s, URL=%s", session.ID, session.URL)
+	})
+
+	t.Run("create portal session with subscription ID and default flow type", func(t *testing.T) {
+		session, err := service.CreateCustomerPortalSession(
+			"cus_test_customer",
+			"https://example.com/return",
+			"sub_test_subscription",
+			"", // Empty flow type should default to subscription_update
+		)
+
+		if err != nil {
+			t.Errorf("CreateCustomerPortalSession() failed: %v", err)
+			return
+		}
+
+		if session == nil {
+			t.Error("Expected session, got nil")
+			return
+		}
+
+		t.Logf("✅ Portal session with subscription created: ID=%s, URL=%s", session.ID, session.URL)
+	})
+
+	t.Run("create portal session with subscription cancel flow", func(t *testing.T) {
+		session, err := service.CreateCustomerPortalSession(
+			"cus_test_customer",
+			"https://example.com/return",
+			"sub_test_subscription",
+			constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_CANCEL,
+		)
+
+		if err != nil {
+			t.Errorf("CreateCustomerPortalSession() failed: %v", err)
+			return
+		}
+
+		if session == nil {
+			t.Error("Expected session, got nil")
+			return
+		}
+
+		t.Logf("✅ Portal session with cancel flow created: ID=%s, URL=%s", session.ID, session.URL)
+	})
+
+	t.Run("create portal session with subscription update flow", func(t *testing.T) {
+		session, err := service.CreateCustomerPortalSession(
+			"cus_test_customer",
+			"https://example.com/return",
+			"sub_test_subscription",
+			constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE,
+		)
+
+		if err != nil {
+			t.Errorf("CreateCustomerPortalSession() failed: %v", err)
+			return
+		}
+
+		if session == nil {
+			t.Error("Expected session, got nil")
+			return
+		}
+
+		t.Logf("✅ Portal session with update flow created: ID=%s, URL=%s", session.ID, session.URL)
+	})
+
+	t.Run("create portal session with payment method update flow (no subscription ID)", func(t *testing.T) {
+		session, err := service.CreateCustomerPortalSession(
+			"cus_test_customer",
+			"https://example.com/return",
+			"", // No subscription ID needed for payment method update
+			constants.STRIPE_PORTAL_FLOW_PAYMENT_METHOD_UPDATE,
+		)
+
+		if err != nil {
+			t.Errorf("CreateCustomerPortalSession() failed: %v", err)
+			return
+		}
+
+		if session == nil {
+			t.Error("Expected session, got nil")
+			return
+		}
+
+		if session.ID != "bps_test_session_123" {
+			t.Errorf("Expected session ID 'bps_test_session_123', got '%s'", session.ID)
+		}
+
+		if session.URL != "https://billing.stripe.com/p/session/test_session_123" {
+			t.Errorf("Expected session URL 'https://billing.stripe.com/p/session/test_session_123', got '%s'", session.URL)
+		}
+
+		t.Logf("✅ Portal session with payment method update flow created: ID=%s, URL=%s", session.ID, session.URL)
+	})
+}

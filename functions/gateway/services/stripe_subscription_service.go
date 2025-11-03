@@ -6,10 +6,10 @@ import (
 	"log"
 	"sync"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/interfaces"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"github.com/stripe/stripe-go/v83"
-	"github.com/stripe/stripe-go/v83/billingportal/session"
 )
 
 // StripeSubscriptionService implements the StripeSubscriptionServiceInterface
@@ -159,13 +159,56 @@ func (s *StripeSubscriptionService) GetCustomerSubscriptions(customerID string) 
 }
 
 // CreateCustomerPortalSession creates a customer portal session for subscription management
-func (s *StripeSubscriptionService) CreateCustomerPortalSession(customerID, returnURL string) (*types.CustomerPortalSession, error) {
-	params := &stripe.BillingPortalSessionParams{
+// If subscriptionID is provided, creates a deep link to manage that specific subscription
+// flowType can be: constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_CANCEL, STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE,
+// STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE_CONFIRM, or STRIPE_PORTAL_FLOW_PAYMENT_METHOD_UPDATE
+// If flowType is empty and subscriptionID is provided, defaults to STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE
+func (s *StripeSubscriptionService) CreateCustomerPortalSession(customerID, returnURL string, subscriptionID, flowType string) (*types.CustomerPortalSession, error) {
+	params := &stripe.BillingPortalSessionCreateParams{
 		Customer:  stripe.String(customerID),
 		ReturnURL: stripe.String(returnURL),
 	}
 
-	session, err := session.New(params)
+	// Create flow data for deep linking:
+	// 1. If subscriptionID is provided (for subscription-specific actions)
+	// 2. If flowType is payment_method_update (customer-level action, doesn't need subscription ID)
+	if subscriptionID != "" || flowType == constants.STRIPE_PORTAL_FLOW_PAYMENT_METHOD_UPDATE {
+		// Default flow type if subscription ID provided but flow type not specified
+		if subscriptionID != "" && flowType == "" {
+			flowType = constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE
+		}
+
+		params.FlowData = &stripe.BillingPortalSessionCreateFlowDataParams{
+			Type: stripe.String(flowType),
+		}
+
+		// Set subscription-specific flow data based on flow type
+		switch flowType {
+		case constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_CANCEL:
+			if subscriptionID != "" {
+				params.FlowData.SubscriptionCancel = &stripe.BillingPortalSessionCreateFlowDataSubscriptionCancelParams{
+					Subscription: stripe.String(subscriptionID),
+				}
+			}
+		case constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE:
+			if subscriptionID != "" {
+				params.FlowData.SubscriptionUpdate = &stripe.BillingPortalSessionCreateFlowDataSubscriptionUpdateParams{
+					Subscription: stripe.String(subscriptionID),
+				}
+			}
+		case constants.STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE_CONFIRM:
+			if subscriptionID != "" {
+				params.FlowData.SubscriptionUpdateConfirm = &stripe.BillingPortalSessionCreateFlowDataSubscriptionUpdateConfirmParams{
+					Subscription: stripe.String(subscriptionID),
+				}
+			}
+		case constants.STRIPE_PORTAL_FLOW_PAYMENT_METHOD_UPDATE:
+			// payment_method_update doesn't need a subscription ID
+			// Flow data type is sufficient - it will deep link to payment method update page
+		}
+	}
+
+	session, err := s.client.V1BillingPortalSessions.Create(context.Background(), params)
 	if err != nil {
 		return nil, fmt.Errorf("error creating customer portal session: %w", err)
 	}

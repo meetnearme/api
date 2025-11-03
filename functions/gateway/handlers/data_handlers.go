@@ -563,6 +563,25 @@ func CreateSubscriptionCheckoutSession(w http.ResponseWriter, r *http.Request) (
 		return nil
 	}
 
+	// Check if user already has this subscription by checking roleClaims
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	// Prevent checkout if user already has this subscription
+	if subscriptionPlanID == growthPlanID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubGrowth]}) {
+		log.Printf("User %s already has Growth subscription, preventing duplicate checkout", userId)
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=already_subscribed", http.StatusSeeOther)
+		return nil
+	}
+	if subscriptionPlanID == seedPlanID && (helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubSeed]}) || helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubGrowth]})) {
+		// Prevent Seed checkout if user has Seed OR Growth subscription (Growth includes Seed features)
+		log.Printf("User %s already has Seed subscription (or Growth which includes Seed), preventing duplicate checkout", userId)
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=already_subscribed", http.StatusSeeOther)
+		return nil
+	}
+
 	subscriptionService := services.NewStripeSubscriptionService()
 	subscriptions, err := subscriptionService.GetSubscriptionPlans()
 	if err != nil {
@@ -885,7 +904,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 
 	params := &stripe.CheckoutSessionCreateParams{
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
-		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin/profile?new_purch_key=" + createPurchase.CompositeKey),
+		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin?new_purch_key=" + createPurchase.CompositeKey),
 		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=cancel"),
 		Customer:          stripe.String(stripeCustomer.ID),
 		LineItems:         lineItems,
@@ -1243,8 +1262,82 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
 			return err
 		}
-		msg := fmt.Sprintf("Customer subscription updated: %s", subscription.ID)
-		log.Println(msg)
+
+		// Determine which plans are active in the subscription
+		hasGrowthPlan := false
+		hasSeedPlan := false
+		for _, item := range subscription.Items.Data {
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
+				hasGrowthPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
+				hasSeedPlan = true
+			}
+		}
+
+		// Get the Stripe customer
+		s := services.GetStripeClient()
+		customer, err := s.V1Customers.Retrieve(context.Background(), subscription.Customer.ID, nil)
+		if err != nil {
+			log.Printf("Error retrieving customer: %v", err)
+			transport.SendServerRes(w, []byte("Error retrieving customer"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Extract the Zitadel user ID from metadata
+		var zitadelUserID string
+		if customer.Metadata != nil {
+			if extID, exists := customer.Metadata["zitadel_user_id"]; exists {
+				zitadelUserID = extID
+			}
+		}
+
+		if zitadelUserID == "" {
+			log.Printf("Warning: No zitadel_user_id found in customer metadata for subscription %s", subscription.ID)
+			msg := fmt.Sprintf("Customer subscription updated: %s (no user ID found)", subscription.ID)
+			transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+			return nil
+		}
+
+		log.Printf("Subscription updated for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, hasGrowthPlan, hasSeedPlan)
+
+		// Get current user roles
+		roles, err := helpers.GetUserRoles(zitadelUserID)
+		if err != nil {
+			log.Printf("Error getting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error getting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Build desired roles list (preserve non-subscription roles)
+		var updatedRoles []string
+		subGrowthRole := constants.Roles[constants.SubGrowth]
+		subSeedRole := constants.Roles[constants.SubSeed]
+
+		// Keep all non-subscription roles
+		for _, role := range roles {
+			if role != subGrowthRole && role != subSeedRole {
+				updatedRoles = append(updatedRoles, role)
+			}
+		}
+
+		// Add subscription roles based on current subscription items
+		if hasGrowthPlan && helpers.ArrFindFirst(updatedRoles, []string{subGrowthRole}) == "" {
+			updatedRoles = append(updatedRoles, subGrowthRole)
+		}
+		if hasSeedPlan && helpers.ArrFindFirst(updatedRoles, []string{subSeedRole}) == "" {
+			updatedRoles = append(updatedRoles, subSeedRole)
+		}
+
+		// Update roles in Zitadel
+		err = helpers.SetUserRoles(zitadelUserID, updatedRoles)
+		if err != nil {
+			log.Printf("Error setting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error setting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		msg := fmt.Sprintf("Customer subscription updated: %s for customer: %s", subscription.ID, subscription.Customer.ID)
 		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_DELETED:
@@ -1255,8 +1348,84 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
 			return err
 		}
-		msg := fmt.Sprintf("Customer subscription deleted: %s", subscription.ID)
-		log.Println(msg)
+
+		// Determine which plans were in the deleted subscription (from webhook payload)
+		deletedGrowthPlan := false
+		deletedSeedPlan := false
+		for _, item := range subscription.Items.Data {
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
+				deletedGrowthPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
+				deletedSeedPlan = true
+			}
+		}
+
+		// Get the Stripe customer
+		s := services.GetStripeClient()
+		customer, err := s.V1Customers.Retrieve(context.Background(), subscription.Customer.ID, nil)
+		if err != nil {
+			log.Printf("Error retrieving customer: %v", err)
+			transport.SendServerRes(w, []byte("Error retrieving customer"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Extract the Zitadel user ID from metadata
+		var zitadelUserID string
+		if customer.Metadata != nil {
+			if extID, exists := customer.Metadata["zitadel_user_id"]; exists {
+				zitadelUserID = extID
+			}
+		}
+
+		if zitadelUserID == "" {
+			log.Printf("Warning: No zitadel_user_id found in customer metadata for deleted subscription %s", subscription.ID)
+			msg := fmt.Sprintf("Customer subscription deleted: %s (no user ID found)", subscription.ID)
+			transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+			return nil
+		}
+
+		log.Printf("Subscription deleted for Zitadel user: %s, Customer: %s, Subscription: %s, Deleted Growth: %v, Deleted Seed: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, deletedGrowthPlan, deletedSeedPlan)
+
+		// Since we prevent duplicate subscriptions at checkout, we can simply remove roles
+		// Get current user roles
+		roles, err := helpers.GetUserRoles(zitadelUserID)
+		if err != nil {
+			log.Printf("Error getting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error getting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Remove subscription roles that were in the deleted subscription (keep all other roles)
+		var updatedRoles []string
+		subGrowthRole := constants.Roles[constants.SubGrowth]
+		subSeedRole := constants.Roles[constants.SubSeed]
+
+		for _, role := range roles {
+			// Remove role if it was in the deleted subscription
+			shouldKeep := true
+			if role == subGrowthRole && deletedGrowthPlan {
+				shouldKeep = false
+			}
+			if role == subSeedRole && deletedSeedPlan {
+				shouldKeep = false
+			}
+
+			if shouldKeep {
+				updatedRoles = append(updatedRoles, role)
+			}
+		}
+
+		// Update roles in Zitadel (remove subscription roles)
+		err = helpers.SetUserRoles(zitadelUserID, updatedRoles)
+		if err != nil {
+			log.Printf("Error setting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error setting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		log.Printf("Removed subscription roles for Zitadel user: %s after subscription deletion (Growth: %v, Seed: %v)", zitadelUserID, deletedGrowthPlan, deletedSeedPlan)
+		msg := fmt.Sprintf("Customer subscription deleted: %s for customer: %s", subscription.ID, subscription.Customer.ID)
 		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PAUSED:
@@ -1267,8 +1436,83 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
 			return err
 		}
-		msg := fmt.Sprintf("Customer subscription paused: %s", subscription.ID)
-		log.Println(msg)
+
+		// Determine which plans are in the paused subscription
+		pausedGrowthPlan := false
+		pausedSeedPlan := false
+		for _, item := range subscription.Items.Data {
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
+				pausedGrowthPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
+				pausedSeedPlan = true
+			}
+		}
+
+		// Get the Stripe customer
+		s := services.GetStripeClient()
+		customer, err := s.V1Customers.Retrieve(context.Background(), subscription.Customer.ID, nil)
+		if err != nil {
+			log.Printf("Error retrieving customer: %v", err)
+			transport.SendServerRes(w, []byte("Error retrieving customer"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Extract the Zitadel user ID from metadata
+		var zitadelUserID string
+		if customer.Metadata != nil {
+			if extID, exists := customer.Metadata["zitadel_user_id"]; exists {
+				zitadelUserID = extID
+			}
+		}
+
+		if zitadelUserID == "" {
+			log.Printf("Warning: No zitadel_user_id found in customer metadata for paused subscription %s", subscription.ID)
+			msg := fmt.Sprintf("Customer subscription paused: %s (no user ID found)", subscription.ID)
+			transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+			return nil
+		}
+
+		log.Printf("Subscription paused for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, pausedGrowthPlan, pausedSeedPlan)
+
+		// Since we prevent duplicate subscriptions at checkout, we can simply remove roles
+		// Get current user roles
+		roles, err := helpers.GetUserRoles(zitadelUserID)
+		if err != nil {
+			log.Printf("Error getting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error getting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Remove subscription roles from paused subscription (keep all other roles)
+		var updatedRoles []string
+		subGrowthRole := constants.Roles[constants.SubGrowth]
+		subSeedRole := constants.Roles[constants.SubSeed]
+
+		for _, role := range roles {
+			// Remove role if it was in the paused subscription
+			shouldKeep := true
+			if role == subGrowthRole && pausedGrowthPlan {
+				shouldKeep = false
+			}
+			if role == subSeedRole && pausedSeedPlan {
+				shouldKeep = false
+			}
+
+			if shouldKeep {
+				updatedRoles = append(updatedRoles, role)
+			}
+		}
+
+		// Update roles in Zitadel (remove roles from paused subscription)
+		err = helpers.SetUserRoles(zitadelUserID, updatedRoles)
+		if err != nil {
+			log.Printf("Error setting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error setting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		msg := fmt.Sprintf("Customer subscription paused: %s for customer: %s", subscription.ID, subscription.Customer.ID)
 		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PENDING_UPDATE_APPLIED:
@@ -1303,8 +1547,73 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
 			return err
 		}
-		msg := fmt.Sprintf("Customer subscription resumed: %s", subscription.ID)
-		log.Println(msg)
+
+		// Determine which plans are in the resumed subscription
+		resumedGrowthPlan := false
+		resumedSeedPlan := false
+		for _, item := range subscription.Items.Data {
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
+				resumedGrowthPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
+				resumedSeedPlan = true
+			}
+		}
+
+		// Get the Stripe customer
+		s := services.GetStripeClient()
+		customer, err := s.V1Customers.Retrieve(context.Background(), subscription.Customer.ID, nil)
+		if err != nil {
+			log.Printf("Error retrieving customer: %v", err)
+			transport.SendServerRes(w, []byte("Error retrieving customer"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Extract the Zitadel user ID from metadata
+		var zitadelUserID string
+		if customer.Metadata != nil {
+			if extID, exists := customer.Metadata["zitadel_user_id"]; exists {
+				zitadelUserID = extID
+			}
+		}
+
+		if zitadelUserID == "" {
+			log.Printf("Warning: No zitadel_user_id found in customer metadata for resumed subscription %s", subscription.ID)
+			msg := fmt.Sprintf("Customer subscription resumed: %s (no user ID found)", subscription.ID)
+			transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+			return nil
+		}
+
+		log.Printf("Subscription resumed for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, resumedGrowthPlan, resumedSeedPlan)
+
+		// Get current user roles
+		roles, err := helpers.GetUserRoles(zitadelUserID)
+		if err != nil {
+			log.Printf("Error getting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error getting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Add subscription roles back (if not already present)
+		subGrowthRole := constants.Roles[constants.SubGrowth]
+		subSeedRole := constants.Roles[constants.SubSeed]
+
+		if resumedGrowthPlan && helpers.ArrFindFirst(roles, []string{subGrowthRole}) == "" {
+			roles = append(roles, subGrowthRole)
+		}
+		if resumedSeedPlan && helpers.ArrFindFirst(roles, []string{subSeedRole}) == "" {
+			roles = append(roles, subSeedRole)
+		}
+
+		// Update roles in Zitadel (restore roles from resumed subscription)
+		err = helpers.SetUserRoles(zitadelUserID, roles)
+		if err != nil {
+			log.Printf("Error setting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error setting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		msg := fmt.Sprintf("Customer subscription resumed: %s for customer: %s", subscription.ID, subscription.Customer.ID)
 		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
 	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_TRIAL_WILL_END:
