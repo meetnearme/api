@@ -8,12 +8,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-playground/validator"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/interfaces"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -437,17 +439,33 @@ func TestUpdateSeshuJob_DBError(t *testing.T) {
 func TestDeleteSeshuJob_Success(t *testing.T) {
 	os.Setenv("GO_ENV", "test")
 
+	userId := "user123"
+	targetUrl := "https://example.com/events"
+	mockJob := internal_types.SeshuJob{
+		NormalizedUrlKey: targetUrl,
+		OwnerID:          userId,
+	}
+
 	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			// Verify that targetUrl is in the context
+			ctxTargetUrl, ok := ctx.Value("targetUrl").(string)
+			if !ok || ctxTargetUrl != targetUrl {
+				t.Errorf("expected targetUrl=%s in context, got %v", targetUrl, ctxTargetUrl)
+			}
+			return []internal_types.SeshuJob{mockJob}, nil
+		},
 		DeleteJobFunc: func(ctx context.Context, id string) error {
-			if id != "123" {
-				t.Errorf("expected ID=123, got %s", id)
+			if id != targetUrl {
+				t.Errorf("expected ID=%s, got %s", targetUrl, id)
 			}
 			return nil
 		},
 	}
 
 	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
-	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id=123", nil).WithContext(ctx)
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: userId})
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	handler := handlers.DeleteSeshuJob(w, req)
@@ -474,6 +492,7 @@ func TestDeleteSeshuJob_InvalidID(t *testing.T) {
 	mockService := &MockPostgresService{}
 
 	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: "user123"})
 	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete", nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
@@ -498,14 +517,25 @@ func TestDeleteSeshuJob_InvalidID(t *testing.T) {
 func TestDeleteSeshuJob_DBError(t *testing.T) {
 	os.Setenv("GO_ENV", "test")
 
+	userId := "user123"
+	targetUrl := "https://example.com/events/456"
+	mockJob := internal_types.SeshuJob{
+		NormalizedUrlKey: targetUrl,
+		OwnerID:          userId,
+	}
+
 	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return []internal_types.SeshuJob{mockJob}, nil
+		},
 		DeleteJobFunc: func(ctx context.Context, id string) error {
 			return errors.New("delete failed")
 		},
 	}
 
 	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
-	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id=456", nil).WithContext(ctx)
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: userId})
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	handler := handlers.DeleteSeshuJob(w, req)
@@ -523,6 +553,190 @@ func TestDeleteSeshuJob_DBError(t *testing.T) {
 	}
 	if !strings.Contains(bodyStr, "Failed to delete job") {
 		t.Errorf("expected DB error message, got: %s", bodyStr)
+	}
+}
+
+func TestDeleteSeshuJob_MissingUserID(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	mockService := &MockPostgresService{}
+
+	targetUrl := "https://example.com/events/123"
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Missing User ID Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Missing user ID") {
+		t.Errorf("expected 'Missing user ID' message, got: %s", bodyStr)
+	}
+}
+
+func TestDeleteSeshuJob_JobNotFound(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	targetUrl := "https://example.com/events/999"
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return []internal_types.SeshuJob{}, nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: "user123"})
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Job Not Found Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Failed to find Seshu job") {
+		t.Errorf("expected 'Failed to find Seshu job' message, got: %s", bodyStr)
+	}
+}
+
+func TestDeleteSeshuJob_GetSeshuJobsError(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	targetUrl := "https://example.com/events/999"
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return nil, errors.New("failed to get jobs")
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: "user123"})
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Get Jobs Error Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Failed to find Seshu job") {
+		t.Errorf("expected 'Failed to find Seshu job' message, got: %s", bodyStr)
+	}
+}
+
+func TestDeleteSeshuJob_Unauthorized(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	userId := "user123"
+	otherUserId := "other-user"
+	targetUrl := "https://example.com/events/456"
+	mockJob := internal_types.SeshuJob{
+		NormalizedUrlKey: targetUrl,
+		OwnerID:          otherUserId, // Different owner
+	}
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return []internal_types.SeshuJob{mockJob}, nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: userId})
+	ctx = context.WithValue(ctx, "roleClaims", []constants.RoleClaim{}) // No super admin role
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Unauthorized Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "You are not the owner of this job") {
+		t.Errorf("expected 'You are not the owner of this job' message, got: %s", bodyStr)
+	}
+}
+
+func TestDeleteSeshuJob_SuperAdmin(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	userId := "super-admin-user"
+	otherUserId := "other-user"
+	targetUrl := "https://example.com/events/789"
+	mockJob := internal_types.SeshuJob{
+		NormalizedUrlKey: targetUrl,
+		OwnerID:          otherUserId, // Different owner, but super admin can delete
+	}
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+			return []internal_types.SeshuJob{mockJob}, nil
+		},
+		DeleteJobFunc: func(ctx context.Context, id string) error {
+			if id != targetUrl {
+				t.Errorf("expected ID=%s, got %s", targetUrl, id)
+			}
+			return nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: userId})
+	ctx = context.WithValue(ctx, "roleClaims", []constants.RoleClaim{
+		{Role: constants.Roles[constants.SuperAdmin]},
+	})
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.DeleteSeshuJob(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	t.Logf("Super Admin Response: %s", bodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(bodyStr, "Job deleted successfully") {
+		t.Errorf("expected success message, got: %s", bodyStr)
 	}
 }
 
