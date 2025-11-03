@@ -196,7 +196,7 @@ func (app *App) InitRoutes() []Route {
 		// DISABLED to prevent abuse
 		// {"/api/seshujob", "POST", handlers.CreateSeshuJob, Require},
 		// {"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, Require},
-		// {"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, Require},
+		{"/api/seshujob{trailingslash:\\/?}", "DELETE", handlers.DeleteSeshuJob, Require},
 		// {"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
 
 		// Re-share

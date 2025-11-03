@@ -63,12 +63,10 @@ func (s *PostgresService) GetSeshuJobs(ctx context.Context) ([]internal_types.Se
 	var jobs []internal_types.SeshuJob
 	query := s.DB.WithContext(ctx).Model(&internal_types.SeshuJob{})
 
-	if userId != "" {
-		query = query.Where("owner_id = ?", userId)
-	}
-
 	if targetUrl != "" {
 		query = query.Where("normalized_url_key = ?", targetUrl)
+	} else {
+		query = query.Where("owner_id = ?", userId)
 	}
 
 	if err := query.Find(&jobs).Error; err != nil {
