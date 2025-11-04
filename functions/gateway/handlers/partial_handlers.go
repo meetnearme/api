@@ -1401,11 +1401,11 @@ func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		return transport.SendHtmlErrorPartial([]byte("City field is required"), http.StatusBadRequest)
 	}
 
-	if inputPayload.Latitude <= -90 || inputPayload.Latitude >= 90 {
+	if inputPayload.Latitude < -90 || inputPayload.Latitude > 90 {
 		return transport.SendHtmlErrorPartial([]byte("Latitude must be between -90 and 90"), http.StatusBadRequest)
 	}
 
-	if inputPayload.Longitude <= -180 || inputPayload.Longitude >= 180 {
+	if inputPayload.Longitude < -180 || inputPayload.Longitude > 180 {
 		return transport.SendHtmlErrorPartial([]byte("Longitude must be between -180 and 180"), http.StatusBadRequest)
 	}
 
