@@ -379,7 +379,20 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 								>
 									Apply Filters
 								</button>
-								<dialog id="update-location-modal" x-trap="true" class="modal modal-bottom md:modal-middle bg-base-100 bg-opacity-90">
+								<dialog
+									id="update-location-modal"
+									x-data="{ isOpen: false }"
+									x-init="
+										isOpen = $el.open;
+										const observer = new MutationObserver(() => {
+											isOpen = $el.open;
+										});
+										observer.observe($el, { attributes: true, attributeFilter: ['open'] });
+									"
+									x-trap="isOpen"
+									@close="isOpen = false"
+									class="modal modal-bottom md:modal-middle bg-base-100 bg-opacity-90"
+								>
 									<div class="modal-box border-2 border-secondary relative">
 										<span x-show="!savingLocation">
 											Do you want to save <span x-text="Alpine.store('location').selected.label"></span> as your default location?

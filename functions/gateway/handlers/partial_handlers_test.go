@@ -1138,7 +1138,7 @@ func TestUpdateUserLocation(t *testing.T) {
 				Sub: "user123",
 			},
 			expectedStatus: http.StatusOK,
-			shouldContain:  "Latitude must be between -90 and 90.",
+			shouldContain:  "Latitude must be between -90 and 90",
 		},
 		{
 			name: "Zitadel API error",
