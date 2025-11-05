@@ -425,24 +425,29 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 									<h3 class="text-xl my-3">
 										Location <span x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? '(Geocoordinates)' : '' "></span>
 									</h3>
-									<span x-show="locationAccessDeclined" class="badge badge-error text-sm mb-2">
-										Location access was declined.
-									</span>
-									<span x-show="cityNotFound" class="badge badge-error text-sm mb-2">
-										Error: City not found.
-									</span>
+									<span
+										x-show="hasError()"
+										class="badge badge-error !h-auto text-sm mb-2"
+										x-text="getErrorMessage()"
+									></span>
+									<span
+										x-show="locationTimeout"
+										class="badge badge-warning text-sm mb-2"
+										x-text="getWarningMessage()"
+									></span>
 									<div class="relative">
 										<!-- trigger button  -->
 										<button
 											type="button"
-											class="inline-flex w-full items-center justify-between gap-2 border rounded-md mt-2 p-3 text-sm font-medium tracking-wide  transition input-bordered focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 dark:focus-visible:outline-green-600"
+											class="inline-flex w-full items-center justify-between gap-2 border rounded-md mt-2 p-3 text-sm font-medium tracking-wide  transition input-bordered focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 dark:focus-visible:outline-green-600 disabled:cursor-not-allowed disabled:opacity-75"
 											role="combobox"
 											aria-controls="makesList"
 											aria-haspopup="listbox"
-											x-on:click="isOpen = ! isOpen"
-											x-on:keydown.down.prevent="openedWithKeyboard = true"
-											x-on:keydown.enter.prevent="openedWithKeyboard = true"
-											x-on:keydown.space.prevent="openedWithKeyboard = true"
+											x-bind:disabled="isLoading"
+											x-on:click="!isLoading && (isOpen = ! isOpen)"
+											x-on:keydown.down.prevent="!isLoading && (openedWithKeyboard = true)"
+											x-on:keydown.enter.prevent="!isLoading && (openedWithKeyboard = true)"
+											x-on:keydown.space.prevent="!isLoading && (openedWithKeyboard = true)"
 											x-bind:aria-expanded="isOpen || openedWithKeyboard"
 											x-bind:aria-label="selectedOption.label ? '' : ''"
 										>
@@ -468,7 +473,7 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 											id="makesList"
 											role="listbox"
 											aria-label="locations list"
-											x-on:click.outside="isOpen = false, openedWithKeyboard = false"
+											x-on:click.outside="!isLoading && (isOpen = false, openedWithKeyboard = false)"
 											x-on:keydown.down.prevent="$focus.wrap().next()"
 											x-on:keydown.up.prevent="$focus.wrap().previous()"
 											x-transition
@@ -492,7 +497,8 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 													class="w-full border-b py-2.5 pl-11 pr-4 text-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-75"
 													name="loc_search"
 													aria-label="Search Locations"
-													@input.throttle="fetchLocations($event.target.value)"
+													x-bind:disabled="isLoading"
+													@input.throttle="!isLoading && fetchLocations($event.target.value)"
 													x-ref="loc_search"
 													placeholder="Search"
 												/>
@@ -507,8 +513,10 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 													class="px-4 py-2 text-sm cursor-pointer bg-primary text-primary-content focus-visible:bg-secondary focus-visible:outline-none focus-visible:text-secondary-content hover:bg-secondary hover:text-secondary-content"
 													tabindex="0"
 													role="option"
-													@click="findAndSetLocation"
-													@keydown.enter="findAndSetLocation"
+													x-bind:aria-disabled="isLoading"
+													x-bind:class="isLoading ? 'opacity-50 cursor-not-allowed' : ''"
+													@click="!isLoading && findAndSetLocation()"
+													@keydown.enter="!isLoading && findAndSetLocation()"
 													:id="'option-locateme'"
 												>
 													<span class="flex gap-2">
@@ -520,8 +528,10 @@ templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event
 													<li
 														class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-base-200 px-4 py-2 text-sm hover:text-secondary focus-visible:bg-slate-800/5 focus-visible:text-primary focus-visible:outline-none"
 														role="option"
-														@click="setSelectedOption(item)"
-														@keydown.enter="setSelectedOption(item)"
+														x-bind:aria-disabled="isLoading"
+														x-bind:class="isLoading ? 'opacity-50 cursor-not-allowed' : ''"
+														@click="!isLoading && setSelectedOption(item)"
+														@keydown.enter="!isLoading && setSelectedOption(item)"
 														:id="'option-' + index"
 														tabindex="0"
 													>

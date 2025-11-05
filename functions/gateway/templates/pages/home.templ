@@ -843,24 +843,68 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 
 				locationAccessDeclined: false,
+				locationUnavailable: false,
+				locationTimeout: false,
 				cityNotFound: false,
+				apiError: false,
+				getErrorMessage() {
+					if (this.locationAccessDeclined) {
+						return 'Location access was declined.';
+					}
+					if (this.locationUnavailable) {
+						return 'Location unavailable. Please check your device location services.';
+					}
+					if (this.cityNotFound) {
+						return 'Error: City not found.';
+					}
+					if (this.apiError) {
+						return 'Error connecting to server. Please check your connection and try again.';
+					}
+					return '';
+				},
+				getWarningMessage() {
+					if (this.locationTimeout) {
+						return 'Location request timed out. Please try again.';
+					}
+					return '';
+				},
+				hasError() {
+					return this.locationAccessDeclined || this.locationUnavailable || this.cityNotFound || this.apiError;
+				},
 				findAndSetLocation() {
-				const success = (position) => {
+				this.locationAccessDeclined = false;
+				this.locationUnavailable = false;
+				this.locationTimeout = false;
+				this.cityNotFound = false;
+				this.apiError = false;
+				this.isLoading = true;
+
+				let modalTimeoutId = null;
+
+				const success = async (position) => {
 					this.isLoading = true;
 					this.locationAccessDeclined = false;
+					this.locationUnavailable = false;
+					this.locationTimeout = false;
 					this.cityNotFound = false;
-					const latitude = position.coords.latitude.toFixed(2);
-					const longitude = position.coords.longitude.toFixed(2);
-					const query = `lat=${latitude}&lon=${longitude}`
-					fetch(`/api/location/city?${query}`)
-					.then(async (response) => {
+					this.apiError = false;
+
+					try {
+						const latitude = position.coords.latitude.toFixed(2);
+						const longitude = position.coords.longitude.toFixed(2);
+						const query = `lat=${latitude}&lon=${longitude}`;
+
+						const response = await fetch(`/api/location/city?${query}`, {
+							signal: AbortSignal.timeout(15000)
+						});
+
 						if (!response.ok) {
 							throw new Error(`City lookup failed with query ${query} status: (${response.status})`);
 						}
-							return response.json();
-					})
-					.then(data => {
-						if (data.city != "") {
+
+						const data = await response.json();
+
+						if (data && data.city != "") {
 							this.selectedOption = {
 								label: data.city,
 								latitude: parseFloat(latitude),
@@ -873,33 +917,63 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						} else {
 							this.cityNotFound = true
 						}
-					})
-					.catch(error => {
-						// eslint-disable-next-line no-console
-						console.error("Error fetching city:", error);
-					})
-					.finally(() => {
-						this.isLoading = false;
-						this.isOpen = false;
-						this.openedWithKeyboard = false;
 						const isLoggedIn = document.querySelector('#alpine-state').getAttribute('data-is-logged-in') === 'true';
-						if (isLoggedIn) {
-							setTimeout(() => {
+						if (isLoggedIn && !this.cityNotFound) {
+							modalTimeoutId = setTimeout(() => {
 								document.getElementById('update-location-modal').showModal();
 							}, 900); // this lets the user see the location dropdown populate and close before showing the modal.
 						}
-					})
 
+					} catch (error) {
+						if (modalTimeoutId !== null) {
+							clearTimeout(modalTimeoutId);
+							modalTimeoutId = null;
+						}
+						this.apiError = true;
+					} finally {
+						this.isLoading = false;
+						this.isOpen = false;
+						this.openedWithKeyboard = false;
+					}
 				}
 
-				// This gets executed if the user does not allow the browser to access their location
-				const error = () => {
-					this.locationAccessDeclined = true;
+				const error = (positionError) => {
+					if (modalTimeoutId !== null) {
+						clearTimeout(modalTimeoutId);
+						modalTimeoutId = null;
+					}
+
+					this.locationAccessDeclined = false;
+					this.locationUnavailable = false;
+					this.locationTimeout = false;
+
+					switch (positionError.code) {
+						case positionError.PERMISSION_DENIED:
+							this.locationAccessDeclined = true;
+							break;
+						case positionError.POSITION_UNAVAILABLE:
+							this.locationUnavailable = true;
+							break;
+						case positionError.TIMEOUT:
+							this.locationTimeout = true;
+							break;
+						default:
+							this.locationUnavailable = true;
+							break;
+					}
+
+					this.isLoading = false;
 					this.isOpen = false;
 					this.openedWithKeyboard = false;
 				}
 
-				navigator.geolocation.getCurrentPosition(success, error);
+				const geolocationOptions = {
+					timeout: 30000,
+					enableHighAccuracy: false,
+					maximumAge: 0
+				};
+
+				navigator.geolocation.getCurrentPosition(success, error, geolocationOptions);
 			},
 
 				getFilteredOptions(query) {
