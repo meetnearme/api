@@ -657,16 +657,19 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 			log.Printf("ERR: Skipping event %d: GetGeo failed: %v", i, err)
 			continue
 		}
+		log.Printf("~~660 INFO: Event info from EventLocation string: %s, lat: %s, lon: %s, address: %s", eventInfo.EventLocation, lat, lon, address)
 
 		latFloat, err := strconv.ParseFloat(lat, 64)
 		if err != nil {
 			return fmt.Errorf("ERR: failed to parse latitude for event #%d of %s: %v", i+1, seshuJob.NormalizedUrlKey, err)
 		}
+		log.Printf("~666 INFO: latFloat: %f", latFloat)
 
 		lonFloat, err := strconv.ParseFloat(lon, 64)
 		if err != nil {
 			return fmt.Errorf("ERR: failed to parse longitude for event #%d of %s: %v", i+1, seshuJob.NormalizedUrlKey, err)
 		}
+		log.Printf("~672 INFO: lonFloat: %f", lonFloat)
 
 		if address == "" {
 			return fmt.Errorf("ERR: couldn't find address for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
@@ -676,27 +679,32 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 		var finalLat float64
 		if lat == "" && (seshuJob.LocationLatitude == 0 || seshuJob.LocationLatitude == constants.INITIAL_EMPTY_LAT_LONG) {
 			return fmt.Errorf("ERR: couldn't find latittude for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
-		} else if latFloat != 0 {
+		} else if latFloat != 0 { // TODO: should this be constants.INITIAL_EMPTY_LAT_LONG?
+			log.Printf("~683 INFO: latFloat != 0, finalLat: %f", finalLat)
 			finalLat = latFloat
 		} else {
 			finalLat = seshuJob.LocationLatitude
 		}
+		log.Printf("~688 INFO: finalLat: %f", finalLat)
 
 		// Set longitude - use parsed value if available, otherwise fall back to seshuJob location
 		var finalLon float64
 		if lon == "" && (seshuJob.LocationLongitude == 0 || seshuJob.LocationLongitude == constants.INITIAL_EMPTY_LAT_LONG) {
 			return fmt.Errorf("couldn't find longitude for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
-		} else if lonFloat != 0 {
+		} else if lonFloat != 0 { // TODO: should this be constants.INITIAL_EMPTY_LAT_LONG?
+			log.Printf("~693 INFO: lonFloat != 0, finalLon: %f", finalLon)
 			finalLon = lonFloat
 		} else {
 			finalLon = seshuJob.LocationLongitude
 		}
+		log.Printf("~699 INFO: finalLon: %f", finalLon)
 
 		// Use timezone in priority order: GetGeo() response > EventInfo derived timezone > SeshuJob timezone
 		var targetTimezoneStr string
 		var mapDerivedTimezone string
 		// First priority: GetGeo() response timezone (if available)
 		if lat != "" && lon != "" {
+			log.Printf("~707 INFO: lat != '' && lon != '', lat: %s, lon: %s, targetTimezoneStr: %s", lat, lon, targetTimezoneStr)
 			latFloat, err := strconv.ParseFloat(lat, 64)
 			if err != nil {
 				log.Printf("ERR: Skipping event %d: failed to parse latitude: %v", i, err)
@@ -708,11 +716,11 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 				continue
 			}
 			mapDerivedTimezone = DeriveTimezoneFromCoordinates(latFloat, lonFloat)
+			log.Printf("~719 INFO: mapDerivedTimezone, latFloat: %f, lonFloat: %f, mapDerivedTimezone: %s", latFloat, lonFloat, mapDerivedTimezone)
 			if mapDerivedTimezone != "" {
 				targetTimezoneStr = mapDerivedTimezone
 				log.Printf("INFO: Using timezone from GetGeo coordinates: %s", targetTimezoneStr)
 			}
-
 		}
 
 		// Second priority: EventInfo derived timezone

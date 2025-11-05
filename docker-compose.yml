@@ -92,6 +92,7 @@ services:
       _LAMBDA_SERVER_PORT: ''
       AWS_LAMBDA_RUNTIME_API: ''
       APP_PORT: ${APP_PORT:-8000}
+      IS_LOCAL_ACT: ${IS_LOCAL_ACT:-true}
 
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -128,9 +129,47 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: meetnearme-prometheus
+    ports:
+      - '${PROMETHEUS_PORT_HOST:-9090}:9090'
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    environment:
+      IS_LOCAL_ACT: ${IS_LOCAL_ACT:-true}
+    restart: unless-stopped
+    depends_on:
+      - go-app
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: meetnearme-grafana
+    ports:
+      - '${GRAFANA_PORT_HOST:-3001}:3000'
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
 volumes:
   postgres_data:
   weaviate_data:
+  prometheus_data:
+  grafana_data:
   # New volumes for caching go mod and build
   go-mod-cache:
   # go-build-cache:
