@@ -872,109 +872,117 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					return this.locationAccessDeclined || this.locationUnavailable || this.cityNotFound || this.apiError;
 				},
 				findAndSetLocation() {
-				this.locationAccessDeclined = false;
-				this.locationUnavailable = false;
-				this.locationTimeout = false;
-				this.cityNotFound = false;
-				this.apiError = false;
-				this.isLoading = true;
-
-				let modalTimeoutId = null;
-
-				const success = async (position) => {
-					this.isLoading = true;
 					this.locationAccessDeclined = false;
 					this.locationUnavailable = false;
 					this.locationTimeout = false;
 					this.cityNotFound = false;
 					this.apiError = false;
 
-					try {
-						const latitude = position.coords.latitude.toFixed(2);
-						const longitude = position.coords.longitude.toFixed(2);
-						const query = `lat=${latitude}&lon=${longitude}`;
+					let modalTimeoutId = null;
 
-						const response = await fetch(`/api/location/city?${query}`, {
-							signal: AbortSignal.timeout(15000)
-						});
+					const geolocationOptions = {
+						timeout: 30000,
+						enableHighAccuracy: false,
+						maximumAge: 0,
+					};
 
-						if (!response.ok) {
-							throw new Error(`City lookup failed with query ${query} status: (${response.status})`);
-						}
+					const getPositionPromise = new Promise((resolve, reject) => {
+						navigator.geolocation.getCurrentPosition(
+							position => resolve(position),
+							err => reject(err),
+							geolocationOptions
+						);
+					});
 
-						const data = await response.json();
+					getPositionPromise
+						.then(async position => {
+							this.isLoading = true;
 
-						if (data && data.city != "") {
-							this.selectedOption = {
-								label: data.city,
-								latitude: parseFloat(latitude),
-								longitude: parseFloat(longitude),
+							try {
+								const latitude = position.coords.latitude.toFixed(2);
+								const longitude = position.coords.longitude.toFixed(2);
+								const query = `lat=${latitude}&lon=${longitude}`;
+
+								const response = await fetch(`/api/location/city?${query}`, {
+									signal: AbortSignal.timeout(15000),
+								});
+
+								if (!response.ok) {
+									throw new Error(
+										`City lookup failed with query ${query} status: (${response.status})`
+									);
+								}
+
+								const data = await response.json();
+
+								if (data && data.city != '') {
+									this.selectedOption = {
+										label: data.city,
+										latitude: parseFloat(latitude),
+										longitude: parseFloat(longitude),
+									};
+									// changing the locationDropdown triggers the url params to update
+									this.locationDropdown = this.selectedOption;
+									Alpine.store('location').setSelectedLocation(this.selectedOption);
+									this.$dispatch('location-dropdown', {
+										option: { ...this.selectedOption },
+									});
+								} else {
+									this.cityNotFound = true;
+								}
+
+								const isLoggedIn =
+									document
+										.querySelector('#alpine-state')
+										.getAttribute('data-is-logged-in') === 'true';
+								if (isLoggedIn && !this.cityNotFound) {
+									modalTimeoutId = setTimeout(() => {
+										document.getElementById('update-location-modal').showModal();
+									}, 900); // this lets the user see the location dropdown populate and close before showing the modal.
+								}
+							} catch (error) {
+								if (modalTimeoutId !== null) {
+									clearTimeout(modalTimeoutId);
+									modalTimeoutId = null;
+								}
+								this.apiError = true;
 							}
-							// changing the locationDropdown triggers the url params to update
-							this.locationDropdown = this.selectedOption
-							Alpine.store('location').setSelectedLocation(this.selectedOption)
-							this.$dispatch('location-dropdown', { option: { ...this.selectedOption } });
-						} else {
-							this.cityNotFound = true
-						}
-						const isLoggedIn = document.querySelector('#alpine-state').getAttribute('data-is-logged-in') === 'true';
-						if (isLoggedIn && !this.cityNotFound) {
-							modalTimeoutId = setTimeout(() => {
-								document.getElementById('update-location-modal').showModal();
-							}, 900); // this lets the user see the location dropdown populate and close before showing the modal.
-						}
+						})
+						.catch(err => {
+							if (modalTimeoutId !== null) {
+								clearTimeout(modalTimeoutId);
+								modalTimeoutId = null;
+							}
 
-					} catch (error) {
-						if (modalTimeoutId !== null) {
-							clearTimeout(modalTimeoutId);
-							modalTimeoutId = null;
-						}
-						this.apiError = true;
-					} finally {
-						this.isLoading = false;
-						this.isOpen = false;
-						this.openedWithKeyboard = false;
-					}
-				}
+							this.locationAccessDeclined = false;
+							this.locationUnavailable = false;
+							this.locationTimeout = false;
 
-				const error = (positionError) => {
-					if (modalTimeoutId !== null) {
-						clearTimeout(modalTimeoutId);
-						modalTimeoutId = null;
-					}
+							switch (err.code) {
+								// eslint-disable-next-line
+								case GeolocationPositionError.PERMISSION_DENIED:
+									this.locationAccessDeclined = true;
+									break;
+								// eslint-disable-next-line
+								case GeolocationPositionError.POSITION_UNAVAILABLE:
+									this.locationUnavailable = true;
+									break;
+								// eslint-disable-next-line
+								case GeolocationPositionError.TIMEOUT:
+									this.locationTimeout = true;
+									break;
+								default:
+									this.locationUnavailable = true;
+									break;
+							}
+						})
+						.finally(() => {
+							this.isLoading = false;
+							this.isOpen = false;
+							this.openedWithKeyboard = false;
+						});
+				},
 
-					this.locationAccessDeclined = false;
-					this.locationUnavailable = false;
-					this.locationTimeout = false;
-
-					switch (positionError.code) {
-						case positionError.PERMISSION_DENIED:
-							this.locationAccessDeclined = true;
-							break;
-						case positionError.POSITION_UNAVAILABLE:
-							this.locationUnavailable = true;
-							break;
-						case positionError.TIMEOUT:
-							this.locationTimeout = true;
-							break;
-						default:
-							this.locationUnavailable = true;
-							break;
-					}
-
-					this.isLoading = false;
-					this.isOpen = false;
-					this.openedWithKeyboard = false;
-				}
-
-				const geolocationOptions = {
-					timeout: 30000,
-					enableHighAccuracy: false,
-					maximumAge: 0
-				};
-
-				navigator.geolocation.getCurrentPosition(success, error, geolocationOptions);
-			},
 
 				getFilteredOptions(query) {
 					this.options = this.allOptions.filter((option) =>
