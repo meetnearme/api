@@ -908,6 +908,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 								});
 
 								if (!response.ok) {
+									this.cityNotFound = true;
 									throw new Error(
 										`City lookup failed with query ${query} status: (${response.status})`
 									);
