@@ -676,7 +676,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 		var finalLat float64
 		if lat == "" && (seshuJob.LocationLatitude == 0 || seshuJob.LocationLatitude == constants.INITIAL_EMPTY_LAT_LONG) {
 			return fmt.Errorf("ERR: couldn't find latittude for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
-		} else if latFloat != 0 { // TODO: should this be constants.INITIAL_EMPTY_LAT_LONG?
+		} else if latFloat != 0 {
 			finalLat = latFloat
 		} else {
 			finalLat = seshuJob.LocationLatitude
@@ -686,7 +686,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 		var finalLon float64
 		if lon == "" && (seshuJob.LocationLongitude == 0 || seshuJob.LocationLongitude == constants.INITIAL_EMPTY_LAT_LONG) {
 			return fmt.Errorf("couldn't find longitude for event #%d of %s", i+1, seshuJob.NormalizedUrlKey)
-		} else if lonFloat != 0 { // TODO: should this be constants.INITIAL_EMPTY_LAT_LONG?
+		} else if lonFloat != 0 {
 			finalLon = lonFloat
 		} else {
 			finalLon = seshuJob.LocationLongitude
@@ -712,6 +712,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 				targetTimezoneStr = mapDerivedTimezone
 				log.Printf("INFO: Using timezone from GetGeo coordinates: %s", targetTimezoneStr)
 			}
+
 		}
 
 		// Second priority: EventInfo derived timezone
