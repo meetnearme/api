@@ -1108,6 +1108,94 @@ func TestGetBase64ValueFromMap(t *testing.T) {
 	}
 }
 
+func TestGetUserLocationFromMap(t *testing.T) {
+	tests := []struct {
+		name       string
+		claimsMeta map[string]interface{}
+		wantLat    float64
+		wantLon    float64
+		wantOk     bool
+	}{
+		{
+			name: "valid location string",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "TmV3IFlvcms7NDAuNzE7LTc0LjAx", // "New York;40.71;-74.01" base64 encoded
+			},
+			wantLat: 40.71,
+			wantLon: -74.01,
+			wantOk:  true,
+		},
+		{
+			name: "missing key",
+			claimsMeta: map[string]interface{}{
+				"other_key": "some value",
+			},
+			wantLat: 0,
+			wantLon: 0,
+			wantOk:  false,
+		},
+		{
+			name:       "empty map",
+			claimsMeta: map[string]interface{}{},
+			wantLat:    0,
+			wantLon:    0,
+			wantOk:     false,
+		},
+		{
+			name: "empty string value",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "",
+			},
+			wantLat: 0,
+			wantLon: 0,
+			wantOk:  false,
+		},
+		{
+			name: "invalid base64 encoding",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "invalid-base64!@#",
+			},
+			wantLat: 0,
+			wantLon: 0,
+			wantOk:  false,
+		},
+		{
+			name: "wrong format",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "anVzdC1hLXN0cmluZw==", // "just-a-string" base64 encoded
+			},
+			wantLat: 0,
+			wantLon: 0,
+			wantOk:  false,
+		},
+		{
+			name: "too few parts",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "Q2l0eTs0MC43MQ==", // "City;40.71" base64 encoded (only 2 parts)
+			},
+			wantLat: 0,
+			wantLon: 0,
+			wantOk:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lat, lon, ok := GetUserLocationFromMap(tt.claimsMeta)
+
+			if ok != tt.wantOk {
+				t.Errorf("GetUserLocationFromMap() ok = %v, want %v", ok, tt.wantOk)
+			}
+			if lat != tt.wantLat {
+				t.Errorf("GetUserLocationFromMap() lat = %v, want %v", lat, tt.wantLat)
+			}
+			if lon != tt.wantLon {
+				t.Errorf("GetUserLocationFromMap() lon = %v, want %v", lon, tt.wantLon)
+			}
+		})
+	}
+}
+
 func TestGetCloudflareMnmOptions(t *testing.T) {
 	// Save original environment variables
 	var (
@@ -1281,7 +1369,7 @@ func TestGetCloudflareMnmOptions(t *testing.T) {
 // Tests for new Zitadel Authorization API functions
 // =============================================================================
 
-func TestGetUserRoles(t *testing.T) {
+func TestRoles(t *testing.T) {
 	// Save original environment variables
 	originalHost := os.Getenv("ZITADEL_INSTANCE_HOST")
 	originalToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
