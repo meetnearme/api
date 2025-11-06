@@ -186,7 +186,7 @@ func ProcessGatherSeshuJobs(ctx context.Context, triggerTime int64) (int, bool, 
 	log.Printf("Received request to gather seshu jobs at time: %d", triggerTime)
 	log.Printf("Last execution time: %d", lastExecutionTime)
 
-	if triggerTime-lastExecutionTime <= 60 { // change this for HOUR
+	if triggerTime-lastExecutionTime <= constants.SESHU_GATHER_INTERVAL_SECONDS {
 		return 0, true, http.StatusOK, nil
 	}
 
@@ -205,9 +205,15 @@ func ProcessGatherSeshuJobs(ctx context.Context, triggerTime int64) (int, bool, 
 	if nats == nil {
 		return 0, false, http.StatusInternalServerError, fmt.Errorf("failed to initialize NATS service")
 	}
+	var currentHour int
+	if lastExecutionTime == 0 {
+		currentHour = time.Now().UTC().Hour()
+	} else {
+		currentHour = time.Unix(triggerTime, 0).UTC().Hour()
+	}
 
 	lastExecutionTime = triggerTime
-	currentHour := time.Unix(triggerTime, 0).UTC().Hour()
+	log.Printf("Current hour (UTC): %d", currentHour)
 
 	topOfQueue, err := nats.PeekTopOfQueue(ctx)
 	if err != nil {
@@ -226,7 +232,6 @@ func ProcessGatherSeshuJobs(ctx context.Context, triggerTime int64) (int, bool, 
 		if err := json.Unmarshal(topOfQueue.Data, &job); err != nil {
 			return 0, false, http.StatusBadRequest, fmt.Errorf("invalid JSON payload: %w", err)
 		}
-
 		if currentHour-job.ScheduledHour > 0 {
 			jobs, err = db.ScanSeshuJobsWithInHour(ctx, currentHour)
 			if err != nil {

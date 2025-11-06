@@ -653,8 +653,6 @@ func startSeshuLoop(ctx context.Context) {
 				continue
 			}
 
-			// helpers.MarkSeshuLoopAlive()
-
 			count, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, lastUpdate)
 			if err != nil {
 				log.Printf("[ERROR] Failed to process gather seshu jobs: %v", err)
@@ -663,7 +661,7 @@ func startSeshuLoop(ctx context.Context) {
 
 			if skipped {
 				lastUpdate = time.Now().UTC().Unix()
-				log.Printf("[INFO] Skipped gathering seshu jobs; updated last update timestamp to %d", lastUpdate)
+				log.Printf("[INFO] Skipped gathering seshu jobs; updated last update timestamp to %d , next update %d", lastUpdate, lastUpdate+constants.SESHU_GATHER_INTERVAL_SECONDS)
 				continue
 			}
 
@@ -673,12 +671,8 @@ func startSeshuLoop(ctx context.Context) {
 			}
 
 			log.Printf("[INFO] Successfully gathered %d seshu jobs", count)
-			seshulooptimecount++
-			if seshulooptimecount >= maxseshuloopcount { // limit write frequency
-				overwriteTimestamp("last_update.txt", lastUpdate)
-				seshulooptimecount = 0
-			}
 			lastUpdate = time.Now().UTC().Unix()
+			overwriteTimestamp("last_update.txt", lastUpdate)
 		}
 	}
 }
