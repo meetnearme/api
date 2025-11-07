@@ -37,10 +37,6 @@ import (
 
 type AuthType string
 
-var (
-	seshulooptimecount int
-)
-
 const (
 	None               AuthType = "none"
 	Check              AuthType = "check"
@@ -635,7 +631,6 @@ func startSeshuLoop(ctx context.Context) {
 	log.SetOutput(os.Stdout)
 
 	lastUpdate := readFirstLine(timestampFile)
-	seshulooptimecount = 0
 
 	defer func() {
 		overwriteTimestamp("last_update.txt", lastUpdate) // Write on graceful shutdown
@@ -653,14 +648,19 @@ func startSeshuLoop(ctx context.Context) {
 				continue
 			}
 
-			count, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, lastUpdate)
+			nowUnix := time.Now().UTC().Unix()
+			count, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, nowUnix, lastUpdate)
 			if err != nil {
 				log.Printf("[ERROR] Failed to process gather seshu jobs: %v", err)
 				continue
 			}
 
 			if skipped {
-				lastUpdate = time.Now().UTC().Unix()
+				remain := (lastUpdate + constants.SESHU_GATHER_INTERVAL_SECONDS) - nowUnix
+				if remain < 0 {
+					remain = 0
+				}
+				log.Printf("[INFO] Cooldown skip; ~%d sec left", remain)
 				log.Printf("[INFO] Skipped gathering seshu jobs; updated last update timestamp to %d , next update %d", lastUpdate, lastUpdate+constants.SESHU_GATHER_INTERVAL_SECONDS)
 				continue
 			}
@@ -671,7 +671,7 @@ func startSeshuLoop(ctx context.Context) {
 			}
 
 			log.Printf("[INFO] Successfully gathered %d seshu jobs", count)
-			lastUpdate = time.Now().UTC().Unix()
+			lastUpdate = nowUnix
 			overwriteTimestamp("last_update.txt", lastUpdate)
 		}
 	}

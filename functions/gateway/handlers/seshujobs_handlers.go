@@ -23,9 +23,6 @@ type TriggerRequest struct {
 	Time int64 `json:"time"`
 }
 
-var lastExecutionTime int64 = 0
-var HOUR int64 = 3600 // 1 hour in seconds
-
 func GetSeshuJobs(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	db, _ := services.GetPostgresService(ctx)
@@ -181,12 +178,16 @@ func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
-func ProcessGatherSeshuJobs(ctx context.Context, triggerTime int64) (int, bool, int, error) {
+func ProcessGatherSeshuJobs(ctx context.Context, nowUnix, lastFileUnix int64) (int, bool, int, error) {
 
-	log.Printf("Received request to gather seshu jobs at time: %d", triggerTime)
-	log.Printf("Last execution time: %d", lastExecutionTime)
+	log.Printf("Received request to gather seshu jobs at time: %d", nowUnix)
+	log.Printf("Last execution time: %d", lastFileUnix)
 
-	if triggerTime-lastExecutionTime <= constants.SESHU_GATHER_INTERVAL_SECONDS {
+	diff := nowUnix - lastFileUnix
+	if diff < 0 { // handle skew
+		diff = 0
+	}
+	if diff < constants.SESHU_GATHER_INTERVAL_SECONDS {
 		return 0, true, http.StatusOK, nil
 	}
 
@@ -205,14 +206,9 @@ func ProcessGatherSeshuJobs(ctx context.Context, triggerTime int64) (int, bool, 
 	if nats == nil {
 		return 0, false, http.StatusInternalServerError, fmt.Errorf("failed to initialize NATS service")
 	}
-	var currentHour int
-	if lastExecutionTime == 0 {
-		currentHour = time.Now().UTC().Hour()
-	} else {
-		currentHour = time.Unix(triggerTime, 0).UTC().Hour()
-	}
 
-	lastExecutionTime = triggerTime
+	currentHour := time.Unix(nowUnix, 0).UTC().Hour()
+
 	log.Printf("Current hour (UTC): %d", currentHour)
 
 	topOfQueue, err := nats.PeekTopOfQueue(ctx)
@@ -222,21 +218,27 @@ func ProcessGatherSeshuJobs(ctx context.Context, triggerTime int64) (int, bool, 
 
 	var jobs []internal_types.SeshuJob
 
+	shouldScan := false
+
 	if topOfQueue == nil || len(topOfQueue.Data) == 0 {
+		shouldScan = true
+	} else {
+		var head internal_types.SeshuJob
+		if err := json.Unmarshal(topOfQueue.Data, &head); err != nil {
+			return 0, false, http.StatusBadRequest, fmt.Errorf("invalid JSON payload: %w", err)
+		}
+		if isOverdue(currentHour, head.ScheduledHour) {
+			log.Printf("[INFO] Head job scheduled at %02d, now %02d — overdue: scanning.", head.ScheduledHour, currentHour)
+			shouldScan = true
+		} else {
+			log.Printf("[INFO] Head job scheduled at %02d, now %02d — not overdue: skipping scan.", head.ScheduledHour, currentHour)
+		}
+	}
+
+	if shouldScan {
 		jobs, err = db.ScanSeshuJobsWithInHour(ctx, currentHour)
 		if err != nil {
 			return 0, false, http.StatusBadRequest, fmt.Errorf("unable to obtain Jobs: %w", err)
-		}
-	} else if topOfQueue.Data != nil && len(topOfQueue.Data) > 0 {
-		var job internal_types.SeshuJob
-		if err := json.Unmarshal(topOfQueue.Data, &job); err != nil {
-			return 0, false, http.StatusBadRequest, fmt.Errorf("invalid JSON payload: %w", err)
-		}
-		if currentHour-job.ScheduledHour > 0 {
-			jobs, err = db.ScanSeshuJobsWithInHour(ctx, currentHour)
-			if err != nil {
-				return 0, false, http.StatusBadRequest, fmt.Errorf("unable to obtain Jobs: %w", err)
-			}
 		}
 	}
 
@@ -254,6 +256,13 @@ func ProcessGatherSeshuJobs(ctx context.Context, triggerTime int64) (int, bool, 
 	}
 
 	return published, false, http.StatusOK, nil
+}
+
+// isOverdue returns true if scheduledHour is in the past relative to nowHour,
+// treating hours modulo 24 (so 23 -> 00 is considered "past" by 1 hour).
+func isOverdue(nowHour, scheduledHour int) bool {
+	delta := (nowHour - scheduledHour + 24) % 24
+	return delta > 0 // same hour (delta==0) is not overdue
 }
 
 func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary
@@ -301,13 +310,4 @@ func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary
 		))
 	}
 	return &buf
-}
-
-// Add these functions to expose the global variable for testing
-func GetLastExecutionTime() int64 {
-	return lastExecutionTime
-}
-
-func SetLastExecutionTime(t int64) {
-	lastExecutionTime = t
 }
