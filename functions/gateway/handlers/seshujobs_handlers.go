@@ -258,11 +258,12 @@ func ProcessGatherSeshuJobs(ctx context.Context, nowUnix, lastFileUnix int64) (i
 	return published, false, http.StatusOK, nil
 }
 
-// isOverdue returns true if scheduledHour is in the past relative to nowHour,
-// treating hours modulo 24 (so 23 -> 00 is considered "past" by 1 hour).
+// isOverdue returns true if scheduledHour is in the past relative to nowHour within a 12-hour window.
+// Hours more than 12 hours in the past are treated as future hours (wrapping around 24-hour clock).
 func isOverdue(nowHour, scheduledHour int) bool {
 	delta := (nowHour - scheduledHour + 24) % 24
-	return delta > 0 // same hour (delta==0) is not overdue
+	// delta represents hours since scheduled: 1-11 = recently past (overdue), 12-23 = far past/future (not overdue)
+	return delta > 0 && delta < 12
 }
 
 func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary
