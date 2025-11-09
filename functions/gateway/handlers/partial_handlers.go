@@ -674,7 +674,6 @@ func getValidatedEvents(candidates []internal_types.EventInfo, validations []int
 
 	for i := range candidates {
 
-		log.Printf("~674 Validating candidate %d: %+v with validation %+v\n", i, candidates[i], validations)
 		isValid := true
 
 		// Check if we have a corresponding validation for this candidate
@@ -1263,7 +1262,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				log.Printf("Extracted %d events from %s", len(extractedEvents), seshuJob.NormalizedUrlKey)
 			}
 
-			err = services.PushExtractedEventsToDB(extractedEvents, seshuJob)
+			err = services.PushExtractedEventsToDB(extractedEvents, seshuJob, make(map[string]string))
 			if err != nil {
 				log.Println("Error pushing ingested events to DB:", err)
 			}

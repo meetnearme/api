@@ -20,6 +20,14 @@ var (
 	durableName = os.Getenv("NATS_SESHU_STREAM_DURABLE_NAME")
 )
 
+// abs returns the absolute value of an int64
+func abs(x int64) int64 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 type NatsService struct {
 	conn *nats.Conn
 	js   jetstream.JetStream
@@ -187,32 +195,22 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 				return
 			}
 
-			// query Weaviate for existing FUTRE events with a matching
-			// `EventSourceId`, if they exist, delete all of them
-			// we do this because we are updating our database based on
-			// the URL scraping target as a source of truth, if that URL
-			// target has no events, we leave PAST events alone, but we
-			// delete future events since they conflict with the URL and
-			// it's current content as the source of truth for events
-
-			// Delete existing FUTURE events with matching EventSourceId
+			// Smart update: preserve events that still exist at the source URL
+			// Only delete events that are no longer present at the source
 			if len(events) > 0 {
 				weaviateClient, err := GetWeaviateClient()
 				if err != nil {
 					log.Printf("Failed to get Weaviate client for %s: %v", seshuJob.NormalizedUrlKey, err)
-					// TODO: Update job status to reflect failure in database
 					msg.Ack()
 					return
 				}
 
-				// Get current timestamp for future event filtering
+				// Step 1: Gather all existing events in DB using EventSourceId
 				currentTime := time.Now().Unix()
+				eventSourceId := seshuJob.NormalizedUrlKey
 
-				// Search for existing FUTURE events with matching EventSourceId
-				// We'll use the first event's EventSourceId as they should all be the same from the same source
-				eventSourceId := events[0].EventURL
+				existingEvents := []constants.Event{}
 				if eventSourceId != "" {
-					// Search for future events with matching EventSourceId
 					searchResponse, err := SearchWeaviateEvents(
 						context.Background(),
 						weaviateClient,
@@ -228,47 +226,101 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 						[]string{constants.ES_SINGLE_EVENT}, // eventSourceTypes filter
 						[]string{eventSourceId},             // eventSourceIds filter
 					)
+
 					if err != nil {
-						log.Printf("Failed to search for existing future events with EventSourceId %s: %v", eventSourceId, err)
+						log.Printf("Failed to search for existing events: %v", err)
 						// Continue with processing even if search fails
-					} else if len(searchResponse.Events) > 0 {
-						// Extract event IDs for deletion
-						eventIdsToDelete := make([]string, 0, len(searchResponse.Events))
-						for _, event := range searchResponse.Events {
-							if event.Id != "" {
-								eventIdsToDelete = append(eventIdsToDelete, event.Id)
+					} else {
+						existingEvents = searchResponse.Events
+						log.Printf("Found %d existing future events in DB", len(existingEvents))
+					}
+				}
+				// Step 3: Scrape target URL (already done - events are scraped)
+				log.Printf("Scraped %d new events from URL", len(events))
+				preservedEventIds := make(map[string]bool)
+				newEventIndicesToSkip := make(map[int]bool) // Track which new events to skip (already exist)
+
+				for _, existingEvent := range existingEvents {
+					for j, newEvent := range events {
+						// Skip if this new event already matched a previous existing event
+						if newEventIndicesToSkip[j] {
+							continue
+						}
+
+						// Match criteria: Name, Location, and Time (within tolerance)
+						nameMatch := existingEvent.Name == newEvent.EventTitle
+						locationMatch := existingEvent.Address == newEvent.EventLocation
+
+						// For time matching, parse the new event's time IN THE EVENT'S TIMEZONE
+						// The scraped time string is in local time (same timezone as the existing event)
+						timeMatch := false
+						var timeDiff int64
+						if newEvent.EventStartTime != "" {
+							// Use the existing event's timezone to parse the new event time
+							// This ensures we're comparing apples to apples (both in the same timezone context)
+							newEventTime, err := time.ParseInLocation("2006-01-02T15:04:05", newEvent.EventStartTime, &existingEvent.Timezone)
+							if err == nil {
+								// Compare Unix timestamps (both in UTC now) - exact match required
+								timeDiff = abs(existingEvent.StartTime - newEventTime.Unix())
+								timeMatch = timeDiff == 0 // Exact time match
+							} else {
+								log.Printf("Time parse error: %v", err)
 							}
 						}
 
-						if len(eventIdsToDelete) > 0 {
-							log.Printf("Found %d existing future events with EventSourceId %s, deleting them", len(eventIdsToDelete), eventSourceId)
-
-							// Delete the existing future events
-							_, err = BulkDeleteEventsFromWeaviate(context.Background(), weaviateClient, eventIdsToDelete)
-							if err != nil {
-								log.Printf("Failed to delete existing future events with EventSourceId %s: %v", eventSourceId, err)
-								// Continue with processing even if deletion fails
-							} else {
-								log.Printf("Successfully deleted %d existing future events with EventSourceId %s", len(eventIdsToDelete), eventSourceId)
-							}
+						if nameMatch && locationMatch && timeMatch {
+							// This is a match - preserve the existing event and skip inserting the new one
+							preservedEventIds[existingEvent.Id] = true
+							newEventIndicesToSkip[j] = true
+							break
+						} else {
+							continue
 						}
 					}
 				}
 
-				// TODO: bring this back with properly extracted events
+				// Step 5 & 6: For each PreservedEvent, DO NOT delete
+				// Only delete events that are NOT in the preserved list
+				eventIdsToDelete := make([]string, 0)
+				for _, existingEvent := range existingEvents {
+					if !preservedEventIds[existingEvent.Id] {
+						eventIdsToDelete = append(eventIdsToDelete, existingEvent.Id)
+					}
+				}
 
-				if len(events) == 0 {
-					log.Printf("No events extracted from %s", seshuJob.NormalizedUrlKey)
+				if len(eventIdsToDelete) > 0 {
+					log.Printf("Deleting %d events that no longer exist at source", len(eventIdsToDelete))
+					_, err = BulkDeleteEventsFromWeaviate(context.Background(), weaviateClient, eventIdsToDelete)
+					if err != nil {
+						log.Printf("Failed to delete obsolete events: %v", err)
+					} else {
+						log.Printf("Successfully deleted %d obsolete events", len(eventIdsToDelete))
+					}
 				} else {
-					log.Printf("Extracted %d events from %s", len(events), seshuJob.NormalizedUrlKey)
+					log.Printf("No obsolete events to delete")
 				}
 
-				err = PushExtractedEventsToDB(events, seshuJob)
-				if err != nil {
-					log.Println("Error pushing ingested events to DB:", err)
+				// Filter out new events that match existing events
+				eventsToInsert := make([]internal_types.EventInfo, 0)
+				for i, event := range events {
+					if !newEventIndicesToSkip[i] {
+						eventsToInsert = append(eventsToInsert, event)
+					}
 				}
 
-				log.Printf("Successfully stored %d events in Weaviate for %s", len(events), seshuJob.NormalizedUrlKey)
+				// Now insert ONLY new events (not matches)
+				if len(eventsToInsert) == 0 {
+					log.Printf("No new events to insert for %s (all events already exist)", seshuJob.NormalizedUrlKey)
+				} else {
+					log.Printf("Inserting %d new events for %s", len(eventsToInsert), seshuJob.NormalizedUrlKey)
+					err = PushExtractedEventsToDB(eventsToInsert, seshuJob, make(map[string]string))
+					if err != nil {
+						log.Println("Error pushing new events to DB:", err)
+					}
+				}
+
+				log.Printf("Successfully processed %d events for %s (%d preserved, %d deleted, %d inserted)",
+					len(events), seshuJob.NormalizedUrlKey, len(preservedEventIds), len(eventIdsToDelete), len(eventsToInsert))
 				msg.Ack()
 				return
 			}
