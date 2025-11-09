@@ -28,7 +28,7 @@ const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomPart
 const VotesTablePrefix = "Votes"
 
 // const WeaviateEventClassName = "EventStrict" // old version
-const WeaviateEventClassName = "EventStrict_2025_10_5_000000"
+const WeaviateEventClassName = "EventStrict_2025_11_07_000000"
 
 const ACT string = "ACT"
 const EVENT_ID_KEY string = "eventId"
