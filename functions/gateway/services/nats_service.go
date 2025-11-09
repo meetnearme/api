@@ -319,8 +319,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 					}
 				}
 
-				log.Printf("Successfully processed %d events for %s (%d preserved, %d deleted, %d inserted)",
-					len(events), seshuJob.NormalizedUrlKey, len(preservedEventIds), len(eventIdsToDelete), len(eventsToInsert))
+				log.Printf("Successfully processed %d events for %s (%d preserved, %d deleted, %d inserted)", len(events), seshuJob.NormalizedUrlKey, len(preservedEventIds), len(eventIdsToDelete), len(eventsToInsert))
 				msg.Ack()
 				return
 			}
