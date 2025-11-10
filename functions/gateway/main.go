@@ -24,6 +24,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
 
@@ -56,7 +57,7 @@ type Route struct {
 }
 
 func (app *App) InitRoutes() []Route {
-	return []Route{
+	routes := []Route{
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/refresh", "GET", handlers.HandleRefresh, Require},
@@ -107,6 +108,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/auth/users/update-mnm-options{trailingslash:\\/?}", "POST", handlers.SetMnmOptions, Require},
 		{"/api/auth/users/update-interests{trailingslash:\\/?}", "POST", handlers.UpdateUserInterests, Require},
 		{"/api/auth/users/update-about{trailingslash:\\/?}", "POST", handlers.UpdateUserAbout, Require},
+		{"/api/auth/users/update-location{trailingslash:\\/?}", "POST", handlers.UpdateUserLocation, Require},
 		{"/api/auth/check-role{trailingslash:\\/?}", "GET", handlers.CheckRole, Require},
 		// TODO: delete this comment once user location is implemented in profile,
 		// "/api/location/geo" is for use there
@@ -198,6 +200,27 @@ func (app *App) InitRoutes() []Route {
 		// Re-share
 		{"/api/data/re-share", "POST", handlers.PostReShareHandler, Require},
 	}
+
+	// Only expose /metrics endpoint when IS_LOCAL_ACT=true (local development)
+	// In deployed environments, Caddy's metrics endpoint will be scraped instead
+	if os.Getenv("IS_LOCAL_ACT") == "true" {
+		routes = append(routes, Route{
+			Path:    "/metrics",
+			Method:  "GET",
+			Handler: handleMetrics,
+			Auth:    None,
+		})
+	}
+
+	return routes
+}
+
+// handleMetrics exposes Prometheus metrics endpoint
+// Only available when IS_LOCAL_ACT=true (local development)
+func handleMetrics(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		promhttp.Handler().ServeHTTP(w, r)
+	})
 }
 
 type AuthConfig struct {
@@ -771,10 +794,20 @@ func main() {
 
 		// Start serving
 		loggingRouter := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
-			log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+			// Skip logging for /metrics endpoint to reduce log noise from Prometheus scraping
+			shouldLog := r.URL.Path != "/metrics"
+
+			var start time.Time
+			if shouldLog {
+				start = time.Now()
+				log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+			}
+
 			app.Router.ServeHTTP(w, r)
-			log.Printf("Completed %s %s in %v", r.Method, r.URL, time.Since(start))
+
+			if shouldLog {
+				log.Printf("Completed %s %s in %v", r.Method, r.URL, time.Since(start))
+			}
 		})
 		srv := &http.Server{
 			Handler: loggingRouter,

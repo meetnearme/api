@@ -63,6 +63,12 @@ type UpdateUserAboutRequestPayload struct {
 	About string `json:"about" validate:"required"`
 }
 
+type UpdateUserLocationRequestPayload struct {
+	Latitude  float64 `json:"latitude" validate:"required"`
+	Longitude float64 `json:"longitude" validate:"required"`
+	City      string  `json:"city" validate:"required"`
+}
+
 type eventSearchResult struct {
 	events []internal_types.Event
 	err    error
@@ -1375,6 +1381,60 @@ func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	var inputPayload UpdateUserLocationRequestPayload
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	err = json.Unmarshal([]byte(body), &inputPayload)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusBadRequest)
+	}
+
+	// Validate struct fields
+	err = validate.Struct(&inputPayload)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Invalid Body: "+err.Error()), http.StatusBadRequest)
+	}
+
+	if strings.TrimSpace(inputPayload.City) == "" {
+		return transport.SendHtmlErrorPartial([]byte("City field is required"), http.StatusBadRequest)
+	}
+
+	if inputPayload.Latitude < -90 || inputPayload.Latitude > 90 {
+		return transport.SendHtmlErrorPartial([]byte("Latitude must be between -90 and 90"), http.StatusBadRequest)
+	}
+
+	if inputPayload.Longitude < -180 || inputPayload.Longitude > 180 {
+		return transport.SendHtmlErrorPartial([]byte("Longitude must be between -180 and 180"), http.StatusBadRequest)
+	}
+
+	ctx := r.Context()
+
+	userInfo := ctx.Value("userInfo").(constants.UserInfo)
+	userID := userInfo.Sub
+
+	userLocation := fmt.Sprintf("%s;%.2f;%.2f", inputPayload.City, inputPayload.Latitude, inputPayload.Longitude)
+
+	err = helpers.UpdateUserMetadataKey(userID, constants.META_LOC_KEY, userLocation)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to update location: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	// This can be used to see what actually gets saved in Zitadel. But it's an extra api call and log so I'm leaving it commented out.
+	// loc, _ := helpers.GetUserMetadataByKey(userID, constants.META_LOC_KEY)
+	// locStr, _ := base64.StdEncoding.DecodeString(loc)
+	// log.Printf("Location info successfully saved: %s", locStr)
+
+	var buf bytes.Buffer
+	// this doesn't get displayed in UI, it's just for the tests to verify success
+	buf.WriteString("Location info successfully saved.")
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
