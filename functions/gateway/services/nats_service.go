@@ -249,7 +249,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 							continue
 						}
 
-						// Match criteria: Name, Location, and Time (within tolerance)
+						// Match criteria: Name, Location, and Time
 						nameMatch := existingEvent.Name == newEvent.EventTitle
 						locationMatch := existingEvent.Address == newEvent.EventLocation
 
