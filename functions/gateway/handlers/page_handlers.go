@@ -149,6 +149,7 @@ func GetSearchParamsFromReq(r *http.Request) (query, city string, userLocation [
 		lat = userMetaLat
 		long = userMetaLon
 	} else if cfLocationLat != constants.INITIAL_EMPTY_LAT_LONG && cfLocationLon != constants.INITIAL_EMPTY_LAT_LONG {
+		city = cfLocation.City
 		lat = float64(cfLocationLat)
 		long = float64(cfLocationLon)
 	}

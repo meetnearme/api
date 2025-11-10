@@ -198,8 +198,8 @@ func TestHomeWithReShareButton(t *testing.T) {
 	if !strings.Contains(renderedContent, "data-page-user-id=\"1234567890\"") {
 		t.Errorf("Expected rendered content to contain 'data-page-user-id=\"1234567890\"', but it didn't")
 	}
-	if !strings.Contains(renderedContent, "data-city-label-initial=\"New York, US\"") {
-		t.Errorf("Expected rendered content to contain 'data-city-label-initial=\"New York, US\"', but it didn't")
+	if !strings.Contains(renderedContent, "data-city-label-initial=\"New York\"") {
+		t.Errorf("Expected rendered content to contain 'data-city-label-initial=\"New York\"', but it didn't")
 	}
 	if !strings.Contains(renderedContent, "data-city-latitude-initial=\"40.7128\"") {
 		t.Errorf("Expected rendered content to contain 'data-city-latitude-initial=\"40.7128\"', but it didn't")
