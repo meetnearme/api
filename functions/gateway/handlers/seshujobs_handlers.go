@@ -183,7 +183,7 @@ func ProcessGatherSeshuJobs(ctx context.Context, nowUnix, lastFileUnix int64) (i
 	log.Printf("Last execution time UTC: %s", time.Unix(lastFileUnix, 0).UTC().Format(time.RFC3339))
 
 	diff := nowUnix - lastFileUnix
-	if diff < 0 { // handle skew
+	if diff < 0 { // negative handle
 		diff = 0
 	}
 	if diff < constants.SESHU_GATHER_INTERVAL_SECONDS {
