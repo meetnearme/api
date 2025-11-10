@@ -863,7 +863,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				locationTimeout: false,
 				cityNotFound: false,
 				apiError: false,
-        defaultCity: "",
+				defaultCity: "",
 				getErrorMessage() {
 					if (this.locationAccessDeclined) {
 						return 'Location access was declined.';
