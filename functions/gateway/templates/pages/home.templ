@@ -863,6 +863,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				locationTimeout: false,
 				cityNotFound: false,
 				apiError: false,
+        defaultCity: "",
 				getErrorMessage() {
 					if (this.locationAccessDeclined) {
 						return 'Location access was declined.';
@@ -1311,7 +1312,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					},
 					radius: null,
 					locationDropdown: null,
+					defaultCity: "",
 					savingLocation: false,
+					modalIsOpen: false,
 					sendCategoriesToQueryParams() {
 						const form = document.getElementById('category-search-form')
 						// Collect form values
@@ -1336,11 +1339,18 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							Alpine.store('urlState').setParam('radius', this.radius)
 						}
 
-						if (this.locationDropdown) {
+						if (this.locationDropdown && this.defaultCity != this.locationDropdown.label) {
 							// Commit location changes to URL
 							Alpine.store('urlState').setParam('lat', this.locationDropdown.latitude)
 							Alpine.store('urlState').setParam('lon', this.locationDropdown.longitude)
 							Alpine.store('urlState').setParam('location', this.locationDropdown.label)
+							Alpine.store('location').setSelectedLocation(this.locationDropdown)
+						}
+						if (this.locationDropdown && this.defaultCity == this.locationDropdown.label) {
+							// Remove location params from URL since it matches the default (will use metadata)
+							Alpine.store('urlState').setParam('lat', '')
+							Alpine.store('urlState').setParam('lon', '')
+							Alpine.store('urlState').setParam('location', '')
 							Alpine.store('location').setSelectedLocation(this.locationDropdown)
 						}
 
