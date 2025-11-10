@@ -299,7 +299,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 						log.Printf("Successfully deleted %d obsolete events", len(eventIdsToDelete))
 					}
 				} else {
-					log.Printf("No obsolete events to delete")
+					log.Printf("No events to delete for : %s", seshuJob.NormalizedUrlKey)
 				}
 
 				// Filter out new events that match existing events
