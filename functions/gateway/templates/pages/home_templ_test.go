@@ -36,6 +36,7 @@ func TestHomePage(t *testing.T) {
 	tests := []struct {
 		name              string
 		pageUser          *types.UserSearchResult
+		cityStr           string
 		latStr            string
 		lonStr            string
 		origQueryLocation string
@@ -44,6 +45,7 @@ func TestHomePage(t *testing.T) {
 		{
 			name:              "Without page user",
 			pageUser:          nil,
+			cityStr:           "",
 			latStr:            "",
 			lonStr:            "",
 			origQueryLocation: "",
@@ -60,6 +62,7 @@ func TestHomePage(t *testing.T) {
 				UserID:      "1234567890",
 				DisplayName: "Brian Feister",
 			},
+			cityStr:           "",
 			latStr:            "",
 			lonStr:            "",
 			origQueryLocation: "",
@@ -79,6 +82,7 @@ func TestHomePage(t *testing.T) {
 					constants.META_ABOUT_KEY: "Welcome to Brian's Pub",
 				},
 			},
+			cityStr:           "",
 			latStr:            "",
 			lonStr:            "",
 			origQueryLocation: "",
@@ -100,6 +104,7 @@ func TestHomePage(t *testing.T) {
 					constants.META_ABOUT_KEY: "Welcome to Brian's Pub",
 				},
 			},
+			cityStr:           "Houston",
 			latStr:            "29.760427",
 			lonStr:            "-95.369803",
 			origQueryLocation: "Houston, TX",
@@ -119,7 +124,7 @@ func TestHomePage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Call the HomePage function
-			component := HomePage(context.Background(), events, tt.pageUser, cfLocation, tt.latStr, tt.lonStr, origLatStr, origLonStr, tt.origQueryLocation)
+			component := HomePage(context.Background(), events, tt.pageUser, cfLocation, tt.cityStr, tt.latStr, tt.lonStr, origLatStr, origLonStr, tt.origQueryLocation)
 
 			// Render the component
 			var buf bytes.Buffer
@@ -178,7 +183,7 @@ func TestHomeWithReShareButton(t *testing.T) {
 		City: "New York",
 		CCA2: "US",
 	}
-	component := HomePage(context.Background(), events, pageUser, cfLocation, "40.7128", "-74.0060", "", "", "")
+	component := HomePage(context.Background(), events, pageUser, cfLocation, "New York", "40.7128", "-74.0060", "", "", "")
 
 	var buf bytes.Buffer
 	err := component.Render(context.Background(), &buf)
