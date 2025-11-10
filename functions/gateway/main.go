@@ -828,10 +828,13 @@ func main() {
 		}()
 
 		go func() {
-			startSeshuLoop(seshuCtx)
 			if err := app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers); err != nil {
 				log.Fatal(err)
 			}
+		}()
+
+		go func() {
+			startSeshuLoop(seshuCtx)
 		}()
 
 		select {}
