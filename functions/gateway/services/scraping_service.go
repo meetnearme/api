@@ -610,7 +610,10 @@ func FilterValidEvents(events []types.EventInfo) []types.EventInfo {
 	return validEvents
 }
 
-func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) error {
+func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob, preservedEventMap map[string]string) error {
+	// preservedEventMap is kept for backward compatibility but not used in the new flow
+	// New events are filtered before calling this function (no longer inserting duplicates)
+
 	// Handle empty events array gracefully
 	if len(events) == 0 {
 		log.Printf("No events to push to DB for %s", seshuJob.NormalizedUrlKey)
@@ -778,16 +781,19 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 			endVal = nil
 		}
 
-		eventSourceID := eventInfo.SourceUrl
+		eventSourceID := seshuJob.NormalizedUrlKey
 
+		// All events passed to this function are new events (already filtered)
+		// Weaviate will generate new UUIDs for all of them
 		event := RawEvent{
 			RawEventData: RawEventData{
+				Id:              "", // Empty ID means Weaviate will generate a new UUID
 				EventOwners:     []string{seshuJob.OwnerID},
 				EventOwnerName:  ownerName,
 				EventSourceType: constants.ES_SINGLE_EVENT,
 				Name:            eventInfo.EventTitle,
 				Description:     eventInfo.EventDescription,
-				Address:         address,
+				Address:         eventInfo.EventLocation,
 				Lat:             finalLat,
 				Long:            finalLon,
 				Timezone:        tzString,

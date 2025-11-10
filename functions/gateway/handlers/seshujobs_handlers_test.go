@@ -776,8 +776,9 @@ func TestProcessGatherSeshuJobs_Success_EmptyQueue(t *testing.T) {
 
 	ctx := setupMockServices(mockPg, mockNats)
 	trigger := time.Now().Unix()
+	lastExec := int64(0) // First run
 
-	count, skip, status, err := handlers.ProcessGatherSeshuJobs(ctx, trigger)
+	count, skip, status, err := handlers.ProcessGatherSeshuJobs(ctx, trigger, lastExec)
 	if err != nil || status != http.StatusOK {
 		t.Fatalf("expected success, got status %d err %v", status, err)
 	}
@@ -787,7 +788,6 @@ func TestProcessGatherSeshuJobs_Success_EmptyQueue(t *testing.T) {
 }
 
 func TestProcessGatherSeshuJobs_PublishFailure(t *testing.T) {
-	handlers.SetLastExecutionTime(0)
 
 	mockDB := &MockPostgresService{
 		ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
@@ -804,8 +804,10 @@ func TestProcessGatherSeshuJobs_PublishFailure(t *testing.T) {
 	}
 
 	ctx := setupMockServices(mockDB, mockNats)
+	trigger := time.Now().Unix()
+	lastExec := int64(0) // First run
 
-	published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, time.Now().Unix())
+	published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, trigger, lastExec)
 
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
@@ -823,9 +825,9 @@ func TestProcessGatherSeshuJobs_PublishFailure(t *testing.T) {
 
 func TestProcessGatherSeshuJobs_SkipDueToCooldown(t *testing.T) {
 	now := time.Now().Unix()
-	handlers.SetLastExecutionTime(now)
+	lastExec := now // Same time, should trigger cooldown
 
-	published, skipped, status, err := handlers.ProcessGatherSeshuJobs(context.Background(), now)
+	published, skipped, status, err := handlers.ProcessGatherSeshuJobs(context.Background(), now, lastExec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -849,7 +851,7 @@ func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
 	currentHour := 12
 
 	t.Run("NonEmptyQueue_CurrentHour_NoScan_NoPublish", func(t *testing.T) {
-		handlers.SetLastExecutionTime(0)
+		lastExec := int64(0)
 
 		// Head of queue is for the current hour, so we should not scan DB
 		head := internal_types.SeshuJob{NormalizedUrlKey: "queued-job", ScheduledHour: currentHour}
@@ -872,7 +874,7 @@ func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
 		}
 
 		ctx := setupMockServices(mockPg, mockNats)
-		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger, lastExec)
 		if err != nil || status != http.StatusOK {
 			t.Fatalf("expected OK with no publish, got status=%d err=%v", status, err)
 		}
@@ -885,7 +887,7 @@ func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
 	})
 
 	t.Run("NonEmptyQueue_OlderHour_ScansAndPublishes", func(t *testing.T) {
-		handlers.SetLastExecutionTime(0)
+		lastExec := int64(0)
 
 		head := internal_types.SeshuJob{NormalizedUrlKey: "old-queued-job", ScheduledHour: currentHour - 1}
 		headBytes, _ := json.Marshal(head)
@@ -912,7 +914,7 @@ func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
 		}
 
 		ctx := setupMockServices(mockPg, mockNats)
-		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger, lastExec)
 		if err != nil || status != http.StatusOK {
 			t.Fatalf("expected OK, got status=%d err=%v", status, err)
 		}
@@ -925,7 +927,7 @@ func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
 	})
 
 	t.Run("PeekTopOfQueue_Error", func(t *testing.T) {
-		handlers.SetLastExecutionTime(0)
+		lastExec := int64(0)
 		mockPg := &MockPostgresService{}
 		mockNats := &MockNatsService{
 			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
@@ -933,14 +935,14 @@ func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
 			},
 		}
 		ctx := setupMockServices(mockPg, mockNats)
-		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger, lastExec)
 		if err == nil || status != http.StatusBadRequest {
 			t.Fatalf("expected 400 with error, got status=%d err=%v", status, err)
 		}
 	})
 
 	t.Run("TopOfQueue_InvalidJSON", func(t *testing.T) {
-		handlers.SetLastExecutionTime(0)
+		lastExec := int64(0)
 		mockPg := &MockPostgresService{}
 		mockNats := &MockNatsService{
 			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) {
@@ -948,14 +950,14 @@ func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
 			},
 		}
 		ctx := setupMockServices(mockPg, mockNats)
-		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger, lastExec)
 		if err == nil || status != http.StatusBadRequest {
 			t.Fatalf("expected 400 for invalid JSON, got status=%d err=%v", status, err)
 		}
 	})
 
 	t.Run("ScanError_EmptyQueue", func(t *testing.T) {
-		handlers.SetLastExecutionTime(0)
+		lastExec := int64(0)
 		mockPg := &MockPostgresService{
 			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
 				return nil, errors.New("scan error")
@@ -965,14 +967,14 @@ func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
 			PeekTopFunc: func(ctx context.Context) (*jetstream.RawStreamMsg, error) { return nil, nil },
 		}
 		ctx := setupMockServices(mockPg, mockNats)
-		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger, lastExec)
 		if err == nil || status != http.StatusBadRequest {
 			t.Fatalf("expected 400 for scan error, got status=%d err=%v", status, err)
 		}
 	})
 
 	t.Run("ScanError_WithOlderQueueHead", func(t *testing.T) {
-		handlers.SetLastExecutionTime(0)
+		lastExec := int64(0)
 		head := internal_types.SeshuJob{NormalizedUrlKey: "old", ScheduledHour: currentHour - 1}
 		headBytes, _ := json.Marshal(head)
 		mockPg := &MockPostgresService{
@@ -986,14 +988,14 @@ func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
 			},
 		}
 		ctx := setupMockServices(mockPg, mockNats)
-		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		_, _, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger, lastExec)
 		if err == nil || status != http.StatusBadRequest {
 			t.Fatalf("expected 400 for scan error with older head, got status=%d err=%v", status, err)
 		}
 	})
 
 	t.Run("PartialPublishFailures_CountOnlySuccesses", func(t *testing.T) {
-		handlers.SetLastExecutionTime(0)
+		lastExec := int64(0)
 		jobs := []internal_types.SeshuJob{{NormalizedUrlKey: "ok"}, {NormalizedUrlKey: "fail"}}
 		mockPg := &MockPostgresService{
 			ScanJobsWithInHourFunc: func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error) {
@@ -1013,7 +1015,7 @@ func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
 			},
 		}
 		ctx := setupMockServices(mockPg, mockNats)
-		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		published, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger, lastExec)
 		if err != nil || status != http.StatusOK {
 			t.Fatalf("expected OK despite partial failures, got status=%d err=%v", status, err)
 		}
@@ -1026,27 +1028,21 @@ func TestProcessGatherSeshuJobs_Variants(t *testing.T) {
 	})
 
 	t.Run("LastExecutionTime_UpdatesOnlyWhenNotSkipped", func(t *testing.T) {
-		// Ensure update on non-skipped path
-		handlers.SetLastExecutionTime(0)
+		// Test that non-cooldown path works
+		firstExec := int64(0)
 		mockPg := &MockPostgresService{}
 		mockNats := &MockNatsService{}
 		ctx := setupMockServices(mockPg, mockNats)
-		_, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger)
+		_, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, fixedTrigger, firstExec)
 		if err != nil || status != http.StatusOK || skipped {
 			t.Fatalf("unexpected result err=%v status=%d skipped=%v", err, status, skipped)
 		}
-		if handlers.GetLastExecutionTime() != fixedTrigger {
-			t.Errorf("expected lastExecutionTime=%d, got %d", fixedTrigger, handlers.GetLastExecutionTime())
-		}
 
-		// Cooldown path should NOT update lastExecutionTime
+		// Cooldown path should skip when within interval
 		later := fixedTrigger + 30 // within 60s
-		_, skipped2, status2, err2 := handlers.ProcessGatherSeshuJobs(ctx, later)
+		_, skipped2, status2, err2 := handlers.ProcessGatherSeshuJobs(ctx, later, fixedTrigger)
 		if err2 != nil || status2 != http.StatusOK || !skipped2 {
 			t.Fatalf("expected cooldown skip, got err=%v status=%d skipped=%v", err2, status2, skipped2)
-		}
-		if handlers.GetLastExecutionTime() != fixedTrigger {
-			t.Errorf("expected lastExecutionTime unchanged=%d, got %d", fixedTrigger, handlers.GetLastExecutionTime())
 		}
 	})
 }

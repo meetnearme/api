@@ -564,6 +564,9 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	// that is prone to manipulation
 	// check current session payload
 
+	//trim whitespaces for url
+	inputPayload.Url = strings.TrimSpace(inputPayload.Url)
+
 	updateSeshuSession = internal_types.SeshuSessionUpdate{
 		Url:              inputPayload.Url,
 		EventValidations: inputPayload.EventBoolValid,
@@ -676,6 +679,7 @@ func getValidatedEvents(candidates []internal_types.EventInfo, validations []int
 	var validatedEvents []internal_types.EventInfo
 
 	for i := range candidates {
+
 		isValid := true
 
 		// Check if we have a corresponding validation for this candidate
@@ -776,6 +780,8 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	}
 
 	var seshuSessionGet internal_types.SeshuSessionGet
+	//validate url trim whitespaces
+	payload.Url = strings.TrimSpace(payload.Url)
 	seshuSessionGet.OwnerId = userId
 	seshuSessionGet.Url = payload.Url
 	seshuService := services.GetSeshuService()
@@ -1262,7 +1268,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				log.Printf("Extracted %d events from %s", len(extractedEvents), seshuJob.NormalizedUrlKey)
 			}
 
-			err = services.PushExtractedEventsToDB(extractedEvents, seshuJob)
+			err = services.PushExtractedEventsToDB(extractedEvents, seshuJob, make(map[string]string))
 			if err != nil {
 				log.Println("Error pushing ingested events to DB:", err)
 			}
