@@ -102,12 +102,12 @@ func GetSearchParamsFromReq(r *http.Request) (query, city string, userLocation [
 	owners := r.URL.Query().Get("owners")
 	categoriesStr := r.URL.Query().Get("categories")
 	address = r.URL.Query().Get("address")
+	location := r.URL.Query().Get("location")
 	parseDates := r.URL.Query().Get("parse_dates")
 	eventSourceTypesStr := r.URL.Query().Get("event_source_types")
 	eventSourceIdsStr := r.URL.Query().Get("event_source_ids")
 	cfRay := GetCfRay(r)
 	rayCode := ""
-
 	cfLocationLat := constants.INITIAL_EMPTY_LAT_LONG
 	cfLocationLon := constants.INITIAL_EMPTY_LAT_LONG
 
@@ -123,9 +123,9 @@ func GetSearchParamsFromReq(r *http.Request) (query, city string, userLocation [
 	userMetaLon := 0.0
 	hasUserMetaLocation := false
 	if userMetaClaims, ok := r.Context().Value("userMetaClaims").(map[string]interface{}); ok {
-		city, lat, lon, ok := helpers.GetUserLocationFromMap(userMetaClaims)
+		metaCity, lat, lon, ok := helpers.GetUserLocationFromMap(userMetaClaims)
 		if ok {
-			userMetaCity = city
+			userMetaCity = metaCity
 			userMetaLat = lat
 			userMetaLon = lon
 			hasUserMetaLocation = true
@@ -133,7 +133,7 @@ func GetSearchParamsFromReq(r *http.Request) (query, city string, userLocation [
 	}
 
 	// default lat / lon to geographic center of US
-	city = "New York, NY"
+	city = location
 	lat := US_GEO_DEFAULT_LAT
 	long := US_GEO_DEFAULT_LONG
 
