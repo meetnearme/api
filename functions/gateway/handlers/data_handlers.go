@@ -513,7 +513,7 @@ func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 func (h *WeaviateHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
 	// Extract parameter values from the request query parameters
-	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+	q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
 	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {

@@ -1251,36 +1251,37 @@ func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []str
 	return strings.Split(interests, "|")
 }
 
-func GetUserLocationFromMap(claimsMeta map[string]interface{}) (lat, lon float64, ok bool) {
+func GetUserLocationFromMap(claimsMeta map[string]interface{}) (cityStr string, lat, lon float64, ok bool) {
 	locationStr := GetBase64ValueFromMap(claimsMeta, constants.META_LOC_KEY)
 	if locationStr == "" {
-		return 0, 0, false
+		return "", 0, 0, false
 	}
 
 	parts := strings.Split(locationStr, ";")
 	if len(parts) < 3 {
-		return 0, 0, false
+		return "", 0, 0, false
 	}
 
+	cityStr = parts[0]
 	latStr := parts[1]
 	lonStr := parts[2]
 
 	lat64, err := strconv.ParseFloat(latStr, 64)
 	if err != nil {
-		return 0, 0, false
+		return "", 0, 0, false
 	}
 
 	lon64, err := strconv.ParseFloat(lonStr, 64)
 	if err != nil {
-		return 0, 0, false
+		return "", 0, 0, false
 	}
 
 	// Validate coordinate ranges
 	if lat64 < -90 || lat64 > 90 || lon64 < -180 || lon64 > 180 {
-		return 0, 0, false
+		return "", 0, 0, false
 	}
 
-	return lat64, lon64, true
+	return cityStr, lat64, lon64, true
 }
 
 func CalculateTTL(days int) int64 {
