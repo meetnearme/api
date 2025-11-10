@@ -683,8 +683,8 @@ func startSeshuLoop(ctx context.Context) {
 				if remain < 0 {
 					remain = 0
 				}
-				log.Printf("[INFO] Cooldown skip; ~%d sec left", remain)
-				log.Printf("[INFO] Skipped gathering seshu jobs; updated last update timestamp to %d , next update %d", lastUpdate, lastUpdate+constants.SESHU_GATHER_INTERVAL_SECONDS)
+				log.Printf("[INFO] Skipped gathering seshu jobs; updated last update timestamp to %d , next update %d, remaining cooldown (sec): %d",
+					lastUpdate, lastUpdate+constants.SESHU_GATHER_INTERVAL_SECONDS, remain)
 				continue
 			}
 
@@ -828,13 +828,10 @@ func main() {
 		}()
 
 		go func() {
+			startSeshuLoop(seshuCtx)
 			if err := app.Nats.ConsumeMsg(seshuCtx, seshuCronWorkers); err != nil {
 				log.Fatal(err)
 			}
-		}()
-
-		go func() {
-			startSeshuLoop(seshuCtx)
 		}()
 
 		select {}

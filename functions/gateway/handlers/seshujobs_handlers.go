@@ -180,8 +180,7 @@ func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 func ProcessGatherSeshuJobs(ctx context.Context, nowUnix, lastFileUnix int64) (int, bool, int, error) {
 
-	log.Printf("Received request to gather seshu jobs at time: %d", nowUnix)
-	log.Printf("Last execution time: %d", lastFileUnix)
+	log.Printf("Last execution time UTC: %s", time.Unix(lastFileUnix, 0).UTC().Format(time.RFC3339))
 
 	diff := nowUnix - lastFileUnix
 	if diff < 0 { // handle skew
@@ -208,8 +207,6 @@ func ProcessGatherSeshuJobs(ctx context.Context, nowUnix, lastFileUnix int64) (i
 	}
 
 	currentHour := time.Unix(nowUnix, 0).UTC().Hour()
-
-	log.Printf("Current hour (UTC): %d", currentHour)
 
 	topOfQueue, err := nats.PeekTopOfQueue(ctx)
 	if err != nil {

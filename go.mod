@@ -35,6 +35,7 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/nats-io/nats.go v1.43.0
 	github.com/playwright-community/playwright-go v0.5101.0
+	github.com/prometheus/client_golang v1.23.2
 	github.com/ringsaturn/tzf v1.0.0
 	github.com/stripe/stripe-go/v83 v83.0.0
 	github.com/weaviate/weaviate v1.28.8
@@ -107,7 +108,6 @@ require (
 	github.com/onsi/gomega v1.36.1 // indirect
 	github.com/paulmach/orb v0.11.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect

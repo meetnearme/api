@@ -228,8 +228,10 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 					)
 
 					if err != nil {
-						log.Printf("Failed to search for existing events: %v", err)
+						log.Printf("Failed to search for existing future events with EventSourceId %s: %v", eventSourceId, err)
 						// Continue with processing even if search fails
+						msg.Nak() // Requeue for retry
+						return
 					} else {
 						existingEvents = searchResponse.Events
 						log.Printf("Found %d existing future events in DB", len(existingEvents))
