@@ -28,7 +28,7 @@ const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomPart
 const VotesTablePrefix = "Votes"
 
 // const WeaviateEventClassName = "EventStrict" // old version
-const WeaviateEventClassName = "EventStrict_2025_10_5_000000"
+const WeaviateEventClassName = "EventStrict_2025_11_07_000000"
 
 const ACT string = "ACT"
 const EVENT_ID_KEY string = "eventId"
@@ -97,6 +97,8 @@ const (
 const (
 	SESHU_KNOWN_SOURCE_FB = "FACEBOOK"
 )
+
+var SESHU_GATHER_INTERVAL_SECONDS int64 = (1 * 60 * 60)
 
 const COMP_EMPTY_TEAM_NAME = "___|~~EMPTY TEAM NAME~~|___"
 const COMP_UNASSIGNED_ROUND_EVENT_ID = "fake-event-id-123"
