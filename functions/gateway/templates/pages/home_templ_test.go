@@ -25,17 +25,13 @@ func TestHomePage(t *testing.T) {
 		},
 	}
 
-	cfLocation := constants.CdnLocation{
-		City: "New York",
-		CCA2: "US",
-	}
-
 	origLatStr := ""
 	origLonStr := ""
 	// Test cases
 	tests := []struct {
 		name              string
 		pageUser          *types.UserSearchResult
+		cfLocation        constants.CdnLocation
 		cityStr           string
 		latStr            string
 		lonStr            string
@@ -104,7 +100,7 @@ func TestHomePage(t *testing.T) {
 					constants.META_ABOUT_KEY: "Welcome to Brian's Pub",
 				},
 			},
-			cityStr:           "Houston",
+			cityStr:           "", // this is only for city from metadata
 			latStr:            "29.760427",
 			lonStr:            "-95.369803",
 			origQueryLocation: "Houston, TX",
@@ -112,9 +108,60 @@ func TestHomePage(t *testing.T) {
 				"Test Event 1",
 				"Test Event 2",
 				"data-city-label-initial=\"Houston, TX\"",
+				"Houston, TX",
 				"data-page-user-id=\"1234567890\"",
 				"data-city-latitude-initial=\"29.760427\"",
 				"data-city-longitude-initial=\"-95.369803\"",
+				"Welcome to Brian's Pub",
+				"Brian&#39;s Pub</h1>",
+			},
+		},
+		{
+			name: "With page user and location from metadata",
+			pageUser: &types.UserSearchResult{
+				UserID:      "1234567890",
+				DisplayName: "Brian's Pub",
+				Metadata: map[string]string{
+					constants.META_ABOUT_KEY: "Welcome to Brian's Pub",
+				},
+			},
+			cityStr:           "Georgetown, Texas",
+			latStr:            "30.0",
+			lonStr:            "45.0",
+			origQueryLocation: "",
+			expectedItems: []string{
+				"Test Event 1",
+				"Test Event 2",
+				"Georgetown, Texas",
+				"data-page-user-id=\"1234567890\"",
+				"Welcome to Brian's Pub",
+				"Brian&#39;s Pub</h1>",
+			},
+		},
+		{
+			name: "With page user and cloudflare location",
+			pageUser: &types.UserSearchResult{
+				UserID:      "1234567890",
+				DisplayName: "Brian's Pub",
+				Metadata: map[string]string{
+					constants.META_ABOUT_KEY: "Welcome to Brian's Pub",
+				},
+			},
+			cfLocation: constants.CdnLocation{
+				City: "Salt Lake City",
+				Lat:  40.760779,
+				Lon:  -111.891047,
+				CCA2: "US",
+			},
+			cityStr:           "",
+			latStr:            "",
+			lonStr:            "",
+			origQueryLocation: "",
+			expectedItems: []string{
+				"Test Event 1",
+				"Test Event 2",
+				"Salt Lake City, US",
+				"data-page-user-id=\"1234567890\"",
 				"Welcome to Brian's Pub",
 				"Brian&#39;s Pub</h1>",
 			},
@@ -124,7 +171,7 @@ func TestHomePage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Call the HomePage function
-			component := HomePage(context.Background(), events, tt.pageUser, cfLocation, tt.cityStr, tt.latStr, tt.lonStr, origLatStr, origLonStr, tt.origQueryLocation)
+			component := HomePage(context.Background(), events, tt.pageUser, tt.cfLocation, tt.cityStr, tt.latStr, tt.lonStr, origLatStr, origLonStr, tt.origQueryLocation)
 
 			// Render the component
 			var buf bytes.Buffer
