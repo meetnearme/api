@@ -7,7 +7,7 @@ toolchain go1.24.3
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.5.0
 	github.com/PuerkitoBio/goquery v1.10.1
-	github.com/a-h/templ v0.2.793
+	github.com/a-h/templ v0.3.960
 	github.com/aws/aws-cdk-go/awscdk/v2 v2.133.0
 	github.com/aws/aws-lambda-go v1.46.0
 	github.com/aws/aws-sdk-go-v2 v1.36.3
