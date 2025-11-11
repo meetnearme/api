@@ -1,0 +1,320 @@
+package partials
+
+import (
+	"github.com/google/uuid"
+	"github.com/meetnearme/api/functions/gateway/constants"
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
+	"log"
+	"os"
+	"strconv"
+)
+
+func GetDefaultRadiusEmbed(cfLocation constants.CdnLocation) string {
+	if cfLocation.City == "" {
+		return strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)
+	}
+	return strconv.FormatFloat(constants.DEFAULT_SEARCH_RADIUS, 'f', -1, 64)
+}
+
+func GetCityCountryFromLocationEmbed(cfLocation constants.CdnLocation, latStr, lonStr, origLat, origLon, origQueryLocation string) string {
+	if origQueryLocation != "" {
+		return origQueryLocation
+	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
+		return cfLocation.City + ", " + cfLocation.CCA2
+	} else if latStr != "" && lonStr != "" {
+		return latStr + ", " + lonStr
+	} else if cfLocation.City == "" && origLat != "" && origLon != "" {
+		return origLat + ", " + origLon
+	} else {
+		return helpers.Cities[0].City + ", " + helpers.Cities[0].State
+	}
+}
+
+func GetCitiesAsJsonStrEmbed() string {
+	cityData := make([]map[string]interface{}, 0, 200)
+	for _, city := range helpers.Cities[:50] {
+		cityData = append(cityData, map[string]interface{}{
+			"id":        uuid.New(),
+			"name":      city.City,
+			"state":     city.State,
+			"latitude":  city.Latitude,
+			"longitude": city.Longitude,
+			"label":     city.City + ", " + city.State + ", US",
+		})
+	}
+
+	cityStateJsonString, err := templ.JSONString(cityData)
+	if err != nil {
+		log.Printf("Error creating JSON string: %v", err)
+		cityStateJsonString = "[]"
+	}
+
+	return cityStateJsonString
+}
+
+templ EmbedEvents(eventsHTML string, pageUser *types.UserSearchResult, cfLocation constants.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string, searchStyle string, roleClaims []constants.RoleClaim, ownerId string, apiBaseUrl string) {
+	{{
+		defaultRadius := GetDefaultRadiusEmbed(cfLocation)
+		cityLabel := GetCityCountryFromLocationEmbed(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation)
+		staticBaseUrl := os.Getenv("STATIC_BASE_URL")
+		if staticBaseUrl == "" {
+			staticBaseUrl = apiBaseUrl
+		}
+		embedScriptUrl := staticBaseUrl + "/assets/mnm-embed.js"
+	}}
+	<div class="mnm-embed-container" x-data="getEmbedHomeState()" data-mnm-embed-script-url={ embedScriptUrl }>
+		// Search bar based on style
+		if searchStyle == "dialog" {
+			@EmbedSearchDialog(apiBaseUrl, defaultRadius)
+		} else if searchStyle == "header" {
+			@EmbedSearchHeader(apiBaseUrl, defaultRadius)
+		} else {
+			@EmbedSearchInline(apiBaseUrl, defaultRadius)
+		}
+		// Time filter buttons
+		<div class="pb-4">
+			<form
+				id="mnm-embed-event-search-form"
+				class="flex"
+				novalidate
+				hx-get={ apiBaseUrl + "/api/embed/events?ownerId=" + ownerId + "&list_mode=" + constants.EV_MODE_LIST }
+				hx-indicator="#mnm-embed-events-container"
+				hx-ext="json-enc"
+				hx-target="#mnm-embed-events-container-inner"
+				hx-disabled-elt="button[type='submit']"
+				@submit.prevent=""
+				hx-vals="js:{...sendParmsFromQsEmbed()}"
+			>
+				<input
+					:value="$store.mnmEmbed_urlState.start_time || ''"
+					id="mnm-embed-start_time"
+					type="hidden"
+					name="start_time"
+				/>
+				<input
+					:value="$store.mnmEmbed_urlState.end_time || ''"
+					id="mnm-embed-end_time"
+					type="hidden"
+					name="end_time"
+				/>
+				<input
+					:value="$store.mnmEmbed_urlState.q || ''"
+					id="mnm-embed-q"
+					type="hidden"
+					name="q"
+				/>
+				<input
+					:value="$store.mnmEmbed_urlState.radius || ''"
+					id="mnm-embed-radius"
+					type="hidden"
+					name="radius"
+				/>
+				<input
+					:value="$store.mnmEmbed_urlState.lat || ''"
+					id="mnm-embed-lat"
+					type="hidden"
+					name="lat"
+				/>
+				<input
+					:value="$store.mnmEmbed_urlState.lon || ''"
+					id="mnm-embed-lon"
+					type="hidden"
+					name="lon"
+				/>
+				<input
+					type="hidden"
+					name="ownerId"
+					value={ ownerId }
+				/>
+				<div class="flex flex-auto space-x-2">
+					<button
+						type="button"
+						:class="{ 'btn-primary': $store.mnmEmbed_urlState.start_time === 'this_month' }"
+						class="btn hover:btn-primary grow px-2 py-2 text-md md:text-xl"
+						@click="$store.mnmEmbed_urlState.setParam('start_time', 'this_month')"
+					>
+						THIS MONTH
+					</button>
+					<button
+						type="button"
+						:class="{ 'btn-primary': $store.mnmEmbed_urlState.start_time === 'today' }"
+						class="btn hover:btn-primary grow px-2 py-2 text-md md:text-xl"
+						@click="$store.mnmEmbed_urlState.setParam('start_time', 'today')"
+					>
+						TODAY
+					</button>
+					<button
+						type="button"
+						:class="{ 'btn-primary': $store.mnmEmbed_urlState.start_time === 'tomorrow' }"
+						class="btn hover:btn-primary grow px-2 py-2 text-md md:text-xl"
+						@click="$store.mnmEmbed_urlState.setParam('start_time', 'tomorrow')"
+					>
+						TOMORROW
+					</button>
+					<button
+						type="button"
+						:class="{ 'btn-primary': $store.mnmEmbed_urlState.start_time === 'this_week' }"
+						class="btn hover:btn-primary grow px-2 py-2 text-md md:text-xl"
+						@click="$store.mnmEmbed_urlState.setParam('start_time', 'this_week')"
+					>
+						THIS WEEK
+					</button>
+				</div>
+			</form>
+		</div>
+		// Events container
+		<main id="mnm-embed-events-container">
+			<div class="htmx-indicator flex flex-wrap items-center justify-center my-4">
+				<span class="loading loading-spinner loading-lg text-primary"></span>
+			</div>
+			<div id="mnm-embed-events-container-inner">
+				@templ.Raw(eventsHTML)
+			</div>
+		</main>
+		<script id="mnm-embed-alpine-state" data-city-label-initial={ cityLabel } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ ownerId } data-default-radius={ defaultRadius } data-api-base-url={ apiBaseUrl }>
+			document.addEventListener('alpine:init', () => {
+				// Reactive URL store for embed - uses mnm_ prefixed params
+				Alpine.store('mnmEmbed_urlState', {
+					// Initialize from URL with mnm_ prefix support
+					...(() => {
+						const urlParams = new URLSearchParams(window.location.search);
+						const state = {};
+						['start_time', 'end_time', 'q', 'radius', 'lat', 'lon', 'location', 'categories'].forEach(param => {
+							const mnmParam = 'mnm_' + param;
+							state[param] = urlParams.get(mnmParam) || urlParams.get(param) || '';
+						});
+						return state;
+					})(),
+
+					setParam(param, value) {
+						const url = new URL(window.location.href);
+						const params = new URLSearchParams(url.search);
+						const mnmParam = 'mnm_' + param;
+
+						if (param === 'categories') {
+							const categoryString = Array.isArray(value) ? value.join(' | ') : value;
+							if (categoryString && categoryString !== '') {
+								params.set(mnmParam, categoryString);
+								this[param] = categoryString;
+							} else {
+								params.delete(mnmParam);
+								params.delete(param); // Also remove legacy
+								this[param] = '';
+							}
+						} else {
+							if (value && value !== '') {
+								params.set(mnmParam, value);
+								params.delete(param); // Remove legacy param if exists
+								this[param] = value;
+							} else {
+								params.delete(mnmParam);
+								params.delete(param); // Also remove legacy
+								this[param] = '';
+							}
+						}
+
+						// Update URL
+						window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
+
+						// Trigger form submission
+						const form = document.getElementById('mnm-embed-event-search-form');
+						if (form) {
+							setTimeout(() => {
+								form.requestSubmit();
+							}, 50);
+						}
+					},
+
+					syncFromURL() {
+						const urlParams = new URLSearchParams(window.location.search);
+						['start_time', 'end_time', 'q', 'radius', 'lat', 'lon', 'location', 'categories'].forEach(param => {
+							const mnmParam = 'mnm_' + param;
+							const value = urlParams.get(mnmParam) || urlParams.get(param) || '';
+							this[param] = value;
+						});
+					},
+
+					queryParamToReadableTime(param) {
+						if (param === 'this_month') return 'this month';
+						if (param === 'today') return 'today';
+						if (param === 'tomorrow') return 'tomorrow';
+						if (param === 'this_week') return 'this week';
+						if (param === 'this_year') return 'this year';
+						if (param === '') return 'within 90 days';
+						return '';
+					}
+				});
+
+				// Filters store for embed
+				Alpine.store('mnmEmbed_filters', {
+					getSearchExamples() {
+						const searchPlaceholderExamples = [
+							'I want to meet people who enjoy theater',
+							'I want to meet active people',
+							'I want to exercise with a group',
+							'I want to find a running group',
+							'I want to find a hiking group',
+							'I want to find a biking group',
+							'I want to find a yoga group',
+							'I want to find a dance group',
+							'I want to find a cooking group',
+							'I want to find a book club',
+							'I want to find a wine tasting group',
+							'I want to meet people interested in nature',
+							'I want to meet people interested in personal development',
+						];
+						const shuffleArray = array => {
+							for (let i = array.length - 1; i > 0; i--) {
+								const j = Math.floor(Math.random() * (i + 1));
+								[array[i], array[j]] = [array[j], array[i]];
+							}
+							return array;
+						};
+						return shuffleArray([...searchPlaceholderExamples]);
+					}
+				});
+			});
+
+			// Function for HTMX to get query params - strips mnm_ prefix for API
+			function sendParmsFromQsEmbed() {
+				const urlParams = new URLSearchParams(window.location.search);
+				const alpineState = document.querySelector('#mnm-embed-alpine-state');
+				const ownerId = alpineState ? alpineState.getAttribute('data-page-user-id') : '';
+
+				// Helper to get param with mnm_ prefix, stripping prefix for API
+				const getParam = (paramName) => {
+					const mnmParam = 'mnm_' + paramName;
+					return urlParams.get(mnmParam) || urlParams.get(paramName) || '';
+				};
+
+				return {
+					...(ownerId !== "") ? { ownerId: ownerId } : {},
+					...(getParam('start_time')?.length > 1) ? { start_time: getParam('start_time') } : {},
+					...(getParam('end_time')?.length > 1) ? { end_time: getParam('end_time') } : {},
+					...(getParam('q')?.length > 1) ? { q: getParam('q') } : {},
+					...(getParam('radius')?.length > 1) ? { radius: getParam('radius') } : {},
+					...(getParam('lat')?.length > 1) ? { lat: getParam('lat') } : {},
+					...(getParam('lon')?.length > 1) ? { lon: getParam('lon') } : {},
+					...(getParam('categories')?.length > 1) ? { categories: getParam('categories') } : {},
+					...(getParam('location')?.length > 1) ? { location: getParam('location') } : {},
+				}
+			}
+
+			function getEmbedHomeState() {
+				return {
+					async init() {
+						window.addEventListener('popstate', () => {
+							Alpine.store('mnmEmbed_urlState').syncFromURL();
+							const form = document.getElementById('mnm-embed-event-search-form');
+							if (form) {
+								form.requestSubmit();
+							}
+						});
+					},
+					defaultRadius: document.querySelector('#mnm-embed-alpine-state')?.getAttribute('data-default-radius') || '25',
+				}
+			}
+		</script>
+	</div>
+}

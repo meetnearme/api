@@ -117,6 +117,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/user-search{trailingslash:\\/?}", "GET", handlers.SearchUsersHandler, Require},
 		{"/api/users{trailingslash:\\/?}", "GET", handlers.GetUsersHandler, None},
 		{"/api/html/events{trailingslash:\\/?}", "GET", handlers.GetEventsPartial, None},
+		{"/api/embed/events{trailingslash:\\/?}", "GET", handlers.GetEmbedEventsPartial, None},
 		{"/api/html/event-series-form/{" + constants.EVENT_ID_KEY + "}", "GET", handlers.GetEventAdminChildrenPartial, None},
 		{"/api/html/seshu/session/submit{trailingslash:\\/?}", "POST", handlers.SubmitSeshuSession, Require},
 		{"/api/html/seshu/session/location{trailingslash:\\/?}", "PUT", handlers.GeoThenPatchSeshuSession, Require},
@@ -528,7 +529,12 @@ func (app *App) addRoute(route Route) {
 		}
 	}
 
-	app.Router.HandleFunc(route.Path, handler).Methods(route.Method).Name(route.Path)
+	// Add OPTIONS method for embed routes to support CORS preflight
+	if strings.HasPrefix(route.Path, "/api/embed/") {
+		app.Router.HandleFunc(route.Path, handler).Methods(route.Method, "OPTIONS").Name(route.Path)
+	} else {
+		app.Router.HandleFunc(route.Path, handler).Methods(route.Method).Name(route.Path)
+	}
 }
 
 func (app *App) SetupNotFoundHandler() {
@@ -833,9 +839,10 @@ func main() {
 			}
 		}()
 
-		go func() {
-			startSeshuLoop(seshuCtx)
-		}()
+		// TODO: commented out just for demo, don't commit this
+		// go func() {
+		// 	startSeshuLoop(seshuCtx)
+		// }()
 
 		select {}
 
