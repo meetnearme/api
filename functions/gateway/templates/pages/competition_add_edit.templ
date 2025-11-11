@@ -941,7 +941,7 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 								: {}),
 							// eslint-disable-next-line no-unused-vars
 							auxilaryOwners: Object.entries(this.owners).map(
-								([key, val]) => val.value,
+								([, val]) => val.value,
 							),
 							competitors,
 							startTime: formatDateTime(this.formData.startTime),
