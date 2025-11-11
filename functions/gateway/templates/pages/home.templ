@@ -1200,9 +1200,11 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 
 																								} else if (format === 'html') {
 							// HTML format - copy actual HTML markup as plain text
-							const htmlContent = `<ul>\n${eventData.map(event =>
-								`  <li><strong><a href="${event.url}">${event.title}</a></strong><br/>${event.time}</li>`
-							).join('\n')}\n</ul>`;
+							let htmlContent = `<ul>\n`;
+							eventData.forEach((event) => {
+								htmlContent += `  <li><strong><a href="${event.url}">${event.title}</a></strong><br/>${event.time}</li>\n`;
+							});
+							htmlContent += `</ul>`;
 
 							// Copy HTML markup as plain text so the tags are visible
 							await navigator.clipboard.writeText(htmlContent);
