@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-templ Footer(isLoggedIn bool) {
+templ Footer(isLoggedIn bool, emailStatus string) {
 	<footer class="footer-vertical grid w-full gap-4 p-4 mt-20 bg-base-200" x-data="footerNavigation()">
 		<div
 			class="grid items-center justify-items-center"
@@ -43,7 +43,7 @@ templ Footer(isLoggedIn bool) {
 				</a>
 			</nav>
 		</div>
-		if !isLoggedIn {
+		if emailStatus != "subscribed" {
 			<section class="flex flex-col row-start-2 gap-4 justify-self-center items-center text-center max-w-xl">
 				<span class="text-xl w-full font-bold text-center">Get local events straight to your inbox. </span>
 				<p class="text-center">
@@ -73,6 +73,7 @@ templ Footer(isLoggedIn bool) {
 				<a href={ templ.URL(os.Getenv("APEX_URL") + "/terms-of-service") }>Terms of Service</a>
 				&bull;&nbsp;
 				<a href={ templ.URL(os.Getenv("APEX_URL") + "/privacy-policy") }>Privacy Policy</a>
+				<span>{ emailStatus } </span>
 			</div>
 		</section>
 	</footer>

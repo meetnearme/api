@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/meetnearme/api/functions/gateway/constants"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"io"
@@ -309,6 +310,16 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	return nil
 }
 
+func getEmailStatus(ctx context.Context) string {
+	emailStatus := ""
+	userMetaClaims := map[string]interface{}{}
+	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
+		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
+	}
+	emailStatus = helpers.GetUserEmailStatusFromMap(userMetaClaims)
+	return emailStatus
+}
+
 templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageContent templ.Component, event types.Event, narrowLayout bool, ctx context.Context, scripts []string) {
 	<!DOCTYPE html>
 	<html data-theme="auto">
@@ -353,11 +364,11 @@ templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageConte
 						if narrowLayout {
 							<div class="max-w-prose mx-auto">
 								@pageContent
-								@components.Footer(userInfo.Email != "")
+								@components.Footer(userInfo.Email != "", getEmailStatus(ctx))
 							</div>
 						} else {
 							@pageContent
-							@components.Footer(userInfo.Email != "")
+							@components.Footer(userInfo.Email != "", getEmailStatus(ctx))
 						}
 					</div>
 				</div>

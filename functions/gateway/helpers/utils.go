@@ -1250,6 +1250,10 @@ func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []str
 	return strings.Split(interests, "|")
 }
 
+func GetUserEmailStatusFromMap(claimsMeta map[string]interface{}) string {
+	return GetBase64ValueFromMap(claimsMeta, constants.META_EMAIL_STATUS_KEY)
+}
+
 func CalculateTTL(days int) int64 {
 	return time.Now().Add(time.Duration(days) * 24 * time.Hour).Unix()
 }

@@ -1446,6 +1446,8 @@ func UpdateUserLocation(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 func UpdateUserEmailStatus(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	var inputPayload UpdateUserEmailStatusRequestPayload
 
+	// currently accepts a string. Footer checks if emailStatus is == to "subscribed" (lowercase) when checking whether to show "Get Personalized Events" button
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
@@ -1474,6 +1476,11 @@ func UpdateUserEmailStatus(w http.ResponseWriter, r *http.Request) http.HandlerF
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
+
+	// This can be used to see what actually gets saved in Zitadel. But it's an extra api call and log so I'm leaving it commented out.
+	// statusResult, _ := helpers.GetUserMetadataByKey(userID, constants.META_EMAIL_STATUS_KEY)
+	// statusResStr, _ := base64.StdEncoding.DecodeString(statusResult)
+	// log.Printf("Email status successfully saved: %s", statusResStr)
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
