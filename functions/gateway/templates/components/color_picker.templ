@@ -41,111 +41,127 @@ templ ColorPicker(selectedColor string, label string, id string) {
 			</div>
 		</div>
 		<script data-selected-color={ selectedColor } data-default-color={ constants.DEFAULT_PRIMARY_COLOR }>
-      var selectedColor = document.querySelector('[data-selected-color]').dataset.selectedColor;
-      var defaultColor = document.querySelector('[data-default-color]').dataset.defaultColor;
-      function getColorPickerState() {
-        return {
-          // Options
-          defaultColor: selectedColor || defaultColor,
+			var selectedColor = document.querySelector('[data-selected-color]')
+				.dataset.selectedColor;
+			var defaultColor = document.querySelector('[data-default-color]').dataset
+				.defaultColor;
+			function getColorPickerState() {
+				return {
+					// Options
+					defaultColor: selectedColor || defaultColor,
 
-          // Helpers
-          color: null,
-          textInput: null,
-          message: null,
+					// Helpers
+					color: null,
+					textInput: null,
+					message: null,
 
-          // Initialization
-          init() {
-            // Convert initial color and set both inputs
-            const convertedColor = this.colorToHex(this.defaultColor);
+					// Initialization
+					init() {
+						// Convert initial color and set both inputs
+						const convertedColor = this.colorToHex(this.defaultColor);
 
-            this.color = convertedColor;
-            this.textInput = convertedColor;
+						this.color = convertedColor;
+						this.textInput = convertedColor;
 
-            // Watch for changes in the text input and update the color
-            this.$watch('textInput', value => {
-              if (this.isValidColor(value)) {
-                const hexColor = this.colorToHex(value);
-                this.color = hexColor;
-                this.message = null;
-              } else {
-                this.message = 'Invalid color!';
-              }
-            });
+						// Watch for changes in the text input and update the color
+						this.$watch('textInput', (value) => {
+							if (this.isValidColor(value)) {
+								const hexColor = this.colorToHex(value);
+								this.color = hexColor;
+								this.message = null;
+							} else {
+								this.message = 'Invalid color!';
+							}
+						});
 
-            // Watch for changes in the color input and update the text input
-            this.$watch('color', value => {
-              this.textInput = value;
-            });
-          },
+						// Watch for changes in the color input and update the text input
+						this.$watch('color', (value) => {
+							this.textInput = value;
+						});
+					},
 
-          // Check if the color is valid
-          isValidColor(color) {
-            const temp = document.createElement('div');
-            temp.style.color = color;
-            return temp.style.color !== '';
-          },
+					// Check if the color is valid
+					isValidColor(color) {
+						const temp = document.createElement('div');
+						temp.style.color = color;
+						return temp.style.color !== '';
+					},
 
-          // Convert color to hex
-          colorToHex(color) {
-            if (!color) return '#000000';
+					// Convert color to hex
+					colorToHex(color) {
+						if (!color) return '#000000';
 
-            color = color.toLowerCase().replace(/\s/g, '');
+						color = color.toLowerCase().replace(/\s/g, '');
 
-            // Handle RGB format
-            let rgbMatch = color.match(/^rgb\((\d+),(\d+),(\d+)\)$/);
-            if (rgbMatch) {
-              // eslint-disable-next-line no-unused-vars
-              const [_, r, g, b] = rgbMatch;
-              return '#' + [r, g, b].map(x => {
-                const hex = parseInt(x).toString(16);
-                return hex.length === 1 ? '0' + hex : hex;
-              }).join('');
-            }
+						// Handle RGB format
+						let rgbMatch = color.match(/^rgb\((\d+),(\d+),(\d+)\)$/);
+						if (rgbMatch) {
+							// eslint-disable-next-line no-unused-vars
+							const [_, r, g, b] = rgbMatch;
+							return (
+								'#' +
+								[r, g, b]
+									.map((x) => {
+										const hex = parseInt(x).toString(16);
+										return hex.length === 1 ? '0' + hex : hex;
+									})
+									.join('')
+							);
+						}
 
-            // Handle RGBA format
-            let rgbaMatch = color.match(/^rgba\((\d+),(\d+),(\d+),([\d.]+)\)$/);
-            if (rgbaMatch) {
-              // eslint-disable-next-line no-unused-vars
-              const [_, r, g, b] = rgbaMatch;
-              return '#' + [r, g, b].map(x => {
-                const hex = parseInt(x).toString(16);
-                return hex.length === 1 ? '0' + hex : hex;
-              }).join('');
-            }
+						// Handle RGBA format
+						let rgbaMatch = color.match(/^rgba\((\d+),(\d+),(\d+),([\d.]+)\)$/);
+						if (rgbaMatch) {
+							// eslint-disable-next-line no-unused-vars
+							const [_, r, g, b] = rgbaMatch;
+							return (
+								'#' +
+								[r, g, b]
+									.map((x) => {
+										const hex = parseInt(x).toString(16);
+										return hex.length === 1 ? '0' + hex : hex;
+									})
+									.join('')
+							);
+						}
 
-            // Handle HSL format
-            let hslMatch = color.match(/^hsl\((\d+),(\d+)%,(\d+)%\)$/);
-            if (hslMatch) {
-              // eslint-disable-next-line no-unused-vars
-              const [_, h, s, l] = hslMatch.map(Number);
-              return this.hslToHex(h, s, l);
-            }
+						// Handle HSL format
+						let hslMatch = color.match(/^hsl\((\d+),(\d+)%,(\d+)%\)$/);
+						if (hslMatch) {
+							// eslint-disable-next-line no-unused-vars
+							const [_, h, s, l] = hslMatch.map(Number);
+							return this.hslToHex(h, s, l);
+						}
 
-            // Handle HSLA format
-            let hslaMatch = color.match(/^hsla\((\d+),(\d+)%,(\d+)%,([\d.]+)\)$/);
-            if (hslaMatch) {
-              // eslint-disable-next-line no-unused-vars
-              const [_, h, s, l] = hslaMatch.map(Number);
-              return this.hslToHex(h, s, l);
-            }
+						// Handle HSLA format
+						let hslaMatch = color.match(
+							/^hsla\((\d+),(\d+)%,(\d+)%,([\d.]+)\)$/,
+						);
+						if (hslaMatch) {
+							// eslint-disable-next-line no-unused-vars
+							const [_, h, s, l] = hslaMatch.map(Number);
+							return this.hslToHex(h, s, l);
+						}
 
-            // If it's already a hex color or another valid color format, return as is
-            return color;
-          },
+						// If it's already a hex color or another valid color format, return as is
+						return color;
+					},
 
-          // Convert HSL to hex
-          hslToHex(h, s, l) {
-            l /= 100;
-            const a = s * Math.min(l, 1 - l) / 100;
-            const f = n => {
-              const k = (n + h / 30) % 12;
-              const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-              return Math.round(255 * color).toString(16).padStart(2, '0');
-            };
-            return `#${f(0)}${f(8)}${f(4)}`;
-          }
-        }
-      }
-    </script>
+					// Convert HSL to hex
+					hslToHex(h, s, l) {
+						l /= 100;
+						const a = (s * Math.min(l, 1 - l)) / 100;
+						const f = (n) => {
+							const k = (n + h / 30) % 12;
+							const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+							return Math.round(255 * color)
+								.toString(16)
+								.padStart(2, '0');
+						};
+						return `#${f(0)}${f(8)}${f(4)}`;
+					},
+				};
+			}
+		</script>
 	</div>
 }
