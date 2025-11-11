@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/meetnearme/api/functions/gateway/constants"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -19,9 +22,6 @@ import (
 type TriggerRequest struct {
 	Time int64 `json:"time"`
 }
-
-var lastExecutionTime int64 = 0
-var HOUR int64 = 3600 // 1 hour in seconds
 
 func GetSeshuJobs(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
@@ -121,16 +121,50 @@ func UpdateSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	db, _ := services.GetPostgresService(ctx)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+	userId := userInfo.Sub
+	if userId == "" {
+		return transport.SendHtmlErrorPartial([]byte("Missing user ID"), http.StatusUnauthorized)
+	}
 
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	isSuperAdmin := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin]})
+
+	db, _ := services.GetPostgresService(ctx)
 	id := r.URL.Query().Get("id")
 	if id == "" {
 		return transport.SendHtmlErrorPartial([]byte("Missing 'id' query parameter"), http.StatusBadRequest)
 	}
-
-	err := db.DeleteSeshuJob(ctx, id)
+	ctxWithTargetUrl := context.WithValue(ctx, "targetUrl", id)
+	job, err := db.GetSeshuJobs(ctxWithTargetUrl)
 	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to delete job: "+err.Error()), http.StatusInternalServerError)
+		// Log the error server-side with details (including the id)
+		log.Printf("Failed to retrieve event source URL with id %s: %v", id, err)
+		// Return generic error message to client without exposing the id or error details
+		return transport.SendHtmlErrorPartial([]byte("Internal server error"), http.StatusInternalServerError)
+	}
+	if len(job) == 0 {
+		// Job not found - return 404 with generic message
+		return transport.SendHtmlErrorPartial([]byte("Event source URL not found"), http.StatusNotFound)
+	}
+
+	// only super admins can delete jobs that are not owned by them
+	if !isSuperAdmin && job[0].OwnerID != userId {
+		return transport.SendHtmlErrorPartial([]byte("You are not the owner of this event source URL"), http.StatusForbidden)
+	}
+
+	err = db.DeleteSeshuJob(ctx, id)
+	if err != nil {
+		// NOTE: this should never leak error messages as they can be leveraged to know the underlying
+		// database schema / structure
+		return transport.SendHtmlErrorPartial([]byte("Failed to delete event source URL: "+id), http.StatusInternalServerError)
 	}
 
 	successPartial := partials.SuccessBannerHTML("Job deleted successfully")
@@ -138,93 +172,95 @@ func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	err = successPartial.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to render template: "+err.Error()), http.StatusInternalServerError)
+		return transport.SendHtmlErrorPartial([]byte("Failed to render html template"), http.StatusInternalServerError)
 	}
 
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
-func GatherSeshuJobsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-	var req TriggerRequest
-	db, _ := services.GetPostgresService(ctx)
-	nats, _ := services.GetNatsService(ctx)
+func ProcessGatherSeshuJobs(ctx context.Context, nowUnix, lastFileUnix int64) (int, bool, int, error) {
 
-	if db == nil || nats == nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to initialize services"), http.StatusInternalServerError)
+	log.Printf("Last execution time UTC: %s", time.Unix(lastFileUnix, 0).UTC().Format(time.RFC3339))
+
+	diff := nowUnix - lastFileUnix
+	if diff < 0 { // negative handle
+		diff = 0
+	}
+	if diff < constants.SESHU_GATHER_INTERVAL_SECONDS {
+		return 0, true, http.StatusOK, nil
 	}
 
-	body, err := io.ReadAll(r.Body)
+	db, err := services.GetPostgresService(ctx)
 	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to read request body: "+err.Error()), http.StatusInternalServerError)
+		return 0, false, http.StatusInternalServerError, fmt.Errorf("failed to initialize Postgres service: %w", err)
+	}
+	if db == nil {
+		return 0, false, http.StatusInternalServerError, fmt.Errorf("failed to initialize Postgres service")
 	}
 
-	err = json.Unmarshal(body, &req)
+	nats, err := services.GetNatsService(ctx)
 	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusBadRequest)
+		return 0, false, http.StatusInternalServerError, fmt.Errorf("failed to initialize NATS service: %w", err)
+	}
+	if nats == nil {
+		return 0, false, http.StatusInternalServerError, fmt.Errorf("failed to initialize NATS service")
 	}
 
-	log.Printf("Received request to gather seshu jobs at time: %d", req.Time)
-	log.Printf("Last execution time: %d", lastExecutionTime)
+	currentHour := time.Unix(nowUnix, 0).UTC().Hour()
 
-	if req.Time-lastExecutionTime <= 60 { // change this for HOUR
-		return transport.SendHtmlRes(w, []byte(""), http.StatusOK, "partial", nil)
-	}
-
-	lastExecutionTime = req.Time
-	currentHour := time.Unix(req.Time, 0).UTC().Hour()
-
-	// Call NATS to look at the top of the queue for jobs
-	topOfQueue, err := nats.PeekTopOfQueue(r.Context())
-
+	topOfQueue, err := nats.PeekTopOfQueue(ctx)
 	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to get top of NATS queue:"+err.Error()), http.StatusBadRequest)
+		return 0, false, http.StatusBadRequest, fmt.Errorf("failed to get top of NATS queue: %w", err)
 	}
 
 	var jobs []internal_types.SeshuJob
 
-	// If the top of the queue is not within the last 60 minutes or query is empty, do a full DB scan of seshu jobs
+	shouldScan := false
+
 	if topOfQueue == nil || len(topOfQueue.Data) == 0 {
-
-		// The scan will be index scan on index seshu_jobs.scheduled_scrape_time
-		jobs, err = db.ScanSeshuJobsWithInHour(r.Context(), currentHour)
-		if err != nil {
-			return transport.SendHtmlErrorPartial([]byte("Unable to obtain Jobs: "+err.Error()), http.StatusBadRequest)
+		shouldScan = true
+	} else {
+		var head internal_types.SeshuJob
+		if err := json.Unmarshal(topOfQueue.Data, &head); err != nil {
+			return 0, false, http.StatusBadRequest, fmt.Errorf("invalid JSON payload: %w", err)
 		}
-
-	} else if topOfQueue != nil && topOfQueue.Data != nil && len(topOfQueue.Data) > 0 {
-
-		var job internal_types.SeshuJob
-
-		err := json.Unmarshal(topOfQueue.Data, &job)
-
-		if err != nil {
-			return transport.SendHtmlErrorPartial([]byte("Invalid JSON payload: "+err.Error()), http.StatusBadRequest)
-		}
-
-		if currentHour-job.ScheduledHour > 0 {
-
-			// The scan will be index scan on index seshu_jobs.scheduled_scrape_time
-			jobs, err = db.ScanSeshuJobsWithInHour(r.Context(), currentHour)
-			if err != nil {
-				return transport.SendHtmlErrorPartial([]byte("Unable to obtain Jobs: "+err.Error()), http.StatusBadRequest)
-			}
+		if isOverdue(currentHour, head.ScheduledHour) {
+			log.Printf("[INFO] Head job scheduled at %02d, now %02d — overdue: scanning.", head.ScheduledHour, currentHour)
+			shouldScan = true
+		} else {
+			log.Printf("[INFO] Head job scheduled at %02d, now %02d — not overdue: skipping scan.", head.ScheduledHour, currentHour)
 		}
 	}
 
-	// Push Found DB items onto the NATS queue
+	if shouldScan {
+		jobs, err = db.ScanSeshuJobsWithInHour(ctx, currentHour)
+		if err != nil {
+			return 0, false, http.StatusBadRequest, fmt.Errorf("unable to obtain Jobs: %w", err)
+		}
+	}
+
+	published := 0
 	for _, job := range jobs {
-		if err := nats.PublishMsg(r.Context(), job); err != nil {
+		if err := nats.PublishMsg(ctx, job); err != nil {
 			jobKey := "unknown"
 			if job.NormalizedUrlKey != "" {
 				jobKey = job.NormalizedUrlKey
 			}
 			log.Printf("Failed to push job %s to NATS: %v", jobKey, err)
+			continue
 		}
+		published++
 	}
 
-	return transport.SendHtmlRes(w, []byte("successful"), http.StatusOK, "partial", nil)
+	return published, false, http.StatusOK, nil
+}
 
+// isOverdue returns true if scheduledHour is in the past relative to nowHour within a 12-hour window.
+// Hours more than 12 hours in the past are treated as future hours (wrapping around 24-hour clock).
+func isOverdue(nowHour, scheduledHour int) bool {
+	delta := (nowHour - scheduledHour + 24) % 24
+	// delta represents hours since scheduled: 1-11 = recently past (overdue), 12-23 = far past/future (not overdue)
+	return delta > 0 && delta < 12
 }
 
 func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary
@@ -272,13 +308,4 @@ func SeshuJobList(jobs []internal_types.SeshuJob) *bytes.Buffer { // temporary
 		))
 	}
 	return &buf
-}
-
-// Add these functions to expose the global variable for testing
-func GetLastExecutionTime() int64 {
-	return lastExecutionTime
-}
-
-func SetLastExecutionTime(t int64) {
-	lastExecutionTime = t
 }

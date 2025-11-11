@@ -636,6 +636,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				<div class="toast m-4 z-50">
 					<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border border-base-300">
 						<span x-text="toastContent.message"></span>
+						<template x-if="toastContent.link">
+							<span><a class="link link-text" :href="toastContent.link" x-text="toastContent.linkText"></a></span>
+						</template>
 						<div class="block justify-end">
 							<button class="btn btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
 								<svg class="svg-icon" style="width: 1em; height: 1em; vertical-align: middle; fill: currentColor; overflow: hidden;" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg>
@@ -646,7 +649,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 			</template>
 		</div>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ constants.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ constants.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId } data-is-logged-in={ strconv.FormatBool(userInfo.Email != "") } data-event-collection-url={ components.GetUserPageURL(userInfo, ctx) }>
 		document.addEventListener('alpine:init', () => {
 			// Reactive URL store - single source of truth with reactivity
 			Alpine.store('urlState', {
@@ -840,58 +843,147 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 
 				locationAccessDeclined: false,
+				locationUnavailable: false,
+				locationTimeout: false,
 				cityNotFound: false,
+				apiError: false,
+				getErrorMessage() {
+					if (this.locationAccessDeclined) {
+						return 'Location access was declined.';
+					}
+					if (this.locationUnavailable) {
+						return 'Location unavailable. Please check your device location services.';
+					}
+					if (this.cityNotFound) {
+						return 'Error: City not found.';
+					}
+					if (this.apiError) {
+						return 'Error connecting to server. Please check your connection and try again.';
+					}
+					return '';
+				},
+				getWarningMessage() {
+					if (this.locationTimeout) {
+						return 'Location request timed out. Please try again.';
+					}
+					return '';
+				},
+				hasError() {
+					return this.locationAccessDeclined || this.locationUnavailable || this.cityNotFound || this.apiError;
+				},
 				findAndSetLocation() {
-				const success = (position) => {
-					this.isLoading = true;
 					this.locationAccessDeclined = false;
+					this.locationUnavailable = false;
+					this.locationTimeout = false;
 					this.cityNotFound = false;
-					const latitude = position.coords.latitude.toFixed(3);
-					const longitude = position.coords.longitude.toFixed(3);
-					const query = `lat=${latitude}&lon=${longitude}`
-					fetch(`/api/location/city?${query}`)
-					.then(async (response) => {
-						if (!response.ok) {
-							throw new Error(`City lookup failed with query ${query} status: (${response.status})`);
-						}
-							return response.json();
-					})
-					.then(data => {
-						if (data.city != "") {
-							this.selectedOption = {
-								label: data.city,
-								latitude: latitude,
-								longitude: longitude,
+					this.apiError = false;
+
+					let modalTimeoutId = null;
+
+					const geolocationOptions = {
+						timeout: 30000,
+						enableHighAccuracy: false,
+						maximumAge: 0,
+					};
+
+					const getPositionPromise = new Promise((resolve, reject) => {
+						navigator.geolocation.getCurrentPosition(
+							position => resolve(position),
+							err => reject(err),
+							geolocationOptions
+						);
+					});
+
+					getPositionPromise
+						.then(async position => {
+							this.isLoading = true;
+
+							try {
+								const latitude = position.coords.latitude.toFixed(2);
+								const longitude = position.coords.longitude.toFixed(2);
+								const query = `lat=${latitude}&lon=${longitude}`;
+
+								const response = await fetch(`/api/location/city?${query}`, {
+									signal: AbortSignal.timeout(15000),
+								});
+
+								if (!response.ok) {
+									this.cityNotFound = true;
+									throw new Error(
+										`City lookup failed with query ${query} status: (${response.status})`
+									);
+								}
+
+								const data = await response.json();
+
+								if (data && data.city != '') {
+									this.selectedOption = {
+										label: data.city,
+										latitude: parseFloat(latitude),
+										longitude: parseFloat(longitude),
+									};
+									// changing the locationDropdown triggers the url params to update
+									this.locationDropdown = this.selectedOption;
+									Alpine.store('location').setSelectedLocation(this.selectedOption);
+									this.$dispatch('location-dropdown', {
+										option: { ...this.selectedOption },
+									});
+								} else {
+									this.cityNotFound = true;
+								}
+
+								const isLoggedIn =
+									document
+										.querySelector('#alpine-state')
+										.getAttribute('data-is-logged-in') === 'true';
+								if (isLoggedIn && !this.cityNotFound) {
+									modalTimeoutId = setTimeout(() => {
+										document.getElementById('update-location-modal').showModal();
+									}, 900); // this lets the user see the location dropdown populate and close before showing the modal.
+								}
+							} catch (error) {
+								if (modalTimeoutId !== null) {
+									clearTimeout(modalTimeoutId);
+									modalTimeoutId = null;
+								}
+								this.apiError = true;
 							}
-							// changing the locationDropdown triggers the url params to update
-							this.locationDropdown = this.selectedOption
-							Alpine.store('location').setSelectedLocation(this.selectedOption)
-							this.$dispatch('location-dropdown', { option: { ...this.selectedOption } });
-						} else {
-							this.cityNotFound = true
-						}
-					})
-					.catch(error => {
-						// eslint-disable-next-line no-console
-						console.error("Error fetching city:", error);
-					})
-					.finally(() => {
-						this.isLoading = false;
-						this.isOpen = false;
-						this.openedWithKeyboard = false;
-					})
+						})
+						.catch(err => {
+							if (modalTimeoutId !== null) {
+								clearTimeout(modalTimeoutId);
+								modalTimeoutId = null;
+							}
 
-				}
+							this.locationAccessDeclined = false;
+							this.locationUnavailable = false;
+							this.locationTimeout = false;
 
-				// This gets executed if the user does not allow the browser to access their location
-				const error = () => {
-					this.locationAccessDeclined = true;
-					this.isOpen = false;
-					this.openedWithKeyboard = false;
-				}
+							switch (err.code) {
+								// eslint-disable-next-line
+								case GeolocationPositionError.PERMISSION_DENIED:
+									this.locationAccessDeclined = true;
+									break;
+								// eslint-disable-next-line
+								case GeolocationPositionError.POSITION_UNAVAILABLE:
+									this.locationUnavailable = true;
+									break;
+								// eslint-disable-next-line
+								case GeolocationPositionError.TIMEOUT:
+									this.locationTimeout = true;
+									break;
+								default:
+									this.locationUnavailable = true;
+									break;
+							}
+						})
+						.finally(() => {
+							this.isLoading = false;
+							this.isOpen = false;
+							this.openedWithKeyboard = false;
+						});
+				},
 
-				navigator.geolocation.getCurrentPosition(success, error);
-			},
 
 				getFilteredOptions(query) {
 					this.options = this.allOptions.filter((option) =>
@@ -929,6 +1021,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
 				defaultRadius: document.querySelector('#alpine-state').getAttribute('data-default-radius'),
+				eventCollectionUrl: document.querySelector('#alpine-state').getAttribute('data-event-collection-url') || '',
 				showToast: false,
 				toastContent: {
 					type: '',
@@ -982,6 +1075,8 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							this.toastContent = {
 								type: 'success',
 								message: 'Event re-shared successfully!',
+								link: this.eventCollectionUrl,
+								linkText: 'View your events collection',
 							};
 						} else {
 							this.showToast = true;
@@ -1180,9 +1275,27 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							// Update every 5 seconds
 							setInterval(updatePlaceholder, 2500)
 						}
+
+						document.addEventListener('htmx:beforeRequest', (event) => {
+							if (event.detail.elt.getAttribute('hx-post') === '/api/auth/users/update-location') {
+								this.savingLocation = true;
+							}
+						});
+
+						document.addEventListener('htmx:afterRequest', (event) => {
+							if (event.detail.elt.getAttribute('hx-post') === '/api/auth/users/update-location') {
+								if (event.detail.xhr.status === 200) {
+										document.getElementById('update-location-modal').close();
+										this.savingLocation = false;
+								} else {
+									this.savingLocation = false;
+								}
+							}
+						});
 					},
 					radius: null,
 					locationDropdown: null,
+					savingLocation: false,
 					sendCategoriesToQueryParams() {
 						const form = document.getElementById('category-search-form')
 						// Collect form values

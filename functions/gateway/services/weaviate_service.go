@@ -591,13 +591,32 @@ func SearchWeaviateEvents(
 	searchEnd := endTime
 
 	// Time Filter
-	timeFilter := (&filters.WhereBuilder{}).
-		WithOperator(filters.And).
-		WithOperands([]*filters.WhereBuilder{
-			(&filters.WhereBuilder{}).WithPath([]string{"startTime"}).WithOperator(filters.GreaterThanEqual).WithValueInt(searchStart),
-			(&filters.WhereBuilder{}).WithPath([]string{"startTime"}).WithOperator(filters.LessThanEqual).WithValueInt(searchEnd),
-		})
-	whereOperands = append(whereOperands, timeFilter)
+	// Build time filter based on whether we have start and/or end time constraints
+	if searchStart > 0 && searchEnd > 0 {
+		// Both start and end time specified
+		timeFilter := (&filters.WhereBuilder{}).
+			WithOperator(filters.And).
+			WithOperands([]*filters.WhereBuilder{
+				(&filters.WhereBuilder{}).WithPath([]string{"startTime"}).WithOperator(filters.GreaterThanEqual).WithValueInt(searchStart),
+				(&filters.WhereBuilder{}).WithPath([]string{"startTime"}).WithOperator(filters.LessThanEqual).WithValueInt(searchEnd),
+			})
+		whereOperands = append(whereOperands, timeFilter)
+	} else if searchStart > 0 {
+		// Only start time specified (events starting after searchStart)
+		timeFilter := (&filters.WhereBuilder{}).
+			WithPath([]string{"startTime"}).
+			WithOperator(filters.GreaterThanEqual).
+			WithValueInt(searchStart)
+		whereOperands = append(whereOperands, timeFilter)
+	} else if searchEnd > 0 {
+		// Only end time specified (events starting before searchEnd)
+		timeFilter := (&filters.WhereBuilder{}).
+			WithPath([]string{"startTime"}).
+			WithOperator(filters.LessThanEqual).
+			WithValueInt(searchEnd)
+		whereOperands = append(whereOperands, timeFilter)
+	}
+	// If both are 0 or negative, no time filter is applied
 
 	// Location Filter (Uncommented and integrated)
 	if len(userLocation) == 2 && maxDistance > 0 {
@@ -671,12 +690,29 @@ func SearchWeaviateEvents(
 	}
 
 	// Event Source ID Filter (Uncommented and integrated)
+	// Note: eventSourceId is a single text field, not an array, so we need to use Equal operator
 	if len(eventSourceIds) > 0 {
-		sourceIdFilter := (&filters.WhereBuilder{}).
-			WithPath([]string{"eventSourceId"}).
-			WithOperator(filters.ContainsAny).
-			WithValueText(eventSourceIds...)
-		whereOperands = append(whereOperands, sourceIdFilter)
+		if len(eventSourceIds) == 1 {
+			// Single value: use Equal operator
+			sourceIdFilter := (&filters.WhereBuilder{}).
+				WithPath([]string{"eventSourceId"}).
+				WithOperator(filters.Equal).
+				WithValueText(eventSourceIds[0])
+			whereOperands = append(whereOperands, sourceIdFilter)
+		} else {
+			// Multiple values: combine with Or operator
+			sourceIdFilterOperands := make([]*filters.WhereBuilder, 0, len(eventSourceIds))
+			for _, sourceId := range eventSourceIds {
+				sourceIdFilterOperands = append(sourceIdFilterOperands, (&filters.WhereBuilder{}).
+					WithPath([]string{"eventSourceId"}).
+					WithOperator(filters.Equal).
+					WithValueText(sourceId))
+			}
+			sourceIdFilter := (&filters.WhereBuilder{}).
+				WithOperator(filters.Or).
+				WithOperands(sourceIdFilterOperands)
+			whereOperands = append(whereOperands, sourceIdFilter)
+		}
 	}
 
 	// Combine all operands into a single final filter

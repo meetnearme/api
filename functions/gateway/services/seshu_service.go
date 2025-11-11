@@ -66,10 +66,19 @@ func GetSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPa
 		return nil, err
 	}
 
+	helpers.EnsureValidCoordinates(&seshuSession)
+	if len(seshuSession.EventCandidates) < 1 {
+		seshuSession.EventCandidates = []internal_types.EventInfo{}
+	}
+	if len(seshuSession.EventValidations) < 1 {
+		seshuSession.EventValidations = []internal_types.EventBoolValid{}
+	}
+
 	return &seshuSession, nil
 }
 
 func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, seshuPayload internal_types.SeshuSessionInput) (*internal_types.SeshuSessionInsert, error) {
+
 	currentTime := time.Now().Unix()
 	if len(seshuPayload.EventCandidates) < 1 {
 		seshuPayload.EventCandidates = []internal_types.EventInfo{}
@@ -97,6 +106,8 @@ func InsertSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 		CreatedAt:        currentTime,
 		UpdatedAt:        currentTime,
 	}
+
+	helpers.EnsureValidCoordinates(&newSeshuSession)
 
 	item, err := attributevalue.MarshalMap(newSeshuSession)
 	if err != nil {
@@ -138,6 +149,8 @@ func UpdateSeshuSession(ctx context.Context, db internal_types.DynamoDBAPI, sesh
 	if seshuSessionsTableName == "" {
 		return nil, fmt.Errorf("ERR: seshuSessionsTableName is empty")
 	}
+
+	helpers.EnsureValidCoordinates(&seshuPayload)
 
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String(seshuSessionsTableName),
@@ -651,7 +664,7 @@ func normalizeEventInfo(
 		return internal_types.EventInfo{}, fmt.Errorf("date string is empty")
 	}
 
-	startTimeRFC3339, err := ParseMaybeMultiDayEvent(dateStr)
+	startTime, err := ParseMaybeMultiDayEvent(dateStr)
 	if err != nil {
 		return internal_types.EventInfo{}, fmt.Errorf("failed to parse date string: %s: error: %w", dateStr, err)
 	}
@@ -670,7 +683,7 @@ func normalizeEventInfo(
 	evt := internal_types.EventInfo{
 		EventTitle:       title,
 		EventLocation:    location,
-		EventStartTime:   startTimeRFC3339, // Use parsed RFC3339 time
+		EventStartTime:   startTime, // Use parsed start time
 		EventURL:         url,
 		EventDescription: description,
 		EventTimezone:    "", // Will be resolved later via coordinates

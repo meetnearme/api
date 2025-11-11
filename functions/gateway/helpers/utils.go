@@ -369,6 +369,15 @@ func GetUserMetadataByKey(userID, key string) (string, error) {
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		var respData map[string]interface{}
+		if err := json.Unmarshal(body, &respData); err != nil {
+			return "", err
+		}
+		return "", fmt.Errorf("failed to get user metadata: %s, reason: %s", res.Status, respData)
+	}
+
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", err
@@ -956,16 +965,13 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 		body, _ := io.ReadAll(res.Body)
 		var respData map[string]interface{}
 		if err := json.Unmarshal(body, &respData); err != nil {
-			return err
+			log.Println("error unmarshalling json: ", err)
+			return fmt.Errorf("error unmarshalling json: %w", err)
 		}
 		return fmt.Errorf("failed to update user metadata: %s, reason: %s", res.Status, respData)
 	}
 	defer res.Body.Close()
 
-	if err != nil {
-		log.Println(err)
-		return err
-	}
 	return nil
 }
 
@@ -1335,4 +1341,15 @@ func ExtractBaseDomain(rawURL string) (string, error) {
 	host := parsed.Hostname()
 
 	return host, nil
+}
+
+// EnsureValidCoordinates ensures lat/lon default to 9e+10 if unset (0)
+func EnsureValidCoordinates(loc types.Locatable) {
+	lat := loc.GetLocationLatitude()
+	lng := loc.GetLocationLongitude()
+
+	if lat == 0 && lng == 0 {
+		loc.SetLocationLatitude(constants.INITIAL_EMPTY_LAT_LONG)
+		loc.SetLocationLongitude(constants.INITIAL_EMPTY_LAT_LONG)
+	}
 }

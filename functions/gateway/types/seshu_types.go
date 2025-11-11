@@ -2,6 +2,9 @@ package types
 
 import (
 	"net/url"
+
+	"github.com/meetnearme/api/functions/gateway/constants"
+	"gorm.io/gorm"
 )
 
 type EventInfo struct {
@@ -98,22 +101,98 @@ type SeshuSessionUpdate struct {
 }
 
 type SeshuJob struct {
-	NormalizedUrlKey         string  `json:"normalized_url_key" validate:"required"`
-	LocationLatitude         float64 `json:"location_latitude,omitempty"`
-	LocationLongitude        float64 `json:"location_longitude,omitempty"`
-	LocationAddress          string  `json:"location_address,omitempty"`
-	ScheduledHour            int     `json:"scheduled_hour,omitempty" validate:"min=0,max=23"` // Hour of the day (0-23)
-	TargetNameCSSPath        string  `json:"target_name_css_path" validate:"required"`
-	TargetLocationCSSPath    string  `json:"target_location_css_path" validate:"required"`
-	TargetStartTimeCSSPath   string  `json:"target_start_time_css_path" validate:"required"`
-	TargetEndTimeCSSPath     string  `json:"target_end_time_css_path,omitempty"`
-	TargetDescriptionCSSPath string  `json:"target_description_css_path,omitempty" validate:"required"`
-	TargetHrefCSSPath        string  `json:"target_href_css_path,omitempty" validate:"required"`
-	Status                   string  `json:"status" validate:"required"` // e.g. "HEALTHY", "WARNING", "FAILING"
-	LastScrapeSuccess        int64   `json:"last_scrape_success,omitempty" validate:"required"`
-	LastScrapeFailure        int64   `json:"last_scrape_failure,omitempty" validate:"gte=0"`
-	LastScrapeFailureCount   int     `json:"last_scrape_failure_count" validate:"gte=0"`
-	OwnerID                  string  `json:"owner_id" validate:"required"`
-	KnownScrapeSource        string  `json:"known_scrape_source"` // e.g. "MEETUP", "EVENTBRITE", etc.
-	LocationTimezone         string  `json:"location_timezone,omitempty"`
+	NormalizedUrlKey              string  `json:"normalized_url_key" validate:"required" gorm:"column:normalized_url_key;primaryKey"`
+	LocationLatitude              float64 `json:"location_latitude,omitempty" gorm:"column:location_latitude"`
+	LocationLongitude             float64 `json:"location_longitude,omitempty" gorm:"column:location_longitude"`
+	LocationAddress               string  `json:"location_address,omitempty" gorm:"column:location_address"`
+	ScheduledHour                 int     `json:"scheduled_hour,omitempty" validate:"min=0,max=23" gorm:"column:scheduled_hour"` // Hour of the day (0-23)
+	TargetNameCSSPath             string  `json:"target_name_css_path" validate:"required" gorm:"column:target_name_css_path"`
+	TargetLocationCSSPath         string  `json:"target_location_css_path" validate:"required" gorm:"column:target_location_css_path"`
+	TargetStartTimeCSSPath        string  `json:"target_start_time_css_path" validate:"required" gorm:"column:target_start_time_css_path"`
+	TargetEndTimeCSSPath          string  `json:"target_end_time_css_path,omitempty" gorm:"column:target_end_time_css_path"`
+	TargetDescriptionCSSPath      string  `json:"target_description_css_path,omitempty" gorm:"column:target_description_css_path"`
+	TargetHrefCSSPath             string  `json:"target_href_css_path,omitempty" validate:"required" gorm:"column:target_href_css_path"`
+	TargetChildNameCSSPath        string  `json:"target_child_name_css_path,omitempty" gorm:"column:target_child_name_css_path"`
+	TargetChildLocationCSSPath    string  `json:"target_child_location_css_path,omitempty" gorm:"column:target_child_location_css_path"`
+	TargetChildStartTimeCSSPath   string  `json:"target_child_start_time_css_path,omitempty" gorm:"column:target_child_start_time_css_path"`
+	TargetChildEndTimeCSSPath     string  `json:"target_child_end_time_css_path,omitempty" gorm:"column:target_child_end_time_css_path"`
+	TargetChildDescriptionCSSPath string  `json:"target_child_description_css_path,omitempty" gorm:"column:target_child_description_css_path"`
+	IsRecursive                   bool    `json:"is_recursive,omitempty" gorm:"column:is_recursive"`
+	Status                        string  `json:"status" validate:"required" gorm:"column:status"` // e.g. "HEALTHY", "WARNING", "FAILING"
+	LastScrapeSuccess             int64   `json:"last_scrape_success,omitempty" validate:"required" gorm:"column:last_scrape_success"`
+	LastScrapeFailure             int64   `json:"last_scrape_failure,omitempty" validate:"gte=0" gorm:"column:last_scrape_failure"`
+	LastScrapeFailureCount        int     `json:"last_scrape_failure_count" validate:"gte=0" gorm:"column:last_scrape_failure_count"`
+	OwnerID                       string  `json:"owner_id" validate:"required" gorm:"column:owner_id"`
+	KnownScrapeSource             string  `json:"known_scrape_source" gorm:"column:known_scrape_source"` // e.g. "MEETUP", "EVENTBRITE", etc.
+	LocationTimezone              string  `json:"location_timezone,omitempty" gorm:"column:location_timezone"`
+}
+
+// TableName tells GORM the exact table name to use for SeshuJob.
+// The existing DB uses the singular/concatenated name `seshujobs` (see seshujobs_init.sql),
+// while GORM's default pluralization would look for `seshu_jobs` which causes "relation does not exist" errors.
+func (SeshuJob) TableName() string {
+	return "seshujobs"
+}
+
+type Locatable interface {
+	GetLocationLatitude() float64
+	GetLocationLongitude() float64
+	SetLocationLatitude(lat float64)
+	SetLocationLongitude(lng float64)
+}
+
+func (s *SeshuSession) GetLocationLatitude() float64     { return s.LocationLatitude }
+func (s *SeshuSession) GetLocationLongitude() float64    { return s.LocationLongitude }
+func (s *SeshuSession) SetLocationLatitude(lat float64)  { s.LocationLatitude = lat }
+func (s *SeshuSession) SetLocationLongitude(lng float64) { s.LocationLongitude = lng }
+
+func (s *SeshuSessionInsert) GetLocationLatitude() float64     { return s.LocationLatitude }
+func (s *SeshuSessionInsert) GetLocationLongitude() float64    { return s.LocationLongitude }
+func (s *SeshuSessionInsert) SetLocationLatitude(lat float64)  { s.LocationLatitude = lat }
+func (s *SeshuSessionInsert) SetLocationLongitude(lng float64) { s.LocationLongitude = lng }
+
+func (s *SeshuSessionUpdate) GetLocationLatitude() float64 {
+	if s.LocationLatitude == nil {
+		return 0
+	}
+	return *s.LocationLatitude
+}
+
+func (s *SeshuSessionUpdate) GetLocationLongitude() float64 {
+	if s.LocationLongitude == nil {
+		return 0
+	}
+	return *s.LocationLongitude
+}
+
+func (s *SeshuSessionUpdate) SetLocationLatitude(lat float64) {
+	s.LocationLatitude = &lat
+}
+
+func (s *SeshuSessionUpdate) SetLocationLongitude(lng float64) {
+	s.LocationLongitude = &lng
+}
+
+func (j *SeshuJob) GetLocationLatitude() float64     { return j.LocationLatitude }
+func (j *SeshuJob) GetLocationLongitude() float64    { return j.LocationLongitude }
+func (j *SeshuJob) SetLocationLatitude(lat float64)  { j.LocationLatitude = lat }
+func (j *SeshuJob) SetLocationLongitude(lng float64) { j.LocationLongitude = lng }
+
+// Ensures defaults are set before creating a new record
+// GORM automatically invokes these hooks
+func (j *SeshuJob) BeforeCreate(tx *gorm.DB) (err error) {
+	if j.LocationLatitude == 0 && j.LocationLongitude == 0 {
+		j.LocationLatitude = constants.INITIAL_EMPTY_LAT_LONG
+		j.LocationLongitude = constants.INITIAL_EMPTY_LAT_LONG
+	}
+	return nil
+}
+
+// BeforeSave is called both for create and update, ensuring consistency
+func (j *SeshuJob) BeforeSave(tx *gorm.DB) (err error) {
+	if j.LocationLatitude == 0 && j.LocationLongitude == 0 {
+		j.LocationLatitude = constants.INITIAL_EMPTY_LAT_LONG
+		j.LocationLongitude = constants.INITIAL_EMPTY_LAT_LONG
+	}
+	return nil
 }

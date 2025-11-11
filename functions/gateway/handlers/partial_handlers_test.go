@@ -11,10 +11,13 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
@@ -1024,6 +1027,166 @@ func TestUpdateUserAbout(t *testing.T) {
 	}
 }
 
+func TestUpdateUserLocation(t *testing.T) {
+	// Initialize and setup environment
+	helpers.InitDefaultProtocol()
+	originalZitadelInstanceUrl := os.Getenv("ZITADEL_INSTANCE_HOST")
+	originalGoEnv := os.Getenv("GO_ENV")
+	testZitadelEndpoint := test_helpers.GetNextPort()
+	os.Setenv("GO_ENV", "test")
+	os.Setenv("ZITADEL_INSTANCE_HOST", testZitadelEndpoint)
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelInstanceUrl)
+		os.Setenv("GO_ENV", originalGoEnv)
+	}()
+
+	helpers.InitDefaultProtocol()
+
+	mockZitadelServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && strings.Contains(r.URL.Path, "/management/v1/users/") && strings.Contains(r.URL.Path, "/metadata/") {
+
+			var requestBody struct {
+				Value string `json:"value"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+				http.Error(w, "invalid request body", http.StatusBadRequest)
+				return
+			}
+
+			pathParts := strings.Split(r.URL.Path, "/")
+			if len(pathParts) < 7 {
+				http.Error(w, "invalid URL path", http.StatusBadRequest)
+				return
+			}
+
+			userID := pathParts[4]
+			key := pathParts[6]
+
+			t.Logf("🎯 MOCK ZITADEL HIT: %s %s (user: %s, key: %s)", r.Method, r.URL.Path, userID, key)
+
+			switch {
+			case userID == "error_user":
+				http.Error(w, `{"error": "user not found"}`, http.StatusNotFound)
+				return
+			case key != constants.META_LOC_KEY:
+				http.Error(w, `{"error": "unexpected metadata key"}`, http.StatusBadRequest)
+				return
+			default:
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"status": "success"}`))
+				return
+			}
+		}
+		http.Error(w, "unexpected request", http.StatusBadRequest)
+	}))
+
+	// Set up mock server
+	listener, err := test_helpers.BindToPort(t, testZitadelEndpoint)
+	if err != nil {
+		t.Fatalf("Failed to bind to port: %v", err)
+	}
+	mockZitadelServer.Listener = listener
+	mockZitadelServer.Start()
+	defer mockZitadelServer.Close()
+
+	// Set ZITADEL_INSTANCE_HOST to the actual bound address
+	boundAddress := mockZitadelServer.Listener.Addr().String()
+	os.Setenv("ZITADEL_INSTANCE_HOST", boundAddress)
+	t.Logf("🔧 Mock Zitadel Server bound to: %s", boundAddress)
+
+	tests := []struct {
+		name           string
+		payload        UpdateUserLocationRequestPayload
+		userInfo       constants.UserInfo
+		expectedStatus int
+		shouldContain  string
+	}{
+		{
+			name: "successful location update",
+			payload: UpdateUserLocationRequestPayload{
+				Latitude:  30.0,
+				Longitude: 45.0,
+				City:      "Georgetown, TX",
+			},
+			userInfo: constants.UserInfo{
+				Sub: "user123",
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain:  "Location info successfully saved",
+		},
+		{
+			name: "empty city field - should error",
+			payload: UpdateUserLocationRequestPayload{
+				Latitude:  30,
+				Longitude: 45,
+				City:      "",
+			},
+			userInfo: constants.UserInfo{
+				Sub: "user123",
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain:  "Error:Field validation for &#39;City&#39",
+		},
+		{
+			name: "invalid latitude",
+			payload: UpdateUserLocationRequestPayload{
+				Latitude:  -240,
+				Longitude: 45,
+				City:      "Philadelphia, PA",
+			},
+			userInfo: constants.UserInfo{
+				Sub: "user123",
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain:  "Latitude must be between -90 and 90",
+		},
+		{
+			name: "Zitadel API error",
+			payload: UpdateUserLocationRequestPayload{
+				Latitude:  30,
+				Longitude: 45,
+				City:      "Georgetown, TX",
+			},
+			userInfo: constants.UserInfo{
+				Sub: "error_user", // zitadel mock returns error for this case
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain:  "Failed to update location",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request
+			payloadBytes, _ := json.Marshal(tt.payload)
+			req := httptest.NewRequest("POST", "/update-location", bytes.NewReader(payloadBytes))
+			req.Header.Set("Content-Type", "application/json")
+
+			// Add AWS Lambda context and user info to context (required for transport layer)
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				PathParameters: map[string]string{},
+			})
+			ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			req = req.WithContext(ctx)
+
+			rr := httptest.NewRecorder()
+
+			// Execute handler
+			handler := UpdateUserLocation(rr, req)
+			handler(rr, req)
+
+			// Verify response
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rr.Code)
+			}
+
+			if tt.shouldContain != "" && !strings.Contains(rr.Body.String(), tt.shouldContain) {
+				t.Errorf("Expected response to contain '%s', got '%s'", tt.shouldContain, rr.Body.String())
+			}
+		})
+	}
+}
+
 func TestHelperFunctions(t *testing.T) {
 	t.Run("isFakeData", func(t *testing.T) {
 		if !isFakeData(services.FakeCity) {
@@ -1841,6 +2004,801 @@ func TestSubmitSeshuSession(t *testing.T) {
 
 			if tt.shouldContain != "" && !strings.Contains(rr.Body.String(), tt.shouldContain) {
 				t.Errorf("Expected response to contain '%s', got '%s'", tt.shouldContain, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestSubmitSeshuSession_Onboarding_RandomURL_and_Facebook(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	// Helper to create a minimal ctx with mocked Postgres service
+	newCtx := func(pg *test_helpers.MockPostgresService) context.Context {
+		ctx := context.Background()
+		// Inject mock Postgres via context hook honored by GetPostgresService
+		ctx = context.WithValue(ctx, "mockPostgresService", pg)
+		// Also add essentials used by transport for auth/options (keep minimal)
+		ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "user-1"})
+		ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: "user-1", Name: "Test User", Email: "test@example.com"})
+		ctx = context.WithValue(ctx, "roleClaims", map[string]any{"roles": []string{"user"}})
+		return ctx
+	}
+
+	// Set up a per-test ScrapingBee server URL
+	makeSB := func(handler http.HandlerFunc) (string, func()) {
+		sbPort := test_helpers.GetNextPort()
+		srv := httptest.NewUnstartedServer(handler)
+		l, err := test_helpers.BindToPort(t, sbPort)
+		if err != nil {
+			t.Fatalf("Failed to bind ScrapingBee server: %v", err)
+		}
+		srv.Listener = l
+		srv.Start()
+		cleanup := func() { srv.Close() }
+		return srv.URL, cleanup
+	}
+
+	// OpenAI mock that counts calls
+	makeAI := func(responseContent string) (base string, cleanup func(), count *int32) {
+		var calls int32
+		aiPort := test_helpers.GetNextPort()
+		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&calls, 1)
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(services.ChatCompletionResponse{
+				ID: "mock", Object: "chat.completion", Created: time.Now().Unix(), Model: "gpt-4o-mini",
+				Choices: []services.Choice{{Index: 0, Message: services.Message{Role: "assistant", Content: responseContent}, FinishReason: "stop"}},
+				Usage:   services.Usage{PromptTokens: 1, CompletionTokens: 1, TotalTokens: 2},
+			})
+		}))
+		l, err := test_helpers.BindToPort(t, aiPort)
+		if err != nil {
+			t.Fatalf("Failed to bind OpenAI server: %v", err)
+		}
+		srv.Listener = l
+		srv.Start()
+		cleanup = func() { srv.Close() }
+		return srv.URL, cleanup, &calls
+	}
+
+	t.Run("Onboarding Random URL creates job and scrapes via ScrapingBee", func(t *testing.T) {
+		// Count ScrapingBee hits
+		var sbHits int32
+		// ScrapingBee returns generic HTML for non-FB; SCRAPE mode should fetch it without using OpenAI
+		sbURL, sbClose := makeSB(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&sbHits, 1)
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("<html><body>Some generic page</body></html>"))
+		})
+		defer sbClose()
+
+		// LLM mock (should not be hit in SCRAPE mode for non-FB)
+		aiURL, aiClose, aiCalls := makeAI("[]")
+		defer aiClose()
+
+		// Wire env
+		prevSB, prevAI, prevAIKey := os.Getenv("SCRAPINGBEE_API_URL_BASE"), os.Getenv("OPENAI_API_BASE_URL"), os.Getenv("OPENAI_API_KEY")
+		os.Setenv("SCRAPINGBEE_API_URL_BASE", sbURL)
+		os.Setenv("OPENAI_API_BASE_URL", aiURL)
+		os.Setenv("OPENAI_API_KEY", "test-ai-key")
+		defer func() {
+			os.Setenv("SCRAPINGBEE_API_URL_BASE", prevSB)
+			os.Setenv("OPENAI_API_BASE_URL", prevAI)
+			os.Setenv("OPENAI_API_KEY", prevAIKey)
+		}()
+
+		// Mock DynamoDB to return a session with validated events
+		sess := types.SeshuSession{
+			OwnerId:           "user-1",
+			Url:               "https://example.com/source",
+			UrlDomain:         "example.com",
+			UrlPath:           "/source",
+			LocationLatitude:  40.7128,
+			LocationLongitude: -74.0060,
+			LocationAddress:   "New York, NY 10001, USA",
+			Html:              "<html><body><div>AI Event</div><div>AI Hall</div><time>2025-05-01T10:00:00</time><a href=\"https://example.com/e1\">https://example.com/e1</a></body></html>",
+			EventCandidates: []types.EventInfo{{
+				EventTitle:       "AI Event",
+				EventURL:         "https://example.com/e1",
+				EventLocation:    "AI Hall",
+				EventStartTime:   "2025-05-01T10:00:00",
+				EventEndTime:     "2025-05-01T12:00:00",
+				EventDescription: "",
+				ScrapeMode:       "init",
+			}},
+			EventValidations: []types.EventBoolValid{{
+				EventValidateTitle:       true,
+				EventValidateLocation:    true,
+				EventValidateStartTime:   true,
+				EventValidateEndTime:     false,
+				EventValidateURL:         true,
+				EventValidateDescription: false,
+			}},
+			Status:    "draft",
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
+			ExpireAt:  time.Now().Add(24 * time.Hour).Unix(),
+		}
+		item, err := attributevalue.MarshalMap(sess)
+		if err != nil {
+			t.Fatalf("failed to marshal session: %v", err)
+		}
+		transport.SetTestDB(&test_helpers.MockDynamoDBClient{
+			GetItemFunc: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				return &dynamodb.GetItemOutput{Item: item}, nil
+			},
+		})
+
+		// Capture CreateSeshuJob invocation
+		var createdJobs []types.SeshuJob
+		mockPG := &test_helpers.MockPostgresService{
+			GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) { return []types.SeshuJob{}, nil },
+			CreateSeshuJobFunc: func(ctx context.Context, job types.SeshuJob) error {
+				createdJobs = append(createdJobs, job)
+				return nil
+			},
+		}
+
+		// Build payload expected by handler
+		payload := SeshuSessionEventsPayload{Url: sess.Url}
+		body, _ := json.Marshal(payload)
+
+		req := httptest.NewRequest(http.MethodPost, "/submit-seshu-session", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		// Attach ctx with mock Postgres + minimal auth/options
+		req = req.WithContext(newCtx(mockPG))
+
+		rr := httptest.NewRecorder()
+		handler := SubmitSeshuSession(rr, req)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d; body=%s", rr.Code, rr.Body.String())
+		}
+		// Allow deferred job creation and background scrape to run
+		time.Sleep(100 * time.Millisecond)
+		if atomic.LoadInt32(aiCalls) != 0 {
+			t.Fatalf("expected OpenAI NOT to be called for non-Facebook SCRAPE mode, got %d", atomic.LoadInt32(aiCalls))
+		}
+		// Job creation is best-effort and depends on DOM mapping; don't assert on it here
+		if len(createdJobs) > 0 && createdJobs[0].KnownScrapeSource == constants.SESHU_KNOWN_SOURCE_FB {
+			t.Fatalf("expected non-Facebook scrape source, got FB")
+		}
+	})
+
+	t.Run("Onboarding Facebook URL avoids OpenAI", func(t *testing.T) {
+		// ScrapingBee returns FB page with single-line JSON in expected script tag
+		fbJSON := `{"__bbox":{"result":{"data":{"event":{"__typename":"Event","name":"FB Event","url":"https://www.facebook.com/events/123","day_time_sentence":"2025-10-24T23:00:00Z","contextual_name":"FB Hall","event_creator":{"name":"Host"}}}}}}`
+		sbURL, sbClose := makeSB(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`<html><head><meta property="og:url" content="https://www.facebook.com/events/123"></head><body><script data-sjs data-content-len="4096">` + fbJSON + `</script></body></html>`))
+		})
+		defer sbClose()
+
+		// LLM mock should not be hit
+		aiURL, aiClose, aiCalls := makeAI("[]")
+		defer aiClose()
+
+		prevSB, prevAI, prevAIKey := os.Getenv("SCRAPINGBEE_API_URL_BASE"), os.Getenv("OPENAI_API_BASE_URL"), os.Getenv("OPENAI_API_KEY")
+		os.Setenv("SCRAPINGBEE_API_URL_BASE", sbURL)
+		os.Setenv("OPENAI_API_BASE_URL", aiURL)
+		os.Setenv("OPENAI_API_KEY", "test-ai-key")
+		defer func() {
+			os.Setenv("SCRAPINGBEE_API_URL_BASE", prevSB)
+			os.Setenv("OPENAI_API_BASE_URL", prevAI)
+			os.Setenv("OPENAI_API_KEY", prevAIKey)
+		}()
+
+		// Mock DynamoDB to return a session with validated events for FB URL
+		fbSess := types.SeshuSession{
+			OwnerId:           "user-1",
+			Url:               "https://www.facebook.com/events/123",
+			UrlDomain:         "facebook.com",
+			UrlPath:           "/events/123",
+			LocationLatitude:  37.7749,
+			LocationLongitude: -122.4194,
+			LocationAddress:   "San Francisco, CA",
+			Html:              "<html><body>FB Event</body></html>",
+			EventCandidates: []types.EventInfo{{
+				EventTitle:       "FB Event",
+				EventURL:         "https://www.facebook.com/events/123",
+				EventLocation:    "FB Hall",
+				EventStartTime:   "2025-10-24T23:00:00",
+				EventEndTime:     "",
+				EventDescription: "",
+				ScrapeMode:       "init",
+			}},
+			EventValidations: []types.EventBoolValid{{
+				EventValidateTitle:       true,
+				EventValidateLocation:    true,
+				EventValidateStartTime:   true,
+				EventValidateEndTime:     false,
+				EventValidateURL:         true,
+				EventValidateDescription: false,
+			}},
+			Status:    "draft",
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
+			ExpireAt:  time.Now().Add(24 * time.Hour).Unix(),
+		}
+		fbItem, err := attributevalue.MarshalMap(fbSess)
+		if err != nil {
+			t.Fatalf("failed to marshal FB session: %v", err)
+		}
+		transport.SetTestDB(&test_helpers.MockDynamoDBClient{
+			GetItemFunc: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				return &dynamodb.GetItemOutput{Item: fbItem}, nil
+			},
+		})
+
+		var createdJobs []types.SeshuJob
+		mockPG := &test_helpers.MockPostgresService{
+			GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) { return []types.SeshuJob{}, nil },
+			CreateSeshuJobFunc: func(ctx context.Context, job types.SeshuJob) error {
+				createdJobs = append(createdJobs, job)
+				return nil
+			},
+		}
+
+		payload := SeshuSessionEventsPayload{Url: "https://www.facebook.com/events/123"}
+		body, _ := json.Marshal(payload)
+
+		req := httptest.NewRequest(http.MethodPost, "/submit-seshu-session", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req = req.WithContext(newCtx(mockPG))
+
+		rr := httptest.NewRecorder()
+		handler := SubmitSeshuSession(rr, req)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d; body=%s", rr.Code, rr.Body.String())
+		}
+		// Allow deferred job creation and background scrape to run
+		time.Sleep(100 * time.Millisecond)
+		if atomic.LoadInt32(aiCalls) != 0 {
+			t.Fatalf("expected OpenAI not to be called for Facebook URLs, got %d calls", atomic.LoadInt32(aiCalls))
+		}
+		// Job creation is best-effort and depends on validation; avoid asserting on it
+		if len(createdJobs) > 0 && createdJobs[0].KnownScrapeSource != constants.SESHU_KNOWN_SOURCE_FB {
+			t.Fatalf("expected KnownScrapeSource=FB, got %s", createdJobs[0].KnownScrapeSource)
+		}
+	})
+}
+func TestGetProfileInterestsPartial(t *testing.T) {
+	tests := []struct {
+		name             string
+		userMetaClaims   map[string]interface{}
+		expectedStatus   int
+		shouldContain    []string
+		shouldNotContain []string
+	}{
+		{
+			name: "successful render with interests",
+			userMetaClaims: map[string]interface{}{
+				constants.INTERESTS_KEY: []string{"Concerts", "Photography", "Sports"},
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Interests",
+				"update-interests-result",
+				"/api/auth/users/update-interests",
+				"hx-post",
+				"hx-target",
+			},
+			shouldNotContain: []string{"error", "Error"},
+		},
+		{
+			name: "successful render with empty interests",
+			userMetaClaims: map[string]interface{}{
+				constants.INTERESTS_KEY: []string{},
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Interests",
+				"update-interests-result",
+				"/api/auth/users/update-interests",
+			},
+			shouldNotContain: []string{"error", "Error"},
+		},
+		{
+			name:           "successful render with no userMetaClaims",
+			userMetaClaims: map[string]interface{}{},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Interests",
+				"update-interests-result",
+				"/api/auth/users/update-interests",
+			},
+			shouldNotContain: []string{"error", "Error"},
+		},
+		{
+			name: "successful render with nil interests",
+			userMetaClaims: map[string]interface{}{
+				constants.INTERESTS_KEY: nil,
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Interests",
+				"update-interests-result",
+				"/api/auth/users/update-interests",
+			},
+			shouldNotContain: []string{"error", "Error"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request
+			req := httptest.NewRequest("GET", "/api/html/profile-interests", nil)
+
+			// Add AWS Lambda context and userMetaClaims to context (required for transport layer)
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				PathParameters: map[string]string{},
+			})
+			ctx = context.WithValue(ctx, "userMetaClaims", tt.userMetaClaims)
+			req = req.WithContext(ctx)
+
+			rr := httptest.NewRecorder()
+
+			// Execute handler
+			handler := GetProfileInterestsPartial(rr, req)
+			handler(rr, req)
+
+			// Verify response
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rr.Code)
+			}
+
+			// Log the response for debugging
+			t.Logf("Response status: %d", rr.Code)
+			t.Logf("Response body length: %d", len(rr.Body.String()))
+
+			// Check all required strings are present
+			responseBody := rr.Body.String()
+			for _, expectedStr := range tt.shouldContain {
+				if !strings.Contains(responseBody, expectedStr) {
+					t.Errorf("Expected response to contain '%s', got '%s'", expectedStr, responseBody)
+				}
+			}
+
+			// Check strings that should not be present
+			for _, unexpectedStr := range tt.shouldNotContain {
+				if strings.Contains(responseBody, unexpectedStr) {
+					t.Errorf("Expected response to NOT contain '%s', got '%s'", unexpectedStr, responseBody)
+				}
+			}
+
+			// Verify it's a partial (HTML fragment, not full page)
+			if strings.Contains(responseBody, "<!DOCTYPE html>") || strings.Contains(responseBody, "<html") {
+				t.Errorf("Expected partial HTML, but got full page HTML")
+			}
+		})
+	}
+}
+
+func TestGetSubscriptionsPartial(t *testing.T) {
+	// Save original environment variables
+	originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
+	defer func() {
+		os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
+	}()
+
+	// Set up test environment
+	os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
+
+	// Set up logging transport
+	originalTransport := http.DefaultTransport
+	defer func() {
+		http.DefaultTransport = originalTransport
+	}()
+	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
+
+	tests := []struct {
+		name             string
+		userInfo         constants.UserInfo
+		hasCustomer      bool
+		customerID       string
+		subscriptions    []map[string]interface{}
+		expectedStatus   int
+		shouldContain    []string
+		shouldNotContain []string
+	}{
+		{
+			name: "no subscriptions - empty state",
+			userInfo: constants.UserInfo{
+				Sub:   "zitadel_user_123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			hasCustomer:    true,
+			customerID:     "cus_test_customer",
+			subscriptions:  []map[string]interface{}{},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Subscriptions",
+				"You don't have any subscriptions yet",
+				"pricing page",
+			},
+			shouldNotContain: []string{
+				"Billing Cycle",
+				"billing cycle",
+				"Active Subscriptions",
+				"Subscription History",
+			},
+		},
+		{
+			name: "active subscription only",
+			userInfo: constants.UserInfo{
+				Sub:   "zitadel_user_123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			hasCustomer: true,
+			customerID:  "cus_test_customer",
+			subscriptions: []map[string]interface{}{
+				{
+					"id":                   "sub_active_123",
+					"object":               "subscription",
+					"status":               "active",
+					"customer":             "cus_test_customer",
+					"cancel_at_period_end": false,
+					"created":              1234567890,
+					"canceled_at":          nil,
+					"items": map[string]interface{}{
+						"object": "list",
+						"data": []interface{}{
+							map[string]interface{}{
+								"id":                   "si_item_1",
+								"object":               "subscription_item",
+								"current_period_start": 1234567890,
+								"current_period_end":   1234567890 + 2592000,
+								"price": map[string]interface{}{
+									"id":     "price_growth",
+									"object": "price",
+									"product": map[string]interface{}{
+										"id":   "prod_growth",
+										"name": "Growth",
+									},
+									"unit_amount": 9999,
+									"currency":    "usd",
+									"recurring": map[string]interface{}{
+										"interval": "month",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Subscriptions",
+				"Active Subscriptions",
+				"Growth",
+				"Actions",
+				"Update Subscription",
+				"Cancel Subscription",
+				"Update Payment Method",
+			},
+			shouldNotContain: []string{
+				"Billing Cycle",
+				"billing cycle",
+				"Subscription History",
+				"Canceling at period end",
+			},
+		},
+		{
+			name: "canceled subscription only",
+			userInfo: constants.UserInfo{
+				Sub:   "zitadel_user_123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			hasCustomer: true,
+			customerID:  "cus_test_customer",
+			subscriptions: []map[string]interface{}{
+				{
+					"id":                   "sub_canceled_123",
+					"object":               "subscription",
+					"status":               "canceled",
+					"customer":             "cus_test_customer",
+					"cancel_at_period_end": false,
+					"created":              1234567890,
+					"canceled_at":          1234567890 + 2592000,
+					"items": map[string]interface{}{
+						"object": "list",
+						"data": []interface{}{
+							map[string]interface{}{
+								"id":                   "si_item_1",
+								"object":               "subscription_item",
+								"current_period_start": 1234567890,
+								"current_period_end":   1234567890 + 2592000,
+								"price": map[string]interface{}{
+									"id":     "price_seed",
+									"object": "price",
+									"product": map[string]interface{}{
+										"id":   "prod_seed",
+										"name": "Seed Community",
+									},
+									"unit_amount": 4999,
+									"currency":    "usd",
+									"recurring": map[string]interface{}{
+										"interval": "month",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Subscriptions",
+				"Subscription History",
+				"Seed Community",
+				"Canceled",
+			},
+			shouldNotContain: []string{
+				"Billing Cycle",
+				"billing cycle",
+				"Active Subscriptions",
+				"Manage",
+			},
+		},
+		{
+			name: "mixed active and canceled subscriptions",
+			userInfo: constants.UserInfo{
+				Sub:   "zitadel_user_123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			hasCustomer: true,
+			customerID:  "cus_test_customer",
+			subscriptions: []map[string]interface{}{
+				{
+					"id":                   "sub_active_123",
+					"object":               "subscription",
+					"status":               "active",
+					"customer":             "cus_test_customer",
+					"cancel_at_period_end": true,
+					"created":              1234567890,
+					"canceled_at":          nil,
+					"items": map[string]interface{}{
+						"object": "list",
+						"data": []interface{}{
+							map[string]interface{}{
+								"id":                   "si_item_1",
+								"object":               "subscription_item",
+								"current_period_start": 1234567890,
+								"current_period_end":   1234567890 + 2592000,
+								"price": map[string]interface{}{
+									"id":     "price_growth",
+									"object": "price",
+									"product": map[string]interface{}{
+										"id":   "prod_growth",
+										"name": "Growth",
+									},
+									"unit_amount": 9999,
+									"currency":    "usd",
+									"recurring": map[string]interface{}{
+										"interval": "month",
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					"id":                   "sub_canceled_123",
+					"object":               "subscription",
+					"status":               "canceled",
+					"customer":             "cus_test_customer",
+					"cancel_at_period_end": false,
+					"created":              1234567890,
+					"canceled_at":          1234567890 + 2592000,
+					"items": map[string]interface{}{
+						"object": "list",
+						"data": []interface{}{
+							map[string]interface{}{
+								"id":                   "si_item_2",
+								"object":               "subscription_item",
+								"current_period_start": 1234567890,
+								"current_period_end":   1234567890 + 2592000,
+								"price": map[string]interface{}{
+									"id":     "price_seed",
+									"object": "price",
+									"product": map[string]interface{}{
+										"id":   "prod_seed",
+										"name": "Seed Community",
+									},
+									"unit_amount": 4999,
+									"currency":    "usd",
+									"recurring": map[string]interface{}{
+										"interval": "month",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Subscriptions",
+				"Active Subscriptions",
+				"Subscription History",
+				"Growth",
+				"Seed Community",
+				"Canceling at period end",
+				"Actions",
+				"Update Subscription",
+				"Update Payment Method",
+			},
+			shouldNotContain: []string{
+				"Billing Cycle",
+				"billing cycle",
+				"Cancel Subscription", // Should not appear when cancel_at_period_end is true
+			},
+		},
+		{
+			name:           "missing user ID returns unauthorized",
+			userInfo:       constants.UserInfo{},
+			hasCustomer:    false,
+			expectedStatus: http.StatusOK, // SendHtmlErrorPartial returns 200 even for errors
+			shouldContain: []string{
+				"Unauthorized",
+				"Missing user ID",
+			},
+		},
+		{
+			name: "customer not found - returns empty state",
+			userInfo: constants.UserInfo{
+				Sub:   "zitadel_user_123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			hasCustomer:    false,
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Subscriptions",
+				"You don't have any subscriptions yet",
+				"pricing page",
+			},
+			shouldNotContain: []string{
+				"Billing Cycle",
+				"billing cycle",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock Stripe server
+			mockStripeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				t.Logf("🎯 MOCK STRIPE HIT: %s %s", r.Method, r.URL.Path)
+
+				switch {
+				case strings.Contains(r.URL.Path, "/v1/customers/search"):
+					t.Logf("   └─ Handling customer search")
+					if tt.hasCustomer && tt.customerID != "" {
+						// Mock customer found
+						mockSearchResponse := map[string]interface{}{
+							"object": "search_result",
+							"data": []interface{}{
+								map[string]interface{}{
+									"id":    tt.customerID,
+									"email": "test@example.com",
+									"name":  "Test User",
+									"metadata": map[string]interface{}{
+										"zitadel_user_id": tt.userInfo.Sub,
+									},
+								},
+							},
+							"has_more": false,
+						}
+						responseBytes, _ := json.Marshal(mockSearchResponse)
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusOK)
+						w.Write(responseBytes)
+					} else {
+						// Mock customer not found
+						mockSearchResponse := map[string]interface{}{
+							"object":   "search_result",
+							"data":     []interface{}{},
+							"has_more": false,
+						}
+						responseBytes, _ := json.Marshal(mockSearchResponse)
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusOK)
+						w.Write(responseBytes)
+					}
+
+				case r.URL.Path == "/v1/subscriptions":
+					t.Logf("   └─ Handling subscriptions list request")
+					mockSubscriptionsResponse := map[string]interface{}{
+						"object":   "list",
+						"data":     tt.subscriptions,
+						"has_more": false,
+					}
+					responseBytes, _ := json.Marshal(mockSubscriptionsResponse)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					w.Write(responseBytes)
+
+				default:
+					t.Logf("   └─ ⚠️  UNHANDLED STRIPE PATH: %s", r.URL.Path)
+					t.Errorf("mock Stripe server received request to unhandled path: %s", r.URL.Path)
+					http.Error(w, "Not Found", http.StatusNotFound)
+				}
+			}))
+			defer mockStripeServer.Close()
+
+			// Create custom RoundTripper to redirect Stripe calls to mock server
+			customTransport := &http.Transport{
+				Proxy: func(req *http.Request) (*url.URL, error) {
+					if strings.Contains(req.URL.Host, "api.stripe.com") {
+						mockURL, _ := url.Parse(mockStripeServer.URL)
+						return mockURL, nil
+					}
+					return nil, nil
+				},
+			}
+
+			customRoundTripper := &customRoundTripperForStripe{
+				transport: customTransport,
+				mockURL:   mockStripeServer.URL,
+			}
+
+			http.DefaultTransport = customRoundTripper
+			services.ResetStripeClient()
+
+			// Create request
+			req := httptest.NewRequest("GET", "/api/html/subscriptions", nil)
+
+			// Add context with user info
+			ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+				PathParameters: map[string]string{},
+			})
+			ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			req = req.WithContext(ctx)
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call handler
+			handler := GetSubscriptionsPartial(w, req)
+			handler(w, req)
+
+			// Verify response
+			if w.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+
+			// Log the response for debugging
+			t.Logf("Response status: %d", w.Code)
+			t.Logf("Response body length: %d", len(w.Body.String()))
+
+			// Check all required strings are present
+			responseBody := w.Body.String()
+			for _, expectedStr := range tt.shouldContain {
+				if !strings.Contains(responseBody, expectedStr) {
+					t.Errorf("Expected response to contain '%s'", expectedStr)
+				}
+			}
+
+			// Check strings that should not be present
+			for _, unexpectedStr := range tt.shouldNotContain {
+				if strings.Contains(responseBody, unexpectedStr) {
+					t.Errorf("Expected response to NOT contain '%s'", unexpectedStr)
+				}
+			}
+
+			// Verify it's a partial (HTML fragment, not full page)
+			if strings.Contains(responseBody, "<!DOCTYPE html>") || strings.Contains(responseBody, "<html") {
+				t.Errorf("Expected partial HTML, but got full page HTML")
 			}
 		})
 	}

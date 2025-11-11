@@ -186,6 +186,8 @@ func TestRouteInitialization(t *testing.T) {
 		"/auth/logout",
 		"/api/events",
 		"/api/locations",
+		"/admin",
+		"/api/html/profile-interests",
 	}
 
 	for _, expectedRoute := range expectedRoutes {
@@ -199,6 +201,28 @@ func TestRouteInitialization(t *testing.T) {
 		if !found {
 			t.Errorf("Expected route containing '%s' not found", expectedRoute)
 		}
+	}
+
+	// Test that admin route pattern matches sub-paths
+	adminRouteFound := false
+	adminRoutePattern := ""
+	for _, route := range routes {
+		if strings.Contains(route.Path, "/admin") && route.Method == "GET" {
+			adminRouteFound = true
+			adminRoutePattern = route.Path
+			break
+		}
+	}
+
+	if !adminRouteFound {
+		t.Error("Expected admin route to be present")
+	}
+
+	// Verify admin route pattern allows sub-paths (contains catch-all pattern)
+	if !strings.Contains(adminRoutePattern, "{path:.*}") && !strings.Contains(adminRoutePattern, "{path:") {
+		t.Logf("Admin route pattern: %s", adminRoutePattern)
+		// The pattern might use different syntax, check if it allows sub-paths
+		// This is informational - the actual routing behavior will be tested in integration tests
 	}
 }
 

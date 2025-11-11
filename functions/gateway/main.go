@@ -4,7 +4,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -25,6 +24,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
 
@@ -37,10 +37,6 @@ import (
 )
 
 type AuthType string
-
-var (
-	seshulooptimecount int
-)
 
 const (
 	None               AuthType = "none"
@@ -61,7 +57,7 @@ type Route struct {
 }
 
 func (app *App) InitRoutes() []Route {
-	return []Route{
+	routes := []Route{
 		{"/auth/login", "GET", handlers.HandleLogin, None},
 		{"/auth/callback", "GET", handlers.HandleCallback, None},
 		{"/auth/refresh", "GET", handlers.HandleRefresh, Require},
@@ -70,8 +66,6 @@ func (app *App) InitRoutes() []Route {
 		{constants.SitePages["about"].Slug, "GET", handlers.GetAboutPage, Check},
 		{constants.SitePages["user"].Slug, "GET", handlers.GetHomeOrUserPage, Check},
 		{constants.SitePages["add-event-source"].Slug, "GET", handlers.GetAddEventSourcePage, Require},
-		{constants.SitePages["admin"].Slug, "GET", handlers.GetAdminPage, Require},
-		{constants.SitePages["settings"].Slug, "GET", handlers.GetProfileSettingsPage, Require},
 		{constants.SitePages["add-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
 		{constants.SitePages["edit-event"].Slug, "GET", handlers.GetAddOrEditEventPage, Require},
 		{constants.SitePages["attendees-event"].Slug, "GET", handlers.GetEventAttendeesPage, Require},
@@ -91,6 +85,9 @@ func (app *App) InitRoutes() []Route {
 		{constants.SitePages["competition-edit"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 		{constants.SitePages["competition-new"].Slug, "GET", handlers.GetAddOrEditCompetitionPage, Require},
 
+		// NOTE: ⚠️⚠️⚠️⚠️ we use a catch-all route for `admin` here but it needs to come LAST
+		// moving this higher will break admin sub-routes that are not handled by this catch-all route
+		{constants.SitePages["admin"].Slug, "GET", handlers.GetAdminPage, Require},
 		// API routes
 
 		// == START == need to expose these via permanent key for headless clients
@@ -111,6 +108,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/auth/users/update-mnm-options{trailingslash:\\/?}", "POST", handlers.SetMnmOptions, Require},
 		{"/api/auth/users/update-interests{trailingslash:\\/?}", "POST", handlers.UpdateUserInterests, Require},
 		{"/api/auth/users/update-about{trailingslash:\\/?}", "POST", handlers.UpdateUserAbout, Require},
+		{"/api/auth/users/update-location{trailingslash:\\/?}", "POST", handlers.UpdateUserLocation, Require},
 		{"/api/auth/users/update-email-status{trailingslash:\\/?}", "POST", handlers.UpdateUserEmailStatus, Require},
 		{"/api/auth/check-role{trailingslash:\\/?}", "GET", handlers.CheckRole, Require},
 		// TODO: delete this comment once user location is implemented in profile,
@@ -125,6 +123,8 @@ func (app *App) InitRoutes() []Route {
 		{"/api/html/seshu/session/location{trailingslash:\\/?}", "PUT", handlers.GeoThenPatchSeshuSession, Require},
 		{"/api/html/seshu/session/events{trailingslash:\\/?}", "PUT", handlers.SubmitSeshuEvents, Require},
 		{"/api/html/competition-config/owner/{" + constants.USER_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigsHtmlByPrimaryOwnerHandler, None},
+		{"/api/html/profile-interests{trailingslash:\\/?}", "GET", handlers.GetProfileInterestsPartial, Require},
+		{"/api/html/subscriptions{trailingslash:\\/?}", "GET", handlers.GetSubscriptionsPartial, Require},
 
 		// // Purchasables routes
 		{"/api/purchasables/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, Require},   // Create a new purchasable
@@ -180,6 +180,9 @@ func (app *App) InitRoutes() []Route {
 		{"/api/checkout/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", handlers.CreateCheckoutSessionHandler, Check},
 		{"/api/checkout-subscription{trailingslash:\\/?}", "GET", handlers.CreateSubscriptionCheckoutSessionHandler, Check},
 
+		// Customer Portal
+		{"/api/customer-portal/session{trailingslash:\\/?}", "POST", handlers.CreateCustomerPortalSessionHandler, Require},
+
 		// Webhooks
 		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
 		{"/api/webhook/subscription", "POST", handlers.HandleSubscriptionWebhookHandler, None},
@@ -192,12 +195,33 @@ func (app *App) InitRoutes() []Route {
 		// DISABLED to prevent abuse
 		// {"/api/seshujob", "POST", handlers.CreateSeshuJob, Require},
 		// {"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, Require},
-		// {"/api/seshujob/{key}", "DELETE", handlers.DeleteSeshuJob, Require},
-		{"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
+		{"/api/seshujob{trailingslash:\\/?}", "DELETE", handlers.DeleteSeshuJob, Require},
+		// {"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
 
 		// Re-share
 		{"/api/data/re-share", "POST", handlers.PostReShareHandler, Require},
 	}
+
+	// Only expose /metrics endpoint when IS_LOCAL_ACT=true (local development)
+	// In deployed environments, Caddy's metrics endpoint will be scraped instead
+	if os.Getenv("IS_LOCAL_ACT") == "true" {
+		routes = append(routes, Route{
+			Path:    "/metrics",
+			Method:  "GET",
+			Handler: handleMetrics,
+			Auth:    None,
+		})
+	}
+
+	return routes
+}
+
+// handleMetrics exposes Prometheus metrics endpoint
+// Only available when IS_LOCAL_ACT=true (local development)
+func handleMetrics(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		promhttp.Handler().ServeHTTP(w, r)
+	})
 }
 
 type AuthConfig struct {
@@ -631,7 +655,6 @@ func startSeshuLoop(ctx context.Context) {
 	log.SetOutput(os.Stdout)
 
 	lastUpdate := readFirstLine(timestampFile)
-	seshulooptimecount = 0
 
 	defer func() {
 		overwriteTimestamp("last_update.txt", lastUpdate) // Write on graceful shutdown
@@ -649,34 +672,31 @@ func startSeshuLoop(ctx context.Context) {
 				continue
 			}
 
-			// helpers.MarkSeshuLoopAlive()
-
-			payload := map[string]interface{}{
-				"time": lastUpdate,
-			}
-			jsonData, _ := json.Marshal(payload)
-
-			resp, err := http.Post("http://localhost:"+constants.GO_ACT_SERVER_PORT+"/api/gather-seshu-jobs", "application/json", bytes.NewBuffer(jsonData))
+			nowUnix := time.Now().UTC().Unix()
+			count, skipped, status, err := handlers.ProcessGatherSeshuJobs(ctx, nowUnix, lastUpdate)
 			if err != nil {
-				log.Printf("[ERROR] Failed to send request: %v", err)
+				log.Printf("[ERROR] Failed to process gather seshu jobs: %v", err)
 				continue
 			}
-			defer resp.Body.Close()
 
-			var body bytes.Buffer
-			body.ReadFrom(resp.Body)
-
-			if bytes.Contains(body.Bytes(), []byte("successful")) {
-				log.Println("[INFO] Job triggered successfully.")
-				log.Printf("[INFO] counter: %d", seshulooptimecount)
-				seshulooptimecount++
-				if seshulooptimecount >= maxseshuloopcount { // limit write frequency
-					overwriteTimestamp("last_update.txt", lastUpdate)
-					seshulooptimecount = 0
+			if skipped {
+				remain := (lastUpdate + constants.SESHU_GATHER_INTERVAL_SECONDS) - nowUnix
+				if remain < 0 {
+					remain = 0
 				}
+				log.Printf("[INFO] Skipped gathering seshu jobs; updated last update timestamp to %d , next update %d, remaining cooldown (sec): %d",
+					lastUpdate, lastUpdate+constants.SESHU_GATHER_INTERVAL_SECONDS, remain)
+				continue
 			}
 
-			lastUpdate = time.Now().UTC().Unix()
+			if status != http.StatusOK {
+				log.Printf("[WARN] Unexpected status code: %d", status)
+				continue
+			}
+
+			log.Printf("[INFO] Successfully gathered %d seshu jobs", count)
+			lastUpdate = nowUnix
+			overwriteTimestamp("last_update.txt", lastUpdate)
 		}
 	}
 }
@@ -775,10 +795,20 @@ func main() {
 
 		// Start serving
 		loggingRouter := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
-			log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+			// Skip logging for /metrics endpoint to reduce log noise from Prometheus scraping
+			shouldLog := r.URL.Path != "/metrics"
+
+			var start time.Time
+			if shouldLog {
+				start = time.Now()
+				log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+			}
+
 			app.Router.ServeHTTP(w, r)
-			log.Printf("Completed %s %s in %v", r.Method, r.URL, time.Since(start))
+
+			if shouldLog {
+				log.Printf("Completed %s %s in %v", r.Method, r.URL, time.Since(start))
+			}
 		})
 		srv := &http.Server{
 			Handler: loggingRouter,

@@ -365,10 +365,15 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 }
 
 func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	aboutPage := pages.AboutPage()
 	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
 
-	layoutTemplate := pages.Layout(constants.SitePages["about"], constants.UserInfo{}, aboutPage, types.Event{}, false, ctx, []string{})
+	aboutPage := pages.AboutPage()
+
+	layoutTemplate := pages.Layout(constants.SitePages["about"], userInfo, aboutPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -406,33 +411,9 @@ func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	adminPage := pages.AdminPage(userInfo, roleClaims, userInterests, userSubdomain, mnmOptions, userAboutData, ctx)
-	layoutTemplate := pages.Layout(constants.SitePages["admin"], userInfo, adminPage, types.Event{}, false, ctx, []string{})
+	layoutTemplate := pages.Layout(constants.SitePages["admin"], userInfo, adminPage, types.Event{}, false, ctx, []string{"https://cdn.jsdelivr.net/npm/navigation-polyfill@0.0.2/lib/index.min.js"})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
-	}
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
-}
-
-func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-
-	userInfo := constants.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(constants.UserInfo)
-	}
-
-	userMetaClaims := map[string]interface{}{}
-	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
-		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
-	}
-	parsedInterests := helpers.GetUserInterestFromMap(userMetaClaims, constants.INTERESTS_KEY)
-	settingsPage := pages.ProfileSettingsPage(parsedInterests, ctx)
-	layoutTemplate := pages.Layout(constants.SitePages["settings"], userInfo, settingsPage, types.Event{}, false, ctx, []string{})
-
-	var buf bytes.Buffer
-	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
@@ -647,7 +628,16 @@ func GetPricingPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 	isLoggedIn := userInfo.Sub != ""
-	pricingPage := pages.PricingPage(isLoggedIn)
+
+	// Check for existing subscription roles
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = claims
+	}
+	hasSeedSubscription := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubSeed]})
+	hasGrowthSubscription := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubGrowth]})
+
+	pricingPage := pages.PricingPage(isLoggedIn, hasSeedSubscription, hasGrowthSubscription)
 	layoutTemplate := pages.Layout(constants.SitePages["pricing"], userInfo, pricingPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
