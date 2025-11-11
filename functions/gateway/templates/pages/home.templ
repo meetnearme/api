@@ -302,20 +302,20 @@ func GetDefaultRadius(cfLocation constants.CdnLocation) string {
 
 templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation constants.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
 	{{
-	roleClaims := []constants.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
-		roleClaims = claims
-	}
+		roleClaims := []constants.RoleClaim{}
+		if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+			roleClaims = claims
+		}
 	}}
 	{{
-	userInfo := constants.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(constants.UserInfo)
-	}
-	userId := ""
-	if userInfo.Sub != "" {
-		userId = userInfo.Sub
-	}
+		userInfo := constants.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(constants.UserInfo)
+		}
+		userId := ""
+		if userInfo.Sub != "" {
+			userId = userInfo.Sub
+		}
 	}}
 	// we assume this is "home" and not a community / user profile page
 	if pageUser == nil {
@@ -662,7 +662,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					const params = new URLSearchParams(url.search);
 
 					if (param === 'categories') {
-						const categoryString = Array.isArray(value) ? value.join(' | ') : value;
+						const categoryString = Array.isArray(value)
+							? value.join(' | ')
+							: value;
 						if (categoryString && categoryString !== '') {
 							params.set('categories', categoryString);
 							this.categories = categoryString;
@@ -681,7 +683,11 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					}
 
 					// Update URL
-					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
+					window.history.pushState(
+						{},
+						'',
+						`${url.pathname}?${params.toString()}`,
+					);
 
 					// Trigger form submission
 					const form = document.getElementById('event-search-form');
@@ -697,7 +703,16 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					const urlParams = new URLSearchParams(window.location.search);
 
 					// Update all known parameters
-					['start_time', 'end_time', 'q', 'radius', 'lat', 'lon', 'categories', 'location'].forEach(param => {
+					[
+						'start_time',
+						'end_time',
+						'q',
+						'radius',
+						'lat',
+						'lon',
+						'categories',
+						'location',
+					].forEach((param) => {
 						const value = urlParams.get(param) || '';
 						this[param] = value;
 					});
@@ -711,7 +726,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					if (param === 'this_year') return 'this year';
 					if (param === '') return 'within 90 days';
 					return '';
-				}
+				},
 			});
 
 			// Filters store - ONLY for sidebar draft state
@@ -722,9 +737,15 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 
 				// Initialize draft state from current URL
 				initFromUrl() {
-					this.radius = Alpine.store('urlState').radius || document.querySelector('#alpine-state').getAttribute('data-default-radius');
+					this.radius =
+						Alpine.store('urlState').radius ||
+						document
+							.querySelector('#alpine-state')
+							.getAttribute('data-default-radius');
 					const categoriesString = Alpine.store('urlState').categories || '';
-					this.categories = categoriesString ? categoriesString.split(' | ') : [];
+					this.categories = categoriesString
+						? categoriesString.split(' | ')
+						: [];
 				},
 
 				// Utility functions
@@ -750,7 +771,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						'I want to meet people interested in personal development',
 						'I want to meet people interested in personal growth',
 					];
-					const shuffleArray = array => {
+					const shuffleArray = (array) => {
 						for (let i = array.length - 1; i > 0; i--) {
 							const j = Math.floor(Math.random() * (i + 1));
 							[array[i], array[j]] = [array[j], array[i]];
@@ -758,18 +779,24 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						return array;
 					};
 					return shuffleArray([...searchPlaceholderExamples]);
-				}
+				},
 			});
 
 			// Keep location store
 			Alpine.store('location', {
 				selected: {
-					label: document.querySelector('#alpine-state').getAttribute('data-city-label-initial'),
-					latitude: document.querySelector('#alpine-state').getAttribute('data-city-latitude-initial'),
-					longitude: document.querySelector('#alpine-state').getAttribute('data-city-longitude-initial'),
+					label: document
+						.querySelector('#alpine-state')
+						.getAttribute('data-city-label-initial'),
+					latitude: document
+						.querySelector('#alpine-state')
+						.getAttribute('data-city-latitude-initial'),
+					longitude: document
+						.querySelector('#alpine-state')
+						.getAttribute('data-city-longitude-initial'),
 				},
 				setSelectedLocation(location) {
-					this.selected = location
+					this.selected = location;
 				},
 			});
 		});
@@ -779,22 +806,43 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 		function sendParmsFromQs() {
 			const urlParams = new URLSearchParams(window.location.search);
 			return {
-				...(document.querySelector('#alpine-state').getAttribute('data-page-user-id') !== "") ? { owners: document.querySelector('#alpine-state').getAttribute('data-page-user-id') } : {},
-				...(urlParams.get('start_time')?.length > 1) ? { start_time: urlParams.get('start_time') } : {},
-				...(urlParams.get('end_time')?.length > 1) ? { end_time: urlParams.get('end_time') } : {},
-				...(urlParams.get('q')?.length > 1) ? { q: urlParams.get('q') } : {},
-				...(urlParams.get('radius')?.length > 1) ? { radius: urlParams.get('radius') } : {},
-				...(urlParams.get('lat')?.length > 1) ? { lat: urlParams.get('lat') } : {},
-				...(urlParams.get('lon')?.length > 1) ? { lon: urlParams.get('lon') } : {},
-				...(urlParams.get('categories')?.length > 1) ? { categories: urlParams.get('categories') } : {},
-
-			}
+				...(document
+					.querySelector('#alpine-state')
+					.getAttribute('data-page-user-id') !== ''
+					? {
+							owners: document
+								.querySelector('#alpine-state')
+								.getAttribute('data-page-user-id'),
+						}
+					: {}),
+				...(urlParams.get('start_time')?.length > 1
+					? { start_time: urlParams.get('start_time') }
+					: {}),
+				...(urlParams.get('end_time')?.length > 1
+					? { end_time: urlParams.get('end_time') }
+					: {}),
+				...(urlParams.get('q')?.length > 1 ? { q: urlParams.get('q') } : {}),
+				...(urlParams.get('radius')?.length > 1
+					? { radius: urlParams.get('radius') }
+					: {}),
+				...(urlParams.get('lat')?.length > 1
+					? { lat: urlParams.get('lat') }
+					: {}),
+				...(urlParams.get('lon')?.length > 1
+					? { lon: urlParams.get('lon') }
+					: {}),
+				...(urlParams.get('categories')?.length > 1
+					? { categories: urlParams.get('categories') }
+					: {}),
+			};
 		}
 
 		function getLocationSearchState() {
 			return {
 				allOptions: JSON.parse(
-					document.querySelector('#alpine-state').getAttribute('data-cities-default-list')
+					document
+						.querySelector('#alpine-state')
+						.getAttribute('data-cities-default-list'),
 				).map((city) => ({
 					label: city.label,
 					value: city.id,
@@ -813,33 +861,37 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				async fetchLocations(query) {
 					if (query.length >= 3) {
 						this.isLoading = true;
-						this.options = await fetch(`/api/locations?q=${query}`).then(res => {
-							return res.json()
-						}).then(json => {
-							return json.map((city) => ({
-								label: city.label,
-								value: city.id,
-								latitude: city.latitude,
-								longitude: city.longitude,
-							}))
-						})
-						.catch(error => {
-							// eslint-disable-next-line no-console
-							console.error('Error fetching locations:', error);
-							return [];
-						})
-						.finally(() => {
-							this.isLoading = false;
-						});
+						this.options = await fetch(`/api/locations?q=${query}`)
+							.then((res) => {
+								return res.json();
+							})
+							.then((json) => {
+								return json.map((city) => ({
+									label: city.label,
+									value: city.id,
+									latitude: city.latitude,
+									longitude: city.longitude,
+								}));
+							})
+							.catch((error) => {
+								// eslint-disable-next-line no-console
+								console.error('Error fetching locations:', error);
+								return [];
+							})
+							.finally(() => {
+								this.isLoading = false;
+							});
 					}
 				},
 				setSelectedOption(option) {
-					this.selectedOption = option
-					this.isOpen = false
-					this.openedWithKeyboard = false
-					this.$refs.hiddenTextField.value = option.value
+					this.selectedOption = option;
+					this.isOpen = false;
+					this.openedWithKeyboard = false;
+					this.$refs.hiddenTextField.value = option.value;
 					// Update lat and lon in the parent component
-					this.$dispatch('location-dropdown', { option: { ...option } })
+					this.$dispatch('location-dropdown', {
+						option: { ...option },
+					});
 				},
 
 				locationAccessDeclined: false,
@@ -869,7 +921,12 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					return '';
 				},
 				hasError() {
-					return this.locationAccessDeclined || this.locationUnavailable || this.cityNotFound || this.apiError;
+					return (
+						this.locationAccessDeclined ||
+						this.locationUnavailable ||
+						this.cityNotFound ||
+						this.apiError
+					);
 				},
 				findAndSetLocation() {
 					this.locationAccessDeclined = false;
@@ -888,14 +945,14 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 
 					const getPositionPromise = new Promise((resolve, reject) => {
 						navigator.geolocation.getCurrentPosition(
-							position => resolve(position),
-							err => reject(err),
-							geolocationOptions
+							(position) => resolve(position),
+							(err) => reject(err),
+							geolocationOptions,
 						);
 					});
 
 					getPositionPromise
-						.then(async position => {
+						.then(async (position) => {
 							this.isLoading = true;
 
 							try {
@@ -910,7 +967,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 								if (!response.ok) {
 									this.cityNotFound = true;
 									throw new Error(
-										`City lookup failed with query ${query} status: (${response.status})`
+										`City lookup failed with query ${query} status: (${response.status})`,
 									);
 								}
 
@@ -924,9 +981,13 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 									};
 									// changing the locationDropdown triggers the url params to update
 									this.locationDropdown = this.selectedOption;
-									Alpine.store('location').setSelectedLocation(this.selectedOption);
+									Alpine.store('location').setSelectedLocation(
+										this.selectedOption,
+									);
 									this.$dispatch('location-dropdown', {
-										option: { ...this.selectedOption },
+										option: {
+											...this.selectedOption,
+										},
 									});
 								} else {
 									this.cityNotFound = true;
@@ -938,7 +999,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 										.getAttribute('data-is-logged-in') === 'true';
 								if (isLoggedIn && !this.cityNotFound) {
 									modalTimeoutId = setTimeout(() => {
-										document.getElementById('update-location-modal').showModal();
+										document
+											.getElementById('update-location-modal')
+											.showModal();
 									}, 900); // this lets the user see the location dropdown populate and close before showing the modal.
 								}
 							} catch (error) {
@@ -949,7 +1012,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 								this.apiError = true;
 							}
 						})
-						.catch(err => {
+						.catch((err) => {
 							if (modalTimeoutId !== null) {
 								clearTimeout(modalTimeoutId);
 								modalTimeoutId = null;
@@ -984,24 +1047,23 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						});
 				},
 
-
 				getFilteredOptions(query) {
 					this.options = this.allOptions.filter((option) =>
 						option.label.toLowerCase().includes(query.toLowerCase()),
-					)
+					);
 					if (this.options.length === 0) {
-						this.$refs.noResultsMessage.classList.remove('hidden')
+						this.$refs.noResultsMessage.classList.remove('hidden');
 					} else {
-						this.$refs.noResultsMessage.classList.add('hidden')
+						this.$refs.noResultsMessage.classList.add('hidden');
 					}
 				},
 				handleKeydownOnOptions(event) {
 					// if the user presses backspace or the alpha-numeric keys, focus on the search field
 					if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
-						this.$refs.loc_search.focus()
+						this.$refs.loc_search.focus();
 					}
 				},
-			}
+			};
 		}
 
 		function getHomeState() {
@@ -1019,9 +1081,16 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						}
 					});
 				},
-				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
-				defaultRadius: document.querySelector('#alpine-state').getAttribute('data-default-radius'),
-				eventCollectionUrl: document.querySelector('#alpine-state').getAttribute('data-event-collection-url') || '',
+				pageUserId: document
+					.querySelector('#alpine-state')
+					.getAttribute('data-page-user-id'),
+				defaultRadius: document
+					.querySelector('#alpine-state')
+					.getAttribute('data-default-radius'),
+				eventCollectionUrl:
+					document
+						.querySelector('#alpine-state')
+						.getAttribute('data-event-collection-url') || '',
 				showToast: false,
 				toastContent: {
 					type: '',
@@ -1038,8 +1107,10 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 				selectAllEvents() {
 					// Select all event checkboxes that are currently visible
-					const eventCheckboxes = document.querySelectorAll('input[type="checkbox"][name^="event-"]');
-					eventCheckboxes.forEach(checkbox => {
+					const eventCheckboxes = document.querySelectorAll(
+						'input[type="checkbox"][name^="event-"]',
+					);
+					eventCheckboxes.forEach((checkbox) => {
 						const eventId = checkbox.value;
 						this.selectedEvents[eventId] = true;
 					});
@@ -1048,10 +1119,12 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					this.selectedEvents = {};
 				},
 				getSelectedEventIds() {
-					return Object.keys(this.selectedEvents).filter(id => this.selectedEvents[id]);
+					return Object.keys(this.selectedEvents).filter(
+						(id) => this.selectedEvents[id],
+					);
 				},
 				async reShareEvent(event) {
-					const eventId = event.currentTarget.id.split('re-share-')[1]
+					const eventId = event.currentTarget.id.split('re-share-')[1];
 					// send a post request to the re-share endpoint
 					if (!eventId) {
 						this.showToast = true;
@@ -1059,7 +1132,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							type: 'error',
 							message: 'Cannot locate event ID for re-sharing.',
 						};
-						return
+						return;
 					}
 
 					try {
@@ -1068,7 +1141,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							headers: {
 								'Content-Type': 'application/json',
 							},
-						})
+						});
 
 						if (res.ok) {
 							this.showToast = true;
@@ -1111,23 +1184,35 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 
 						// Get data-id attribute values from the alpine-state element
 						const alpineState = document.querySelector('#alpine-state');
-						const eventTitleId = alpineState.getAttribute('data-event-title-id');
-						const eventStartTimeId = alpineState.getAttribute('data-event-start-time-id');
+						const eventTitleId = alpineState.getAttribute(
+							'data-event-title-id',
+						);
+						const eventStartTimeId = alpineState.getAttribute(
+							'data-event-start-time-id',
+						);
 						const eventUrlId = alpineState.getAttribute('data-event-url-id');
 
 						// Collect data from selected events using data-id attributes
-						selectedEventIds.forEach(eventId => {
-							const eventContainer = document.querySelector(`input[value="${eventId}"]`)?.closest('.flex.w-full.relative');
+						selectedEventIds.forEach((eventId) => {
+							const eventContainer = document
+								.querySelector(`input[value="${eventId}"]`)
+								?.closest('.flex.w-full.relative');
 							if (eventContainer) {
-								const titleElement = eventContainer.querySelector(`[data-id="${eventTitleId}"]`);
-								const timeElement = eventContainer.querySelector(`[data-id="${eventStartTimeId}"]`);
-								const urlElement = eventContainer.querySelector(`[data-id="${eventUrlId}"]`);
+								const titleElement = eventContainer.querySelector(
+									`[data-id="${eventTitleId}"]`,
+								);
+								const timeElement = eventContainer.querySelector(
+									`[data-id="${eventStartTimeId}"]`,
+								);
+								const urlElement = eventContainer.querySelector(
+									`[data-id="${eventUrlId}"]`,
+								);
 
 								if (titleElement && timeElement && urlElement) {
 									eventData.push({
 										title: titleElement.textContent.trim(),
 										time: timeElement.textContent.trim(),
-										url: urlElement.href
+										url: urlElement.href,
 									});
 								}
 							}
@@ -1142,7 +1227,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							return;
 						}
 
-												// Create temporary off-screen element for copying
+						// Create temporary off-screen element for copying
 						const tempElement = document.createElement('div');
 						tempElement.style.position = 'absolute';
 						tempElement.style.left = '-9999px';
@@ -1190,15 +1275,18 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							// Copy with formatting
 							await navigator.clipboard.write([
 								new ClipboardItem({
-									'text/html': new Blob([tempElement.innerHTML], { type: 'text/html' }),
-									'text/plain': new Blob([tempElement.textContent], { type: 'text/plain' })
-								})
+									'text/html': new Blob([tempElement.innerHTML], {
+										type: 'text/html',
+									}),
+									'text/plain': new Blob([tempElement.textContent], {
+										type: 'text/plain',
+									}),
+								}),
 							]);
 
 							// Clear selection
 							selection.removeAllRanges();
-
-																								} else if (format === 'html') {
+						} else if (format === 'html') {
 							// HTML format - copy actual HTML markup as plain text
 							let htmlContent = `<ul>\n`;
 							eventData.forEach((event) => {
@@ -1219,7 +1307,6 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							type: 'success',
 							message: `${eventData.length} event(s) exported to clipboard as ${format === 'rich' ? 'Rich Text' : 'HTML'}.`,
 						};
-
 					} catch (error) {
 						this.showToast = true;
 						this.toastContent = {
@@ -1229,143 +1316,169 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						// eslint-disable-next-line no-console
 						console.error('Export error:', error);
 					}
-				}
-			}
+				},
+			};
 		}
 
 		// NOTE: this maintains an intentionally independent state for sidebar draft state
 		// that is committed to URL params via Alpine.store('urlState') when "Apply Filters" is clicked
 		function getFilterFormState() {
-				return {
-					init() {
-						// Initialize draft state from URL state
-						Alpine.store('filters').initFromUrl();
-						this.radius = Alpine.store('filters').radius;
+			return {
+				init() {
+					// Initialize draft state from URL state
+					Alpine.store('filters').initFromUrl();
+					this.radius = Alpine.store('filters').radius;
 
-						const form = document.getElementById('category-search-form')
-						form.querySelectorAll('input[type="checkbox"]').forEach(itm => {
-							if (Alpine.store('filters').categories.includes(itm.value)) {
-								itm.checked = true
-							}
-						})
-
-						const searchPlaceholderExamples = Alpine.store('filters').getSearchExamples()
-
-						const searchInput = document.querySelector('#search-input')
-						if (searchInput) {
-							// Fisher-Yates shuffle algorithm
-							const shuffleArray = array => {
-								for (let i = array.length - 1; i > 0; i--) {
-									const j = Math.floor(Math.random() * (i + 1));
-									[array[i], array[j]] = [array[j], array[i]];
-								}
-								return array;
-							}
-
-							// Shuffle the array once
-							const shuffledExamples = shuffleArray([...searchPlaceholderExamples])
-							let currentIndex = 0
-
-							const updatePlaceholder = () => {
-								searchInput.placeholder = shuffledExamples[currentIndex]
-								currentIndex = (currentIndex + 1) % shuffledExamples.length
-							}
-
-							// Set initial placeholder
-							updatePlaceholder()
-
-							// Update every 5 seconds
-							setInterval(updatePlaceholder, 2500)
+					const form = document.getElementById('category-search-form');
+					form.querySelectorAll('input[type="checkbox"]').forEach((itm) => {
+						if (Alpine.store('filters').categories.includes(itm.value)) {
+							itm.checked = true;
 						}
+					});
 
-						document.addEventListener('htmx:beforeRequest', (event) => {
-							if (event.detail.elt.getAttribute('hx-post') === '/api/auth/users/update-location') {
-								this.savingLocation = true;
+					const searchPlaceholderExamples =
+						Alpine.store('filters').getSearchExamples();
+
+					const searchInput = document.querySelector('#search-input');
+					if (searchInput) {
+						// Fisher-Yates shuffle algorithm
+						const shuffleArray = (array) => {
+							for (let i = array.length - 1; i > 0; i--) {
+								const j = Math.floor(Math.random() * (i + 1));
+								[array[i], array[j]] = [array[j], array[i]];
 							}
-						});
+							return array;
+						};
 
-						document.addEventListener('htmx:afterRequest', (event) => {
-							if (event.detail.elt.getAttribute('hx-post') === '/api/auth/users/update-location') {
-								if (event.detail.xhr.status === 200) {
-										document.getElementById('update-location-modal').close();
-										this.savingLocation = false;
-								} else {
-									this.savingLocation = false;
-								}
-							}
-						});
-					},
-					radius: null,
-					locationDropdown: null,
-					savingLocation: false,
-					sendCategoriesToQueryParams() {
-						const form = document.getElementById('category-search-form')
-						// Collect form values
-						const formData = new FormData(form);
-						const formValues = Object.fromEntries(formData.entries());
-						let formVals = []
-						Object.keys(formValues).forEach(itm => {
-							if (itm.startsWith('itm-')) {
-								formVals.push(formValues?.[itm])
-							}
-						})
-						const categoriesString = formVals.join(' | ')
+						// Shuffle the array once
+						const shuffledExamples = shuffleArray([
+							...searchPlaceholderExamples,
+						]);
+						let currentIndex = 0;
 
-						// Commit categories to URL (triggers syncFromURL automatically)
-						Alpine.store('urlState').setParam('categories', categoriesString)
-					},
-					handleFilterSubmit() {
-						// Commit all draft changes to URL state
-						this.sendCategoriesToQueryParams();
+						const updatePlaceholder = () => {
+							searchInput.placeholder = shuffledExamples[currentIndex];
+							currentIndex = (currentIndex + 1) % shuffledExamples.length;
+						};
 
-						if (this.radius) {
-							Alpine.store('urlState').setParam('radius', this.radius)
+						// Set initial placeholder
+						updatePlaceholder();
+
+						// Update every 5 seconds
+						setInterval(updatePlaceholder, 2500);
+					}
+
+					document.addEventListener('htmx:beforeRequest', (event) => {
+						if (
+							event.detail.elt.getAttribute('hx-post') ===
+							'/api/auth/users/update-location'
+						) {
+							this.savingLocation = true;
 						}
+					});
 
-						if (this.locationDropdown) {
-							// Commit location changes to URL
-							Alpine.store('urlState').setParam('lat', this.locationDropdown.latitude)
-							Alpine.store('urlState').setParam('lon', this.locationDropdown.longitude)
-							Alpine.store('urlState').setParam('location', this.locationDropdown.label)
-							Alpine.store('location').setSelectedLocation(this.locationDropdown)
+					document.addEventListener('htmx:afterRequest', (event) => {
+						if (
+							event.detail.elt.getAttribute('hx-post') ===
+							'/api/auth/users/update-location'
+						) {
+							if (event.detail.xhr.status === 200) {
+								document.getElementById('update-location-modal').close();
+								this.savingLocation = false;
+							} else {
+								this.savingLocation = false;
+							}
 						}
+					});
+				},
+				radius: null,
+				locationDropdown: null,
+				savingLocation: false,
+				sendCategoriesToQueryParams() {
+					const form = document.getElementById('category-search-form');
+					// Collect form values
+					const formData = new FormData(form);
+					const formValues = Object.fromEntries(formData.entries());
+					let formVals = [];
+					Object.keys(formValues).forEach((itm) => {
+						if (itm.startsWith('itm-')) {
+							formVals.push(formValues?.[itm]);
+						}
+					});
+					const categoriesString = formVals.join(' | ');
 
-						// close the drawer
-						document.getElementById('main-drawer').click();
-					},
-				}
-			}
+					// Commit categories to URL (triggers syncFromURL automatically)
+					Alpine.store('urlState').setParam('categories', categoriesString);
+				},
+				handleFilterSubmit() {
+					// Commit all draft changes to URL state
+					this.sendCategoriesToQueryParams();
+
+					if (this.radius) {
+						Alpine.store('urlState').setParam('radius', this.radius);
+					}
+
+					if (this.locationDropdown) {
+						// Commit location changes to URL
+						Alpine.store('urlState').setParam(
+							'lat',
+							this.locationDropdown.latitude,
+						);
+						Alpine.store('urlState').setParam(
+							'lon',
+							this.locationDropdown.longitude,
+						);
+						Alpine.store('urlState').setParam(
+							'location',
+							this.locationDropdown.label,
+						);
+						Alpine.store('location').setSelectedLocation(this.locationDropdown);
+					}
+
+					// close the drawer
+					document.getElementById('main-drawer').click();
+				},
+			};
+		}
 
 		function getCompetitionsState() {
 			return {
 				async init() {
-					await fetch(`/api/competition-config/owner/${this.pageUserId}`).then(res => {
-						return res.json()
-					}).then(json => {
-						const _competitions = json.filter(competition => {
-							return competition.endTime > new Date().getTime() / 1000
+					await fetch(`/api/competition-config/owner/${this.pageUserId}`)
+						.then((res) => {
+							return res.json();
 						})
-						this.competitions = _competitions
-					});
+						.then((json) => {
+							const _competitions = json.filter((competition) => {
+								return competition.endTime > new Date().getTime() / 1000;
+							});
+							this.competitions = _competitions;
+						});
 
 					// Create an array of promises for fetching competition rounds and leaderboards
-					const fetchPromises = this.competitions.flatMap(competition => [
+					const fetchPromises = this.competitions.flatMap((competition) => [
 						// Fetch rounds
 						fetch(`/api/competition-round/competition/${competition.id}`)
-							.then(response => response.json())
-							.catch(error => {
+							.then((response) => response.json())
+							.catch((error) => {
 								// eslint-disable-next-line no-console
-								console.error(`Error fetching rounds for competition ${competition.id}:`, error);
+								console.error(
+									`Error fetching rounds for competition ${competition.id}:`,
+									error,
+								);
 								return null;
 							}),
 						// Fetch leaderboard
 						fetch(`/api/competition-round/competition-sum/${competition.id}`)
-							.then(response => response.json())
-							.catch(error => {
+							.then((response) => response.json())
+							.catch((error) => {
 								// eslint-disable-next-line no-console
-								console.error(`Error fetching leaderboard for competition ${competition.id}:`, error);
+								console.error(
+									`Error fetching leaderboard for competition ${competition.id}:`,
+									error,
+								);
 								return null;
-							})
+							}),
 					]);
 
 					// Wait for all requests to complete
@@ -1390,11 +1503,13 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							}
 							if (leaderboardData) {
 								// Sort the entries by score in descending order
-								const sortedEntries = Object.entries(leaderboardData)
-									.sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
+								const sortedEntries = Object.entries(leaderboardData).sort(
+									([, scoreA], [, scoreB]) => scoreB - scoreA,
+								);
 
 								// Convert back to object while maintaining sorted order
-								this.leaderboards[this.competitions[i / 2].id] = Object.fromEntries(sortedEntries);
+								this.leaderboards[this.competitions[i / 2].id] =
+									Object.fromEntries(sortedEntries);
 							}
 						}
 					} catch (error) {
@@ -1404,13 +1519,15 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 
 					try {
 						const userIds = Object.values(this.leaderboards)
-							.flatMap(leaderboard => Object.keys(leaderboard))
+							.flatMap((leaderboard) => Object.keys(leaderboard))
 							.join(',');
 						if (userIds.length > 0) {
-							const users = await fetch(`/api/users?ids=${userIds}`).then(res => {
-								return res.json()
-							})
-							this.users = users
+							const users = await fetch(`/api/users?ids=${userIds}`).then(
+								(res) => {
+									return res.json();
+								},
+							);
+							this.users = users;
 						}
 					} catch (error) {
 						// eslint-disable-next-line no-console
@@ -1421,10 +1538,16 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				rounds: {},
 				leaderboards: {},
 				users: [],
-				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
-				fakeEventId: document.querySelector('#alpine-state').getAttribute('data-fake-event-id'),
-				apexUrl: document.querySelector('#alpine-state').getAttribute('data-apex-url'),
-			}
+				pageUserId: document
+					.querySelector('#alpine-state')
+					.getAttribute('data-page-user-id'),
+				fakeEventId: document
+					.querySelector('#alpine-state')
+					.getAttribute('data-fake-event-id'),
+				apexUrl: document
+					.querySelector('#alpine-state')
+					.getAttribute('data-apex-url'),
+			};
 		}
 	</script>
 }

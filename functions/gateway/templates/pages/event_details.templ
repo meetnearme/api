@@ -365,81 +365,111 @@ templ EventDetailsPage(event types.Event, userInfo constants.UserInfo, canEdit b
 	<script id="event-details-script" data-interested-status={ constants.PurchaseStatus.Interested } data-registered-status={ constants.PurchaseStatus.Registered } data-user-id={ userInfo.Sub } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-type={ event.EventSourceType } data-event-type-single={ constants.ES_SINGLE_EVENT } data-event-type-series-parent={ constants.ES_SERIES_PARENT } data-event-type-series-child={ constants.ES_EVENT_SERIES } data-competition-config-id={ event.CompetitionConfigId }>
 		function getEventDetailsState() {
 			return {
-				userId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-user-id'),
-				eventId: document.querySelector('#registration-purchasables')?.getAttribute?.('data-event-id'),
-				eventName: document.querySelector('#registration-purchasables').getAttribute('data-event-name'),
-				interestedStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-interested-status'),
-				registeredStatus: document.querySelector('#event-details-script')?.getAttribute?.('data-registered-status'),
-				competitionConfigId: document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id'),
+				userId: document
+					.querySelector('#registration-purchasables')
+					?.getAttribute?.('data-user-id'),
+				eventId: document
+					.querySelector('#registration-purchasables')
+					?.getAttribute?.('data-event-id'),
+				eventName: document
+					.querySelector('#registration-purchasables')
+					.getAttribute('data-event-name'),
+				interestedStatus: document
+					.querySelector('#event-details-script')
+					?.getAttribute?.('data-interested-status'),
+				registeredStatus: document
+					.querySelector('#event-details-script')
+					?.getAttribute?.('data-registered-status'),
+				competitionConfigId: document
+					.querySelector('#event-details-script')
+					?.getAttribute?.('data-competition-config-id'),
 				init() {
-						(async () => {
-								const competitionConfigId = document.querySelector('#event-details-script')?.getAttribute?.('data-competition-config-id')
-								if (this.userId !== '' && competitionConfigId !== '') {
-										await this.fetchInitialData();
-										// Start polling after initial fetch
-										this.pollInterval = setInterval(() => this.pollRoundsData(), 10000);
-								}
-						})();
+					(async () => {
+						const competitionConfigId = document
+							.querySelector('#event-details-script')
+							?.getAttribute?.('data-competition-config-id');
+						if (this.userId !== '' && competitionConfigId !== '') {
+							await this.fetchInitialData();
+							// Start polling after initial fetch
+							this.pollInterval = setInterval(
+								() => this.pollRoundsData(),
+								10000,
+							);
+						}
+					})();
 
-						// Cleanup on component destroy
-						this.$cleanup = () => {
-								if (this.pollInterval) clearInterval(this.pollInterval);
-						};
+					// Cleanup on component destroy
+					this.$cleanup = () => {
+						if (this.pollInterval) clearInterval(this.pollInterval);
+					};
 				},
 				async fetchInitialData() {
-						try {
-								this.roundsDataFetching = true;
-								await this.fetchAndUpdateRounds();
-						} catch (e) {
-								// eslint-disable-next-line no-console
-								console.error(e);
-						} finally {
-								this.roundsDataFetching = false;
-						}
+					try {
+						this.roundsDataFetching = true;
+						await this.fetchAndUpdateRounds();
+					} catch (e) {
+						// eslint-disable-next-line no-console
+						console.error(e);
+					} finally {
+						this.roundsDataFetching = false;
+					}
 				},
 
 				async fetchAndUpdateRounds() {
 					if (this.userId !== '' && this.competitionConfigId !== '') {
-							const roundsResponse = await fetch(`/api/competition-round/event/${this.eventId}`, {
-									method: 'GET',
-							});
-							const roundsData = await roundsResponse.json();
+						const roundsResponse = await fetch(
+							`/api/competition-round/event/${this.eventId}`,
+							{
+								method: 'GET',
+							},
+						);
+						const roundsData = await roundsResponse.json();
 
-							if (roundsData.length > 0) {
-									const competitorIds = roundsData.flatMap(round => [round.competitorA, round.competitorB]);
-									const missingIds = competitorIds.filter(id => !this.competitors[id]);
+						if (roundsData.length > 0) {
+							const competitorIds = roundsData.flatMap((round) => [
+								round.competitorA,
+								round.competitorB,
+							]);
+							const missingIds = competitorIds.filter(
+								(id) => !this.competitors[id],
+							);
 
-									if (missingIds.length > 0) {
-											const usersRes = await fetch(`/api/users?ids=${missingIds.join(',')}`, {
-													method: 'GET',
-											});
-											const usersData = await usersRes.json();
+							if (missingIds.length > 0) {
+								const usersRes = await fetch(
+									`/api/users?ids=${missingIds.join(',')}`,
+									{
+										method: 'GET',
+									},
+								);
+								const usersData = await usersRes.json();
 
-											usersData.forEach(user => {
-													this.competitors[user.userId] = user;
-											});
-									}
-
-									this.rounds = roundsData.map(round => ({
-											...round,
-											competitorADisplayName: this.competitors[round.competitorA]?.displayName,
-											competitorBDisplayName: this.competitors[round.competitorB]?.displayName,
-									}));
-							} else {
-									this.rounds = [];
+								usersData.forEach((user) => {
+									this.competitors[user.userId] = user;
+								});
 							}
+
+							this.rounds = roundsData.map((round) => ({
+								...round,
+								competitorADisplayName:
+									this.competitors[round.competitorA]?.displayName,
+								competitorBDisplayName:
+									this.competitors[round.competitorB]?.displayName,
+							}));
+						} else {
+							this.rounds = [];
+						}
 					}
 				},
 
 				async pollRoundsData() {
-						if (!this.roundsDataFetching) {
-								try {
-										await this.fetchAndUpdateRounds();
-								} catch (e) {
-										// eslint-disable-next-line no-console
-										console.error('Error polling rounds data:', e);
-								}
+					if (!this.roundsDataFetching) {
+						try {
+							await this.fetchAndUpdateRounds();
+						} catch (e) {
+							// eslint-disable-next-line no-console
+							console.error('Error polling rounds data:', e);
 						}
+					}
 				},
 
 				// this is pre-LLM rewrite code, saving for reference, can delete once we
@@ -480,9 +510,15 @@ templ EventDetailsPage(event types.Event, userInfo constants.UserInfo, canEdit b
 				// 		}
 				// 	})();
 				// },
-				eventTypeSingleConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-single'),
-				eventTypeSeriesParentConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-parent'),
-				eventTypeSeriesChildConstant: document.querySelector("#event-details-script").getAttribute('data-event-type-series-child'),
+				eventTypeSingleConstant: document
+					.querySelector('#event-details-script')
+					.getAttribute('data-event-type-single'),
+				eventTypeSeriesParentConstant: document
+					.querySelector('#event-details-script')
+					.getAttribute('data-event-type-series-parent'),
+				eventTypeSeriesChildConstant: document
+					.querySelector('#event-details-script')
+					.getAttribute('data-event-type-series-child'),
 				rounds: [],
 				voteSubmitting: null,
 				votesSubmitted: {},
@@ -491,43 +527,49 @@ templ EventDetailsPage(event types.Event, userInfo constants.UserInfo, canEdit b
 				roundsDataFetching: false,
 
 				async submitVote(competitorId, roundNumber) {
-					this.voteSubmitting = `${competitorId}-${roundNumber}`
+					this.voteSubmitting = `${competitorId}-${roundNumber}`;
 					try {
-						const response = await fetch(`/api/votes/${this.competitionConfigId}/${roundNumber}`, {
-							method: 'PUT',
-							body: JSON.stringify({
-								voteRecipientId: competitorId,
-								voteValue: 1,
-							}),
-						});
+						const response = await fetch(
+							`/api/votes/${this.competitionConfigId}/${roundNumber}`,
+							{
+								method: 'PUT',
+								body: JSON.stringify({
+									voteRecipientId: competitorId,
+									voteValue: 1,
+								}),
+							},
+						);
 
 						const data = await response.json();
 						if (response.status > 400) {
-							throw new Error(data.message || 'Vote submission failed')
+							throw new Error(data.message || 'Vote submission failed');
 						}
 
-						this.votesSubmitted[`${roundNumber}`] = { voteRecipientId: competitorId}
+						this.votesSubmitted[`${roundNumber}`] = {
+							voteRecipientId: competitorId,
+						};
 					} catch (e) {
 						// eslint-disable-next-line no-console
 						console.error(e);
 					} finally {
-						this.voteSubmitting = null
+						this.voteSubmitting = null;
 					}
 				},
 				handleCtaClick(tab) {
-					if (tab === 'rsvp' || tab === 'icmi' && this.userId) {
+					if (tab === 'rsvp' || (tab === 'icmi' && this.userId)) {
 						const body = {
-							status: tab === 'rsvp' ? this.registeredStatus : this.interestedStatus,
+							status:
+								tab === 'rsvp' ? this.registeredStatus : this.interestedStatus,
 							event_name: this.eventName,
 							purchased_items: [],
 							total: 0,
-						}
+						};
 						const headers = {
 							type: 'application/json',
 						};
 						const blob = new Blob([JSON.stringify(body)], headers);
 						navigator.sendBeacon(`/api/checkout/${this.eventId}`, blob);
-						return
+						return;
 					}
 					if (tab === 'cart') {
 						// select the subnav item
@@ -535,13 +577,12 @@ templ EventDetailsPage(event types.Event, userInfo constants.UserInfo, canEdit b
 						// toggle the main drawer
 						document.getElementById(`main-drawer`).click();
 					}
-
 				},
 				shouldShowVoteHeader() {
-					return this.rounds.filter(round => round.isVotingOpen).length > 0
+					return this.rounds.filter((round) => round.isVotingOpen).length > 0;
 				},
 				shouldShowCompetitionCta() {
-					return this.competitionConfigId && !this.userId
+					return this.competitionConfigId && !this.userId;
 				},
 				scrollToVotingSection() {
 					const el = document.getElementById('voting-section');
@@ -549,17 +590,19 @@ templ EventDetailsPage(event types.Event, userInfo constants.UserInfo, canEdit b
 						// Calculate offset from fixed elements
 						const voteHeader = document.getElementById('vote-header');
 						const mainNav = document.getElementById('main-nav');
-						const offset = (voteHeader?.offsetHeight || 0) + (mainNav?.offsetHeight || 0);
+						const offset =
+							(voteHeader?.offsetHeight || 0) + (mainNav?.offsetHeight || 0);
 
 						// Scroll with offset
-						const elementPosition = el.getBoundingClientRect().top + window.pageYOffset;
+						const elementPosition =
+							el.getBoundingClientRect().top + window.pageYOffset;
 						window.scrollTo({
 							top: elementPosition - offset,
-							behavior: 'smooth'
+							behavior: 'smooth',
 						});
 					}
-				}
-			}
+				},
+			};
 		}
 	</script>
 }

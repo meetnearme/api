@@ -201,46 +201,70 @@ templ PricingPage(isLoggedIn bool, hasSeedSubscription bool, hasGrowthSubscripti
 			</div>
 		</template>
 		<script id="pricing-page" data-basic-plan-id={ constants.BASIC_SUBSCRIPTION_PLAN_ID } data-seed-plan-id={ os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") } data-growth-plan-id={ os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") } data-is-logged-in={ fmt.Sprintf("%t", isLoggedIn) } data-return-url={ constants.CUSTOMER_PORTAL_RETURN_URL_PATH }>
-      function getPricingPageState() {
-        // Check for error parameter in URL
-        const urlParams = new URLSearchParams(window.location.search)
-        const errorParam = urlParams.get('error')
-        const shouldShowToast = errorParam === 'checkout_failed' || errorParam === 'already_subscribed'
+			function getPricingPageState() {
+				// Check for error parameter in URL
+				const urlParams = new URLSearchParams(window.location.search);
+				const errorParam = urlParams.get('error');
+				const shouldShowToast =
+					errorParam === 'checkout_failed' ||
+					errorParam === 'already_subscribed';
 
-        return {
-          showToast: shouldShowToast,
-          toastContent: {
-            type: shouldShowToast ? 'error' : '',
-            message: errorParam === 'already_subscribed' ? 'You already have this subscription. To manage your subscription, visit your admin portal.' : (errorParam === 'checkout_failed' ? 'Failed to initiate checkout' : '')
-          },
-          basicPlanId: document.querySelector('#pricing-page').getAttribute('data-basic-plan-id'),
-          seedPlanId: document.querySelector('#pricing-page').getAttribute('data-seed-plan-id'),
-          growthPlanId: document.querySelector('#pricing-page').getAttribute('data-growth-plan-id'),
-          isLoggedIn: document.querySelector('#pricing-page').getAttribute('data-is-logged-in') === 'true',
-          returnUrl: document.querySelector('#pricing-page').getAttribute('data-return-url'),
-          async handleGetStartedClick(eventId) {
-            try {
-              if (eventId === this.basicPlanId) {
-                // Basic plan: redirect to login (only shown when not logged in)
-                window.location.assign(`/auth/login?redirect=${this.returnUrl}`)
-              } else {
-                // Paid plans: go to checkout (with auth check if needed)
-                if (this.isLoggedIn) {
-                  window.location.assign(`/api/checkout-subscription?subscription_plan_id=${eventId}`)
-                } else {
-                  window.location.assign(`/auth/login?redirect=/api/checkout-subscription?subscription_plan_id=${eventId}`)
-                }
-              }
-            } catch (error) {
-              this.showToast = true
-              this.toastContent = {
-                type: 'error',
-                message: 'Failed to create checkout session'
-              }
-            }
-          }
-        }
-      }
-    </script>
+				return {
+					showToast: shouldShowToast,
+					toastContent: {
+						type: shouldShowToast ? 'error' : '',
+						message:
+							errorParam === 'already_subscribed'
+								? 'You already have this subscription. To manage your subscription, visit your admin portal.'
+								: errorParam === 'checkout_failed'
+									? 'Failed to initiate checkout'
+									: '',
+					},
+					basicPlanId: document
+						.querySelector('#pricing-page')
+						.getAttribute('data-basic-plan-id'),
+					seedPlanId: document
+						.querySelector('#pricing-page')
+						.getAttribute('data-seed-plan-id'),
+					growthPlanId: document
+						.querySelector('#pricing-page')
+						.getAttribute('data-growth-plan-id'),
+					isLoggedIn:
+						document
+							.querySelector('#pricing-page')
+							.getAttribute('data-is-logged-in') === 'true',
+					returnUrl: document
+						.querySelector('#pricing-page')
+						.getAttribute('data-return-url'),
+					async handleGetStartedClick(eventId) {
+						try {
+							if (eventId === this.basicPlanId) {
+								// Basic plan: redirect to login (only shown when not logged in)
+								window.location.assign(
+									`/auth/login?redirect=${this.returnUrl}`,
+								);
+							} else {
+								// Paid plans: go to checkout (with auth check if needed)
+								if (this.isLoggedIn) {
+									window.location.assign(
+										`/api/checkout-subscription?subscription_plan_id=${eventId}`,
+									);
+								} else {
+									window.location.assign(
+										`/auth/login?redirect=/api/checkout-subscription?subscription_plan_id=${eventId}`,
+									);
+								}
+							}
+						} catch (error) {
+							this.showToast = true;
+							this.toastContent = {
+								type: 'error',
+								message: 'Failed to create checkout session',
+							};
+						}
+					},
+				};
+			}
+		</script>
 	</div>
 }

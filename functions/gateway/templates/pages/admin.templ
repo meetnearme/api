@@ -339,7 +339,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 	</div>
 	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled } data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() } data-subscriptions-url={ getSubscriptionsAdminUrl() }>
 		// Admin sub-routing with Navigation API
-		(function() {
+		(function () {
 			const adminStateEl = document.querySelector('#admin-state');
 			if (!adminStateEl) return;
 
@@ -347,25 +347,27 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			const adminRoutes = {
 				'/admin/events': {
 					url: adminStateEl.getAttribute('data-events-url'),
-					title: 'Admin - Events'
+					title: 'Admin - Events',
 				},
 				'/admin/competitions': {
 					url: adminStateEl.getAttribute('data-competitions-url'),
-					title: 'Admin - Competitions'
+					title: 'Admin - Competitions',
 				},
 				'/admin/interests': {
 					url: adminStateEl.getAttribute('data-profile-interests-url'),
-					title: 'Admin - Interests'
+					title: 'Admin - Interests',
 				},
 				'/admin/subscriptions': {
 					url: adminStateEl.getAttribute('data-subscriptions-url'),
-					title: 'Admin - Subscriptions'
-				}
+					title: 'Admin - Subscriptions',
+				},
 			};
 
 			// Handle direct navigation (browser back/forward or direct URL access)
 			function handleAdminRoute(event) {
-				const url = event ? (event.destination?.url || window.location.href) : window.location.href;
+				const url = event
+					? event.destination?.url || window.location.href
+					: window.location.href;
 				const path = new URL(url).pathname;
 
 				const route = adminRoutes[path];
@@ -384,16 +386,16 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					// eslint-disable-next-line no-undef
 					htmx.ajax('GET', route.url, {
 						target: '#admin-content',
-						swap: 'innerHTML'
+						swap: 'innerHTML',
 					});
 				} else {
 					// Fallback if HTMX not ready
 					fetch(route.url)
-						.then(res => res.text())
-						.then(html => {
+						.then((res) => res.text())
+						.then((html) => {
 							adminContent.innerHTML = html;
 						})
-						.catch(err => {
+						.catch((err) => {
 							// eslint-disable-next-line no-console
 							console.error('Failed to load admin route:', err);
 						});
@@ -406,7 +408,9 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 				// Handle initial load if on a sub-route
 				if (adminRoutes[window.location.pathname]) {
 					if (document.readyState === 'loading') {
-						document.addEventListener('DOMContentLoaded', () => handleAdminRoute());
+						document.addEventListener('DOMContentLoaded', () =>
+							handleAdminRoute(),
+						);
 					} else {
 						handleAdminRoute();
 					}
@@ -421,7 +425,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			// Listen to HTMX events to track when it's handling a navigation with hx-push-url
 			if (window.htmx) {
 				// Mark when HTMX starts a request that will push URL
-				document.body.addEventListener('htmx:beforeRequest', function(event) {
+				document.body.addEventListener('htmx:beforeRequest', function (event) {
 					const el = event.detail.elt;
 					if (el && el.hasAttribute('hx-push-url')) {
 						htmxIsNavigating = true;
@@ -433,7 +437,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 				});
 
 				// Clear the flag after HTMX completes and URL push has time to happen
-				document.body.addEventListener('htmx:afterSwap', function() {
+				document.body.addEventListener('htmx:afterSwap', function () {
 					// Give enough time for hx-push-url to trigger Navigation API
 					htmxNavigationTimeout = setTimeout(() => {
 						htmxIsNavigating = false;
@@ -441,7 +445,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 				});
 
 				// Also clear on error
-				document.body.addEventListener('htmx:responseError', function() {
+				document.body.addEventListener('htmx:responseError', function () {
 					if (htmxNavigationTimeout) {
 						clearTimeout(htmxNavigationTimeout);
 					}
@@ -461,11 +465,11 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 
 					// Check if this navigation was triggered by an HTMX link
 					const sourceElement = event.sourceElement;
-					const isFromHtmxLink = sourceElement && (
-						sourceElement.hasAttribute('hx-get') ||
-						sourceElement.hasAttribute('hx-post') ||
-						sourceElement.hasAttribute('hx-push-url')
-					);
+					const isFromHtmxLink =
+						sourceElement &&
+						(sourceElement.hasAttribute('hx-get') ||
+							sourceElement.hasAttribute('hx-post') ||
+							sourceElement.hasAttribute('hx-push-url'));
 
 					// Skip HTMX-initiated navigations - let HTMX handle them
 					if (isFromHtmxLink) {
@@ -476,18 +480,25 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					// - traverse: back/forward buttons
 					// - reload: page refresh
 					// - push/replace: programmatic navigations (not from HTMX)
-					if (event.navigationType === 'traverse' || event.navigationType === 'reload') {
+					if (
+						event.navigationType === 'traverse' ||
+						event.navigationType === 'reload'
+					) {
 						event.intercept({
 							handler() {
 								handleAdminRoute(event);
-							}
+							},
 						});
-					} else if ((event.navigationType === 'push' || event.navigationType === 'replace') && !isFromHtmxLink) {
+					} else if (
+						(event.navigationType === 'push' ||
+							event.navigationType === 'replace') &&
+						!isFromHtmxLink
+					) {
 						// Only intercept programmatic navigations that aren't from HTMX
 						event.intercept({
 							handler() {
 								handleAdminRoute(event);
-							}
+							},
 						});
 					}
 				}
@@ -497,7 +508,9 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			if (adminRoutes[window.location.pathname]) {
 				// Wait for page to be fully loaded
 				if (document.readyState === 'loading') {
-					document.addEventListener('DOMContentLoaded', () => handleAdminRoute());
+					document.addEventListener('DOMContentLoaded', () =>
+						handleAdminRoute(),
+					);
 				} else {
 					handleAdminRoute();
 				}
@@ -508,21 +521,26 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 		function getMnmOptionsPayload() {
 			const payload = {
 				subdomain: document.getElementById('subdomain')?.value ?? '',
-				primaryColor: document.getElementById('primary-color-picker-input')?.value ?? '',
-				themeMode: document.getElementById('theme-mode')?.checked ? 'light' : 'dark',
-			}
+				primaryColor:
+					document.getElementById('primary-color-picker-input')?.value ?? '',
+				themeMode: document.getElementById('theme-mode')?.checked
+					? 'light'
+					: 'dark',
+			};
 			return payload;
 		}
 		function getAdminState() {
 			return {
 				init() {
 					(async () => {
-						window.location.href.match('#')
+						window.location.href.match('#');
 						let searchQuery = window.location.hash.split('?')[1] || '';
 						if (!window.location.href.match('#')) {
-							searchQuery = window.location.search
+							searchQuery = window.location.search;
 						}
-						this.newKeyId = new URLSearchParams(searchQuery).get('new_purch_key');
+						this.newKeyId = new URLSearchParams(searchQuery).get(
+							'new_purch_key',
+						);
 						this.newRole = new URLSearchParams(searchQuery).get('new_role');
 						const promises = [];
 
@@ -537,12 +555,16 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						}
 
 						const fetchPurchases = async () => {
-							const startKey = new URLSearchParams(window.location.search).get('purch_start_key') ?? '';
-							const reqUrl = `/api/purchases/user/${this.userId}${ startKey ? `?start_key=${encodeURIComponent(startKey)}` : '' }`;
+							const startKey =
+								new URLSearchParams(window.location.search).get(
+									'purch_start_key',
+								) ?? '';
+							const reqUrl = `/api/purchases/user/${this.userId}${startKey ? `?start_key=${encodeURIComponent(startKey)}` : ''}`;
 							const purchasesResponse = await fetch(reqUrl);
 							const purchasesResData = await purchasesResponse.json();
 							this.purchases = purchasesResData.purchases ?? [];
-							this.purchasesNextCursor = purchasesResData?.nextKey?.compositeKey?.Value;
+							this.purchasesNextCursor =
+								purchasesResData?.nextKey?.compositeKey?.Value;
 							this.hasPurchasesResults = true;
 						};
 
@@ -554,11 +576,24 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 								await fetchPurchases();
 
 								// If we're not looking for a specific purchase, or if we found it, stop polling
-								if (!this.newKeyId || this.purchases.some(p => p.composite_key === this.newKeyId)) {
-									if (this.purchases.some(p => p.composite_key === this.newKeyId)) {
-										const purchaseRow = document.querySelector(`[data-purch-key="${this.newKeyId}"]`);
+								if (
+									!this.newKeyId ||
+									this.purchases.some((p) => p.composite_key === this.newKeyId)
+								) {
+									if (
+										this.purchases.some(
+											(p) => p.composite_key === this.newKeyId,
+										)
+									) {
+										const purchaseRow = document.querySelector(
+											`[data-purch-key="${this.newKeyId}"]`,
+										);
 										if (purchaseRow) {
-											purchaseRow.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
+											purchaseRow.scrollIntoView({
+												behavior: 'smooth',
+												block: 'start',
+												inline: 'start',
+											});
 										}
 									}
 									return;
@@ -567,7 +602,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 								// Continue polling if we haven't reached max attempts
 								if (attempts < maxAttempts) {
 									attempts++;
-									await new Promise(resolve => setTimeout(resolve, delayMs));
+									await new Promise((resolve) => setTimeout(resolve, delayMs));
 									await pollPurchases();
 								}
 							} catch (error) {
@@ -579,7 +614,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						promises.push(pollPurchases());
 
 						await Promise.all(promises);
-					})()
+					})();
 				},
 				newKeyId: null,
 				newRole: null,
@@ -588,34 +623,53 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 				roleResolved: false,
 				roleFound: false,
 				purchasesNextCursor: null,
-				userId: document.querySelector('#admin-state').getAttribute('data-user-id'),
-				statusPending: document.querySelector('#admin-state').getAttribute('data-status-pending'),
-				statusSettled: document.querySelector('#admin-state').getAttribute('data-status-settled'),
-				roleNotFoundMessage: document.querySelector('#admin-state').getAttribute('data-role-not-found-message'),
+				userId: document
+					.querySelector('#admin-state')
+					.getAttribute('data-user-id'),
+				statusPending: document
+					.querySelector('#admin-state')
+					.getAttribute('data-status-pending'),
+				statusSettled: document
+					.querySelector('#admin-state')
+					.getAttribute('data-status-settled'),
+				roleNotFoundMessage: document
+					.querySelector('#admin-state')
+					.getAttribute('data-role-not-found-message'),
 				async pollForRole() {
 					const delays = [500, 1500, 5000]; // Poll at 500ms, 1.5s, and 5s
 
 					for (const delay of delays) {
-						await new Promise(resolve => setTimeout(resolve, delay));
+						await new Promise((resolve) => setTimeout(resolve, delay));
 
 						try {
 							// First refresh the auth token to get latest claims
 							await fetch('/auth/refresh');
 
 							// Then check if role is present
-							const response = await fetch(`/api/auth/check-role?role=${encodeURIComponent(this.newRole)}`);
+							const response = await fetch(
+								`/api/auth/check-role?role=${encodeURIComponent(this.newRole)}`,
+							);
 							const jsonResponse = await response.json();
 							// Check if the HTML content indicates role not found
-							if (jsonResponse.error && jsonResponse.error.message.includes(this.roleNotFoundMessage)) {
+							if (
+								jsonResponse.error &&
+								jsonResponse.error.message.includes(this.roleNotFoundMessage)
+							) {
 								// Role not found yet, continue polling - this is expected
 								// eslint-disable-next-line no-console
-								console.log(`Role ${this.newRole} not found yet, continuing to poll...`);
+								console.log(
+									`Role ${this.newRole} not found yet, continuing to poll...`,
+								);
 								continue;
 							}
 
 							// Role found! Display the success message
 							const rolesSection = document.querySelector('#roles-section');
-							rolesSection.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
+							rolesSection.scrollIntoView({
+								behavior: 'smooth',
+								block: 'start',
+								inline: 'start',
+							});
 							// Role found, stop polling
 							this.roleResolved = true;
 							this.roleFound = true;
@@ -633,16 +687,24 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					this.roleFound = false;
 				},
 				getPurchasesNextLink() {
-					return window.location.href + '?purch_start_key=' + this.purchasesNextCursor + '_' + this.userId;
+					return (
+						window.location.href +
+						'?purch_start_key=' +
+						this.purchasesNextCursor +
+						'_' +
+						this.userId
+					);
 				},
 				// handleSubdomainPostRes: function(event) {
 				// 	// eslint-disable-next-line no-console
 				// 	console.log(event)
 				// },
 				getPurchaseStatus(purchase) {
-					return purchase.status.replace(this.statusSettled, 'PAID').replace(this.statusPending, 'INCOMPLETE')
-				}
-			}
+					return purchase.status
+						.replace(this.statusSettled, 'PAID')
+						.replace(this.statusPending, 'INCOMPLETE');
+				},
+			};
 		}
 	</script>
 }
