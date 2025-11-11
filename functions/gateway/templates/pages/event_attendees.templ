@@ -146,24 +146,36 @@ templ EventAttendeesPage(pageObj constants.SitePage, event types.Event, isEditor
 						(async () => {
 							if (this.hasPurchasable) {
 								try {
-									const startKey = new URLSearchParams(window.location.search).get('purch_start_key') ?? '';
-									const reqUrl = `/api/purchases/event/${this.eventId}${ startKey ? `?start_key=${encodeURIComponent(startKey)}` : '' }`;
+									const startKey =
+										new URLSearchParams(window.location.search).get(
+											'purch_start_key',
+										) ?? '';
+									const reqUrl = `/api/purchases/event/${this.eventId}${startKey ? `?start_key=${encodeURIComponent(startKey)}` : ''}`;
 									const purchasesResponse = await fetch(reqUrl);
 									const purchasesResData = await purchasesResponse.json();
 									this.purchases = purchasesResData.purchases ?? [];
-									this.purchasesNextCursor = purchasesResData?.nextKey?.compositeKey?.Value;
+									this.purchasesNextCursor =
+										purchasesResData?.nextKey?.compositeKey?.Value;
 									this.hasPurchasesResults = true;
 								} catch (error) {
 									// eslint-disable-next-line no-console
 									console.error('Failed to fetch purchasables:', error);
 								}
 							}
-						})()
+						})();
 					},
-					eventId: document.querySelector('#attendee-event').getAttribute('data-event-id'),
-					hasPurchasable: document.querySelector('#attendee-event').getAttribute('data-event-has-purchasable') ?? false,
+					eventId: document
+						.querySelector('#attendee-event')
+						.getAttribute('data-event-id'),
+					hasPurchasable:
+						document
+							.querySelector('#attendee-event')
+							.getAttribute('data-event-has-purchasable') ?? false,
 					hasPurchasesResults: false,
-					hasRegistrationFields: document.querySelector('#attendee-event').getAttribute('data-event-has-registration-fields') ?? false,
+					hasRegistrationFields:
+						document
+							.querySelector('#attendee-event')
+							.getAttribute('data-event-has-registration-fields') ?? false,
 					hasRegistrationResults: false,
 					registrations: [],
 					purchases: [],
@@ -171,10 +183,13 @@ templ EventAttendeesPage(pageObj constants.SitePage, event types.Event, isEditor
 					purchasesNextCursor: null,
 					getRegistrationNextLink() {
 						const url = new URL(window.location.href);
-						url.searchParams.set('reg_start_key', `${this.registrationsNextCursor}_${this.eventId}`);
+						url.searchParams.set(
+							'reg_start_key',
+							`${this.registrationsNextCursor}_${this.eventId}`,
+						);
 						return url.toString();
-					}
-				}
+					},
+				};
 			}
 		</script>
 	}

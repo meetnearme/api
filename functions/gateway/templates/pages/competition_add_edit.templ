@@ -452,123 +452,200 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 			return {
 				init() {
 					(async () => {
+						// Initialize owners from the data attribute
+						let ownersData =
+							JSON.parse(
+								document
+									.querySelector('#add-edit-competition')
+									.getAttribute('data-competition-owners'),
+							) ?? [];
 
-					// Initialize owners from the data attribute
-					let ownersData = JSON.parse(
-						document.querySelector('#add-edit-competition').getAttribute('data-competition-owners')
-					) ?? [];
+						// Transform owners into the required format
+						ownersData = ownersData.filter(
+							(owner) => owner.userId !== this.formData.primaryOwner,
+						);
+						this.owners = ownersData.map((owner) => ({
+							label: owner.displayName,
+							value: owner.userId,
+						}));
 
-					// Transform owners into the required format
-					ownersData = ownersData.filter(owner => owner.userId !== this.formData.primaryOwner)
-					this.owners = ownersData.map(owner => ({
-						label: owner.displayName,
-						value: owner.userId
-					}));
+						// Set initial options to current owners
+						this.allOptions = this.owners;
+						if (this.formData?.competitors?.length > 0) {
+							try {
+								// Run both fetch requests in parallel
+								const [roundsResponse, usersResponse] = await Promise.all([
+									fetch(
+										`/api/competition-round/competition/${this.formData.id}`,
+										{
+											method: 'GET',
+										},
+									),
+									fetch(
+										`/api/users?ids=${this.formData.competitors?.flat?.()?.join(',')}`,
+										{
+											method: 'GET',
+										},
+									),
+								]);
 
-					// Set initial options to current owners
-					this.allOptions = this.owners;
-					if (this.formData?.competitors?.length > 0) {
-						try {
-							// Run both fetch requests in parallel
-							const [roundsResponse, usersResponse] = await Promise.all([
-								fetch(`/api/competition-round/competition/${this.formData.id}`, {
-									method: 'GET',
-								}),
-								fetch(`/api/users?ids=${this.formData.competitors?.flat?.()?.join(',')}`, {
-									method: 'GET',
-								})
-							]);
+								const roundsData = await roundsResponse.json();
+								const usersData = await usersResponse.json();
 
-							const roundsData = await roundsResponse.json()
-							const usersData = await usersResponse.json()
+								const teamMembers = usersData?.flatMap?.(
+									(user) => user.metadata?.members || [],
+								);
 
-							const teamMembers = usersData?.flatMap?.(user => user.metadata?.members || [])
-
-							let teamMemberUsersData = []
-							if (teamMembers?.length > 0) {
-								let teamMemberUsersResponse = await fetch(`/api/users?ids=${teamMembers?.flat()?.join(',')}`, {
-									method: 'GET',
-								})
-								teamMemberUsersData = await teamMemberUsersResponse.json()
-							}
-
-							this.formData.rounds = roundsData
-							// Update the rounds data with user display names
-							this.formData.rounds = this.formData.rounds.map(round => {
-								return {
-									competitorADisplayName: usersData?.find?.(user => user.userId === round.competitorA)?.displayName,
-									competitorBDisplayName: usersData?.find?.(user => user.userId === round.competitorB)?.displayName,
-									...round
+								let teamMemberUsersData = [];
+								if (teamMembers?.length > 0) {
+									let teamMemberUsersResponse = await fetch(
+										`/api/users?ids=${teamMembers?.flat()?.join(',')}`,
+										{
+											method: 'GET',
+										},
+									);
+									teamMemberUsersData = await teamMemberUsersResponse.json();
 								}
-							})
 
-							this.teams = usersData
-								.filter(user => user.userId.startsWith('tm_'))
-								.map(team => ({
-									label: team.displayName,
-									id: team.userId,
-									competitors: team.metadata?.members?.map(memberId => {
-										const member = teamMemberUsersData?.find(user => user.userId === memberId);
-										return {
-											displayName: member?.displayName,
-											userId: member?.userId
-										};
-									}) || []
-								}));
+								this.formData.rounds = roundsData;
+								// Update the rounds data with user display names
+								this.formData.rounds = this.formData.rounds.map((round) => {
+									return {
+										competitorADisplayName: usersData?.find?.(
+											(user) => user.userId === round.competitorA,
+										)?.displayName,
+										competitorBDisplayName: usersData?.find?.(
+											(user) => user.userId === round.competitorB,
+										)?.displayName,
+										...round,
+									};
+								});
 
-							// Add non-team users to competitors
-							this.competitors = usersData
-								.filter(user => !user.userId.startsWith('tm_'))
-								.map(user => ({
-									displayName: user.displayName,
-									userId: user.userId
-								}));
+								this.teams = usersData
+									.filter((user) => user.userId.startsWith('tm_'))
+									.map((team) => ({
+										label: team.displayName,
+										id: team.userId,
+										competitors:
+											team.metadata?.members?.map((memberId) => {
+												const member = teamMemberUsersData?.find(
+													(user) => user.userId === memberId,
+												);
+												return {
+													displayName: member?.displayName,
+													userId: member?.userId,
+												};
+											}) || [],
+									}));
 
-							this.competitors = this.teams.flatMap(team => team.competitors)
-						} catch (e) {
-							// eslint-disable-next-line no-console
-							console.error('Error fetching competition data:', e);
-						} finally {
-							this.usersDataLoaded = true
-							this.roundsDataLoaded = true
+								// Add non-team users to competitors
+								this.competitors = usersData
+									.filter((user) => !user.userId.startsWith('tm_'))
+									.map((user) => ({
+										displayName: user.displayName,
+										userId: user.userId,
+									}));
+
+								this.competitors = this.teams.flatMap(
+									(team) => team.competitors,
+								);
+							} catch (e) {
+								// eslint-disable-next-line no-console
+								console.error('Error fetching competition data:', e);
+							} finally {
+								this.usersDataLoaded = true;
+								this.roundsDataLoaded = true;
+							}
+						} else {
+							this.usersDataLoaded = true;
+							this.roundsDataLoaded = true;
 						}
-					} else {
-						this.usersDataLoaded = true
-						this.roundsDataLoaded = true
-					}
 					})();
 				},
 				usersDataLoaded: false,
 				roundsDataLoaded: false,
-				competitionCompetitors: JSON.parse(document.querySelector('#add-edit-competition').getAttribute('competition-competitors')) ?? [],
-				competitionDetailUrl: document.querySelector('#add-edit-competition').getAttribute('data-competition-detail-url') ?? null,
-				emptyTeamName: document.querySelector('#add-edit-competition').getAttribute('data-competition-empty-team-name') ?? null,
-				emptyRoundEventId: document.querySelector('#add-edit-competition').getAttribute('data-round-empty-event-id') ?? null,
-				teamIdPrefix: document.querySelector('#add-edit-competition').getAttribute('data-team-id-prefix') ?? null,
-				userId: document.querySelector('#add-edit-competition').getAttribute('data-user-id') ?? null,
+				competitionCompetitors:
+					JSON.parse(
+						document
+							.querySelector('#add-edit-competition')
+							.getAttribute('competition-competitors'),
+					) ?? [],
+				competitionDetailUrl:
+					document
+						.querySelector('#add-edit-competition')
+						.getAttribute('data-competition-detail-url') ?? null,
+				emptyTeamName:
+					document
+						.querySelector('#add-edit-competition')
+						.getAttribute('data-competition-empty-team-name') ?? null,
+				emptyRoundEventId:
+					document
+						.querySelector('#add-edit-competition')
+						.getAttribute('data-round-empty-event-id') ?? null,
+				teamIdPrefix:
+					document
+						.querySelector('#add-edit-competition')
+						.getAttribute('data-team-id-prefix') ?? null,
+				userId:
+					document
+						.querySelector('#add-edit-competition')
+						.getAttribute('data-user-id') ?? null,
 				ownTeamId: 'OWN_TEAM',
 				formData: {
-					id: document.querySelector('#add-edit-competition').getAttribute('data-competition-id'),
-					name: document.querySelector('#add-edit-competition').getAttribute('data-competition-name'),
-					moduleType: document.querySelector('#add-edit-competition').getAttribute('data-competition-module-type'),
-					scoringMethod: document.querySelector('#add-edit-competition').getAttribute('data-competition-scoring-method'),
-					primaryOwner: document.querySelector('#add-edit-competition').getAttribute('data-competition-primary-owner'),
-					competitors: JSON.parse(document.querySelector('#add-edit-competition').getAttribute('competition-competitors')),
+					id: document
+						.querySelector('#add-edit-competition')
+						.getAttribute('data-competition-id'),
+					name: document
+						.querySelector('#add-edit-competition')
+						.getAttribute('data-competition-name'),
+					moduleType: document
+						.querySelector('#add-edit-competition')
+						.getAttribute('data-competition-module-type'),
+					scoringMethod: document
+						.querySelector('#add-edit-competition')
+						.getAttribute('data-competition-scoring-method'),
+					primaryOwner: document
+						.querySelector('#add-edit-competition')
+						.getAttribute('data-competition-primary-owner'),
+					competitors: JSON.parse(
+						document
+							.querySelector('#add-edit-competition')
+							.getAttribute('competition-competitors'),
+					),
 					rounds: [],
-					startTime: document.querySelector('#add-edit-competition').getAttribute('data-competition-start-time') === '1970-01-01T00:00' ? (() => {
-						const now = new Date();
-						// Convert to local ISO string and trim off seconds/milliseconds
-						return new Date(now.getTime() - (now.getTimezoneOffset() * 60000))
-							.toISOString()
-							.slice(0, 16);
-					})() : document.querySelector('#add-edit-competition').getAttribute('data-competition-start-time'),
-					endTime: document.querySelector('#add-edit-competition').getAttribute('data-competition-end-time') === '1970-01-01T00:00' ? (() => {
-						const now = new Date();
-						// Convert to local ISO string and trim off seconds/milliseconds
-						return new Date(now.getTime() - (now.getTimezoneOffset() * 60000))
-							.toISOString()
-							.slice(0, 16);
-					})() : document.querySelector('#add-edit-competition').getAttribute('data-competition-end-time'),
+					startTime:
+						document
+							.querySelector('#add-edit-competition')
+							.getAttribute('data-competition-start-time') ===
+						'1970-01-01T00:00'
+							? (() => {
+									const now = new Date();
+									// Convert to local ISO string and trim off seconds/milliseconds
+									return new Date(
+										now.getTime() - now.getTimezoneOffset() * 60000,
+									)
+										.toISOString()
+										.slice(0, 16);
+								})()
+							: document
+									.querySelector('#add-edit-competition')
+									.getAttribute('data-competition-start-time'),
+					endTime:
+						document
+							.querySelector('#add-edit-competition')
+							.getAttribute('data-competition-end-time') === '1970-01-01T00:00'
+							? (() => {
+									const now = new Date();
+									// Convert to local ISO string and trim off seconds/milliseconds
+									return new Date(
+										now.getTime() - now.getTimezoneOffset() * 60000,
+									)
+										.toISOString()
+										.slice(0, 16);
+								})()
+							: document
+									.querySelector('#add-edit-competition')
+									.getAttribute('data-competition-end-time'),
 				},
 				saveReqInFlight: false,
 				waitingRoom: [],
@@ -580,20 +657,26 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 					message: '',
 				},
 				handleOwnersUpdate(usersPayload) {
-					this.owners = usersPayload.users
+					this.owners = usersPayload.users;
 				},
 				handleCompetitorsUpdate(updatePayload) {
-					let { users, event } = updatePayload
-					if (event === 'selected' && this.waitingRoom?.filter(competitor => users?.some(c => c.userId === competitor.userId)?.length === 0)) {
+					let { users, event } = updatePayload;
+					if (
+						event === 'selected' &&
+						this.waitingRoom?.filter(
+							(competitor) =>
+								users?.some((c) => c.userId === competitor.userId)?.length ===
+								0,
+						)
+					) {
 						// eslint-disable-next-line no-unused-vars
 						users = Object.entries(users).map(([key, val]) => ({
 							displayName: val.label,
-							userId: val.value
+							userId: val.value,
 						}));
 
-						this.waitingRoom?.push(...users)
+						this.waitingRoom?.push(...users);
 					}
-
 				},
 				addRound() {
 					this.formData.rounds?.push?.({
@@ -602,22 +685,24 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 						competitorA: this.teams[0].id,
 						competitorB: this.teams[1].id,
 						description: this.formData.rounds.description,
-						eventId: this.emptyRoundEventId
+						eventId: this.emptyRoundEventId,
 					});
 				},
 				removeRound(index) {
 					this.formData.rounds.splice(index, 1);
 				},
 				removeCompetitor(userId) {
-					this.waitingRoom = this.waitingRoom.filter(competitor => competitor.userId !== userId);
+					this.waitingRoom = this.waitingRoom.filter(
+						(competitor) => competitor.userId !== userId,
+					);
 					this.$dispatch('competitor-removed', userId);
 				},
 				removeTeam(team) {
-					this.teams = this.teams.filter(_team => _team.id !== team.id);
+					this.teams = this.teams.filter((_team) => _team.id !== team.id);
 					this.waitingRoom.push({
 						displayName: team.label,
-						userId: team.id
-					})
+						userId: team.id,
+					});
 				},
 				addTeam(teamName) {
 					this.teams.push({
@@ -637,43 +722,61 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 					const competitorToAdd = {
 						userId: competitor.userId,
 						displayName: competitor.displayName,
-						team: competitor.team
+						team: competitor.team,
 					};
 
-					if (competitorToAdd.team === this.ownTeamId || competitorToAdd.userId?.match(/^tm_/)) {
-						let teamMemberUsersData = null
+					if (
+						competitorToAdd.team === this.ownTeamId ||
+						competitorToAdd.userId?.match(/^tm_/)
+					) {
+						let teamMemberUsersData = null;
 						if (competitorToAdd.userId?.match(/^tm_/)) {
-							this.saveReqInFlight = true
-							teamMemberUsersData = await fetch(`/api/users?ids=${competitorToAdd.userId}`, {
-								method: 'GET',
-							})
-							teamMemberUsersData = await teamMemberUsersData.json()
-							teamMemberUsersData = await fetch(`/api/users?ids=${teamMemberUsersData?.[0]?.metadata?.members?.flat()?.join(',')}`, {
-								method: 'GET',
-							})
-							teamMemberUsersData = await teamMemberUsersData.json()
-							this.saveReqInFlight = false
+							this.saveReqInFlight = true;
+							teamMemberUsersData = await fetch(
+								`/api/users?ids=${competitorToAdd.userId}`,
+								{
+									method: 'GET',
+								},
+							);
+							teamMemberUsersData = await teamMemberUsersData.json();
+							teamMemberUsersData = await fetch(
+								`/api/users?ids=${teamMemberUsersData?.[0]?.metadata?.members?.flat()?.join(',')}`,
+								{
+									method: 'GET',
+								},
+							);
+							teamMemberUsersData = await teamMemberUsersData.json();
+							this.saveReqInFlight = false;
 						}
 
 						// Team creation path...
 						this.teams.push({
-							label:  competitorToAdd.displayName,
+							label: competitorToAdd.displayName,
 							id: competitorToAdd.userId,
-							competitors: teamMemberUsersData ?? []
-						})
-						this.waitingRoom = this.waitingRoom.filter(_competitor => _competitor.userId !== competitorToAdd.userId)
+							competitors: teamMemberUsersData ?? [],
+						});
+						this.waitingRoom = this.waitingRoom.filter(
+							(_competitor) => _competitor.userId !== competitorToAdd.userId,
+						);
 					} else {
 						// Find the exact competitor in the waiting room
-						const waitingRoomIndex = this.waitingRoom.findIndex(c => c.userId === competitorToAdd.userId);
+						const waitingRoomIndex = this.waitingRoom.findIndex(
+							(c) => c.userId === competitorToAdd.userId,
+						);
 
 						if (waitingRoomIndex === -1) {
 							// eslint-disable-next-line no-console
-							console.error('Competitor not found in waiting room:', competitorToAdd);
+							console.error(
+								'Competitor not found in waiting room:',
+								competitorToAdd,
+							);
 							return;
 						}
 
 						// Find the target team
-						const teamIndex = this.teams.findIndex(t => t.id === competitorToAdd.team);
+						const teamIndex = this.teams.findIndex(
+							(t) => t.id === competitorToAdd.team,
+						);
 
 						if (teamIndex === -1) {
 							// eslint-disable-next-line no-console
@@ -687,17 +790,22 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 								return {
 									...team,
 									...(!team?.shouldCreate ? { shouldUpdate: true } : {}),
-									competitors: [...team.competitors, {
-										displayName: competitorToAdd.displayName,
-										userId: competitorToAdd.userId
-									}]
+									competitors: [
+										...team.competitors,
+										{
+											displayName: competitorToAdd.displayName,
+											userId: competitorToAdd.userId,
+										},
+									],
 								};
 							}
 							return team;
 						});
 
 						// Remove from waiting room
-						this.waitingRoom = this.waitingRoom.filter((_, index) => index !== waitingRoomIndex);
+						this.waitingRoom = this.waitingRoom.filter(
+							(_, index) => index !== waitingRoomIndex,
+						);
 					}
 
 					// Force a UI update
@@ -705,7 +813,7 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 						// eslint-disable-next-line no-console
 						console.log('Updated state:', {
 							waitingRoom: this.waitingRoom,
-							teams: this.teams
+							teams: this.teams,
 						});
 					});
 				},
@@ -715,7 +823,7 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 					const teamId = team.id;
 					const competitorToMove = {
 						displayName: competitor.displayName,
-						userId: competitor.userId
+						userId: competitor.userId,
 					};
 
 					// Add to waiting room
@@ -723,11 +831,14 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 
 					// Update teams array
 					this.$nextTick(() => {
-						this.teams = this.teams.map(_team => {
+						this.teams = this.teams.map((_team) => {
 							if (_team.id === teamId) {
 								return {
 									..._team,
-									competitors: _team.competitors.filter(_competitor => _competitor.userId !== competitorToMove.userId)
+									competitors: _team.competitors.filter(
+										(_competitor) =>
+											_competitor.userId !== competitorToMove.userId,
+									),
 								};
 							}
 							return _team;
@@ -737,10 +848,10 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 
 				handleTeamOrder($item, $position) {
 					// Create a POJO copy of the array
-					let items = this.teams.map(p => ({...p}));
+					let items = this.teams.map((p) => ({ ...p }));
 
 					// Find the moved item by ID
-					const itemIndex = items.findIndex(p => p.id === $item);
+					const itemIndex = items.findIndex((p) => p.id === $item);
 					if (itemIndex === -1) return;
 
 					// Remove and reinsert at new position
@@ -750,7 +861,7 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 					// Update order values
 					items = items.map((item, index) => ({
 						...item,
-						order: index
+						order: index,
 					}));
 
 					// Update the array with the new order
@@ -760,44 +871,51 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 					this.$nextTick(() => {
 						const templateEl = this.$el.querySelector('template[x-for]');
 						if (templateEl && templateEl.__x) {
-							templateEl.__x._x_prevKeys = items.map(p => `${p.id}-${p.order}`);
+							templateEl.__x._x_prevKeys = items.map(
+								(p) => `${p.id}-${p.order}`,
+							);
 						}
 					});
 				},
 				async tallyVotes(round) {
 					try {
-						this[`tallyVotesReqInFlight${round.roundNumber}`] = true
-						const response = await fetch(`/api/votes/tally-votes/${this.formData.id}/${round.roundNumber}`, {
-							method: 'GET',
-						});
+						this[`tallyVotesReqInFlight${round.roundNumber}`] = true;
+						const response = await fetch(
+							`/api/votes/tally-votes/${this.formData.id}/${round.roundNumber}`,
+							{
+								method: 'GET',
+							},
+						);
 						const data = await response.json();
-						this.formData.rounds = this.formData.rounds.map(r => {
+						this.formData.rounds = this.formData.rounds.map((r) => {
 							if (r.roundNumber === round.roundNumber) {
-								r.competitorAVotes = data[r.competitorA]
-								r.competitorBVotes = data[r.competitorB]
+								r.competitorAVotes = data[r.competitorA];
+								r.competitorBVotes = data[r.competitorB];
 							}
-							return r
-						})
+							return r;
+						});
 					} catch (e) {
 						// eslint-disable-next-line no-console
 						console.error(e);
 					} finally {
-						this[`tallyVotesReqInFlight${round.roundNumber}`] = false
+						this[`tallyVotesReqInFlight${round.roundNumber}`] = false;
 					}
 				},
 				async saveCompetition() {
 					this.saveReqInFlight = true;
 					try {
 						// Implement save logic
-						const competitors = this.teams?.flatMap?.( team => {
-							return [team.id]
-						})
+						const competitors = this.teams?.flatMap?.((team) => {
+							return [team.id];
+						});
 						const formatDateTime = (dateTimeStr) => {
 							if (!dateTimeStr) return 0;
 							// Add seconds if they're missing
-							const formattedStr = dateTimeStr.includes(':') ?
-								(dateTimeStr.match(/:/g).length === 1 ? `${dateTimeStr}:00` : dateTimeStr) :
-								`${dateTimeStr}:00:00`;
+							const formattedStr = dateTimeStr.includes(':')
+								? dateTimeStr.match(/:/g).length === 1
+									? `${dateTimeStr}:00`
+									: dateTimeStr
+								: `${dateTimeStr}:00:00`;
 							return Math.floor(new Date(formattedStr).getTime() / 1000);
 						};
 
@@ -812,40 +930,48 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 						this.formData.rounds = this.formData.rounds.map((round, index) => {
 							return {
 								...round,
-								roundNumber: index + 1
-							}
-						})
+								roundNumber: index + 1,
+							};
+						});
 
 						const competitionData = {
 							...this.formData,
-							...(!this.formData.primaryOwner ? { primaryOwner: this.userId } : {}),
+							...(!this.formData.primaryOwner
+								? { primaryOwner: this.userId }
+								: {}),
 							// eslint-disable-next-line no-unused-vars
-							auxilaryOwners: Object.entries(this.owners).map(([key, val]) => val.value),
+							auxilaryOwners: Object.entries(this.owners).map(
+								([, val]) => val.value,
+							),
 							competitors,
 							startTime: formatDateTime(this.formData.startTime),
 							endTime: formatDateTime(this.formData.endTime),
-							teams: this.teams?.map?.(team => {
+							teams: this.teams?.map?.((team) => {
 								// Create a new object without mutating the original
 								const { label, ...restTeam } = team;
 								return {
 									...restTeam,
 									displayName: label,
-									competitors: team.competitors?.map?.(competitor => ({
+									competitors: team.competitors?.map?.((competitor) => ({
 										...competitor,
-									}))
+									})),
 								};
 							}),
-							rounds: this.formData?.rounds?.map?.(round => {
-								const _round  = JSON.parse(JSON.stringify(round))
-								delete _round.competitorADisplayName
-								delete _round.competitorBDisplayName
+							rounds: this.formData?.rounds?.map?.((round) => {
+								const _round = JSON.parse(JSON.stringify(round));
+								delete _round.competitorADisplayName;
+								delete _round.competitorBDisplayName;
 								// NOTE: this is removed to prevent out of sync data when round associated with event in event admin
 								if (_round.eventId !== this.emptyRoundEventId) {
-									delete _round.eventId
+									delete _round.eventId;
 								}
 								return {
 									..._round,
-									...(this.formData.id ? { competitionId: this.formData.id } : {}),
+									...(this.formData.id
+										? {
+												competitionId: this.formData.id,
+											}
+										: {}),
 									// NOTE: we aren't using this yet
 									isPending: false,
 									competitorAScore: parseFloat(_round?.competitorAScore) ?? 0,
@@ -861,51 +987,59 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 									// competitorAScore
 									// competitorBScore
 									// description
-									}
-							})
+								};
+							}),
 						};
 
 						if (competitionData?.name === '') {
-							throw new Error('Competition name is required')
+							throw new Error('Competition name is required');
 						}
 
 						if (competitionData?.moduleType === '') {
-							throw new Error('Module type is required')
+							throw new Error('Module type is required');
 						}
 
 						if (competitionData?.scoringMethod === '') {
-							throw new Error('Scoring method is required')
+							throw new Error('Scoring method is required');
 						}
 
 						competitionData?.rounds?.forEach?.((round, index) => {
 							if (!round?.competitorA || !round?.competitorB) {
-								throw new Error(`Competitor A or B for Round ${index + 1} is empty`)
+								throw new Error(
+									`Competitor A or B for Round ${index + 1} is empty`,
+								);
 							}
 							if (round.competitorA === round.competitorB) {
-								throw new Error(`Competitor A and B for Round ${index + 1} are the same`)
+								throw new Error(
+									`Competitor A and B for Round ${index + 1} are the same`,
+								);
 							}
 							if (!competitionData.competitors.includes(round.competitorA)) {
-								throw new Error(`Competitor A for Round ${index + 1} not included in teams / competitors`)
+								throw new Error(
+									`Competitor A for Round ${index + 1} not included in teams / competitors`,
+								);
 							}
 							if (!competitionData.competitors.includes(round.competitorB)) {
-								throw new Error(`Competitor B for Round ${index + 1} not included in teams / competitors`)
+								throw new Error(
+									`Competitor B for Round ${index + 1} not included in teams / competitors`,
+								);
 							}
-						})
+						});
 
 						const response = await fetch('/api/competition-config', {
 							method: 'PUT',
 							headers: {
-								'Content-Type': 'application/json'
+								'Content-Type': 'application/json',
 							},
-							body: JSON.stringify(competitionData)
+							body: JSON.stringify(competitionData),
 						});
-						const json = await response.json()
+						const json = await response.json();
 						if (!json.error) {
 							this.showToast = true;
 							this.toastContent = {
 								type: 'success',
 								message: 'Competition updated successfully',
-							}
+							};
 							// NOTE: this API path should come from a data-* attribute
 							// that uses the `SitePages` constant for this API path
 							if (json?.id !== undefined) {
@@ -915,10 +1049,12 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 							this.formData = {
 								...json,
 								startTime: formatUnixToDateTimeLocal(json.startTime),
-								endTime: formatUnixToDateTimeLocal(json.endTime)
-							}
+								endTime: formatUnixToDateTimeLocal(json.endTime),
+							};
 						} else {
-							throw new Error(`Failed to update competition ${ json?.error?.message ? ": " + json.error.message : ''}`)
+							throw new Error(
+								`Failed to update competition ${json?.error?.message ? ': ' + json.error.message : ''}`,
+							);
 						}
 					} catch (error) {
 						// eslint-disable-next-line no-console
@@ -927,18 +1063,18 @@ templ AddOrEditCompetitionPage(pageObj constants.SitePage, userInfo constants.Us
 						this.toastContent = {
 							type: 'error',
 							message: `Failed to save competition: ${error.message}`,
-						}
+						};
 					} finally {
 						this.saveReqInFlight = false;
 						// remove the fake keys
-						this.formData?.rounds?.forEach(round => {
+						this.formData?.rounds?.forEach((round) => {
 							if (round.eventId === 'fake-event-id-123') {
-								delete round.eventId
+								delete round.eventId;
 							}
-						})
+						});
 					}
-				}
-			}
+				},
+			};
 		}
 	</script>
 }

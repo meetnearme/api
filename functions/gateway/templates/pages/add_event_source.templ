@@ -233,44 +233,50 @@ templ AddEventSource() {
 	</div>
 	<script id="alpine-state" data-google-api-key={ os.Getenv("GOOGLE_API_KEY") } data-rs-endpoint={ templ.EscapeString("/api/html/session/submit/?action=rs") }>
 		function getEventValidationsFromContainer(selector) {
-			const cards = Array.from(document.querySelectorAll(`${selector} .checkbox-card`));
+			const cards = Array.from(
+				document.querySelectorAll(`${selector} .checkbox-card`),
+			);
 			const eventValidations = [];
 
-			cards.forEach(card => {
+			cards.forEach((card) => {
 				const mainToggle = card.querySelector('input[type="checkbox"].toggle');
 				const eventData = {};
 
 				if (!mainToggle?.checked) {
-					eventData["event_title"] = false;
-					eventData["event_location"] = false;
-					eventData["event_start_datetime"] = false;
+					eventData['event_title'] = false;
+					eventData['event_location'] = false;
+					eventData['event_start_datetime'] = false;
 				} else {
-					const checkboxes = card.querySelectorAll('.card-body input[type="checkbox"]');
-					checkboxes.forEach(checkbox => {
-						const labelText = checkbox.closest('label')?.querySelector('.label-text');
+					const checkboxes = card.querySelectorAll(
+						'.card-body input[type="checkbox"]',
+					);
+					checkboxes.forEach((checkbox) => {
+						const labelText = checkbox
+							.closest('label')
+							?.querySelector('.label-text');
 						if (labelText) {
 							// eslint-disable-next-line no-unused-vars
 							const parts = labelText.innerText.split(/:\s(.+)/);
 							if (parts && parts.length > 0) {
 								const key = parts[0].trim();
 								switch (key) {
-									case "Title":
-										eventData["event_title"] = checkbox.checked;
+									case 'Title':
+										eventData['event_title'] = checkbox.checked;
 										break;
-									case "Location":
-										eventData["event_location"] = checkbox.checked;
+									case 'Location':
+										eventData['event_location'] = checkbox.checked;
 										break;
-									case "Start Time":
-										eventData["event_start_datetime"] = checkbox.checked;
+									case 'Start Time':
+										eventData['event_start_datetime'] = checkbox.checked;
 										break;
-									case "End Time":
-										eventData["event_end_datetime"] = checkbox.checked;
+									case 'End Time':
+										eventData['event_end_datetime'] = checkbox.checked;
 										break;
-									case "URL":
-										eventData["event_url"] = checkbox.checked;
+									case 'URL':
+										eventData['event_url'] = checkbox.checked;
 										break;
-									case "Description":
-										eventData["event_description"] = checkbox.checked;
+									case 'Description':
+										eventData['event_description'] = checkbox.checked;
 										break;
 								}
 							}
@@ -278,9 +284,10 @@ templ AddEventSource() {
 					});
 
 					// Ensure required fields are always present
-					eventData["event_title"] = eventData["event_title"] ?? false;
-					eventData["event_location"] = eventData["event_location"] ?? false;
-					eventData["event_start_datetime"] = eventData["event_start_datetime"] ?? false;
+					eventData['event_title'] = eventData['event_title'] ?? false;
+					eventData['event_location'] = eventData['event_location'] ?? false;
+					eventData['event_start_datetime'] =
+						eventData['event_start_datetime'] ?? false;
 				}
 
 				eventValidations.push(eventData);
@@ -289,18 +296,24 @@ templ AddEventSource() {
 			return eventValidations;
 		}
 		function getRecursiveScrapePayload() {
-			const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
+			const cards = Array.from(
+				document.querySelectorAll('#event-candidates-inner .checkbox-card'),
+			);
 
 			for (let index = 0; index < cards.length; index++) {
 				const card = cards[index];
-				const mainToggle = card.querySelector('input[type="checkbox"].main-toggle');
+				const mainToggle = card.querySelector(
+					'input[type="checkbox"].main-toggle',
+				);
 				if (!mainToggle?.checked) continue;
 
-				const requiredKeys = ["Title", "Location", "Start Time", "URL"];
+				const requiredKeys = ['Title', 'Location', 'Start Time', 'URL'];
 				let hasMissingRequiredField = false;
 
 				for (const key of requiredKeys) {
-					const label = Array.from(card.querySelectorAll('label')).find(l => l.innerText.includes(`${key}:`));
+					const label = Array.from(card.querySelectorAll('label')).find((l) =>
+						l.innerText.includes(`${key}:`),
+					);
 					const checkbox = label?.querySelector('input[type="checkbox"]');
 					if (!checkbox?.checked) {
 						hasMissingRequiredField = true;
@@ -310,10 +323,10 @@ templ AddEventSource() {
 
 				if (!hasMissingRequiredField) continue;
 
-				const urlLabel = Array.from(card.querySelectorAll('label')).find(label =>
-					label.innerText.includes("URL:")
+				const urlLabel = Array.from(card.querySelectorAll('label')).find(
+					(label) => label.innerText.includes('URL:'),
 				);
-				const urlText = urlLabel?.innerText.split("URL:")[1]?.trim();
+				const urlText = urlLabel?.innerText.split('URL:')[1]?.trim();
 				if (!urlText) continue;
 
 				// Return only the first matching card's URL
@@ -322,12 +335,14 @@ templ AddEventSource() {
 		}
 		function getWizardState() {
 			const params = new URLSearchParams(document.location.search);
-			const importFrom = params.get('import_from') ? decodeURIComponent(params.get('import_from')) : "";
+			const importFrom = params.get('import_from')
+				? decodeURIComponent(params.get('import_from'))
+				: '';
 			return {
 				formData: {
-					url: importFrom ?? "",
-					selectedLocationType: "address",
-					address: "",
+					url: importFrom ?? '',
+					selectedLocationType: 'address',
+					address: '',
 					urlTouched: false,
 				},
 				showToast: false,
@@ -348,7 +363,12 @@ templ AddEventSource() {
 					this.missingFieldsCheck = this.hasMissingRequiredFields();
 				},
 				updateHasEvents(event) {
-					if (event.detail.successful && document.querySelector('#event-candidates-inner').querySelectorAll('input[type="checkbox"]').length > 0 ){
+					if (
+						event.detail.successful &&
+						document
+							.querySelector('#event-candidates-inner')
+							.querySelectorAll('input[type="checkbox"]').length > 0
+					) {
 						this.hasEvents = true;
 					} else {
 						this.hasEvents = false;
@@ -362,7 +382,7 @@ templ AddEventSource() {
 					}
 				},
 				getAddress() {
-					return `https://www.google.com/maps/embed/v1/place?key=${document.querySelector('#alpine-state').getAttribute('data-google-api-key')}&q=${this.formData.address}`
+					return `https://www.google.com/maps/embed/v1/place?key=${document.querySelector('#alpine-state').getAttribute('data-google-api-key')}&q=${this.formData.address}`;
 				},
 				isURL(url) {
 					// NOTE: unsure if this is a useless escape or not
@@ -379,7 +399,9 @@ templ AddEventSource() {
 						const isPageEvents = /^\/[^/]+\/events\/?$/.test(u.pathname);
 						// Accept “people” pages when ?sk=events
 						const isPeopleBase = /^\/people\/[^/]+\/\d+\/?$/.test(u.pathname);
-						const isPeopleEvents = isPeopleBase && new URLSearchParams(u.search).get('sk') === 'events';
+						const isPeopleEvents =
+							isPeopleBase &&
+							new URLSearchParams(u.search).get('sk') === 'events';
 						return isPageEvents || isPeopleEvents;
 					} catch {
 						return false;
@@ -400,78 +422,92 @@ templ AddEventSource() {
 					this.eventsLoading = bool;
 				},
 				handleLocationValidation(event) {
-					if (event.detail.successful){
+					if (event.detail.successful) {
 						this.locationValidated = true;
 					}
 				},
 				handleFinalSubmission(event) {
-					if (event.detail.successful){
+					if (event.detail.successful) {
 						this.incrementFormStep();
 					}
 				},
 				getSubmissionStateText() {
 					if (this.formStep === 1 || !this.formData.url) {
-						return "In order to submit, search for events first"
+						return 'In order to submit, search for events first';
 					} else if (this.eventsLoading) {
-						return "Checking the provided URL for event listings ..."
+						return 'Checking the provided URL for event listings ...';
 					} else if (!this.hasEvents) {
-						return "No events found at the URL provided. Please try another URL"
+						return 'No events found at the URL provided. Please try another URL';
 					} else if (this.eventCandidates.length === 0) {
-						return "All events are marked invalid. Confirm their are events listed at the Target URL. Either click to search again, or try a different URL"
+						return 'All events are marked invalid. Confirm their are events listed at the Target URL. Either click to search again, or try a different URL';
 					} else if (!this.eventsValidated) {
-						return "Events must be confirmed before submitting"
+						return 'Events must be confirmed before submitting';
 					} else if (this.hasFallbackLocation && !this.formData.address) {
-						return "If events are all in the same geography, please provide a zip code, address, or city"
+						return 'If events are all in the same geography, please provide a zip code, address, or city';
 					} else if (this.hasFallbackLocation && !this.locationValidated) {
-						return "Location must be confirmed before submitting"
+						return 'Location must be confirmed before submitting';
 					} else if (this.formStep === 2) {
-						return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!"
+						return "Looks like we have what we need to continuously import event data from the URL you've provided. Ready when you are!";
 					}
-					return "";
+					return '';
 				},
 				submitDynamicForm() {
 					const form = this.$refs.eventForm;
 
 					const hasMissing = this.hasMissingRequiredFields();
 
-					const validationsInitial = getEventValidationsFromContainer('#event-candidates-inner');
-					const validationsRecursive = getEventValidationsFromContainer('#event-recursive-confirmation');
+					const validationsInitial = getEventValidationsFromContainer(
+						'#event-candidates-inner',
+					);
+					const validationsRecursive = getEventValidationsFromContainer(
+						'#event-recursive-confirmation',
+					);
 
 					const hxVals = hasMissing
-					? {
-						parent_url: this.formData.url,
-						url: getRecursiveScrapePayload(),
-					}
-					: {
-						eventValidations: validationsInitial,
-						...(validationsRecursive.length > 0 ? { eventValidationRecursive: validationsRecursive } : {})
-					};
+						? {
+								parent_url: this.formData.url,
+								url: getRecursiveScrapePayload(),
+							}
+						: {
+								eventValidations: validationsInitial,
+								...(validationsRecursive.length > 0
+									? {
+											eventValidationRecursive: validationsRecursive,
+										}
+									: {}),
+							};
 
 					form.setAttribute('hx-vals', JSON.stringify(hxVals));
 
-					const rsEndpoint = document.querySelector('#alpine-state').getAttribute('data-rs-endpoint')
-					const endpoint = hasMissing ? rsEndpoint : '/api/html/seshu/session/events';
+					const rsEndpoint = document
+						.querySelector('#alpine-state')
+						.getAttribute('data-rs-endpoint');
+					const endpoint = hasMissing
+						? rsEndpoint
+						: '/api/html/seshu/session/events';
 
 					form.removeAttribute('hx-post');
 					form.removeAttribute('hx-put');
 
-					if (hasMissing){
+					if (hasMissing) {
 						form.setAttribute('hx-post', endpoint);
-					}
-					else{
+					} else {
 						form.setAttribute('hx-put', endpoint);
 					}
 
 					form.setAttribute(
 						'hx-target',
-						hasMissing ? '#event-recursive-confirmation' : '#events-valid-confirmation'
+						hasMissing
+							? '#event-recursive-confirmation'
+							: '#events-valid-confirmation',
 					);
 
 					if (hasMissing) {
 						this.showToast = true;
 						this.toastContent = {
 							type: 'info',
-							message: 'Some required fields are missing. Attempting to fetch missing data...',
+							message:
+								'Some required fields are missing. Attempting to fetch missing data...',
 						};
 					}
 
@@ -485,53 +521,73 @@ templ AddEventSource() {
 
 				disableTogglesFromRequiredField(el) {
 					const currentCard = el.closest('.checkbox-card');
-					const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
+					const cards = Array.from(
+						document.querySelectorAll('#event-candidates-inner .checkbox-card'),
+					);
 
 					const isMainToggle = el.classList.contains('main-toggle');
 
 					// Helper to check if a label is for a required field
 					const isRequiredField = (() => {
-						const labelText = el.closest('label')?.querySelector('.label-text')?.innerText || "";
-						return ["Title", "Location", "Start Time"].some(field => labelText.includes(field));
+						const labelText =
+							el.closest('label')?.querySelector('.label-text')?.innerText ||
+							'';
+						return ['Title', 'Location', 'Start Time'].some((field) =>
+							labelText.includes(field),
+						);
 					})();
 
 					if (isMainToggle) {
 						const isChecked = el.checked;
-						currentCard.querySelectorAll('.card-body input[type="checkbox"]').forEach(cb => {
-							cb.checked = isChecked;
-						});
+						currentCard
+							.querySelectorAll('.card-body input[type="checkbox"]')
+							.forEach((cb) => {
+								cb.checked = isChecked;
+							});
 						return;
 					}
 
-					const currentMainToggle = currentCard.querySelector('input[type="checkbox"].main-toggle');
+					const currentMainToggle = currentCard.querySelector(
+						'input[type="checkbox"].main-toggle',
+					);
 					if (!currentMainToggle?.checked) return;
 
 					if (isRequiredField && !el.checked) {
-						cards.forEach(card => {
+						cards.forEach((card) => {
 							if (card === currentCard) return;
 
-							const mainToggle = card.querySelector('input[type="checkbox"].main-toggle');
+							const mainToggle = card.querySelector(
+								'input[type="checkbox"].main-toggle',
+							);
 							if (mainToggle?.checked) {
 								mainToggle.checked = false;
 							}
 
-							card.querySelectorAll('.card-body input[type="checkbox"]').forEach(cb => {
-								cb.checked = false;
-							});
+							card
+								.querySelectorAll('.card-body input[type="checkbox"]')
+								.forEach((cb) => {
+									cb.checked = false;
+								});
 						});
 					}
 				},
 				// Sync toggles within one card
 				toggleAllWithinCard(mainToggleEl) {
 					const card = mainToggleEl.closest('.checkbox-card');
-					const children = [...card.querySelectorAll('input.toggle')].filter(cb => cb !== mainToggleEl);
-					children.forEach(cb => cb.checked = mainToggleEl.checked);
+					const children = [...card.querySelectorAll('input.toggle')].filter(
+						(cb) => cb !== mainToggleEl,
+					);
+					children.forEach((cb) => (cb.checked = mainToggleEl.checked));
 				},
 				hasMissingRequiredFields() {
-					const cards = Array.from(document.querySelectorAll('#event-candidates-inner .checkbox-card'));
+					const cards = Array.from(
+						document.querySelectorAll('#event-candidates-inner .checkbox-card'),
+					);
 
-					return cards.some(card => {
-						const mainToggle = card.querySelector('input[type="checkbox"].toggle');
+					return cards.some((card) => {
+						const mainToggle = card.querySelector(
+							'input[type="checkbox"].toggle',
+						);
 						if (!mainToggle?.checked) return false;
 
 						const requiredFields = {
@@ -541,19 +597,23 @@ templ AddEventSource() {
 							// event_url: false,
 						};
 
-						const checkboxes = card.querySelectorAll('.card-body input[type="checkbox"]');
-						checkboxes.forEach(checkbox => {
-							const labelText = checkbox.closest('label')?.querySelector('.label-text')?.innerText || "";
+						const checkboxes = card.querySelectorAll(
+							'.card-body input[type="checkbox"]',
+						);
+						checkboxes.forEach((checkbox) => {
+							const labelText =
+								checkbox.closest('label')?.querySelector('.label-text')
+									?.innerText || '';
 							const [key] = labelText.split(/:\s(.+)/);
 
 							switch (key.trim()) {
-								case "Title":
+								case 'Title':
 									requiredFields.event_title = checkbox.checked;
 									break;
-								case "Location":
+								case 'Location':
 									requiredFields.event_location = checkbox.checked;
 									break;
-								case "Start Time":
+								case 'Start Time':
 									requiredFields.event_start_datetime = checkbox.checked;
 									break;
 								// case "URL":
@@ -563,10 +623,10 @@ templ AddEventSource() {
 						});
 
 						// If any required field is unchecked
-						return Object.values(requiredFields).some(v => !v);
+						return Object.values(requiredFields).some((v) => !v);
 					});
-				}
-			}
+				},
+			};
 		}
 	</script>
 }

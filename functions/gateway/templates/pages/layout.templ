@@ -389,7 +389,6 @@ templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageConte
 				loadingBar.style.width = '0%';
 			}
 
-
 			window.addEventListener('pageshow', (event) => {
 				if (event.persisted) {
 					// This page is restored from browser's cache
@@ -403,7 +402,13 @@ templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageConte
 				if (!target?.getAttribute?.('href')?.startsWith('#')) {
 					return;
 				}
-				if (target && target.href && !target.target && !event.ctrlKey && !event.metaKey) {
+				if (
+					target &&
+					target.href &&
+					!target.target &&
+					!event.ctrlKey &&
+					!event.metaKey
+				) {
 					showLoadingIndicator();
 				}
 			});

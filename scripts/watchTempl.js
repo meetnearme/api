@@ -36,30 +36,56 @@ dirs.forEach((dir) => {
           prevLayoutTempl = currentContent;
         }
 
-        console.log(
-          `File ${filename} has been ${eventType}d. Running 'templ generate' command...`,
-        );
-        const childProcess = spawn('templ', ['generate']);
+        const fmtProcess = spawn('templ', ['fmt', filename]);
 
-        childProcess.stdout.on('data', (data) => {
+        fmtProcess.stdout.on('data', (data) => {
           process.stdout.write(data);
         });
 
-        childProcess.stderr.on('data', (data) => {
+        fmtProcess.stderr.on('data', (data) => {
           process.stderr.write(data);
         });
 
-        childProcess.on('error', (error) => {
-          console.error(
-            `Error running 'templ generate' command: ${error.message}`,
-          );
+        fmtProcess.on('error', (error) => {
+          console.error(`Error running 'templ fmt' command: ${error.message}`);
         });
 
-        childProcess.on('close', (code) => {
+        fmtProcess.on('close', (code) => {
           if (code === 0) {
-            console.log(`'templ generate' command executed successfully.`);
+            console.log(
+              `'templ fmt' command executed successfully. Running 'templ generate'...`,
+            );
+
+            // After fmt completes, run templ generate
+            const generateProcess = spawn('templ', ['generate']);
+
+            generateProcess.stdout.on('data', (data) => {
+              process.stdout.write(data);
+            });
+
+            generateProcess.stderr.on('data', (data) => {
+              process.stderr.write(data);
+            });
+
+            generateProcess.on('error', (error) => {
+              console.error(
+                `Error running 'templ generate' command: ${error.message}`,
+              );
+            });
+
+            generateProcess.on('close', (code) => {
+              if (code === 0) {
+                console.log(`'templ generate' command executed successfully.`);
+              } else {
+                console.error(
+                  `'templ generate' command exited with code ${code}.`,
+                );
+              }
+            });
           } else {
-            console.error(`'templ generate' command exited with code ${code}.`);
+            console.error(
+              `'templ fmt' command exited with code ${code}. Skipping 'templ generate'.`,
+            );
           }
         });
       }

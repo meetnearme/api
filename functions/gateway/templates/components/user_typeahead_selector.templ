@@ -129,87 +129,101 @@ templ UsersSelect(users []types.UserSearchResultDangerous, primaryUser, namespac
 		</div>
 	</div>
 	<script id={ namespace + "-users-select" } data-primary-user={ primaryUser } data-users={ string(helpers.ToJSON(users)) } data-namespace={ namespace } data-show-chips={ strconv.FormatBool(showChips) }>
-				function getUsersSelectState(el) {
-						return {
-								allOptions: [],
-								users: [],
-								isOpen: false,
-								openedWithKeyboard: false,
-								options: [],
-								namespace: el.querySelector('input').value,
-								showChips: el.parentElement.querySelector('[data-show-chips]').getAttribute('data-show-chips') === 'true',
-								init() {
-									const primaryUser = this.$el.closest('div').nextElementSibling.getAttribute('data-primary-user');
-									const usersData = JSON.parse(this.$el.closest('div').nextElementSibling.getAttribute('data-users')) ?? [];
-									const filteredUsers = usersData
-											.filter(user => user.userId !== primaryUser)
-											.map(user => ({
-													label: user.displayName,
-													value: user.userId
-											}));
+		function getUsersSelectState(el) {
+			return {
+				allOptions: [],
+				users: [],
+				isOpen: false,
+				openedWithKeyboard: false,
+				options: [],
+				namespace: el.querySelector('input').value,
+				showChips:
+					el.parentElement
+						.querySelector('[data-show-chips]')
+						.getAttribute('data-show-chips') === 'true',
+				init() {
+					const primaryUser = this.$el
+						.closest('div')
+						.nextElementSibling.getAttribute('data-primary-user');
+					const usersData =
+						JSON.parse(
+							this.$el
+								.closest('div')
+								.nextElementSibling.getAttribute('data-users'),
+						) ?? [];
+					const filteredUsers = usersData
+						.filter((user) => user.userId !== primaryUser)
+						.map((user) => ({
+							label: user.displayName,
+							value: user.userId,
+						}));
 
-									this.users = filteredUsers;
-									this.allOptions = filteredUsers;
-									this.emitUpdate();
-								},
-								emitUpdate(event) {
-									this.$dispatch(`users-updated-${this.namespace}`, {
-										users: this.users,
-										event: event
-									});
-								},
+					this.users = filteredUsers;
+					this.allOptions = filteredUsers;
+					this.emitUpdate();
+				},
+				emitUpdate(event) {
+					this.$dispatch(`users-updated-${this.namespace}`, {
+						users: this.users,
+						event: event,
+					});
+				},
 
-								async fetchUsers(query) {
-									if (query.length >= 3) {
-										await fetch(`/api/user-search?q=${query}`).then(res => {
-											return res.json()
-										}).then(json => {
-											// Filter out users that are already users
-											const filteredUsers = json.filter(() =>
-												!this.users.some(user => user.value === user.userId)
-											);
-											this.options = filteredUsers.map((user) => ({
-													label: user.displayName,
-													value: user.userId,
-											}))
-											this.$nextTick(() => {
-												this.isOpen = true
-											})
-										});
-									}
-									this.emitUpdate('fetched');
-								},
+				async fetchUsers(query) {
+					if (query.length >= 3) {
+						await fetch(`/api/user-search?q=${query}`)
+							.then((res) => {
+								return res.json();
+							})
+							.then((json) => {
+								// Filter out users that are already users
+								const filteredUsers = json.filter(
+									() => !this.users.some((user) => user.value === user.userId),
+								);
+								this.options = filteredUsers.map((user) => ({
+									label: user.displayName,
+									value: user.userId,
+								}));
+								this.$nextTick(() => {
+									this.isOpen = true;
+								});
+							});
+					}
+					this.emitUpdate('fetched');
+				},
 
-								removeUser(userToRemove) {
-										this.users = this.users.filter(user => user.value !== userToRemove);
+				removeUser(userToRemove) {
+					this.users = this.users.filter((user) => user.value !== userToRemove);
 
-										this.$nextTick(() => {
-											this.emitUpdate();
-										});
-								},
+					this.$nextTick(() => {
+						this.emitUpdate();
+					});
+				},
 
-								setSelectedUser(option) {
-										this.isOpen = false
-										if (this.showChips) {
-											this.users.push(option);
-										} else {
-											this.users = [option];
-										}
-										this.options = this.options.filter(o => o.value !== option.value)
+				setSelectedUser(option) {
+					this.isOpen = false;
+					if (this.showChips) {
+						this.users.push(option);
+					} else {
+						this.users = [option];
+					}
+					this.options = this.options.filter((o) => o.value !== option.value);
 
-										this.$nextTick(() => {
-											document.querySelector(`[x-ref=${this.namespace + '-userSearch'}]`).focus();
-										})
-										this.emitUpdate('selected');
-								},
+					this.$nextTick(() => {
+						document
+							.querySelector(`[x-ref=${this.namespace + '-userSearch'}]`)
+							.focus();
+					});
+					this.emitUpdate('selected');
+				},
 
-								handleKeydownOnOptions(event) {
-									// if the user presses backspace or the alpha-numeric keys, focus on the search field
-									if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
-											this.$refs[`${this.namespace}-userSearch`].focus()
-									}
-								}
-						}
-				}
-		</script>
+				handleKeydownOnOptions(event) {
+					// if the user presses backspace or the alpha-numeric keys, focus on the search field
+					if (/^[a-zA-Z0-9]$/.test(event.key) || event.key === 'Backspace') {
+						this.$refs[`${this.namespace}-userSearch`].focus();
+					}
+				},
+			};
+		}
+	</script>
 }
