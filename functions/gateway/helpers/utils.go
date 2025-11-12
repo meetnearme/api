@@ -254,7 +254,11 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 
 	existingUserSubdomain, err := GetUserMetadataByKey(userID, mnmOptionsKey)
 	if err != nil {
-		return fmt.Errorf("error getting user metadata key: %w", err)
+		log.Print("user does not have a subdomain set.")
+		err = UpdateUserMetadataKey(userID, mnmOptionsKey, subdomainValue)
+		if err != nil {
+			return fmt.Errorf("error updating user metadata: %w", err)
+		}
 	}
 	// Decode the base64 encoded existingUserSubdomain
 	decodedValue, err := base64.StdEncoding.DecodeString(existingUserSubdomain)
