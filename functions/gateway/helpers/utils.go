@@ -214,10 +214,11 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		}
 	}
 
-	kvValueExists := false
-	if resp != nil && resp.StatusCode == http.StatusOK {
-		kvValueExists = true
-	}
+	// I don't think we need this anymore?
+	// kvValueExists := false
+	// if resp != nil && resp.StatusCode == http.StatusOK {
+	// 	kvValueExists = true
+	// }
 
 	existingValueStr := ""
 	if resp != nil && resp.Body != nil {
@@ -315,8 +316,12 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 
 	defer func() {
 		// if the key already exists, and the userID is different, delete the existing key
-		if kvValueExists && existingUserSubdomain != "" && existingValueStr != userID {
-			DeleteCloudflareKV(existingUserSubdomain, userID)
+		hasOldSubdomain := existingUserSubdomain != ""
+		if hasOldSubdomain {
+			err := DeleteCloudflareKV(existingUserSubdomain, userID)
+			if err != nil {
+				log.Printf("error deleting subdomain key: %v", err)
+			}
 		}
 	}()
 
