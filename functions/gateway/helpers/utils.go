@@ -356,6 +356,61 @@ func DeleteCloudflareKV(subdomainValue, userID string) error {
 	return nil
 }
 
+func DeleteSubdomainFromDB(userID string) error {
+	subdomainValue, err := GetUserMetadataByKey(userID, constants.SUBDOMAIN_KEY)
+	if err != nil {
+		log.Printf("failed to get user subdomain metadata: %v", err)
+		return err
+	}
+
+	if subdomainValue == "" {
+		return nil
+	}
+
+	decodedValue, decodeErr := base64.StdEncoding.DecodeString(subdomainValue)
+	if decodeErr != nil {
+		log.Printf("error decoding base64 subdomain value: %v", decodeErr)
+		return decodeErr
+	}
+
+	subdomainValue = string(decodedValue)
+	if subdomainValue == "" {
+		return nil
+	}
+
+	if err := DeleteCloudflareKV(subdomainValue, userID); err != nil {
+		log.Printf("error deleting subdomain '%s' from Cloudflare KV: %v", subdomainValue, err)
+	}
+
+	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, constants.SUBDOMAIN_KEY)
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		log.Printf("error creating delete metadata request: %v", err)
+		return err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		log.Printf("error executing delete metadata request: %v", err)
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(res.Body)
+		err := fmt.Errorf("failed to delete user metadata key '%s': status %d, body: %s", constants.SUBDOMAIN_KEY, res.StatusCode, strings.TrimSpace(string(body)))
+		log.Print(err)
+		return err
+	}
+
+	return nil
+}
+
 func GetUserMetadataByKey(userID, key string) (string, error) {
 	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "GET"

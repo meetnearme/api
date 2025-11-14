@@ -123,6 +123,27 @@ func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
+func DeleteMnmSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+
+	userInfo := ctx.Value("userInfo").(constants.UserInfo)
+	userID := userInfo.Sub
+
+	err := helpers.DeleteSubdomainFromDB(userID)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to delete subdomain: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	var buf bytes.Buffer
+	successPartial := partials.SuccessBannerHTML(`Subdomain deleted successfully`)
+	err = successPartial.Render(r.Context(), &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
 func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	ctx := r.Context()

@@ -106,6 +106,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
 		{"/api/auth/users/update-mnm-options{trailingslash:\\/?}", "POST", handlers.SetMnmOptions, Require},
+		{"/api/auth/users/delete-subdomain{trailingslash:\\/?}", "POST", handlers.DeleteMnmSubdomain, Require},
 		{"/api/auth/users/update-interests{trailingslash:\\/?}", "POST", handlers.UpdateUserInterests, Require},
 		{"/api/auth/users/update-about{trailingslash:\\/?}", "POST", handlers.UpdateUserAbout, Require},
 		{"/api/auth/users/update-location{trailingslash:\\/?}", "POST", handlers.UpdateUserLocation, Require},
