@@ -243,14 +243,20 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 				}
 			}` }
 			>
-				<p class="mb-4" x-show="subdomainValid && currentValidSubdomain">
-					View custom subdomain at
+				<div
+					class="mb-4 rounded-xl border border-success bg-success/10 px-4 py-3 flex flex-col gap-1"
+					x-show="subdomainValid && currentValidSubdomain"
+				>
+					<div class="flex items-center gap-2 font-semibold">
+						@components.Icon("check-circle")
+						<span>Current Subdomain</span>
+					</div>
 					<a
-						class="link link-primary"
+						class="link"
 						x-bind:href=" 'https://' + currentValidSubdomain + '.' + baseDomain "
 						x-text=" 'https://' + currentValidSubdomain + '.' + baseDomain "
 					></a>
-				</p>
+				</div>
 				<form
 					class="group"
 					novalidate
@@ -262,25 +268,67 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					@htmx:after-request="handleSubdomainPostRes(event)"
 					hx-vals="js:{...getMnmOptionsPayload()}"
 				>
-					<input
-						id="subdomain"
-						if subdomainFromMetadata != "" {
-							value={ subdomainFromMetadata }
-						}
-						x-model="subdomain"
-						@input="subdomain = $event.target.value.toLowerCase()"
-						pattern="[a-z0-9]+"
-						:class="{ 'input-error': subdomain && !subdomain.match(/^[a-z0-9\-]+$/) }"
-						name="subdomain"
-						type="text"
-						class="input input-bordered w-full"
-					/>
+					<div class="join w-full">
+						<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
+							<input
+								id="subdomain"
+								if subdomainFromMetadata != "" {
+									value={ subdomainFromMetadata }
+								}
+								name="subdomain"
+								x-model="subdomain"
+								@input="subdomain = $event.target.value.toLowerCase()"
+								pattern="[a-z0-9]+"
+								:class="{ 'input-error': subdomain && !subdomain.match(/^[a-z0-9\-]+$/) }"
+								class="w-full grow"
+								type="text"
+								autocomplete="off"
+							/>
+						</label>
+						<button
+							type="submit"
+							class="btn btn-primary join-item"
+						>Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+					</div>
 					<div x-show="subdomain && !subdomain.match(/^[a-z0-9\-]+$/)" class="text-error text-sm mt-1">
 						Subdomain must contain only lowercase letters and numbers and/or hyphens
 					</div>
-					<button type="submit" class="btn btn-primary mt-4">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 				</form>
 				<div id="subdomain-result" class="margins-when-children my-8"></div>
+				<div
+					class="mt-6 rounded-xl border border-error bg-error/20 px-4 py-5 flex flex-col items-center gap-3"
+					x-show="subdomainValid && currentValidSubdomain"
+				>
+					<div class="flex items-center gap-2 font-semibold">
+						@components.Icon("triangle-alert")
+						<span>Danger Zone</span>
+					</div>
+					<p class="">
+						Deleting your subdomain will permanently disable your custom website and theme. This action cannot be undone.
+					</p>
+					<button
+						type="button"
+						class="btn btn-error w-fit"
+						hx-post="/api/auth/users/delete-subdomain"
+						hx-target="#subdomain-result"
+						hx-disabled-elt="button"
+						@htmx:before-request="isDeleting = true"
+						@htmx:after-request="
+							isDeleting = false;
+							const responseText = event.detail.xhr?.responseText || '';
+							const isSuccessful = responseText.includes('alert-success');
+							if (isSuccessful) {
+								subdomainValid = false;
+								currentValidSubdomain = '';
+								subdomain = '';
+							}
+						"
+					>
+						Delete Subdomain
+						<span x-cloak x-show="isDeleting" class="loading loading-spinner loading-sm ml-2"></span>
+					</button>
+				</div>
+
 				<h3 class="text-2xl font-bold mb-4 mt-4">Custom Theme</h3>
 				<div class="alert alert-warning mb-4" x-cloak x-show="!subdomainValid">
 					@components.Icon("triangle-alert")

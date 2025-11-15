@@ -183,7 +183,6 @@ func GetCloudflareMnmOptions(subdomainValue string) (string, error) {
 }
 
 func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]string, cfMetadataValue string) error {
-	mnmOptionsKey := constants.SUBDOMAIN_KEY
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
 	baseURL := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
@@ -213,12 +212,6 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 			return fmt.Errorf("error checking if key exists: %w", err)
 		}
 	}
-
-	// I don't think we need this anymore?
-	// kvValueExists := false
-	// if resp != nil && resp.StatusCode == http.StatusOK {
-	// 	kvValueExists = true
-	// }
 
 	existingValueStr := ""
 	if resp != nil && resp.Body != nil {
@@ -253,7 +246,7 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		return fmt.Errorf(constants.ERR_KV_KEY_EXISTS)
 	}
 
-	existingUserSubdomain, err := GetUserMetadataByKey(userID, mnmOptionsKey)
+	existingUserSubdomain, err := GetUserMetadataByKey(userID, constants.SUBDOMAIN_KEY)
 	if err != nil {
 		log.Print("user does not have a subdomain set.")
 		existingUserSubdomain = ""
@@ -266,7 +259,7 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		existingUserSubdomain = string(decodedValue)
 	}
 	// Write the new subdomain value to the user's metadata in zitadel
-	err = UpdateUserMetadataKey(userID, mnmOptionsKey, subdomainValue)
+	err = UpdateUserMetadataKey(userID, constants.SUBDOMAIN_KEY, subdomainValue)
 	if err != nil {
 		return fmt.Errorf("error updating user metadata: %w", err)
 	}
