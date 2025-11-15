@@ -209,6 +209,8 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 				currentTime := time.Now().Unix()
 				eventSourceId := seshuJob.NormalizedUrlKey
 
+				var existingdeduplicatedEvents []constants.Event
+				var duplicateIds []string
 				existingEvents := []constants.Event{}
 				if eventSourceId != "" {
 					searchResponse, err := SearchWeaviateEvents(
@@ -234,7 +236,10 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 						return
 					} else {
 						existingEvents = searchResponse.Events
-						log.Printf("Found %d existing future events in DB", len(existingEvents))
+						log.Printf("Found %d existing future events in DB (before deduplication)", len(existingEvents))
+						// Deduplicate existing events based on Name + Location + Time
+						// This prevents issues when Weaviate has duplicate entries
+						existingdeduplicatedEvents, duplicateIds = deduplicateExistingEvents(existingEvents)
 					}
 				}
 				// Step 3: Scrape target URL (already done - events are scraped)
@@ -242,7 +247,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 				preservedEventIds := make(map[string]bool)
 				newEventIndicesToSkip := make(map[int]bool) // Track which new events to skip (already exist)
 
-				for _, existingEvent := range existingEvents {
+				for _, existingEvent := range existingdeduplicatedEvents {
 					for j, newEvent := range events {
 						// Skip if this new event already matched a previous existing event
 						if newEventIndicesToSkip[j] {
@@ -281,25 +286,36 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 					}
 				}
 
-				// Step 5 & 6: For each PreservedEvent, DO NOT delete
-				// Only delete events that are NOT in the preserved list
-				eventIdsToDelete := make([]string, 0)
-				for _, existingEvent := range existingEvents {
+				// Step 5 & 6: Collect all IDs to delete (duplicates + obsolete events)
+				// Combine duplicate IDs and obsolete event IDs for single batch deletion
+				allIdsToDelete := make([]string, 0)
+
+				// Add duplicate IDs from deduplication
+				if eventSourceId != "" && len(existingEvents) > 0 {
+					allIdsToDelete = append(allIdsToDelete, duplicateIds...)
+				}
+				duplicateCount := len(allIdsToDelete)
+
+				// Add obsolete event IDs (events not preserved - no longer at source)
+				for _, existingEvent := range existingdeduplicatedEvents {
 					if !preservedEventIds[existingEvent.Id] {
-						eventIdsToDelete = append(eventIdsToDelete, existingEvent.Id)
+						allIdsToDelete = append(allIdsToDelete, existingEvent.Id)
 					}
 				}
+				obsoleteCount := len(allIdsToDelete) - duplicateCount
 
-				if len(eventIdsToDelete) > 0 {
-					log.Printf("Deleting %d events that no longer exist at source", len(eventIdsToDelete))
-					_, err = BulkDeleteEventsFromWeaviate(context.Background(), weaviateClient, eventIdsToDelete)
+				// Single batch delete operation for both duplicates and obsolete events
+				if len(allIdsToDelete) > 0 {
+					log.Printf("Deleting %d total events from Weaviate (%d duplicates + %d obsolete)",
+						len(allIdsToDelete), duplicateCount, obsoleteCount)
+					_, err = BulkDeleteEventsFromWeaviate(context.Background(), weaviateClient, allIdsToDelete)
 					if err != nil {
-						log.Printf("Failed to delete obsolete events: %v", err)
+						log.Printf("Failed to delete events: %v", err)
 					} else {
-						log.Printf("Successfully deleted %d obsolete events", len(eventIdsToDelete))
+						log.Printf("Successfully deleted %d events", len(allIdsToDelete))
 					}
 				} else {
-					log.Printf("No events to delete for : %s", seshuJob.NormalizedUrlKey)
+					log.Printf("No events to delete for: %s", seshuJob.NormalizedUrlKey)
 				}
 
 				// Filter out new events that match existing events
@@ -321,7 +337,8 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 					}
 				}
 
-				log.Printf("Successfully processed %d events for %s (%d preserved, %d deleted, %d inserted)", len(events), seshuJob.NormalizedUrlKey, len(preservedEventIds), len(eventIdsToDelete), len(eventsToInsert))
+				log.Printf("Successfully processed %d events for %s (%d preserved, %d deleted, %d inserted)",
+					len(events), seshuJob.NormalizedUrlKey, len(preservedEventIds), len(allIdsToDelete), len(eventsToInsert))
 				msg.Ack()
 				return
 			}
@@ -343,4 +360,30 @@ func (s *NatsService) Close() error {
 		s.conn.Close()
 	}
 	return nil
+}
+
+// deduplicateExistingEvents removes duplicate events based on Name + Location + StartTime
+// Returns a slice with only unique events (first occurrence is kept) and IDs of duplicates to delete
+func deduplicateExistingEvents(events []constants.Event) ([]constants.Event, []string) {
+	seen := make(map[string]string) // map[key]firstEventID
+	uniqueEvents := make([]constants.Event, 0, len(events))
+	duplicateIds := make([]string, 0)
+
+	for _, event := range events {
+		// Create a unique key based on Name + Location + StartTime
+		key := fmt.Sprintf("%s|%s|%d", event.Name, event.Address, event.StartTime)
+
+		if firstID, exists := seen[key]; !exists {
+			// First occurrence - keep it
+			seen[key] = event.Id
+			uniqueEvents = append(uniqueEvents, event)
+		} else {
+			// Duplicate found - mark for deletion
+			log.Printf("WARNING: Duplicate existing event detected (will be deleted): Name=%q, Address=%q, StartTime=%d, DuplicateID=%s (keeping FirstID=%s)",
+				event.Name, event.Address, event.StartTime, event.Id, firstID)
+			duplicateIds = append(duplicateIds, event.Id)
+		}
+	}
+
+	return uniqueEvents, duplicateIds
 }
