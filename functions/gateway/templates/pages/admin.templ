@@ -278,7 +278,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 								name="subdomain"
 								x-model="subdomain"
 								@input="subdomain = $event.target.value.toLowerCase()"
-								pattern="[a-z0-9]+"
+								pattern="[a-z0-9-]+"
 								:class="{ 'input-error': subdomain && !subdomain.match(/^[a-z0-9\-]+$/) }"
 								class="w-full grow"
 								type="text"
