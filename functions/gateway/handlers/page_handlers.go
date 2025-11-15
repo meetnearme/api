@@ -124,7 +124,8 @@ func GetSearchParamsFromReq(r *http.Request) (query, city string, userLocation [
 	hasUserMetaLocation := false
 	if userMetaClaims, ok := r.Context().Value("userMetaClaims").(map[string]interface{}); ok {
 		metaCity, lat, lon, ok := helpers.GetUserLocationFromMap(userMetaClaims)
-		if ok {
+		metaCity = strings.TrimSpace(metaCity)
+		if ok && metaCity != "" {
 			userMetaCity = metaCity
 			userMetaLat = lat
 			userMetaLon = lon

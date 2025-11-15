@@ -1380,7 +1380,7 @@ func TestGetCloudflareMnmOptions(t *testing.T) {
 // Tests for new Zitadel Authorization API functions
 // =============================================================================
 
-func TestRoles(t *testing.T) {
+func TestGetUserRoles(t *testing.T) {
 	// Save original environment variables
 	originalHost := os.Getenv("ZITADEL_INSTANCE_HOST")
 	originalToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
