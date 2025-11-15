@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meet Near Me Embed Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .test-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .info-box {
+      background: #f3f4f6;
+      border: 1px solid #d1d5db;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .info-box h2 {
+      margin-top: 0;
+      color: #1f2937;
+    }
+
+    .info-box code {
+      background: #e5e7eb;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.875rem;
+    }
+
+    iframe {
+      border: 2px solid #3b82f6;
+      border-radius: 0.5rem;
+      width: 100%;
+      min-height: 800px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="test-container">
+    <h1 class="text-3xl font-bold mb-4">Meet Near Me Embed Test</h1>
+
+    <div class="info-box">
+      <h2 class="text-xl font-semibold mb-2">Instructions</h2>
+      <ol class="list-decimal list-inside space-y-2">
+        <li>Replace <code>YOUR_OWNER_ID</code> below with a valid Zitadel user ID that has the <code>subGrowth</code>
+          role</li>
+        <li>Make sure your server is running on <code>http://localhost:8000</code></li>
+        <li>The embed will load in the iframe below</li>
+        <li>You can also test different search styles: <code>inline</code>, <code>dialog</code>, or <code>header</code>
+        </li>
+      </ol>
+    </div>
+
+    <div class="mb-4">
+      <label for="ownerId" class="block text-sm font-medium mb-2">Owner ID:</label>
+      <input type="text" id="ownerId" value="YOUR_OWNER_ID"
+        class="border border-gray-300 rounded px-3 py-2 w-full max-w-md"
+        placeholder="Enter Zitadel user ID with subGrowth role" />
+    </div>
+
+    <div class="mb-4">
+      <label for="searchStyle" class="block text-sm font-medium mb-2">Search Style:</label>
+      <select id="searchStyle" class="border border-gray-300 rounded px-3 py-2">
+        <option value="inline" selected>Inline</option>
+        <option value="dialog">Dialog</option>
+        <option value="header">Header</option>
+      </select>
+    </div>
+
+    <button onclick="updateEmbed()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mb-4">
+      Update Embed
+    </button>
+
+    <div id="embed-container">
+      <iframe id="embed-iframe" src="" title="Meet Near Me Embed"></iframe>
+    </div>
+
+    <div class="info-box mt-4">
+      <h2 class="text-xl font-semibold mb-2">Direct URL</h2>
+      <p class="text-sm text-gray-600 mb-2">You can also open this URL directly in your browser:</p>
+      <code id="directUrl" class="block bg-white p-2 rounded break-all"></code>
+    </div>
+  </div>
+
+  <script>
+    function updateEmbed() {
+      const ownerId = document.getElementById('ownerId').value;
+      const searchStyle = document.getElementById('searchStyle').value;
+
+      if (!ownerId || ownerId === 'YOUR_OWNER_ID') {
+        alert('Please enter a valid Owner ID');
+        return;
+      }
+
+      // Build the embed URL
+      const baseUrl = 'http://localhost:8000';
+      const embedUrl = `${baseUrl}/api/embed/events?ownerId=${encodeURIComponent(ownerId)}&searchStyle=${encodeURIComponent(searchStyle)}`;
+
+      // Update iframe
+      document.getElementById('embed-iframe').src = embedUrl;
+
+      // Update direct URL display
+      document.getElementById('directUrl').textContent = embedUrl;
+    }
+
+    // Auto-update on Enter key in ownerId field
+    document.getElementById('ownerId').addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        updateEmbed();
+      }
+    });
+
+    // Initial load if ownerId is already set
+    if (document.getElementById('ownerId').value && document.getElementById('ownerId').value !== 'YOUR_OWNER_ID') {
+      updateEmbed();
+    }
+  </script>
+</body>
+
+</html>
