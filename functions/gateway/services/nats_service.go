@@ -198,6 +198,10 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 			// Smart update: preserve events that still exist at the source URL
 			// Only delete events that are no longer present at the source
 			if len(events) > 0 {
+
+				// Deduplicate newly scraped events before processing
+				events = deduplicateNewEvents(events)
+
 				weaviateClient, err := GetWeaviateClient()
 				if err != nil {
 					log.Printf("Failed to get Weaviate client for %s: %v", seshuJob.NormalizedUrlKey, err)
@@ -362,7 +366,7 @@ func (s *NatsService) Close() error {
 	return nil
 }
 
-// deduplicateExistingEvents removes duplicate events based on Name + Location + StartTime
+// deduplicateExistingEvents from weaviate removes duplicate events based on Name + Location + StartTime
 // Returns a slice with only unique events (first occurrence is kept) and IDs of duplicates to delete
 func deduplicateExistingEvents(events []constants.Event) ([]constants.Event, []string) {
 	seen := make(map[string]string) // map[key]firstEventID
@@ -386,4 +390,34 @@ func deduplicateExistingEvents(events []constants.Event) ([]constants.Event, []s
 	}
 
 	return uniqueEvents, duplicateIds
+}
+
+// deduplicateNewEvents from new scrape, removes duplicate events from newly scraped events based on Name + Location + StartTime
+// Returns only unique events (first occurrence is kept)
+func deduplicateNewEvents(events []internal_types.EventInfo) []internal_types.EventInfo {
+	seen := make(map[string]bool)
+	uniqueEvents := make([]internal_types.EventInfo, 0, len(events))
+	duplicateCount := 0
+
+	for _, event := range events {
+		// Create a unique key based on EventTitle + EventLocation + EventStartTime
+		key := fmt.Sprintf("%s|%s|%s", event.EventTitle, event.EventLocation, event.EventStartTime)
+
+		if !seen[key] {
+			// First occurrence - keep it
+			seen[key] = true
+			uniqueEvents = append(uniqueEvents, event)
+		} else {
+			// Duplicate found - skip it
+			duplicateCount++
+			log.Printf("WARNING: Duplicate new event detected (skipping): Title=%q, Location=%q, StartTime=%q",
+				event.EventTitle, event.EventLocation, event.EventStartTime)
+		}
+	}
+
+	if duplicateCount > 0 {
+		log.Printf("Removed %d duplicate events from newly scraped data", duplicateCount)
+	}
+
+	return uniqueEvents
 }
