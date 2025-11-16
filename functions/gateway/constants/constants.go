@@ -98,6 +98,14 @@ const (
 	SESHU_KNOWN_SOURCE_FB = "FACEBOOK"
 )
 
+// TIME_COMPRESSION_RATIO controls the speed of time-dependent operations for testing
+// 1.0 = real-time (production)
+// 60.0 = 1 hour becomes 1 minute (60x faster)
+// 3600.0 = 1 hour becomes 1 second (3600x faster)
+// Only affects: Seshu loop interval, ScheduledHour checks, time-based cooldowns
+// Does NOT affect: NATS message processing, database operations, external API calls
+const TIME_COMPRESSION_RATIO = 1.0
+
 var SESHU_GATHER_INTERVAL_SECONDS int64 = (1 * 60 * 60)
 
 const COMP_EMPTY_TEAM_NAME = "___|~~EMPTY TEAM NAME~~|___"
@@ -165,6 +173,58 @@ func init() {
 			panic(fmt.Sprintf("SitePage key mismatch: map key %q != struct key %q", key, page.Key))
 		}
 	}
+}
+
+// TimeSimulation provides helper functions for time compression testing
+// All time-dependent operations should use these functions to respect TIME_COMPRESSION_RATIO
+
+// CompressDuration compresses a real duration by TIME_COMPRESSION_RATIO
+// Example: 1 hour with ratio 60.0 becomes 1 minute
+func CompressDuration(realDuration time.Duration) time.Duration {
+	if TIME_COMPRESSION_RATIO <= 1.0 {
+		return realDuration
+	}
+	return time.Duration(float64(realDuration) / TIME_COMPRESSION_RATIO)
+}
+
+// CompressedScheduledHourInterval returns the time interval for scheduled hour checks
+// In real-time (ratio=1.0): checks every hour (3600 seconds)
+// With compression (ratio=60.0): checks every minute (60 seconds)
+// With compression (ratio=3600.0): checks every second (1 second)
+func CompressedScheduledHourInterval() time.Duration {
+	baseInterval := 1 * time.Hour
+	return CompressDuration(baseInterval)
+}
+
+// SimulatedHoursSince calculates how many "simulated hours" have passed
+// between two Unix timestamps, accounting for time compression
+// Example: 60 real seconds with ratio 60.0 = 1 simulated hour
+func SimulatedHoursSince(nowUnix, lastUnix int64) float64 {
+	realSecondsPassed := float64(nowUnix - lastUnix)
+	simulatedSecondsPassed := realSecondsPassed * TIME_COMPRESSION_RATIO
+	return simulatedSecondsPassed / 3600.0 // Convert to hours
+}
+
+// CurrentSimulatedHour returns the current "hour of day" for scheduling
+// In real-time: returns actual hour (0-23)
+// With compression: returns accelerated hour that cycles faster
+// Example: ratio=3600 means a full 24-hour cycle happens in 24 seconds
+func CurrentSimulatedHour(nowUnix int64) int {
+	if TIME_COMPRESSION_RATIO <= 1.0 {
+		// Real-time: use actual hour
+		return time.Unix(nowUnix, 0).UTC().Hour()
+	}
+
+	// Compressed time: calculate accelerated hour
+	// One full day (86400 seconds) / compression ratio = time for 24-hour cycle
+	secondsPerSimulatedDay := 86400.0 / TIME_COMPRESSION_RATIO
+
+	// Position within current simulated day
+	positionInDay := math.Mod(float64(nowUnix), secondsPerSimulatedDay)
+
+	// Convert to hour (0-23)
+	simulatedHour := int((positionInDay / secondsPerSimulatedDay) * 24.0)
+	return simulatedHour % 24
 }
 
 type UserInfo struct {
