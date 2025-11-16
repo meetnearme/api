@@ -186,7 +186,15 @@ func ProcessGatherSeshuJobs(ctx context.Context, nowUnix, lastFileUnix int64) (i
 	if diff < 0 { // negative handle
 		diff = 0
 	}
-	if diff < constants.SESHU_GATHER_INTERVAL_SECONDS {
+
+	// Apply time compression to gather interval check
+	// In compressed time, we've "waited" compression_ratio times longer
+	effectiveSecondsPassed := float64(diff) * constants.TIME_COMPRESSION_RATIO
+	if effectiveSecondsPassed < float64(constants.SESHU_GATHER_INTERVAL_SECONDS) {
+		if constants.TIME_COMPRESSION_RATIO > 1.0 {
+			log.Printf("[TIME SIMULATION] Skipping: only %.1f simulated seconds passed (need %d)",
+				effectiveSecondsPassed, constants.SESHU_GATHER_INTERVAL_SECONDS)
+		}
 		return 0, true, http.StatusOK, nil
 	}
 
@@ -206,7 +214,14 @@ func ProcessGatherSeshuJobs(ctx context.Context, nowUnix, lastFileUnix int64) (i
 		return 0, false, http.StatusInternalServerError, fmt.Errorf("failed to initialize NATS service")
 	}
 
-	currentHour := time.Unix(nowUnix, 0).UTC().Hour()
+	// Use simulated hour instead of real hour when time compression is active
+	currentHour := constants.CurrentSimulatedHour(nowUnix)
+
+	if constants.TIME_COMPRESSION_RATIO > 1.0 {
+		realHour := time.Unix(nowUnix, 0).UTC().Hour()
+		log.Printf("[TIME SIMULATION] Real hour: %02d, Simulated hour: %02d (ratio: %.1fx)",
+			realHour, currentHour, constants.TIME_COMPRESSION_RATIO)
+	}
 
 	topOfQueue, err := nats.PeekTopOfQueue(ctx)
 	if err != nil {
