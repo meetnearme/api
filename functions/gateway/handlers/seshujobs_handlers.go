@@ -215,7 +215,7 @@ func ProcessGatherSeshuJobs(ctx context.Context, nowUnix, lastFileUnix int64) (i
 	}
 
 	// Use simulated hour instead of real hour when time compression is active
-	currentHour := constants.CurrentSimulatedHour(nowUnix)
+	currentHour := helpers.CurrentSimulatedHour(nowUnix)
 
 	if constants.TIME_COMPRESSION_RATIO > 1.0 {
 		realHour := time.Unix(nowUnix, 0).UTC().Hour()

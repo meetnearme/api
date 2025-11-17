@@ -31,6 +31,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/startup"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -649,7 +650,7 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 
 func startSeshuLoop(ctx context.Context) {
 	// Apply time compression to the loop interval
-	compressedInterval := constants.CompressDuration(seshulooptime)
+	compressedInterval := helpers.CompressDuration(seshulooptime)
 	ticker := time.NewTicker(compressedInterval)
 	defer ticker.Stop()
 

@@ -240,7 +240,6 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 						return
 					} else {
 						existingEvents = searchResponse.Events
-						log.Printf("Found %d existing future events in DB (before deduplication)", len(existingEvents))
 						// Deduplicate existing events based on Name + Location + Time
 						// This prevents issues when Weaviate has duplicate entries
 						existingdeduplicatedEvents, duplicateIds = deduplicateExistingEvents(existingEvents)
