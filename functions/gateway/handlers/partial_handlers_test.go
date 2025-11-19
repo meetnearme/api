@@ -484,6 +484,8 @@ func TestGetEventsPartial(t *testing.T) {
 						"startTime":      int64(1234567890),
 						"endTime":        int64(1234567900),
 						"address":        "Test Location",
+						"lat":            37.7749,
+						"long":           -122.4194,
 						"timezone":       "America/New_York",
 						"_additional": map[string]interface{}{
 							"id": "test-event-id",
