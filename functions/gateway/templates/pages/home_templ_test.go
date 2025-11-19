@@ -5,6 +5,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -201,5 +202,383 @@ func TestHomeWithReShareButton(t *testing.T) {
 	}
 	if !strings.Contains(renderedContent, "data-city-longitude-initial=\"-74.0060\"") {
 		t.Errorf("Expected rendered content to contain 'data-city-longitude-initial=\"-74.0060\"', but it didn't")
+	}
+}
+
+func TestEventsInnerWithGroupedEvents(t *testing.T) {
+	loc, _ := time.LoadLocation("America/New_York")
+
+	// Create grouped events - same name, same location, different dates
+	groupedEvents := []types.Event{
+		{
+			Id:              "event-1",
+			Name:            "Weekly Meetup",
+			Description:     "A weekly meetup event",
+			Address:         "123 Main St",
+			Lat:             40.7128,
+			Long:            -74.0060,
+			StartTime:       1704067200, // 2024-01-01
+			Timezone:        *loc,
+			EventOwners:     []string{"owner-1"},
+			EventOwnerName:  "Test Owner",
+			EventSourceType: constants.ES_SINGLE_EVENT,
+		},
+		{
+			Id:              "event-2",
+			Name:            "Weekly Meetup",
+			Description:     "A weekly meetup event",
+			Address:         "123 Main St",
+			Lat:             40.7128,
+			Long:            -74.0060,
+			StartTime:       1704672000, // 2024-01-08
+			Timezone:        *loc,
+			EventOwners:     []string{"owner-1"},
+			EventOwnerName:  "Test Owner",
+			EventSourceType: constants.ES_SINGLE_EVENT,
+		},
+		{
+			Id:              "event-3",
+			Name:            "Weekly Meetup",
+			Description:     "A weekly meetup event",
+			Address:         "123 Main St",
+			Lat:             40.7128,
+			Long:            -74.0060,
+			StartTime:       1705276800, // 2024-01-15
+			Timezone:        *loc,
+			EventOwners:     []string{"owner-1"},
+			EventOwnerName:  "Test Owner",
+			EventSourceType: constants.ES_SINGLE_EVENT,
+		},
+	}
+
+	// Create ungrouped event - different location
+	ungroupedEvent := types.Event{
+		Id:              "event-4",
+		Name:            "Different Event",
+		Description:     "An event at a different location",
+		Address:         "456 Other St",
+		Lat:             34.0522,
+		Long:            -118.2437,
+		StartTime:       1704067200,
+		Timezone:        *loc,
+		EventOwners:     []string{"owner-2"},
+		EventOwnerName:  "Other Owner",
+		EventSourceType: constants.ES_SINGLE_EVENT,
+	}
+
+	pageUser := &types.UserSearchResult{
+		UserID: "user-1",
+	}
+
+	tests := []struct {
+		name          string
+		mode          string
+		events        []types.Event
+		expectedItems []string
+		notExpected   []string
+	}{
+		{
+			name:   "EV_MODE_UPCOMING with grouped events",
+			mode:   constants.EV_MODE_UPCOMING,
+			events: groupedEvents,
+			expectedItems: []string{
+				"Weekly Meetup",
+				"123 Main St",
+				"carousel-container",
+				"/event/event-1",
+				"/event/event-2",
+				"/event/event-3",
+			},
+		},
+		{
+			name:   "EV_MODE_CAROUSEL with grouped events",
+			mode:   constants.EV_MODE_CAROUSEL,
+			events: groupedEvents,
+			expectedItems: []string{
+				"carousel-container",
+				"carousel-item",
+			},
+		},
+		{
+			name:   "EV_MODE_LIST with grouped events",
+			mode:   constants.EV_MODE_LIST,
+			events: groupedEvents,
+			expectedItems: []string{
+				"Weekly Meetup",
+				"carousel-container",
+			},
+		},
+		{
+			name:   "EV_MODE_ADMIN_LIST with grouped events",
+			mode:   constants.EV_MODE_ADMIN_LIST,
+			events: groupedEvents,
+			expectedItems: []string{
+				"Weekly Meetup",
+				"3 occurrences",
+				"Event Admin",
+			},
+		},
+		{
+			name:   "EV_MODE_UPCOMING with single event (no grouping)",
+			mode:   constants.EV_MODE_UPCOMING,
+			events: []types.Event{groupedEvents[0]},
+			expectedItems: []string{
+				"Weekly Meetup",
+			},
+			notExpected: []string{
+				"carousel-container",
+			},
+		},
+		{
+			name:   "EV_MODE_ADMIN_LIST with single event (no grouping indicator)",
+			mode:   constants.EV_MODE_ADMIN_LIST,
+			events: []types.Event{groupedEvents[0]},
+			expectedItems: []string{
+				"Weekly Meetup",
+			},
+			notExpected: []string{
+				"occurrences",
+			},
+		},
+		{
+			name:   "EV_MODE_LIST with mixed grouped and ungrouped events",
+			mode:   constants.EV_MODE_LIST,
+			events: append(groupedEvents, ungroupedEvent),
+			expectedItems: []string{
+				"Weekly Meetup",
+				"Different Event",
+			},
+		},
+	}
+
+	// Test EventSourceId icon display in ADMIN_LIST mode
+	eventWithSourceId := types.Event{
+		Id:              "event-with-source",
+		Name:            "Re-Shared Event",
+		Description:     "An event that was re-shared",
+		Address:         "789 Source St",
+		Lat:             40.7128,
+		Long:            -74.0060,
+		StartTime:       1704067200,
+		Timezone:        *loc,
+		EventOwners:     []string{"owner-1"},
+		EventOwnerName:  "Test Owner",
+		EventSourceType: constants.ES_SINGLE_EVENT,
+		EventSourceId:   "source-123", // This should trigger the icon display
+	}
+
+	eventWithoutSourceId := types.Event{
+		Id:              "event-without-source",
+		Name:            "Regular Event",
+		Description:     "An event without source ID",
+		Address:         "321 Regular St",
+		Lat:             34.0522,
+		Long:            -118.2437,
+		StartTime:       1704067200,
+		Timezone:        *loc,
+		EventOwners:     []string{"owner-2"},
+		EventOwnerName:  "Other Owner",
+		EventSourceType: constants.ES_SINGLE_EVENT,
+		EventSourceId:   "", // This should NOT trigger the icon display
+	}
+
+	eventSourceIdTests := []struct {
+		name          string
+		mode          string
+		events        []types.Event
+		expectedItems []string
+		notExpected   []string
+	}{
+		{
+			name:   "EV_MODE_ADMIN_LIST with EventSourceId (should show icon)",
+			mode:   constants.EV_MODE_ADMIN_LIST,
+			events: []types.Event{eventWithSourceId},
+			expectedItems: []string{
+				"Re-Shared Event",
+				"viewBox=\"0 -960 960 960\"", // SVG viewBox attribute
+				"M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z", // SVG path
+			},
+		},
+		{
+			name:   "EV_MODE_ADMIN_LIST without EventSourceId (should not show icon)",
+			mode:   constants.EV_MODE_ADMIN_LIST,
+			events: []types.Event{eventWithoutSourceId},
+			expectedItems: []string{
+				"Regular Event",
+			},
+			notExpected: []string{
+				"viewBox=\"0 -960 960 960\"", // SVG should not appear
+			},
+		},
+		{
+			name:   "EV_MODE_ADMIN_LIST with mixed events (one with source, one without)",
+			mode:   constants.EV_MODE_ADMIN_LIST,
+			events: []types.Event{eventWithSourceId, eventWithoutSourceId},
+			expectedItems: []string{
+				"Re-Shared Event",
+				"Regular Event",
+				"viewBox=\"0 -960 960 960\"", // Should appear for the first event only
+			},
+		},
+	}
+
+	for _, tt := range eventSourceIdTests {
+		t.Run(tt.name, func(t *testing.T) {
+			component := EventsInner(tt.events, tt.mode, []constants.RoleClaim{}, "", pageUser, false, "")
+
+			var buf bytes.Buffer
+			err := component.Render(context.Background(), &buf)
+			if err != nil {
+				t.Fatalf("Error rendering EventsInner: %v", err)
+			}
+
+			renderedContent := buf.String()
+
+			// Check for expected items
+			for _, item := range tt.expectedItems {
+				if !strings.Contains(renderedContent, item) {
+					t.Errorf("Expected rendered content to contain '%s', but it didn't", item)
+				}
+			}
+
+			// Check that not expected items are absent
+			for _, item := range tt.notExpected {
+				if strings.Contains(renderedContent, item) {
+					t.Errorf("Expected rendered content to NOT contain '%s', but it did", item)
+				}
+			}
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			component := EventsInner(tt.events, tt.mode, []constants.RoleClaim{}, "", pageUser, false, "")
+
+			var buf bytes.Buffer
+			err := component.Render(context.Background(), &buf)
+			if err != nil {
+				t.Fatalf("Error rendering EventsInner: %v", err)
+			}
+
+			renderedContent := buf.String()
+
+			for _, expected := range tt.expectedItems {
+				if !strings.Contains(renderedContent, expected) {
+					t.Errorf("Expected rendered content to contain '%s', but it didn't", expected)
+					t.Logf("Rendered content:\n%s", renderedContent)
+				}
+			}
+
+			for _, notExpected := range tt.notExpected {
+				if strings.Contains(renderedContent, notExpected) {
+					t.Errorf("Expected rendered content to NOT contain '%s', but it did", notExpected)
+					t.Logf("Rendered content:\n%s", renderedContent)
+				}
+			}
+		})
+	}
+}
+
+func TestEventsInnerEdgeCases(t *testing.T) {
+	loc, _ := time.LoadLocation("America/New_York")
+	pageUser := &types.UserSearchResult{
+		UserID: "user-1",
+	}
+
+	tests := []struct {
+		name          string
+		mode          string
+		events        []types.Event
+		expectedItems []string
+	}{
+		{
+			name:   "EV_MODE_UPCOMING with empty events",
+			mode:   constants.EV_MODE_UPCOMING,
+			events: []types.Event{},
+			expectedItems: []string{
+				"No events found",
+			},
+		},
+		{
+			name:   "EV_MODE_CAROUSEL with empty events",
+			mode:   constants.EV_MODE_CAROUSEL,
+			events: []types.Event{},
+			expectedItems: []string{
+				"This event series has no events",
+			},
+		},
+		{
+			name:   "EV_MODE_LIST with empty events",
+			mode:   constants.EV_MODE_LIST,
+			events: []types.Event{},
+			expectedItems: []string{
+				"No events found",
+			},
+		},
+		{
+			name: "EV_MODE_UPCOMING with event without location data",
+			mode: constants.EV_MODE_UPCOMING,
+			events: []types.Event{
+				{
+					Id:              "event-no-loc",
+					Name:            "Event Without Location",
+					Description:     "An event without location data",
+					Address:         "Unknown",
+					Lat:             0,
+					Long:            0,
+					StartTime:       1704067200,
+					Timezone:        *loc,
+					EventOwners:     []string{"owner-1"},
+					EventOwnerName:  "Test Owner",
+					EventSourceType: constants.ES_SINGLE_EVENT,
+				},
+			},
+			expectedItems: []string{
+				"No events found",
+			},
+		},
+		{
+			name: "EV_MODE_UPCOMING with event without name",
+			mode: constants.EV_MODE_UPCOMING,
+			events: []types.Event{
+				{
+					Id:              "event-no-name",
+					Name:            "",
+					Description:     "An event without a name",
+					Address:         "123 Main St",
+					Lat:             40.7128,
+					Long:            -74.0060,
+					StartTime:       1704067200,
+					Timezone:        *loc,
+					EventOwners:     []string{"owner-1"},
+					EventOwnerName:  "Test Owner",
+					EventSourceType: constants.ES_SINGLE_EVENT,
+				},
+			},
+			expectedItems: []string{
+				"No events found",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			component := EventsInner(tt.events, tt.mode, []constants.RoleClaim{}, "", pageUser, false, "")
+
+			var buf bytes.Buffer
+			err := component.Render(context.Background(), &buf)
+			if err != nil {
+				t.Fatalf("Error rendering EventsInner: %v", err)
+			}
+
+			renderedContent := buf.String()
+
+			for _, expected := range tt.expectedItems {
+				if !strings.Contains(renderedContent, expected) {
+					t.Errorf("Expected rendered content to contain '%s', but it didn't", expected)
+					t.Logf("Rendered content:\n%s", renderedContent)
+				}
+			}
+		})
 	}
 }

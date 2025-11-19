@@ -75,6 +75,10 @@ func TestGetHomeOrUserPage(t *testing.T) {
 								"eventOwnerName":  "First Event Host",
 								"eventSourceType": "SLF", // Published single event
 								"startTime":       time.Now().Add(48 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(50 * time.Hour).Unix(),
+								"address":         "123 First St",
+								"lat":             40.7128,
+								"long":            -74.0060,
 								"timezone":        "America/New_York",
 								"_additional": map[string]interface{}{
 									"id": "123",
@@ -87,6 +91,10 @@ func TestGetHomeOrUserPage(t *testing.T) {
 								"eventOwnerName":  "Second Event Host",
 								"eventSourceType": "SLF_EVS", // Published series parent
 								"startTime":       time.Now().Add(72 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(74 * time.Hour).Unix(),
+								"address":         "456 Second St",
+								"lat":             34.0522,
+								"long":            -118.2437,
 								"timezone":        "America/New_York",
 								"_additional": map[string]interface{}{
 									"id": "456",
@@ -181,6 +189,208 @@ func TestGetHomeOrUserPage(t *testing.T) {
 	}
 	if strings.Contains(rr.Body.String(), "data-event-type=\"SLF_EVS_UNPUB\"") {
 		t.Errorf("Unpublished series event (SLF_EVS_UNPUB) should not appear on home page")
+	}
+}
+
+func TestGetHomeOrUserPage_WithGroupedEvents(t *testing.T) {
+	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+	originalTransport := http.DefaultTransport
+
+	defer func() {
+		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+		http.DefaultTransport = originalTransport
+	}()
+
+	// Set up logging transport
+	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
+
+	// Mock server setup
+	hostAndPort := test_helpers.GetNextPort()
+
+	// Create mock Weaviate server with grouped events
+	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("🎯 MOCK SERVER HIT: %s %s", r.Method, r.URL.Path)
+
+		switch r.URL.Path {
+		case "/v1/meta":
+			t.Logf("   └─ Handling /v1/meta")
+			metaResponse := `{"version":"1.23.4"}`
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(metaResponse))
+
+		case "/v1/graphql":
+			t.Logf("   └─ Handling /v1/graphql (home page with grouped events)")
+			if r.Method != "POST" {
+				t.Errorf("expected method POST for /v1/graphql, got %s", r.Method)
+			}
+
+			// Return grouped events - same name, same location, different dates
+			mockResponse := models.GraphQLResponse{
+				Data: map[string]models.JSONObject{
+					"Get": map[string]interface{}{
+						constants.WeaviateEventClassName: []interface{}{
+							map[string]interface{}{
+								"name":            "Weekly Meetup",
+								"description":     "A weekly meetup event",
+								"eventOwners":     []interface{}{"789"},
+								"eventOwnerName":  "Event Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(48 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(50 * time.Hour).Unix(),
+								"address":         "123 Main St",
+								"lat":             40.7128,
+								"long":            -74.0060,
+								"timezone":        "America/New_York",
+								"_additional": map[string]interface{}{
+									"id": "event-1",
+								},
+							},
+							map[string]interface{}{
+								"name":            "Weekly Meetup",
+								"description":     "A weekly meetup event",
+								"eventOwners":     []interface{}{"789"},
+								"eventOwnerName":  "Event Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(120 * time.Hour).Unix(), // 5 days later
+								"endTime":         time.Now().Add(122 * time.Hour).Unix(),
+								"address":         "123 Main St",
+								"lat":             40.7128,
+								"long":            -74.0060,
+								"timezone":        "America/New_York",
+								"_additional": map[string]interface{}{
+									"id": "event-2",
+								},
+							},
+							map[string]interface{}{
+								"name":            "Weekly Meetup",
+								"description":     "A weekly meetup event",
+								"eventOwners":     []interface{}{"789"},
+								"eventOwnerName":  "Event Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(192 * time.Hour).Unix(), // 8 days later
+								"endTime":         time.Now().Add(194 * time.Hour).Unix(),
+								"address":         "123 Main St",
+								"lat":             40.7128,
+								"long":            -74.0060,
+								"timezone":        "America/New_York",
+								"_additional": map[string]interface{}{
+									"id": "event-3",
+								},
+							},
+							// Add an ungrouped event (different location)
+							map[string]interface{}{
+								"name":            "Different Event",
+								"description":     "An event at a different location",
+								"eventOwners":     []interface{}{"012"},
+								"eventOwnerName":  "Other Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(72 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(74 * time.Hour).Unix(),
+								"address":         "456 Other St",
+								"lat":             34.0522,
+								"long":            -118.2437,
+								"timezone":        "America/Los_Angeles",
+								"_additional": map[string]interface{}{
+									"id": "event-4",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			responseBytes, err := json.Marshal(mockResponse)
+			if err != nil {
+				t.Fatalf("failed to marshal mock GraphQL response: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+
+		default:
+			t.Logf("   └─ ⚠️  UNHANDLED PATH: %s", r.URL.Path)
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}
+	}))
+
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("BindToPort failed: %v", err)
+	}
+	mockWeaviateServer.Listener = listener
+	mockWeaviateServer.Start()
+	defer mockWeaviateServer.Close()
+
+	// Set environment variables to the actual bound port
+	actualAddr := listener.Addr().String()
+	actualParts := strings.Split(actualAddr, ":")
+	actualHost, actualPort := actualParts[0], actualParts[1]
+
+	os.Setenv("WEAVIATE_HOST", actualHost)
+	os.Setenv("WEAVIATE_PORT", actualPort)
+	os.Setenv("WEAVIATE_SCHEME", "http")
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
+
+	t.Logf("🔧 HOME PAGE GROUPED EVENTS TEST SETUP COMPLETE")
+	t.Logf("   └─ Mock Server bound to: %s", actualAddr)
+
+	// Add MNM_OPTIONS_CTX_KEY to context
+	fakeContext := context.Background()
+
+	// Create a request
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req = req.WithContext(fakeContext)
+
+	// Create a ResponseRecorder to record the response
+	rr := httptest.NewRecorder()
+
+	// Call the handler
+	handler := GetHomeOrUserPage(rr, req)
+	handler.ServeHTTP(rr, req)
+
+	// Check the status code
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Check the response body
+	if rr.Body.String() == "" {
+		t.Errorf("Handler returned empty body")
+	}
+
+	responseBody := rr.Body.String()
+
+	// Verify grouped events are displayed with carousel
+	if !strings.Contains(responseBody, "Weekly Meetup") {
+		t.Errorf("Grouped event 'Weekly Meetup' should appear on the page")
+	}
+
+	if !strings.Contains(responseBody, "carousel-container") {
+		t.Errorf("Carousel container should appear for grouped events")
+	}
+
+	if !strings.Contains(responseBody, "123 Main St") {
+		t.Errorf("Grouped event address should appear")
+	}
+
+	// Verify ungrouped event also appears
+	if !strings.Contains(responseBody, "Different Event") {
+		t.Errorf("Ungrouped event 'Different Event' should also appear on the page")
+	}
+
+	// Verify event IDs appear in URLs (they will be in the carousel links)
+	if !strings.Contains(responseBody, "/event/event-1") {
+		t.Errorf("Event ID should appear in URL for grouped events")
 	}
 }
 

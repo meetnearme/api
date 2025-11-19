@@ -605,6 +605,243 @@ func TestGetEventsPartial(t *testing.T) {
 	}
 }
 
+func TestGetEventsPartialWithGroupedEvents(t *testing.T) {
+	// Save original environment variables
+	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+	originalTransport := http.DefaultTransport
+	defer func() {
+		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+		http.DefaultTransport = originalTransport
+	}()
+
+	// Set up logging transport for debugging
+	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
+
+	// Create mock server using proper port rotation
+	hostAndPort := test_helpers.GetNextPort()
+	mockServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("🎯 MOCK WEAVIATE HIT: %s %s", r.Method, r.URL.Path)
+
+		switch r.URL.Path {
+		case "/v1/meta":
+			t.Logf("   └─ Handling /v1/meta")
+			metaResponse := `{"version":"1.23.4"}`
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(metaResponse))
+		case "/v1/graphql":
+			t.Logf("   └─ Handling /v1/graphql")
+			if r.Method != "POST" {
+				t.Errorf("expected method POST for /v1/graphql, got %s", r.Method)
+			}
+
+			// Return multiple events that should be grouped (same name, lat, long)
+			events := []interface{}{
+				map[string]interface{}{
+					"name":           "Weekly Meetup",
+					"description":    "A weekly meetup event",
+					"eventOwners":    []interface{}{"123"},
+					"eventOwnerName": "Event Host",
+					"startTime":      int64(1704067200), // 2024-01-01
+					"endTime":        int64(1704070800),
+					"address":        "123 Main St",
+					"lat":            40.7128,
+					"long":           -74.0060,
+					"timezone":       "America/New_York",
+					"_additional": map[string]interface{}{
+						"id": "event-1",
+					},
+				},
+				map[string]interface{}{
+					"name":           "Weekly Meetup",
+					"description":    "A weekly meetup event",
+					"eventOwners":    []interface{}{"123"},
+					"eventOwnerName": "Event Host",
+					"startTime":      int64(1704672000), // 2024-01-08
+					"endTime":        int64(1704675600),
+					"address":        "123 Main St",
+					"lat":            40.7128,
+					"long":           -74.0060,
+					"timezone":       "America/New_York",
+					"_additional": map[string]interface{}{
+						"id": "event-2",
+					},
+				},
+				map[string]interface{}{
+					"name":           "Weekly Meetup",
+					"description":    "A weekly meetup event",
+					"eventOwners":    []interface{}{"123"},
+					"eventOwnerName": "Event Host",
+					"startTime":      int64(1705276800), // 2024-01-15
+					"endTime":        int64(1705280400),
+					"address":        "123 Main St",
+					"lat":            40.7128,
+					"long":           -74.0060,
+					"timezone":       "America/New_York",
+					"_additional": map[string]interface{}{
+						"id": "event-3",
+					},
+				},
+				// Add an ungrouped event (different location)
+				map[string]interface{}{
+					"name":           "Different Event",
+					"description":    "An event at a different location",
+					"eventOwners":    []interface{}{"456"},
+					"eventOwnerName": "Other Host",
+					"startTime":      int64(1704067200),
+					"endTime":        int64(1704070800),
+					"address":        "456 Other St",
+					"lat":            34.0522,
+					"long":           -118.2437,
+					"timezone":       "America/Los_Angeles",
+					"_additional": map[string]interface{}{
+						"id": "event-4",
+					},
+				},
+			}
+
+			mockResponse := models.GraphQLResponse{
+				Data: map[string]models.JSONObject{
+					"Get": map[string]interface{}{
+						constants.WeaviateEventClassName: events,
+					},
+				},
+			}
+
+			responseBytes, err := json.Marshal(mockResponse)
+			if err != nil {
+				t.Fatalf("failed to marshal mock GraphQL response: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+		default:
+			t.Logf("   └─ ⚠️  UNHANDLED PATH: %s", r.URL.Path)
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}
+	}))
+
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("BindToPort failed: %v", err)
+	}
+	mockServer.Listener = listener
+	mockServer.Start()
+	defer mockServer.Close()
+
+	// Parse mock server URL and set environment variables
+	mockURL, err := url.Parse(mockServer.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse mock server URL: %v", err)
+	}
+
+	os.Setenv("WEAVIATE_HOST", mockURL.Hostname())
+	os.Setenv("WEAVIATE_SCHEME", mockURL.Scheme)
+	os.Setenv("WEAVIATE_PORT", mockURL.Port())
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
+
+	tests := []struct {
+		name             string
+		queryParams      string
+		expectedStatus   int
+		shouldContain    []string
+		shouldNotContain []string
+	}{
+		{
+			name:           "default mode with grouped events",
+			queryParams:    "q=meetup&lat=40.7128&lon=-74.0060&radius=10",
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Weekly Meetup",
+				"123 Main St",
+				"carousel-container",
+				"/event/event-1", // Event IDs will appear in URLs
+				"/event/event-2",
+				"/event/event-3",
+				"Different Event", // Ungrouped event should also appear
+			},
+		},
+		{
+			name:           "LIST mode with grouped events",
+			queryParams:    "q=meetup&lat=40.7128&lon=-74.0060&radius=10&list_mode=LIST",
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Weekly Meetup",
+				"carousel-container",
+				"Different Event",
+			},
+		},
+		{
+			name:           "CAROUSEL mode with grouped events",
+			queryParams:    "q=meetup&lat=40.7128&lon=-74.0060&radius=10&list_mode=CAROUSEL",
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"carousel-container",
+				"carousel-item",
+			},
+		},
+		{
+			name:           "ADMIN_LIST mode with grouped events",
+			queryParams:    "q=meetup&lat=40.7128&lon=-74.0060&radius=10&list_mode=ADMIN_LIST",
+			expectedStatus: http.StatusOK,
+			shouldContain: []string{
+				"Weekly Meetup",
+				"3 occurrences",
+				"Event Admin",
+				"Different Event",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request
+			req := httptest.NewRequest("GET", "/api/html/events?"+tt.queryParams, nil)
+			rr := httptest.NewRecorder()
+
+			// Execute handler
+			handler := GetEventsPartial(rr, req)
+			handler(rr, req)
+
+			// Verify response
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rr.Code)
+			}
+
+			// Log the response for debugging
+			t.Logf("Response status: %d", rr.Code)
+			t.Logf("Response body length: %d", len(rr.Body.String()))
+
+			// Check all required strings are present
+			responseBody := rr.Body.String()
+			for _, expectedStr := range tt.shouldContain {
+				if !strings.Contains(responseBody, expectedStr) {
+					t.Errorf("Expected response to contain '%s'", expectedStr)
+					t.Logf("Response body: %s", responseBody)
+				}
+			}
+
+			// Check strings that should not be present
+			for _, unexpectedStr := range tt.shouldNotContain {
+				if strings.Contains(responseBody, unexpectedStr) {
+					t.Errorf("Expected response to NOT contain '%s'", unexpectedStr)
+					t.Logf("Response body: %s", responseBody)
+				}
+			}
+
+			// For successful responses, just verify it's not an error
+			if tt.expectedStatus == http.StatusOK && strings.Contains(strings.ToLower(responseBody), "error") {
+				t.Errorf("Expected successful response but got error: %s", responseBody)
+			}
+		})
+	}
+}
+
 func TestGeoThenPatchSeshuSessionHandler(t *testing.T) {
 	// Set up environment for geo service mocking
 	originalGoEnv := os.Getenv("GO_ENV")
