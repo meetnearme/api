@@ -73,12 +73,27 @@ const eventUrlDataId = "data-url"
 
 func getGroupedEvents(events []types.Event) map[string][]types.Event {
 	groupedEvents := make(map[string][]types.Event)
+	// Track which groups we've seen and their order index
+	groupIndexMap := make(map[string]int)
+	groupIdx := 0
+
 	for _, ev := range events {
 		// group events by ones that share a name + latitude + longitude
 		// These are recurrences - same event at same location but different dates
 		if ev.Lat != 0 && ev.Long != 0 && ev.Name != "" {
-			key := ev.Name + strconv.FormatFloat(ev.Lat, 'f', -1, 64) + strconv.FormatFloat(ev.Long, 'f', -1, 64)
-			groupedEvents[key] = append(groupedEvents[key], ev)
+			// Create the natural key (without prefix)
+			naturalKey := ev.Name + strconv.FormatFloat(ev.Lat, 'f', -1, 64) + strconv.FormatFloat(ev.Long, 'f', -1, 64)
+
+			// Check if this is the first occurrence of this group
+			if _, exists := groupIndexMap[naturalKey]; !exists {
+				// First occurrence: assign it an index and create prefixed key
+				groupIndexMap[naturalKey] = groupIdx
+				groupIdx++
+			}
+
+			// Use prefixed key to maintain order: "__{idx}__{naturalKey}"
+			orderedKey := "__" + strconv.Itoa(groupIndexMap[naturalKey]) + "__" + naturalKey
+			groupedEvents[orderedKey] = append(groupedEvents[orderedKey], ev)
 		}
 	}
 	return groupedEvents
@@ -86,7 +101,6 @@ func getGroupedEvents(events []types.Event) map[string][]types.Event {
 
 templ EventsInner(events []types.Event, mode string, roleClaims []constants.RoleClaim, userId string, pageUser *types.UserSearchResult, embedMode bool, embedBaseUrl string) {
 	if mode == constants.EV_MODE_UPCOMING || mode == "" {
-		// {{ log.Printf("grouped!!!: %+v", getGroupedEvents(events)) }}
 		{{ groupedEvents := getGroupedEvents(events) }}
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">

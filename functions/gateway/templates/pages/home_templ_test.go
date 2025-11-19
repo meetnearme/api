@@ -13,16 +13,29 @@ import (
 
 func TestHomePage(t *testing.T) {
 	// Mock data
+	loc, _ := time.LoadLocation("America/New_York")
 	events := []types.Event{
 		{
-			Id:          "123",
-			Name:        "Test Event 1",
-			Description: "Description for Test Event 1",
+			Id:              "123",
+			Name:            "Test Event 1",
+			Description:     "Description for Test Event 1",
+			Address:         "123 Test St",
+			Lat:             40.7128,
+			Long:            -74.0060,
+			StartTime:       1704067200,
+			Timezone:        *loc,
+			EventSourceType: constants.ES_SINGLE_EVENT,
 		},
 		{
-			Id:          "456",
-			Name:        "Test Event 2",
-			Description: "Description for Test Event 2",
+			Id:              "456",
+			Name:            "Test Event 2",
+			Description:     "Description for Test Event 2",
+			Address:         "456 Test St",
+			Lat:             40.7580,
+			Long:            -73.9855,
+			StartTime:       1704153600,
+			Timezone:        *loc,
+			EventSourceType: constants.ES_SINGLE_EVENT,
 		},
 	}
 
@@ -164,11 +177,18 @@ func TestReShareButton(t *testing.T) {
 }
 
 func TestHomeWithReShareButton(t *testing.T) {
+	loc, _ := time.LoadLocation("America/New_York")
 	events := []types.Event{
 		{
-			Id:          "123",
-			Name:        "Test Event 1",
-			Description: "Description for Test Event 1",
+			Id:              "123",
+			Name:            "Test Event 1",
+			Description:     "Description for Test Event 1",
+			Address:         "123 Test St",
+			Lat:             40.7128,
+			Long:            -74.0060,
+			StartTime:       1704067200,
+			Timezone:        *loc,
+			EventSourceType: constants.ES_SINGLE_EVENT,
 		},
 	}
 	pageUser := &types.UserSearchResult{
@@ -476,6 +496,103 @@ func TestEventsInnerWithGroupedEvents(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGetGroupedEventsPreservesOrder(t *testing.T) {
+	loc, _ := time.LoadLocation("America/New_York")
+
+	// Create events in a specific order: Group A (first), Group B (second), Group A again (should be grouped with first)
+	events := []types.Event{
+		{
+			Id:              "event-a1",
+			Name:            "Event A",
+			Address:         "123 Main St",
+			Lat:             40.7128,
+			Long:            -74.0060,
+			StartTime:       1704067200,
+			Timezone:        *loc,
+			EventSourceType: constants.ES_SINGLE_EVENT,
+		},
+		{
+			Id:              "event-b1",
+			Name:            "Event B",
+			Address:         "456 Other St",
+			Lat:             34.0522,
+			Long:            -118.2437,
+			StartTime:       1704153600,
+			Timezone:        *loc,
+			EventSourceType: constants.ES_SINGLE_EVENT,
+		},
+		{
+			Id:              "event-a2",
+			Name:            "Event A",
+			Address:         "123 Main St",
+			Lat:             40.7128,
+			Long:            -74.0060,
+			StartTime:       1704240000,
+			Timezone:        *loc,
+			EventSourceType: constants.ES_SINGLE_EVENT,
+		},
+		{
+			Id:              "event-c1",
+			Name:            "Event C",
+			Address:         "789 Third St",
+			Lat:             41.8781,
+			Long:            -87.6298,
+			StartTime:       1704326400,
+			Timezone:        *loc,
+			EventSourceType: constants.ES_SINGLE_EVENT,
+		},
+	}
+
+	// We can't directly test getGroupedEvents since it's a templ function,
+	// but we can test that EventsInner preserves order by checking the rendered output
+	pageUser := &types.UserSearchResult{
+		UserID: "user-1",
+	}
+
+	component := EventsInner(events, constants.EV_MODE_ADMIN_LIST, []constants.RoleClaim{}, "", pageUser, false, "")
+
+	var buf bytes.Buffer
+	err := component.Render(context.Background(), &buf)
+	if err != nil {
+		t.Fatalf("Error rendering EventsInner: %v", err)
+	}
+
+	renderedContent := buf.String()
+
+	// Find the positions of each event name in the rendered output
+	// Event A should appear first (even though it has 2 occurrences)
+	// Event B should appear second
+	// Event C should appear third
+	posA := strings.Index(renderedContent, "Event A")
+	posB := strings.Index(renderedContent, "Event B")
+	posC := strings.Index(renderedContent, "Event C")
+
+	if posA == -1 || posB == -1 || posC == -1 {
+		t.Errorf("Not all events found in rendered content. A: %d, B: %d, C: %d", posA, posB, posC)
+		return
+	}
+
+	// Verify order: A should come before B, B should come before C
+	if posA > posB {
+		t.Errorf("Event A should appear before Event B, but A at position %d, B at position %d", posA, posB)
+	}
+	if posB > posC {
+		t.Errorf("Event B should appear before Event C, but B at position %d, C at position %d", posB, posC)
+	}
+
+	// Verify that Event A shows "2 occurrences" since it's grouped
+	if !strings.Contains(renderedContent, "2 occurrences") {
+		t.Errorf("Expected '2 occurrences' to appear for grouped Event A")
+	}
+
+	// Verify that Event B and C don't show occurrences (they're single events)
+	// Count occurrences of "occurrences" - should be exactly 1 (for Event A)
+	occurrencesCount := strings.Count(renderedContent, "occurrences")
+	if occurrencesCount != 1 {
+		t.Errorf("Expected exactly 1 'occurrences' text (for Event A), but found %d", occurrencesCount)
 	}
 }
 
