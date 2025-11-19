@@ -839,10 +839,9 @@ func main() {
 			}
 		}()
 
-		// TODO: commented out just for demo, don't commit this
-		// go func() {
-		// 	startSeshuLoop(seshuCtx)
-		// }()
+		go func() {
+			startSeshuLoop(seshuCtx)
+		}()
 
 		select {}
 
