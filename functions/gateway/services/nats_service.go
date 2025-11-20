@@ -200,7 +200,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 			if len(events) > 0 {
 
 				// Deduplicate newly scraped events before processing
-				events = deduplicateNewEvents(events)
+				events, _ = deduplicateEvents(events, "new")
 
 				weaviateClient, err := GetWeaviateClient()
 				if err != nil {
@@ -242,7 +242,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 						existingEvents = searchResponse.Events
 						// Deduplicate existing events based on Name + Location + Time
 						// This prevents issues when Weaviate has duplicate entries
-						existingdeduplicatedEvents, duplicateIds = deduplicateExistingEvents(existingEvents)
+						existingdeduplicatedEvents, duplicateIds = deduplicateEvents(existingEvents, "existing")
 					}
 				}
 				// Step 3: Scrape target URL (already done - events are scraped)
@@ -365,58 +365,58 @@ func (s *NatsService) Close() error {
 	return nil
 }
 
-// deduplicateExistingEvents from weaviate removes duplicate events based on Name + Location + StartTime
-// Returns a slice with only unique events (first occurrence is kept) and IDs of duplicates to delete
-func deduplicateExistingEvents(events []constants.Event) ([]constants.Event, []string) {
-	seen := make(map[string]string) // map[key]firstEventID
-	uniqueEvents := make([]constants.Event, 0, len(events))
-	duplicateIds := make([]string, 0)
-
-	for _, event := range events {
-		// Create a unique key based on Name + Location + StartTime
-		key := fmt.Sprintf("%s|%s|%d", event.Name, event.Address, event.StartTime)
-
-		if firstID, exists := seen[key]; !exists {
-			// First occurrence - keep it
-			seen[key] = event.Id
-			uniqueEvents = append(uniqueEvents, event)
-		} else {
-			// Duplicate found - mark for deletion
-			log.Printf("WARNING: Duplicate existing event detected (will be deleted): Name=%q, Address=%q, StartTime=%d, DuplicateID=%s (keeping FirstID=%s)",
-				event.Name, event.Address, event.StartTime, event.Id, firstID)
-			duplicateIds = append(duplicateIds, event.Id)
-		}
+// deduplicateEvents removes duplicate events based on Name + Location + StartTime
+// Works with both constants.Event and internal_types.EventInfo
+// eventType should be "existing" or "new" to determine behavior
+func deduplicateEvents[T any](events []T, eventType string) ([]T, []string) {
+	if len(events) == 0 {
+		return events, nil
 	}
 
-	return uniqueEvents, duplicateIds
-}
-
-// deduplicateNewEvents from new scrape, removes duplicate events from newly scraped events based on Name + Location + StartTime
-// Returns only unique events (first occurrence is kept)
-func deduplicateNewEvents(events []internal_types.EventInfo) []internal_types.EventInfo {
-	seen := make(map[string]bool)
-	uniqueEvents := make([]internal_types.EventInfo, 0, len(events))
+	seen := make(map[string]string) // map[key]firstEventID
+	uniqueEvents := make([]T, 0, len(events))
+	duplicateIds := make([]string, 0)
 	duplicateCount := 0
 
 	for _, event := range events {
-		// Create a unique key based on EventTitle + EventLocation + EventStartTime
-		key := fmt.Sprintf("%s|%s|%s", event.EventTitle, event.EventLocation, event.EventStartTime)
+		var name, location, startTime, id string
 
-		if !seen[key] {
-			// First occurrence - keep it
-			seen[key] = true
+		// Type switch to extract fields based on event type
+		switch e := any(event).(type) {
+		case constants.Event:
+			name = e.Name
+			location = e.Address
+			startTime = fmt.Sprintf("%d", e.StartTime)
+			id = e.Id
+		case internal_types.EventInfo:
+			name = e.EventTitle
+			location = e.EventLocation
+			startTime = e.EventStartTime
+			id = "" // New events don't have IDs
+		}
+
+		key := fmt.Sprintf("%s|%s|%s", name, location, startTime)
+
+		if firstID, exists := seen[key]; !exists {
+			seen[key] = id
 			uniqueEvents = append(uniqueEvents, event)
 		} else {
-			// Duplicate found - skip it
 			duplicateCount++
-			log.Printf("WARNING: Duplicate new event detected (skipping): Title=%q, Location=%q, StartTime=%q",
-				event.EventTitle, event.EventLocation, event.EventStartTime)
+
+			if id != "" {
+				log.Printf("WARNING: Duplicate %s event detected (will be deleted): Name=%q, Location=%q, StartTime=%s, DuplicateID=%s (keeping FirstID=%s)",
+					eventType, name, location, startTime, id, firstID)
+				duplicateIds = append(duplicateIds, id)
+			} else {
+				log.Printf("WARNING: Duplicate %s event detected (skipping): Name=%q, Location=%q, StartTime=%s",
+					eventType, name, location, startTime)
+			}
 		}
 	}
 
 	if duplicateCount > 0 {
-		log.Printf("Removed %d duplicate events from newly scraped data", duplicateCount)
+		log.Printf("Removed %d duplicate %s events", duplicateCount, eventType)
 	}
 
-	return uniqueEvents
+	return uniqueEvents, duplicateIds
 }
