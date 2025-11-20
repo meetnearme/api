@@ -685,6 +685,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 		queryParams    map[string]string
 		cfRay          string
 		expectedQuery  string
+		expectedCity   string
 		expectedLoc    []float64
 		expectedRadius float64
 		expectedStart  int64
@@ -700,9 +701,11 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 				"lon":        "-74.0060",
 				"radius":     "1000",
 				"q":          "test query",
+				"location":   "New York, NY",
 			},
 			cfRay:          "1234567890000-EWR",
 			expectedQuery:  "test query",
+			expectedCity:   "New York, NY",
 			expectedLoc:    []float64{40.7128, -74.0060},
 			expectedRadius: 1000,
 			expectedStart:  4070908800,
@@ -721,6 +724,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{40.7128, -74.0060},
 			expectedRadius: constants.DEFAULT_SEARCH_RADIUS,
 			expectedStart:  4070908800,
@@ -732,6 +736,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			queryParams:    map[string]string{},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
@@ -747,6 +752,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{35.6762, 139.6503},
 			expectedRadius: 500,
 			expectedStart:  0, // This will be the current time in Unix seconds
@@ -761,6 +767,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
@@ -788,10 +795,14 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			}
 
 			// TODO: need to test `categories` and `ownerIds` returned here
-			query, loc, radius, start, end, cfLoc, _, _, _, _, _, _ := GetSearchParamsFromReq(req)
+			query, city, loc, radius, start, end, cfLoc, _, _, _, _, _, _ := GetSearchParamsFromReq(req)
 
 			if query != tt.expectedQuery {
 				t.Errorf("Expected query %s, got %s", tt.expectedQuery, query)
+			}
+
+			if city != tt.expectedCity {
+				t.Errorf("Expected city: %#v, got %s", tt.expectedCity, city)
 			}
 
 			if !floatSliceEqual(loc, tt.expectedLoc, 0.0001) {
