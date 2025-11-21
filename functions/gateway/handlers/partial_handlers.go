@@ -175,7 +175,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		UserID: userId,
 	}
 
-	eventListPartial := pages.EventsInner(events, listMode, roleClaims, userId, pageUser)
+	eventListPartial := pages.EventsInner(events, listMode, roleClaims, userId, pageUser, false, "")
 
 	var buf bytes.Buffer
 	err = eventListPartial.Render(ctx, &buf)
