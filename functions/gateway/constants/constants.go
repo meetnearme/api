@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"strconv"
 	"time"
 )
 
@@ -97,6 +98,21 @@ const (
 const (
 	SESHU_KNOWN_SOURCE_FB = "FACEBOOK"
 )
+
+// TIME_COMPRESSION_RATIO controls the speed of time-dependent operations for testing
+// 1.0 = real-time (production)
+// 60.0 = 1 hour becomes 1 minute (60x faster)
+// 3600.0 = 1 hour becomes 1 second (3600x faster)
+// Only affects: Seshu loop interval, ScheduledHour checks, time-based cooldowns
+// Does NOT affect: NATS message processing, database operations, external API calls
+var TIME_COMPRESSION_RATIO float64 = func() float64 {
+	if envVal := os.Getenv("TIME_COMPRESSION_RATIO"); envVal != "" {
+		if ratio, err := strconv.ParseFloat(envVal, 64); err == nil && ratio > 0 {
+			return ratio
+		}
+	}
+	return 1.0
+}()
 
 var SESHU_GATHER_INTERVAL_SECONDS int64 = (1 * 60 * 60)
 

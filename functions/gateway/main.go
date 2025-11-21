@@ -31,6 +31,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/startup"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -43,7 +44,7 @@ const (
 	Check              AuthType = "check"
 	Require            AuthType = "require"
 	RequireServiceUser AuthType = "require_service_user"
-	seshulooptime               = 30 * time.Second
+	seshulooptime               = 30 * time.Second // Real-time interval (will be compressed by TIME_COMPRESSION_RATIO)
 	maxseshuloopcount           = 10
 	seshuCronWorkers            = 1
 	timestampFile               = "last_update.txt"
@@ -648,10 +649,17 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 }
 
 func startSeshuLoop(ctx context.Context) {
-	ticker := time.NewTicker(seshulooptime)
+	// Apply time compression to the loop interval
+	compressedInterval := helpers.CompressDuration(seshulooptime)
+	ticker := time.NewTicker(compressedInterval)
 	defer ticker.Stop()
 
 	log.SetOutput(os.Stdout)
+
+	if constants.TIME_COMPRESSION_RATIO > 1.0 {
+		log.Printf("[TIME SIMULATION] Time compression active: %.1fx faster (loop interval: %v → %v)",
+			constants.TIME_COMPRESSION_RATIO, seshulooptime, compressedInterval)
+	}
 
 	lastUpdate := readFirstLine(timestampFile)
 

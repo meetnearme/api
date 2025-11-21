@@ -33,6 +33,13 @@ type NatsService struct {
 	js   jetstream.JetStream
 }
 
+type eventChecker struct {
+	EventTitle     string
+	EventLocation  string
+	EventStartTime string
+	EventId        string
+}
+
 func NewNatsService(ctx context.Context, conn *nats.Conn) (*NatsService, error) {
 
 	js, err := jetstream.New(conn)
@@ -198,6 +205,10 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 			// Smart update: preserve events that still exist at the source URL
 			// Only delete events that are no longer present at the source
 			if len(events) > 0 {
+
+				// Deduplicate newly scraped events before processing
+				events, _ = deduplicateEvents(events)
+
 				weaviateClient, err := GetWeaviateClient()
 				if err != nil {
 					log.Printf("Failed to get Weaviate client for %s: %v", seshuJob.NormalizedUrlKey, err)
@@ -209,6 +220,8 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 				currentTime := time.Now().Unix()
 				eventSourceId := seshuJob.NormalizedUrlKey
 
+				var existingdeduplicatedEvents []constants.Event
+				var duplicateIds []string
 				existingEvents := []constants.Event{}
 				if eventSourceId != "" {
 					searchResponse, err := SearchWeaviateEvents(
@@ -234,7 +247,9 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 						return
 					} else {
 						existingEvents = searchResponse.Events
-						log.Printf("Found %d existing future events in DB", len(existingEvents))
+						// Deduplicate existing events based on Name + Location + Time
+						// This prevents issues when Weaviate has duplicate entries
+						existingdeduplicatedEvents, duplicateIds = deduplicateEvents(existingEvents)
 					}
 				}
 				// Step 3: Scrape target URL (already done - events are scraped)
@@ -242,7 +257,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 				preservedEventIds := make(map[string]bool)
 				newEventIndicesToSkip := make(map[int]bool) // Track which new events to skip (already exist)
 
-				for _, existingEvent := range existingEvents {
+				for _, existingEvent := range existingdeduplicatedEvents {
 					for j, newEvent := range events {
 						// Skip if this new event already matched a previous existing event
 						if newEventIndicesToSkip[j] {
@@ -281,25 +296,36 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 					}
 				}
 
-				// Step 5 & 6: For each PreservedEvent, DO NOT delete
-				// Only delete events that are NOT in the preserved list
-				eventIdsToDelete := make([]string, 0)
-				for _, existingEvent := range existingEvents {
+				// Step 5 & 6: Collect all IDs to delete (duplicates + obsolete events)
+				// Combine duplicate IDs and obsolete event IDs for single batch deletion
+				allIdsToDelete := make([]string, 0)
+
+				// Add duplicate IDs from deduplication
+				if eventSourceId != "" && len(existingEvents) > 0 {
+					allIdsToDelete = append(allIdsToDelete, duplicateIds...)
+				}
+				duplicateCount := len(allIdsToDelete)
+
+				// Add obsolete event IDs (events not preserved - no longer at source)
+				for _, existingEvent := range existingdeduplicatedEvents {
 					if !preservedEventIds[existingEvent.Id] {
-						eventIdsToDelete = append(eventIdsToDelete, existingEvent.Id)
+						allIdsToDelete = append(allIdsToDelete, existingEvent.Id)
 					}
 				}
+				obsoleteCount := len(allIdsToDelete) - duplicateCount
 
-				if len(eventIdsToDelete) > 0 {
-					log.Printf("Deleting %d events that no longer exist at source", len(eventIdsToDelete))
-					_, err = BulkDeleteEventsFromWeaviate(context.Background(), weaviateClient, eventIdsToDelete)
+				// Single batch delete operation for both duplicates and obsolete events
+				if len(allIdsToDelete) > 0 {
+					log.Printf("Deleting %d total events from Weaviate (%d duplicates + %d obsolete)",
+						len(allIdsToDelete), duplicateCount, obsoleteCount)
+					_, err = BulkDeleteEventsFromWeaviate(context.Background(), weaviateClient, allIdsToDelete)
 					if err != nil {
-						log.Printf("Failed to delete obsolete events: %v", err)
+						log.Printf("Failed to delete events: %v", err)
 					} else {
-						log.Printf("Successfully deleted %d obsolete events", len(eventIdsToDelete))
+						log.Printf("Successfully deleted %d events", len(allIdsToDelete))
 					}
 				} else {
-					log.Printf("No events to delete for : %s", seshuJob.NormalizedUrlKey)
+					log.Printf("No events to delete for: %s", seshuJob.NormalizedUrlKey)
 				}
 
 				// Filter out new events that match existing events
@@ -321,7 +347,8 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 					}
 				}
 
-				log.Printf("Successfully processed %d events for %s (%d preserved, %d deleted, %d inserted)", len(events), seshuJob.NormalizedUrlKey, len(preservedEventIds), len(eventIdsToDelete), len(eventsToInsert))
+				log.Printf("Successfully processed %d events for %s (%d preserved, %d deleted, %d inserted)",
+					len(events), seshuJob.NormalizedUrlKey, len(preservedEventIds), len(allIdsToDelete), len(eventsToInsert))
 				msg.Ack()
 				return
 			}
@@ -343,4 +370,58 @@ func (s *NatsService) Close() error {
 		s.conn.Close()
 	}
 	return nil
+}
+
+// deduplicateEvents removes duplicate events based on Name + Location + StartTime
+// Works with both constants.Event and internal_types.EventInfo
+func deduplicateEvents[T any](events []T) ([]T, []string) {
+	if len(events) == 0 {
+		return events, nil
+	}
+
+	seen := make(map[string]string) // map[key]firstEventID
+	uniqueEvents := make([]T, 0, len(events))
+	duplicateIds := make([]string, 0)
+	duplicateCount := 0
+
+	for _, event := range events {
+		var eventChecker eventChecker
+
+		// Type switch to extract fields based on event type
+		switch e := any(event).(type) {
+		case constants.Event:
+			eventChecker.EventTitle = e.Name
+			eventChecker.EventLocation = e.Address
+			eventChecker.EventStartTime = fmt.Sprintf("%d", e.StartTime)
+			eventChecker.EventId = e.Id
+		case internal_types.EventInfo:
+			eventChecker.EventTitle = e.EventTitle
+			eventChecker.EventLocation = e.EventLocation
+			eventChecker.EventStartTime = e.EventStartTime
+			eventChecker.EventId = "" // New events don't have IDs
+		}
+
+		if eventChecker.EventTitle == "" || eventChecker.EventLocation == "" || eventChecker.EventStartTime == "" {
+			// Skip events with missing critical fields
+			continue
+		}
+
+		key := fmt.Sprintf("%s|%s|%s", eventChecker.EventTitle, eventChecker.EventLocation, eventChecker.EventStartTime)
+
+		if firstID, exists := seen[key]; !exists {
+			seen[key] = eventChecker.EventId
+			uniqueEvents = append(uniqueEvents, event)
+		} else {
+			duplicateCount++
+			if eventChecker.EventId != "" {
+				log.Printf("WARNING: Duplicate event detected (will be deleted): Key=%s, DuplicateID=%s (keeping FirstID=%s)",
+					key, eventChecker.EventId, firstID)
+				duplicateIds = append(duplicateIds, eventChecker.EventId)
+			} else {
+				log.Printf("WARNING: Duplicate new event detected (skipping): Key=%s", key)
+			}
+		}
+	}
+
+	return uniqueEvents, duplicateIds
 }
