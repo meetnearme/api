@@ -33,6 +33,13 @@ type NatsService struct {
 	js   jetstream.JetStream
 }
 
+type eventChecker struct {
+	EventTitle     string
+	EventLocation  string
+	EventStartTime string
+	EventId        string
+}
+
 func NewNatsService(ctx context.Context, conn *nats.Conn) (*NatsService, error) {
 
 	js, err := jetstream.New(conn)
@@ -200,7 +207,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 			if len(events) > 0 {
 
 				// Deduplicate newly scraped events before processing
-				events, _ = deduplicateEvents(events, "new")
+				events, _ = deduplicateEvents(events)
 
 				weaviateClient, err := GetWeaviateClient()
 				if err != nil {
@@ -242,7 +249,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 						existingEvents = searchResponse.Events
 						// Deduplicate existing events based on Name + Location + Time
 						// This prevents issues when Weaviate has duplicate entries
-						existingdeduplicatedEvents, duplicateIds = deduplicateEvents(existingEvents, "existing")
+						existingdeduplicatedEvents, duplicateIds = deduplicateEvents(existingEvents)
 					}
 				}
 				// Step 3: Scrape target URL (already done - events are scraped)
@@ -367,8 +374,7 @@ func (s *NatsService) Close() error {
 
 // deduplicateEvents removes duplicate events based on Name + Location + StartTime
 // Works with both constants.Event and internal_types.EventInfo
-// eventType should be "existing" or "new" to determine behavior
-func deduplicateEvents[T any](events []T, eventType string) ([]T, []string) {
+func deduplicateEvents[T any](events []T) ([]T, []string) {
 	if len(events) == 0 {
 		return events, nil
 	}
@@ -379,43 +385,42 @@ func deduplicateEvents[T any](events []T, eventType string) ([]T, []string) {
 	duplicateCount := 0
 
 	for _, event := range events {
-		var name, location, startTime, id string
+		var eventChecker eventChecker
 
 		// Type switch to extract fields based on event type
 		switch e := any(event).(type) {
 		case constants.Event:
-			name = e.Name
-			location = e.Address
-			startTime = fmt.Sprintf("%d", e.StartTime)
-			id = e.Id
+			eventChecker.EventTitle = e.Name
+			eventChecker.EventLocation = e.Address
+			eventChecker.EventStartTime = fmt.Sprintf("%d", e.StartTime)
+			eventChecker.EventId = e.Id
 		case internal_types.EventInfo:
-			name = e.EventTitle
-			location = e.EventLocation
-			startTime = e.EventStartTime
-			id = "" // New events don't have IDs
+			eventChecker.EventTitle = e.EventTitle
+			eventChecker.EventLocation = e.EventLocation
+			eventChecker.EventStartTime = e.EventStartTime
+			eventChecker.EventId = "" // New events don't have IDs
 		}
 
-		key := fmt.Sprintf("%s|%s|%s", name, location, startTime)
+		if eventChecker.EventTitle == "" || eventChecker.EventLocation == "" || eventChecker.EventStartTime == "" {
+			// Skip events with missing critical fields
+			continue
+		}
+
+		key := fmt.Sprintf("%s|%s|%s", eventChecker.EventTitle, eventChecker.EventLocation, eventChecker.EventStartTime)
 
 		if firstID, exists := seen[key]; !exists {
-			seen[key] = id
+			seen[key] = eventChecker.EventId
 			uniqueEvents = append(uniqueEvents, event)
 		} else {
 			duplicateCount++
-
-			if id != "" {
-				log.Printf("WARNING: Duplicate %s event detected (will be deleted): Name=%q, Location=%q, StartTime=%s, DuplicateID=%s (keeping FirstID=%s)",
-					eventType, name, location, startTime, id, firstID)
-				duplicateIds = append(duplicateIds, id)
+			if eventChecker.EventId != "" {
+				log.Printf("WARNING: Duplicate event detected (will be deleted): Key=%s, DuplicateID=%s (keeping FirstID=%s)",
+					key, eventChecker.EventId, firstID)
+				duplicateIds = append(duplicateIds, eventChecker.EventId)
 			} else {
-				log.Printf("WARNING: Duplicate %s event detected (skipping): Name=%q, Location=%q, StartTime=%s",
-					eventType, name, location, startTime)
+				log.Printf("WARNING: Duplicate new event detected (skipping): Key=%s", key)
 			}
 		}
-	}
-
-	if duplicateCount > 0 {
-		log.Printf("Removed %d duplicate %s events", duplicateCount, eventType)
 	}
 
 	return uniqueEvents, duplicateIds
