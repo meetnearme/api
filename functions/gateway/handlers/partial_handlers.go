@@ -127,7 +127,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Extract parameter values from the request query parameters
 	ctx := r.Context()
 
-	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+	q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
 	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
@@ -277,7 +277,7 @@ func GetSubscriptionsPartial(w http.ResponseWriter, r *http.Request) http.Handle
 func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+	q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
 	radius = constants.DEFAULT_MAX_RADIUS
 	farFutureTime, _ := time.Parse(time.RFC3339, "2099-01-01T00:00:00Z")

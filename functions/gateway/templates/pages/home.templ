@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"log"
@@ -387,12 +388,26 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 	}
 }
 
-func GetCityCountryFromLocation(cfLocation constants.CdnLocation, latStr, lonStr, origLat, origLon, origQueryLocation string) string {
+func GetCityCountryFromLocation(cfLocation constants.CdnLocation, cityStr, latStr, lonStr, origLat, origLon, origQueryLocation string) string {
 	if origQueryLocation != "" {
 		return origQueryLocation
+	} else if cityStr != "" {
+		return cityStr
 	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
 		return cfLocation.City + ", " + cfLocation.CCA2
 	} else if latStr != "" && lonStr != "" {
+		lat, latErr := strconv.ParseFloat(latStr, 64)
+		lon, lonErr := strconv.ParseFloat(lonStr, 64)
+		if latErr == nil && lonErr == nil {
+			cityService := services.GetCityService()
+			locationQuery := fmt.Sprintf("%.2f+%.2f", lat, lon)
+			log.Printf("location query %v", locationQuery)
+			city, err := cityService.GetCity(locationQuery)
+			if err == nil && city != "" {
+				log.Printf("returning this city: %v", city)
+				return city
+			}
+		}
 		return latStr + ", " + lonStr
 	} else if cfLocation.City == "" && origLat != "" && origLon != "" {
 		return origLat + ", " + origLon
@@ -444,7 +459,7 @@ func GetDefaultRadius(cfLocation constants.CdnLocation) string {
 	return strconv.FormatFloat(constants.DEFAULT_SEARCH_RADIUS, 'f', -1, 64)
 }
 
-templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation constants.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
+templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation constants.CdnLocation, cityStr, latStr, lonStr, origLat, origLong, origQueryLocation string) {
 	{{
 	roleClaims := []constants.RoleClaim{}
 	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
@@ -793,7 +808,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 			</template>
 		</div>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ constants.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId } data-is-logged-in={ strconv.FormatBool(userInfo.Email != "") } data-event-collection-url={ components.GetUserPageURL(userInfo, ctx) }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, cityStr, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ constants.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId } data-is-logged-in={ strconv.FormatBool(userInfo.Email != "") } data-event-collection-url={ components.GetUserPageURL(userInfo, ctx) }>
 		document.addEventListener('alpine:init', () => {
 			// Reactive URL store - single source of truth with reactivity
 			Alpine.store('urlState', {
@@ -991,6 +1006,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				locationTimeout: false,
 				cityNotFound: false,
 				apiError: false,
+				defaultCity: "",
 				getErrorMessage() {
 					if (this.locationAccessDeclined) {
 						return 'Location access was declined.';
@@ -1439,7 +1455,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					},
 					radius: null,
 					locationDropdown: null,
+					defaultCity: "",
 					savingLocation: false,
+					modalIsOpen: false,
 					sendCategoriesToQueryParams() {
 						const form = document.getElementById('category-search-form')
 						// Collect form values
@@ -1464,11 +1482,18 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							Alpine.store('urlState').setParam('radius', this.radius)
 						}
 
-						if (this.locationDropdown) {
+						if (this.locationDropdown && this.defaultCity != this.locationDropdown.label) {
 							// Commit location changes to URL
 							Alpine.store('urlState').setParam('lat', this.locationDropdown.latitude)
 							Alpine.store('urlState').setParam('lon', this.locationDropdown.longitude)
 							Alpine.store('urlState').setParam('location', this.locationDropdown.label)
+							Alpine.store('location').setSelectedLocation(this.locationDropdown)
+						}
+						if (this.locationDropdown && this.defaultCity == this.locationDropdown.label) {
+							// Remove location params from URL since it matches the default (will use metadata)
+							Alpine.store('urlState').setParam('lat', '')
+							Alpine.store('urlState').setParam('lon', '')
+							Alpine.store('urlState').setParam('location', '')
 							Alpine.store('location').setSelectedLocation(this.locationDropdown)
 						}
 
