@@ -3,6 +3,7 @@ package pages
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -593,6 +594,78 @@ func TestGetGroupedEventsPreservesOrder(t *testing.T) {
 	occurrencesCount := strings.Count(renderedContent, "occurrences")
 	if occurrencesCount != 1 {
 		t.Errorf("Expected exactly 1 'occurrences' text (for Event A), but found %d", occurrencesCount)
+	}
+}
+
+func TestGetGroupedEventsPreservesOrderWithManyGroups(t *testing.T) {
+	loc, _ := time.LoadLocation("America/New_York")
+
+	// Create 15 different event groups to test padding (values 0-14, including 10+)
+	events := []types.Event{}
+	for i := 0; i < 15; i++ {
+		events = append(events, types.Event{
+			Id:              fmt.Sprintf("event-%d", i),
+			Name:            fmt.Sprintf("Event %d", i),
+			Address:         fmt.Sprintf("%d Main St", i),
+			Lat:             40.7128 + float64(i)*0.01, // Different lat for each group
+			Long:            -74.0060 - float64(i)*0.01,
+			StartTime:       1704067200 + int64(i)*86400,
+			Timezone:        *loc,
+			EventSourceType: constants.ES_SINGLE_EVENT,
+		})
+	}
+
+	pageUser := &types.UserSearchResult{
+		UserID: "user-1",
+	}
+
+	component := EventsInner(events, constants.EV_MODE_ADMIN_LIST, []constants.RoleClaim{}, "", pageUser, false, "")
+
+	var buf bytes.Buffer
+	err := component.Render(context.Background(), &buf)
+	if err != nil {
+		t.Fatalf("Error rendering EventsInner: %v", err)
+	}
+
+	renderedContent := buf.String()
+
+	// Verify all events appear in order (0, 1, 2, ..., 9, 10, 11, 12, 13, 14)
+	// Check that Event 0 comes before Event 10 (critical test for padding)
+	pos0 := strings.Index(renderedContent, "Event 0")
+	pos10 := strings.Index(renderedContent, "Event 10")
+	pos14 := strings.Index(renderedContent, "Event 14")
+
+	if pos0 == -1 || pos10 == -1 || pos14 == -1 {
+		t.Errorf("Not all events found. Event 0: %d, Event 10: %d, Event 14: %d", pos0, pos10, pos14)
+		return
+	}
+
+	// Critical: Event 0 should come before Event 10 (tests padding)
+	if pos0 > pos10 {
+		t.Errorf("Event 0 should appear before Event 10 (padding test), but Event 0 at %d, Event 10 at %d", pos0, pos10)
+	}
+
+	// Event 10 should come before Event 14
+	if pos10 > pos14 {
+		t.Errorf("Event 10 should appear before Event 14, but Event 10 at %d, Event 14 at %d", pos10, pos14)
+	}
+
+	// Verify sequential ordering for a few more events
+	for i := 1; i < 10; i++ {
+		posI := strings.Index(renderedContent, fmt.Sprintf("Event %d", i))
+		posI1 := strings.Index(renderedContent, fmt.Sprintf("Event %d", i+1))
+		if posI > posI1 {
+			t.Errorf("Event %d should appear before Event %d, but Event %d at %d, Event %d at %d", i, i+1, i, posI, i+1, posI1)
+		}
+	}
+
+	// Verify events 10-14 are in order
+	for i := 10; i < 14; i++ {
+		posI := strings.Index(renderedContent, fmt.Sprintf("Event %d", i))
+		posI1 := strings.Index(renderedContent, fmt.Sprintf("Event %d", i+1))
+		if posI > posI1 {
+			t.Errorf("Event %d should appear before Event %d, but Event %d at %d, Event %d at %d", i, i+1, i, posI, i+1, posI1)
+		}
 	}
 }
 

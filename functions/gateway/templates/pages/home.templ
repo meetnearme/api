@@ -2,6 +2,7 @@ package pages
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
@@ -9,6 +10,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/types"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -71,7 +73,7 @@ const eventLocationDataId = "event-location"
 const eventStartTimeDataId = "event-start-time"
 const eventUrlDataId = "data-url"
 
-func getGroupedEvents(events []types.Event) map[string][]types.Event {
+func getGroupedEvents(events []types.Event) (map[string][]types.Event, []string) {
 	groupedEvents := make(map[string][]types.Event)
 	// Track which groups we've seen and their order index
 	groupIndexMap := make(map[string]int)
@@ -86,32 +88,42 @@ func getGroupedEvents(events []types.Event) map[string][]types.Event {
 
 			// Check if this is the first occurrence of this group
 			if _, exists := groupIndexMap[naturalKey]; !exists {
-				// First occurrence: assign it an index and create prefixed key
+				// First occurrence: assign it an index
 				groupIndexMap[naturalKey] = groupIdx
 				groupIdx++
 			}
 
-			// Use prefixed key to maintain order: "__{idx}__{naturalKey}"
-			orderedKey := "__" + strconv.Itoa(groupIndexMap[naturalKey]) + "__" + naturalKey
+			// Use prefixed key with zero-padding to maintain order: "__{idx:04d}__{naturalKey}"
+			// Padding with 4 digits (0000-9999) ensures correct lexicographic ordering
+			orderedKey := fmt.Sprintf("__%04d__%s", groupIndexMap[naturalKey], naturalKey)
 			groupedEvents[orderedKey] = append(groupedEvents[orderedKey], ev)
 		}
 	}
-	return groupedEvents
+
+	// Extract and sort keys before returning
+	sortedKeys := make([]string, 0, len(groupedEvents))
+	for k := range groupedEvents {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	return groupedEvents, sortedKeys
 }
 
 templ EventsInner(events []types.Event, mode string, roleClaims []constants.RoleClaim, userId string, pageUser *types.UserSearchResult, embedMode bool, embedBaseUrl string) {
 	if mode == constants.EV_MODE_UPCOMING || mode == "" {
-		{{ groupedEvents := getGroupedEvents(events) }}
+		{{ groupedEvents, sortedKeys := getGroupedEvents(events) }}
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
 				No events found, try changing your filters like location, date, and time, or	<a class="link-text" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>expand your search radius</a>
 			</p>
-		} else if len(groupedEvents) == 0 {
+		} else if len(sortedKeys) == 0 {
 			<p class="text-md md:text-lg text-center mt-5">
 				No events found, try changing your filters like location, date, and time, or	<a class="link-text" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>expand your search radius</a>
 			</p>
 		} else {
-			for _, ev := range groupedEvents {
+			for _, key := range sortedKeys {
+				{{ ev := groupedEvents[key] }}
 				<div class="flex w-full relative pb-24 md:pb-4">
 					if !embedMode && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth]}) {
 						@ReShareButton(ev[0])
@@ -163,17 +175,18 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 		}
 	}
 	if mode == constants.EV_MODE_CAROUSEL {
-		{{ groupedEvents := getGroupedEvents(events) }}
-		if (len(events) < 1 || len(groupedEvents) == 0) {
+		{{ groupedEvents, sortedKeys := getGroupedEvents(events) }}
+		if (len(events) < 1 || len(sortedKeys) == 0) {
 			<p class="text-md md:text-lg text-center mt-5">
 				This event series has no events.
 			</p>
-		} else if len(groupedEvents) == 0 {
+		} else if len(sortedKeys) == 0 {
 			<p class="text-md md:text-lg text-center mt-5">
 				This event series has no events.
 			</p>
 		} else {
-			for _, evGroup := range groupedEvents {
+			for _, key := range sortedKeys {
+				{{ evGroup := groupedEvents[key] }}
 				<div class="carousel-container relative w-full" id={ "carousel-container-" + evGroup[0].Id }>
 					<div class="carousel rounded-box max-w-full relative mb-4">
 						<input type="hidden" id={ "current-slide-index-" + evGroup[0].Id } value="0"/> <!-- Hidden input to track current slide -->
@@ -208,7 +221,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 		}
 	}
 	if mode == constants.EV_MODE_LIST {
-		{{ groupedEvents := getGroupedEvents(events) }}
+		{{ groupedEvents, sortedKeys := getGroupedEvents(events) }}
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
 				No events found.
@@ -216,7 +229,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 				<br/>
 				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search</a>
 			</p>
-		} else if len(groupedEvents) == 0 {
+		} else if len(sortedKeys) == 0 {
 			<p class="text-md md:text-lg text-center mt-5">
 				No events found.
 				<br/>
@@ -224,7 +237,8 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search</a>
 			</p>
 		} else {
-			for _, ev := range groupedEvents {
+			for _, key := range sortedKeys {
+				{{ ev := groupedEvents[key] }}
 				<div class="flex w-full relative pb-12 md:pb-4">
 					if !embedMode && userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth]}) {
 						@ReShareButton(ev[0])
@@ -303,7 +317,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 		}
 	}
 	if mode == constants.EV_MODE_ADMIN_LIST {
-		{{ groupedEvents := getGroupedEvents(events) }}
+		{{ groupedEvents, sortedKeys := getGroupedEvents(events) }}
 		<h3 class="text-2xl font-bold my-10">Event Admin</h3>
 		<table class="table table-fixed top-align bg-base-100 table-pin-rows table-zebra">
 			<thead>
@@ -317,7 +331,8 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 			</thead>
 			<tbody>
 				{{ groupIdx := 0 }}
-				for _, evGroup := range groupedEvents {
+				for _, key := range sortedKeys {
+					{{ evGroup := groupedEvents[key] }}
 					{{ ev := evGroup[0] }}
 					{{ groupIdx++ }}
 					<tr class="border-t-2 border-base-300">
