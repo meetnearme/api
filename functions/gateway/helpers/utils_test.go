@@ -1108,6 +1108,105 @@ func TestGetBase64ValueFromMap(t *testing.T) {
 	}
 }
 
+func TestGetUserLocationFromMap(t *testing.T) {
+	tests := []struct {
+		name       string
+		claimsMeta map[string]interface{}
+		wantCity   string
+		wantLat    float64
+		wantLon    float64
+		wantOk     bool
+	}{
+		{
+			name: "valid location string",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "TmV3IFlvcms7NDAuNzE7LTc0LjAx", // "New York;40.71;-74.01" base64 encoded
+			},
+			wantCity: "New York",
+			wantLat:  40.71,
+			wantLon:  -74.01,
+			wantOk:   true,
+		},
+		{
+			name: "missing key",
+			claimsMeta: map[string]interface{}{
+				"other_key": "some value",
+			},
+			wantCity: "",
+			wantLat:  0,
+			wantLon:  0,
+			wantOk:   false,
+		},
+		{
+			name:       "empty map",
+			claimsMeta: map[string]interface{}{},
+			wantCity:   "",
+			wantLat:    0,
+			wantLon:    0,
+			wantOk:     false,
+		},
+		{
+			name: "empty string value",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "",
+			},
+			wantCity: "",
+			wantLat:  0,
+			wantLon:  0,
+			wantOk:   false,
+		},
+		{
+			name: "invalid base64 encoding",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "invalid-base64!@#",
+			},
+			wantCity: "",
+			wantLat:  0,
+			wantLon:  0,
+			wantOk:   false,
+		},
+		{
+			name: "wrong format",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "anVzdC1hLXN0cmluZw==", // "just-a-string" base64 encoded
+			},
+			wantCity: "",
+			wantLat:  0,
+			wantLon:  0,
+			wantOk:   false,
+		},
+		{
+			name: "too few parts",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "Q2l0eTs0MC43MQ==", // "City;40.71" base64 encoded (only 2 parts)
+			},
+			wantCity: "",
+			wantLat:  0,
+			wantLon:  0,
+			wantOk:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cityStr, lat, lon, ok := GetUserLocationFromMap(tt.claimsMeta)
+
+			if ok != tt.wantOk {
+				t.Errorf("GetUserLocationFromMap() ok = %v, want %v", ok, tt.wantOk)
+			}
+			if cityStr != tt.wantCity {
+				t.Errorf("GetUserLocationFromMap() city = %v want %v", cityStr, tt.wantCity)
+			}
+			if lat != tt.wantLat {
+				t.Errorf("GetUserLocationFromMap() lat = %v, want %v", lat, tt.wantLat)
+			}
+			if lon != tt.wantLon {
+				t.Errorf("GetUserLocationFromMap() lon = %v, want %v", lon, tt.wantLon)
+			}
+		})
+	}
+}
+
 func TestGetCloudflareMnmOptions(t *testing.T) {
 	// Save original environment variables
 	var (
