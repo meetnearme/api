@@ -101,6 +101,13 @@ func getGroupedEvents(events []types.Event) (map[string][]types.Event, []string)
 		}
 	}
 
+	// Sort events within each group by StartTime
+	for key := range groupedEvents {
+		sort.Slice(groupedEvents[key], func(i, j int) bool {
+			return groupedEvents[key][i].StartTime < groupedEvents[key][j].StartTime
+		})
+	}
+
 	// Extract and sort keys before returning
 	sortedKeys := make([]string, 0, len(groupedEvents))
 	for k := range groupedEvents {
