@@ -721,6 +721,77 @@ func TestGetGroupedEventsPreservesOrderWithManyGroups(t *testing.T) {
 	}
 }
 
+func TestGetGroupedEventsSortsByStartTime(t *testing.T) {
+	loc, _ := time.LoadLocation("America/New_York")
+
+	// Create events with the same name and location but different start times (out of order)
+	events := []types.Event{
+		{
+			Id:              "event-3",
+			Name:            "Weekly Meetup",
+			Address:         "123 Main St",
+			Lat:             40.7128,
+			Long:            -74.0060,
+			StartTime:       1704240000, // Latest date (2024-01-03)
+			Timezone:        *loc,
+			EventSourceType: constants.ES_SINGLE_EVENT,
+		},
+		{
+			Id:              "event-1",
+			Name:            "Weekly Meetup",
+			Address:         "123 Main St",
+			Lat:             40.7128,
+			Long:            -74.0060,
+			StartTime:       1704067200, // Earliest date (2024-01-01)
+			Timezone:        *loc,
+			EventSourceType: constants.ES_SINGLE_EVENT,
+		},
+		{
+			Id:              "event-2",
+			Name:            "Weekly Meetup",
+			Address:         "123 Main St",
+			Lat:             40.7128,
+			Long:            -74.0060,
+			StartTime:       1704153600, // Middle date (2024-01-02)
+			Timezone:        *loc,
+			EventSourceType: constants.ES_SINGLE_EVENT,
+		},
+	}
+
+	pageUser := &types.UserSearchResult{
+		UserID: "user-1",
+	}
+
+	component := EventsInner(events, constants.EV_MODE_CAROUSEL, []constants.RoleClaim{}, "", pageUser, false, "")
+
+	var buf bytes.Buffer
+	err := component.Render(context.Background(), &buf)
+	if err != nil {
+		t.Fatalf("Error rendering EventsInner: %v", err)
+	}
+
+	renderedContent := buf.String()
+
+	// Find positions of event IDs in the rendered output
+	// Events should be ordered by StartTime: event-1, event-2, event-3
+	pos1 := strings.Index(renderedContent, "/event/event-1")
+	pos2 := strings.Index(renderedContent, "/event/event-2")
+	pos3 := strings.Index(renderedContent, "/event/event-3")
+
+	if pos1 == -1 || pos2 == -1 || pos3 == -1 {
+		t.Errorf("Not all events found in rendered content. event-1: %d, event-2: %d, event-3: %d", pos1, pos2, pos3)
+		return
+	}
+
+	// Verify chronological order: event-1 (earliest) should come before event-2, which should come before event-3
+	if pos1 > pos2 {
+		t.Errorf("event-1 (earliest) should appear before event-2, but event-1 at %d, event-2 at %d", pos1, pos2)
+	}
+	if pos2 > pos3 {
+		t.Errorf("event-2 should appear before event-3 (latest), but event-2 at %d, event-3 at %d", pos2, pos3)
+	}
+}
+
 func TestEventsInnerEdgeCases(t *testing.T) {
 	loc, _ := time.LoadLocation("America/New_York")
 	pageUser := &types.UserSearchResult{
