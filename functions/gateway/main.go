@@ -125,6 +125,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/html/competition-config/owner/{" + constants.USER_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigsHtmlByPrimaryOwnerHandler, None},
 		{"/api/html/profile-interests{trailingslash:\\/?}", "GET", handlers.GetProfileInterestsPartial, Require},
 		{"/api/html/subscriptions{trailingslash:\\/?}", "GET", handlers.GetSubscriptionsPartial, Require},
+		{"/api/html/seshu-jobs{trailingslash:\\/?}", "GET", handlers.GetSeshuJobsAdmin, Require},
 
 		// // Purchasables routes
 		{"/api/purchasables/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, Require},   // Create a new purchasable
@@ -196,6 +197,7 @@ func (app *App) InitRoutes() []Route {
 		// {"/api/seshujob", "POST", handlers.CreateSeshuJob, Require},
 		// {"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, Require},
 		{"/api/seshujob{trailingslash:\\/?}", "DELETE", handlers.DeleteSeshuJob, Require},
+		{"/api/seshu-jobs/{key:.*}", "DELETE", handlers.DeleteSeshuJobByKey, Require},
 		// {"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
 
 		// Re-share

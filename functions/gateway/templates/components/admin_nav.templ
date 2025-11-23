@@ -49,6 +49,15 @@ templ AdminLeftNavContents(ctx context.Context) {
 						hx-push-url="/admin/events"
 					>Event Admin</a>
 				</li>
+				<li>
+					<a
+						hx-get="/api/html/seshu-jobs"
+						hx-target="#admin-content"
+						hx-indicator="#admin-content-container"
+						hx-swap="innerHTML"
+						hx-push-url="/admin/seshu-jobs"
+					>Event Sources</a>
+				</li>
 			} else {
 				<li><a>Add Event (Soon)</a></li>
 			}
