@@ -1,0 +1,422 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/meetnearme/api/functions/gateway/types"
+	"time"
+)
+
+func formatUnixTime(unix int64) string {
+	if unix == 0 {
+		return "Never"
+	}
+	return time.Unix(unix, 0).Format("Jan 2, 2006 3:04 PM")
+}
+
+func formatTimeAgo(unix int64) string {
+	if unix == 0 {
+		return "Never"
+	}
+	elapsed := time.Since(time.Unix(unix, 0))
+	hours := int(elapsed.Hours())
+	minutes := int(elapsed.Minutes()) % 60
+
+	if hours > 0 {
+		return fmt.Sprintf("%d hr, %d min ago", hours, minutes)
+	}
+	return fmt.Sprintf("%d min ago", minutes)
+}
+
+func formatTimeUntil(hour int) string {
+	now := time.Now().UTC()
+	currentHour := now.Hour()
+
+	var hoursUntil int
+	if hour >= currentHour {
+		hoursUntil = hour - currentHour
+	} else {
+		hoursUntil = 24 - currentHour + hour
+	}
+
+	minutesUntil := 60 - now.Minute()
+	if minutesUntil == 60 {
+		minutesUntil = 0
+	} else {
+		if hoursUntil > 0 {
+			hoursUntil--
+		}
+	}
+
+	if hoursUntil > 0 {
+		return fmt.Sprintf("In %d hr, %d min", hoursUntil, minutesUntil)
+	}
+	return fmt.Sprintf("In %d min", minutesUntil)
+}
+
+func formatSourceType(source string) string {
+	switch source {
+	case "FACEBOOK":
+		return "Facebook"
+	case "EVENTBRITE":
+		return "Eventbrite"
+	case "MEETUP":
+		return "Meetup"
+	default:
+		if source == "" {
+			return "Unknown"
+		}
+		return source
+	}
+}
+
+func getStatusBadgeClass(status string) string {
+	switch status {
+	case "HEALTHY":
+		return "badge-success"
+	case "WARNING":
+		return "badge-warning"
+	case "FAILING":
+		return "badge-error"
+	case "SCANNING":
+		return "badge-info"
+	default:
+		return "badge-ghost"
+	}
+}
+
+templ AdminSeshuJobsPage(jobs []types.SeshuJob) {
+	<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
+		<h2 class="text-2xl font-bold">Event Source URLs (Seshu Jobs)</h2>
+		<a href="/admin/add-event-source" class="btn btn-primary btn-sm w-full md:w-auto">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+			</svg>
+			Add New Source
+		</a>
+	</div>
+	if len(jobs) == 0 {
+		@adminSeshuJobsEmptyState()
+	} else {
+		@adminSeshuJobsContent(jobs)
+	}
+}
+
+templ adminSeshuJobsEmptyState() {
+	<div class="alert alert-info">
+		<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+		</svg>
+		<span>You don't have any event sources yet. Click "Add New Source" to get started.</span>
+	</div>
+}
+
+templ adminSeshuJobsContent(jobs []types.SeshuJob) {
+	<div class="space-y-4">
+		<div class="grid grid-cols-2 gap-2 md:grid-cols-4">
+			<div class="rounded-lg border border-base-300/40 bg-base-100/40 p-2">
+				<div class="text-xs text-base-content/70">Total Sources</div>
+				<div class="text-xl font-semibold">{ fmt.Sprintf("%d", len(jobs)) }</div>
+			</div>
+			<div class="rounded-lg border border-base-300/40 bg-base-100/40 p-2">
+				<div class="text-xs text-base-content/70">Healthy</div>
+				<div class="text-xl font-semibold text-success">{ fmt.Sprintf("%d", countByStatus(jobs, "HEALTHY")) }</div>
+			</div>
+			<div class="rounded-lg border border-base-300/40 bg-base-100/40 p-2">
+				<div class="text-xs text-base-content/70">Warnings</div>
+				<div class="text-xl font-semibold text-warning">{ fmt.Sprintf("%d", countByStatus(jobs, "WARNING")) }</div>
+			</div>
+			<div class="rounded-lg border border-base-300/40 bg-base-100/40 p-2">
+				<div class="text-xs text-base-content/70">Failing</div>
+				<div class="text-xl font-semibold text-error">{ fmt.Sprintf("%d", countByStatus(jobs, "FAILING")) }</div>
+			</div>
+		</div>
+		<div class="divider my-2"></div>
+		<div class="overflow-x-auto">
+			<table class="table table-zebra table-xs">
+				<thead>
+					<tr class="text-xs uppercase tracking-wide text-base-content/60">
+						<th>Status</th>
+						<th>URL</th>
+						<th>Type</th>
+						<th>Location</th>
+						<th>Last Scan</th>
+						<th>Next Scan</th>
+						<th class="text-center">Failures</th>
+						<th class="text-center">Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, job := range jobs {
+						@jobTableRow(job)
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+	for _, job := range jobs {
+		@JobDetailsModal(job)
+	}
+}
+
+templ jobTableRow(job types.SeshuJob) {
+	<tr class="hover">
+		<td>
+			<div class={ "badge badge-sm", getStatusBadgeClass(job.Status) }>
+				{ job.Status }
+			</div>
+		</td>
+		<td>
+			<div class="max-w-[320px]">
+				<div class="font-medium truncate text-xs" title={ job.NormalizedUrlKey }>
+					{ job.NormalizedUrlKey }
+				</div>
+				<div class="flex gap-1 mt-1">
+					if job.IsRecursive {
+						<div class="badge badge-xs badge-info">Recursive</div>
+					}
+				</div>
+			</div>
+		</td>
+		<td>
+			<div class="text-xs whitespace-nowrap">
+				{ formatSourceType(job.KnownScrapeSource) }
+			</div>
+		</td>
+		<td>
+			<div class="text-xs">
+				if job.LocationAddress != "" {
+					<div class="truncate" title={ job.LocationAddress }>
+						{ job.LocationAddress }
+					</div>
+				} else {
+					<span class="text-base-content/40">-</span>
+				}
+			</div>
+		</td>
+		<td>
+			<div class="text-xs whitespace-nowrap">
+				{ formatTimeAgo(job.LastScrapeSuccess) }
+			</div>
+		</td>
+		<td>
+			<div class="text-xs whitespace-nowrap">
+				{ formatTimeUntil(job.ScheduledHour) }
+			</div>
+		</td>
+		<td class="text-center">
+			if job.LastScrapeFailureCount > 0 {
+				<div class="text-error font-bold text-xs">
+					{ fmt.Sprintf("%d", job.LastScrapeFailureCount) }
+				</div>
+			} else {
+				<div class="text-success text-xs">0</div>
+			}
+		</td>
+		<td>
+			<div class="flex justify-center gap-1">
+				<button
+					class="btn btn-ghost btn-xs"
+					onclick={ templ.ComponentScript{Call: fmt.Sprintf("document.getElementById('job-details-%s').showModal()", job.NormalizedUrlKey)} }
+					title="View Details"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+					</svg>
+				</button>
+				<button
+					class="btn btn-ghost btn-xs text-error"
+					hx-delete={ fmt.Sprintf("/api/seshu-jobs/%s", job.NormalizedUrlKey) }
+					hx-confirm={ fmt.Sprintf("Are you sure you want to delete this event source: %s?", job.NormalizedUrlKey) }
+					hx-target="closest tr"
+					hx-swap="outerHTML swap:1s"
+					title="Delete"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+					</svg>
+				</button>
+			</div>
+		</td>
+	</tr>
+}
+
+templ JobDetailsModal(job types.SeshuJob) {
+	<dialog id={ fmt.Sprintf("job-details-%s", job.NormalizedUrlKey) } class="modal">
+		<div class="modal-box max-w-4xl">
+			<form method="dialog">
+				<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+			</form>
+			<h3 class="font-bold text-lg mb-4">Event Source Details</h3>
+			<div class="space-y-4">
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">URL Key</span>
+						</label>
+						<div class="text-sm break-all">{ job.NormalizedUrlKey }</div>
+					</div>
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">Status</span>
+						</label>
+						<div class={ "badge", getStatusBadgeClass(job.Status) }>{ job.Status }</div>
+					</div>
+				</div>
+				<div class="divider">Location Information</div>
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">Address</span>
+						</label>
+						<div class="text-sm">{ job.LocationAddress }</div>
+					</div>
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">Coordinates</span>
+						</label>
+						<div class="text-sm">
+							Lat: { fmt.Sprintf("%.6f", job.LocationLatitude) }
+							<br/>
+							Lng: { fmt.Sprintf("%.6f", job.LocationLongitude) }
+						</div>
+					</div>
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">Timezone</span>
+						</label>
+						<div class="text-sm">{ job.LocationTimezone }</div>
+					</div>
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">Scheduled Hour</span>
+						</label>
+						<div class="text-sm">{ fmt.Sprintf("%02d:00", job.ScheduledHour) }</div>
+					</div>
+				</div>
+				<div class="divider">CSS Selectors</div>
+				<div class="space-y-2">
+					<div class="collapse collapse-arrow bg-base-200">
+						<input type="checkbox"/>
+						<div class="collapse-title font-medium">
+							Parent Event Selectors
+						</div>
+						<div class="collapse-content">
+							<div class="space-y-2 text-sm">
+								<div><strong>Name:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetNameCSSPath }</code></div>
+								<div><strong>Location:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetLocationCSSPath }</code></div>
+								<div><strong>Start Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetStartTimeCSSPath }</code></div>
+								if job.TargetEndTimeCSSPath != "" {
+									<div><strong>End Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetEndTimeCSSPath }</code></div>
+								}
+								if job.TargetDescriptionCSSPath != "" {
+									<div><strong>Description:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetDescriptionCSSPath }</code></div>
+								}
+								if job.TargetHrefCSSPath != "" {
+									<div><strong>Href:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetHrefCSSPath }</code></div>
+								}
+							</div>
+						</div>
+					</div>
+					if job.IsRecursive {
+						<div class="collapse collapse-arrow bg-base-200">
+							<input type="checkbox"/>
+							<div class="collapse-title font-medium">
+								Child Event Selectors (Recursive)
+							</div>
+							<div class="collapse-content">
+								<div class="space-y-2 text-sm">
+									if job.TargetChildNameCSSPath != "" {
+										<div><strong>Name:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildNameCSSPath }</code></div>
+									}
+									if job.TargetChildLocationCSSPath != "" {
+										<div><strong>Location:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildLocationCSSPath }</code></div>
+									}
+									if job.TargetChildStartTimeCSSPath != "" {
+										<div><strong>Start Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildStartTimeCSSPath }</code></div>
+									}
+									if job.TargetChildEndTimeCSSPath != "" {
+										<div><strong>End Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildEndTimeCSSPath }</code></div>
+									}
+									if job.TargetChildDescriptionCSSPath != "" {
+										<div><strong>Description:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildDescriptionCSSPath }</code></div>
+									}
+								</div>
+							</div>
+						</div>
+					}
+				</div>
+				<div class="divider">Scanning Status</div>
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">Last Successful Scan</span>
+						</label>
+						<div class="text-sm">{ formatUnixTime(job.LastScrapeSuccess) }</div>
+					</div>
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">Last Failed Scan</span>
+						</label>
+						<div class="text-sm">{ formatUnixTime(job.LastScrapeFailure) }</div>
+					</div>
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">Failure Count</span>
+						</label>
+						<div class={ "text-sm", templ.KV("text-error font-bold", job.LastScrapeFailureCount > 0) }>
+							{ fmt.Sprintf("%d", job.LastScrapeFailureCount) }
+						</div>
+					</div>
+					if job.KnownScrapeSource != "" {
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text font-semibold">Source Type</span>
+							</label>
+							<div class="text-sm">{ formatSourceType(job.KnownScrapeSource) }</div>
+						</div>
+					}
+				</div>
+				<div class="divider">Metadata</div>
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">Owner ID</span>
+						</label>
+						<div class="text-sm font-mono">{ job.OwnerID }</div>
+					</div>
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">Is Recursive</span>
+						</label>
+						<div class="text-sm">
+							if job.IsRecursive {
+								<span class="badge badge-info">Yes</span>
+							} else {
+								<span class="badge badge-ghost">No</span>
+							}
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="modal-action">
+				<form method="dialog">
+					<button class="btn">Close</button>
+				</form>
+			</div>
+		</div>
+		<form method="dialog" class="modal-backdrop">
+			<button>close</button>
+		</form>
+	</dialog>
+}
+
+func countByStatus(jobs []types.SeshuJob, status string) int {
+	count := 0
+	for _, job := range jobs {
+		if job.Status == status {
+			count++
+		}
+	}
+	return count
+}
