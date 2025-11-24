@@ -75,6 +75,10 @@ func TestGetHomeOrUserPage(t *testing.T) {
 								"eventOwnerName":  "First Event Host",
 								"eventSourceType": "SLF", // Published single event
 								"startTime":       time.Now().Add(48 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(50 * time.Hour).Unix(),
+								"address":         "123 First St",
+								"lat":             40.7128,
+								"long":            -74.0060,
 								"timezone":        "America/New_York",
 								"_additional": map[string]interface{}{
 									"id": "123",
@@ -87,6 +91,10 @@ func TestGetHomeOrUserPage(t *testing.T) {
 								"eventOwnerName":  "Second Event Host",
 								"eventSourceType": "SLF_EVS", // Published series parent
 								"startTime":       time.Now().Add(72 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(74 * time.Hour).Unix(),
+								"address":         "456 Second St",
+								"lat":             34.0522,
+								"long":            -118.2437,
 								"timezone":        "America/New_York",
 								"_additional": map[string]interface{}{
 									"id": "456",
@@ -181,6 +189,347 @@ func TestGetHomeOrUserPage(t *testing.T) {
 	}
 	if strings.Contains(rr.Body.String(), "data-event-type=\"SLF_EVS_UNPUB\"") {
 		t.Errorf("Unpublished series event (SLF_EVS_UNPUB) should not appear on home page")
+	}
+}
+
+func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
+	tests := []struct {
+		name                string
+		host                string
+		mnmOptionsHeader    string
+		expectedErrorPage   bool
+		expectedContains    []string
+		expectedNotContains []string
+	}{
+		{
+			name:              "Subdomain without X-Mnm-Options header should show error page",
+			host:              "subdomain.example.com",
+			mnmOptionsHeader:  "",
+			expectedErrorPage: true,
+			expectedContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+				`<a class="link link-text" href="/admin">`, // HTML should be rendered, not escaped
+			},
+			expectedNotContains: []string{
+				"&lt;a", // HTML should not be escaped
+				"&lt;br",
+			},
+		},
+		{
+			name:              "Subdomain with X-Mnm-Options header should proceed normally",
+			host:              "subdomain.example.com",
+			mnmOptionsHeader:  `{"userId":"123"}`,
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Subdomain with quoted X-Mnm-Options header should proceed normally",
+			host:              "subdomain.example.com",
+			mnmOptionsHeader:  `"{"userId":"123"}"`,
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Apex domain (example.com has 2 parts) will show error page without header",
+			host:              "example.com",
+			mnmOptionsHeader:  "",
+			expectedErrorPage: true,
+			expectedContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Apex domain with X-Mnm-Options header should proceed normally",
+			host:              "example.com",
+			mnmOptionsHeader:  `{"userId":"123"}`,
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Localhost (no dots) should proceed normally",
+			host:              "localhost",
+			mnmOptionsHeader:  "",
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a request with the specified host
+			req, err := http.NewRequest("GET", "/", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Host = tt.host
+
+			// Set X-Mnm-Options header if provided
+			if tt.mnmOptionsHeader != "" {
+				req.Header.Set("X-Mnm-Options", tt.mnmOptionsHeader)
+			}
+
+			// Add context
+			fakeContext := context.Background()
+			req = req.WithContext(fakeContext)
+
+			// Create a ResponseRecorder
+			rr := httptest.NewRecorder()
+
+			// Call the handler
+			handler := GetHomeOrUserPage(rr, req)
+			handler.ServeHTTP(rr, req)
+
+			body := rr.Body.String()
+
+			if tt.expectedErrorPage {
+				// Verify status is OK (SendHtmlErrorPage returns 200)
+				if rr.Code != http.StatusOK {
+					t.Errorf("Expected status %d, got %d", http.StatusOK, rr.Code)
+				}
+
+				// Verify expected content is present
+				for _, expected := range tt.expectedContains {
+					if !strings.Contains(body, expected) {
+						t.Errorf("Expected response to contain '%s', but it didn't", expected)
+					}
+				}
+
+				// Verify HTML is rendered (not escaped)
+				for _, notExpected := range tt.expectedNotContains {
+					if strings.Contains(body, notExpected) {
+						t.Errorf("Expected response to NOT contain escaped HTML '%s', but it did", notExpected)
+					}
+				}
+
+				// Verify the link is clickable (HTML is rendered)
+				if !strings.Contains(body, `<a class="link link-text" href="/admin">`) {
+					t.Error("Expected HTML link to be rendered, but it appears to be escaped or missing")
+				}
+			} else {
+				// For non-error cases, verify error page content is NOT present
+				for _, notExpected := range tt.expectedNotContains {
+					if strings.Contains(body, notExpected) {
+						t.Errorf("Expected response to NOT contain '%s', but it did", notExpected)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestGetHomeOrUserPage_WithGroupedEvents(t *testing.T) {
+	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+	originalTransport := http.DefaultTransport
+
+	defer func() {
+		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+		http.DefaultTransport = originalTransport
+	}()
+
+	// Set up logging transport
+	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
+
+	// Mock server setup
+	hostAndPort := test_helpers.GetNextPort()
+
+	// Create mock Weaviate server with grouped events
+	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("🎯 MOCK SERVER HIT: %s %s", r.Method, r.URL.Path)
+
+		switch r.URL.Path {
+		case "/v1/meta":
+			t.Logf("   └─ Handling /v1/meta")
+			metaResponse := `{"version":"1.23.4"}`
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(metaResponse))
+
+		case "/v1/graphql":
+			t.Logf("   └─ Handling /v1/graphql (home page with grouped events)")
+			if r.Method != "POST" {
+				t.Errorf("expected method POST for /v1/graphql, got %s", r.Method)
+			}
+
+			// Return grouped events - same name, same location, different dates
+			mockResponse := models.GraphQLResponse{
+				Data: map[string]models.JSONObject{
+					"Get": map[string]interface{}{
+						constants.WeaviateEventClassName: []interface{}{
+							map[string]interface{}{
+								"name":            "Weekly Meetup",
+								"description":     "A weekly meetup event",
+								"eventOwners":     []interface{}{"789"},
+								"eventOwnerName":  "Event Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(48 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(50 * time.Hour).Unix(),
+								"address":         "123 Main St",
+								"lat":             40.7128,
+								"long":            -74.0060,
+								"timezone":        "America/New_York",
+								"_additional": map[string]interface{}{
+									"id": "event-1",
+								},
+							},
+							map[string]interface{}{
+								"name":            "Weekly Meetup",
+								"description":     "A weekly meetup event",
+								"eventOwners":     []interface{}{"789"},
+								"eventOwnerName":  "Event Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(120 * time.Hour).Unix(), // 5 days later
+								"endTime":         time.Now().Add(122 * time.Hour).Unix(),
+								"address":         "123 Main St",
+								"lat":             40.7128,
+								"long":            -74.0060,
+								"timezone":        "America/New_York",
+								"_additional": map[string]interface{}{
+									"id": "event-2",
+								},
+							},
+							map[string]interface{}{
+								"name":            "Weekly Meetup",
+								"description":     "A weekly meetup event",
+								"eventOwners":     []interface{}{"789"},
+								"eventOwnerName":  "Event Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(192 * time.Hour).Unix(), // 8 days later
+								"endTime":         time.Now().Add(194 * time.Hour).Unix(),
+								"address":         "123 Main St",
+								"lat":             40.7128,
+								"long":            -74.0060,
+								"timezone":        "America/New_York",
+								"_additional": map[string]interface{}{
+									"id": "event-3",
+								},
+							},
+							// Add an ungrouped event (different location)
+							map[string]interface{}{
+								"name":            "Different Event",
+								"description":     "An event at a different location",
+								"eventOwners":     []interface{}{"012"},
+								"eventOwnerName":  "Other Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(72 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(74 * time.Hour).Unix(),
+								"address":         "456 Other St",
+								"lat":             34.0522,
+								"long":            -118.2437,
+								"timezone":        "America/Los_Angeles",
+								"_additional": map[string]interface{}{
+									"id": "event-4",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			responseBytes, err := json.Marshal(mockResponse)
+			if err != nil {
+				t.Fatalf("failed to marshal mock GraphQL response: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+
+		default:
+			t.Logf("   └─ ⚠️  UNHANDLED PATH: %s", r.URL.Path)
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}
+	}))
+
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("BindToPort failed: %v", err)
+	}
+	mockWeaviateServer.Listener = listener
+	mockWeaviateServer.Start()
+	defer mockWeaviateServer.Close()
+
+	// Set environment variables to the actual bound port
+	actualAddr := listener.Addr().String()
+	actualParts := strings.Split(actualAddr, ":")
+	actualHost, actualPort := actualParts[0], actualParts[1]
+
+	os.Setenv("WEAVIATE_HOST", actualHost)
+	os.Setenv("WEAVIATE_PORT", actualPort)
+	os.Setenv("WEAVIATE_SCHEME", "http")
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
+
+	t.Logf("🔧 HOME PAGE GROUPED EVENTS TEST SETUP COMPLETE")
+	t.Logf("   └─ Mock Server bound to: %s", actualAddr)
+
+	// Add MNM_OPTIONS_CTX_KEY to context
+	fakeContext := context.Background()
+
+	// Create a request
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req = req.WithContext(fakeContext)
+
+	// Create a ResponseRecorder to record the response
+	rr := httptest.NewRecorder()
+
+	// Call the handler
+	handler := GetHomeOrUserPage(rr, req)
+	handler.ServeHTTP(rr, req)
+
+	// Check the status code
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Check the response body
+	if rr.Body.String() == "" {
+		t.Errorf("Handler returned empty body")
+	}
+
+	responseBody := rr.Body.String()
+
+	// Verify grouped events are displayed with carousel
+	if !strings.Contains(responseBody, "Weekly Meetup") {
+		t.Errorf("Grouped event 'Weekly Meetup' should appear on the page")
+	}
+
+	if !strings.Contains(responseBody, "carousel-container") {
+		t.Errorf("Carousel container should appear for grouped events")
+	}
+
+	if !strings.Contains(responseBody, "123 Main St") {
+		t.Errorf("Grouped event address should appear")
+	}
+
+	// Verify ungrouped event also appears
+	if !strings.Contains(responseBody, "Different Event") {
+		t.Errorf("Ungrouped event 'Different Event' should also appear on the page")
+	}
+
+	// Verify event IDs appear in URLs (they will be in the carousel links)
+	if !strings.Contains(responseBody, "/event/event-1") {
+		t.Errorf("Event ID should appear in URL for grouped events")
 	}
 }
 
@@ -685,6 +1034,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 		queryParams    map[string]string
 		cfRay          string
 		expectedQuery  string
+		expectedCity   string
 		expectedLoc    []float64
 		expectedRadius float64
 		expectedStart  int64
@@ -700,9 +1050,11 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 				"lon":        "-74.0060",
 				"radius":     "1000",
 				"q":          "test query",
+				"location":   "New York, NY",
 			},
 			cfRay:          "1234567890000-EWR",
 			expectedQuery:  "test query",
+			expectedCity:   "New York, NY",
 			expectedLoc:    []float64{40.7128, -74.0060},
 			expectedRadius: 1000,
 			expectedStart:  4070908800,
@@ -721,6 +1073,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{40.7128, -74.0060},
 			expectedRadius: constants.DEFAULT_SEARCH_RADIUS,
 			expectedStart:  4070908800,
@@ -732,6 +1085,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			queryParams:    map[string]string{},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
@@ -747,6 +1101,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{35.6762, 139.6503},
 			expectedRadius: 500,
 			expectedStart:  0, // This will be the current time in Unix seconds
@@ -761,6 +1116,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
@@ -788,10 +1144,14 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			}
 
 			// TODO: need to test `categories` and `ownerIds` returned here
-			query, loc, radius, start, end, cfLoc, _, _, _, _, _, _ := GetSearchParamsFromReq(req)
+			query, city, loc, radius, start, end, cfLoc, _, _, _, _, _, _ := GetSearchParamsFromReq(req)
 
 			if query != tt.expectedQuery {
 				t.Errorf("Expected query %s, got %s", tt.expectedQuery, query)
+			}
+
+			if city != tt.expectedCity {
+				t.Errorf("Expected city: %#v, got %s", tt.expectedCity, city)
 			}
 
 			if !floatSliceEqual(loc, tt.expectedLoc, 0.0001) {
@@ -1242,5 +1602,265 @@ func TestGetEventAttendeesPage(t *testing.T) {
 				t.Errorf("Handler returned unexpected body: expected to contain %q, got %q", tt.expectedBody, rr.Body.String())
 			}
 		})
+	}
+}
+
+// =============================================================================
+// Tests for GetPricingPage handler
+// =============================================================================
+
+func TestGetPricingPage(t *testing.T) {
+	// Save original environment variables
+	originalStripeGrowth := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalStripeSeed := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalApexURL := os.Getenv("APEX_URL")
+
+	defer func() {
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalStripeGrowth)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalStripeSeed)
+		os.Setenv("APEX_URL", originalApexURL)
+	}()
+
+	// Set up test environment variables
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+	os.Setenv("APEX_URL", "https://test.example.com")
+
+	tests := []struct {
+		name               string
+		userInfo           constants.UserInfo
+		expectedStatusCode int
+		shouldContain      []string
+		shouldNotContain   []string
+	}{
+		{
+			name: "Success - Logged in user",
+			userInfo: constants.UserInfo{
+				Sub:   "user123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			expectedStatusCode: http.StatusOK,
+			shouldContain: []string{
+				"Plans and Pricing",
+				"Basic Community",
+				"Seed Community",
+				"Growth Community",
+				"Free",
+				"$15",
+				"$50",
+				"Get Started",
+			},
+			shouldNotContain: []string{},
+		},
+		{
+			name:               "Success - Not logged in",
+			userInfo:           constants.UserInfo{},
+			expectedStatusCode: http.StatusOK,
+			shouldContain: []string{
+				"Plans and Pricing",
+				"Basic Community",
+				"Seed Community",
+				"Growth Community",
+				"Free",
+				"$15",
+				"$50",
+				"Get Started",
+			},
+			shouldNotContain: []string{},
+		},
+		{
+			name: "Success - Displays subscription features",
+			userInfo: constants.UserInfo{
+				Sub:   "user456",
+				Email: "user2@example.com",
+			},
+			expectedStatusCode: http.StatusOK,
+			shouldContain: []string{
+				"Custom subdomain",
+				"Host Events",
+				"Custom registration forms",
+				"Custom theme and branding",
+				"Syndicate and re-publish events",
+				"API Access",
+			},
+			shouldNotContain: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request
+			req := httptest.NewRequest("GET", "/pricing", nil)
+
+			// Add user info to context if provided
+			ctx := req.Context()
+			if tt.userInfo.Sub != "" {
+				ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			}
+			req = req.WithContext(ctx)
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call the handler
+			handler := GetPricingPage(w, req)
+			handler(w, req)
+
+			// Verify status code
+			if w.Code != tt.expectedStatusCode {
+				t.Errorf("Expected status code %d, got %d", tt.expectedStatusCode, w.Code)
+			}
+
+			// Verify response body contains expected strings
+			body := w.Body.String()
+			for _, expected := range tt.shouldContain {
+				if !strings.Contains(body, expected) {
+					t.Errorf("Expected response to contain '%s'", expected)
+				}
+			}
+
+			// Verify response body doesn't contain unexpected strings
+			for _, unexpected := range tt.shouldNotContain {
+				if strings.Contains(body, unexpected) {
+					t.Errorf("Expected response to NOT contain '%s'", unexpected)
+				}
+			}
+
+			// Verify Content-Type is HTML
+			contentType := w.Header().Get("Content-Type")
+			if !strings.Contains(contentType, "text/html") {
+				t.Errorf("Expected Content-Type to contain 'text/html', got '%s'", contentType)
+			}
+		})
+	}
+}
+
+func TestGetPricingPage_WithQueryParams(t *testing.T) {
+	// Save original environment variables
+	originalStripeGrowth := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalStripeSeed := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalApexURL := os.Getenv("APEX_URL")
+
+	defer func() {
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalStripeGrowth)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalStripeSeed)
+		os.Setenv("APEX_URL", originalApexURL)
+	}()
+
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+	os.Setenv("APEX_URL", "https://test.example.com")
+
+	tests := []struct {
+		name               string
+		queryParams        string
+		userInfo           constants.UserInfo
+		expectedStatusCode int
+		shouldContain      []string
+	}{
+		{
+			name:        "Success - With error query param",
+			queryParams: "?error=checkout_failed",
+			userInfo: constants.UserInfo{
+				Sub: "user123",
+			},
+			expectedStatusCode: http.StatusOK,
+			shouldContain: []string{
+				"Plans and Pricing",
+				// The error handling is done in JavaScript, so we just verify the page renders
+			},
+		},
+		{
+			name:        "Success - With success query param",
+			queryParams: "?success=true",
+			userInfo: constants.UserInfo{
+				Sub: "user456",
+			},
+			expectedStatusCode: http.StatusOK,
+			shouldContain: []string{
+				"Plans and Pricing",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request with query params
+			url := "/pricing" + tt.queryParams
+			req := httptest.NewRequest("GET", url, nil)
+
+			// Add user info to context
+			ctx := req.Context()
+			if tt.userInfo.Sub != "" {
+				ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			}
+			req = req.WithContext(ctx)
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call the handler
+			handler := GetPricingPage(w, req)
+			handler(w, req)
+
+			// Verify status code
+			if w.Code != tt.expectedStatusCode {
+				t.Errorf("Expected status code %d, got %d", tt.expectedStatusCode, w.Code)
+			}
+
+			// Verify expected content
+			body := w.Body.String()
+			for _, expected := range tt.shouldContain {
+				if !strings.Contains(body, expected) {
+					t.Errorf("Expected response to contain '%s'", expected)
+				}
+			}
+		})
+	}
+}
+
+func TestGetPricingPage_RendersCorrectPlanIDs(t *testing.T) {
+	// This test verifies that the correct Stripe plan IDs are embedded in the page
+	originalStripeGrowth := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalStripeSeed := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalApexURL := os.Getenv("APEX_URL")
+
+	defer func() {
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalStripeGrowth)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalStripeSeed)
+		os.Setenv("APEX_URL", originalApexURL)
+	}()
+
+	testGrowthPlan := "price_1234567890growth"
+	testSeedPlan := "price_1234567890seed"
+
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", testGrowthPlan)
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", testSeedPlan)
+	os.Setenv("APEX_URL", "https://test.example.com")
+
+	req := httptest.NewRequest("GET", "/pricing", nil)
+	ctx := context.WithValue(req.Context(), "userInfo", constants.UserInfo{Sub: "user123"})
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler := GetPricingPage(w, req)
+	handler(w, req)
+
+	// Verify the response contains the plan IDs in the JavaScript
+	body := w.Body.String()
+	if !strings.Contains(body, testGrowthPlan) {
+		t.Errorf("Expected response to contain Growth plan ID '%s'", testGrowthPlan)
+	}
+	if !strings.Contains(body, testSeedPlan) {
+		t.Errorf("Expected response to contain Seed plan ID '%s'", testSeedPlan)
+	}
+
+	// Verify data attributes are set correctly
+	if !strings.Contains(body, `data-growth-plan-id="`+testGrowthPlan+`"`) {
+		t.Error("Expected response to contain data-growth-plan-id attribute with correct value")
+	}
+	if !strings.Contains(body, `data-seed-plan-id="`+testSeedPlan+`"`) {
+		t.Error("Expected response to contain data-seed-plan-id attribute with correct value")
 	}
 }

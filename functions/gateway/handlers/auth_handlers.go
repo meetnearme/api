@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -98,10 +99,18 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	var zitadelRes map[string]interface{}
 	if os.Getenv("GO_ENV") == constants.GO_TEST_ENV {
-		zitadelRes = map[string]interface{}{
-			"access_token":  "test-access-token",
-			"refresh_token": "test-refresh-token",
-			"id_token":      "test-id-token",
+		// Check if we're testing the error case
+		if os.Getenv("ZITADEL_TEST_ERROR") == "true" {
+			zitadelRes = map[string]interface{}{
+				"error":             "invalid_grant",
+				"error_description": "The provided authorization code is invalid or expired",
+			}
+		} else {
+			zitadelRes = map[string]interface{}{
+				"access_token":  "test-access-token",
+				"refresh_token": "test-refresh-token",
+				"id_token":      "test-id-token",
+			}
 		}
 	} else {
 		zitadelRes, err = services.GetAuthToken(code, codeVerifier)
@@ -117,13 +126,22 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	accessToken, ok := zitadelRes["access_token"].(string)
 	if !ok {
 		if zitadelRes["error"] != "" {
-			msg := fmt.Sprintf("Failed to get access tokens, error from zitadel: %+v", zitadelRes["error"])
+			// Generate UUID for error correlation
+			errorID := uuid.New().String()
+
+			// Build detailed error message for logging
+			errorMsg := fmt.Sprintf("Failed to get access tokens, error from zitadel: %+v", zitadelRes["error"])
 			if zitadelRes["error_description"] != "" {
-				msg += fmt.Sprintf(", error_description: %+v", zitadelRes["error_description"])
+				errorMsg += fmt.Sprintf(", error_description: %+v", zitadelRes["error_description"])
 			}
-			log.Printf("%s", msg)
+
+			// Log full error details with correlation ID
+			log.Printf("Zitadel authentication error [%s]: %s", errorID, errorMsg)
+
+			// Show generic message with error ID to user
+			userMsg := fmt.Sprintf("Authentication failed. Error ID: %s", errorID)
 			return func(w http.ResponseWriter, r *http.Request) {
-				transport.SendHtmlErrorPage([]byte(msg), http.StatusUnauthorized, false)(w, r)
+				transport.SendHtmlErrorPage([]byte(userMsg), http.StatusUnauthorized, false)(w, r)
 			}
 		}
 		log.Printf("Failed to get access tokens, error from zitadel: %+v", zitadelRes)
@@ -168,5 +186,60 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func HandleLogout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		services.HandleLogout(w, r)
+	}
+}
+
+func HandleRefresh(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get the refresh token from cookies
+		refreshTokenCookie, err := r.Cookie(constants.MNM_REFRESH_TOKEN_COOKIE_NAME)
+		if err != nil {
+			log.Printf("Refresh endpoint: missing refresh token cookie: %v", err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Call the refresh service to get new tokens from Zitadel
+		var tokens map[string]interface{}
+		if os.Getenv("GO_ENV") == constants.GO_TEST_ENV {
+			tokens = map[string]interface{}{
+				"access_token":  "test-access-token-refreshed",
+				"refresh_token": "test-refresh-token-refreshed",
+				"id_token":      "test-id-token-refreshed",
+			}
+		} else {
+			tokens, err = services.RefreshAccessToken(refreshTokenCookie.Value)
+			if err != nil {
+				log.Printf("Refresh endpoint: failed to refresh access token: %v", err)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+
+		// Extract and set the new access token
+		newAccessToken, ok := tokens["access_token"].(string)
+		if !ok {
+			log.Printf("Refresh endpoint: failed to get access token from response: %+v", tokens)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Set the new access token cookie
+		services.SetSubdomainCookie(w, constants.MNM_ACCESS_TOKEN_COOKIE_NAME, newAccessToken, false, 0)
+
+		// Update refresh token if provided in response
+		if newRefreshToken, ok := tokens["refresh_token"].(string); ok {
+			services.SetSubdomainCookie(w, constants.MNM_REFRESH_TOKEN_COOKIE_NAME, newRefreshToken, false, 0)
+		}
+
+		// Update ID token if provided in response
+		if newIdToken, ok := tokens["id_token"].(string); ok {
+			services.SetSubdomainCookie(w, constants.MNM_ID_TOKEN_COOKIE_NAME, newIdToken, false, 0)
+		}
+
+		// Return success response
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success": true}`))
 	}
 }

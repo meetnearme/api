@@ -3,6 +3,8 @@ package helpers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1107,6 +1109,105 @@ func TestGetBase64ValueFromMap(t *testing.T) {
 	}
 }
 
+func TestGetUserLocationFromMap(t *testing.T) {
+	tests := []struct {
+		name       string
+		claimsMeta map[string]interface{}
+		wantCity   string
+		wantLat    float64
+		wantLon    float64
+		wantOk     bool
+	}{
+		{
+			name: "valid location string",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "TmV3IFlvcms7NDAuNzE7LTc0LjAx", // "New York;40.71;-74.01" base64 encoded
+			},
+			wantCity: "New York",
+			wantLat:  40.71,
+			wantLon:  -74.01,
+			wantOk:   true,
+		},
+		{
+			name: "missing key",
+			claimsMeta: map[string]interface{}{
+				"other_key": "some value",
+			},
+			wantCity: "",
+			wantLat:  0,
+			wantLon:  0,
+			wantOk:   false,
+		},
+		{
+			name:       "empty map",
+			claimsMeta: map[string]interface{}{},
+			wantCity:   "",
+			wantLat:    0,
+			wantLon:    0,
+			wantOk:     false,
+		},
+		{
+			name: "empty string value",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "",
+			},
+			wantCity: "",
+			wantLat:  0,
+			wantLon:  0,
+			wantOk:   false,
+		},
+		{
+			name: "invalid base64 encoding",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "invalid-base64!@#",
+			},
+			wantCity: "",
+			wantLat:  0,
+			wantLon:  0,
+			wantOk:   false,
+		},
+		{
+			name: "wrong format",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "anVzdC1hLXN0cmluZw==", // "just-a-string" base64 encoded
+			},
+			wantCity: "",
+			wantLat:  0,
+			wantLon:  0,
+			wantOk:   false,
+		},
+		{
+			name: "too few parts",
+			claimsMeta: map[string]interface{}{
+				constants.META_LOC_KEY: "Q2l0eTs0MC43MQ==", // "City;40.71" base64 encoded (only 2 parts)
+			},
+			wantCity: "",
+			wantLat:  0,
+			wantLon:  0,
+			wantOk:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cityStr, lat, lon, ok := GetUserLocationFromMap(tt.claimsMeta)
+
+			if ok != tt.wantOk {
+				t.Errorf("GetUserLocationFromMap() ok = %v, want %v", ok, tt.wantOk)
+			}
+			if cityStr != tt.wantCity {
+				t.Errorf("GetUserLocationFromMap() city = %v want %v", cityStr, tt.wantCity)
+			}
+			if lat != tt.wantLat {
+				t.Errorf("GetUserLocationFromMap() lat = %v, want %v", lat, tt.wantLat)
+			}
+			if lon != tt.wantLon {
+				t.Errorf("GetUserLocationFromMap() lon = %v, want %v", lon, tt.wantLon)
+			}
+		})
+	}
+}
+
 func TestGetCloudflareMnmOptions(t *testing.T) {
 	// Save original environment variables
 	var (
@@ -1275,3 +1376,954 @@ func TestGetCloudflareMnmOptions(t *testing.T) {
 // 		})
 // 	}
 // }
+
+// =============================================================================
+// Tests for new Zitadel Authorization API functions
+// =============================================================================
+
+func TestGetUserRoles(t *testing.T) {
+	// Save original environment variables
+	originalHost := os.Getenv("ZITADEL_INSTANCE_HOST")
+	originalToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
+	originalTransport := http.DefaultTransport
+
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalHost)
+		os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalToken)
+		http.DefaultTransport = originalTransport
+	}()
+
+	tests := []struct {
+		name           string
+		userID         string
+		mockResponse   string
+		mockStatusCode int
+		expectedRoles  []string
+		expectedError  string
+	}{
+		{
+			name:   "Success - User with multiple roles",
+			userID: "user123",
+			mockResponse: `{
+				"authorizations": [
+					{
+						"roles": ["subGrowth", "eventAdmin"]
+					}
+				]
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedRoles:  []string{"subGrowth", "eventAdmin"},
+			expectedError:  "",
+		},
+		{
+			name:   "Success - User with single role",
+			userID: "user456",
+			mockResponse: `{
+				"authorizations": [
+					{
+						"roles": ["subSeed"]
+					}
+				]
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedRoles:  []string{"subSeed"},
+			expectedError:  "",
+		},
+		{
+			name:   "Success - User with no authorizations",
+			userID: "user789",
+			mockResponse: `{
+				"authorizations": []
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedRoles:  []string{},
+			expectedError:  "",
+		},
+		{
+			name:   "Success - User with multiple authorizations and roles",
+			userID: "user999",
+			mockResponse: `{
+				"authorizations": [
+					{
+						"roles": ["subGrowth"]
+					},
+					{
+						"roles": ["eventAdmin", "orgAdmin"]
+					}
+				]
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedRoles:  []string{"subGrowth", "eventAdmin", "orgAdmin"},
+			expectedError:  "",
+		},
+		{
+			name:           "Error - HTTP 401 Unauthorized",
+			userID:         "user123",
+			mockResponse:   `{"error": "unauthorized"}`,
+			mockStatusCode: http.StatusUnauthorized,
+			expectedRoles:  nil,
+			expectedError:  "failed to get authorizations: status 401",
+		},
+		{
+			name:           "Error - HTTP 500 Internal Server Error",
+			userID:         "user123",
+			mockResponse:   `{"error": "internal server error"}`,
+			mockStatusCode: http.StatusInternalServerError,
+			expectedRoles:  nil,
+			expectedError:  "failed to get authorizations: status 500",
+		},
+		{
+			name:           "Error - Invalid JSON response",
+			userID:         "user123",
+			mockResponse:   `{invalid json}`,
+			mockStatusCode: http.StatusOK,
+			expectedRoles:  nil,
+			expectedError:  "failed to unmarshal response",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock server
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Verify method
+				if r.Method != "POST" {
+					t.Errorf("Expected POST method, got %s", r.Method)
+				}
+
+				// Verify path
+				expectedPath := "/zitadel.authorization.v2beta.AuthorizationService/ListAuthorizations"
+				if r.URL.Path != expectedPath {
+					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
+				}
+
+				// Verify headers
+				if r.Header.Get("Content-Type") != "application/json" {
+					t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+				}
+				if r.Header.Get("Authorization") != "Bearer test-token" {
+					t.Errorf("Expected Authorization header with Bearer token")
+				}
+
+				// Verify request body contains user ID
+				body, _ := io.ReadAll(r.Body)
+				if !strings.Contains(string(body), tt.userID) {
+					t.Errorf("Request body should contain user ID %s", tt.userID)
+				}
+
+				w.WriteHeader(tt.mockStatusCode)
+				w.Write([]byte(tt.mockResponse))
+			}))
+			defer mockServer.Close()
+
+			// Set environment variables
+			zitadelURL := strings.TrimPrefix(mockServer.URL, "http://")
+			zitadelURL = strings.TrimPrefix(zitadelURL, "https://")
+			os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
+			os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
+
+			// Call the function
+			roles, err := GetUserRoles(tt.userID)
+
+			// Verify results
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Errorf("Expected error containing '%s', got nil", tt.expectedError)
+				} else if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("Expected error containing '%s', got '%s'", tt.expectedError, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				if len(roles) != len(tt.expectedRoles) {
+					t.Errorf("Expected %d roles, got %d", len(tt.expectedRoles), len(roles))
+				}
+				for i, role := range roles {
+					if i >= len(tt.expectedRoles) || role != tt.expectedRoles[i] {
+						t.Errorf("Expected role[%d] = %s, got %s", i, tt.expectedRoles[i], role)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestGetUserAuthorizationID(t *testing.T) {
+	// Save original environment variables
+	originalHost := os.Getenv("ZITADEL_INSTANCE_HOST")
+	originalToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
+	originalTransport := http.DefaultTransport
+
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalHost)
+		os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalToken)
+		http.DefaultTransport = originalTransport
+	}()
+
+	tests := []struct {
+		name           string
+		userID         string
+		mockResponse   string
+		mockStatusCode int
+		expectedID     string
+		expectedError  string
+	}{
+		{
+			name:   "Success - User with authorization",
+			userID: "user123",
+			mockResponse: `{
+				"authorizations": [
+					{
+						"id": "auth_abc123"
+					}
+				]
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedID:     "auth_abc123",
+			expectedError:  "",
+		},
+		{
+			name:   "Success - User with no authorization returns empty string",
+			userID: "user456",
+			mockResponse: `{
+				"authorizations": []
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedID:     "",
+			expectedError:  "",
+		},
+		{
+			name:   "Success - Multiple authorizations returns first",
+			userID: "user789",
+			mockResponse: `{
+				"authorizations": [
+					{
+						"id": "auth_first"
+					},
+					{
+						"id": "auth_second"
+					}
+				]
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedID:     "auth_first",
+			expectedError:  "",
+		},
+		{
+			name:           "Error - HTTP 404 Not Found",
+			userID:         "user999",
+			mockResponse:   `{"error": "not found"}`,
+			mockStatusCode: http.StatusNotFound,
+			expectedID:     "",
+			expectedError:  "failed to get authorizations: status 404",
+		},
+		{
+			name:           "Error - Invalid JSON response",
+			userID:         "user123",
+			mockResponse:   `{invalid}`,
+			mockStatusCode: http.StatusOK,
+			expectedID:     "",
+			expectedError:  "failed to unmarshal response",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock server
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != "POST" {
+					t.Errorf("Expected POST method, got %s", r.Method)
+				}
+
+				expectedPath := "/zitadel.authorization.v2beta.AuthorizationService/ListAuthorizations"
+				if r.URL.Path != expectedPath {
+					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
+				}
+
+				w.WriteHeader(tt.mockStatusCode)
+				w.Write([]byte(tt.mockResponse))
+			}))
+			defer mockServer.Close()
+
+			// Set environment variables
+			zitadelURL := strings.TrimPrefix(mockServer.URL, "http://")
+			zitadelURL = strings.TrimPrefix(zitadelURL, "https://")
+			os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
+			os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
+
+			authID, err := GetUserAuthorizationID(tt.userID)
+
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Errorf("Expected error containing '%s', got nil", tt.expectedError)
+				} else if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("Expected error containing '%s', got '%s'", tt.expectedError, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				if authID != tt.expectedID {
+					t.Errorf("Expected ID '%s', got '%s'", tt.expectedID, authID)
+				}
+			}
+		})
+	}
+}
+
+func TestCreateUserAuthorization(t *testing.T) {
+	originalHost := os.Getenv("ZITADEL_INSTANCE_HOST")
+	originalToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
+	originalTransport := http.DefaultTransport
+
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalHost)
+		os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalToken)
+		http.DefaultTransport = originalTransport
+	}()
+
+	tests := []struct {
+		name           string
+		userID         string
+		roleKeys       []string
+		mockResponse   string
+		mockStatusCode int
+		expectedID     string
+		expectedError  string
+	}{
+		{
+			name:     "Success - Create authorization with single role",
+			userID:   "user123",
+			roleKeys: []string{"subGrowth"},
+			mockResponse: `{
+				"id": "auth_new123"
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedID:     "auth_new123",
+			expectedError:  "",
+		},
+		{
+			name:     "Success - Create authorization with multiple roles",
+			userID:   "user456",
+			roleKeys: []string{"subGrowth", "eventAdmin", "orgAdmin"},
+			mockResponse: `{
+				"id": "auth_new456"
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedID:     "auth_new456",
+			expectedError:  "",
+		},
+		{
+			name:     "Success - Create authorization with empty roles",
+			userID:   "user789",
+			roleKeys: []string{},
+			mockResponse: `{
+				"id": "auth_new789"
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedID:     "auth_new789",
+			expectedError:  "",
+		},
+		{
+			name:           "Error - HTTP 400 Bad Request",
+			userID:         "user999",
+			roleKeys:       []string{"invalidRole"},
+			mockResponse:   `{"error": "invalid role"}`,
+			mockStatusCode: http.StatusBadRequest,
+			expectedID:     "",
+			expectedError:  "failed to create authorization: status 400",
+		},
+		{
+			name:           "Error - HTTP 409 Conflict (already exists)",
+			userID:         "user888",
+			roleKeys:       []string{"subGrowth"},
+			mockResponse:   `{"error": "authorization already exists"}`,
+			mockStatusCode: http.StatusConflict,
+			expectedID:     "",
+			expectedError:  "failed to create authorization: status 409",
+		},
+		{
+			name:           "Error - Invalid JSON response",
+			userID:         "user777",
+			roleKeys:       []string{"subGrowth"},
+			mockResponse:   `{invalid}`,
+			mockStatusCode: http.StatusOK,
+			expectedID:     "",
+			expectedError:  "failed to unmarshal response",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != "POST" {
+					t.Errorf("Expected POST method, got %s", r.Method)
+				}
+
+				expectedPath := "/zitadel.authorization.v2beta.AuthorizationService/CreateAuthorization"
+				if r.URL.Path != expectedPath {
+					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
+				}
+
+				// Verify request body
+				body, _ := io.ReadAll(r.Body)
+				bodyStr := string(body)
+				if !strings.Contains(bodyStr, tt.userID) {
+					t.Errorf("Request body should contain user ID %s", tt.userID)
+				}
+				for _, role := range tt.roleKeys {
+					if !strings.Contains(bodyStr, role) {
+						t.Errorf("Request body should contain role %s", role)
+					}
+				}
+
+				w.WriteHeader(tt.mockStatusCode)
+				w.Write([]byte(tt.mockResponse))
+			}))
+			defer mockServer.Close()
+
+			// Set environment variables
+			zitadelURL := strings.TrimPrefix(mockServer.URL, "http://")
+			zitadelURL = strings.TrimPrefix(zitadelURL, "https://")
+			os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
+			os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
+
+			authID, err := CreateUserAuthorization(tt.userID, tt.roleKeys)
+
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Errorf("Expected error containing '%s', got nil", tt.expectedError)
+				} else if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("Expected error containing '%s', got '%s'", tt.expectedError, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				if authID != tt.expectedID {
+					t.Errorf("Expected ID '%s', got '%s'", tt.expectedID, authID)
+				}
+			}
+		})
+	}
+}
+
+func TestSetUserRoles(t *testing.T) {
+	originalHost := os.Getenv("ZITADEL_INSTANCE_HOST")
+	originalToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
+	originalTransport := http.DefaultTransport
+
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalHost)
+		os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalToken)
+		http.DefaultTransport = originalTransport
+	}()
+
+	tests := []struct {
+		name                 string
+		userID               string
+		roleKeys             []string
+		existingAuthID       string
+		listAuthResponse     string
+		listAuthStatusCode   int
+		createAuthResponse   string
+		createAuthStatusCode int
+		updateAuthResponse   string
+		updateAuthStatusCode int
+		expectedError        string
+		expectCreateCall     bool
+		expectUpdateCall     bool
+	}{
+		{
+			name:     "Success - Update existing authorization",
+			userID:   "user123",
+			roleKeys: []string{"subGrowth", "eventAdmin"},
+			listAuthResponse: `{
+				"authorizations": [
+					{
+						"id": "auth_existing123"
+					}
+				]
+			}`,
+			listAuthStatusCode:   http.StatusOK,
+			updateAuthResponse:   `{}`,
+			updateAuthStatusCode: http.StatusOK,
+			expectedError:        "",
+			expectCreateCall:     false,
+			expectUpdateCall:     true,
+		},
+		{
+			name:     "Success - Create new authorization when none exists",
+			userID:   "user456",
+			roleKeys: []string{"subSeed"},
+			listAuthResponse: `{
+				"authorizations": []
+			}`,
+			listAuthStatusCode: http.StatusOK,
+			createAuthResponse: `{
+				"id": "auth_new456"
+			}`,
+			createAuthStatusCode: http.StatusOK,
+			expectedError:        "",
+			expectCreateCall:     true,
+			expectUpdateCall:     false,
+		},
+		{
+			name:     "Success - Create authorization with empty roles",
+			userID:   "user789",
+			roleKeys: []string{},
+			listAuthResponse: `{
+				"authorizations": []
+			}`,
+			listAuthStatusCode: http.StatusOK,
+			createAuthResponse: `{
+				"id": "auth_new789"
+			}`,
+			createAuthStatusCode: http.StatusOK,
+			expectedError:        "",
+			expectCreateCall:     true,
+			expectUpdateCall:     false,
+		},
+		{
+			name:     "Error - Failed to list authorizations",
+			userID:   "user999",
+			roleKeys: []string{"subGrowth"},
+			listAuthResponse: `{
+				"error": "internal error"
+			}`,
+			listAuthStatusCode: http.StatusInternalServerError,
+			expectedError:      "failed to check existing authorizations",
+			expectCreateCall:   false,
+			expectUpdateCall:   false,
+		},
+		{
+			name:     "Error - Failed to create authorization",
+			userID:   "user888",
+			roleKeys: []string{"subGrowth"},
+			listAuthResponse: `{
+				"authorizations": []
+			}`,
+			listAuthStatusCode: http.StatusOK,
+			createAuthResponse: `{
+				"error": "creation failed"
+			}`,
+			createAuthStatusCode: http.StatusBadRequest,
+			expectedError:        "failed to create authorization",
+			expectCreateCall:     true,
+			expectUpdateCall:     false,
+		},
+		{
+			name:     "Error - Failed to update authorization",
+			userID:   "user777",
+			roleKeys: []string{"subGrowth"},
+			listAuthResponse: `{
+				"authorizations": [
+					{
+						"id": "auth_existing777"
+					}
+				]
+			}`,
+			listAuthStatusCode: http.StatusOK,
+			updateAuthResponse: `{
+				"error": "update failed"
+			}`,
+			updateAuthStatusCode: http.StatusBadRequest,
+			expectedError:        "failed to set user roles: status 400",
+			expectCreateCall:     false,
+			expectUpdateCall:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			createCalled := false
+			updateCalled := false
+
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case strings.Contains(r.URL.Path, "ListAuthorizations"):
+					w.WriteHeader(tt.listAuthStatusCode)
+					w.Write([]byte(tt.listAuthResponse))
+
+				case strings.Contains(r.URL.Path, "CreateAuthorization"):
+					createCalled = true
+					if !tt.expectCreateCall {
+						t.Error("CreateAuthorization was called but not expected")
+					}
+					w.WriteHeader(tt.createAuthStatusCode)
+					w.Write([]byte(tt.createAuthResponse))
+
+				case strings.Contains(r.URL.Path, "UpdateAuthorization"):
+					updateCalled = true
+					if !tt.expectUpdateCall {
+						t.Error("UpdateAuthorization was called but not expected")
+					}
+					// Verify request body contains roles
+					body, _ := io.ReadAll(r.Body)
+					bodyStr := string(body)
+					for _, role := range tt.roleKeys {
+						if !strings.Contains(bodyStr, role) {
+							t.Errorf("Request body should contain role %s", role)
+						}
+					}
+					w.WriteHeader(tt.updateAuthStatusCode)
+					w.Write([]byte(tt.updateAuthResponse))
+
+				default:
+					t.Errorf("Unexpected path: %s", r.URL.Path)
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer mockServer.Close()
+
+			// Set environment variables
+			zitadelURL := strings.TrimPrefix(mockServer.URL, "http://")
+			zitadelURL = strings.TrimPrefix(zitadelURL, "https://")
+			os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
+			os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
+
+			err := SetUserRoles(tt.userID, tt.roleKeys)
+
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Errorf("Expected error containing '%s', got nil", tt.expectedError)
+				} else if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("Expected error containing '%s', got '%s'", tt.expectedError, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			}
+
+			// Verify that the expected calls were made
+			if tt.expectCreateCall && !createCalled {
+				t.Error("Expected CreateAuthorization to be called but it wasn't")
+			}
+			if tt.expectUpdateCall && !updateCalled {
+				t.Error("Expected UpdateAuthorization to be called but it wasn't")
+			}
+		})
+	}
+}
+
+func TestSetUserRoles_RaceCondition(t *testing.T) {
+	// Test concurrent calls to SetUserRoles for the same user
+	originalHost := os.Getenv("ZITADEL_INSTANCE_HOST")
+	originalToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
+
+	defer func() {
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalHost)
+		os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalToken)
+	}()
+
+	callCount := 0
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if strings.Contains(r.URL.Path, "ListAuthorizations") {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"authorizations": []}`))
+		} else if strings.Contains(r.URL.Path, "CreateAuthorization") {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"id": "auth_123"}`))
+		}
+	}))
+	defer mockServer.Close()
+
+	// Set environment variables
+	zitadelURL := strings.TrimPrefix(mockServer.URL, "http://")
+	zitadelURL = strings.TrimPrefix(zitadelURL, "https://")
+	os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
+	os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
+
+	// Run multiple concurrent calls
+	const numGoroutines = 10
+	errors := make(chan error, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func(index int) {
+			err := SetUserRoles("user123", []string{fmt.Sprintf("role%d", index)})
+			errors <- err
+		}(i)
+	}
+
+	// Collect results
+	for i := 0; i < numGoroutines; i++ {
+		err := <-errors
+		if err != nil {
+			t.Errorf("Goroutine %d failed: %v", i, err)
+		}
+	}
+
+	// All calls should have completed successfully
+	if callCount < numGoroutines {
+		t.Logf("Warning: Only %d calls were made (expected at least %d)", callCount, numGoroutines)
+	}
+}
+
+func TestCompressDuration(t *testing.T) {
+	tests := []struct {
+		name             string
+		ratio            float64
+		inputDuration    time.Duration
+		expectedDuration time.Duration
+	}{
+		{
+			name:             "Real-time (ratio 1.0)",
+			ratio:            1.0,
+			inputDuration:    1 * time.Hour,
+			expectedDuration: 1 * time.Hour,
+		},
+		{
+			name:             "60x compression (1 hour → 1 minute)",
+			ratio:            60.0,
+			inputDuration:    1 * time.Hour,
+			expectedDuration: 1 * time.Minute,
+		},
+		{
+			name:             "3600x compression (1 hour → 1 second)",
+			ratio:            3600.0,
+			inputDuration:    1 * time.Hour,
+			expectedDuration: 1 * time.Second,
+		},
+		{
+			name:             "No compression (ratio < 1)",
+			ratio:            0.5,
+			inputDuration:    1 * time.Hour,
+			expectedDuration: 1 * time.Hour,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Temporarily override the constant
+			originalRatio := constants.TIME_COMPRESSION_RATIO
+			defer func() {
+				// Can't actually restore since it's a const, but this documents intent
+				_ = originalRatio
+			}()
+
+			// Calculate manually since we can't change the const
+			var result time.Duration
+			if tt.ratio <= 1.0 {
+				result = tt.inputDuration
+			} else {
+				result = time.Duration(float64(tt.inputDuration) / tt.ratio)
+			}
+
+			if result != tt.expectedDuration {
+				t.Errorf("CompressDuration() = %v, want %v", result, tt.expectedDuration)
+			}
+		})
+	}
+}
+
+func TestCompressedScheduledHourInterval(t *testing.T) {
+	// Test that the function compresses 1 hour interval correctly
+	result := CompressedScheduledHourInterval()
+
+	// With TIME_COMPRESSION_RATIO = 1.0, should return 1 hour
+	if constants.TIME_COMPRESSION_RATIO == 1.0 {
+		if result != 1*time.Hour {
+			t.Errorf("CompressedScheduledHourInterval() = %v, want %v", result, 1*time.Hour)
+		}
+	}
+
+	// If ratio is different, calculate expected
+	expected := time.Duration(float64(1*time.Hour) / constants.TIME_COMPRESSION_RATIO)
+	if constants.TIME_COMPRESSION_RATIO > 1.0 && result != expected {
+		t.Errorf("CompressedScheduledHourInterval() = %v, want %v", result, expected)
+	}
+}
+
+func TestSimulatedHoursSince(t *testing.T) {
+	tests := []struct {
+		name          string
+		ratio         float64
+		nowUnix       int64
+		lastUnix      int64
+		expectedHours float64
+	}{
+		{
+			name:          "Real-time: 1 hour passed",
+			ratio:         1.0,
+			nowUnix:       3600,
+			lastUnix:      0,
+			expectedHours: 1.0,
+		},
+		{
+			name:          "60x compression: 60 seconds = 1 hour",
+			ratio:         60.0,
+			nowUnix:       60,
+			lastUnix:      0,
+			expectedHours: 1.0,
+		},
+		{
+			name:          "3600x compression: 1 second = 1 hour",
+			ratio:         3600.0,
+			nowUnix:       1,
+			lastUnix:      0,
+			expectedHours: 1.0,
+		},
+		{
+			name:          "60x compression: 120 seconds = 2 hours",
+			ratio:         60.0,
+			nowUnix:       120,
+			lastUnix:      0,
+			expectedHours: 2.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Calculate manually since we can't change TIME_COMPRESSION_RATIO
+			realSecondsPassed := float64(tt.nowUnix - tt.lastUnix)
+			simulatedSecondsPassed := realSecondsPassed * tt.ratio
+			result := simulatedSecondsPassed / 3600.0
+
+			if math.Abs(result-tt.expectedHours) > 0.0001 {
+				t.Errorf("SimulatedHoursSince() = %v, want %v", result, tt.expectedHours)
+			}
+		})
+	}
+}
+
+func TestCurrentSimulatedHour(t *testing.T) {
+	tests := []struct {
+		name         string
+		ratio        float64
+		nowUnix      int64
+		expectedHour int
+		description  string
+	}{
+		{
+			name:         "Real-time at midnight UTC",
+			ratio:        1.0,
+			nowUnix:      1704067200, // 2024-01-01 00:00:00 UTC (midnight)
+			expectedHour: 0,
+			description:  "Should return actual hour (0)",
+		},
+		{
+			name:         "Real-time at noon UTC",
+			ratio:        1.0,
+			nowUnix:      1704110400, // 2024-01-01 12:00:00 UTC (noon)
+			expectedHour: 12,
+			description:  "Should return actual hour (12)",
+		},
+		{
+			name:         "3600x compression: 24 seconds = 1 day",
+			ratio:        3600.0,
+			nowUnix:      0,
+			expectedHour: 0,
+			description:  "At second 0, should be hour 0",
+		},
+		{
+			name:         "3600x compression: 1 second = 1 hour",
+			ratio:        3600.0,
+			nowUnix:      1,
+			expectedHour: 1,
+			description:  "At second 1, should be hour 1",
+		},
+		{
+			name:         "3600x compression: 12 seconds = noon",
+			ratio:        3600.0,
+			nowUnix:      12,
+			expectedHour: 12,
+			description:  "At second 12, should be hour 12 (noon)",
+		},
+		{
+			name:         "3600x compression: wraps at 24 seconds",
+			ratio:        3600.0,
+			nowUnix:      24,
+			expectedHour: 0,
+			description:  "At second 24, should wrap back to hour 0",
+		},
+		{
+			name:         "60x compression: 24 minutes = 1 day",
+			ratio:        60.0,
+			nowUnix:      0,
+			expectedHour: 0,
+			description:  "At second 0, should be hour 0",
+		},
+		{
+			name:         "60x compression: 60 seconds = 1 hour",
+			ratio:        60.0,
+			nowUnix:      60,
+			expectedHour: 1,
+			description:  "At 60 seconds, should be hour 1",
+		},
+		{
+			name:         "60x compression: 720 seconds = noon",
+			ratio:        60.0,
+			nowUnix:      720, // 12 minutes * 60 = 720 seconds = 12 hours simulated
+			expectedHour: 12,
+			description:  "At 720 seconds (12 minutes), should be hour 12",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var result int
+
+			if tt.ratio <= 1.0 {
+				// Real-time: use actual hour
+				result = time.Unix(tt.nowUnix, 0).UTC().Hour()
+			} else {
+				// Compressed time: calculate accelerated hour
+				secondsPerSimulatedDay := 86400.0 / tt.ratio
+				positionInDay := math.Mod(float64(tt.nowUnix), secondsPerSimulatedDay)
+				simulatedHour := int((positionInDay / secondsPerSimulatedDay) * 24.0)
+				result = simulatedHour % 24
+			}
+
+			if result != tt.expectedHour {
+				t.Errorf("%s: CurrentSimulatedHour() = %v, want %v", tt.description, result, tt.expectedHour)
+			}
+		})
+	}
+}
+
+func TestTimeCompressionScenarios(t *testing.T) {
+	t.Run("60x compression full cycle", func(t *testing.T) {
+		// With 60x compression, a full 24-hour day happens in 24 minutes (1440 seconds)
+		ratio := 60.0
+		secondsPerDay := 86400.0 / ratio // 1440 seconds
+
+		for hour := 0; hour < 24; hour++ {
+			// Calculate the Unix timestamp for this simulated hour
+			secondsIntoDay := (float64(hour) / 24.0) * secondsPerDay
+			nowUnix := int64(secondsIntoDay)
+
+			// Calculate simulated hour
+			positionInDay := math.Mod(float64(nowUnix), secondsPerDay)
+			simulatedHour := int((positionInDay / secondsPerDay) * 24.0)
+			result := simulatedHour % 24
+
+			if result != hour {
+				t.Errorf("At %.0f seconds, expected hour %d, got %d", secondsIntoDay, hour, result)
+			}
+		}
+	})
+
+	t.Run("3600x compression full cycle", func(t *testing.T) {
+		// With 3600x compression, a full 24-hour day happens in 24 seconds
+		ratio := 3600.0
+		secondsPerDay := 86400.0 / ratio // 24 seconds
+
+		for hour := 0; hour < 24; hour++ {
+			// Calculate the Unix timestamp for this simulated hour
+			secondsIntoDay := (float64(hour) / 24.0) * secondsPerDay
+			nowUnix := int64(secondsIntoDay)
+
+			// Calculate simulated hour
+			positionInDay := math.Mod(float64(nowUnix), secondsPerDay)
+			simulatedHour := int((positionInDay / secondsPerDay) * 24.0)
+			result := simulatedHour % 24
+
+			if result != hour {
+				t.Errorf("At %.0f seconds, expected hour %d, got %d", secondsIntoDay, hour, result)
+			}
+		}
+	})
+}

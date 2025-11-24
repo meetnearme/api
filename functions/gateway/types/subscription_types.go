@@ -29,7 +29,8 @@ type CustomerSubscription struct {
 	CurrentPeriodStart time.Time          `json:"current_period_start"`
 	CurrentPeriodEnd   time.Time          `json:"current_period_end"`
 	CancelAtPeriodEnd  bool               `json:"cancel_at_period_end"`
-	CanceledAt         *time.Time         `json:"canceled_at,omitempty"`
+	CancelAt           *time.Time         `json:"cancel_at,omitempty"`   // When the subscription will be canceled
+	CanceledAt         *time.Time         `json:"canceled_at,omitempty"` // When the subscription was canceled
 	PlanID             string             `json:"plan_id"`
 	PlanName           string             `json:"plan_name"`
 	PlanAmount         int64              `json:"plan_amount"`
@@ -49,7 +50,8 @@ type WebhookEvent struct {
 
 // SubscriptionPlan represents a subscription plan from Stripe
 type SubscriptionPlan struct {
-	ID            string            `json:"id"`
+	ID            string            `json:"id"`       // Product ID
+	PriceID       string            `json:"price_id"` // Price ID for checkout
 	Name          string            `json:"name"`
 	Description   string            `json:"description"`
 	Amount        int64             `json:"amount"`
@@ -89,6 +91,13 @@ func ConvertStripeSubscription(stripeSub *stripe.Subscription) *CustomerSubscrip
 		UpdatedAt:         time.Unix(stripeSub.Created, 0), // Use Created as fallback since Updated doesn't exist
 	}
 
+	// Handle cancel_at (scheduled cancellation timestamp)
+	if stripeSub.CancelAt > 0 {
+		cancelAt := time.Unix(stripeSub.CancelAt, 0)
+		subscription.CancelAt = &cancelAt
+	}
+
+	// Handle canceled_at (actual cancellation timestamp)
 	if stripeSub.CanceledAt > 0 {
 		canceledAt := time.Unix(stripeSub.CanceledAt, 0)
 		subscription.CanceledAt = &canceledAt
@@ -121,7 +130,8 @@ func ConvertStripeSubscription(stripeSub *stripe.Subscription) *CustomerSubscrip
 // ConvertStripeProduct converts a Stripe product to our SubscriptionPlan type
 func ConvertStripeProduct(product *stripe.Product, price *stripe.Price) *SubscriptionPlan {
 	plan := &SubscriptionPlan{
-		ID:          price.ID,
+		ID:          product.ID, // Product ID
+		PriceID:     price.ID,   // Price ID for checkout
 		Name:        product.Name,
 		Description: product.Description,
 		Amount:      price.UnitAmount,
@@ -153,15 +163,21 @@ func (s *CustomerSubscription) IsPastDue() bool {
 	return s.Status == SubscriptionStatusPastDue
 }
 
+// IsScheduledToCancel returns true if the subscription is scheduled to cancel
+// This checks both cancel_at_period_end (boolean) and cancel_at (timestamp)
+func (s *CustomerSubscription) IsScheduledToCancel() bool {
+	return s.CancelAtPeriodEnd || (s.CancelAt != nil && s.CancelAt.After(time.Now()))
+}
+
 // GetZitadelRole returns the corresponding Zitadel role for this subscription plan
 func (s *CustomerSubscription) GetZitadelRole() string {
 	// Map subscription plans to Zitadel roles based on plan name
 	switch s.PlanName {
 	case "Growth":
-		return constants.Roles[constants.SubscrGrowth]
+		return constants.Roles[constants.SubGrowth]
 	case "Seed Community":
-		return constants.Roles[constants.SubscrSeed]
+		return constants.Roles[constants.SubSeed]
 	default:
-		return constants.Roles[constants.SubscrGrowth] // Default to Growth role
+		return constants.Roles[constants.SubGrowth] // Default to Growth role
 	}
 }

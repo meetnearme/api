@@ -22,7 +22,6 @@ import (
 
 	// internal_types "github.com/meetnearme/api/functions/gateway/types"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/constants"
@@ -36,6 +35,23 @@ import (
 )
 
 var searchUsersByIDs = helpers.SearchUsersByIDs
+
+// customRoundTripperForStripe is a custom HTTP round tripper that redirects Stripe API calls to a mock server
+type customRoundTripperForStripe struct {
+	transport http.RoundTripper
+	mockURL   string
+}
+
+func (c *customRoundTripperForStripe) RoundTrip(req *http.Request) (*http.Response, error) {
+	// If this is a Stripe API request, redirect it to our mock server
+	if strings.Contains(req.URL.Host, "api.stripe.com") {
+		mockURL, _ := url.Parse(c.mockURL)
+		req.URL.Scheme = mockURL.Scheme
+		req.URL.Host = mockURL.Host
+	}
+	// Use the underlying transport to make the request
+	return c.transport.RoundTrip(req)
+}
 
 func TestPostEventHandler(t *testing.T) {
 	// Store original env vars and transport
@@ -1352,12 +1368,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 		stripeSignature := fmt.Sprintf("t=%d,v1=%s", timestamp, signature)
 
 		r := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer(payload))
-		ctx := context.WithValue(r.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-			Headers: map[string]string{
-				"stripe-signature": stripeSignature,
-			},
-		})
-		r = r.WithContext(ctx)
+		r.Header.Set("stripe-signature", stripeSignature)
 
 		w := httptest.NewRecorder()
 		// Execute handler
@@ -1450,12 +1461,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 
 				// Create request
 				r := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer(payload))
-				ctx := context.WithValue(r.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-					Headers: map[string]string{
-						"stripe-signature": stripeSignature,
-					},
-				})
-				r = r.WithContext(ctx)
+				r.Header.Set("stripe-signature", stripeSignature)
 				w := httptest.NewRecorder()
 
 				mockPurchasableService := &dynamodb_service.MockPurchasableService{
@@ -1525,12 +1531,7 @@ func TestHandleCheckoutWebhook(t *testing.T) {
 	})
 	t.Run("handles invalid signature", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer([]byte(`{}`)))
-		ctx := context.WithValue(req.Context(), constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-			Headers: map[string]string{
-				"stripe-signature": "invalid_signature",
-			},
-		})
-		req = req.WithContext(ctx)
+		req.Header.Set("stripe-signature", "invalid_signature")
 		w := httptest.NewRecorder()
 		handler := NewPurchasableWebhookHandler(&dynamodb_service.MockPurchasableService{}, &dynamodb_service.MockPurchaseService{})
 		err := handler.HandleCheckoutWebhook(w, req)
@@ -2163,6 +2164,647 @@ func TestSearchUsersHandler(t *testing.T) {
 				if contentType != "application/json" {
 					t.Errorf("expected Content-Type 'application/json', got %q", contentType)
 				}
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Tests for CheckRole handler
+// =============================================================================
+
+func TestCheckRole(t *testing.T) {
+	tests := []struct {
+		name           string
+		userInfo       constants.UserInfo
+		roleClaims     []constants.RoleClaim
+		queryRole      string
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name: "Success - User has the requested role",
+			userInfo: constants.UserInfo{
+				Sub:   "user123",
+				Email: "test@example.com",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: "subGrowth"},
+				{Role: "eventAdmin"},
+			},
+			queryRole:      "subGrowth",
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"status":"success","message":"` + constants.ROLE_ACTIVE_MESSAGE + `"}`,
+		},
+		{
+			name: "Success - User has multiple roles including requested",
+			userInfo: constants.UserInfo{
+				Sub:   "user456",
+				Email: "test2@example.com",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: "subSeed"},
+				{Role: "orgAdmin"},
+				{Role: "eventAdmin"},
+			},
+			queryRole:      "orgAdmin",
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"status":"success","message":"` + constants.ROLE_ACTIVE_MESSAGE + `"}`,
+		},
+		{
+			name: "Not Found - User does not have the requested role",
+			userInfo: constants.UserInfo{
+				Sub:   "user789",
+				Email: "test3@example.com",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: "subSeed"},
+			},
+			queryRole:      "subGrowth",
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   `{"error":{"message":"ERR: {\"message\":\"` + constants.ROLE_NOT_FOUND_MESSAGE + `\",\"status\":\"error\"}"}}`,
+		},
+		{
+			name: "Not Found - User has no roles at all",
+			userInfo: constants.UserInfo{
+				Sub:   "user000",
+				Email: "test4@example.com",
+			},
+			roleClaims:     []constants.RoleClaim{},
+			queryRole:      "subGrowth",
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   `{"error":{"message":"ERR: {\"message\":\"` + constants.ROLE_NOT_FOUND_MESSAGE + `\",\"status\":\"error\"}"}}`,
+		},
+		{
+			name: "Bad Request - Missing role parameter",
+			userInfo: constants.UserInfo{
+				Sub:   "user999",
+				Email: "test5@example.com",
+			},
+			roleClaims:     []constants.RoleClaim{{Role: "subGrowth"}},
+			queryRole:      "",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Missing role parameter",
+		},
+		{
+			name:           "Unauthorized - No user in context",
+			userInfo:       constants.UserInfo{},
+			roleClaims:     []constants.RoleClaim{},
+			queryRole:      "subGrowth",
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   "Unauthorized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request with query parameter
+			url := "/api/auth/check-role"
+			if tt.queryRole != "" {
+				url += "?role=" + tt.queryRole
+			}
+			req := httptest.NewRequest("GET", url, nil)
+
+			// Add user info and role claims to context
+			ctx := req.Context()
+			if tt.userInfo.Sub != "" {
+				ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			}
+			if len(tt.roleClaims) > 0 {
+				ctx = context.WithValue(ctx, "roleClaims", tt.roleClaims)
+			}
+			req = req.WithContext(ctx)
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call the handler - CheckRole returns a handler function, so we need to call it
+			handlerFunc := CheckRole(w, req)
+			handlerFunc(w, req)
+
+			// Verify status code
+			if w.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+
+			// Verify response body
+			gotBody := strings.TrimSpace(w.Body.String())
+			if tt.expectedStatus == http.StatusOK || tt.expectedStatus == http.StatusNotFound {
+				// For JSON responses, normalize and compare
+				var got, expected map[string]interface{}
+				if err := json.Unmarshal([]byte(gotBody), &got); err != nil {
+					t.Fatalf("failed to unmarshal response: %v", err)
+				}
+				if err := json.Unmarshal([]byte(tt.expectedBody), &expected); err != nil {
+					t.Fatalf("failed to unmarshal expected body: %v", err)
+				}
+				if !reflect.DeepEqual(got, expected) {
+					t.Errorf("Expected body %v, got %v", expected, got)
+				}
+			} else {
+				if !strings.Contains(gotBody, tt.expectedBody) {
+					t.Errorf("Expected body to contain '%s', got '%s'", tt.expectedBody, gotBody)
+				}
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Tests for CreateSubscriptionCheckoutSession handler
+// =============================================================================
+
+func TestCreateSubscriptionCheckoutSession(t *testing.T) {
+	// Save original environment variables
+	originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
+	originalApexURL := os.Getenv("APEX_URL")
+	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalTransport := http.DefaultTransport
+
+	defer func() {
+		os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
+		os.Setenv("APEX_URL", originalApexURL)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlan)
+		http.DefaultTransport = originalTransport
+	}()
+
+	// Set up test environment
+	os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock")
+	os.Setenv("APEX_URL", "https://test.example.com")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+
+	tests := []struct {
+		name               string
+		userInfo           constants.UserInfo
+		roleClaims         []constants.RoleClaim
+		subscriptionPlanID string
+		expectedRedirect   string
+		expectedStatus     int
+		mockStripeCustomer bool
+		mockStripeError    bool
+	}{
+		{
+			name: "Unauthorized - No user ID",
+			userInfo: constants.UserInfo{
+				Sub: "",
+			},
+			roleClaims:         []constants.RoleClaim{},
+			subscriptionPlanID: "price_growth_test",
+			expectedRedirect:   "",
+			expectedStatus:     http.StatusUnauthorized,
+		},
+		{
+			name: "Bad Request - Missing subscription plan ID",
+			userInfo: constants.UserInfo{
+				Sub:   "user123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			roleClaims:         []constants.RoleClaim{},
+			subscriptionPlanID: "",
+			expectedRedirect:   "https://test.example.com/pricing?error=checkout_failed",
+			expectedStatus:     http.StatusSeeOther,
+		},
+		{
+			name: "Bad Request - Invalid subscription plan ID",
+			userInfo: constants.UserInfo{
+				Sub:   "user123",
+				Email: "test@example.com",
+				Name:  "Test User",
+			},
+			roleClaims:         []constants.RoleClaim{},
+			subscriptionPlanID: "invalid_plan",
+			expectedRedirect:   "https://test.example.com/pricing?error=checkout_failed",
+			expectedStatus:     http.StatusSeeOther,
+		},
+		{
+			name: "Already Subscribed - User with Seed subscription tries to checkout Seed",
+			userInfo: constants.UserInfo{
+				Sub:   "user_seed",
+				Email: "seed@example.com",
+				Name:  "Seed User",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: constants.Roles[constants.SubSeed]},
+			},
+			subscriptionPlanID: "price_seed_test",
+			expectedRedirect:   "https://test.example.com/pricing?error=already_subscribed",
+			expectedStatus:     http.StatusSeeOther,
+		},
+		{
+			name: "Already Subscribed - User with Growth subscription tries to checkout Growth",
+			userInfo: constants.UserInfo{
+				Sub:   "user_growth",
+				Email: "growth@example.com",
+				Name:  "Growth User",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: constants.Roles[constants.SubGrowth]},
+			},
+			subscriptionPlanID: "price_growth_test",
+			expectedRedirect:   "https://test.example.com/pricing?error=already_subscribed",
+			expectedStatus:     http.StatusSeeOther,
+		},
+		{
+			name: "Already Subscribed - User with Growth subscription tries to checkout Seed (Growth includes Seed)",
+			userInfo: constants.UserInfo{
+				Sub:   "user_growth_seed",
+				Email: "growth@example.com",
+				Name:  "Growth User",
+			},
+			roleClaims: []constants.RoleClaim{
+				{Role: constants.Roles[constants.SubGrowth]},
+			},
+			subscriptionPlanID: "price_seed_test",
+			expectedRedirect:   "https://test.example.com/pricing?error=already_subscribed",
+			expectedStatus:     http.StatusSeeOther,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request with query parameter
+			url := "/api/checkout-subscription"
+			if tt.subscriptionPlanID != "" {
+				url += "?subscription_plan_id=" + tt.subscriptionPlanID
+			}
+			req := httptest.NewRequest("GET", url, nil)
+
+			// Add user info and role claims to context
+			ctx := req.Context()
+			if tt.userInfo.Sub != "" {
+				ctx = context.WithValue(ctx, "userInfo", tt.userInfo)
+			}
+			if len(tt.roleClaims) > 0 {
+				ctx = context.WithValue(ctx, "roleClaims", tt.roleClaims)
+			}
+			req = req.WithContext(ctx)
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call the handler
+			err := CreateSubscriptionCheckoutSession(w, req)
+			if err != nil && tt.expectedStatus != http.StatusSeeOther {
+				t.Logf("Handler returned error: %v", err)
+			}
+
+			// Verify status code or redirect
+			result := w.Result()
+			if result.StatusCode != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, result.StatusCode)
+			}
+
+			// For redirects, verify location header
+			if tt.expectedStatus == http.StatusSeeOther && tt.expectedRedirect != "" {
+				location := result.Header.Get("Location")
+				if location != tt.expectedRedirect {
+					t.Errorf("Expected redirect to '%s', got '%s'", tt.expectedRedirect, location)
+				}
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Tests for HandleSubscriptionWebhook handler
+// =============================================================================
+
+func TestHandleSubscriptionWebhook(t *testing.T) {
+	// Save original environment variables
+	originalWebhookSecret := os.Getenv("STRIPE_CHECKOUT_WEBHOOK_SECRET")
+	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalZitadelHost := os.Getenv("ZITADEL_INSTANCE_HOST")
+	originalZitadelToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
+
+	defer func() {
+		os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", originalWebhookSecret)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlan)
+		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelHost)
+		os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalZitadelToken)
+	}()
+
+	// Set up test environment
+	testWebhookSecret := "whsec_test_secret"
+	os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", testWebhookSecret)
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "prod_growth_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "prod_seed_test")
+	os.Setenv("ZITADEL_INSTANCE_HOST", "https://mock-zitadel.example.com")
+	os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "mock_token")
+
+	// Setup mock Zitadel server for GetUserRoles and SetUserRoles calls
+	mockZitadelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && strings.Contains(r.URL.Path, "ListAuthorizations") {
+			// Mock GetUserRoles response - return empty list so we create new auth
+			response := map[string]interface{}{
+				"authorizations": []map[string]interface{}{},
+			}
+			json.NewEncoder(w).Encode(response)
+		} else if r.Method == "POST" && strings.Contains(r.URL.Path, "CreateAuthorization") {
+			// Mock CreateAuthorization response
+			response := map[string]interface{}{
+				"id": "auth_123",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		} else if r.Method == "POST" && strings.Contains(r.URL.Path, "UpdateAuthorization") {
+			// Mock SetUserRoles response
+			response := map[string]interface{}{
+				"id": "auth_123",
+			}
+			json.NewEncoder(w).Encode(response)
+		} else {
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}
+	}))
+	defer mockZitadelServer.Close()
+
+	// Remove the protocol from the URL since helpers adds it
+	zitadelURL := strings.TrimPrefix(mockZitadelServer.URL, "http://")
+	os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
+
+	t.Run("handles customer.subscription.created with Growth plan", func(t *testing.T) {
+		// Save original transport and stripe key
+		originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
+		originalTransport := http.DefaultTransport
+		defer func() {
+			os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
+			http.DefaultTransport = originalTransport
+		}()
+
+		os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
+
+		// Create mock Stripe server
+		mockStripeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "GET" && strings.Contains(r.URL.Path, "/v1/customers/cus_test123") {
+				customerResponse := map[string]interface{}{
+					"id": "cus_test123",
+					"metadata": map[string]interface{}{
+						"zitadel_user_id": "zitadel_user_123",
+					},
+				}
+				json.NewEncoder(w).Encode(customerResponse)
+			} else {
+				http.Error(w, "Not Found", http.StatusNotFound)
+			}
+		}))
+		defer mockStripeServer.Close()
+
+		// Setup custom round tripper to redirect Stripe API calls to mock
+		customRoundTripper := &customRoundTripperForStripe{
+			transport: http.DefaultTransport,
+			mockURL:   mockStripeServer.URL,
+		}
+		http.DefaultTransport = test_helpers.NewLoggingTransport(customRoundTripper, t)
+		services.ResetStripeClient()
+
+		payload := []byte(`{
+			"type": "customer.subscription.created",
+			"api_version": "2025-09-30.clover",
+			"data": {
+				"object": {
+					"id": "sub_test123",
+					"customer": "cus_test123",
+					"items": {
+						"data": [
+							{
+								"price": {
+									"product": "prod_growth_test"
+								}
+							}
+						]
+					}
+				}
+			}
+		}`)
+
+		now := time.Now()
+		timestamp := now.Unix()
+		mac := hmac.New(sha256.New, []byte(testWebhookSecret))
+		mac.Write([]byte(fmt.Sprintf("%d", timestamp)))
+		mac.Write([]byte("."))
+		mac.Write(payload)
+		signature := hex.EncodeToString(mac.Sum(nil))
+		stripeSignature := fmt.Sprintf("t=%d,v1=%s", timestamp, signature)
+
+		req := httptest.NewRequest(http.MethodPost, "/webhook/subscription", bytes.NewBuffer(payload))
+		req.Header.Set("stripe-signature", stripeSignature)
+		w := httptest.NewRecorder()
+
+		subscriptionService := services.NewStripeSubscriptionService()
+		handler := NewSubscriptionWebhookHandler(subscriptionService)
+
+		err := handler.HandleSubscriptionWebhook(w, req)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status code %v, got %v", http.StatusOK, w.Code)
+		}
+
+		// Verify response contains expected subscription and customer IDs
+		expectedSubscriptionID := "sub_test123"
+		expectedCustomerID := "cus_test123"
+		if !strings.Contains(w.Body.String(), expectedSubscriptionID) {
+			t.Errorf("expected body to contain subscription ID '%s', got '%s'", expectedSubscriptionID, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), expectedCustomerID) {
+			t.Errorf("expected body to contain customer ID '%s', got '%s'", expectedCustomerID, w.Body.String())
+		}
+	})
+
+	t.Run("handles customer.subscription.created with Seed plan", func(t *testing.T) {
+		// Save original transport and stripe key
+		originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
+		originalTransport := http.DefaultTransport
+		defer func() {
+			os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
+			http.DefaultTransport = originalTransport
+		}()
+
+		os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
+
+		// Create mock Stripe server
+		mockStripeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "GET" && strings.Contains(r.URL.Path, "/v1/customers/cus_test456") {
+				customerResponse := map[string]interface{}{
+					"id": "cus_test456",
+					"metadata": map[string]interface{}{
+						"zitadel_user_id": "zitadel_user_456",
+					},
+				}
+				json.NewEncoder(w).Encode(customerResponse)
+			} else {
+				http.Error(w, "Not Found", http.StatusNotFound)
+			}
+		}))
+		defer mockStripeServer.Close()
+
+		// Setup custom round tripper to redirect Stripe API calls to mock
+		customRoundTripper := &customRoundTripperForStripe{
+			transport: http.DefaultTransport,
+			mockURL:   mockStripeServer.URL,
+		}
+		http.DefaultTransport = test_helpers.NewLoggingTransport(customRoundTripper, t)
+		services.ResetStripeClient()
+
+		payload := []byte(`{
+			"type": "customer.subscription.created",
+			"api_version": "2025-09-30.clover",
+			"data": {
+				"object": {
+					"id": "sub_test456",
+					"customer": "cus_test456",
+					"items": {
+						"data": [
+							{
+								"price": {
+									"product": "prod_seed_test"
+								}
+							}
+						]
+					}
+				}
+			}
+		}`)
+
+		now := time.Now()
+		timestamp := now.Unix()
+		mac := hmac.New(sha256.New, []byte(testWebhookSecret))
+		mac.Write([]byte(fmt.Sprintf("%d", timestamp)))
+		mac.Write([]byte("."))
+		mac.Write(payload)
+		signature := hex.EncodeToString(mac.Sum(nil))
+		stripeSignature := fmt.Sprintf("t=%d,v1=%s", timestamp, signature)
+
+		req := httptest.NewRequest(http.MethodPost, "/webhook/subscription", bytes.NewBuffer(payload))
+		req.Header.Set("stripe-signature", stripeSignature)
+		w := httptest.NewRecorder()
+
+		subscriptionService := services.NewStripeSubscriptionService()
+		handler := NewSubscriptionWebhookHandler(subscriptionService)
+
+		err := handler.HandleSubscriptionWebhook(w, req)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status code %v, got %v", http.StatusOK, w.Code)
+		}
+
+		// Verify response contains expected subscription and customer IDs
+		expectedSubscriptionID := "sub_test456"
+		expectedCustomerID := "cus_test456"
+		if !strings.Contains(w.Body.String(), expectedSubscriptionID) {
+			t.Errorf("expected body to contain subscription ID '%s', got '%s'", expectedSubscriptionID, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), expectedCustomerID) {
+			t.Errorf("expected body to contain customer ID '%s', got '%s'", expectedCustomerID, w.Body.String())
+		}
+	})
+
+	t.Run("handles unhandled event type", func(t *testing.T) {
+		payload := []byte(`{
+			"id": "evt_test",
+			"type": "customer.created",
+			"api_version": "2025-09-30.clover",
+			"data": {
+				"object": {}
+			}
+		}`)
+
+		// Generate signed payload
+		now := time.Now()
+		timestamp := now.Unix()
+		mac := hmac.New(sha256.New, []byte(testWebhookSecret))
+		mac.Write([]byte(fmt.Sprintf("%d", timestamp)))
+		mac.Write([]byte("."))
+		mac.Write(payload)
+		signature := hex.EncodeToString(mac.Sum(nil))
+		stripeSignature := fmt.Sprintf("t=%d,v1=%s", timestamp, signature)
+
+		req := httptest.NewRequest(http.MethodPost, "/webhook/subscription", bytes.NewBuffer(payload))
+		req.Header.Set("stripe-signature", stripeSignature)
+		w := httptest.NewRecorder()
+
+		subscriptionService := services.NewStripeSubscriptionService()
+		handler := NewSubscriptionWebhookHandler(subscriptionService)
+
+		err := handler.HandleSubscriptionWebhook(w, req)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status code %v, got %v", http.StatusOK, w.Code)
+		}
+
+		expectedBody := "Unhandled event type"
+		if !strings.Contains(w.Body.String(), expectedBody) {
+			t.Errorf("expected body to contain '%s', got '%s'", expectedBody, w.Body.String())
+		}
+	})
+}
+
+// =============================================================================
+// Test helper functions for subscription handlers
+// =============================================================================
+
+func TestValidateSubscriptionPlanID(t *testing.T) {
+	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+
+	defer func() {
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlan)
+	}()
+
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed")
+
+	tests := []struct {
+		name     string
+		planID   string
+		expected bool
+	}{
+		{
+			name:     "Valid Growth plan",
+			planID:   "price_growth",
+			expected: true,
+		},
+		{
+			name:     "Valid Seed plan",
+			planID:   "price_seed",
+			expected: true,
+		},
+		{
+			name:     "Invalid plan ID",
+			planID:   "price_invalid",
+			expected: false,
+		},
+		{
+			name:     "Empty plan ID",
+			planID:   "",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			growthPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+			seedPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+
+			isValid := tt.planID == growthPlanID || tt.planID == seedPlanID
+
+			if isValid != tt.expected {
+				t.Errorf("Expected validation result %v, got %v for plan ID '%s'", tt.expected, isValid, tt.planID)
 			}
 		})
 	}

@@ -269,6 +269,10 @@
     "SST_Table_tableName_Votes": {
       "description": "The name of the Votes table for SST",
       "required": true
+    },
+    "POSTGRES_MIGRATIONS_DIR": {
+      "description": "The directory for the Postgres migrations",
+      "required": true
     }
   }
 }

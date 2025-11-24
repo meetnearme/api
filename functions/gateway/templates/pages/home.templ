@@ -2,37 +2,53 @@ package pages
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
 
-script navigateToSlideHandler(index int) {
-		const currentIndex = parseInt(document.getElementById('current-slide-index').value);
+script navigateToSlideHandler(index int, eventId string) {
+		// Find the carousel container for this specific event
+		const carouselContainer = document.getElementById('carousel-container-' + eventId);
+		if (!carouselContainer) {
+				return;
+		}
+
+		const currentIndex = parseInt(document.getElementById('current-slide-index-' + eventId).value);
 		const newIndex = currentIndex + index;
-		const totalSlides = document.querySelectorAll('.carousel-item').length;
+
+		// Only count carousel items within this specific carousel container
+		const totalSlides = carouselContainer.querySelectorAll('.carousel-item').length;
 
 		// Only proceed if newIndex is within bounds (0 to totalSlides-1)
 		if (newIndex >= 0 && newIndex < totalSlides) {
-				const slide = document.getElementById(`slide-${newIndex}`);
+				const slide = document.getElementById(`slide-${eventId}-${newIndex}`);
 				if (slide) {
 						slide.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-						document.getElementById('current-slide-index').value = newIndex;
+						document.getElementById('current-slide-index-' + eventId).value = newIndex;
+
+						// Get control buttons specific to this carousel
+						const leftControl = document.getElementById('carousel-control-left-' + eventId);
+						const rightControl = document.getElementById('carousel-control-right-' + eventId);
+
 						if (newIndex == 0) {
-								document.getElementsByClassName('carousel-control-left')[0].classList.add('hidden');
+								if (leftControl) leftControl.classList.add('hidden');
 						} else {
-								document.getElementsByClassName('carousel-control-left')[0].classList.remove('hidden');
+								if (leftControl) leftControl.classList.remove('hidden');
 						}
 						if (newIndex == totalSlides - 1) {
-								document.getElementsByClassName('carousel-control-right')[0].classList.add('hidden');
+								if (rightControl) rightControl.classList.add('hidden');
 						} else {
-								document.getElementsByClassName('carousel-control-right')[0].classList.remove('hidden');
+								if (rightControl) rightControl.classList.remove('hidden');
 						}
 				}
 		}
@@ -58,71 +74,162 @@ const eventLocationDataId = "event-location"
 const eventStartTimeDataId = "event-start-time"
 const eventUrlDataId = "data-url"
 
-templ EventsInner(events []types.Event, mode string, roleClaims []constants.RoleClaim, userId string, pageUser *types.UserSearchResult) {
+func getGroupedEvents(events []types.Event) (map[string][]types.Event, []string) {
+	groupedEvents := make(map[string][]types.Event)
+	// Track which groups we've seen and their order index
+	groupIndexMap := make(map[string]int)
+	groupIdx := 0
+
+	for _, ev := range events {
+		// group events by ones that share a name + latitude + longitude
+		// These are recurrences - same event at same location but different dates
+		if ev.Lat != 0 && ev.Long != 0 && ev.Name != "" {
+			// Create the natural key (without prefix)
+			naturalKey := ev.Name + strconv.FormatFloat(ev.Lat, 'f', -1, 64) + strconv.FormatFloat(ev.Long, 'f', -1, 64)
+
+			// Check if this is the first occurrence of this group
+			if _, exists := groupIndexMap[naturalKey]; !exists {
+				// First occurrence: assign it an index
+				groupIndexMap[naturalKey] = groupIdx
+				groupIdx++
+			}
+
+			// Use prefixed key with zero-padding to maintain order: "__{idx:04d}__{naturalKey}"
+			// Padding with 4 digits (0000-9999) ensures correct lexicographic ordering
+			orderedKey := fmt.Sprintf("__%04d__%s", groupIndexMap[naturalKey], naturalKey)
+			groupedEvents[orderedKey] = append(groupedEvents[orderedKey], ev)
+		}
+	}
+
+	// Sort events within each group by StartTime
+	for key := range groupedEvents {
+		sort.Slice(groupedEvents[key], func(i, j int) bool {
+			return groupedEvents[key][i].StartTime < groupedEvents[key][j].StartTime
+		})
+	}
+
+	// Extract and sort keys before returning
+	sortedKeys := make([]string, 0, len(groupedEvents))
+	for k := range groupedEvents {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	return groupedEvents, sortedKeys
+}
+
+templ EventsInner(events []types.Event, mode string, roleClaims []constants.RoleClaim, userId string, pageUser *types.UserSearchResult, embedMode bool, embedBaseUrl string) {
 	if mode == constants.EV_MODE_UPCOMING || mode == "" {
+		{{ groupedEvents, sortedKeys := getGroupedEvents(events) }}
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
 				No events found, try changing your filters like location, date, and time, or	<a class="link-text" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>expand your search radius</a>
 			</p>
+		} else if len(sortedKeys) == 0 {
+			<p class="text-md md:text-lg text-center mt-5">
+				No events found, try changing your filters like location, date, and time, or	<a class="link-text" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>expand your search radius</a>
+			</p>
 		} else {
-			for _, ev := range events {
+			for _, key := range sortedKeys {
+				{{ ev := groupedEvents[key] }}
 				<div class="flex w-full relative pb-24 md:pb-4">
-					if helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SyndicateAdmin]}) {
-						@ReShareButton(ev)
+					if !embedMode && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth]}) {
+						@ReShareButton(ev[0])
 					}
-					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
-						<img
-							loading="lazy"
-							src={ helpers.GetImgUrlFromHash(ev) }
-							alt=""
-							class="object-cover object-position-25-25 w-full aspect-[4/3] md:aspect-[16/9] opacity-50 md:opacity-30 md:hover:opacity-75 transition-all"
-						/>
-					</a>
+					if embedMode {
+						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } class="flex w-full" href={ templ.URL(embedBaseUrl + "/event/" + ev[0].Id) }>
+							<img
+								loading="lazy"
+								src={ helpers.GetImgUrlFromHash(ev[0]) }
+								alt=""
+								class="object-cover object-position-25-25 w-full aspect-[4/3] md:aspect-[16/9] opacity-50 md:opacity-30 md:hover:opacity-75 transition-all"
+							/>
+						</a>
+					} else {
+						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } class="flex w-full" href={ templ.URL("/event/" + ev[0].Id) }>
+							<img
+								loading="lazy"
+								src={ helpers.GetImgUrlFromHash(ev[0]) }
+								alt=""
+								class="object-cover object-position-25-25 w-full aspect-[4/3] md:aspect-[16/9] opacity-50 md:opacity-30 md:hover:opacity-75 transition-all"
+							/>
+						</a>
+					}
 					<div class="flex flex-col justify-between w-full p-4 md:p-12 bg-gradient-to-t from-base-100/70 from-80% to-transparent absolute bottom-0 left-0">
 						<div class="mb-2">
-							<h2 data-id={ eventTitleDataId } class="text-2xl md:text-3xl">{ ev.Name }</h2>
-							<p data-id={ eventStartTimeDataId } class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } - { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } | { ev.Address }</p>
+							<h2 data-id={ eventTitleDataId } class="text-2xl md:text-3xl">{ ev[0].Name }</h2>
+							if len(ev) > 1 {
+								<p data-id={ eventStartTimeDataId } class="text-sm md:text-base">{ ev[0].Address }</p>
+								@EventsInner(ev, constants.EV_MODE_CAROUSEL, roleClaims, userId, pageUser, embedMode, embedBaseUrl)
+							} else {
+								<p data-id={ eventStartTimeDataId } class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev[0].StartTime, ev[0].Timezone) } - { helpers.GetTimeOrShowNone(ev[0].StartTime, ev[0].Timezone) } | { ev[0].Address }</p>
+							}
 						</div>
 						<br/>
-						<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
-							LEARN MORE
-							&rarr;
-						</a>
+						if embedMode {
+							<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL(embedBaseUrl + "/event/" + ev[0].Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+								LEARN MORE
+								&rarr;
+							</a>
+						} else {
+							<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL("/event/" + ev[0].Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+								LEARN MORE
+								&rarr;
+							</a>
+						}
 					</div>
 				</div>
 			}
 		}
 	}
 	if mode == constants.EV_MODE_CAROUSEL {
-		if (len(events) < 1) {
+		{{ groupedEvents, sortedKeys := getGroupedEvents(events) }}
+		if (len(events) < 1 || len(sortedKeys) == 0) {
 			<p class="text-md md:text-lg text-center mt-5">
-				This event series has no events yet.
+				This event series has no events.
+			</p>
+		} else if len(sortedKeys) == 0 {
+			<p class="text-md md:text-lg text-center mt-5">
+				This event series has no events.
 			</p>
 		} else {
-			<div class="carousel-container relative w-full">
-				<div class="carousel rounded-box max-w-full relative mb-4">
-					<input type="hidden" id="current-slide-index" value="0"/> <!-- Hidden input to track current slide -->
-					for idx, ev := range events {
-						<div id={ "slide-" + strconv.Itoa(idx) } class="carousel-item bg-base-200 flex-shrink-0 w-48 snap-start mr-4 last:mr-0 whitespace-nowrap">
-							<a href={ templ.URL("/event/" + ev.Id) } class="block p-4 rounded-lg">
-								<div class="text-lg font-semibold">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) }</div>
-								<div class="text-md">{ helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) }</div>
-							</a>
-						</div>
-					}
+			for _, key := range sortedKeys {
+				{{ evGroup := groupedEvents[key] }}
+				<div class="carousel-container relative w-full" id={ "carousel-container-" + evGroup[0].Id }>
+					<div class="carousel rounded-box max-w-full relative mb-4">
+						<input type="hidden" id={ "current-slide-index-" + evGroup[0].Id } value="0"/> <!-- Hidden input to track current slide -->
+						for idx, ev := range evGroup {
+							<div id={ "slide-" + evGroup[0].Id + "-" + strconv.Itoa(idx) } class="carousel-item bg-base-200 flex-shrink-0 w-48 snap-start mr-4 last:mr-0 whitespace-nowrap">
+								if embedMode {
+									<a href={ templ.URL(embedBaseUrl + "/event/" + ev.Id) } class="block p-4 rounded-lg">
+										<div class="text-lg font-semibold">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) }</div>
+										<div class="text-md">{ helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) }</div>
+									</a>
+								} else {
+									<a href={ templ.URL("/event/" + ev.Id) } class="block p-4 rounded-lg">
+										<div class="text-lg font-semibold">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) }</div>
+										<div class="text-md">{ helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) }</div>
+									</a>
+								}
+							</div>
+						}
+					</div>
+					<button
+						id={ "carousel-control-left-" + evGroup[0].Id }
+						class="btn btn-circle carousel-control-left hidden"
+						onClick={ navigateToSlideHandler(-1, evGroup[0].Id) }
+					>❮</button>
+					<button
+						id={ "carousel-control-right-" + evGroup[0].Id }
+						class="btn btn-circle carousel-control-right"
+						onClick={ navigateToSlideHandler(1, evGroup[0].Id) }
+					>❯</button>
 				</div>
-				<button
-					class="btn btn-circle carousel-control-left hidden"
-					onClick={ navigateToSlideHandler(-1) }
-				>❮</button>
-				<button
-					class="btn btn-circle carousel-control-right"
-					onClick={ navigateToSlideHandler(1) }
-				>❯</button>
-			</div>
+			}
 		}
 	}
 	if mode == constants.EV_MODE_LIST {
+		{{ groupedEvents, sortedKeys := getGroupedEvents(events) }}
 		if (len(events) < 1) {
 			<p class="text-md md:text-lg text-center mt-5">
 				No events found.
@@ -130,58 +237,95 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 				<br/>
 				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search</a>
 			</p>
+		} else if len(sortedKeys) == 0 {
+			<p class="text-md md:text-lg text-center mt-5">
+				No events found.
+				<br/>
+				<br/>
+				<a class="btn btn-primary btn-small" href={ templ.SafeURL("/?radius=" + strconv.FormatFloat(constants.DEFAULT_EXPANDED_SEARCH_RADIUS, 'f', -1, 64)) }>Expand Your Search</a>
+			</p>
 		} else {
-			for _, ev := range events {
+			for _, key := range sortedKeys {
+				{{ ev := groupedEvents[key] }}
 				<div class="flex w-full relative pb-12 md:pb-4">
-					if userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SyndicateAdmin]}) {
-						@ReShareButton(ev)
+					if !embedMode && userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth]}) {
+						@ReShareButton(ev[0])
 					}
-					if userId == pageUser.UserID {
+					if !embedMode && userId == pageUser.UserID {
 						<div class="absolute top-2 right-2 bg-base-100 rounded-full px-2 z-10 leading-none">
 							<div class="form-control">
 								<label class="cursor-pointer label">
-									<span class="label-text mr-2" x-text={ "selectedEvents['" + ev.Id + "'] ? 'Remove' : 'Select'" }></span>
+									<span class="label-text mr-2" x-text={ "selectedEvents['" + ev[0].Id + "'] ? 'Remove' : 'Select'" }></span>
 									<input
-										id={ ev.Id }
-										name={ "event-" + ev.Id }
-										value={ ev.Id }
+										id={ ev[0].Id }
+										name={ "event-" + ev[0].Id }
+										value={ ev[0].Id }
 										type="checkbox"
 										class="checkbox checkbox-sm checkbox-primary"
-										@change={ "selectEvent('" + ev.Id + "')" }
-										:checked={ "selectedEvents['" + ev.Id + "'] || false" }
+										@change={ "selectEvent('" + ev[0].Id + "')" }
+										:checked={ "selectedEvents['" + ev[0].Id + "'] || false" }
 									/>
 								</label>
 							</div>
 						</div>
 					}
-					<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } class="flex w-full" href={ templ.URL("/event/" + ev.Id) }>
-						<img
-							loading="lazy"
-							src={ helpers.GetImgUrlFromHash(ev) }
-							alt=""
-							class="object-cover object-position-25-25 w-full aspect-[4/1] md:aspect-[4/1] opacity-30 md:hover:opacity-75 transition-all"
-						/>
-					</a>
+					if embedMode {
+						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } class="flex w-full" href={ templ.URL(embedBaseUrl + "/event/" + ev[0].Id) }>
+							<img
+								loading="lazy"
+								src={ helpers.GetImgUrlFromHash(ev[0]) }
+								alt=""
+								class="object-cover object-position-25-25 w-full aspect-[4/1] md:aspect-[4/1] opacity-30 md:hover:opacity-75 transition-all"
+							/>
+						</a>
+					} else {
+						<a data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } class="flex w-full" href={ templ.URL("/event/" + ev[0].Id) }>
+							<img
+								loading="lazy"
+								src={ helpers.GetImgUrlFromHash(ev[0]) }
+								alt=""
+								class="object-cover object-position-25-25 w-full aspect-[4/1] md:aspect-[4/1] opacity-30 md:hover:opacity-75 transition-all"
+							/>
+						</a>
+					}
 					<div class="flex justify-between w-full p-2 md:py-8 bg-gradient-to-t from-base-100/70 from-80% to-transparent absolute bottom-0 left-0">
 						<div class="mb-2">
-							<h2 data-id={ eventTitleDataId } class="text-xl font-bold">{ ev.Name }</h2>
-							<p data-id={ eventStartTimeDataId } class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) } - { helpers.GetTimeOrShowNone(ev.StartTime, ev.Timezone) } | { ev.Address }</p>
-						</div>
-						<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev.Id } href={ templ.URL("/event/" + ev.Id) } class="btn btn-primary mb-2 md:mb-3">
-							if ev.HasPurchasable {
-								BUY TICKETS
-								&rarr;
+							<h2 data-id={ eventTitleDataId } class="text-xl font-bold">{ ev[0].Name }</h2>
+							if len(ev) > 1 {
+								<p data-id={ eventStartTimeDataId } class="text-sm md:text-base">{ ev[0].Address }</p>
+								@EventsInner(ev, constants.EV_MODE_CAROUSEL, roleClaims, userId, pageUser, embedMode, embedBaseUrl)
 							} else {
-								LEARN MORE
-								&rarr;
+								<p data-id={ eventStartTimeDataId } class="text-sm md:text-base">{ helpers.GetDateOrShowNone(ev[0].StartTime, ev[0].Timezone) } - { helpers.GetTimeOrShowNone(ev[0].StartTime, ev[0].Timezone) } | { ev[0].Address }</p>
 							}
-						</a>
+						</div>
+						if embedMode {
+							<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL(embedBaseUrl + "/event/" + ev[0].Id) } class="btn btn-primary mb-2 md:mb-3">
+								if ev[0].HasPurchasable {
+									BUY TICKETS
+									&rarr;
+								} else {
+									LEARN MORE
+									&rarr;
+								}
+							</a>
+						} else {
+							<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL("/event/" + ev[0].Id) } class="btn btn-primary mb-2 md:mb-3">
+								if ev[0].HasPurchasable {
+									BUY TICKETS
+									&rarr;
+								} else {
+									LEARN MORE
+									&rarr;
+								}
+							</a>
+						}
 					</div>
 				</div>
 			}
 		}
 	}
 	if mode == constants.EV_MODE_ADMIN_LIST {
+		{{ groupedEvents, sortedKeys := getGroupedEvents(events) }}
 		<h3 class="text-2xl font-bold my-10">Event Admin</h3>
 		<table class="table table-fixed top-align bg-base-100 table-pin-rows table-zebra">
 			<thead>
@@ -194,24 +338,32 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 				</tr>
 			</thead>
 			<tbody>
-				for idx, ev := range events {
+				{{ groupIdx := 0 }}
+				for _, key := range sortedKeys {
+					{{ evGroup := groupedEvents[key] }}
+					{{ ev := evGroup[0] }}
+					{{ groupIdx++ }}
 					<tr class="border-t-2 border-base-300">
 						<td>
-							if idx % 2 == 0 {
-								<div class="tooltip" data-tip="Re Shared">
-									<svg
-										class="w-6 h-6 flex-none shrink-0 grow-0 fill-current"
-										xmlns="http://www.w3.org/2000/svg"
-										height="24px"
-										viewBox="0 -960 960 960"
-										width="24px"
-										fill="#currentColor"
-									><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"></path></svg>
-								</div>
+							if ( ev.EventSourceId != "") {
+								// <div class="tooltip tooltip-top" data-tip="Re Shared">
+								<svg
+									class="w-6 h-6 flex-none shrink-0 grow-0 fill-current"
+									xmlns="http://www.w3.org/2000/svg"
+									height="24px"
+									viewBox="0 -960 960 960"
+									width="24px"
+									fill="#currentColor"
+								><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"></path></svg>
+								// </div>
 							}
 						</td>
 						<td colspan="6">
 							<a class="link link-primary" href={ templ.URL("/admin/event/" + ev.Id + "/edit") }>{ ev.Name }</a>
+							if len(evGroup) > 1 {
+								<br/>
+								<strong>{ strconv.Itoa(len(evGroup)) } occurrences</strong>
+							}
 							if ev.EventSourceType == constants.ES_SERIES_PARENT || ev.EventSourceType == constants.ES_SERIES_PARENT_UNPUB {
 								<br/>
 								<strong>Event Series</strong>
@@ -243,12 +395,24 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 	}
 }
 
-func GetCityCountryFromLocation(cfLocation constants.CdnLocation, latStr, lonStr, origLat, origLon, origQueryLocation string) string {
+func GetCityCountryFromLocation(cfLocation constants.CdnLocation, cityStr, latStr, lonStr, origLat, origLon, origQueryLocation string) string {
 	if origQueryLocation != "" {
 		return origQueryLocation
+	} else if cityStr != "" {
+		return cityStr
 	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
 		return cfLocation.City + ", " + cfLocation.CCA2
 	} else if latStr != "" && lonStr != "" {
+		lat, latErr := strconv.ParseFloat(latStr, 64)
+		lon, lonErr := strconv.ParseFloat(lonStr, 64)
+		if latErr == nil && lonErr == nil {
+			cityService := services.GetCityService()
+			locationQuery := fmt.Sprintf("%.2f+%.2f", lat, lon)
+			city, err := cityService.GetCity(locationQuery)
+			if err == nil && city != "" {
+				return city
+			}
+		}
 		return latStr + ", " + lonStr
 	} else if cfLocation.City == "" && origLat != "" && origLon != "" {
 		return origLat + ", " + origLon
@@ -300,7 +464,7 @@ func GetDefaultRadius(cfLocation constants.CdnLocation) string {
 	return strconv.FormatFloat(constants.DEFAULT_SEARCH_RADIUS, 'f', -1, 64)
 }
 
-templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation constants.CdnLocation, latStr, lonStr, origLat, origLong, origQueryLocation string) {
+templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation constants.CdnLocation, cityStr, latStr, lonStr, origLat, origLong, origQueryLocation string) {
 	{{
 	roleClaims := []constants.RoleClaim{}
 	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
@@ -572,7 +736,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						<span class="loading loading-spinner loading-lg text-primary"></span>
 					</div>
 					<div id="events-container-inner">
-						@EventsInner(events, "", roleClaims, userId, pageUser)
+						@EventsInner(events, "", roleClaims, userId, pageUser, false, "")
 					</div>
 				} else {
 					<div class="relative">
@@ -617,7 +781,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 									<span class="loading loading-spinner loading-lg text-primary"></span>
 								</div>
 								<div id="events-container-inner">
-									@EventsInner(events, constants.EV_MODE_LIST, roleClaims, userId, pageUser)
+									@EventsInner(events, constants.EV_MODE_LIST, roleClaims, userId, pageUser, false, "")
 								</div>
 							</div>
 							<input
@@ -636,6 +800,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				<div class="toast m-4 z-50">
 					<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border border-base-300">
 						<span x-text="toastContent.message"></span>
+						<template x-if="toastContent.link">
+							<span><a class="link link-text" :href="toastContent.link" x-text="toastContent.linkText"></a></span>
+						</template>
 						<div class="block justify-end">
 							<button class="btn btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
 								<svg class="svg-icon" style="width: 1em; height: 1em; vertical-align: middle; fill: currentColor; overflow: hidden;" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg>
@@ -646,7 +813,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 			</template>
 		</div>
 	</div>
-	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ constants.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId }>
+	<script id="alpine-state" data-cities-default-list={ GetCitiesAsJsonStr() } data-city-label-initial={ GetCityCountryFromLocation(cfLocation, cityStr, latStr, lonStr, origLat, origLong, origQueryLocation) } data-city-latitude-initial={ latStr } data-city-longitude-initial={ lonStr } data-page-user-id={ GetPageUserID(pageUser) } data-fake-event-id={ constants.COMP_UNASSIGNED_ROUND_EVENT_ID } data-apex-url={ os.Getenv("APEX_URL") } data-default-radius={ GetDefaultRadius(cfLocation) } data-event-title-id={ eventTitleDataId } data-event-start-time-id={ eventStartTimeDataId } data-event-url-id={ eventUrlDataId } data-is-logged-in={ strconv.FormatBool(userInfo.Email != "") } data-event-collection-url={ components.GetUserPageURL(userInfo, ctx) }>
 		document.addEventListener('alpine:init', () => {
 			// Reactive URL store - single source of truth with reactivity
 			Alpine.store('urlState', {
@@ -840,58 +1007,148 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 
 				locationAccessDeclined: false,
+				locationUnavailable: false,
+				locationTimeout: false,
 				cityNotFound: false,
+				apiError: false,
+				defaultCity: "",
+				getErrorMessage() {
+					if (this.locationAccessDeclined) {
+						return 'Location access was declined.';
+					}
+					if (this.locationUnavailable) {
+						return 'Location unavailable. Please check your device location services.';
+					}
+					if (this.cityNotFound) {
+						return 'Error: City not found.';
+					}
+					if (this.apiError) {
+						return 'Error connecting to server. Please check your connection and try again.';
+					}
+					return '';
+				},
+				getWarningMessage() {
+					if (this.locationTimeout) {
+						return 'Location request timed out. Please try again.';
+					}
+					return '';
+				},
+				hasError() {
+					return this.locationAccessDeclined || this.locationUnavailable || this.cityNotFound || this.apiError;
+				},
 				findAndSetLocation() {
-				const success = (position) => {
-					this.isLoading = true;
 					this.locationAccessDeclined = false;
+					this.locationUnavailable = false;
+					this.locationTimeout = false;
 					this.cityNotFound = false;
-					const latitude = position.coords.latitude.toFixed(3);
-					const longitude = position.coords.longitude.toFixed(3);
-					const query = `lat=${latitude}&lon=${longitude}`
-					fetch(`/api/location/city?${query}`)
-					.then(async (response) => {
-						if (!response.ok) {
-							throw new Error(`City lookup failed with query ${query} status: (${response.status})`);
-						}
-							return response.json();
-					})
-					.then(data => {
-						if (data.city != "") {
-							this.selectedOption = {
-								label: data.city,
-								latitude: latitude,
-								longitude: longitude,
+					this.apiError = false;
+
+					let modalTimeoutId = null;
+
+					const geolocationOptions = {
+						timeout: 30000,
+						enableHighAccuracy: false,
+						maximumAge: 0,
+					};
+
+					const getPositionPromise = new Promise((resolve, reject) => {
+						navigator.geolocation.getCurrentPosition(
+							position => resolve(position),
+							err => reject(err),
+							geolocationOptions
+						);
+					});
+
+					getPositionPromise
+						.then(async position => {
+							this.isLoading = true;
+
+							try {
+								const latitude = position.coords.latitude.toFixed(2);
+								const longitude = position.coords.longitude.toFixed(2);
+								const query = `lat=${latitude}&lon=${longitude}`;
+
+								const response = await fetch(`/api/location/city?${query}`, {
+									signal: AbortSignal.timeout(15000),
+								});
+
+								if (!response.ok) {
+									this.cityNotFound = true;
+									throw new Error(
+										`City lookup failed with query ${query} status: (${response.status})`
+									);
+								}
+
+								const data = await response.json();
+
+								if (data && data.city != '') {
+									this.selectedOption = {
+										label: data.city,
+										latitude: parseFloat(latitude),
+										longitude: parseFloat(longitude),
+									};
+									// changing the locationDropdown triggers the url params to update
+									this.locationDropdown = this.selectedOption;
+									Alpine.store('location').setSelectedLocation(this.selectedOption);
+									this.$dispatch('location-dropdown', {
+										option: { ...this.selectedOption },
+									});
+								} else {
+									this.cityNotFound = true;
+								}
+
+								const isLoggedIn =
+									document
+										.querySelector('#alpine-state')
+										.getAttribute('data-is-logged-in') === 'true';
+								if (isLoggedIn && !this.cityNotFound) {
+									modalTimeoutId = setTimeout(() => {
+										document.getElementById('update-location-modal').showModal();
+									}, 900); // this lets the user see the location dropdown populate and close before showing the modal.
+								}
+							} catch (error) {
+								if (modalTimeoutId !== null) {
+									clearTimeout(modalTimeoutId);
+									modalTimeoutId = null;
+								}
+								this.apiError = true;
 							}
-							// changing the locationDropdown triggers the url params to update
-							this.locationDropdown = this.selectedOption
-							Alpine.store('location').setSelectedLocation(this.selectedOption)
-							this.$dispatch('location-dropdown', { option: { ...this.selectedOption } });
-						} else {
-							this.cityNotFound = true
-						}
-					})
-					.catch(error => {
-						// eslint-disable-next-line no-console
-						console.error("Error fetching city:", error);
-					})
-					.finally(() => {
-						this.isLoading = false;
-						this.isOpen = false;
-						this.openedWithKeyboard = false;
-					})
+						})
+						.catch(err => {
+							if (modalTimeoutId !== null) {
+								clearTimeout(modalTimeoutId);
+								modalTimeoutId = null;
+							}
 
-				}
+							this.locationAccessDeclined = false;
+							this.locationUnavailable = false;
+							this.locationTimeout = false;
 
-				// This gets executed if the user does not allow the browser to access their location
-				const error = () => {
-					this.locationAccessDeclined = true;
-					this.isOpen = false;
-					this.openedWithKeyboard = false;
-				}
+							switch (err.code) {
+								// eslint-disable-next-line
+								case GeolocationPositionError.PERMISSION_DENIED:
+									this.locationAccessDeclined = true;
+									break;
+								// eslint-disable-next-line
+								case GeolocationPositionError.POSITION_UNAVAILABLE:
+									this.locationUnavailable = true;
+									break;
+								// eslint-disable-next-line
+								case GeolocationPositionError.TIMEOUT:
+									this.locationTimeout = true;
+									break;
+								default:
+									this.locationUnavailable = true;
+									break;
+							}
+						})
+						.finally(() => {
+							this.isLoading = false;
+							this.isOpen = false;
+							this.openedWithKeyboard = false;
+						});
+				},
 
-				navigator.geolocation.getCurrentPosition(success, error);
-			},
 
 				getFilteredOptions(query) {
 					this.options = this.allOptions.filter((option) =>
@@ -929,6 +1186,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 				pageUserId: document.querySelector('#alpine-state').getAttribute('data-page-user-id'),
 				defaultRadius: document.querySelector('#alpine-state').getAttribute('data-default-radius'),
+				eventCollectionUrl: document.querySelector('#alpine-state').getAttribute('data-event-collection-url') || '',
 				showToast: false,
 				toastContent: {
 					type: '',
@@ -982,6 +1240,8 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							this.toastContent = {
 								type: 'success',
 								message: 'Event re-shared successfully!',
+								link: this.eventCollectionUrl,
+								linkText: 'View your events collection',
 							};
 						} else {
 							this.showToast = true;
@@ -1180,9 +1440,29 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							// Update every 5 seconds
 							setInterval(updatePlaceholder, 2500)
 						}
+
+						document.addEventListener('htmx:beforeRequest', (event) => {
+							if (event.detail.elt.getAttribute('hx-post') === '/api/auth/users/update-location') {
+								this.savingLocation = true;
+							}
+						});
+
+						document.addEventListener('htmx:afterRequest', (event) => {
+							if (event.detail.elt.getAttribute('hx-post') === '/api/auth/users/update-location') {
+								if (event.detail.xhr.status === 200) {
+										document.getElementById('update-location-modal').close();
+										this.savingLocation = false;
+								} else {
+									this.savingLocation = false;
+								}
+							}
+						});
 					},
 					radius: null,
 					locationDropdown: null,
+					defaultCity: "",
+					savingLocation: false,
+					modalIsOpen: false,
 					sendCategoriesToQueryParams() {
 						const form = document.getElementById('category-search-form')
 						// Collect form values
@@ -1207,11 +1487,18 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							Alpine.store('urlState').setParam('radius', this.radius)
 						}
 
-						if (this.locationDropdown) {
+						if (this.locationDropdown && this.defaultCity != this.locationDropdown.label) {
 							// Commit location changes to URL
 							Alpine.store('urlState').setParam('lat', this.locationDropdown.latitude)
 							Alpine.store('urlState').setParam('lon', this.locationDropdown.longitude)
 							Alpine.store('urlState').setParam('location', this.locationDropdown.label)
+							Alpine.store('location').setSelectedLocation(this.locationDropdown)
+						}
+						if (this.locationDropdown && this.defaultCity == this.locationDropdown.label) {
+							// Remove location params from URL since it matches the default (will use metadata)
+							Alpine.store('urlState').setParam('lat', '')
+							Alpine.store('urlState').setParam('lon', '')
+							Alpine.store('urlState').setParam('location', '')
 							Alpine.store('location').setSelectedLocation(this.locationDropdown)
 						}
 
