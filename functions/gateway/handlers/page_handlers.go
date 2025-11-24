@@ -345,8 +345,10 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
 	hostParts := strings.Split(r.Host, ".")
 
-	mnmOptionsHeaderVal := strings.Trim(r.Header.Get("X-Mnm-Options"), "\"")
-	if len(hostParts) > 1 && mnmOptionsHeaderVal == "" {
+	// Check if we have a subdomain (more than 2 parts, e.g., "subdomain.example.com")
+	// and mnmOptions is empty. Apex domains (2 parts, e.g., "example.com") are allowed
+	// to have empty mnmOptions.
+	if len(hostParts) > 2 && len(mnmOptions) == 0 {
 		return transport.SendHtmlErrorPage([]byte("User Not Found, <br /> but you can <a class=\"link link-text\" href=\"/admin\">claim this subdomain</a>"), 200, true)
 	}
 	originalQueryLat := r.URL.Query().Get("lat")
