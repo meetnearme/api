@@ -345,8 +345,7 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
 	hostParts := strings.Split(r.Host, ".")
 
-	mnmOptionsHeaderVal := strings.Trim(r.Header.Get("X-Mnm-Options"), "\"")
-	if len(hostParts) > 1 && mnmOptionsHeaderVal == "" {
+	if len(hostParts) > 1 && mnmOptions != nil {
 		return transport.SendHtmlErrorPage([]byte("User Not Found, <br /> but you can <a class=\"link link-text\" href=\"/admin\">claim this subdomain</a>"), 200, true)
 	}
 	originalQueryLat := r.URL.Query().Get("lat")
