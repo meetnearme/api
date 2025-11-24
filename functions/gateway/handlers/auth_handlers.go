@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -98,10 +99,18 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 	var zitadelRes map[string]interface{}
 	if os.Getenv("GO_ENV") == constants.GO_TEST_ENV {
-		zitadelRes = map[string]interface{}{
-			"access_token":  "test-access-token",
-			"refresh_token": "test-refresh-token",
-			"id_token":      "test-id-token",
+		// Check if we're testing the error case
+		if os.Getenv("ZITADEL_TEST_ERROR") == "true" {
+			zitadelRes = map[string]interface{}{
+				"error":             "invalid_grant",
+				"error_description": "The provided authorization code is invalid or expired",
+			}
+		} else {
+			zitadelRes = map[string]interface{}{
+				"access_token":  "test-access-token",
+				"refresh_token": "test-refresh-token",
+				"id_token":      "test-id-token",
+			}
 		}
 	} else {
 		zitadelRes, err = services.GetAuthToken(code, codeVerifier)
@@ -117,13 +126,22 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	accessToken, ok := zitadelRes["access_token"].(string)
 	if !ok {
 		if zitadelRes["error"] != "" {
-			msg := fmt.Sprintf("Failed to get access tokens, error from zitadel: %+v", zitadelRes["error"])
+			// Generate UUID for error correlation
+			errorID := uuid.New().String()
+
+			// Build detailed error message for logging
+			errorMsg := fmt.Sprintf("Failed to get access tokens, error from zitadel: %+v", zitadelRes["error"])
 			if zitadelRes["error_description"] != "" {
-				msg += fmt.Sprintf(", error_description: %+v", zitadelRes["error_description"])
+				errorMsg += fmt.Sprintf(", error_description: %+v", zitadelRes["error_description"])
 			}
-			log.Printf("%s", msg)
+
+			// Log full error details with correlation ID
+			log.Printf("Zitadel authentication error [%s]: %s", errorID, errorMsg)
+
+			// Show generic message with error ID to user
+			userMsg := fmt.Sprintf("Authentication failed. Error ID: %s", errorID)
 			return func(w http.ResponseWriter, r *http.Request) {
-				transport.SendHtmlErrorPage([]byte(msg), http.StatusUnauthorized, false)(w, r)
+				transport.SendHtmlErrorPage([]byte(userMsg), http.StatusUnauthorized, false)(w, r)
 			}
 		}
 		log.Printf("Failed to get access tokens, error from zitadel: %+v", zitadelRes)

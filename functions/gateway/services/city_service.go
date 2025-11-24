@@ -44,7 +44,6 @@ func (s *RealCityService) GetCity(locationQuery string) (city string, err error)
 		return "", fmt.Errorf("plus code and city/state not found in location data")
 	}
 
-	plusCode := matches[1]
 	cityName := strings.TrimSpace(matches[2])
 	stateName := strings.TrimSpace(matches[3])
 
@@ -55,8 +54,6 @@ func (s *RealCityService) GetCity(locationQuery string) (city string, err error)
 	stateName = regexp.MustCompile(`\s+`).ReplaceAllString(stateName, " ")
 
 	city = cityName + ", " + stateName
-
-	log.Printf("Found plus code: %s, City: %s, State: %s", plusCode, cityName, stateName)
 
 	return city, nil
 }

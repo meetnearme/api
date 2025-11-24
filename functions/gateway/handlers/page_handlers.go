@@ -343,6 +343,12 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, constants.CdnLocat
 func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
+	hostParts := strings.Split(r.Host, ".")
+
+	mnmOptionsHeaderVal := strings.Trim(r.Header.Get("X-Mnm-Options"), "\"")
+	if len(hostParts) > 1 && mnmOptionsHeaderVal == "" {
+		return transport.SendHtmlErrorPage([]byte("User Not Found, <br /> but you can <a class=\"link link-text\" href=\"/admin\">claim this subdomain</a>"), 200, true)
+	}
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
 	originalQueryLocation := r.URL.Query().Get("location")
