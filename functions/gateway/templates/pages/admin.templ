@@ -245,7 +245,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			>
 				<div
 					class="mb-4 rounded-xl border border-success bg-success/10 px-4 py-3 flex flex-col gap-1"
-					x-show="subdomainValid && currentValidSubdomain"
+
 				>
 					<div class="flex items-center gap-2 font-semibold">
 						@components.Icon("check-circle")
@@ -253,9 +253,11 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					</div>
 					<a
 						class="link"
+            x-show="subdomainValid && currentValidSubdomain"
 						x-bind:href=" 'https://' + currentValidSubdomain + '.' + baseDomain "
 						x-text=" 'https://' + currentValidSubdomain + '.' + baseDomain "
 					></a>
+          <span x-show="!subdomainValid || !currentValidSubdomain">No subdomain set</span>
           <div class="flex items-center gap-2 font-semibold mt-6">
           @components.Icon("edit")
         <span >Update Subdomain</span>
@@ -298,8 +300,8 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						Subdomain must contain only lowercase letters and numbers and/or hyphens
 					</div>
 				</form>
-        </div>
 				<div id="subdomain-result" class="margins-when-children my-8"></div>
+        </div>
 				<div
 					class="mt-6 rounded-xl border border-error bg-error/20 px-4 py-5 flex flex-col items-start gap-3"
 					x-show="subdomainValid && currentValidSubdomain"

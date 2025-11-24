@@ -101,9 +101,9 @@ func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	err = helpers.SetCloudflareMnmOptions(inputPayload.Subdomain, userID, metadata, cfMetadataValue)
 	if err != nil {
 		if err.Error() == constants.ERR_KV_KEY_EXISTS {
-			return transport.SendHtmlErrorPartial([]byte("Subdomain already taken"), http.StatusInternalServerError)
+			return transport.SendHtmlErrorText([]byte("Subdomain already taken"), http.StatusInternalServerError)
 		} else {
-			return transport.SendHtmlErrorPartial([]byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
+			return transport.SendHtmlErrorText([]byte("Failed to set subdomain: "+err.Error()), http.StatusInternalServerError)
 		}
 	}
 
@@ -112,7 +112,7 @@ func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if r.URL.Query().Has("theme") {
 		successPartial = partials.SuccessBannerHTML(`Theme updated successfully`)
 	} else {
-		successPartial = partials.SuccessBannerHTML(`Subdomain set successfully`)
+		successPartial = partials.SuccessHTMLText(`Subdomain set successfully`)
 	}
 
 	err = successPartial.Render(r.Context(), &buf)
@@ -135,7 +135,7 @@ func DeleteMnmSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	}
 
 	var buf bytes.Buffer
-	successPartial := partials.SuccessBannerHTML(`Subdomain deleted successfully`)
+	successPartial := partials.SuccessHTMLText(`Subdomain deleted successfully`)
 	err = successPartial.Render(r.Context(), &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
