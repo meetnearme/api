@@ -245,7 +245,6 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			>
 				<div
 					class="mb-4 rounded-xl border border-success bg-success/10 px-4 py-3 flex flex-col gap-1"
-
 				>
 					<div class="flex items-center gap-2 font-semibold">
 						@components.Icon("check-circle")
@@ -253,55 +252,62 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					</div>
 					<a
 						class="link"
-            x-show="subdomainValid && currentValidSubdomain"
+						x-show="subdomainValid"
 						x-bind:href=" 'https://' + currentValidSubdomain + '.' + baseDomain "
 						x-text=" 'https://' + currentValidSubdomain + '.' + baseDomain "
 					></a>
-          <span x-show="!subdomainValid || !currentValidSubdomain">No subdomain set</span>
-          <div class="flex items-center gap-2 font-semibold mt-6">
-          @components.Icon("edit")
-        <span >Update Subdomain</span>
-        </div>
-				<form
-					class="group"
-					novalidate
-					hx-post="/api/auth/users/update-mnm-options"
-					hx-ext="json-enc"
-					hx-target="#subdomain-result"
-					hx-disabled-elt="button[type='submit']"
-					@submit.prevent=""
-					@htmx:after-request="handleSubdomainPostRes(event)"
-					hx-vals="js:{...getMnmOptionsPayload()}"
-				>
-					<div class="w-full flex-col gap-8">
-						<label class="input input-bordered rounded-full flex items-center gap-2">
-							<input
-								id="subdomain"
-								if subdomainFromMetadata != "" {
-									value={ subdomainFromMetadata }
-								}
-								name="subdomain"
-								x-model="subdomain"
-								@input="subdomain = $event.target.value.toLowerCase()"
-								pattern="[a-z0-9-]+"
-								:class="{ 'input-error': subdomain && !subdomain.match(/^[a-z0-9\-]+$/) }"
-								class="w-full grow"
-								type="text"
-								autocomplete="off"
-							/>
-              <span>.meetnear.me</span>
-						</label>
-						<button
-							type="submit"
-							class="btn btn-primary w-full mt-6"
-						>Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+					<span x-show="!subdomainValid">No subdomain set</span>
+					<div class="flex items-center gap-2 font-semibold mt-6">
+						@components.Icon("edit")
+						<span>Update Subdomain</span>
 					</div>
-					<div x-show="subdomain && !subdomain.match(/^[a-z0-9\-]+$/)" class="text-error text-sm mt-1">
-						Subdomain must contain only lowercase letters and numbers and/or hyphens
-					</div>
-				</form>
-				<div id="subdomain-result" class="margins-when-children my-8"></div>
-        </div>
+					<form
+						class="group"
+						novalidate
+						hx-post="/api/auth/users/update-mnm-options"
+						hx-ext="json-enc"
+						hx-target="#subdomain-result"
+						hx-disabled-elt="button[type='submit']"
+						@submit.prevent=""
+						@htmx:after-request="handleSubdomainPostRes(event)
+            const responseText = event.detail.xhr?.responseText || '';
+            const isSuccessful = responseText.includes('successfully');
+							if (isSuccessful) {
+								subdomainValid = true;
+                currentValidSubdomain = this.subdomain.value
+              }
+            "
+						hx-vals="js:{...getMnmOptionsPayload()}"
+					>
+						<div class="w-full flex-col gap-8">
+							<label class="input input-bordered rounded-full flex items-center gap-2">
+								<input
+									id="subdomain"
+									if subdomainFromMetadata != "" {
+										value={ subdomainFromMetadata }
+									}
+									name="subdomain"
+									x-model="subdomain"
+									@input="subdomain = $event.target.value.toLowerCase()"
+									pattern="[a-z0-9-]+"
+									:class="{ 'input-error': subdomain && !subdomain.match(/^[a-z0-9\-]+$/) }"
+									class="w-full grow"
+									type="text"
+									autocomplete="off"
+								/>
+								<span>.meetnear.me</span>
+							</label>
+							<button
+								type="submit"
+								class="btn btn-primary w-full mt-6"
+							>Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+						</div>
+						<div x-show="subdomain && !subdomain.match(/^[a-z0-9\-]+$/)" class="text-error text-sm mt-1">
+							Subdomain must contain only lowercase letters and numbers and/or hyphens
+						</div>
+					</form>
+					<div id="subdomain-result" class="margins-when-children my-8"></div>
+				</div>
 				<div
 					class="mt-6 rounded-xl border border-error bg-error/20 px-4 py-5 flex flex-col items-start gap-3"
 					x-show="subdomainValid && currentValidSubdomain"
@@ -323,7 +329,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						@htmx:after-request="
 							isDeleting = false;
 							const responseText = event.detail.xhr?.responseText || '';
-							const isSuccessful = responseText.includes('alert-success');
+							const isSuccessful = responseText.includes('successfully');
 							if (isSuccessful) {
 								subdomainValid = false;
 								currentValidSubdomain = '';
@@ -335,7 +341,6 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						<span x-cloak x-show="isDeleting" class="loading loading-spinner loading-sm ml-2"></span>
 					</button>
 				</div>
-
 				<h3 class="text-2xl font-bold mb-4 mt-4">Custom Theme</h3>
 				<div class="alert alert-warning mb-4" x-cloak x-show="!subdomainValid">
 					@components.Icon("triangle-alert")
