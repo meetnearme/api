@@ -256,7 +256,10 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						x-bind:href=" 'https://' + currentValidSubdomain + '.' + baseDomain "
 						x-text=" 'https://' + currentValidSubdomain + '.' + baseDomain "
 					></a>
-				</div>
+          <div class="flex items-center gap-2 font-semibold mt-6">
+          @components.Icon("edit")
+        <span >Update Subdomain</span>
+        </div>
 				<form
 					class="group"
 					novalidate
@@ -268,8 +271,8 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					@htmx:after-request="handleSubdomainPostRes(event)"
 					hx-vals="js:{...getMnmOptionsPayload()}"
 				>
-					<div class="join w-full">
-						<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
+					<div class="w-full flex-col gap-8">
+						<label class="input input-bordered rounded-full flex items-center gap-2">
 							<input
 								id="subdomain"
 								if subdomainFromMetadata != "" {
@@ -284,19 +287,21 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 								type="text"
 								autocomplete="off"
 							/>
+              <span>.meetnear.me</span>
 						</label>
 						<button
 							type="submit"
-							class="btn btn-primary join-item"
+							class="btn btn-primary w-full mt-6"
 						>Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 					</div>
 					<div x-show="subdomain && !subdomain.match(/^[a-z0-9\-]+$/)" class="text-error text-sm mt-1">
 						Subdomain must contain only lowercase letters and numbers and/or hyphens
 					</div>
 				</form>
+        </div>
 				<div id="subdomain-result" class="margins-when-children my-8"></div>
 				<div
-					class="mt-6 rounded-xl border border-error bg-error/20 px-4 py-5 flex flex-col items-center gap-3"
+					class="mt-6 rounded-xl border border-error bg-error/20 px-4 py-5 flex flex-col items-start gap-3"
 					x-show="subdomainValid && currentValidSubdomain"
 				>
 					<div class="flex items-center gap-2 font-semibold">
@@ -308,7 +313,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					</p>
 					<button
 						type="button"
-						class="btn btn-error w-fit"
+						class="btn btn-error w-full"
 						hx-post="/api/auth/users/delete-subdomain"
 						hx-target="#subdomain-result"
 						hx-disabled-elt="button"
