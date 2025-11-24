@@ -42,7 +42,7 @@ type NatsServiceInterface interface {
 type StripeSubscriptionServiceInterface interface {
 	GetSubscriptionPlans() ([]*types.SubscriptionPlan, error)
 	GetCustomerSubscriptions(customerID string) ([]*types.CustomerSubscription, error)
-	CreateCustomerPortalSession(customerID, returnURL string) (*types.CustomerPortalSession, error)
+	CreateCustomerPortalSession(customerID, returnURL string, subscriptionID, flowType string) (*types.CustomerPortalSession, error)
 	SearchCustomerByExternalID(externalID string) (*stripe.Customer, error)
 	UpdateCustomerMetadata(customerID, externalID string) error
 	CreateCustomer(externalID, email, name string) (*stripe.Customer, error)

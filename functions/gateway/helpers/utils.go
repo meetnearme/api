@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -369,6 +371,15 @@ func GetUserMetadataByKey(userID, key string) (string, error) {
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		var respData map[string]interface{}
+		if err := json.Unmarshal(body, &respData); err != nil {
+			return "", err
+		}
+		return "", fmt.Errorf("failed to get user metadata: %s, reason: %s", res.Status, respData)
+	}
+
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", err
@@ -682,6 +693,250 @@ func GetOtherUserMetaByID(userID, key string) (string, error) {
 	return decodedValue, nil
 }
 
+// GetUserAuthorizations fetches all authorizations (roles) for a given user
+func GetUserRoles(userID string) ([]string, error) {
+	// https://zitadel.com/docs/apis/resources/authorization_service_v2/zitadel-authorization-v-2-beta-authorization-service-list-authorizations
+	// This is a gRPC endpoint, so we need to use POST with JSON
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/ListAuthorizations", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	// Query for this specific user's authorizations
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"pagination": {
+			"limit": 0,
+			"asc": true
+		},
+		"filters": [
+			{
+      			"userId": {
+         			"id": "%s"
+       			}
+     		}
+   		]
+	}`, userID))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get authorizations: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	var respData struct {
+		Authorizations []struct {
+			Roles []string `json:"roles"`
+		} `json:"authorizations"`
+	}
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Collect all roles from all authorizations
+	var allRoles []string
+	for _, auth := range respData.Authorizations {
+		allRoles = append(allRoles, auth.Roles...)
+	}
+
+	return allRoles, nil
+}
+
+// GetUserAuthorizationID gets the authorization ID for a user if it exists
+func GetUserAuthorizationID(userID string) (string, error) {
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/ListAuthorizations", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"pagination": {
+			"limit": 0,
+			"asc": true
+		},
+		"filters": [
+			{
+      			"userId": {
+         			"id": "%s"
+       			}
+     		}
+   		]
+	}`, userID))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get authorizations: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	var respData struct {
+		Authorizations []struct {
+			ID string `json:"id"`
+		} `json:"authorizations"`
+	}
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if len(respData.Authorizations) == 0 {
+		return "", nil // No authorizations found, not an error
+	}
+
+	return respData.Authorizations[0].ID, nil
+}
+
+// CreateUserAuthorization creates a new authorization for a user
+// https://zitadel.com/docs/apis/resources/authorization_service_v2/zitadel-authorization-v-2-beta-authorization-service-create-authorization
+func CreateUserAuthorization(userID string, roleKeys []string) (string, error) {
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/CreateAuthorization", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	// Build the roleKeys array in JSON format
+	roleKeysJSON, err := json.Marshal(roleKeys)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal role keys: %w", err)
+	}
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"userId": "%s",
+		"roleKeys": %s
+	}`, userID, string(roleKeysJSON)))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to create authorization: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	var respData struct {
+		ID string `json:"id"`
+	}
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return respData.ID, nil
+}
+
+// SetUserRoles updates or creates the roles for a user's authorization
+// Note: Any role keys previously granted and not present in roleKeys will be revoked
+// https://zitadel.com/docs/apis/resources/authorization_service_v2/zitadel-authorization-v-2-beta-authorization-service-update-authorization
+func SetUserRoles(userID string, roleKeys []string) error {
+	// First, check if the user already has an authorization
+	authID, err := GetUserAuthorizationID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing authorizations: %w", err)
+	}
+
+	// If no authorization exists, create one
+	if authID == "" {
+		log.Printf("No existing authorization found for user %s, creating new authorization", userID)
+		_, err = CreateUserAuthorization(userID, roleKeys)
+		if err != nil {
+			return fmt.Errorf("failed to create authorization: %w", err)
+		}
+		// Authorization created successfully
+		return nil
+	}
+
+	// Authorization exists, update it
+	url := fmt.Sprintf(DefaultProtocol+"%s/zitadel.authorization.v2beta.AuthorizationService/UpdateAuthorization", os.Getenv("ZITADEL_INSTANCE_HOST"))
+	method := "POST"
+
+	// Build the roleKeys array in JSON format
+	roleKeysJSON, err := json.Marshal(roleKeys)
+	if err != nil {
+		return fmt.Errorf("failed to marshal role keys: %w", err)
+	}
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+		"id": "%s",
+		"roleKeys": %s
+	}`, authID, string(roleKeysJSON)))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	res, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to set user roles: status %d, body: %s", res.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 func UpdateUserMetadataKey(userID, key, value string) error {
 	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, key)
 	method := "POST"
@@ -712,16 +967,13 @@ func UpdateUserMetadataKey(userID, key, value string) error {
 		body, _ := io.ReadAll(res.Body)
 		var respData map[string]interface{}
 		if err := json.Unmarshal(body, &respData); err != nil {
-			return err
+			log.Println("error unmarshalling json: ", err)
+			return fmt.Errorf("error unmarshalling json: %w", err)
 		}
 		return fmt.Errorf("failed to update user metadata: %s, reason: %s", res.Status, respData)
 	}
 	defer res.Body.Close()
 
-	if err != nil {
-		log.Println(err)
-		return err
-	}
 	return nil
 }
 
@@ -1000,6 +1252,39 @@ func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []str
 	return strings.Split(interests, "|")
 }
 
+func GetUserLocationFromMap(claimsMeta map[string]interface{}) (cityStr string, lat, lon float64, ok bool) {
+	locationStr := GetBase64ValueFromMap(claimsMeta, constants.META_LOC_KEY)
+	if locationStr == "" {
+		return "", 0, 0, false
+	}
+
+	parts := strings.Split(locationStr, ";")
+	if len(parts) < 3 {
+		return "", 0, 0, false
+	}
+
+	cityStr = parts[0]
+	latStr := parts[1]
+	lonStr := parts[2]
+
+	lat64, err := strconv.ParseFloat(latStr, 64)
+	if err != nil {
+		return "", 0, 0, false
+	}
+
+	lon64, err := strconv.ParseFloat(lonStr, 64)
+	if err != nil {
+		return "", 0, 0, false
+	}
+
+	// Validate coordinate ranges
+	if lat64 < -90 || lat64 > 90 || lon64 < -180 || lon64 > 180 {
+		return "", 0, 0, false
+	}
+
+	return cityStr, lat64, lon64, true
+}
+
 func CalculateTTL(days int) int64 {
 	return time.Now().Add(time.Duration(days) * 24 * time.Hour).Unix()
 }
@@ -1091,4 +1376,67 @@ func ExtractBaseDomain(rawURL string) (string, error) {
 	host := parsed.Hostname()
 
 	return host, nil
+}
+
+// EnsureValidCoordinates ensures lat/lon default to 9e+10 if unset (0)
+func EnsureValidCoordinates(loc types.Locatable) {
+	lat := loc.GetLocationLatitude()
+	lng := loc.GetLocationLongitude()
+
+	if lat == 0 && lng == 0 {
+		loc.SetLocationLatitude(constants.INITIAL_EMPTY_LAT_LONG)
+		loc.SetLocationLongitude(constants.INITIAL_EMPTY_LAT_LONG)
+	}
+}
+
+// TimeSimulation provides helper functions for time compression testing
+// All time-dependent operations should use these functions to respect TIME_COMPRESSION_RATIO
+
+// CompressDuration compresses a real duration by TIME_COMPRESSION_RATIO
+// Example: 1 hour with ratio 60.0 becomes 1 minute
+func CompressDuration(realDuration time.Duration) time.Duration {
+	if constants.TIME_COMPRESSION_RATIO <= 1.0 {
+		return realDuration
+	}
+	return time.Duration(float64(realDuration) / constants.TIME_COMPRESSION_RATIO)
+}
+
+// CompressedScheduledHourInterval returns the time interval for scheduled hour checks
+// In real-time (ratio=1.0): checks every hour (3600 seconds)
+// With compression (ratio=60.0): checks every minute (60 seconds)
+// With compression (ratio=3600.0): checks every second (1 second)
+func CompressedScheduledHourInterval() time.Duration {
+	baseInterval := 1 * time.Hour
+	return CompressDuration(baseInterval)
+}
+
+// SimulatedHoursSince calculates how many "simulated hours" have passed
+// between two Unix timestamps, accounting for time compression
+// Example: 60 real seconds with ratio 60.0 = 1 simulated hour
+func SimulatedHoursSince(nowUnix, lastUnix int64) float64 {
+	realSecondsPassed := float64(nowUnix - lastUnix)
+	simulatedSecondsPassed := realSecondsPassed * constants.TIME_COMPRESSION_RATIO
+	return simulatedSecondsPassed / 3600.0 // Convert to hours
+}
+
+// CurrentSimulatedHour returns the current "hour of day" for scheduling
+// In real-time: returns actual hour (0-23)
+// With compression: returns accelerated hour that cycles faster
+// Example: ratio=3600 means a full 24-hour cycle happens in 24 seconds
+func CurrentSimulatedHour(nowUnix int64) int {
+	if constants.TIME_COMPRESSION_RATIO <= 1.0 {
+		// Real-time: use actual hour
+		return time.Unix(nowUnix, 0).UTC().Hour()
+	}
+
+	// Compressed time: calculate accelerated hour
+	// One full day (86400 seconds) / compression ratio = time for 24-hour cycle
+	secondsPerSimulatedDay := 86400.0 / constants.TIME_COMPRESSION_RATIO
+
+	// Position within current simulated day
+	positionInDay := math.Mod(float64(nowUnix), secondsPerSimulatedDay)
+
+	// Convert to hour (0-23)
+	simulatedHour := int((positionInDay / secondsPerSimulatedDay) * 24.0)
+	return simulatedHour % 24
 }

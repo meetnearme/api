@@ -5,19 +5,23 @@ import (
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 )
 
-templ ProfileSettingsPage(interests []string, ctx context.Context) {
+templ ProfileInterestsPage(interests []string, ctx context.Context) {
 	<h1 class="text-3xl mb-4">Settings</h1>
 	<div class="grid grid-cols-7">
 		@components.AdminNav(ctx)
 		<div class="col-span-5 card border border-base-300 bg-base-100 p-10 rounded-box">
-			<h2 class="text-3xl font-bold ">My Interests</h2>
-			<div id="update-interests-result" class="margins-when-children my-8"></div>
-			<form hx-post="/api/auth/users/update-interests" hx-target="#update-interests-result" hx-swap="outerHTML">
-				@components.NestedCheckboxList(false, interests)
-				<div class="flex justify-end">
-					<button class="btn btn-primary" type="submit">Save</button>
-				</div>
-			</form>
+			@ProfileInterestsPartial(interests)
 		</div>
 	</div>
+}
+
+templ ProfileInterestsPartial(interests []string) {
+	<h2 class="text-3xl font-bold ">Interests</h2>
+	<div id="update-interests-result" class="margins-when-children my-8"></div>
+	<form hx-post="/api/auth/users/update-interests" hx-target="#update-interests-result" hx-swap="outerHTML">
+		@components.NestedCheckboxList(false, interests)
+		<div class="flex justify-end">
+			<button class="btn btn-primary" type="submit">Save</button>
+		</div>
+	</form>
 }

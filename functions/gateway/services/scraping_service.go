@@ -436,6 +436,19 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 					childScrapeQueue = append(childScrapeQueue, event)
 					urlToIndex[event.EventURL] = i
 				}
+
+				// If existing seshujobs has location data, means seshujob used "all events at the target URL located in the same geography?"
+				if seshuJob.LocationLatitude != constants.INITIAL_EMPTY_LAT_LONG {
+					eventsFound[i].EventLatitude = seshuJob.LocationLatitude
+				}
+
+				if seshuJob.LocationLongitude != constants.INITIAL_EMPTY_LAT_LONG {
+					eventsFound[i].EventLongitude = seshuJob.LocationLongitude
+				}
+
+				if seshuJob.LocationAddress != "" {
+					eventsFound[i].EventLocation = seshuJob.LocationAddress
+				}
 			}
 
 			if len(childScrapeQueue) <= 0 {
@@ -510,7 +523,7 @@ func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, 
 		var localPrompt string
 		if action == "init" {
 			localPrompt = GetSystemPrompt(false)
-		} else {
+		} else if action == "rs" {
 			localPrompt = GetSystemPrompt(true)
 		}
 
@@ -597,7 +610,10 @@ func FilterValidEvents(events []types.EventInfo) []types.EventInfo {
 	return validEvents
 }
 
-func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) error {
+func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob, preservedEventMap map[string]string) error {
+	// preservedEventMap is kept for backward compatibility but not used in the new flow
+	// New events are filtered before calling this function (no longer inserting duplicates)
+
 	// Handle empty events array gracefully
 	if len(events) == 0 {
 		log.Printf("No events to push to DB for %s", seshuJob.NormalizedUrlKey)
@@ -617,7 +633,7 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 		return nil
 	}
 
-	currentTime := time.Now()
+	// currentTime := time.Now()
 
 	ownerName := ""
 	// fetch event owner from zitadel
@@ -729,24 +745,26 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 			continue
 		}
 
-		// Parse the start time using the resolved timezone
-		startTime, err := time.Parse(time.RFC3339, eventInfo.EventStartTime)
+		tzString := tz.String()
+		// Parse the start time using your new ISO format (no Z)
+		loc, _ := time.LoadLocation(tzString)
+		startTime, err := time.ParseInLocation("2006-01-02T15:04:05", eventInfo.EventStartTime, loc)
 		if err != nil {
 			log.Printf("INFO: Skipping event %d: failed to parse event start time: %v", i, err)
 			continue
 		}
 
-		// Convert to local time for comparison
-		startTimeLocal := startTime.In(tz)
-		if startTimeLocal.Before(currentTime.Add(-1 * time.Hour)) {
-			log.Printf("INFO: Filtering out event %d: event is in the past (started at %v)", i, startTimeLocal)
-			continue
-		}
+		// // Convert to local time for comparison
+		// startTimeLocal := startTime.In(tz)
+		// if startTimeLocal.Before(currentTime.Add(-1 * time.Hour)) {
+		// 	log.Printf("INFO: Filtering out event %d: event is in the past (started at %v)", i, startTimeLocal)
+		// 	continue
+		// }
 
 		// Parse end time if available (optional)
 		var endTime time.Time
 		if eventInfo.EventEndTime != "" {
-			endTime, err = time.Parse(time.RFC3339, eventInfo.EventEndTime)
+			endTime, err = time.ParseInLocation("2006-01-02T15:04:05", eventInfo.EventEndTime, loc)
 			if err != nil {
 				log.Printf("INFO: Failed to parse end time for event %d: %v", i, err)
 				// Continue without end time - it's optional
@@ -754,34 +772,35 @@ func PushExtractedEventsToDB(events []types.EventInfo, seshuJob types.SeshuJob) 
 		}
 
 		// Convert EventInfo to RawEvent with JSON-friendly fields
-		// Build RFC3339 strings for times
-		startRFC3339 := startTime.In(tz).Format(time.RFC3339)
+		// Build ISO-like strings (no timezone)
+		// startTimeLocalised := startTime.In(tz).Format("2006-01-02T15:04:05")
 		var endVal interface{}
 		if !endTime.IsZero() {
-			endRFC3339 := endTime.In(tz).Format(time.RFC3339)
-			endVal = endRFC3339
+			endVal = endTime.UTC().Format(time.RFC3339)
 		} else {
 			endVal = nil
 		}
 
-		tzString := tz.String()
-		eventSourceID := eventInfo.SourceUrl
+		eventSourceID := seshuJob.NormalizedUrlKey
 
+		// All events passed to this function are new events (already filtered)
+		// Weaviate will generate new UUIDs for all of them
 		event := RawEvent{
 			RawEventData: RawEventData{
+				Id:              "", // Empty ID means Weaviate will generate a new UUID
 				EventOwners:     []string{seshuJob.OwnerID},
 				EventOwnerName:  ownerName,
 				EventSourceType: constants.ES_SINGLE_EVENT,
 				Name:            eventInfo.EventTitle,
 				Description:     eventInfo.EventDescription,
-				Address:         address,
+				Address:         eventInfo.EventLocation,
 				Lat:             finalLat,
 				Long:            finalLon,
 				Timezone:        tzString,
 			},
 			EventSourceId: &eventSourceID,
-			StartTime:     startRFC3339,
-			EndTime:       endVal,
+			StartTime:     startTime.UTC().Format(time.RFC3339), // Weaviate expects RFC3339 format
+			EndTime:       endVal,                               // Weaviate expects RFC3339 format
 		}
 
 		// Set SourceUrl if available from EventInfo

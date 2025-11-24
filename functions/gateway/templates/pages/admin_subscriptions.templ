@@ -1,0 +1,135 @@
+package pages
+
+import (
+	"fmt"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
+)
+
+templ AdminSubscriptionsPartial(activeSubscriptions []*internal_types.CustomerSubscription, otherSubscriptions []*internal_types.CustomerSubscription) {
+	<h2 class="text-3xl font-bold">Subscriptions</h2>
+	if len(activeSubscriptions) == 0 && len(otherSubscriptions) == 0 {
+		<div class="mt-8">
+			<p class="text-lg">You don't have any subscriptions yet.</p>
+			<p class="text-base mt-2">Visit our <a href="/pricing" class="link link-primary">pricing page</a> to subscribe.</p>
+		</div>
+	} else {
+		<div class="mt-8">
+			if len(activeSubscriptions) > 0 {
+				<h3 class="text-2xl font-bold mt-6 mb-4">Active Subscriptions</h3>
+				<table class="table table-zebra">
+					<thead>
+						<tr>
+							<th>Plan</th>
+							<th>Status</th>
+							<th>Current Period</th>
+							<th>Next Payment</th>
+							<th>Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, sub := range activeSubscriptions {
+							<tr>
+								<td>
+									<div class="font-bold">{ sub.PlanName }</div>
+									<div class="text-sm text-base-content/70">${ fmt.Sprintf("%.2f", float64(sub.PlanAmount)/100.0) }/{ sub.PlanInterval }</div>
+								</td>
+								<td>
+									<span class="badge badge-success">Active</span>
+									if sub.IsScheduledToCancel() {
+										<div class="text-sm mt-1 text-base-content/70">Canceling at period end</div>
+									}
+								</td>
+								<td>
+									<div class="text-sm">{ sub.CurrentPeriodStart.Format("Jan 2, 2006") }</div>
+									<div class="text-sm text-base-content/70">to { sub.CurrentPeriodEnd.Format("Jan 2, 2006") }</div>
+								</td>
+								<td>{ sub.CurrentPeriodEnd.Format("Jan 2, 2006") }</td>
+								<td>
+									<div class="dropdown dropdown-end">
+										<div tabindex="0" role="button" class="btn btn-sm btn-primary">Actions</div>
+										<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
+											<li>
+												<form action="/api/customer-portal/session" method="POST" class="w-full">
+													<input type="hidden" name="subscription_id" value={ sub.ID }/>
+													<input type="hidden" name="flow_type" value="subscription_update"/>
+													<input type="hidden" name="return_url" value="/admin/subscriptions"/>
+													<button type="submit" class="w-full text-left">Update Subscription</button>
+												</form>
+											</li>
+											<li>
+												<form action="/api/customer-portal/session" method="POST" class="w-full">
+													<input type="hidden" name="flow_type" value="payment_method_update"/>
+													<input type="hidden" name="return_url" value="/admin/subscriptions"/>
+													<button type="submit" class="w-full text-left">Update Payment Method</button>
+												</form>
+											</li>
+											if !sub.IsScheduledToCancel() {
+												<li>
+													<form action="/api/customer-portal/session" method="POST" class="w-full">
+														<input type="hidden" name="subscription_id" value={ sub.ID }/>
+														<input type="hidden" name="flow_type" value="subscription_cancel"/>
+														<input type="hidden" name="return_url" value="/admin/subscriptions"/>
+														<button type="submit" class="w-full text-left text-error">Cancel Subscription</button>
+													</form>
+												</li>
+											}
+										</ul>
+									</div>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+			if len(otherSubscriptions) > 0 {
+				<h3 class="text-2xl font-bold mt-6 mb-4">Subscription History</h3>
+				<table class="table table-zebra">
+					<thead>
+						<tr>
+							<th>Plan</th>
+							<th>Status</th>
+							<th>Period</th>
+							<th>Ended</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, sub := range otherSubscriptions {
+							<tr>
+								<td>
+									<div class="font-bold">{ sub.PlanName }</div>
+									<div class="text-sm text-base-content/70">${ fmt.Sprintf("%.2f", float64(sub.PlanAmount)/100.0) }/{ sub.PlanInterval }</div>
+								</td>
+								<td>
+									if sub.Status == internal_types.SubscriptionStatusCanceled {
+										<span class="badge badge-error">Canceled</span>
+									} else if sub.Status == internal_types.SubscriptionStatusPastDue {
+										<span class="badge badge-warning">Past Due</span>
+									} else if sub.Status == internal_types.SubscriptionStatusPaused {
+										<span class="badge badge-warning">Paused</span>
+									} else {
+										<span class="badge badge-neutral">{ string(sub.Status) }</span>
+									}
+								</td>
+								<td>
+									if !sub.CurrentPeriodStart.IsZero() {
+										<div class="text-sm">{ sub.CurrentPeriodStart.Format("Jan 2, 2006") }</div>
+										if !sub.CurrentPeriodEnd.IsZero() {
+											<div class="text-sm text-base-content/70">to { sub.CurrentPeriodEnd.Format("Jan 2, 2006") }</div>
+										}
+									}
+								</td>
+								<td>
+									if sub.CanceledAt != nil {
+										{ sub.CanceledAt.Format("Jan 2, 2006") }
+									} else if !sub.CurrentPeriodEnd.IsZero() {
+										{ sub.CurrentPeriodEnd.Format("Jan 2, 2006") }
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</div>
+	}
+}

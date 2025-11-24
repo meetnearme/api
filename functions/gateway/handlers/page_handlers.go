@@ -92,7 +92,7 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	return startTimeUnix, endTimeUnix
 }
 
-func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation constants.CdnLocation, ownerIds []string, categories string, address string, parseDatesBool string, eventSourceTypes []string, eventSourceIds []string) {
+func GetSearchParamsFromReq(r *http.Request) (query, city string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation constants.CdnLocation, ownerIds []string, categories string, address string, parseDatesBool string, eventSourceTypes []string, eventSourceIds []string) {
 	startTimeStr := r.URL.Query().Get("start_time")
 	endTimeStr := r.URL.Query().Get("end_time")
 	latStr := r.URL.Query().Get("lat")
@@ -102,12 +102,12 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	owners := r.URL.Query().Get("owners")
 	categoriesStr := r.URL.Query().Get("categories")
 	address = r.URL.Query().Get("address")
+	location := r.URL.Query().Get("location")
 	parseDates := r.URL.Query().Get("parse_dates")
 	eventSourceTypesStr := r.URL.Query().Get("event_source_types")
 	eventSourceIdsStr := r.URL.Query().Get("event_source_ids")
 	cfRay := GetCfRay(r)
 	rayCode := ""
-
 	cfLocationLat := constants.INITIAL_EMPTY_LAT_LONG
 	cfLocationLon := constants.INITIAL_EMPTY_LAT_LONG
 
@@ -118,21 +118,40 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 		cfLocationLon = cfLocation.Lon
 	}
 
+	userMetaCity := ""
+	userMetaLat := 0.0
+	userMetaLon := 0.0
+	hasUserMetaLocation := false
+	if userMetaClaims, ok := r.Context().Value("userMetaClaims").(map[string]interface{}); ok {
+		metaCity, lat, lon, ok := helpers.GetUserLocationFromMap(userMetaClaims)
+		metaCity = strings.TrimSpace(metaCity)
+		if ok && metaCity != "" {
+			userMetaCity = metaCity
+			userMetaLat = lat
+			userMetaLon = lon
+			hasUserMetaLocation = true
+		}
+	}
+
 	// default lat / lon to geographic center of US
+	city = location
 	lat := US_GEO_DEFAULT_LAT
 	long := US_GEO_DEFAULT_LONG
 
 	// Parse parameter values if provided
-	if latStr != "" {
+	// Priority: 1. Query params, 2. JWT metadata, 3. CF location
+	if latStr != "" && longStr != "" {
 		lat64, _ := strconv.ParseFloat(latStr, 32)
 		lat = float64(lat64)
-	} else if cfLocationLat != constants.INITIAL_EMPTY_LAT_LONG {
-		lat = float64(cfLocationLat)
-	}
-	if longStr != "" {
 		long64, _ := strconv.ParseFloat(longStr, 32)
 		long = float64(long64)
-	} else if cfLocationLon != constants.INITIAL_EMPTY_LAT_LONG {
+	} else if hasUserMetaLocation {
+		city = userMetaCity
+		lat = userMetaLat
+		long = userMetaLon
+	} else if cfLocationLat != constants.INITIAL_EMPTY_LAT_LONG && cfLocationLon != constants.INITIAL_EMPTY_LAT_LONG {
+		// city = cfLocation.City
+		lat = float64(cfLocationLat)
 		long = float64(cfLocationLon)
 	}
 
@@ -187,12 +206,12 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 		eventSourceIds = strings.Split(eventSourceIdsStr, ",")
 	}
 
-	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, address, parseDates, eventSourceTypes, eventSourceIds
+	return q, city, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, address, parseDates, eventSourceTypes, eventSourceIds
 }
 
-func DeriveEventsFromRequest(r *http.Request) ([]types.Event, constants.CdnLocation, []float64, *types.UserSearchResult, int, error) {
+func DeriveEventsFromRequest(r *http.Request) ([]types.Event, constants.CdnLocation, string, []float64, *types.UserSearchResult, int, error) {
 	// Extract parameter values from the request query parameters
-	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+	q, city, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 	userId := mux.Vars(r)[constants.USER_ID_KEY]
 	ctx := r.Context()
 
@@ -275,7 +294,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, constants.CdnLocat
 		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
 			searchChan <- searchResult{types.EventSearchResponse{}, errors.New("failed to get weaviate client: " + err.Error())}
-			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, err
+			return []types.Event{}, cfLocation, city, []float64{}, nil, http.StatusInternalServerError, err
 		}
 
 		ctx := r.Context()
@@ -297,7 +316,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, constants.CdnLocat
 		// Get user result from channel
 		userResult := <-userChan
 		if userResult.err != nil {
-			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, userResult.err
+			return []types.Event{}, cfLocation, "", []float64{}, nil, http.StatusInternalServerError, userResult.err
 		}
 		pageUser = &userResult.user
 		pageUser.UserID = userId
@@ -306,7 +325,7 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, constants.CdnLocat
 	// Get search results from channel
 	result := <-searchChan
 	if result.err != nil {
-		return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, result.err
+		return []types.Event{}, cfLocation, "", []float64{}, nil, http.StatusInternalServerError, result.err
 	}
 
 	events := result.res.Events
@@ -318,16 +337,22 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, constants.CdnLocat
 		}
 	}
 
-	return events, cfLocation, userLocation, pageUser, http.StatusOK, nil
+	return events, cfLocation, city, userLocation, pageUser, http.StatusOK, nil
 }
 
 func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
+	hostParts := strings.Split(r.Host, ".")
+
+	mnmOptionsHeaderVal := strings.Trim(r.Header.Get("X-Mnm-Options"), "\"")
+	if len(hostParts) > 1 && mnmOptionsHeaderVal == "" {
+		return transport.SendHtmlErrorPage([]byte("User Not Found, <br /> but you can <a class=\"link link-text\" href=\"/admin\">claim this subdomain</a>"), 200, true)
+	}
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
 	originalQueryLocation := r.URL.Query().Get("location")
-	events, cfLocation, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
+	events, cfLocation, city, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
 	if err != nil {
 		mnmUserId := mnmOptions["userId"]
 		if mnmUserId != "" || strings.Contains(r.URL.Path, "/user") {
@@ -346,6 +371,7 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		events,
 		pageUser,
 		cfLocation,
+		city,
 		fmt.Sprint(userLocation[0]),
 		fmt.Sprint(userLocation[1]),
 		fmt.Sprint(originalQueryLat),
@@ -365,10 +391,15 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 }
 
 func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	aboutPage := pages.AboutPage()
 	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
 
-	layoutTemplate := pages.Layout(constants.SitePages["about"], constants.UserInfo{}, aboutPage, types.Event{}, false, ctx, []string{})
+	aboutPage := pages.AboutPage()
+
+	layoutTemplate := pages.Layout(constants.SitePages["about"], userInfo, aboutPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -406,33 +437,9 @@ func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	adminPage := pages.AdminPage(userInfo, roleClaims, userInterests, userSubdomain, mnmOptions, userAboutData, ctx)
-	layoutTemplate := pages.Layout(constants.SitePages["admin"], userInfo, adminPage, types.Event{}, false, ctx, []string{})
+	layoutTemplate := pages.Layout(constants.SitePages["admin"], userInfo, adminPage, types.Event{}, false, ctx, []string{"https://cdn.jsdelivr.net/npm/navigation-polyfill@0.0.2/lib/index.min.js"})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
-	}
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
-}
-
-func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-
-	userInfo := constants.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(constants.UserInfo)
-	}
-
-	userMetaClaims := map[string]interface{}{}
-	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
-		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
-	}
-	parsedInterests := helpers.GetUserInterestFromMap(userMetaClaims, constants.INTERESTS_KEY)
-	settingsPage := pages.ProfileSettingsPage(parsedInterests, ctx)
-	layoutTemplate := pages.Layout(constants.SitePages["settings"], userInfo, settingsPage, types.Event{}, false, ctx, []string{})
-
-	var buf bytes.Buffer
-	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
@@ -632,6 +639,32 @@ func GetTermsOfServicePage(w http.ResponseWriter, r *http.Request) http.HandlerF
 	}
 	termsOfServicePage := pages.TermsOfServicePage(constants.SitePages["terms-of-service"], userInfo)
 	layoutTemplate := pages.Layout(constants.SitePages["terms-of-service"], userInfo, termsOfServicePage, types.Event{}, false, ctx, []string{})
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
+}
+
+func GetPricingPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+	isLoggedIn := userInfo.Sub != ""
+
+	// Check for existing subscription roles
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = claims
+	}
+	hasSeedSubscription := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubSeed]})
+	hasGrowthSubscription := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubGrowth]})
+
+	pricingPage := pages.PricingPage(isLoggedIn, hasSeedSubscription, hasGrowthSubscription)
+	layoutTemplate := pages.Layout(constants.SitePages["pricing"], userInfo, pricingPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {

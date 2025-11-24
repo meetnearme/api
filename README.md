@@ -14,7 +14,7 @@
     2. The `*.templ` template file watcher and a trigger to compile new Go builds
     3. local npm static asset server
 
-## (⚠️ Deprecaated) Running the Lambda Project
+## (⚠️ Deprecated) Running the Lambda Project
 
 ### Prerequisites
 
@@ -269,3 +269,5 @@ Summary of this workflow:
    docker compose build
    docker compose up
    ```
+
+   

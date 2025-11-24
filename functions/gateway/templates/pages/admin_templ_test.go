@@ -53,7 +53,7 @@ func TestAdminPage(t *testing.T) {
 	// Call the AdminPage function
 	profilePage := AdminPage(mockUserInfo, mockRoleClaims, interests, subdomain, "userId=123;--p=#000000;themeMode=dark", "Test about me text", context.Background())
 
-	layoutTemplate := Layout(constants.SitePages["profile"], mockUserInfo, profilePage, types.Event{}, false, fakeContext, []string{})
+	layoutTemplate := Layout(constants.SitePages["admin"], mockUserInfo, profilePage, types.Event{}, false, fakeContext, []string{})
 
 	// Render the template
 	var buf bytes.Buffer
@@ -70,7 +70,6 @@ func TestAdminPage(t *testing.T) {
 		mockUserInfo.Email,
 		mockUserInfo.Name,
 		mockUserInfo.Sub,
-		mockUserInfo.Locale,
 		"Yes", // mockUserInfo.EmailVerified yields a value "Yes" or "No"
 		"Test about me text",
 		"#000000",

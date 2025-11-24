@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"strconv"
 	"time"
 )
 
@@ -28,7 +29,7 @@ const CompetitionWaitingRoomParticipantTablePrefix = "CompetitionWaitingRoomPart
 const VotesTablePrefix = "Votes"
 
 // const WeaviateEventClassName = "EventStrict" // old version
-const WeaviateEventClassName = "EventStrict_2025_10_5_000000"
+const WeaviateEventClassName = "EventStrict_2025_11_07_000000"
 
 const ACT string = "ACT"
 const EVENT_ID_KEY string = "eventId"
@@ -39,6 +40,7 @@ const USER_ID_KEY string = "userId"
 const SUBDOMAIN_KEY = "subdomain"
 const INTERESTS_KEY = "interests"
 const META_ABOUT_KEY = "about"
+const META_LOC_KEY = "loc"
 const ERR_KV_KEY_EXISTS = "key already exists in KV store"
 const GO_TEST_ENV = "test"
 const MNM_OPTIONS_CTX_KEY = "mnmOptions"
@@ -97,6 +99,23 @@ const (
 	SESHU_KNOWN_SOURCE_FB = "FACEBOOK"
 )
 
+// TIME_COMPRESSION_RATIO controls the speed of time-dependent operations for testing
+// 1.0 = real-time (production)
+// 60.0 = 1 hour becomes 1 minute (60x faster)
+// 3600.0 = 1 hour becomes 1 second (3600x faster)
+// Only affects: Seshu loop interval, ScheduledHour checks, time-based cooldowns
+// Does NOT affect: NATS message processing, database operations, external API calls
+var TIME_COMPRESSION_RATIO float64 = func() float64 {
+	if envVal := os.Getenv("TIME_COMPRESSION_RATIO"); envVal != "" {
+		if ratio, err := strconv.ParseFloat(envVal, 64); err == nil && ratio > 0 {
+			return ratio
+		}
+	}
+	return 1.0
+}()
+
+var SESHU_GATHER_INTERVAL_SECONDS int64 = (1 * 60 * 60)
+
 const COMP_EMPTY_TEAM_NAME = "___|~~EMPTY TEAM NAME~~|___"
 const COMP_UNASSIGNED_ROUND_EVENT_ID = "fake-event-id-123"
 const COMP_TEAM_ID_PREFIX = "tm_"
@@ -119,8 +138,21 @@ const (
 	STRIPE_WEBHOOK_EVENT_CUSTOMER_UPDATED                             = "customer.updated"
 )
 
+// Stripe customer portal flow types for deep linking
+// These are used to create portal sessions that deep link to specific subscription actions
+// See: https://docs.stripe.com/customer-management/portal-deep-links
+const (
+	STRIPE_PORTAL_FLOW_PAYMENT_METHOD_UPDATE       = "payment_method_update"
+	STRIPE_PORTAL_FLOW_SUBSCRIPTION_CANCEL         = "subscription_cancel"
+	STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE         = "subscription_update"
+	STRIPE_PORTAL_FLOW_SUBSCRIPTION_UPDATE_CONFIRM = "subscription_update_confirm"
+)
+
 // Customer portal configuration
-var CUSTOMER_PORTAL_RETURN_URL_PATH = os.Getenv("APEX_URL") + "/admin/subscriptions"
+var CUSTOMER_PORTAL_RETURN_URL_PATH = os.Getenv("APEX_URL") + "/admin"
+
+const ROLE_NOT_FOUND_MESSAGE = "Role not found"
+const ROLE_ACTIVE_MESSAGE = "Role is active"
 
 // NOTE: these are the default searchable event source types that show up in the home event list view
 var DEFAULT_SEARCHABLE_EVENT_SOURCE_TYPES = []string{ES_SERIES_PARENT, ES_SINGLE_EVENT}
@@ -194,9 +226,8 @@ const (
 	OrgAdmin         Role = "orgAdmin"
 	CompetitionAdmin Role = "competitionAdmin"
 	EventAdmin       Role = "eventAdmin"
-	SyndicateAdmin   Role = "syndicateAdmin"
-	SubscrGrowth     Role = "subscrGrowth"
-	SubscrSeed       Role = "subscrSeed"
+	SubGrowth        Role = "subGrowth"
+	SubSeed          Role = "subSeed"
 )
 
 var Roles = map[Role]string{
@@ -204,10 +235,11 @@ var Roles = map[Role]string{
 	OrgAdmin:         string(OrgAdmin),
 	CompetitionAdmin: string(CompetitionAdmin),
 	EventAdmin:       string(EventAdmin),
-	SyndicateAdmin:   string(SyndicateAdmin),
-	SubscrGrowth:     string(SubscrGrowth),
-	SubscrSeed:       string(SubscrSeed),
+	SubGrowth:        string(SubGrowth),
+	SubSeed:          string(SubSeed),
 }
+
+const BASIC_SUBSCRIPTION_PLAN_ID = "basic"
 
 var AllowedMnmOptionsKeys = []string{
 	"userId",
@@ -259,9 +291,8 @@ var SitePages = map[string]SitePage{
 	// solution is from this github comment (see discussion as well) https://github.com/gorilla/mux/issues/30#issuecomment-1666428538
 	"home":               {Key: "home", Slug: "/", Name: "Home", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvFilters]}},
 	"about":              {Key: "about", Slug: "/about{trailingslash:\\/?}", Name: "About", SubnavItems: []string{SubnavItems[NvMain]}},
-	"admin":              {Key: "admin", Slug: "/admin/home{trailingslash:\\/?}", Name: "Admin", SubnavItems: []string{SubnavItems[NvMain]}},
+	"admin":              {Key: "admin", Slug: "/admin{trailingslash:\\/?}{path:.*}", Name: "Admin", SubnavItems: []string{SubnavItems[NvMain]}},
 	"add-event-source":   {Key: "add-event-source", Slug: "/admin/add-event-source{trailingslash:\\/?}", Name: "Add Event Source", SubnavItems: []string{SubnavItems[NvMain]}},
-	"settings":           {Key: "settings", Slug: "/admin/profile/settings{trailingslash:\\/?}", Name: "Settings", SubnavItems: []string{SubnavItems[NvMain]}},
 	"map-embed":          {Key: "map-embed", Slug: "/map-embed{trailingslash:\\/?}", Name: "MapEmbed", SubnavItems: []string{SubnavItems[NvMain]}},
 	"user":               {Key: "user", Slug: "/user/{" + USER_ID_KEY + "}{trailingslash:\\/?}", Name: "User", SubnavItems: []string{SubnavItems[NvMain]}},
 	"event-detail":       {Key: "event-detail", Slug: "/event/{" + EVENT_ID_KEY + "}{trailingslash:\\/?}", Name: "Event Detail", SubnavItems: []string{SubnavItems[NvMain], SubnavItems[NvCart]}},
@@ -274,6 +305,7 @@ var SitePages = map[string]SitePage{
 	"privacy-policy":     {Key: "privacy-policy", Slug: "/privacy-policy{trailingslash:\\/?}", Name: "Privacy Policy", SubnavItems: []string{SubnavItems[NvMain]}},
 	"data-request":       {Key: "data-request", Slug: "/data-request{trailingslash:\\/?}", Name: "Data Request", SubnavItems: []string{SubnavItems[NvMain]}},
 	"terms-of-service":   {Key: "terms-of-service", Slug: "/terms-of-service{trailingslash:\\/?}", Name: "Terms of Service", SubnavItems: []string{SubnavItems[NvMain]}},
+	"pricing":            {Key: "pricing", Slug: "/pricing{trailingslash:\\/?}", Name: "Pricing", SubnavItems: []string{SubnavItems[NvMain]}},
 }
 
 // EventFields holds references to all fields in the Event struct
