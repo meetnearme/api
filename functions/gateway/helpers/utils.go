@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1320,6 +1321,47 @@ func GetMnmOptionsFromContext(ctx context.Context) map[string]string {
 		return mnmOptions
 	}
 	return map[string]string{}
+}
+
+// ParseMnmOptionsHeader parses the X-Mnm-Options header value into a map[string]string
+// Supports two formats:
+//  1. Key-value pairs: "key1=value1;key2=value2" (semicolon-separated, equals-separated key-value pairs)
+//  2. Legacy format: "userId" (just the userId value, treated as userId=userId)
+//
+// The function validates keys against constants.AllowedMnmOptionsKeys and logs warnings
+// for invalid keys or malformed entries. Returns an empty map if headerValue is empty.
+func ParseMnmOptionsHeader(headerValue string) map[string]string {
+	mnmOptions := map[string]string{}
+
+	// Trim surrounding quotes
+	headerVal := strings.Trim(headerValue, "\"")
+	if headerVal == "" {
+		return mnmOptions
+	}
+
+	if strings.Contains(headerVal, "=") {
+		// Parse key=value format (semicolon-separated)
+		parts := strings.Split(headerVal, ";")
+		for _, part := range parts {
+			kv := strings.SplitN(part, "=", 2)
+			if len(kv) == 2 {
+				key := strings.Trim(kv[0], " \"") // trim spaces and quotes
+				value := strings.Trim(kv[1], " \"")
+				if slices.Contains(constants.AllowedMnmOptionsKeys, key) {
+					mnmOptions[key] = value
+				} else {
+					log.Printf("Warning: Invalid option key '%s' (not in allowed keys)", key)
+				}
+			} else {
+				log.Printf("Warning: Invalid option format '%s' (expected key=value)", part)
+			}
+		}
+	} else {
+		// Handle legacy format where header value is just the userId
+		mnmOptions["userId"] = strings.Trim(headerVal, " \"")
+	}
+
+	return mnmOptions
 }
 
 func NormalizeURL(input string) (string, error) {
