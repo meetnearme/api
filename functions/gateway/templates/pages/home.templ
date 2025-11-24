@@ -408,10 +408,8 @@ func GetCityCountryFromLocation(cfLocation constants.CdnLocation, cityStr, latSt
 		if latErr == nil && lonErr == nil {
 			cityService := services.GetCityService()
 			locationQuery := fmt.Sprintf("%.2f+%.2f", lat, lon)
-			log.Printf("location query %v", locationQuery)
 			city, err := cityService.GetCity(locationQuery)
 			if err == nil && city != "" {
-				log.Printf("returning this city: %v", city)
 				return city
 			}
 		}

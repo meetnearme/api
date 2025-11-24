@@ -879,8 +879,8 @@ func TestGeoThenPatchSeshuSessionHandler(t *testing.T) {
 				Location: "San Francisco, CA",
 				Url:      "", // Empty URL should trigger validation error
 			},
-			expectedStatus: http.StatusOK,                                   // HTML error responses return 200
-			shouldContain:  "Url&#39; failed on the &#39;required&#39; tag", // Validation error message
+			expectedStatus: http.StatusOK,                       // HTML error responses return 200
+			shouldContain:  "Url' failed on the 'required' tag", // Validation error message
 		},
 		{
 			name: "missing location",
@@ -888,8 +888,8 @@ func TestGeoThenPatchSeshuSessionHandler(t *testing.T) {
 				Location: "", // Empty location should trigger validation error
 				Url:      "https://example.com",
 			},
-			expectedStatus: http.StatusOK,                                        // HTML error responses return 200
-			shouldContain:  "Location&#39; failed on the &#39;required&#39; tag", // Validation error message
+			expectedStatus: http.StatusOK,                            // HTML error responses return 200
+			shouldContain:  "Location' failed on the 'required' tag", // Validation error message
 		},
 	}
 
@@ -1226,7 +1226,7 @@ func TestUpdateUserAbout(t *testing.T) {
 				Sub: "error_user",
 			},
 			expectedStatus: http.StatusOK,
-			shouldContain:  "Failed to update &#39;about&#39; field",
+			shouldContain:  "Failed to update 'about' field",
 		},
 	}
 
@@ -1364,7 +1364,7 @@ func TestUpdateUserLocation(t *testing.T) {
 				Sub: "user123",
 			},
 			expectedStatus: http.StatusOK,
-			shouldContain:  "Error:Field validation for &#39;City&#39",
+			shouldContain:  "Error:Field validation for 'City'",
 		},
 		{
 			name: "invalid latitude",

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/google/uuid"
 	"github.com/meetnearme/api/functions/gateway/constants"
 )
 
@@ -130,11 +132,15 @@ func TestHandleCallback(t *testing.T) {
 	originalZitadelHost := os.Getenv("ZITADEL_INSTANCE_HOST")
 	originalClientID := os.Getenv("ZITADEL_CLIENT_ID")
 	originalClientSecret := os.Getenv("ZITADEL_CLIENT_SECRET")
+	originalGoEnv := os.Getenv("GO_ENV")
+	originalZitadelTestError := os.Getenv("ZITADEL_TEST_ERROR")
 	defer func() {
 		os.Setenv("APEX_URL", originalApexURL)
 		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelHost)
 		os.Setenv("ZITADEL_CLIENT_ID", originalClientID)
 		os.Setenv("ZITADEL_CLIENT_SECRET", originalClientSecret)
+		os.Setenv("GO_ENV", originalGoEnv)
+		os.Setenv("ZITADEL_TEST_ERROR", originalZitadelTestError)
 	}()
 
 	tests := []struct {
@@ -149,6 +155,7 @@ func TestHandleCallback(t *testing.T) {
 		clientSecret   string
 		expectedStatus int
 		expectError    bool
+		zitadelError   bool
 	}{
 		{
 			name:           "Session ID redirect",
@@ -202,6 +209,20 @@ func TestHandleCallback(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			expectError:    true,
 		},
+		{
+			name:           "Zitadel error response",
+			sessionID:      "",
+			state:          "",
+			code:           "test-code",
+			verifierCookie: "test-verifier",
+			apexURL:        "https://example.com",
+			zitadelHost:    "example.zitadel.cloud",
+			clientID:       "test-client-id",
+			clientSecret:   "test-client-secret",
+			expectedStatus: http.StatusOK, // SendHtmlErrorPage always returns 200
+			expectError:    true,
+			zitadelError:   true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -211,6 +232,12 @@ func TestHandleCallback(t *testing.T) {
 			os.Setenv("ZITADEL_INSTANCE_HOST", tt.zitadelHost)
 			os.Setenv("ZITADEL_CLIENT_ID", tt.clientID)
 			os.Setenv("ZITADEL_CLIENT_SECRET", tt.clientSecret)
+			os.Setenv("GO_ENV", constants.GO_TEST_ENV)
+			if tt.zitadelError {
+				os.Setenv("ZITADEL_TEST_ERROR", "true")
+			} else {
+				os.Setenv("ZITADEL_TEST_ERROR", "")
+			}
 
 			// Create request with query parameters
 			url := "/auth/callback"
@@ -286,6 +313,54 @@ func TestHandleCallback(t *testing.T) {
 					if !found {
 						t.Errorf("Expected cookie %s, got none", expectedCookie)
 					}
+				}
+			}
+
+			// For Zitadel error case, verify error ID is present and Zitadel error details are not
+			if tt.zitadelError {
+				body, _ := io.ReadAll(w.Result().Body)
+				bodyStr := string(body)
+
+				// Check that response contains "Authentication failed" and "Error ID:"
+				if !strings.Contains(bodyStr, "Authentication failed") {
+					t.Error("Expected response to contain 'Authentication failed'")
+				}
+				if !strings.Contains(bodyStr, "Error ID:") {
+					t.Error("Expected response to contain 'Error ID:'")
+				}
+
+				// Extract UUID from response by finding "Error ID: " and taking the next 36 characters (UUID length)
+				errorIDPrefix := "Error ID: "
+				errorIDIndex := strings.Index(bodyStr, errorIDPrefix)
+				if errorIDIndex == -1 {
+					t.Error("Expected to find 'Error ID: ' in error message")
+				} else {
+					// UUIDs are 36 characters long (8-4-4-4-12 format)
+					uuidStart := errorIDIndex + len(errorIDPrefix)
+					if uuidStart+36 > len(bodyStr) {
+						t.Error("Expected UUID to be present after 'Error ID: '")
+					} else {
+						extractedUUID := bodyStr[uuidStart : uuidStart+36]
+
+						// Validate that it's a valid UUID
+						parsedUUID, err := uuid.Parse(extractedUUID)
+						if err != nil {
+							t.Errorf("Expected valid UUID, got invalid format: %s (error: %v)", extractedUUID, err)
+						} else {
+							// Verify it's not the zero UUID
+							if parsedUUID == uuid.Nil {
+								t.Error("Expected non-zero UUID")
+							}
+						}
+					}
+				}
+
+				// Verify that Zitadel error details are NOT exposed
+				if strings.Contains(bodyStr, "invalid_grant") {
+					t.Error("Zitadel error details should not be exposed to user")
+				}
+				if strings.Contains(bodyStr, "authorization code is invalid") {
+					t.Error("Zitadel error description should not be exposed to user")
 				}
 			}
 		})

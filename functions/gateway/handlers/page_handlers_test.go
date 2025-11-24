@@ -192,6 +192,145 @@ func TestGetHomeOrUserPage(t *testing.T) {
 	}
 }
 
+func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
+	tests := []struct {
+		name                string
+		host                string
+		mnmOptionsHeader    string
+		expectedErrorPage   bool
+		expectedContains    []string
+		expectedNotContains []string
+	}{
+		{
+			name:              "Subdomain without X-Mnm-Options header should show error page",
+			host:              "subdomain.example.com",
+			mnmOptionsHeader:  "",
+			expectedErrorPage: true,
+			expectedContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+				`<a class="link link-text" href="/admin">`, // HTML should be rendered, not escaped
+			},
+			expectedNotContains: []string{
+				"&lt;a", // HTML should not be escaped
+				"&lt;br",
+			},
+		},
+		{
+			name:              "Subdomain with X-Mnm-Options header should proceed normally",
+			host:              "subdomain.example.com",
+			mnmOptionsHeader:  `{"userId":"123"}`,
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Subdomain with quoted X-Mnm-Options header should proceed normally",
+			host:              "subdomain.example.com",
+			mnmOptionsHeader:  `"{"userId":"123"}"`,
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Apex domain (example.com has 2 parts) will show error page without header",
+			host:              "example.com",
+			mnmOptionsHeader:  "",
+			expectedErrorPage: true,
+			expectedContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Apex domain with X-Mnm-Options header should proceed normally",
+			host:              "example.com",
+			mnmOptionsHeader:  `{"userId":"123"}`,
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Localhost (no dots) should proceed normally",
+			host:              "localhost",
+			mnmOptionsHeader:  "",
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a request with the specified host
+			req, err := http.NewRequest("GET", "/", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Host = tt.host
+
+			// Set X-Mnm-Options header if provided
+			if tt.mnmOptionsHeader != "" {
+				req.Header.Set("X-Mnm-Options", tt.mnmOptionsHeader)
+			}
+
+			// Add context
+			fakeContext := context.Background()
+			req = req.WithContext(fakeContext)
+
+			// Create a ResponseRecorder
+			rr := httptest.NewRecorder()
+
+			// Call the handler
+			handler := GetHomeOrUserPage(rr, req)
+			handler.ServeHTTP(rr, req)
+
+			body := rr.Body.String()
+
+			if tt.expectedErrorPage {
+				// Verify status is OK (SendHtmlErrorPage returns 200)
+				if rr.Code != http.StatusOK {
+					t.Errorf("Expected status %d, got %d", http.StatusOK, rr.Code)
+				}
+
+				// Verify expected content is present
+				for _, expected := range tt.expectedContains {
+					if !strings.Contains(body, expected) {
+						t.Errorf("Expected response to contain '%s', but it didn't", expected)
+					}
+				}
+
+				// Verify HTML is rendered (not escaped)
+				for _, notExpected := range tt.expectedNotContains {
+					if strings.Contains(body, notExpected) {
+						t.Errorf("Expected response to NOT contain escaped HTML '%s', but it did", notExpected)
+					}
+				}
+
+				// Verify the link is clickable (HTML is rendered)
+				if !strings.Contains(body, `<a class="link link-text" href="/admin">`) {
+					t.Error("Expected HTML link to be rendered, but it appears to be escaped or missing")
+				}
+			} else {
+				// For non-error cases, verify error page content is NOT present
+				for _, notExpected := range tt.expectedNotContains {
+					if strings.Contains(body, notExpected) {
+						t.Errorf("Expected response to NOT contain '%s', but it did", notExpected)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestGetHomeOrUserPage_WithGroupedEvents(t *testing.T) {
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
 	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
