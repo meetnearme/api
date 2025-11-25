@@ -28,7 +28,7 @@ export default {
           const accountId = env.CLOUDFLARE_ACCOUNT_ID;
           const kvNamespaceId = env.CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID;
 
-          if (!apiToken || !accountId) {
+          if (!apiToken || !accountId || !kvNamespaceId) {
             console.error('No API token or account ID');
             return null;
           }

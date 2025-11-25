@@ -21,7 +21,7 @@ const env = dotenv.config({ path: join(projectRoot, '.env') });
 
 // Create .dev.vars file for wrangler (it reads this automatically)
 const devVarsPath = join(projectRoot, '.dev.vars');
-const devVarsContent = Object.entries(env.parsed)
+const devVarsContent = Object.entries(env?.parsed ?? {})
   .filter(([key]) => key.startsWith('CLOUDFLARE_'))
   .map(([key, value]) => `${key}=${value}`)
   .join('\n');
