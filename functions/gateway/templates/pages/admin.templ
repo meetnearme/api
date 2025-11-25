@@ -248,7 +248,6 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					class="mb-4 rounded-xl border border-success bg-success/10 px-4 py-3 flex flex-col gap-1"
 				>
 					<div class="flex items-center gap-2 font-semibold">
-						@components.Icon("check-circle")
 						<span>Current Subdomain</span>
 					</div>
 					<a
@@ -259,7 +258,6 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					></a>
 					<span x-show="!subdomainValid">No subdomain set</span>
 					<div class="flex items-center gap-2 font-semibold mt-6">
-						@components.Icon("edit")
 						<span>Update Subdomain</span>
 					</div>
 					<form
@@ -267,7 +265,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						novalidate
 						hx-post="/api/auth/users/update-mnm-options"
 						hx-ext="json-enc"
-						hx-target="#subdomain-result"
+						hx-target="#subdomain-set-result"
 						hx-disabled-elt="button[type='submit']"
 						@submit.prevent=""
 						@htmx:after-request="handleSubdomainPostRes(event)"
@@ -291,6 +289,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 								/>
 								<span>.meetnear.me</span>
 							</label>
+							<div id="subdomain-set-result" class="margins-when-children my-4"></div>
 							<button
 								type="submit"
 								class="btn btn-primary w-full mt-6"
@@ -300,24 +299,23 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 							Subdomain must contain only lowercase letters and numbers and/or hyphens
 						</div>
 					</form>
-					<div id="subdomain-result" class="margins-when-children my-8"></div>
 				</div>
 				<div
 					class="mt-6 rounded-xl border border-error bg-error/20 px-4 py-5 flex flex-col items-start gap-3"
 					x-show="subdomainValid && currentValidSubdomain"
 				>
 					<div class="flex items-center gap-2 font-semibold">
-						@components.Icon("triangle-alert")
 						<span>Danger Zone</span>
 					</div>
 					<p class="">
 						Deleting your subdomain will permanently disable your custom website and theme. This action cannot be undone.
 					</p>
+					<div id="subdomain-delete-result" class="margins-when-children my-4"></div>
 					<button
 						type="button"
 						class="btn btn-error w-full"
 						hx-post="/api/auth/users/delete-subdomain"
-						hx-target="#subdomain-result"
+						hx-target="#subdomain-delete-result"
 						hx-disabled-elt="button"
 						@htmx:before-request="isDeleting = true"
 						@htmx:after-request="
