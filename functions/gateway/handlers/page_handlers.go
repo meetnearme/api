@@ -353,8 +353,18 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	}
 	// the OTHER CASE is when we are on local ACT docker container and we want to use a proxy like
 	// Cloudflare workers to get the X-Mnm-Options header set, with the subdomain userId value
-	if os.Getenv("IS_LOCAL_ACT") == "true" && strings.Contains(r.Host, "127.0.0.1") && len(hostParts) >= 5 && len(mnmOptions) == 0 {
-		return transport.SendHtmlErrorPage([]byte("User Not Found, <br /> but you can <a class=\"link link-text\" href=\"/admin\">claim this subdomain</a>"), 200, true)
+	// When proxied from Wrangler, r.Host is always 127.0.0.1:8000, but the worker sets X-Original-Host header
+	// with the subdomain (e.g., "test.localhost") so we can detect subdomains in the proxy scenario
+	if os.Getenv("IS_LOCAL_ACT") == "true" && strings.Contains(r.Host, "127.0.0.1") && len(mnmOptions) == 0 {
+		// Try to get the original host from X-Original-Host header (set by worker)
+		// Fall back to Host header if X-Original-Host is not available
+		originalHost := r.Header.Get("X-Original-Host")
+		if originalHost != "" {
+			hostParts = strings.Split(originalHost, ".")
+			if len(hostParts) > 1 && hostParts[0] != "localhost" {
+				return transport.SendHtmlErrorPage([]byte("User Not Found, <br /> but you can <a class=\"link link-text\" href=\"/admin\">claim this subdomain</a>"), 200, true)
+			}
+		}
 	}
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")

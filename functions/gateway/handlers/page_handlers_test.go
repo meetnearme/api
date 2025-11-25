@@ -397,16 +397,22 @@ func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
 			name: "127.0.0.1 with subdomain.localhost Host header and IS_LOCAL_ACT=true and no mnmOptions should show error page",
 			// When worker forwards to 127.0.0.1:8000, r.Host will always be "127.0.0.1:8000" (or "127.0.0.1")
 			// regardless of what the Host header is set to. The proxy ensures r.Host reflects the connection target.
-			// The condition checks: IS_LOCAL_ACT=true && r.Host contains "127.0.0.1" && len(hostParts) >= 5 && no mnmOptions
-			// However, for "127.0.0.1:8000", hostParts = ["127", "0", "0", "1:8000"] which is 4 parts, not 5.
-			// So this condition won't trigger. The test should reflect the actual behavior.
+			// The condition checks: IS_LOCAL_ACT=true && r.Host contains "127.0.0.1" && Host header has subdomain && no mnmOptions
+			// The Host header "test.localhost" has 2 parts, and the logic checks if first part is not "localhost",
+			// so "test.localhost" will be detected as a subdomain and show the error page.
 			host:              "127.0.0.1:8000",
+			hostHeader:        "test.localhost", // Host header set by local dev worker with subdomain
 			mnmOptionsHeader:  "",
 			isLocalAct:        "true",
-			expectedErrorPage: false, // Condition won't trigger because len(hostParts) < 5
-			expectedNotContains: []string{
+			expectedErrorPage: true, // Should show error page when subdomain in Host header and no mnmOptions
+			expectedContains: []string{
 				"User Not Found",
 				"claim this subdomain",
+				`<a class="link link-text" href="/admin">`,
+			},
+			expectedNotContains: []string{
+				"&lt;a",
+				"&lt;br",
 			},
 		},
 		{
@@ -492,16 +498,12 @@ func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
 			}
 			req.Host = tt.host
 
-			// Set Host header if provided (for worker proxy scenarios where Host header differs from connection)
-			// In the proxy scenario, when forwarding to 127.0.0.1:8000, r.Host will always be "127.0.0.1:8000"
-			// (or "127.0.0.1") regardless of what the Host header is set to. The proxy ensures r.Host
-			// reflects the connection target, not the Host header value.
-			// So we set the Host header (which the worker does), but ensure req.Host remains as the
-			// connection target (127.0.0.1:8000) to match the actual proxy behavior.
+			// Set X-Original-Host header if provided (for worker proxy scenarios)
+			// The worker sets X-Original-Host with the subdomain (e.g., "test.localhost")
+			// to preserve it when proxying to 127.0.0.1:8000 where r.Host is always "127.0.0.1:8000"
 			if tt.hostHeader != "" {
-				req.Header.Set("Host", tt.hostHeader)
-				// Override req.Host to match the proxy behavior where r.Host is always the connection target
-				// (127.0.0.1:8000), not the Host header value
+				req.Header.Set("X-Original-Host", tt.hostHeader)
+				// Ensure req.Host matches the proxy behavior where r.Host is always the connection target
 				req.Host = tt.host
 			}
 

@@ -75,15 +75,14 @@ export default {
     localUrl.hash = url.hash;
 
     console.log('Forwarding to:', localUrl.toString());
-    console.log('Host header:', localHostname);
 
     // Create new headers (clone original headers)
     const newHeaders = new Headers(req.headers);
 
-    // Set the Host header to preserve the subdomain for the Go app
-    // This allows the Go app to see the subdomain in r.Host
+    // set X-Original-Host as a backup since Host header may be overridden by HTTP client
     if (localHostname) {
-      newHeaders.set('Host', localHostname);
+      console.log('X-Original-Host header:', localHostname);
+      newHeaders.set('X-Original-Host', localHostname);
     }
 
     // Add X-Mnm-Options header if we have it
