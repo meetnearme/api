@@ -1,6 +1,8 @@
 node_modules
 .sst/*
 .env
+.dev.vars
+.wrangler/*
 # ignored because this is a build artifact that must be generated
 static/assets/styles.css
 static/assets/styles.*.css

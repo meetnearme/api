@@ -331,7 +331,9 @@ func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
 	tests := []struct {
 		name                string
 		host                string
+		hostHeader          string // Optional Host header (for worker proxy scenarios)
 		mnmOptionsHeader    string
+		isLocalAct          string // IS_LOCAL_ACT environment variable value (empty means don't set it)
 		expectedErrorPage   bool
 		expectedContains    []string
 		expectedNotContains []string
@@ -392,9 +394,76 @@ func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
 			},
 		},
 		{
-			name:              "Localhost (no dots) should proceed normally",
-			host:              "localhost",
+			name: "127.0.0.1 with subdomain.localhost Host header and IS_LOCAL_ACT=true and no mnmOptions should show error page",
+			// When worker forwards to 127.0.0.1:8000, r.Host will always be "127.0.0.1:8000" (or "127.0.0.1")
+			// regardless of what the Host header is set to. The proxy ensures r.Host reflects the connection target.
+			// The condition checks: IS_LOCAL_ACT=true && r.Host contains "127.0.0.1" && Host header has subdomain && no mnmOptions
+			// The Host header "test.localhost" has 2 parts, and the logic checks if first part is not "localhost",
+			// so "test.localhost" will be detected as a subdomain and show the error page.
+			host:              "127.0.0.1:8000",
+			hostHeader:        "test.localhost", // Host header set by local dev worker with subdomain
 			mnmOptionsHeader:  "",
+			isLocalAct:        "true",
+			expectedErrorPage: true, // Should show error page when subdomain in Host header and no mnmOptions
+			expectedContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+				`<a class="link link-text" href="/admin">`,
+			},
+			expectedNotContains: []string{
+				"&lt;a",
+				"&lt;br",
+			},
+		},
+		{
+			name: "127.0.0.1 with subdomain.localhost Host header and IS_LOCAL_ACT=true and mnmOptions should proceed normally",
+			// When proxied, r.Host is always 127.0.0.1:8000, Host header is separate
+			host:              "127.0.0.1:8000",
+			hostHeader:        "subdomain.localhost:8000", // Host header set by local dev worker (but r.Host will still be 127.0.0.1:8000)
+			mnmOptionsHeader:  "userId=123",
+			isLocalAct:        "true",
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name: "127.0.0.1 with localhost Host header (no subdomain) and IS_LOCAL_ACT=true should proceed normally",
+			// When proxied, r.Host is always 127.0.0.1:8000
+			host:              "127.0.0.1:8000",
+			hostHeader:        "localhost:8000", // Host header set by local dev worker (but r.Host will still be 127.0.0.1:8000)
+			mnmOptionsHeader:  "",
+			isLocalAct:        "true",
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "127.0.0.1 with subdomain.localhost Host header and IS_LOCAL_ACT=false should show error page (IP treated as subdomain)",
+			host:              "127.0.0.1:8000",
+			hostHeader:        "subdomain.localhost:8000", // Host header set by worker (but r.Host will still be 127.0.0.1:8000)
+			mnmOptionsHeader:  "",
+			isLocalAct:        "false",
+			expectedErrorPage: true, // Current logic treats IP addresses as subdomains
+			expectedContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+				`<a class="link link-text" href="/admin">`,
+			},
+			expectedNotContains: []string{
+				"&lt;a",
+				"&lt;br",
+			},
+		},
+		{
+			name: "127.0.0.1:8000 directly (no Host header manipulation) with IS_LOCAL_ACT=true should proceed normally",
+			// Direct connection to 127.0.0.1:8000, r.Host will be 127.0.0.1:8000
+			host:              "127.0.0.1:8000",
+			mnmOptionsHeader:  "",
+			isLocalAct:        "true",
 			expectedErrorPage: false,
 			expectedNotContains: []string{
 				"User Not Found",
@@ -405,12 +474,38 @@ func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Save and restore IS_LOCAL_ACT environment variable
+			originalIsLocalAct := os.Getenv("IS_LOCAL_ACT")
+			defer func() {
+				if originalIsLocalAct == "" {
+					os.Unsetenv("IS_LOCAL_ACT")
+				} else {
+					os.Setenv("IS_LOCAL_ACT", originalIsLocalAct)
+				}
+			}()
+
+			// Set IS_LOCAL_ACT if specified in test case
+			if tt.isLocalAct != "" {
+				os.Setenv("IS_LOCAL_ACT", tt.isLocalAct)
+			} else {
+				os.Unsetenv("IS_LOCAL_ACT")
+			}
+
 			// Create a request with the specified host
 			req, err := http.NewRequest("GET", "/", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
 			req.Host = tt.host
+
+			// Set X-Original-Host header if provided (for worker proxy scenarios)
+			// The worker sets X-Original-Host with the subdomain (e.g., "test.localhost")
+			// to preserve it when proxying to 127.0.0.1:8000 where r.Host is always "127.0.0.1:8000"
+			if tt.hostHeader != "" {
+				req.Header.Set("X-Original-Host", tt.hostHeader)
+				// Ensure req.Host matches the proxy behavior where r.Host is always the connection target
+				req.Host = tt.host
+			}
 
 			// Set X-Mnm-Options header if provided
 			if tt.mnmOptionsHeader != "" {
