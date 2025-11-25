@@ -9,12 +9,15 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1304,6 +1307,39 @@ func GetUserInterestFromMap(claimsMeta map[string]interface{}, key string) []str
 	return strings.Split(interests, "|")
 }
 
+func GetUserLocationFromMap(claimsMeta map[string]interface{}) (cityStr string, lat, lon float64, ok bool) {
+	locationStr := GetBase64ValueFromMap(claimsMeta, constants.META_LOC_KEY)
+	if locationStr == "" {
+		return "", 0, 0, false
+	}
+
+	parts := strings.Split(locationStr, ";")
+	if len(parts) < 3 {
+		return "", 0, 0, false
+	}
+
+	cityStr = parts[0]
+	latStr := parts[1]
+	lonStr := parts[2]
+
+	lat64, err := strconv.ParseFloat(latStr, 64)
+	if err != nil {
+		return "", 0, 0, false
+	}
+
+	lon64, err := strconv.ParseFloat(lonStr, 64)
+	if err != nil {
+		return "", 0, 0, false
+	}
+
+	// Validate coordinate ranges
+	if lat64 < -90 || lat64 > 90 || lon64 < -180 || lon64 > 180 {
+		return "", 0, 0, false
+	}
+
+	return cityStr, lat64, lon64, true
+}
+
 func CalculateTTL(days int) int64 {
 	return time.Now().Add(time.Duration(days) * 24 * time.Hour).Unix()
 }
@@ -1339,6 +1375,47 @@ func GetMnmOptionsFromContext(ctx context.Context) map[string]string {
 		return mnmOptions
 	}
 	return map[string]string{}
+}
+
+// ParseMnmOptionsHeader parses the X-Mnm-Options header value into a map[string]string
+// Supports two formats:
+//  1. Key-value pairs: "key1=value1;key2=value2" (semicolon-separated, equals-separated key-value pairs)
+//  2. Legacy format: "userId" (just the userId value, treated as userId=userId)
+//
+// The function validates keys against constants.AllowedMnmOptionsKeys and logs warnings
+// for invalid keys or malformed entries. Returns an empty map if headerValue is empty.
+func ParseMnmOptionsHeader(headerValue string) map[string]string {
+	mnmOptions := map[string]string{}
+
+	// Trim surrounding quotes
+	headerVal := strings.Trim(headerValue, "\"")
+	if headerVal == "" {
+		return mnmOptions
+	}
+
+	if strings.Contains(headerVal, "=") {
+		// Parse key=value format (semicolon-separated)
+		parts := strings.Split(headerVal, ";")
+		for _, part := range parts {
+			kv := strings.SplitN(part, "=", 2)
+			if len(kv) == 2 {
+				key := strings.Trim(kv[0], " \"") // trim spaces and quotes
+				value := strings.Trim(kv[1], " \"")
+				if slices.Contains(constants.AllowedMnmOptionsKeys, key) {
+					mnmOptions[key] = value
+				} else {
+					log.Printf("Warning: Invalid option key '%s' (not in allowed keys)", key)
+				}
+			} else {
+				log.Printf("Warning: Invalid option format '%s' (expected key=value)", part)
+			}
+		}
+	} else {
+		// Handle legacy format where header value is just the userId
+		mnmOptions["userId"] = strings.Trim(headerVal, " \"")
+	}
+
+	return mnmOptions
 }
 
 func NormalizeURL(input string) (string, error) {
@@ -1406,4 +1483,56 @@ func EnsureValidCoordinates(loc types.Locatable) {
 		loc.SetLocationLatitude(constants.INITIAL_EMPTY_LAT_LONG)
 		loc.SetLocationLongitude(constants.INITIAL_EMPTY_LAT_LONG)
 	}
+}
+
+// TimeSimulation provides helper functions for time compression testing
+// All time-dependent operations should use these functions to respect TIME_COMPRESSION_RATIO
+
+// CompressDuration compresses a real duration by TIME_COMPRESSION_RATIO
+// Example: 1 hour with ratio 60.0 becomes 1 minute
+func CompressDuration(realDuration time.Duration) time.Duration {
+	if constants.TIME_COMPRESSION_RATIO <= 1.0 {
+		return realDuration
+	}
+	return time.Duration(float64(realDuration) / constants.TIME_COMPRESSION_RATIO)
+}
+
+// CompressedScheduledHourInterval returns the time interval for scheduled hour checks
+// In real-time (ratio=1.0): checks every hour (3600 seconds)
+// With compression (ratio=60.0): checks every minute (60 seconds)
+// With compression (ratio=3600.0): checks every second (1 second)
+func CompressedScheduledHourInterval() time.Duration {
+	baseInterval := 1 * time.Hour
+	return CompressDuration(baseInterval)
+}
+
+// SimulatedHoursSince calculates how many "simulated hours" have passed
+// between two Unix timestamps, accounting for time compression
+// Example: 60 real seconds with ratio 60.0 = 1 simulated hour
+func SimulatedHoursSince(nowUnix, lastUnix int64) float64 {
+	realSecondsPassed := float64(nowUnix - lastUnix)
+	simulatedSecondsPassed := realSecondsPassed * constants.TIME_COMPRESSION_RATIO
+	return simulatedSecondsPassed / 3600.0 // Convert to hours
+}
+
+// CurrentSimulatedHour returns the current "hour of day" for scheduling
+// In real-time: returns actual hour (0-23)
+// With compression: returns accelerated hour that cycles faster
+// Example: ratio=3600 means a full 24-hour cycle happens in 24 seconds
+func CurrentSimulatedHour(nowUnix int64) int {
+	if constants.TIME_COMPRESSION_RATIO <= 1.0 {
+		// Real-time: use actual hour
+		return time.Unix(nowUnix, 0).UTC().Hour()
+	}
+
+	// Compressed time: calculate accelerated hour
+	// One full day (86400 seconds) / compression ratio = time for 24-hour cycle
+	secondsPerSimulatedDay := 86400.0 / constants.TIME_COMPRESSION_RATIO
+
+	// Position within current simulated day
+	positionInDay := math.Mod(float64(nowUnix), secondsPerSimulatedDay)
+
+	// Convert to hour (0-23)
+	simulatedHour := int((positionInDay / secondsPerSimulatedDay) * 24.0)
+	return simulatedHour % 24
 }

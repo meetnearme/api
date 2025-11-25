@@ -75,6 +75,10 @@ func TestGetHomeOrUserPage(t *testing.T) {
 								"eventOwnerName":  "First Event Host",
 								"eventSourceType": "SLF", // Published single event
 								"startTime":       time.Now().Add(48 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(50 * time.Hour).Unix(),
+								"address":         "123 First St",
+								"lat":             40.7128,
+								"long":            -74.0060,
 								"timezone":        "America/New_York",
 								"_additional": map[string]interface{}{
 									"id": "123",
@@ -87,6 +91,10 @@ func TestGetHomeOrUserPage(t *testing.T) {
 								"eventOwnerName":  "Second Event Host",
 								"eventSourceType": "SLF_EVS", // Published series parent
 								"startTime":       time.Now().Add(72 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(74 * time.Hour).Unix(),
+								"address":         "456 Second St",
+								"lat":             34.0522,
+								"long":            -118.2437,
 								"timezone":        "America/New_York",
 								"_additional": map[string]interface{}{
 									"id": "456",
@@ -181,6 +189,494 @@ func TestGetHomeOrUserPage(t *testing.T) {
 	}
 	if strings.Contains(rr.Body.String(), "data-event-type=\"SLF_EVS_UNPUB\"") {
 		t.Errorf("Unpublished series event (SLF_EVS_UNPUB) should not appear on home page")
+	}
+}
+
+func TestGetHomeOrUserPage_SubdomainLogic_NilPointerSafety(t *testing.T) {
+	// This test specifically ensures that the code doesn't panic when
+	// mnmOptions context is missing (which would cause GetMnmOptionsFromContext
+	// to return an empty map, not nil, but we want to test the edge case)
+	t.Run("Subdomain without mnmOptions in context should not panic", func(t *testing.T) {
+		// Create a request with subdomain but NO context set at all
+		// This simulates a request that bypasses the middleware
+		req, err := http.NewRequest("GET", "/", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Host = "subdomain.example.com"
+		// Explicitly do NOT set X-Mnm-Options header
+		// And do NOT set MNM_OPTIONS_CTX_KEY in context
+
+		// Create context WITHOUT MNM_OPTIONS_CTX_KEY
+		// This is the edge case that could cause issues
+		fakeContext := context.Background()
+		req = req.WithContext(fakeContext)
+
+		// Create a ResponseRecorder
+		rr := httptest.NewRecorder()
+
+		// This should NOT panic, even if mnmOptions handling is incorrect
+		// The function should handle the case where context doesn't have mnmOptions
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("Handler panicked with nil pointer: %v", r)
+			}
+		}()
+
+		// Call the handler - this should not panic
+		handler := GetHomeOrUserPage(rr, req)
+		handler.ServeHTTP(rr, req)
+
+		// Verify we got a response (not a panic)
+		if rr.Code == 0 {
+			t.Error("Handler did not write a response (may have panicked)")
+		}
+
+		// When mnmOptions is empty (from GetMnmOptionsFromContext returning empty map),
+		// and we have a subdomain, we should show the error page
+		body := rr.Body.String()
+		if !strings.Contains(body, "User Not Found") {
+			t.Error("Expected error page when subdomain exists and mnmOptions is empty")
+		}
+	})
+
+	t.Run("Subdomain with nil mnmOptions map in context should not panic", func(t *testing.T) {
+		// Test the edge case where context has MNM_OPTIONS_CTX_KEY but value is nil
+		// This shouldn't happen with GetMnmOptionsFromContext, but let's be defensive
+		req, err := http.NewRequest("GET", "/", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Host = "subdomain.example.com"
+
+		// Create context with nil value (edge case)
+		fakeContext := context.WithValue(context.Background(), constants.MNM_OPTIONS_CTX_KEY, nil)
+		req = req.WithContext(fakeContext)
+
+		rr := httptest.NewRecorder()
+
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("Handler panicked with nil pointer: %v", r)
+			}
+		}()
+
+		// This should not panic - GetMnmOptionsFromContext should return empty map, not nil
+		handler := GetHomeOrUserPage(rr, req)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code == 0 {
+			t.Error("Handler did not write a response (may have panicked)")
+		}
+	})
+
+	t.Run("Subdomain with empty mnmOptions map should show error page", func(t *testing.T) {
+		// This test ensures that when mnmOptions is empty (not nil, but empty map),
+		// we correctly show the error page. This catches the bug where checking
+		// mnmOptions != nil would always be true (since GetMnmOptionsFromContext
+		// returns empty map, not nil), causing incorrect behavior.
+		req, err := http.NewRequest("GET", "/", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Host = "subdomain.example.com"
+
+		// Create context with empty map (what GetMnmOptionsFromContext returns when not found)
+		fakeContext := context.WithValue(context.Background(), constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
+		req = req.WithContext(fakeContext)
+
+		rr := httptest.NewRecorder()
+
+		handler := GetHomeOrUserPage(rr, req)
+		handler.ServeHTTP(rr, req)
+
+		// Should show error page when mnmOptions is empty
+		body := rr.Body.String()
+		if !strings.Contains(body, "User Not Found") {
+			t.Error("Expected error page when subdomain exists and mnmOptions is empty map")
+		}
+	})
+
+	t.Run("Subdomain with populated mnmOptions should proceed normally", func(t *testing.T) {
+		// This test ensures that when mnmOptions has values, we don't show the error page
+		// Note: This test only checks the early return logic, not the full page rendering
+		// which would require Weaviate setup
+		req, err := http.NewRequest("GET", "/", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Host = "subdomain.example.com"
+
+		// Create context with populated mnmOptions
+		fakeContext := context.WithValue(context.Background(), constants.MNM_OPTIONS_CTX_KEY, map[string]string{
+			"userId": "123",
+		})
+		req = req.WithContext(fakeContext)
+
+		rr := httptest.NewRecorder()
+
+		handler := GetHomeOrUserPage(rr, req)
+		handler.ServeHTTP(rr, req)
+
+		// Should NOT show the subdomain error page when mnmOptions has values
+		// (may show different error from DeriveEventsFromRequest, but not the subdomain claim error)
+		body := rr.Body.String()
+		if strings.Contains(body, "claim this subdomain") {
+			t.Error("Expected NOT to show subdomain claim error when mnmOptions has values")
+		}
+	})
+}
+
+func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
+	tests := []struct {
+		name                string
+		host                string
+		mnmOptionsHeader    string
+		expectedErrorPage   bool
+		expectedContains    []string
+		expectedNotContains []string
+	}{
+		{
+			name:              "Subdomain without X-Mnm-Options header should show error page",
+			host:              "subdomain.example.com",
+			mnmOptionsHeader:  "",
+			expectedErrorPage: true,
+			expectedContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+				`<a class="link link-text" href="/admin">`, // HTML should be rendered, not escaped
+			},
+			expectedNotContains: []string{
+				"&lt;a", // HTML should not be escaped
+				"&lt;br",
+			},
+		},
+		{
+			name:              "Subdomain with X-Mnm-Options header should proceed normally",
+			host:              "subdomain.example.com",
+			mnmOptionsHeader:  "userId=123",
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Subdomain with quoted X-Mnm-Options header should proceed normally",
+			host:              "subdomain.example.com",
+			mnmOptionsHeader:  `"userId=123"`,
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Apex domain (example.com has 2 parts) should proceed normally without header",
+			host:              "example.com",
+			mnmOptionsHeader:  "",
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Apex domain with X-Mnm-Options header should proceed normally",
+			host:              "example.com",
+			mnmOptionsHeader:  "userId=123",
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "Localhost (no dots) should proceed normally",
+			host:              "localhost",
+			mnmOptionsHeader:  "",
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a request with the specified host
+			req, err := http.NewRequest("GET", "/", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Host = tt.host
+
+			// Set X-Mnm-Options header if provided
+			if tt.mnmOptionsHeader != "" {
+				req.Header.Set("X-Mnm-Options", tt.mnmOptionsHeader)
+			}
+
+			// Add context with mnmOptions populated from header using the shared helper function
+			// This ensures the test uses the exact same parsing logic as the middleware
+			fakeContext := context.Background()
+			mnmOptions := helpers.ParseMnmOptionsHeader(tt.mnmOptionsHeader)
+			fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, mnmOptions)
+			req = req.WithContext(fakeContext)
+
+			// Create a ResponseRecorder
+			rr := httptest.NewRecorder()
+
+			// Call the handler
+			handler := GetHomeOrUserPage(rr, req)
+			handler.ServeHTTP(rr, req)
+
+			body := rr.Body.String()
+
+			if tt.expectedErrorPage {
+				// Verify status is OK (SendHtmlErrorPage returns 200)
+				if rr.Code != http.StatusOK {
+					t.Errorf("Expected status %d, got %d", http.StatusOK, rr.Code)
+				}
+
+				// Verify expected content is present
+				for _, expected := range tt.expectedContains {
+					if !strings.Contains(body, expected) {
+						t.Errorf("Expected response to contain '%s', but it didn't", expected)
+					}
+				}
+
+				// Verify HTML is rendered (not escaped)
+				for _, notExpected := range tt.expectedNotContains {
+					if strings.Contains(body, notExpected) {
+						t.Errorf("Expected response to NOT contain escaped HTML '%s', but it did", notExpected)
+					}
+				}
+
+				// Verify the link is clickable (HTML is rendered)
+				if !strings.Contains(body, `<a class="link link-text" href="/admin">`) {
+					t.Error("Expected HTML link to be rendered, but it appears to be escaped or missing")
+				}
+			} else {
+				// For non-error cases, verify the subdomain-specific error page content is NOT present
+				// (may have other errors from DeriveEventsFromRequest, but not the subdomain claim error)
+				for _, notExpected := range tt.expectedNotContains {
+					if strings.Contains(body, notExpected) {
+						// Only fail if it's the subdomain-specific error message
+						if notExpected == "claim this subdomain" {
+							t.Errorf("Expected response to NOT contain subdomain claim error '%s', but it did", notExpected)
+						}
+						// For "User Not Found", check if it's the subdomain version (with claim link)
+						// vs the generic version (without claim link)
+						if notExpected == "User Not Found" && strings.Contains(body, "claim this subdomain") {
+							t.Errorf("Expected response to NOT contain subdomain error '%s', but it did", notExpected)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestGetHomeOrUserPage_WithGroupedEvents(t *testing.T) {
+	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+	originalTransport := http.DefaultTransport
+
+	defer func() {
+		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+		http.DefaultTransport = originalTransport
+	}()
+
+	// Set up logging transport
+	http.DefaultTransport = test_helpers.NewLoggingTransport(http.DefaultTransport, t)
+
+	// Mock server setup
+	hostAndPort := test_helpers.GetNextPort()
+
+	// Create mock Weaviate server with grouped events
+	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("🎯 MOCK SERVER HIT: %s %s", r.Method, r.URL.Path)
+
+		switch r.URL.Path {
+		case "/v1/meta":
+			t.Logf("   └─ Handling /v1/meta")
+			metaResponse := `{"version":"1.23.4"}`
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(metaResponse))
+
+		case "/v1/graphql":
+			t.Logf("   └─ Handling /v1/graphql (home page with grouped events)")
+			if r.Method != "POST" {
+				t.Errorf("expected method POST for /v1/graphql, got %s", r.Method)
+			}
+
+			// Return grouped events - same name, same location, different dates
+			mockResponse := models.GraphQLResponse{
+				Data: map[string]models.JSONObject{
+					"Get": map[string]interface{}{
+						constants.WeaviateEventClassName: []interface{}{
+							map[string]interface{}{
+								"name":            "Weekly Meetup",
+								"description":     "A weekly meetup event",
+								"eventOwners":     []interface{}{"789"},
+								"eventOwnerName":  "Event Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(48 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(50 * time.Hour).Unix(),
+								"address":         "123 Main St",
+								"lat":             40.7128,
+								"long":            -74.0060,
+								"timezone":        "America/New_York",
+								"_additional": map[string]interface{}{
+									"id": "event-1",
+								},
+							},
+							map[string]interface{}{
+								"name":            "Weekly Meetup",
+								"description":     "A weekly meetup event",
+								"eventOwners":     []interface{}{"789"},
+								"eventOwnerName":  "Event Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(120 * time.Hour).Unix(), // 5 days later
+								"endTime":         time.Now().Add(122 * time.Hour).Unix(),
+								"address":         "123 Main St",
+								"lat":             40.7128,
+								"long":            -74.0060,
+								"timezone":        "America/New_York",
+								"_additional": map[string]interface{}{
+									"id": "event-2",
+								},
+							},
+							map[string]interface{}{
+								"name":            "Weekly Meetup",
+								"description":     "A weekly meetup event",
+								"eventOwners":     []interface{}{"789"},
+								"eventOwnerName":  "Event Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(192 * time.Hour).Unix(), // 8 days later
+								"endTime":         time.Now().Add(194 * time.Hour).Unix(),
+								"address":         "123 Main St",
+								"lat":             40.7128,
+								"long":            -74.0060,
+								"timezone":        "America/New_York",
+								"_additional": map[string]interface{}{
+									"id": "event-3",
+								},
+							},
+							// Add an ungrouped event (different location)
+							map[string]interface{}{
+								"name":            "Different Event",
+								"description":     "An event at a different location",
+								"eventOwners":     []interface{}{"012"},
+								"eventOwnerName":  "Other Host",
+								"eventSourceType": "SLF",
+								"startTime":       time.Now().Add(72 * time.Hour).Unix(),
+								"endTime":         time.Now().Add(74 * time.Hour).Unix(),
+								"address":         "456 Other St",
+								"lat":             34.0522,
+								"long":            -118.2437,
+								"timezone":        "America/Los_Angeles",
+								"_additional": map[string]interface{}{
+									"id": "event-4",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			responseBytes, err := json.Marshal(mockResponse)
+			if err != nil {
+				t.Fatalf("failed to marshal mock GraphQL response: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+
+		default:
+			t.Logf("   └─ ⚠️  UNHANDLED PATH: %s", r.URL.Path)
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}
+	}))
+
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("BindToPort failed: %v", err)
+	}
+	mockWeaviateServer.Listener = listener
+	mockWeaviateServer.Start()
+	defer mockWeaviateServer.Close()
+
+	// Set environment variables to the actual bound port
+	actualAddr := listener.Addr().String()
+	actualParts := strings.Split(actualAddr, ":")
+	actualHost, actualPort := actualParts[0], actualParts[1]
+
+	os.Setenv("WEAVIATE_HOST", actualHost)
+	os.Setenv("WEAVIATE_PORT", actualPort)
+	os.Setenv("WEAVIATE_SCHEME", "http")
+	os.Setenv("WEAVIATE_API_KEY_ALLOWED_KEYS", "test-weaviate-api-key")
+
+	t.Logf("🔧 HOME PAGE GROUPED EVENTS TEST SETUP COMPLETE")
+	t.Logf("   └─ Mock Server bound to: %s", actualAddr)
+
+	// Add MNM_OPTIONS_CTX_KEY to context
+	fakeContext := context.Background()
+
+	// Create a request
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req = req.WithContext(fakeContext)
+
+	// Create a ResponseRecorder to record the response
+	rr := httptest.NewRecorder()
+
+	// Call the handler
+	handler := GetHomeOrUserPage(rr, req)
+	handler.ServeHTTP(rr, req)
+
+	// Check the status code
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Check the response body
+	if rr.Body.String() == "" {
+		t.Errorf("Handler returned empty body")
+	}
+
+	responseBody := rr.Body.String()
+
+	// Verify grouped events are displayed with carousel
+	if !strings.Contains(responseBody, "Weekly Meetup") {
+		t.Errorf("Grouped event 'Weekly Meetup' should appear on the page")
+	}
+
+	if !strings.Contains(responseBody, "carousel-container") {
+		t.Errorf("Carousel container should appear for grouped events")
+	}
+
+	if !strings.Contains(responseBody, "123 Main St") {
+		t.Errorf("Grouped event address should appear")
+	}
+
+	// Verify ungrouped event also appears
+	if !strings.Contains(responseBody, "Different Event") {
+		t.Errorf("Ungrouped event 'Different Event' should also appear on the page")
+	}
+
+	// Verify event IDs appear in URLs (they will be in the carousel links)
+	if !strings.Contains(responseBody, "/event/event-1") {
+		t.Errorf("Event ID should appear in URL for grouped events")
 	}
 }
 
@@ -685,6 +1181,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 		queryParams    map[string]string
 		cfRay          string
 		expectedQuery  string
+		expectedCity   string
 		expectedLoc    []float64
 		expectedRadius float64
 		expectedStart  int64
@@ -700,9 +1197,11 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 				"lon":        "-74.0060",
 				"radius":     "1000",
 				"q":          "test query",
+				"location":   "New York, NY",
 			},
 			cfRay:          "1234567890000-EWR",
 			expectedQuery:  "test query",
+			expectedCity:   "New York, NY",
 			expectedLoc:    []float64{40.7128, -74.0060},
 			expectedRadius: 1000,
 			expectedStart:  4070908800,
@@ -721,6 +1220,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{40.7128, -74.0060},
 			expectedRadius: constants.DEFAULT_SEARCH_RADIUS,
 			expectedStart:  4070908800,
@@ -732,6 +1232,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			queryParams:    map[string]string{},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
@@ -747,6 +1248,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{35.6762, 139.6503},
 			expectedRadius: 500,
 			expectedStart:  0, // This will be the current time in Unix seconds
@@ -761,6 +1263,7 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			},
 			cfRay:          "",
 			expectedQuery:  "",
+			expectedCity:   "",
 			expectedLoc:    []float64{helpers.Cities[0].Latitude, helpers.Cities[0].Longitude},
 			expectedRadius: 2500.0,
 			expectedStart:  0, // This will be the current time in Unix seconds
@@ -788,10 +1291,14 @@ func TestGetSearchParamsFromReq(t *testing.T) {
 			}
 
 			// TODO: need to test `categories` and `ownerIds` returned here
-			query, loc, radius, start, end, cfLoc, _, _, _, _, _, _ := GetSearchParamsFromReq(req)
+			query, city, loc, radius, start, end, cfLoc, _, _, _, _, _, _ := GetSearchParamsFromReq(req)
 
 			if query != tt.expectedQuery {
 				t.Errorf("Expected query %s, got %s", tt.expectedQuery, query)
+			}
+
+			if city != tt.expectedCity {
+				t.Errorf("Expected city: %#v, got %s", tt.expectedCity, city)
 			}
 
 			if !floatSliceEqual(loc, tt.expectedLoc, 0.0001) {

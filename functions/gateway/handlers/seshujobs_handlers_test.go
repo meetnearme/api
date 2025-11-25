@@ -509,8 +509,8 @@ func TestDeleteSeshuJob_InvalidID(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
 	}
-	if !strings.Contains(bodyStr, "Missing &#39;id&#39; query parameter") {
-		t.Errorf("expected 'Missing &#39;id&#39; query parameter' message, got: %s", bodyStr)
+	if !strings.Contains(bodyStr, "Missing 'id' query parameter") {
+		t.Errorf("expected 'Missing 'id' query parameter' message, got: %s", bodyStr)
 	}
 }
 

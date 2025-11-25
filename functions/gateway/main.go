@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +30,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
+	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/startup"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -43,7 +43,7 @@ const (
 	Check              AuthType = "check"
 	Require            AuthType = "require"
 	RequireServiceUser AuthType = "require_service_user"
-	seshulooptime               = 30 * time.Second
+	seshulooptime               = 30 * time.Second // Real-time interval (will be compressed by TIME_COMPRESSION_RATIO)
 	maxseshuloopcount           = 10
 	seshuCronWorkers            = 1
 	timestampFile               = "last_update.txt"
@@ -615,32 +615,9 @@ func stateRedirectMiddleware(next http.Handler) http.Handler {
 
 func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Initialize with empty map to prevent nil interface conversion
-		mnmOptions := map[string]string{}
-
-		mnmOptionsHeaderVal := strings.Trim(r.Header.Get("X-Mnm-Options"), "\"")
-		if mnmOptionsHeaderVal == "" {
-			// do nothing if missing
-		} else if strings.Contains(mnmOptionsHeaderVal, "=") {
-			parts := strings.Split(mnmOptionsHeaderVal, ";")
-			for _, part := range parts {
-				kv := strings.SplitN(part, "=", 2)
-				if len(kv) == 2 {
-					key := strings.Trim(kv[0], " \"") // trim spaces and quotes
-					value := strings.Trim(kv[1], " \"")
-					if slices.Contains(constants.AllowedMnmOptionsKeys, key) {
-						mnmOptions[key] = value
-					} else {
-						log.Printf("Warning: Invalid option key '%s' (not in allowed keys)", key)
-					}
-				} else {
-					log.Printf("Warning: Invalid option format '%s' (expected key=value)", part)
-				}
-			}
-		} else {
-			// Handle legacy format where header value is just the userId
-			mnmOptions["userId"] = strings.Trim(mnmOptionsHeaderVal, " \"")
-		}
+		// Parse the X-Mnm-Options header using the shared helper function
+		mnmOptionsHeaderVal := r.Header.Get("X-Mnm-Options")
+		mnmOptions := helpers.ParseMnmOptionsHeader(mnmOptionsHeaderVal)
 
 		// Always set the context with at least an empty map
 		ctx := context.WithValue(r.Context(), constants.MNM_OPTIONS_CTX_KEY, mnmOptions)
@@ -649,10 +626,17 @@ func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 }
 
 func startSeshuLoop(ctx context.Context) {
-	ticker := time.NewTicker(seshulooptime)
+	// Apply time compression to the loop interval
+	compressedInterval := helpers.CompressDuration(seshulooptime)
+	ticker := time.NewTicker(compressedInterval)
 	defer ticker.Stop()
 
 	log.SetOutput(os.Stdout)
+
+	if constants.TIME_COMPRESSION_RATIO > 1.0 {
+		log.Printf("[TIME SIMULATION] Time compression active: %.1fx faster (loop interval: %v → %v)",
+			constants.TIME_COMPRESSION_RATIO, seshulooptime, compressedInterval)
+	}
 
 	lastUpdate := readFirstLine(timestampFile)
 
