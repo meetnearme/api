@@ -232,7 +232,8 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 				isDeleting: false,
 				handleSubdomainPostRes(event) {
 					const responseText = event.detail.xhr?.responseText || '';
-					const isSuccessful = responseText.includes('alert-success');
+					const isSuccessful =
+			(responseText.includes('successfully') && event.detail.xhr?.status === 200);
 
 					// Only update the preview on success - keep the last known valid subdomain
 					if (isSuccessful) {
@@ -269,14 +270,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						hx-target="#subdomain-result"
 						hx-disabled-elt="button[type='submit']"
 						@submit.prevent=""
-						@htmx:after-request="handleSubdomainPostRes(event)
-            const responseText = event.detail.xhr?.responseText || '';
-            const isSuccessful = responseText.includes('successfully');
-							if (isSuccessful) {
-								subdomainValid = true;
-                currentValidSubdomain = this.subdomain.value
-              }
-            "
+						@htmx:after-request="handleSubdomainPostRes(event)"
 						hx-vals="js:{...getMnmOptionsPayload()}"
 					>
 						<div class="w-full flex-col gap-8">
@@ -289,7 +283,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 									name="subdomain"
 									x-model="subdomain"
 									@input="subdomain = $event.target.value.toLowerCase()"
-									pattern="[a-z0-9-]+"
+									pattern="[a-z0-9\-]+"
 									:class="{ 'input-error': subdomain && !subdomain.match(/^[a-z0-9\-]+$/) }"
 									class="w-full grow"
 									type="text"
