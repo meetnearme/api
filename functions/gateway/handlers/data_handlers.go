@@ -558,7 +558,8 @@ func CreateSubscriptionCheckoutSession(w http.ResponseWriter, r *http.Request) (
 	subscriptionPlanID := r.URL.Query().Get("subscription_plan_id")
 	growthPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 	seedPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
-	if subscriptionPlanID == "" || (subscriptionPlanID != growthPlanID && subscriptionPlanID != seedPlanID) {
+	enterprisePlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
+	if subscriptionPlanID == "" || (subscriptionPlanID != growthPlanID && subscriptionPlanID != seedPlanID && subscriptionPlanID != enterprisePlanID) {
 		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=checkout_failed", http.StatusSeeOther)
 		return nil
 	}
@@ -581,7 +582,11 @@ func CreateSubscriptionCheckoutSession(w http.ResponseWriter, r *http.Request) (
 		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=already_subscribed", http.StatusSeeOther)
 		return nil
 	}
-
+	if subscriptionPlanID == enterprisePlanID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubEnterprise]}) {
+		log.Printf("User %s already has Enterprise subscription, preventing duplicate checkout", userId)
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=already_subscribed", http.StatusSeeOther)
+		return nil
+	}
 	subscriptionService := services.NewStripeSubscriptionService()
 	subscriptions, err := subscriptionService.GetSubscriptionPlans()
 	if err != nil {
@@ -637,8 +642,9 @@ func CreateSubscriptionCheckoutSession(w http.ResponseWriter, r *http.Request) (
 
 	// Map subscription plan ID to role name
 	roleMap := map[string]string{
-		os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED"):   constants.Roles[constants.SubSeed],
-		os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH"): constants.Roles[constants.SubGrowth],
+		os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED"):       constants.Roles[constants.SubSeed],
+		os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH"):     constants.Roles[constants.SubGrowth],
+		os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE"): constants.Roles[constants.SubEnterprise],
 	}
 	roleName := roleMap[subscriptionPlanID]
 
@@ -1203,12 +1209,16 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 
 		addedGrowthPlan := false
 		addedSeedPlan := false
+		addedEnterprisePlan := false
 		for _, item := range subscription.Items.Data {
 			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
 				addedGrowthPlan = true
 			}
 			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
 				addedSeedPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE") {
+				addedEnterprisePlan = true
 			}
 		}
 
@@ -1229,7 +1239,7 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 			}
 		}
 
-		log.Printf("Subscription created for Zitadel user: %s, Customer: %s, Growth: %v, Seed: %v", zitadelUserID, subscription.Customer.ID, addedGrowthPlan, addedSeedPlan)
+		log.Printf("Subscription created for Zitadel user: %s, Customer: %s, Growth: %v, Seed: %v, Enterprise: %v", zitadelUserID, subscription.Customer.ID, addedGrowthPlan, addedSeedPlan, addedEnterprisePlan)
 
 		roles, err := helpers.GetUserRoles(zitadelUserID)
 		if err != nil {
@@ -1243,6 +1253,9 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		}
 		if addedSeedPlan && helpers.ArrFindFirst(roles, []string{constants.Roles[constants.SubSeed]}) == "" {
 			roles = append(roles, constants.Roles[constants.SubSeed])
+		}
+		if addedEnterprisePlan && helpers.ArrFindFirst(roles, []string{constants.Roles[constants.SubEnterprise]}) == "" {
+			roles = append(roles, constants.Roles[constants.SubEnterprise])
 		}
 
 		err = helpers.SetUserRoles(zitadelUserID, roles)
@@ -1266,12 +1279,16 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		// Determine which plans are active in the subscription
 		hasGrowthPlan := false
 		hasSeedPlan := false
+		hasEnterprisePlan := false
 		for _, item := range subscription.Items.Data {
 			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
 				hasGrowthPlan = true
 			}
 			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
 				hasSeedPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE") {
+				hasEnterprisePlan = true
 			}
 		}
 
@@ -1299,7 +1316,7 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 			return nil
 		}
 
-		log.Printf("Subscription updated for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, hasGrowthPlan, hasSeedPlan)
+		log.Printf("Subscription updated for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v, Enterprise: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, hasGrowthPlan, hasSeedPlan, hasEnterprisePlan)
 
 		// Get current user roles
 		roles, err := helpers.GetUserRoles(zitadelUserID)
@@ -1313,10 +1330,10 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		var updatedRoles []string
 		subGrowthRole := constants.Roles[constants.SubGrowth]
 		subSeedRole := constants.Roles[constants.SubSeed]
-
+		subEnterpriseRole := constants.Roles[constants.SubEnterprise]
 		// Keep all non-subscription roles
 		for _, role := range roles {
-			if role != subGrowthRole && role != subSeedRole {
+			if role != subGrowthRole && role != subSeedRole && role != subEnterpriseRole {
 				updatedRoles = append(updatedRoles, role)
 			}
 		}
@@ -1327,6 +1344,9 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		}
 		if hasSeedPlan && helpers.ArrFindFirst(updatedRoles, []string{subSeedRole}) == "" {
 			updatedRoles = append(updatedRoles, subSeedRole)
+		}
+		if hasEnterprisePlan && helpers.ArrFindFirst(updatedRoles, []string{subEnterpriseRole}) == "" {
+			updatedRoles = append(updatedRoles, subEnterpriseRole)
 		}
 
 		// Update roles in Zitadel
@@ -1352,12 +1372,16 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		// Determine which plans were in the deleted subscription (from webhook payload)
 		deletedGrowthPlan := false
 		deletedSeedPlan := false
+		deletedEnterprisePlan := false
 		for _, item := range subscription.Items.Data {
 			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
 				deletedGrowthPlan = true
 			}
 			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
 				deletedSeedPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE") {
+				deletedEnterprisePlan = true
 			}
 		}
 
@@ -1385,7 +1409,7 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 			return nil
 		}
 
-		log.Printf("Subscription deleted for Zitadel user: %s, Customer: %s, Subscription: %s, Deleted Growth: %v, Deleted Seed: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, deletedGrowthPlan, deletedSeedPlan)
+		log.Printf("Subscription deleted for Zitadel user: %s, Customer: %s, Subscription: %s, Deleted Growth: %v, Deleted Seed: %v, Deleted Enterprise: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, deletedGrowthPlan, deletedSeedPlan, deletedEnterprisePlan)
 
 		// Since we prevent duplicate subscriptions at checkout, we can simply remove roles
 		// Get current user roles
@@ -1400,7 +1424,7 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		var updatedRoles []string
 		subGrowthRole := constants.Roles[constants.SubGrowth]
 		subSeedRole := constants.Roles[constants.SubSeed]
-
+		subEnterpriseRole := constants.Roles[constants.SubEnterprise]
 		for _, role := range roles {
 			// Remove role if it was in the deleted subscription
 			shouldKeep := true
@@ -1410,7 +1434,9 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 			if role == subSeedRole && deletedSeedPlan {
 				shouldKeep = false
 			}
-
+			if role == subEnterpriseRole && deletedEnterprisePlan {
+				shouldKeep = false
+			}
 			if shouldKeep {
 				updatedRoles = append(updatedRoles, role)
 			}
@@ -1424,7 +1450,7 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 			return err
 		}
 
-		log.Printf("Removed subscription roles for Zitadel user: %s after subscription deletion (Growth: %v, Seed: %v)", zitadelUserID, deletedGrowthPlan, deletedSeedPlan)
+		log.Printf("Removed subscription roles for Zitadel user: %s after subscription deletion (Growth: %v, Seed: %v, Enterprise: %v)", zitadelUserID, deletedGrowthPlan, deletedSeedPlan, deletedEnterprisePlan)
 		msg := fmt.Sprintf("Customer subscription deleted: %s for customer: %s", subscription.ID, subscription.Customer.ID)
 		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
 		return nil
@@ -1440,12 +1466,16 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		// Determine which plans are in the paused subscription
 		pausedGrowthPlan := false
 		pausedSeedPlan := false
+		pausedEnterprisePlan := false
 		for _, item := range subscription.Items.Data {
 			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
 				pausedGrowthPlan = true
 			}
 			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
 				pausedSeedPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE") {
+				pausedEnterprisePlan = true
 			}
 		}
 
@@ -1473,7 +1503,7 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 			return nil
 		}
 
-		log.Printf("Subscription paused for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, pausedGrowthPlan, pausedSeedPlan)
+		log.Printf("Subscription paused for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v, Enterprise: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, pausedGrowthPlan, pausedSeedPlan, pausedEnterprisePlan)
 
 		// Since we prevent duplicate subscriptions at checkout, we can simply remove roles
 		// Get current user roles
@@ -1488,7 +1518,7 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		var updatedRoles []string
 		subGrowthRole := constants.Roles[constants.SubGrowth]
 		subSeedRole := constants.Roles[constants.SubSeed]
-
+		subEnterpriseRole := constants.Roles[constants.SubEnterprise]
 		for _, role := range roles {
 			// Remove role if it was in the paused subscription
 			shouldKeep := true
@@ -1496,6 +1526,9 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 				shouldKeep = false
 			}
 			if role == subSeedRole && pausedSeedPlan {
+				shouldKeep = false
+			}
+			if role == subEnterpriseRole && pausedEnterprisePlan {
 				shouldKeep = false
 			}
 
@@ -1551,12 +1584,16 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		// Determine which plans are in the resumed subscription
 		resumedGrowthPlan := false
 		resumedSeedPlan := false
+		resumedEnterprisePlan := false
 		for _, item := range subscription.Items.Data {
 			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
 				resumedGrowthPlan = true
 			}
 			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
 				resumedSeedPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE") {
+				resumedEnterprisePlan = true
 			}
 		}
 
@@ -1584,7 +1621,7 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 			return nil
 		}
 
-		log.Printf("Subscription resumed for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, resumedGrowthPlan, resumedSeedPlan)
+		log.Printf("Subscription resumed for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v, Enterprise: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, resumedGrowthPlan, resumedSeedPlan, resumedEnterprisePlan)
 
 		// Get current user roles
 		roles, err := helpers.GetUserRoles(zitadelUserID)
@@ -1597,14 +1634,16 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		// Add subscription roles back (if not already present)
 		subGrowthRole := constants.Roles[constants.SubGrowth]
 		subSeedRole := constants.Roles[constants.SubSeed]
-
+		subEnterpriseRole := constants.Roles[constants.SubEnterprise]
 		if resumedGrowthPlan && helpers.ArrFindFirst(roles, []string{subGrowthRole}) == "" {
 			roles = append(roles, subGrowthRole)
 		}
 		if resumedSeedPlan && helpers.ArrFindFirst(roles, []string{subSeedRole}) == "" {
 			roles = append(roles, subSeedRole)
 		}
-
+		if resumedEnterprisePlan && helpers.ArrFindFirst(roles, []string{subEnterpriseRole}) == "" {
+			roles = append(roles, subEnterpriseRole)
+		}
 		// Update roles in Zitadel (restore roles from resumed subscription)
 		err = helpers.SetUserRoles(zitadelUserID, roles)
 		if err != nil {

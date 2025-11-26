@@ -27,7 +27,7 @@ func NewStripeSubscriptionService() interfaces.StripeSubscriptionServiceInterfac
 // GetSubscriptionPlans fetches the specific subscription plans configured in environment variables
 func (s *StripeSubscriptionService) GetSubscriptionPlans() ([]*types.SubscriptionPlan, error) {
 	// Get the specific plan IDs from environment variables
-	growthPlanID, seedPlanID := GetStripeSubscriptionPlanIDs()
+	growthPlanID, seedPlanID, enterprisePlanID := GetStripeSubscriptionPlanIDs()
 
 	// Use channels for parallel fetching
 	type planResult struct {
@@ -56,6 +56,15 @@ func (s *StripeSubscriptionService) GetSubscriptionPlans() ([]*types.Subscriptio
 			defer wg.Done()
 			plan, err := s.getPlanByID(seedPlanID)
 			results <- planResult{plan: plan, err: err, name: "Seed"}
+		}()
+	}
+
+	if enterprisePlanID != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			plan, err := s.getPlanByID(enterprisePlanID)
+			results <- planResult{plan: plan, err: err, name: "Enterprise"}
 		}()
 	}
 

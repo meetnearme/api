@@ -2320,6 +2320,7 @@ func TestCreateSubscriptionCheckoutSession(t *testing.T) {
 	originalApexURL := os.Getenv("APEX_URL")
 	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalEnterprisePlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
 	originalTransport := http.DefaultTransport
 
 	defer func() {
@@ -2327,6 +2328,7 @@ func TestCreateSubscriptionCheckoutSession(t *testing.T) {
 		os.Setenv("APEX_URL", originalApexURL)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlan)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", originalEnterprisePlan)
 		http.DefaultTransport = originalTransport
 	}()
 
@@ -2335,6 +2337,7 @@ func TestCreateSubscriptionCheckoutSession(t *testing.T) {
 	os.Setenv("APEX_URL", "https://test.example.com")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", "price_enterprise_test")
 
 	tests := []struct {
 		name               string
@@ -2478,6 +2481,7 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 	originalWebhookSecret := os.Getenv("STRIPE_CHECKOUT_WEBHOOK_SECRET")
 	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalEnterprisePlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
 	originalZitadelHost := os.Getenv("ZITADEL_INSTANCE_HOST")
 	originalZitadelToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
 
@@ -2485,6 +2489,7 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 		os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", originalWebhookSecret)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlan)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", originalEnterprisePlan)
 		os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelHost)
 		os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalZitadelToken)
 	}()
@@ -2494,6 +2499,7 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 	os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", testWebhookSecret)
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "prod_growth_test")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "prod_seed_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", "prod_enterprise_test")
 	os.Setenv("ZITADEL_INSTANCE_HOST", "https://mock-zitadel.example.com")
 	os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "mock_token")
 
@@ -2760,15 +2766,17 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 func TestValidateSubscriptionPlanID(t *testing.T) {
 	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalEnterprisePlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
 
 	defer func() {
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlan)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", originalEnterprisePlan)
 	}()
 
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed")
-
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", "price_enterprise")
 	tests := []struct {
 		name     string
 		planID   string
@@ -2782,6 +2790,11 @@ func TestValidateSubscriptionPlanID(t *testing.T) {
 		{
 			name:     "Valid Seed plan",
 			planID:   "price_seed",
+			expected: true,
+		},
+		{
+			name:     "Valid Enterprise plan",
+			planID:   "price_enterprise",
 			expected: true,
 		},
 		{
@@ -2800,8 +2813,9 @@ func TestValidateSubscriptionPlanID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			growthPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 			seedPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+			enterprisePlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
 
-			isValid := tt.planID == growthPlanID || tt.planID == seedPlanID
+			isValid := tt.planID == growthPlanID || tt.planID == seedPlanID || tt.planID == enterprisePlanID
 
 			if isValid != tt.expected {
 				t.Errorf("Expected validation result %v, got %v for plan ID '%s'", tt.expected, isValid, tt.planID)

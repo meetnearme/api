@@ -801,7 +801,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border border-base-300">
 						<span x-text="toastContent.message"></span>
 						<template x-if="toastContent.link">
-							<span><a class="link link-text" :href="toastContent.link" x-text="toastContent.linkText"></a></span>
+							<span><a class="link" :href="toastContent.link" x-text="toastContent.linkText"></a></span>
 						</template>
 						<div class="block justify-end">
 							<button class="btn btn-circle btn-ghost text-2xl float-end" @click="showToast = false">

@@ -214,6 +214,9 @@ func TestPricingPage(t *testing.T) {
 			if !strings.Contains(renderedContent, "price_seed_test") {
 				t.Error("Expected rendered content to contain Seed plan ID 'price_seed_test'")
 			}
+			if !strings.Contains(renderedContent, "price_enterprise_test") {
+				t.Error("Expected rendered content to contain Enterprise plan ID 'price_enterprise_test'")
+			}
 
 			// Verify subscription status logic in rendered content
 			// If user has Growth subscription, Seed should show "Subscribed" (since Growth includes Seed features)
