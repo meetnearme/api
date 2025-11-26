@@ -1526,9 +1526,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 
 						// Get categories
 						const categoriesString = this.sendCategoriesToQueryParams();
-						if (categoriesString) {
-							paramsToUpdate.categories = categoriesString;
-						}
+						paramsToUpdate.categories = categoriesString;
 
 						// Add radius if set
 						if (this.radius) {
