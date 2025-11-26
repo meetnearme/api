@@ -573,6 +573,287 @@ func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
 	}
 }
 
+func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
+	// This test ensures that GetHomeOrUserPage doesn't make duplicate API calls
+	// when rendering the page, especially for Weaviate search requests
+
+	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+	originalIsLocalAct := os.Getenv("IS_LOCAL_ACT")
+	defer func() {
+		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+		os.Setenv("IS_LOCAL_ACT", originalIsLocalAct)
+	}()
+
+	// Set IS_LOCAL_ACT for proxy scenario testing
+	os.Setenv("IS_LOCAL_ACT", "true")
+
+	tests := []struct {
+		name                  string
+		url                   string
+		mnmOptionsHeader      string
+		expectedWeaviateCalls int
+		expectedErrorPage     bool
+		description           string
+		needsZitadelMock      bool
+	}{
+		{
+			name:                  "Applying filters should not cause duplicate Weaviate calls",
+			url:                   "/",
+			mnmOptionsHeader:      "",
+			expectedWeaviateCalls: 1,
+			expectedErrorPage:     false,
+			description:           "Page load and filter application should result in exactly one Weaviate call",
+			needsZitadelMock:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up mock Weaviate server with request counting
+			weaviateCallCount := 0
+			hostAndPort := test_helpers.GetNextPort()
+			mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/v1/meta":
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(`{"version":"1.0"}`))
+				case "/v1/graphql":
+					weaviateCallCount++
+					t.Logf("📊 Weaviate call #%d received", weaviateCallCount)
+
+					// Mock response for home page search
+					mockResponse := models.GraphQLResponse{
+						Data: map[string]models.JSONObject{
+							"Get": map[string]interface{}{
+								constants.WeaviateEventClassName: []interface{}{},
+							},
+						},
+					}
+					responseBytes, err := json.Marshal(mockResponse)
+					if err != nil {
+						t.Fatalf("failed to marshal mock GraphQL response: %v", err)
+					}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					w.Write(responseBytes)
+				default:
+					t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+					http.Error(w, "Not Found", http.StatusNotFound)
+				}
+			}))
+
+			listener, err := test_helpers.BindToPort(t, hostAndPort)
+			if err != nil {
+				t.Fatalf("BindToPort failed: %v", err)
+			}
+			mockWeaviateServer.Listener = listener
+			mockWeaviateServer.Start()
+			defer mockWeaviateServer.Close()
+
+			// Set environment variables to point to mock server
+			actualAddr := listener.Addr().String()
+			actualParts := strings.Split(actualAddr, ":")
+			actualHost, actualPort := actualParts[0], actualParts[1]
+
+			os.Setenv("WEAVIATE_HOST", actualHost)
+			os.Setenv("WEAVIATE_PORT", actualPort)
+			os.Setenv("WEAVIATE_SCHEME", "http")
+
+			// Set up mock Zitadel server if needed
+			originalZitadelHost := os.Getenv("ZITADEL_INSTANCE_HOST")
+			originalZitadelToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
+			if tt.needsZitadelMock {
+				zitadelPort := test_helpers.GetNextPort()
+				mockZitadelServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if strings.Contains(r.URL.Path, "/v2/users/") && r.Method == "GET" {
+						// Mock successful user response
+						userResponse := map[string]interface{}{
+							"user": map[string]interface{}{
+								"id":       "test-user-123",
+								"username": "testuser",
+								"human": map[string]interface{}{
+									"profile": map[string]interface{}{
+										"displayName": "Test User",
+									},
+								},
+							},
+						}
+						responseBytes, _ := json.Marshal(userResponse)
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusOK)
+						w.Write(responseBytes)
+					} else if strings.Contains(r.URL.Path, "/management/v1/users/") && strings.Contains(r.URL.Path, "/metadata/") {
+						// Mock metadata response (can return empty or 404)
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusNotFound)
+						w.Write([]byte(`{}`))
+					}
+				}))
+				zitadelListener, err := test_helpers.BindToPort(t, zitadelPort)
+				if err != nil {
+					t.Fatalf("Failed to bind Zitadel mock: %v", err)
+				}
+				mockZitadelServer.Listener = zitadelListener
+				mockZitadelServer.Start()
+				defer mockZitadelServer.Close()
+
+				zitadelAddr := zitadelListener.Addr().String()
+				os.Setenv("ZITADEL_INSTANCE_HOST", zitadelAddr)
+				os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
+				defer func() {
+					if originalZitadelHost != "" {
+						os.Setenv("ZITADEL_INSTANCE_HOST", originalZitadelHost)
+					} else {
+						os.Unsetenv("ZITADEL_INSTANCE_HOST")
+					}
+					if originalZitadelToken != "" {
+						os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalZitadelToken)
+					} else {
+						os.Unsetenv("ZITADEL_BOT_ADMIN_TOKEN")
+					}
+				}()
+			}
+
+			// Set up router
+			router := test_helpers.SetupStaticTestRouter(t, "./assets")
+			router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				// Always parse mnmOptions header and add to context (even if empty)
+				mnmOptions := helpers.ParseMnmOptionsHeader(tt.mnmOptionsHeader)
+				ctx := context.WithValue(r.Context(), constants.MNM_OPTIONS_CTX_KEY, mnmOptions)
+				if tt.mnmOptionsHeader != "" {
+					r.Header.Set("X-Mnm-Options", tt.mnmOptionsHeader)
+				}
+				r = r.WithContext(ctx)
+				GetHomeOrUserPage(w, r).ServeHTTP(w, r)
+			})
+
+			// Create test server
+			testServerPort := test_helpers.GetNextPort()
+			testServer := httptest.NewUnstartedServer(router)
+			testServerListener, err := test_helpers.BindToPort(t, testServerPort)
+			if err != nil {
+				t.Fatalf("Failed to start test server: %v", err)
+			}
+			testServer.Listener = testServerListener
+			testServer.Start()
+			defer testServer.Close()
+
+			// Set up Playwright
+			browser, err := test_helpers.GetPlaywrightBrowser()
+			if err != nil {
+				t.Skipf("skipping playwright flow: %v", err)
+			}
+			if browser == nil {
+				t.Skip("skipping playwright flow: browser unavailable")
+			}
+			page, err := (*browser).NewPage()
+			if err != nil {
+				t.Fatalf("could not create page: %v", err)
+			}
+			defer page.Close()
+
+			// Reset counter before navigation
+			weaviateCallCount = 0
+
+			// Navigate to the page
+			fullURL := fmt.Sprintf("%s%s", testServer.URL, tt.url)
+			t.Logf("Navigating to: %s", fullURL)
+			if _, err = page.Goto(fullURL); err != nil {
+				t.Fatalf("could not goto: %v", err)
+			}
+
+			// Wait a bit for initial page load and any async requests to complete
+			time.Sleep(100 * time.Millisecond)
+
+			// Record initial call count
+			initialCallCount := weaviateCallCount
+			t.Logf("Initial Weaviate calls after page load: %d", initialCallCount)
+
+			// Open the drawer/sidebar if it's not already open (click the hamburger menu)
+			drawerToggle := page.Locator("#main-drawer")
+			if checked, _ := drawerToggle.IsChecked(); !checked {
+				// Use the "open sidebar" label specifically (not the overlay close button)
+				menuButton := page.Locator("label[aria-label='open sidebar']")
+				if err := menuButton.Click(playwright.LocatorClickOptions{
+					Timeout: playwright.Float(300),
+				}); err != nil {
+					t.Logf("Note: Could not open drawer (might already be open): %v", err)
+				} else {
+					t.Logf("Opened drawer")
+					// No sleep needed - Categories wait will handle timing
+				}
+			}
+
+			// Ensure filters tab is selected (it should be by default, but just in case)
+			filtersTab := page.Locator("#flyout-tab-filters")
+			if visible, _ := filtersTab.IsVisible(); visible {
+				if err := filtersTab.Click(playwright.LocatorClickOptions{
+					Timeout: playwright.Float(500),
+				}); err != nil {
+					t.Logf("Note: Could not click filters tab (might already be selected): %v", err)
+				}
+			}
+
+			// Wait for Categories section to be visible (confirms filters are loaded)
+			// This needs a bit more time as it depends on drawer animation and content rendering
+			categoriesHeading := page.Locator("h3:has-text('Categories')")
+			if err := categoriesHeading.WaitFor(playwright.LocatorWaitForOptions{
+				State:   playwright.WaitForSelectorStateVisible,
+				Timeout: playwright.Float(1000),
+			}); err != nil {
+				t.Fatalf("Categories section not visible: %v", err)
+			}
+			t.Logf("Categories section is visible")
+
+			// Click a category checkbox - find by name attribute pattern (first category checkbox)
+			// Category checkboxes have name like "itm-0-category", "itm-1-category", etc.
+			checkboxLocator := page.Locator("input[type='checkbox'][name^='itm-'][name$='-category']").First()
+			if err := checkboxLocator.Click(playwright.LocatorClickOptions{
+				Timeout: playwright.Float(500),
+			}); err != nil {
+				t.Fatalf("could not click category checkbox: %v", err)
+			}
+			t.Logf("Clicked category checkbox")
+
+			// Click the "Apply Filters" button
+			applyFiltersLocator := page.Locator("button:has-text('Apply Filters')")
+			if err := applyFiltersLocator.Click(playwright.LocatorClickOptions{
+				Timeout: playwright.Float(500),
+			}); err != nil {
+				t.Fatalf("could not click Apply Filters button: %v", err)
+			}
+			t.Logf("Clicked Apply Filters button")
+
+			// Wait a bit for any async requests to complete after filter application
+			time.Sleep(100 * time.Millisecond)
+
+			// Verify Weaviate call count - should still be 1 (no duplicate calls)
+			if weaviateCallCount != tt.expectedWeaviateCalls {
+				t.Errorf("Expected %d Weaviate API call(s), but got %d. %s",
+					tt.expectedWeaviateCalls, weaviateCallCount, tt.description)
+			}
+
+			// Verify error page if expected
+			if tt.expectedErrorPage {
+				body, err := page.Content()
+				if err != nil {
+					t.Fatalf("could not get page content: %v", err)
+				}
+				if !strings.Contains(body, "User Not Found") || !strings.Contains(body, "claim this subdomain") {
+					t.Errorf("Expected error page but didn't find error message. %s", tt.description)
+				}
+			}
+
+			t.Logf("✅ Test passed: %s (Weaviate calls: %d)", tt.description, weaviateCallCount)
+		})
+	}
+}
+
 func TestGetHomeOrUserPage_WithGroupedEvents(t *testing.T) {
 	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
 	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
