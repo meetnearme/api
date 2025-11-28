@@ -563,7 +563,7 @@ func SearchWeaviateEvents(
 	var gqlQueryStringForResponse string
 	var whereFilterForResponse string
 
-	// --- Step 1: Build Hybrid Search Argument ---
+	// Build Hybrid Search Argument
 	var hybridArgument *graphql.HybridArgumentBuilder
 	fullTextQueryParts := []string{}
 	if query != "" {
@@ -723,7 +723,7 @@ func SearchWeaviateEvents(
 		// whereFilterForResponse = string(filterBytes)
 	}
 
-	// --- Step 3: Define Response Fields ---
+	// Define Response Fields
 	fields := []graphql.Field{
 		{Name: "name"}, {Name: "description"}, {Name: "eventOwners"}, {Name: "eventOwnerName"},
 		{Name: "eventSourceType"}, {Name: "startTime"}, {Name: "endTime"}, {Name: "address"},
@@ -737,7 +737,7 @@ func SearchWeaviateEvents(
 		}},
 	}
 
-	// --- Step 4: Construct and Execute Query ---
+	// Construct and Execute Query
 	queryBuilder := client.GraphQL().Get().
 		WithClassName(className)
 

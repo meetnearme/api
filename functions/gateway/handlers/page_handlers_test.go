@@ -331,7 +331,9 @@ func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
 	tests := []struct {
 		name                string
 		host                string
+		hostHeader          string // Optional Host header (for worker proxy scenarios)
 		mnmOptionsHeader    string
+		isLocalAct          string // IS_LOCAL_ACT environment variable value (empty means don't set it)
 		expectedErrorPage   bool
 		expectedContains    []string
 		expectedNotContains []string
@@ -392,9 +394,76 @@ func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
 			},
 		},
 		{
-			name:              "Localhost (no dots) should proceed normally",
-			host:              "localhost",
+			name: "127.0.0.1 with subdomain.localhost Host header and IS_LOCAL_ACT=true and no mnmOptions should show error page",
+			// When worker forwards to 127.0.0.1:8000, r.Host will always be "127.0.0.1:8000" (or "127.0.0.1")
+			// regardless of what the Host header is set to. The proxy ensures r.Host reflects the connection target.
+			// The condition checks: IS_LOCAL_ACT=true && r.Host contains "127.0.0.1" && Host header has subdomain && no mnmOptions
+			// The Host header "test.localhost" has 2 parts, and the logic checks if first part is not "localhost",
+			// so "test.localhost" will be detected as a subdomain and show the error page.
+			host:              "127.0.0.1:8000",
+			hostHeader:        "test.localhost", // Host header set by local dev worker with subdomain
 			mnmOptionsHeader:  "",
+			isLocalAct:        "true",
+			expectedErrorPage: true, // Should show error page when subdomain in Host header and no mnmOptions
+			expectedContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+				`<a class="link link-text" href="/admin">`,
+			},
+			expectedNotContains: []string{
+				"&lt;a",
+				"&lt;br",
+			},
+		},
+		{
+			name: "127.0.0.1 with subdomain.localhost Host header and IS_LOCAL_ACT=true and mnmOptions should proceed normally",
+			// When proxied, r.Host is always 127.0.0.1:8000, Host header is separate
+			host:              "127.0.0.1:8000",
+			hostHeader:        "subdomain.localhost:8000", // Host header set by local dev worker (but r.Host will still be 127.0.0.1:8000)
+			mnmOptionsHeader:  "userId=123",
+			isLocalAct:        "true",
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name: "127.0.0.1 with localhost Host header (no subdomain) and IS_LOCAL_ACT=true should proceed normally",
+			// When proxied, r.Host is always 127.0.0.1:8000
+			host:              "127.0.0.1:8000",
+			hostHeader:        "localhost:8000", // Host header set by local dev worker (but r.Host will still be 127.0.0.1:8000)
+			mnmOptionsHeader:  "",
+			isLocalAct:        "true",
+			expectedErrorPage: false,
+			expectedNotContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+			},
+		},
+		{
+			name:              "127.0.0.1 with subdomain.localhost Host header and IS_LOCAL_ACT=false should show error page (IP treated as subdomain)",
+			host:              "127.0.0.1:8000",
+			hostHeader:        "subdomain.localhost:8000", // Host header set by worker (but r.Host will still be 127.0.0.1:8000)
+			mnmOptionsHeader:  "",
+			isLocalAct:        "false",
+			expectedErrorPage: true, // Current logic treats IP addresses as subdomains
+			expectedContains: []string{
+				"User Not Found",
+				"claim this subdomain",
+				`<a class="link link-text" href="/admin">`,
+			},
+			expectedNotContains: []string{
+				"&lt;a",
+				"&lt;br",
+			},
+		},
+		{
+			name: "127.0.0.1:8000 directly (no Host header manipulation) with IS_LOCAL_ACT=true should proceed normally",
+			// Direct connection to 127.0.0.1:8000, r.Host will be 127.0.0.1:8000
+			host:              "127.0.0.1:8000",
+			mnmOptionsHeader:  "",
+			isLocalAct:        "true",
 			expectedErrorPage: false,
 			expectedNotContains: []string{
 				"User Not Found",
@@ -405,12 +474,38 @@ func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Save and restore IS_LOCAL_ACT environment variable
+			originalIsLocalAct := os.Getenv("IS_LOCAL_ACT")
+			defer func() {
+				if originalIsLocalAct == "" {
+					os.Unsetenv("IS_LOCAL_ACT")
+				} else {
+					os.Setenv("IS_LOCAL_ACT", originalIsLocalAct)
+				}
+			}()
+
+			// Set IS_LOCAL_ACT if specified in test case
+			if tt.isLocalAct != "" {
+				os.Setenv("IS_LOCAL_ACT", tt.isLocalAct)
+			} else {
+				os.Unsetenv("IS_LOCAL_ACT")
+			}
+
 			// Create a request with the specified host
 			req, err := http.NewRequest("GET", "/", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
 			req.Host = tt.host
+
+			// Set X-Original-Host header if provided (for worker proxy scenarios)
+			// The worker sets X-Original-Host with the subdomain (e.g., "test.localhost")
+			// to preserve it when proxying to 127.0.0.1:8000 where r.Host is always "127.0.0.1:8000"
+			if tt.hostHeader != "" {
+				req.Header.Set("X-Original-Host", tt.hostHeader)
+				// Ensure req.Host matches the proxy behavior where r.Host is always the connection target
+				req.Host = tt.host
+			}
 
 			// Set X-Mnm-Options header if provided
 			if tt.mnmOptionsHeader != "" {
@@ -475,6 +570,278 @@ func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
+	// This test ensures that clicking "Apply Filters" doesn't cause duplicate Weaviate API calls
+	// The regression: if handleFilterSubmit calls setParam() multiple times instead of setParams() once,
+	// each setParam() call triggers a form submission, causing duplicate API calls
+
+	originalWeaviateHost := os.Getenv("WEAVIATE_HOST")
+	originalWeaviateScheme := os.Getenv("WEAVIATE_SCHEME")
+	originalWeaviatePort := os.Getenv("WEAVIATE_PORT")
+	originalIsLocalAct := os.Getenv("IS_LOCAL_ACT")
+	defer func() {
+		os.Setenv("WEAVIATE_HOST", originalWeaviateHost)
+		os.Setenv("WEAVIATE_SCHEME", originalWeaviateScheme)
+		os.Setenv("WEAVIATE_PORT", originalWeaviatePort)
+		os.Setenv("IS_LOCAL_ACT", originalIsLocalAct)
+	}()
+
+	// Set IS_LOCAL_ACT for proxy scenario testing
+	os.Setenv("IS_LOCAL_ACT", "true")
+
+	// Set up mock Weaviate server with request counting
+	weaviateCallCount := 0
+	hostAndPort := test_helpers.GetNextPort()
+	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/meta":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"version":"1.0"}`))
+		case "/v1/graphql":
+			weaviateCallCount++
+			t.Logf("📊 Weaviate call #%d received at %s", weaviateCallCount, time.Now().Format("15:04:05.000"))
+
+			// Mock response for home page search
+			mockResponse := models.GraphQLResponse{
+				Data: map[string]models.JSONObject{
+					"Get": map[string]interface{}{
+						constants.WeaviateEventClassName: []interface{}{},
+					},
+				},
+			}
+			responseBytes, err := json.Marshal(mockResponse)
+			if err != nil {
+				t.Fatalf("failed to marshal mock GraphQL response: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+		default:
+			t.Errorf("mock server received request to unhandled path: %s", r.URL.Path)
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}
+	}))
+
+	listener, err := test_helpers.BindToPort(t, hostAndPort)
+	if err != nil {
+		t.Fatalf("BindToPort failed: %v", err)
+	}
+	mockWeaviateServer.Listener = listener
+	mockWeaviateServer.Start()
+	defer mockWeaviateServer.Close()
+
+	// Set environment variables to point to mock server
+	actualAddr := listener.Addr().String()
+	actualParts := strings.Split(actualAddr, ":")
+	actualHost, actualPort := actualParts[0], actualParts[1]
+
+	os.Setenv("WEAVIATE_HOST", actualHost)
+	os.Setenv("WEAVIATE_PORT", actualPort)
+	os.Setenv("WEAVIATE_SCHEME", "http")
+
+	// Set up router
+	router := test_helpers.SetupStaticTestRouter(t, "./assets")
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Always parse mnmOptions header and add to context (even if empty)
+		mnmOptions := helpers.ParseMnmOptionsHeader("")
+		ctx := context.WithValue(r.Context(), constants.MNM_OPTIONS_CTX_KEY, mnmOptions)
+		r = r.WithContext(ctx)
+		GetHomeOrUserPage(w, r).ServeHTTP(w, r)
+	})
+
+	// Create test server
+	testServerPort := test_helpers.GetNextPort()
+	testServer := httptest.NewUnstartedServer(router)
+	testServerListener, err := test_helpers.BindToPort(t, testServerPort)
+	if err != nil {
+		t.Fatalf("Failed to start test server: %v", err)
+	}
+	testServer.Listener = testServerListener
+	testServer.Start()
+	defer testServer.Close()
+
+	// Set up Playwright
+	browser, err := test_helpers.GetPlaywrightBrowser()
+	if err != nil {
+		t.Skipf("skipping playwright flow: %v", err)
+	}
+	if browser == nil {
+		t.Skip("skipping playwright flow: browser unavailable")
+	}
+	page, err := (*browser).NewPage()
+	if err != nil {
+		t.Fatalf("could not create page: %v", err)
+	}
+	defer page.Close()
+
+	// Reset counter before navigation
+	weaviateCallCount = 0
+
+	// Navigate to the page
+	fullURL := fmt.Sprintf("%s/", testServer.URL)
+	t.Logf("Navigating to: %s", fullURL)
+	if _, err = page.Goto(fullURL); err != nil {
+		t.Fatalf("could not goto: %v", err)
+	}
+
+	// Wait a bit for initial page load and any async requests to complete
+	time.Sleep(100 * time.Millisecond)
+
+	// Record initial call count
+	initialCallCount := weaviateCallCount
+	t.Logf("Initial Weaviate calls after page load: %d", initialCallCount)
+
+	// Open the drawer/sidebar if it's not already open (click the hamburger menu)
+	drawerToggle := page.Locator("#main-drawer")
+	if checked, _ := drawerToggle.IsChecked(); !checked {
+		// Use the "open sidebar" label specifically (not the overlay close button)
+		menuButton := page.Locator("label[aria-label='open sidebar']")
+		if err := menuButton.Click(playwright.LocatorClickOptions{
+			Timeout: playwright.Float(300),
+		}); err != nil {
+			t.Logf("Note: Could not open drawer (might already be open): %v", err)
+		} else {
+			t.Logf("Opened drawer")
+			// No sleep needed - Categories wait will handle timing
+		}
+	}
+
+	// Ensure filters tab is selected (it should be by default, but just in case)
+	filtersTab := page.Locator("#flyout-tab-filters")
+	if visible, _ := filtersTab.IsVisible(); visible {
+		if err := filtersTab.Click(playwright.LocatorClickOptions{
+			Timeout: playwright.Float(500),
+		}); err != nil {
+			t.Logf("Note: Could not click filters tab (might already be selected): %v", err)
+		}
+	}
+
+	// Wait for Categories section to be visible (confirms filters are loaded)
+	// This needs a bit more time as it depends on drawer animation and content rendering
+	categoriesHeading := page.Locator("h3:has-text('Categories')")
+	if err := categoriesHeading.WaitFor(playwright.LocatorWaitForOptions{
+		State:   playwright.WaitForSelectorStateVisible,
+		Timeout: playwright.Float(1000),
+	}); err != nil {
+		t.Fatalf("Categories section not visible: %v", err)
+	}
+	t.Logf("Categories section is visible")
+
+	// Click a category checkbox - find by name attribute pattern (first category checkbox)
+	// Category checkboxes have name like "itm-0-category", "itm-1-category", etc.
+	checkboxLocator := page.Locator("input[type='checkbox'][name^='itm-'][name$='-category']").First()
+	if err := checkboxLocator.Click(playwright.LocatorClickOptions{
+		Timeout: playwright.Float(500),
+	}); err != nil {
+		t.Fatalf("could not click category checkbox: %v", err)
+	}
+	t.Logf("Clicked category checkbox")
+
+	// Also change the radius to trigger a second setParam() call
+	// This will cause the bug to manifest: handleFilterSubmit will call setParam() twice
+	// (once for categories, once for radius), causing duplicate form submissions
+	radiusSelect := page.Locator("select[x-model='radius']")
+	_, err = radiusSelect.SelectOption(playwright.SelectOptionValues{
+		Values: &[]string{"25"},
+	}, playwright.LocatorSelectOptionOptions{
+		Timeout: playwright.Float(500),
+	})
+	if err != nil {
+		t.Logf("Note: Could not change radius (might not be necessary): %v", err)
+	} else {
+		t.Logf("Changed radius to 25 mi")
+	}
+
+	// Monitor HTTP requests to see if duplicate form submissions are happening
+	requestCount := 0
+	page.OnRequest(func(request playwright.Request) {
+		if strings.Contains(request.URL(), "/api/html/events") {
+			requestCount++
+			t.Logf("🌐 HTTP Request #%d to /api/html/events at %s", requestCount, time.Now().Format("15:04:05.000"))
+		}
+	})
+
+	// Click the "Apply Filters" button
+	applyFiltersLocator := page.Locator("button:has-text('Apply Filters')")
+	if err := applyFiltersLocator.Click(playwright.LocatorClickOptions{
+		Timeout: playwright.Float(500),
+	}); err != nil {
+		t.Fatalf("could not click Apply Filters button: %v", err)
+	}
+	t.Logf("Clicked Apply Filters button at %s", time.Now().Format("15:04:05.000"))
+
+	// Wait to catch any duplicate API calls that might be triggered
+	// The bug causes multiple form submissions. Each setParam() has a 50ms setTimeout,
+	// and duplicates fire within ~100ms. We'll wait 200ms total (with 50ms intervals)
+	// to catch duplicates while keeping the test fast when the bug is fixed.
+	callCountBeforeWait := weaviateCallCount
+	requestCountBeforeWait := requestCount
+	t.Logf("Call count before wait: %d, HTTP request count: %d", callCountBeforeWait, requestCountBeforeWait)
+
+	// Poll every 50ms for up to 200ms total (4 iterations)
+	// This is sufficient to catch duplicates (which fire within ~100ms) while
+	// keeping the test fast when the bug is fixed and no duplicates occur
+	duplicateDetected := false
+	maxIterations := 4 // 4 * 50ms = 200ms max wait
+	for i := 0; i < maxIterations; i++ {
+		time.Sleep(50 * time.Millisecond)
+		currentCount := weaviateCallCount
+		currentRequestCount := requestCount
+
+		// Check if we've detected duplicates
+		if currentCount > callCountBeforeWait+1 {
+			t.Logf("⚠️  DUPLICATE WEAVIATE CALL DETECTED after %dms! Total calls: %d", (i+1)*50, currentCount)
+			duplicateDetected = true
+		}
+		if currentRequestCount > requestCountBeforeWait+1 {
+			t.Logf("⚠️  DUPLICATE HTTP REQUEST DETECTED after %dms! Total requests: %d", (i+1)*50, currentRequestCount)
+			duplicateDetected = true
+		}
+
+		// If we detected duplicates, we can exit early
+		if duplicateDetected {
+			t.Logf("Exiting early after %dms - duplicate detected", (i+1)*50)
+			break
+		}
+
+		// Log progress for first few iterations
+		if i < 3 {
+			if currentCount > callCountBeforeWait {
+				t.Logf("After %dms: Weaviate call count: %d", (i+1)*50, currentCount)
+			}
+			if currentRequestCount > requestCountBeforeWait {
+				t.Logf("After %dms: HTTP request count: %d", (i+1)*50, currentRequestCount)
+			}
+		}
+	}
+
+	// Final snapshot
+	finalCallCount := weaviateCallCount
+	finalRequestCount := requestCount
+	t.Logf("Final call count: Weaviate=%d, HTTP requests=%d", finalCallCount, finalRequestCount)
+
+	// Verify Weaviate call count - should still be 1 (no duplicate calls)
+	// If the bug is present, we would see 2+ calls here
+	if finalCallCount != 1 {
+		t.Errorf("Expected exactly 1 Weaviate API call total, but got %d. Initial: %d, After filter: %d. This indicates duplicate API calls when applying filters (the bug is present - handleFilterSubmit is calling setParam() multiple times instead of setParams() once).",
+			finalCallCount, initialCallCount, finalCallCount-initialCallCount)
+	}
+
+	// Also check for duplicate HTTP requests to /api/html/events
+	// This is a more direct indicator of the bug - multiple form submissions
+	expectedRequests := 1 // Only 1 request should be made when applying filters
+	actualRequests := finalRequestCount - requestCountBeforeWait
+	if actualRequests > expectedRequests {
+		t.Errorf("Expected exactly %d HTTP request(s) to /api/html/events after applying filters, but got %d. This indicates duplicate form submissions (the bug is present - handleFilterSubmit is calling setParam() multiple times instead of setParams() once).",
+			expectedRequests, actualRequests)
+	}
+
+	if finalCallCount == 1 && actualRequests == expectedRequests {
+		t.Logf("✅ Page load and filter application resulted in exactly %d Weaviate call(s) and %d HTTP request(s)", finalCallCount, actualRequests)
 	}
 }
 
