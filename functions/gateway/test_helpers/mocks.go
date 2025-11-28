@@ -217,8 +217,10 @@ func BindToPort(t *testing.T, endpoint string) (net.Listener, error) {
 		t.Logf("Attempting to bind to: %s", hostPort)
 
 		// Try to connect to the port first to check if it's in use
+		// Use a separate transport to avoid interfering with test logging
 		client := &http.Client{
-			Timeout: 100 * time.Millisecond,
+			Timeout:   100 * time.Millisecond,
+			Transport: &http.Transport{}, // Use a clean transport, not the global default
 		}
 
 		_, err := client.Get(fmt.Sprintf("http://%s", hostPort))
