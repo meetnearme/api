@@ -1390,16 +1390,7 @@ func TestGetEventDetailsPage(t *testing.T) {
 			ctx = context.WithValue(ctx, "userInfo", mockUserInfo)
 			ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
 			ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
-			// Also add APIGatewayV2HTTPRequest context for path parameters
-			if vars := mux.Vars(r); vars != nil {
-				if eventID, ok := vars[constants.EVENT_ID_KEY]; ok {
-					ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
-						PathParameters: map[string]string{
-							constants.EVENT_ID_KEY: eventID,
-						},
-					})
-				}
-			}
+
 			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
 		})
