@@ -2,10 +2,12 @@ package helpers
 
 import (
 	"testing"
+
+	"github.com/meetnearme/api/functions/gateway/constants"
 )
 
 func TestCfLocationMap(t *testing.T) {
-	expectedMap := map[string]CdnLocation{
+	expectedMap := map[string]constants.CdnLocation{
 		"TIA": {IATA: "TIA", Lat: 41.4146995544, Lon: 19.7206001282, CCA2: "AL", Region: "Europe", City: "Tirana"},
 		"ALG": {IATA: "ALG", Lat: 36.6910018921, Lon: 3.2154099941, CCA2: "DZ", Region: "Africa", City: "Algiers"},
 	}

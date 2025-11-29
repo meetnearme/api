@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'meetnearme-monitor'
+
+scrape_configs:
+  # Local development: scrape Go app metrics endpoint
+  # When IS_LOCAL_ACT=true, Go app exposes /metrics endpoint
+  # When IS_LOCAL_ACT=false (deployed), mount different config that scrapes Caddy's metrics endpoint
+  - job_name: 'meetnearme-app'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['go-app:8000']
+        labels:
+          environment: 'local'

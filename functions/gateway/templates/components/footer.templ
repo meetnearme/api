@@ -1,0 +1,100 @@
+package components
+
+import (
+	"os"
+	"time"
+)
+
+templ Footer(isLoggedIn bool) {
+	<footer class="footer-vertical grid w-full gap-4 p-4 mt-20 bg-base-200" x-data="footerNavigation()">
+		<div
+			class="grid items-center justify-items-center"
+		>
+			<a href="/" class="btn btn-ghost flex items-center h-auto text-xl bg-black dark:bg-transparent rounded-lg w-fit px-3 mb-4">
+				<img
+					class="brand-logo"
+					alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin"
+					src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }
+				/>
+				<img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
+			</a>
+			<nav class="flex gap-4 w-full justify-center" aria-label="Primary footer navigation">
+				<a href="#" @click.prevent="swapQueryParam('')" @keydown.enter.prevent="swapQueryParam('')">All Events</a>
+				<a href="#" @click.prevent="swapQueryParam('music')" @keydown.enter.prevent="swapQueryParam('music')">Music</a>
+				<a href="#" @click.prevent="swapQueryParam('party')" @keydown.enter.prevent="swapQueryParam('party')">Party</a>
+				<a href="/about">About Us</a>
+			</nav>
+			<nav class="flex gap-4 justify-center items-center" aria-label="Social links">
+				<span>Follow Us</span>
+				<a class="icon-circle" href="https://www.youtube.com/@MeetNearMe" aria-label="YouTube" target="_blank" rel="noopener">
+					@Icon("youtube")
+				</a>
+				<a class="icon-circle" href="https://x.com/letsmeetnearme" aria-label="Twitter" target="_blank" rel="noopener">
+					@Icon("twitter")
+				</a>
+				<a class="icon-circle" href="https://www.facebook.com/letsmeetnearme" aria-label="Facebook" target="_blank" rel="noopener">
+					@Icon("facebook")
+				</a>
+				<a class="icon-circle" href="https://www.linkedin.com/company/meet-near-me/" aria-label="LinkedIn" target="_blank" rel="noopener">
+					@Icon("linkedin")
+				</a>
+				<a class="icon-circle" href="https://discord.gg/zfXWhGHs8T" aria-label="Discord" target="_blank" rel="noopener">
+					@Icon("discord")
+				</a>
+			</nav>
+		</div>
+		if !isLoggedIn {
+			<section class="flex flex-col row-start-2 gap-4 justify-self-center items-center text-center max-w-xl">
+				<span class="text-xl w-full font-bold text-center">Get local events straight to your inbox. </span>
+				<p class="text-center">
+					Create an account to get the latest local events, curated for your style — wherever you are in the
+					world. No spam, just good vibes.
+				</p>
+				<a
+					:href="'/auth/login?redirect=' + window.location.href + '&state=email_opt_in'"
+					class="btn btn-outline btn-secondary bg-transparent hover:bg-secondary hover:text-secondary-content w-lg"
+				>
+					Get Personalized Events
+					@Icon("send")
+				</a>
+			</section>
+		}
+		<section
+			class="grid grid-cols-1 row-start-3 border pt-3 border-transparent border-t-base-300 justify-center items-center gap-4"
+			aria-label="Copyright and legal information"
+		>
+			<div class="text-sm min-w-[20ch] justify-self-center gap-4">
+				&copy; 2024-{ time.Now().Format("2006") }
+				<span class="font-bold">
+					Meet Near Me LLC.
+				</span> All rights reserved.
+			</div>
+			<div class="flex gap-4 text-sm justify-self-center">
+				<a href={ templ.URL(os.Getenv("APEX_URL") + "/terms-of-service") }>Terms of Service</a>
+				&bull;&nbsp;
+				<a href={ templ.URL(os.Getenv("APEX_URL") + "/privacy-policy") }>Privacy Policy</a>
+			</div>
+		</section>
+	</footer>
+	<script>
+		// eslint-disable-next-line no-unused-vars
+		function footerNavigation() {
+			return {
+				swapQueryParam(newQ) {
+					const url = new URL(window.location.href);
+					const params = new URLSearchParams(url.search);
+
+					if (newQ) {
+						params.set('q', newQ);
+					} else {
+						params.delete('q');
+					}
+
+					const newUrl = window.location.origin + `/?${params.toString()}`;
+
+					window.location.href = newUrl;
+				}
+			}
+		}
+	</script>
+}

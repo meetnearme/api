@@ -4,19 +4,44 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
 
+	"github.com/google/uuid"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/transport"
 )
-
-var codeChallenge, codeVerifier, err = services.GenerateCodeChallengeAndVerifier()
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	queryParams := r.URL.Query()
-	redirectUser := queryParams.Get("redirect")
-	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectUser)
+	redirectQueryParam := queryParams.Get("redirect")
+
+	apexURL := os.Getenv("APEX_URL")
+	if apexURL == "" {
+		log.Println("APEX_URL not configured")
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("APEX_URL not configured"), http.StatusInternalServerError, false)(w, r)
+		}
+	}
+
+	codeChallenge, codeVerifier, err := services.GenerateCodeChallengeAndVerifier()
 	if err != nil {
-		http.Error(w, "Failed to authorize request", http.StatusBadRequest)
-		return http.HandlerFunc(nil)
+		log.Println("Failed to generate code challenge and verifier", err)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Failed to generate code challenge and verifier"), http.StatusInternalServerError, false)
+		}
+	}
+
+	services.SetSubdomainCookie(w, constants.PKCE_VERIFIER_COOKIE_NAME, codeVerifier, false, 600)
+
+	authURL, err := services.BuildAuthorizeRequest(codeChallenge, redirectQueryParam)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to authorize request: %+v", err)
+		log.Println(msg)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte(msg), http.StatusBadRequest, false)(w, r)
+		}
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -27,56 +52,131 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	sessionId := r.URL.Query().Get("id")
 	appState := r.URL.Query().Get("state")
+	apexURL := os.Getenv("APEX_URL")
 
 	if sessionId != "" {
 		location := r.Header.Get("Location")
-		http.Redirect(w, r, location, http.StatusFound)
-		return http.HandlerFunc(nil)
+		return func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, location, http.StatusFound)
+		}
 	}
+
+	if apexURL == "" {
+		log.Println("APEX_URL not configured")
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("APEX_URL not configured"), http.StatusInternalServerError, false)(w, r)
+		}
+	}
+
+	// NOTE: We get the code verifier from stored cookies beacuse
+	// distributed ephemeral lambda environments can have a conflict
+	// where the lambda instance issuing the auth request can be
+	// different from the lambda instance receiving the callback
+	verifierCookie, err := r.Cookie(constants.PKCE_VERIFIER_COOKIE_NAME)
+	if err != nil {
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Invalid or expired authorization session"), http.StatusBadRequest, false)(w, r)
+		}
+	}
+
+	codeVerifier := verifierCookie.Value
+	if codeVerifier == "" {
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Invalid or expired authorization session"), http.StatusBadRequest, false)(w, r)
+		}
+	}
+
+	// PKCE verifiier token is now consumed, clear it
+	services.ClearSubdomainCookie(w, constants.PKCE_VERIFIER_COOKIE_NAME)
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		http.Error(w, "Authorization code is missing", http.StatusBadRequest)
-		return http.HandlerFunc(nil)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Authorization code is missing"), http.StatusBadRequest, false)(w, r)
+		}
 	}
 
-	tokens, err := services.GetAuthToken(code, codeVerifier)
-	if err != nil {
-		log.Printf("Authentication Failed: %v", err)
-		http.Error(w, "Authentication failed", http.StatusUnauthorized)
-		return http.HandlerFunc(nil)
+	var zitadelRes map[string]interface{}
+	if os.Getenv("GO_ENV") == constants.GO_TEST_ENV {
+		// Check if we're testing the error case
+		if os.Getenv("ZITADEL_TEST_ERROR") == "true" {
+			zitadelRes = map[string]interface{}{
+				"error":             "invalid_grant",
+				"error_description": "The provided authorization code is invalid or expired",
+			}
+		} else {
+			zitadelRes = map[string]interface{}{
+				"access_token":  "test-access-token",
+				"refresh_token": "test-refresh-token",
+				"id_token":      "test-id-token",
+			}
+		}
+	} else {
+		zitadelRes, err = services.GetAuthToken(code, codeVerifier)
+		if err != nil {
+			log.Printf("Authentication Failed: %v", err)
+			return func(w http.ResponseWriter, r *http.Request) {
+				transport.SendHtmlErrorPage([]byte("Authentication failed"), http.StatusUnauthorized, false)(w, r)
+			}
+		}
 	}
 
 	// Store the access token and refresh token securely
-	accessToken, ok := tokens["access_token"].(string)
+	accessToken, ok := zitadelRes["access_token"].(string)
 	if !ok {
-		http.Error(w, "Failed to get access token", http.StatusInternalServerError)
-		return http.HandlerFunc(nil)
+		if zitadelRes["error"] != "" {
+			// Generate UUID for error correlation
+			errorID := uuid.New().String()
+
+			// Build detailed error message for logging
+			errorMsg := fmt.Sprintf("Failed to get access tokens, error from zitadel: %+v", zitadelRes["error"])
+			if zitadelRes["error_description"] != "" {
+				errorMsg += fmt.Sprintf(", error_description: %+v", zitadelRes["error_description"])
+			}
+
+			// Log full error details with correlation ID
+			log.Printf("Zitadel authentication error [%s]: %s", errorID, errorMsg)
+
+			// Show generic message with error ID to user
+			userMsg := fmt.Sprintf("Authentication failed. Error ID: %s", errorID)
+			return func(w http.ResponseWriter, r *http.Request) {
+				transport.SendHtmlErrorPage([]byte(userMsg), http.StatusUnauthorized, false)(w, r)
+			}
+		}
+		log.Printf("Failed to get access tokens, error from zitadel: %+v", zitadelRes)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Failed to get access token"), http.StatusInternalServerError, false)(w, r)
+		}
 	}
 
-	refreshToken, ok := tokens["refresh_token"].(string)
+	refreshToken, ok := zitadelRes["refresh_token"].(string)
 	if !ok {
-		fmt.Printf("Refresh token error: %v", ok)
-		http.Error(w, "Failed to get refresh token", http.StatusInternalServerError)
-		return http.HandlerFunc(nil)
+		log.Printf("Refresh token error: %v", ok)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SendHtmlErrorPage([]byte("Failed to get refresh token"), http.StatusInternalServerError, false)(w, r)
+		}
 	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:  "access_token",
-		Value: accessToken,
-		Path:  "/",
-	})
-
-	http.SetCookie(w, &http.Cookie{
-		Name:  "refresh_token",
-		Value: refreshToken,
-		Path:  "/",
-	})
+	idTokenHint, ok := zitadelRes["id_token"].(string)
+	if !ok {
+		log.Printf("id_token_hint not found in query params")
+	}
 
 	var userRedirectURL string = "/"
+	var cookieDomain string = ""
+	log.Printf("Leaving for compile issue at 138: cookieDomain: %v", cookieDomain)
 	if appState != "" {
 		userRedirectURL = appState
+		// Parse the redirect URL to get the host
+		if parsedURL, err := url.Parse(appState); err == nil && parsedURL.Host != "" {
+			cookieDomain = parsedURL.Host
+		}
 	}
+
+	// Store tokens in cookies
+	services.SetSubdomainCookie(w, constants.MNM_ACCESS_TOKEN_COOKIE_NAME, accessToken, false, 0)
+	services.SetSubdomainCookie(w, constants.MNM_REFRESH_TOKEN_COOKIE_NAME, refreshToken, false, 0)
+	services.SetSubdomainCookie(w, constants.MNM_ID_TOKEN_COOKIE_NAME, idTokenHint, false, 0)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, userRedirectURL, http.StatusFound)
@@ -86,5 +186,60 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 func HandleLogout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		services.HandleLogout(w, r)
+	}
+}
+
+func HandleRefresh(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get the refresh token from cookies
+		refreshTokenCookie, err := r.Cookie(constants.MNM_REFRESH_TOKEN_COOKIE_NAME)
+		if err != nil {
+			log.Printf("Refresh endpoint: missing refresh token cookie: %v", err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Call the refresh service to get new tokens from Zitadel
+		var tokens map[string]interface{}
+		if os.Getenv("GO_ENV") == constants.GO_TEST_ENV {
+			tokens = map[string]interface{}{
+				"access_token":  "test-access-token-refreshed",
+				"refresh_token": "test-refresh-token-refreshed",
+				"id_token":      "test-id-token-refreshed",
+			}
+		} else {
+			tokens, err = services.RefreshAccessToken(refreshTokenCookie.Value)
+			if err != nil {
+				log.Printf("Refresh endpoint: failed to refresh access token: %v", err)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+
+		// Extract and set the new access token
+		newAccessToken, ok := tokens["access_token"].(string)
+		if !ok {
+			log.Printf("Refresh endpoint: failed to get access token from response: %+v", tokens)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Set the new access token cookie
+		services.SetSubdomainCookie(w, constants.MNM_ACCESS_TOKEN_COOKIE_NAME, newAccessToken, false, 0)
+
+		// Update refresh token if provided in response
+		if newRefreshToken, ok := tokens["refresh_token"].(string); ok {
+			services.SetSubdomainCookie(w, constants.MNM_REFRESH_TOKEN_COOKIE_NAME, newRefreshToken, false, 0)
+		}
+
+		// Update ID token if provided in response
+		if newIdToken, ok := tokens["id_token"].(string); ok {
+			services.SetSubdomainCookie(w, constants.MNM_ID_TOKEN_COOKIE_NAME, newIdToken, false, 0)
+		}
+
+		// Return success response
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success": true}`))
 	}
 }
