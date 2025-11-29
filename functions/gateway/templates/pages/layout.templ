@@ -335,6 +335,17 @@ templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageConte
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
+			<script>
+				// Shim for CommonJS exports and require to prevent errors from navigation-polyfill
+				if (typeof exports === 'undefined') {
+					var exports = {};
+				}
+				if (typeof require === 'undefined') {
+					var require = function() {
+						return {};
+					};
+				}
+			</script>
 			for _, script := range scripts {
 				<script defer src={ script }></script>
 			}
@@ -350,7 +361,7 @@ templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageConte
 			@components.Navbar(userInfo, sitePage.SubnavItems, event, ctx, isFullWidth) {
 				if isFullWidth {
 					<div class="w-full">
-						<div id="content" class="relative">
+						<div id="content" class="relative px-4 py-6 md:px-6 md:py-8">
 							@pageContent
 							@components.Footer(userInfo.Email != "")
 						</div>

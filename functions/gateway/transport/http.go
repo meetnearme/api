@@ -102,6 +102,32 @@ func SendHtmlErrorPartial(body []byte, status int) http.HandlerFunc {
 	}
 }
 
+func SendHtmlErrorText(body []byte, status int) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var buf bytes.Buffer
+		ctx := r.Context()
+		requestID := ""
+		if raw := ctx.Value(constants.ApiGwV2ReqKey); raw != nil {
+			if req, ok := raw.(events.APIGatewayV2HTTPRequest); ok {
+				requestID = req.RequestContext.RequestID
+			} else {
+				log.Println("Warning: ApiGwV2ReqKey value is not of expected type")
+			}
+		} else {
+			log.Println("Warning: No ApiGwV2ReqKey found in context")
+		}
+		errorPartial := partials.ErrorHTMLText(body, fmt.Sprint(requestID))
+		err := errorPartial.Render(r.Context(), &buf)
+		if err != nil {
+			log.Println("Error rendering error partial:", err)
+		}
+		log.Println("ERR ("+fmt.Sprint(status)+"): ", string(body))
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write(buf.Bytes())
+	}
+}
+
 // Helper function to create error JSON
 func createErrorJSON(message []byte) []byte {
 	messageString := string(message)

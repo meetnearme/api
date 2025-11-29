@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -185,7 +186,6 @@ func GetCloudflareMnmOptions(subdomainValue string) (string, error) {
 }
 
 func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]string, cfMetadataValue string) error {
-	mnmOptionsKey := constants.SUBDOMAIN_KEY
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	namespaceID := os.Getenv("CLOUDFLARE_MNM_SUBDOMAIN_KV_NAMESPACE_ID")
 	baseURL := os.Getenv("CLOUDFLARE_API_CLIENT_BASE_URL")
@@ -214,11 +214,6 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		} else {
 			return fmt.Errorf("error checking if key exists: %w", err)
 		}
-	}
-
-	kvValueExists := false
-	if resp != nil && resp.StatusCode == http.StatusOK {
-		kvValueExists = true
 	}
 
 	existingValueStr := ""
@@ -254,19 +249,20 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 		return fmt.Errorf(constants.ERR_KV_KEY_EXISTS)
 	}
 
-	existingUserSubdomain, err := GetUserMetadataByKey(userID, mnmOptionsKey)
+	existingUserSubdomain, err := GetUserMetadataByKey(userID, constants.SUBDOMAIN_KEY)
 	if err != nil {
-		return fmt.Errorf("error getting user metadata key: %w", err)
+		log.Print("user does not have a subdomain set.")
+		existingUserSubdomain = ""
+	} else {
+		// Decode the base64 encoded existingUserSubdomain
+		decodedValue, err := base64.StdEncoding.DecodeString(existingUserSubdomain)
+		if err != nil {
+			return fmt.Errorf("error decoding base64 existingUserSubdomain: %w", err)
+		}
+		existingUserSubdomain = string(decodedValue)
 	}
-	// Decode the base64 encoded existingUserSubdomain
-	decodedValue, err := base64.StdEncoding.DecodeString(existingUserSubdomain)
-	if err != nil {
-		return fmt.Errorf("error decoding base64 existingUserSubdomain: %w", err)
-	}
-	existingUserSubdomain = string(decodedValue)
-
 	// Write the new subdomain value to the user's metadata in zitadel
-	err = UpdateUserMetadataKey(userID, mnmOptionsKey, subdomainValue)
+	err = UpdateUserMetadataKey(userID, constants.SUBDOMAIN_KEY, subdomainValue)
 	if err != nil {
 		return fmt.Errorf("error updating user metadata: %w", err)
 	}
@@ -316,8 +312,12 @@ func SetCloudflareMnmOptions(subdomainValue, userID string, metadata map[string]
 
 	defer func() {
 		// if the key already exists, and the userID is different, delete the existing key
-		if kvValueExists && existingUserSubdomain != "" && existingValueStr != userID {
-			DeleteCloudflareKV(existingUserSubdomain, userID)
+		hasOldSubdomain := existingUserSubdomain != ""
+		if hasOldSubdomain {
+			err := DeleteCloudflareKV(existingUserSubdomain, userID)
+			if err != nil {
+				log.Printf("error deleting subdomain key: %v", err)
+			}
 		}
 	}()
 
@@ -347,6 +347,61 @@ func DeleteCloudflareKV(subdomainValue, userID string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to delete key / value pair in kv store: %w", err)
+	}
+
+	return nil
+}
+
+func DeleteSubdomainFromDB(userID string) error {
+	subdomainValue, err := GetUserMetadataByKey(userID, constants.SUBDOMAIN_KEY)
+	if err != nil {
+		log.Printf("failed to get user subdomain metadata: %v", err)
+		return err
+	}
+
+	if subdomainValue == "" {
+		return nil
+	}
+
+	decodedValue, decodeErr := base64.StdEncoding.DecodeString(subdomainValue)
+	if decodeErr != nil {
+		log.Printf("error decoding base64 subdomain value: %v", decodeErr)
+		return decodeErr
+	}
+
+	subdomainValue = string(decodedValue)
+	if subdomainValue == "" {
+		return nil
+	}
+
+	if err := DeleteCloudflareKV(subdomainValue, userID); err != nil {
+		log.Printf("error deleting subdomain '%s' from Cloudflare KV: %v", subdomainValue, err)
+	}
+
+	url := fmt.Sprintf(DefaultProtocol+"%s/management/v1/users/%s/metadata/%s", os.Getenv("ZITADEL_INSTANCE_HOST"), userID, constants.SUBDOMAIN_KEY)
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		log.Printf("error creating delete metadata request: %v", err)
+		return err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("ZITADEL_BOT_ADMIN_TOKEN"))
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		log.Printf("error executing delete metadata request: %v", err)
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(res.Body)
+		err := fmt.Errorf("failed to delete user metadata key '%s': status %d, body: %s", constants.SUBDOMAIN_KEY, res.StatusCode, strings.TrimSpace(string(body)))
+		log.Print(err)
+		return err
 	}
 
 	return nil
@@ -1320,6 +1375,47 @@ func GetMnmOptionsFromContext(ctx context.Context) map[string]string {
 		return mnmOptions
 	}
 	return map[string]string{}
+}
+
+// ParseMnmOptionsHeader parses the X-Mnm-Options header value into a map[string]string
+// Supports two formats:
+//  1. Key-value pairs: "key1=value1;key2=value2" (semicolon-separated, equals-separated key-value pairs)
+//  2. Legacy format: "userId" (just the userId value, treated as userId=userId)
+//
+// The function validates keys against constants.AllowedMnmOptionsKeys and logs warnings
+// for invalid keys or malformed entries. Returns an empty map if headerValue is empty.
+func ParseMnmOptionsHeader(headerValue string) map[string]string {
+	mnmOptions := map[string]string{}
+
+	// Trim surrounding quotes
+	headerVal := strings.Trim(headerValue, "\"")
+	if headerVal == "" {
+		return mnmOptions
+	}
+
+	if strings.Contains(headerVal, "=") {
+		// Parse key=value format (semicolon-separated)
+		parts := strings.Split(headerVal, ";")
+		for _, part := range parts {
+			kv := strings.SplitN(part, "=", 2)
+			if len(kv) == 2 {
+				key := strings.Trim(kv[0], " \"") // trim spaces and quotes
+				value := strings.Trim(kv[1], " \"")
+				if slices.Contains(constants.AllowedMnmOptionsKeys, key) {
+					mnmOptions[key] = value
+				} else {
+					log.Printf("Warning: Invalid option key '%s' (not in allowed keys)", key)
+				}
+			} else {
+				log.Printf("Warning: Invalid option format '%s' (expected key=value)", part)
+			}
+		}
+	} else {
+		// Handle legacy format where header value is just the userId
+		mnmOptions["userId"] = strings.Trim(headerVal, " \"")
+	}
+
+	return mnmOptions
 }
 
 func NormalizeURL(input string) (string, error) {

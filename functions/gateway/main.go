@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -107,6 +106,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/locations{trailingslash:\\/?}", "GET", handlers.SearchLocationsHandler, None},
 		//  == END == need to expose these via permanent key for headless clients
 		{"/api/auth/users/update-mnm-options{trailingslash:\\/?}", "POST", handlers.SetMnmOptions, Require},
+		{"/api/auth/users/delete-subdomain{trailingslash:\\/?}", "POST", handlers.DeleteMnmSubdomain, Require},
 		{"/api/auth/users/update-interests{trailingslash:\\/?}", "POST", handlers.UpdateUserInterests, Require},
 		{"/api/auth/users/update-about{trailingslash:\\/?}", "POST", handlers.UpdateUserAbout, Require},
 		{"/api/auth/users/update-location{trailingslash:\\/?}", "POST", handlers.UpdateUserLocation, Require},
@@ -617,32 +617,9 @@ func stateRedirectMiddleware(next http.Handler) http.Handler {
 
 func WithDerivedOptionsFromReq(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Initialize with empty map to prevent nil interface conversion
-		mnmOptions := map[string]string{}
-
-		mnmOptionsHeaderVal := strings.Trim(r.Header.Get("X-Mnm-Options"), "\"")
-		if mnmOptionsHeaderVal == "" {
-			// do nothing if missing
-		} else if strings.Contains(mnmOptionsHeaderVal, "=") {
-			parts := strings.Split(mnmOptionsHeaderVal, ";")
-			for _, part := range parts {
-				kv := strings.SplitN(part, "=", 2)
-				if len(kv) == 2 {
-					key := strings.Trim(kv[0], " \"") // trim spaces and quotes
-					value := strings.Trim(kv[1], " \"")
-					if slices.Contains(constants.AllowedMnmOptionsKeys, key) {
-						mnmOptions[key] = value
-					} else {
-						log.Printf("Warning: Invalid option key '%s' (not in allowed keys)", key)
-					}
-				} else {
-					log.Printf("Warning: Invalid option format '%s' (expected key=value)", part)
-				}
-			}
-		} else {
-			// Handle legacy format where header value is just the userId
-			mnmOptions["userId"] = strings.Trim(mnmOptionsHeaderVal, " \"")
-		}
+		// Parse the X-Mnm-Options header using the shared helper function
+		mnmOptionsHeaderVal := r.Header.Get("X-Mnm-Options")
+		mnmOptions := helpers.ParseMnmOptionsHeader(mnmOptionsHeaderVal)
 
 		// Always set the context with at least an empty map
 		ctx := context.WithValue(r.Context(), constants.MNM_OPTIONS_CTX_KEY, mnmOptions)

@@ -37,305 +37,356 @@ func getSubscriptionsAdminUrl() string {
 	return "/api/html/subscriptions"
 }
 
-templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, interests []string, userSubdomain, mnmOptions, userAbout string, ctx context.Context) {
-	<div class="max-w-screen-2xl mx-auto px-4 py-4">
-		<h1 class="text-3xl mb-6">Admin</h1>
-		<br/>
-		<br/>
-		<div id="admin-content-container" class="md:grid md:grid-cols-7 gap-4" x-data="getAdminState()">
-			@components.AdminNav(ctx)
-			<div class="htmx-show-in-flight col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box">
-				<template x-for="i in Array.from({length: 3}, (_, i) => i)" :key="i">
-					<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
-						<tr class="border-t-2 border-base-300">
-							<td><div class="skeleton h-4 w-full"></div></td>
-							<td colspan="6">
-								<div class="flex w-full flex-col gap-4">
-									<div class="skeleton h-4 w-full"></div>
-									<div class="skeleton h-4 w-1/2"></div>
-									<div class="skeleton h-4 w-full"></div>
-								</div>
-							</td>
-							<td><div class="skeleton h-4 w-full"></div></td>
-							<td>
+templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, interests []string, subdomainFromMetadata, mnmOptions, userAbout string, ctx context.Context) {
+	<h1 class="text-3xl mb-8">Admin</h1>
+	<div id="admin-content-container" class="md:grid md:grid-cols-7 gap-6" x-data="getAdminState()">
+		@components.AdminNav(ctx)
+		<div class="htmx-show-in-flight col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box">
+			<template x-for="i in Array.from({length: 3}, (_, i) => i)" :key="i">
+				<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
+					<tr class="border-t-2 border-base-300">
+						<td><div class="skeleton h-4 w-full"></div></td>
+						<td colspan="6">
+							<div class="flex w-full flex-col gap-4">
 								<div class="skeleton h-4 w-full"></div>
-							</td>
+								<div class="skeleton h-4 w-1/2"></div>
+								<div class="skeleton h-4 w-full"></div>
+							</div>
+						</td>
+						<td><div class="skeleton h-4 w-full"></div></td>
+						<td>
+							<div class="skeleton h-4 w-full"></div>
+						</td>
+					</tr>
+				</table>
+			</template>
+		</div>
+		<div
+			id="admin-content"
+			class="htmx-hide-in-flight col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box"
+		>
+			<template x-if="newRole && !roleResolved">
+				<div class="alert alert-info mb-4">
+					<span class="candidates-loading-visible loading loading-ball loading-lg h-auto"></span>
+					<span>Checking your subscription status...</span>
+				</div>
+			</template>
+			<h2 id="registration-history" class="text-2xl font-bold mt-4">Event Purchases &amp; Registrations</h2>
+			<div>
+				<template x-if="purchasesNextCursor">
+					<a class="btn btn-sm float-end" :href=" window.location.pathname + '?purch_start_key=' + purchasesNextCursor">Show Next &rarr;</a>
+				</template>
+				<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
+					<thead>
+						<tr>
+							<th>Status</th>
+							<th colspan="6">Purchase Type(s)</th>
+							<th>Total</th>
+							<th>Signup Time</th>
 						</tr>
-					</table>
-				</template>
-			</div>
-			<div
-				id="admin-content"
-				class="htmx-hide-in-flight col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box"
-			>
-				<template x-if="newRole && !roleResolved">
-					<div class="alert alert-info mb-4">
-						<span class="candidates-loading-visible loading loading-ball loading-lg h-auto"></span>
-						<span>Checking your subscription status...</span>
-					</div>
-				</template>
-				<h2 id="registration-history" class="text-2xl font-bold mt-4">Event Purchases &amp; Registrations</h2>
-				<div>
-					<template x-if="purchasesNextCursor">
-						<a class="btn btn-sm float-end" :href=" window.location.pathname + '?purch_start_key=' + purchasesNextCursor">Show Next &rarr;</a>
-					</template>
-					<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
-						<thead>
-							<tr>
-								<th>Status</th>
-								<th colspan="6">Purchase Type(s)</th>
-								<th>Total</th>
-								<th>Signup Time</th>
-							</tr>
-						</thead>
-						<template x-if="!hasPurchasesResults">
-							<template x-for="i in Array.from({length: 3}, (_, i) => i)" :key="i">
-								<tr class="border-t-2 border-base-300">
-									<td><div class="skeleton h-4 w-full"></div></td>
-									<td colspan="6">
-										<div class="flex w-full flex-col gap-4">
-											<div class="skeleton h-4 w-full"></div>
-											<div class="skeleton h-4 w-1/2"></div>
-											<div class="skeleton h-4 w-full"></div>
-										</div>
-									</td>
-									<td><div class="skeleton h-4 w-full"></div></td>
-									<td>
+					</thead>
+					<template x-if="!hasPurchasesResults">
+						<template x-for="i in Array.from({length: 3}, (_, i) => i)" :key="i">
+							<tr class="border-t-2 border-base-300">
+								<td><div class="skeleton h-4 w-full"></div></td>
+								<td colspan="6">
+									<div class="flex w-full flex-col gap-4">
 										<div class="skeleton h-4 w-full"></div>
+										<div class="skeleton h-4 w-1/2"></div>
+										<div class="skeleton h-4 w-full"></div>
+									</div>
+								</td>
+								<td><div class="skeleton h-4 w-full"></div></td>
+								<td>
+									<div class="skeleton h-4 w-full"></div>
+								</td>
+							</tr>
+						</template>
+					</template>
+					<tbody>
+						<template x-if="hasPurchasesResults && purchases.length > 0">
+							<template x-for="purchase in purchases" :key="purchase.composite_key">
+								<tr
+									class="border-t-2 border-base-300"
+									:class="{ 'border-l-2 border-primary': newKeyId === purchase.composite_key }"
+									:data-purch-key="purchase.composite_key"
+								>
+									<td x-text="getPurchaseStatus(purchase)"></td>
+									<td colspan="6">
+										<a class="link link-primary" :href="`/event/${purchase.event_id}`" x-text="purchase.event_name"></a>
+										<template x-for="(item, idx) in purchase.purchased_items" :key="item.name">
+											<div>
+												<template x-if="idx >= 1">
+													<div class="divider"></div>
+												</template>
+												<div x-text="item.name"></div>
+												<div x-text="'Quantity: ' + item.quantity"></div>
+												<div>
+													<td x-text="`${item.cost > 0 ? '$' + (item.cost / 100).toFixed(2) : 'Free'}`"></td>
+													<span x-text="item.currency"></span>
+												</div>
+												<div x-show="item.reg_responses && item.reg_responses.length > 0">
+													<h2 class="text-md mt-2">Registration Responses</h2>
+													<div class="card bg-base-100 px-4 py-2 my-2">
+														<template x-for="(response, index) in item.reg_responses" :key="index">
+															<div>
+																<template x-if="index >= 1">
+																	<div class="divider my-1"></div>
+																</template>
+																<template x-for="(value, key) in response" :key="key">
+																	<div>
+																		<span class="font-medium font-bold" x-text="key + ': '"></span>
+																		<span x-text="value"></span>
+																	</div>
+																</template>
+															</div>
+														</template>
+													</div>
+												</div>
+											</div>
+										</template>
 									</td>
+									<td x-text="`${purchase.total > 0 ? '$' + (purchase.total / 100).toFixed(2) : 'Free'}`"></td>
+									<td x-text="new Date(purchase.created_at * 1000).toLocaleString()"></td>
 								</tr>
 							</template>
 						</template>
-						<tbody>
-							<template x-if="hasPurchasesResults && purchases.length > 0">
-								<template x-for="purchase in purchases" :key="purchase.composite_key">
-									<tr
-										class="border-t-2 border-base-300"
-										:class="{ 'border-l-2 border-primary': newKeyId === purchase.composite_key }"
-										:data-purch-key="purchase.composite_key"
-									>
-										<td x-text="getPurchaseStatus(purchase)"></td>
-										<td colspan="6">
-											<a class="link link-primary" :href="`/event/${purchase.event_id}`" x-text="purchase.event_name"></a>
-											<template x-for="(item, idx) in purchase.purchased_items" :key="item.name">
-												<div>
-													<template x-if="idx >= 1">
-														<div class="divider"></div>
-													</template>
-													<div x-text="item.name"></div>
-													<div x-text="'Quantity: ' + item.quantity"></div>
-													<div>
-														<td x-text="`${item.cost > 0 ? '$' + (item.cost / 100).toFixed(2) : 'Free'}`"></td>
-														<span x-text="item.currency"></span>
-													</div>
-													<div x-show="item.reg_responses && item.reg_responses.length > 0">
-														<h2 class="text-md mt-2">Registration Responses</h2>
-														<div class="card bg-base-100 px-4 py-2 my-2">
-															<template x-for="(response, index) in item.reg_responses" :key="index">
-																<div>
-																	<template x-if="index >= 1">
-																		<div class="divider my-1"></div>
-																	</template>
-																	<template x-for="(value, key) in response" :key="key">
-																		<div>
-																			<span class="font-medium font-bold" x-text="key + ': '"></span>
-																			<span x-text="value"></span>
-																		</div>
-																	</template>
-																</div>
-															</template>
-														</div>
-													</div>
-												</div>
-											</template>
-										</td>
-										<td x-text="`${purchase.total > 0 ? '$' + (purchase.total / 100).toFixed(2) : 'Free'}`"></td>
-										<td x-text="new Date(purchase.created_at * 1000).toLocaleString()"></td>
-									</tr>
-								</template>
-							</template>
-						</tbody>
-						<tfoot>
-							<tr>
-								<th>Status</th>
-								<th colspan="6">Purchase Type(s)</th>
-								<th>Total</th>
-								<th>Time</th>
-							</tr>
-						</tfoot>
-					</table>
+					</tbody>
+					<tfoot>
+						<tr>
+							<th>Status</th>
+							<th colspan="6">Purchase Type(s)</th>
+							<th>Total</th>
+							<th>Time</th>
+						</tr>
+					</tfoot>
+				</table>
+			</div>
+			<h2 class="text-2xl font-bold ">User Info</h2>
+			Name: { userInfo.Name }
+			<br/>
+			Email: { userInfo.Email }
+			<br/>
+			Email Verified:
+			if userInfo.EmailVerified {
+				Yes
+			} else {
+				No
+			}
+			<br/>
+			User ID: { userInfo.Sub }
+			<br/>
+			<br/>
+			<h3 id="roles-section" class="text-2xl font-bold scroll-margin-top">Subscriptions</h3>
+			<template x-if="newRole && roleResolved && !roleFound">
+				<div class="alert alert-warning mb-4">
+					@components.Icon("triangle-alert")
+					<span>Your subscription is being processed. If you need assistance, please reach out via <a class="link link-primary" href="https://discord.gg/zfXWhGHs8T">Discord</a> or <a class="link link-primary" href="mailto:info@meetnear.me">email</a>.</span>
 				</div>
-				<h2 class="text-2xl font-bold ">User Info</h2>
-				Name: { userInfo.Name }
-				<br/>
-				Email: { userInfo.Email }
-				<br/>
-				Email Verified:
-				if userInfo.EmailVerified {
-					Yes
-				} else {
-					No
-				}
-				<br/>
-				User ID: { userInfo.Sub }
-				<br/>
-				<br/>
-				<h3 id="roles-section" class="text-2xl font-bold scroll-margin-top">Subscriptions</h3>
-				<template x-if="newRole && roleResolved && !roleFound">
-					<div class="alert alert-warning mb-4">
-						@components.Icon("triangle-alert")
-						<span>Your subscription is being processed. If you need assistance, please reach out via <a class="link link-primary" href="https://discord.gg/zfXWhGHs8T">Discord</a> or <a class="link link-primary" href="mailto:info@meetnear.me">email</a>.</span>
-					</div>
-				</template>
-				<template x-if="newRole && roleResolved && roleFound">
-					<div class="alert alert-success mb-4">
-						@components.Icon("check-circle")
-						<span>Your subscription is now active!</span>
-					</div>
-				</template>
-				<template x-if="roleResolved && roleFound">
-					<div class="flex flex-wrap space-x-4 mb-4 gap-2">
-						for _, roleClaim := range roleClaims {
-							<span class="badge badge-lg badge-primary whitespace-nowrap">
-								if roleClaim.Role == string(constants.SubGrowth) {
-									Growth Community
-								} else if roleClaim.Role == string(constants.SubSeed) {
-									Seed Community
-								} else {
-									{ roleClaim.Role }
-								}
-							</span>
-							<br/>
-						}
-					</div>
-				</template>
-				<h3 class="text-2xl font-bold">Interests</h3>
-				if len(interests) > 1 {
-					<div class="mb-4">
-						<ul>
-							for _, interest := range interests {
-								<li>
-									- { interest }
-								</li>
+			</template>
+			<template x-if="newRole && roleResolved && roleFound">
+				<div class="alert alert-success mb-4">
+					@components.Icon("check-circle")
+					<span>Your subscription is now active!</span>
+				</div>
+			</template>
+			<template x-if="roleResolved && roleFound">
+				<div class="flex flex-wrap space-x-4 mb-4 gap-2">
+					for _, roleClaim := range roleClaims {
+						<span class="badge badge-lg badge-primary whitespace-nowrap">
+							if roleClaim.Role == string(constants.SubGrowth) {
+								Growth Community
+							} else if roleClaim.Role == string(constants.SubSeed) {
+								Seed Community
+							} else {
+								{ roleClaim.Role }
 							}
-						</ul>
-					</div>
-				}
-				<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/interests">interests page</a>.</p>
-				<h3 class="text-2xl font-bold mb-4">Subdomain</h3>
-				{{ baseDomain := strings.TrimPrefix(os.Getenv("APEX_URL"), "https://") }}
-				<div
-					x-data={ `{
-				subdomainPreview: '` + userSubdomain + `',
-				subdomain: '` + userSubdomain + `',
-				baseDomain: '` + baseDomain + `',
-				handleSubdomainPostRes(event) {
-					if (event.detail.successful) {
-						this.subdomainPreview = this.subdomain;
+						</span>
+						<br/>
 					}
+				</div>
+			</template>
+			<h3 class="text-2xl font-bold">Interests</h3>
+			if len(interests) > 1 {
+				<div class="mb-4">
+					<ul>
+						for _, interest := range interests {
+							<li>
+								- { interest }
+							</li>
+						}
+					</ul>
+				</div>
+			}
+			<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/interests">interests page</a>.</p>
+			<h3 class="text-2xl font-bold mb-4">Subdomain</h3>
+			{{ baseDomain := strings.TrimPrefix(os.Getenv("APEX_URL"), "https://") }}
+			<div
+				x-data={ `{
+				currentValidSubdomain: '` + subdomainFromMetadata + `',
+				subdomain: '` + subdomainFromMetadata + `',
+				baseDomain: '` + baseDomain + `',
+				subdomainValid: ` + strconv.FormatBool(subdomainFromMetadata != "") + `,
+				isDeleting: false,
+				handleSubdomainPostRes(event) {
+					const responseText = event.detail.xhr?.responseText || '';
+					const isSuccessful =
+			(responseText.includes('successfully') && event.detail.xhr?.status === 200);
+
+					// Only update the preview on success - keep the last known valid subdomain
+					if (isSuccessful) {
+						this.subdomainValid = true;
+						this.currentValidSubdomain = this.subdomain;
+					}
+					// On error, do nothing - keep showing the previous valid subdomain
 				}
 			}` }
+			>
+				<div
+					class="mb-4 rounded-xl border border-success bg-success/10 px-4 py-3 flex flex-col gap-1"
 				>
-					<p class="mb-4">
-						View custom subdomain at
-						<a
-							class="link link-primary"
-							x-bind:href=" 'https://' + subdomainPreview + '.' + baseDomain "
-							x-text=" 'https://' + subdomainPreview + '.' + baseDomain "
-						></a>
-					</p>
+					<div class="flex items-center gap-2 font-semibold">
+						<span>Current Subdomain</span>
+					</div>
+					<a
+						class="link"
+						x-show="subdomainValid"
+						x-bind:href=" 'https://' + currentValidSubdomain + '.' + baseDomain "
+						x-text=" 'https://' + currentValidSubdomain + '.' + baseDomain "
+					></a>
+					<span x-show="!subdomainValid">No subdomain set</span>
+					<div class="flex items-center gap-2 font-semibold mt-6">
+						<span>Update Subdomain</span>
+					</div>
 					<form
 						class="group"
 						novalidate
 						hx-post="/api/auth/users/update-mnm-options"
 						hx-ext="json-enc"
-						hx-target="#subdomain-result"
+						hx-target="#subdomain-set-result"
 						hx-disabled-elt="button[type='submit']"
 						@submit.prevent=""
 						@htmx:after-request="handleSubdomainPostRes(event)"
 						hx-vals="js:{...getMnmOptionsPayload()}"
 					>
-						<input
-							id="subdomain"
-							if userSubdomain != "" {
-								value={ userSubdomain }
-							}
-							x-model="subdomain"
-							pattern="[a-z0-9]+"
-							:class="{ 'input-error': subdomain && !subdomain.match(/^[a-z0-9\-]+$/) }"
-							name="subdomain"
-							type="text"
-							class="input input-bordered w-full"
-						/>
+						<div class="w-full flex-col gap-8">
+							<label class="input input-bordered rounded-full flex items-center gap-2">
+								<input
+									id="subdomain"
+									if subdomainFromMetadata != "" {
+										value={ subdomainFromMetadata }
+									}
+									name="subdomain"
+									x-model="subdomain"
+									@input="subdomain = $event.target.value.toLowerCase()"
+									pattern="[a-z0-9\-]+"
+									:class="{ 'input-error': subdomain && !subdomain.match(/^[a-z0-9\-]+$/) }"
+									class="w-full grow"
+									type="text"
+									autocomplete="off"
+								/>
+								<span>.meetnear.me</span>
+							</label>
+							<div id="subdomain-set-result" class="margins-when-children my-4"></div>
+							<button
+								type="submit"
+								class="btn btn-primary w-full mt-6"
+							>Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+						</div>
 						<div x-show="subdomain && !subdomain.match(/^[a-z0-9\-]+$/)" class="text-error text-sm mt-1">
 							Subdomain must contain only lowercase letters and numbers and/or hyphens
 						</div>
-						<button type="submit" class="btn btn-primary mt-4">Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
 					</form>
-					<div id="subdomain-result" class="margins-when-children my-8"></div>
-					<h3 class="text-2xl font-bold mb-4 mt-4">Custom Theme</h3>
-					<p>
-						Your subdomain will use the theme colors you choose below.
-						<div class="mx-auto w-full max-w-xl">
-							<form
-								class="group"
-								novalidate
-								hx-post="/api/auth/users/update-mnm-options?theme=1"
-								hx-ext="json-enc"
-								hx-target="#theme-result"
-								hx-disabled-elt="button[type='submit']"
-								@submit.prevent=""
-								@htmx:after-request="handleSubdomainPostRes(event)"
-								hx-vals="js:{...getMnmOptionsPayload()}"
-							>
-								{{ primaryColor := extractMnmOptions(mnmOptions)["--p"] }}
-								@components.ColorPicker(primaryColor, "Primary Brand Color", "primary-color-picker-input")
-								<h4 class="text-lg font-bold mt-2">Theme Mode</h4>
-								<!-- END Input -->
-								// switch toggle for light / vs dark theme
-								{{ themeModeLight := extractMnmOptions(mnmOptions)["themeMode"] == "light" }}
-								<div x-data={ `{ themeModeLight: ` + strconv.FormatBool(themeModeLight) + ` }` } class="form-control">
-									<label class="label cursor-pointer">
-										<span class="label-text" x-text="themeModeLight ? 'Light Theme' : 'Dark Theme' "></span>
-										<input
-											id="theme-mode"
-											type="checkbox"
-											class="toggle toggle-primary"
-											x-model="themeModeLight"
-										/>
-									</label>
-								</div>
-								<button type="submit" class="btn btn-primary mt-4">Update Theme<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
-							</form>
-						</div>
-					</p>
 				</div>
-				<div id="theme-result" class="margins-when-children my-8"></div>
-				<h3 class="text-2xl font-bold mb-4 mt-4">About / Bio</h3>
-				<form
-					class="group"
-					novalidate
-					hx-post="/api/auth/users/update-about"
-					hx-ext="json-enc"
-					hx-target="#about-result"
-					hx-disabled-elt="button[type='submit']"
-					@submit.prevent=""
+				<div
+					class="mt-6 rounded-xl border border-error bg-error/20 px-4 py-5 flex flex-col items-start gap-3"
+					x-show="subdomainValid && currentValidSubdomain"
 				>
-					<div class="form-control">
-						<label class="label" for="description">Description</label>
-						<textarea
-							name="about"
-							class="textarea textarea-bordered w-full"
-							maxlength="750"
-							id="about"
-							placeholder="Personal bio or organization description on your profile"
-						>
-							{ userAbout }
-						</textarea>
+					<div class="flex items-center gap-2 font-semibold">
+						<span>Danger Zone</span>
 					</div>
-					<button type="submit" class="btn btn-primary mt-4">Update About<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
-				</form>
-				<div id="about-result" class="margins-when-children my-8"></div>
+					<p class="">
+						Deleting your subdomain will permanently disable your custom website and theme. This action cannot be undone.
+					</p>
+					<div id="subdomain-delete-result" class="margins-when-children my-4"></div>
+					<button
+						type="button"
+						class="btn btn-error w-full"
+						hx-post="/api/auth/users/delete-subdomain"
+						hx-target="#subdomain-delete-result"
+						hx-disabled-elt="button"
+						@htmx:before-request="isDeleting = true"
+						@htmx:after-request="
+							isDeleting = false;
+							const responseText = event.detail.xhr?.responseText || '';
+							const isSuccessful = responseText.includes('successfully');
+							if (isSuccessful) {
+								subdomainValid = false;
+								currentValidSubdomain = '';
+								subdomain = '';
+							}
+						"
+					>
+						Delete Subdomain
+						<span x-cloak x-show="isDeleting" class="loading loading-spinner loading-sm ml-2"></span>
+					</button>
+				</div>
+				<h3 class="text-2xl font-bold mb-4 mt-4">Custom Theme</h3>
+				<div class="alert alert-warning mb-4" x-cloak x-show="!subdomainValid">
+					@components.Icon("triangle-alert")
+					<div>
+						<strong>Subdomain Required</strong>
+						<br/>
+						Please set a subdomain above to customize your theme. Theme customization is only available for custom subdomains.
+					</div>
+				</div>
+				<p class="mb-4" x-cloak x-show="subdomainValid">
+					Your subdomain will use the theme colors you choose below.
+				</p>
+				<div class="mx-auto w-full max-w-xl">
+					<div class="relative border-2 border-base-300 rounded-lg p-4 bg-base-200/50" :class="{ 'opacity-60': !subdomainValid }">
+						<div
+							x-cloak
+							x-show="!subdomainValid"
+							class="absolute inset-0 z-10 bg-base-200/40 backdrop-blur-[1px] cursor-not-allowed rounded-lg transition-opacity"
+							title="Set a subdomain to customize your theme"
+						></div>
+						<form
+							class="group relative z-0"
+							novalidate
+							hx-post="/api/auth/users/update-mnm-options?theme=1"
+							hx-ext="json-enc"
+							hx-target="#theme-result"
+							hx-disabled-elt="button[type='submit']"
+							@submit.prevent=""
+							@htmx:after-request="handleSubdomainPostRes(event)"
+							hx-vals="js:{...getMnmOptionsPayload()}"
+						>
+							{{ primaryColor := extractMnmOptions(mnmOptions)["--p"] }}
+							@components.ColorPicker(primaryColor, "Primary Brand Color", "primary-color-picker-input")
+							<h4 class="text-lg font-bold mt-2">Theme Mode</h4>
+							<!-- END Input -->
+							// switch toggle for light / vs dark theme
+							{{ themeModeLight := extractMnmOptions(mnmOptions)["themeMode"] == "light" }}
+							<div x-data={ `{ themeModeLight: ` + strconv.FormatBool(themeModeLight) + ` }` } class="form-control">
+								<label class="label cursor-pointer">
+									<span class="label-text" x-text="themeModeLight ? 'Light Theme' : 'Dark Theme' "></span>
+									<input
+										id="theme-mode"
+										type="checkbox"
+										class="toggle toggle-primary"
+										x-model="themeModeLight"
+									/>
+								</label>
+							</div>
+							<button
+								type="submit"
+								class="btn btn-primary mt-4"
+								:disabled="!subdomainValid"
+							>Update Theme<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+						</form>
+					</div>
+				</div>
 			</div>
 		</div>
 		<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled } data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() } data-subscriptions-url={ getSubscriptionsAdminUrl() }>

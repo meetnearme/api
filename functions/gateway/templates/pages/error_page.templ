@@ -1,8 +1,11 @@
 package pages
 
 templ ErrorPage(body []byte, requestID string, hideError bool) {
+	{{ bodyStr := string(body) }}
 	<header class="page-header bg-base-100 py-4">
-		<h1 class="text-3xl mb-4 text-center w-full">{ string(body) }</h1>
+		<h1 class="text-3xl mb-4 text-center w-full">
+			@templ.Raw(bodyStr)
+		</h1>
 	</header>
 	if !hideError {
 		<div role="alert" class="alert alert-error">

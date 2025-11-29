@@ -408,10 +408,8 @@ func GetCityCountryFromLocation(cfLocation constants.CdnLocation, cityStr, latSt
 		if latErr == nil && lonErr == nil {
 			cityService := services.GetCityService()
 			locationQuery := fmt.Sprintf("%.2f+%.2f", lat, lon)
-			log.Printf("location query %v", locationQuery)
 			city, err := cityService.GetCity(locationQuery)
 			if err == nil && city != "" {
-				log.Printf("returning this city: %v", city)
 				return city
 			}
 		}
@@ -823,7 +821,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				...Object.fromEntries(new URLSearchParams(window.location.search)),
 
 				// Helper to update both store and URL
-				setParam(param, value) {
+				setParam(param, value, skipFormSubmit = false) {
 					const url = new URL(window.location.href);
 					const params = new URLSearchParams(url.search);
 
@@ -849,7 +847,48 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					// Update URL
 					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
 
-					// Trigger form submission
+					// Trigger form submission unless explicitly skipped
+					if (!skipFormSubmit) {
+						const form = document.getElementById('event-search-form');
+						if (form) {
+							setTimeout(() => {
+								form.requestSubmit();
+							}, 50);
+						}
+					}
+				},
+
+				// Batch update multiple params at once, only submit form once at the end
+				setParams(paramsObj) {
+					const url = new URL(window.location.href);
+					const params = new URLSearchParams(url.search);
+
+					// Update all params in the object
+					Object.entries(paramsObj).forEach(([param, value]) => {
+						if (param === 'categories') {
+							const categoryString = Array.isArray(value) ? value.join(' | ') : value;
+							if (categoryString && categoryString !== '') {
+								params.set('categories', categoryString);
+								this.categories = categoryString;
+							} else {
+								params.delete('categories');
+								this.categories = '';
+							}
+						} else {
+							if (value && value !== '') {
+								params.set(param, value);
+								this[param] = value;
+							} else {
+								params.delete(param);
+								this[param] = '';
+							}
+						}
+					});
+
+					// Update URL once with all changes
+					window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
+
+					// Trigger form submission once at the end
 					const form = document.getElementById('event-search-form');
 					if (form) {
 						setTimeout(() => {
@@ -1478,30 +1517,40 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						})
 						const categoriesString = formVals.join(' | ')
 
-						// Commit categories to URL (triggers syncFromURL automatically)
-						Alpine.store('urlState').setParam('categories', categoriesString)
+						// Return the categories string instead of setting it directly
+						return categoriesString;
 					},
 					handleFilterSubmit() {
-						// Commit all draft changes to URL state
-						this.sendCategoriesToQueryParams();
+						// Collect all params to update in a single batch
+						const paramsToUpdate = {};
 
+						// Get categories
+						const categoriesString = this.sendCategoriesToQueryParams();
+						paramsToUpdate.categories = categoriesString;
+
+						// Add radius if set
 						if (this.radius) {
-							Alpine.store('urlState').setParam('radius', this.radius)
+							paramsToUpdate.radius = this.radius;
 						}
 
+						// Handle location params
 						if (this.locationDropdown && this.defaultCity != this.locationDropdown.label) {
 							// Commit location changes to URL
-							Alpine.store('urlState').setParam('lat', this.locationDropdown.latitude)
-							Alpine.store('urlState').setParam('lon', this.locationDropdown.longitude)
-							Alpine.store('urlState').setParam('location', this.locationDropdown.label)
-							Alpine.store('location').setSelectedLocation(this.locationDropdown)
-						}
-						if (this.locationDropdown && this.defaultCity == this.locationDropdown.label) {
+							paramsToUpdate.lat = this.locationDropdown.latitude;
+							paramsToUpdate.lon = this.locationDropdown.longitude;
+							paramsToUpdate.location = this.locationDropdown.label;
+							Alpine.store('location').setSelectedLocation(this.locationDropdown);
+						} else if (this.locationDropdown && this.defaultCity == this.locationDropdown.label) {
 							// Remove location params from URL since it matches the default (will use metadata)
-							Alpine.store('urlState').setParam('lat', '')
-							Alpine.store('urlState').setParam('lon', '')
-							Alpine.store('urlState').setParam('location', '')
-							Alpine.store('location').setSelectedLocation(this.locationDropdown)
+							paramsToUpdate.lat = '';
+							paramsToUpdate.lon = '';
+							paramsToUpdate.location = '';
+							Alpine.store('location').setSelectedLocation(this.locationDropdown);
+						}
+
+						// Batch update all params at once (only triggers one form submission)
+						if (Object.keys(paramsToUpdate).length > 0) {
+							Alpine.store('urlState').setParams(paramsToUpdate);
 						}
 
 						// close the drawer
