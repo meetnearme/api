@@ -273,45 +273,46 @@ func getFirstChar(userInfo constants.UserInfo) string {
 	return firstChar
 }
 
-templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event, ctx context.Context) {
+templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event, ctx context.Context, isEmbed bool) {
 	<div class="drawer drawer-end">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content flex flex-col">
-			<!-- Navbar -->
-			<div id="main-nav" class="navbar fixed z-50 top-0 w-full bg-base-100 shadow-md mb-5">
-				<div class="container mx-auto flex items-center">
-					<div class="flex flex-1">
-						<a href="/" class="btn pl-2 text-xl bg-black rounded-lg">
-							<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
-							<img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
-						</a>
-					</div>
-					<div class="navbar-end flex">
-						<div class="items-center lg:flex">
-							<ul class="menu menu-horizontal px-1 hidden lg:inline-flex">
-								@NavListItems(userInfo)
-							</ul>
-							if userInfo.Email != "" {
-								<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
-									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
-										<div class="border w-24 rounded-full">
-											<span class="text-3xl">{ getFirstChar(userInfo) }</span>
+			if !isEmbed {
+				<div id="main-nav" class="navbar fixed z-50 top-0 w-full bg-base-100 shadow-md mb-5">
+					<div class="container mx-auto flex items-center">
+						<div class="flex flex-1">
+							<a href="/" class="btn pl-2 text-xl bg-black rounded-lg">
+								<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+								<img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
+							</a>
+						</div>
+						<div class="navbar-end flex">
+							<div class="items-center lg:flex">
+								<ul class="menu menu-horizontal px-1 hidden lg:inline-flex">
+									@NavListItems(userInfo)
+								</ul>
+								if userInfo.Email != "" {
+									<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
+										<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
+											<div class="border w-24 rounded-full">
+												<span class="text-3xl">{ getFirstChar(userInfo) }</span>
+											</div>
+										</div>
+										<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-4 shadow-lg border border-base-300">
+											@MiniProfileInNav(userInfo, ctx)
 										</div>
 									</div>
-									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-4 shadow-lg border border-base-300">
-										@MiniProfileInNav(userInfo, ctx)
-									</div>
+								}
+								<div class="flex-none" onclick="document.getElementById('flyout-tab-main').click();">
+									<label for="main-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
+										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current fill-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+									</label>
 								</div>
-							}
-							<div class="flex-none" onclick="document.getElementById('flyout-tab-main').click();">
-								<label for="main-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
-									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current fill-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-								</label>
 							</div>
 						</div>
 					</div>
 				</div>
-			</div>
+			}
 			{ children... }
 		</div>
 		<div class="drawer-side">

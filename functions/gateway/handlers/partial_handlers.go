@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -26,6 +28,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
 
+	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -204,7 +207,110 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
 	}
 
+	// Set CORS headers for embed support
+	transport.SetCORSHeaders(w, r)
+
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+
+	// Get userId from query parameter
+	userId := r.URL.Query().Get("userId")
+	if userId == "" {
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SetCORSHeaders(w, r)
+			transport.SendServerRes(w, []byte("userId query parameter is required"), http.StatusBadRequest, errors.New("userId query parameter is required"))
+		}
+	}
+
+	// Get embedBaseUrl from query parameter (optional, defaults to APEX_URL)
+	embedBaseUrl := r.URL.Query().Get("embedBaseUrl")
+	if embedBaseUrl == "" {
+		embedBaseUrl = os.Getenv("APEX_URL")
+	}
+
+	// Use DeriveEventsFromRequest to get events (similar to GetHomeOrUserPage)
+	// We need to set the userId in the request context or modify the request
+	// For now, let's use GetSearchParamsFromReq and search events directly
+	originalQueryLat := r.URL.Query().Get("lat")
+	originalQueryLong := r.URL.Query().Get("lon")
+	originalQueryLocation := r.URL.Query().Get("location")
+
+	// Create a modified request with userId in the path for DeriveEventsFromRequest
+	// Actually, DeriveEventsFromRequest gets userId from mux.Vars, so we need to set it differently
+	// Let's use the same approach as GetEventsPartial but get all the data we need
+	q, city, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, _, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+
+	// Override ownerIds to use the userId from query parameter
+	ownerIds := []string{userId}
+
+	weaviateClient, err := services.GetWeaviateClient()
+	if err != nil {
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SetCORSHeaders(w, r)
+			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
+		}
+	}
+
+	// Search for events
+	res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+	if err != nil {
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SetCORSHeaders(w, r)
+			transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
+		}
+	}
+
+	events := res.Events
+
+	// Only sort by StartTime if there's no search query (preserve Weaviate's relevance order)
+	if q == "" {
+		sort.Slice(events, func(i, j int) bool {
+			return events[i].StartTime < events[j].StartTime
+		})
+	}
+
+	// Get user info for pageUser
+	var pageUser *types.UserSearchResult
+	userResult, err := helpers.GetOtherUserByID(userId)
+	if err == nil && userResult.UserID != "" {
+		pageUser = &userResult
+		pageUser.UserID = userId
+	}
+
+	// Render widget component (reuses HomePage with isEmbed=true)
+	widget := pages.Widget(
+		ctx,
+		events,
+		pageUser,
+		cfLocation,
+		city,
+		fmt.Sprint(userLocation[0]),
+		fmt.Sprint(userLocation[1]),
+		fmt.Sprint(originalQueryLat),
+		fmt.Sprint(originalQueryLong),
+		originalQueryLocation,
+		embedBaseUrl,
+	)
+
+	var buf bytes.Buffer
+	err = widget.Render(ctx, &buf)
+	if err != nil {
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SetCORSHeaders(w, r)
+			transport.SendServerRes(w, []byte("Failed to render widget: "+err.Error()), http.StatusInternalServerError, err)
+		}
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers for embed support
+		transport.SetCORSHeaders(w, r)
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write(buf.Bytes())
+	}
 }
 
 func GetProfileInterestsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -1538,4 +1644,1227 @@ func findTagByPartialText(doc *goquery.Document, targetSubstring string) string 
 		return getFullDomPath(bestMatch)
 	}
 	return ""
+}
+
+// GetEmbedScript returns the embed script that loads the widget HTML
+func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	// Get STATIC_BASE_URL from environment for base URL detection
+	staticBaseUrl := os.Getenv("STATIC_BASE_URL")
+	if staticBaseUrl == "" {
+		staticBaseUrl = "http://localhost:8001"
+	}
+
+	// Build JavaScript code with Steps 1, 2, and 3
+	script := fmt.Sprintf(`(function() {
+		'use strict';
+
+		// Step 1: Container Setup
+		// Find or create container element
+		var containerId = 'mnm-embed-container';
+		var container = document.getElementById(containerId);
+
+		// Check for data-mnm-container attribute on script tag as alternative
+		var scripts = document.getElementsByTagName('script');
+		for (var i = 0; i < scripts.length; i++) {
+			var customContainerId = scripts[i].getAttribute('data-mnm-container');
+			if (customContainerId) {
+				containerId = customContainerId;
+				container = document.getElementById(containerId);
+				break;
+			}
+		}
+
+		// Create container if it doesn't exist
+		if (!container) {
+			container = document.createElement('div');
+			container.id = containerId;
+			document.body.appendChild(container);
+			console.log('MeetNearMe Embed: Created container element with id: ' + containerId);
+		} else {
+			console.log('MeetNearMe Embed: Found existing container element with id: ' + containerId);
+		}
+
+		// Step 2: User ID Detection
+		var userId = null;
+
+		// Try to get userId from data-user-id attribute on script tag (primary method)
+		for (var i = 0; i < scripts.length; i++) {
+			var scriptUserId = scripts[i].getAttribute('data-user-id');
+			if (scriptUserId) {
+				userId = scriptUserId;
+				console.log('MeetNearMe Embed: Found userId from data-user-id attribute: ' + userId);
+				break;
+			}
+		}
+
+		// Fallback: Try to get userId from query parameter in script URL
+		if (!userId) {
+			var currentScript = scripts[scripts.length - 1]; // Get the last script (should be this one)
+			if (currentScript && currentScript.src) {
+				var url = new URL(currentScript.src);
+				var urlUserId = url.searchParams.get('userId');
+				if (urlUserId) {
+					userId = urlUserId;
+					console.log('MeetNearMe Embed: Found userId from query parameter: ' + userId);
+				}
+			}
+		}
+
+		// Show error if userId is missing
+		if (!userId) {
+			var errorMsg = '<div style="padding: 1rem; background-color: #fee; border: 1px solid #fcc; border-radius: 0.5rem; color: #c33;">MeetNearMe Embed Error: userId is required. Please add data-user-id="YOUR_USER_ID" to the script tag or include ?userId=YOUR_USER_ID in the script URL.</div>';
+			container.innerHTML = errorMsg;
+			console.error('MeetNearMe Embed: userId is required but not found. Add data-user-id="YOUR_USER_ID" to the script tag.');
+			return;
+		}
+
+		// Step 3: Base URL Detection
+		var staticBaseUrlFromEnv = '%s';
+		var staticBaseUrl;
+		var baseUrl;
+
+		// Determine static base URL (for CSS/assets)
+		if (staticBaseUrlFromEnv && staticBaseUrlFromEnv !== '') {
+			staticBaseUrl = staticBaseUrlFromEnv;
+			console.log('MeetNearMe Embed: Using STATIC_BASE_URL from environment: ' + staticBaseUrl);
+		} else {
+			// Default to localhost:8001 for local development
+			staticBaseUrl = 'http://localhost:8001';
+			console.log('MeetNearMe Embed: Using default static base URL for local development: ' + staticBaseUrl);
+		}
+
+		// Determine API base URL (for API calls) - use current script's origin
+		var currentScript = scripts[scripts.length - 1];
+		if (currentScript && currentScript.src) {
+			var scriptUrl = new URL(currentScript.src);
+			baseUrl = scriptUrl.origin;
+			console.log('MeetNearMe Embed: Using script origin as API base URL: ' + baseUrl);
+		} else {
+			// Fallback to window.location.origin
+			baseUrl = window.location.origin;
+			console.log('MeetNearMe Embed: Using window.location.origin as API base URL: ' + baseUrl);
+		}
+
+		console.log('MeetNearMe Embed: API Base URL: ' + baseUrl + ', Static Base URL: ' + staticBaseUrl);
+
+		// Step 4: Dependency Loading
+		// Check which dependencies are already loaded
+		var dependencies = {
+			alpine: false,
+			htmx: false,
+			tailwind: false,
+			mainCss: false,
+			fonts: false,
+			focusPlugin: false
+		};
+
+		// Check for Alpine.js
+		if (window.Alpine) {
+			dependencies.alpine = true;
+			console.log('MeetNearMe Embed: Alpine.js already loaded');
+		} else {
+			console.log('MeetNearMe Embed: Alpine.js not found, will load from CDN');
+		}
+
+		// Check for HTMX
+		if (window.htmx) {
+			dependencies.htmx = true;
+			console.log('MeetNearMe Embed: HTMX already loaded');
+		} else {
+			console.log('MeetNearMe Embed: HTMX not found, will load from CDN');
+		}
+
+		// Check for Tailwind CSS (check if Tailwind CDN script exists or if Tailwind classes work)
+		var tailwindScript = document.querySelector('script[src*="tailwindcss.com"]');
+		if (tailwindScript || (window.tailwind && window.tailwind.config)) {
+			dependencies.tailwind = true;
+			console.log('MeetNearMe Embed: Tailwind CSS already loaded');
+		} else {
+			console.log('MeetNearMe Embed: Tailwind CSS not found, will load from CDN');
+		}
+
+		// Check for main CSS (styles.css or hashed version)
+		var mainCssLink = document.querySelector('link[href*="styles"]');
+		if (mainCssLink) {
+			dependencies.mainCss = true;
+			console.log('MeetNearMe Embed: Main CSS already loaded');
+		} else {
+			console.log('MeetNearMe Embed: Main CSS not found, will load from static server');
+		}
+
+		// Check for Google Fonts
+		var fontsLink = document.querySelector('link[href*="fonts.googleapis.com"]');
+		if (fontsLink) {
+			dependencies.fonts = true;
+			console.log('MeetNearMe Embed: Google Fonts already loaded');
+		} else {
+			console.log('MeetNearMe Embed: Google Fonts not found, will load from CDN');
+		}
+
+		// Check for Alpine.js Focus plugin
+		var focusPluginScript = document.querySelector('script[src*="@alpinejs/focus"]');
+		if (focusPluginScript) {
+			dependencies.focusPlugin = true;
+			console.log('MeetNearMe Embed: Alpine.js Focus plugin already loaded');
+		} else {
+			console.log('MeetNearMe Embed: Alpine.js Focus plugin not found, will load from CDN');
+		}
+
+		// Function to load a script and return a promise
+		function loadScript(src, name) {
+			return new Promise(function(resolve, reject) {
+				// Check if already loaded
+				var existing = document.querySelector('script[src="' + src + '"]');
+				if (existing) {
+					console.log('MeetNearMe Embed: ' + name + ' already loaded from ' + src);
+					resolve();
+					return;
+				}
+
+				console.log('MeetNearMe Embed: Loading ' + name + ' from ' + src);
+				var script = document.createElement('script');
+				script.src = src;
+				script.crossOrigin = 'anonymous';
+				script.onload = function() {
+					console.log('MeetNearMe Embed: Successfully loaded ' + name);
+					resolve();
+				};
+				script.onerror = function(error) {
+					console.error('MeetNearMe Embed: Failed to load ' + name + ' from ' + src, error);
+					reject(new Error('Failed to load ' + name + ' from ' + src));
+				};
+				document.head.appendChild(script);
+			});
+		}
+
+		// Function to load a stylesheet and return a promise
+		function loadStylesheet(href, name) {
+			return new Promise(function(resolve, reject) {
+				// Check if already loaded
+				var existing = document.querySelector('link[href="' + href + '"]');
+				if (existing) {
+					console.log('MeetNearMe Embed: ' + name + ' already loaded from ' + href);
+					resolve();
+					return;
+				}
+
+				console.log('MeetNearMe Embed: Loading ' + name + ' from ' + href);
+				var link = document.createElement('link');
+				link.rel = 'stylesheet';
+				link.href = href;
+				link.crossOrigin = 'anonymous';
+				link.onload = function() {
+					console.log('MeetNearMe Embed: Successfully loaded ' + name);
+					resolve();
+				};
+				link.onerror = function(error) {
+					console.error('MeetNearMe Embed: Failed to load ' + name + ' from ' + href, error);
+					reject(new Error('Failed to load ' + name + ' from ' + href));
+				};
+				document.head.appendChild(link);
+			});
+		}
+
+		// Function to check if Tailwind is ready (polls until Tailwind processes classes)
+		function waitForTailwind(callback, maxAttempts) {
+			maxAttempts = maxAttempts || 30;
+			var attempts = 0;
+
+			function check() {
+				attempts++;
+				var test = document.createElement('div');
+				test.className = 'bg-blue-500';
+				test.style.position = 'absolute';
+				test.style.visibility = 'hidden';
+				test.style.top = '-9999px';
+				document.body.appendChild(test);
+
+				var style = window.getComputedStyle(test);
+				var hasColor = style.backgroundColor &&
+					style.backgroundColor !== 'rgba(0, 0, 0, 0)' &&
+					style.backgroundColor !== 'transparent' &&
+					style.backgroundColor !== 'rgb(0, 0, 0)';
+
+				document.body.removeChild(test);
+
+				if (hasColor || attempts >= maxAttempts) {
+					callback();
+				} else {
+					setTimeout(check, 100);
+				}
+			}
+			check();
+		}
+
+		// Load dependencies in order
+		var loadPromises = [];
+		var failedDependencies = [];
+
+		// Load Google Fonts if needed (load first for better performance)
+		if (!dependencies.fonts) {
+			loadPromises.push(
+				loadStylesheet('https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap', 'Google Fonts').catch(function(error) {
+					failedDependencies.push('Google Fonts');
+					// Don't throw - fonts are nice to have but not critical
+					console.warn('MeetNearMe Embed: Google Fonts failed to load, continuing anyway');
+				})
+			);
+		}
+
+		// Load main CSS from static server if needed
+		if (!dependencies.mainCss) {
+			// Use styles.css (compiled with DaisyUI) from static server
+			// Check if staticBaseUrl already includes /static, adjust path accordingly
+			var cssBasePath = '/assets/styles.css';
+			var cssHashedPath = '/assets/styles.82a6336e.css';
+
+			// If staticBaseUrl already ends with /static, don't add it again
+			if (staticBaseUrl.endsWith('/static')) {
+				cssBasePath = '/assets/styles.css';
+				cssHashedPath = '/assets/styles.82a6336e.css';
+			} else if (!staticBaseUrl.includes('/static')) {
+				// If staticBaseUrl doesn't include /static, add it
+				cssBasePath = '/static/assets/styles.css';
+				cssHashedPath = '/static/assets/styles.82a6336e.css';
+			}
+
+			var cssUrl = staticBaseUrl + cssBasePath;
+			var cssHashedUrl = staticBaseUrl + cssHashedPath;
+
+			// Try to load the hashed version first, fallback to non-hashed
+			loadPromises.push(
+				loadStylesheet(cssHashedUrl, 'Main CSS').catch(function(error) {
+					// Try fallback to non-hashed version
+					console.log('MeetNearMe Embed: Hashed CSS not found, trying fallback: ' + cssUrl);
+					return loadStylesheet(cssUrl, 'Main CSS (fallback)').catch(function(fallbackError) {
+						failedDependencies.push('Main CSS');
+						console.warn('MeetNearMe Embed: Main CSS failed to load, widget may have limited styling');
+						// Don't throw - continue without main CSS
+					});
+				})
+			);
+		}
+
+		// Load Tailwind if needed
+		if (!dependencies.tailwind) {
+			loadPromises.push(
+				loadScript('https://cdn.tailwindcss.com', 'Tailwind CSS').then(function() {
+					return new Promise(function(resolve) {
+						console.log('MeetNearMe Embed: Waiting for Tailwind CSS to be ready...');
+						waitForTailwind(function() {
+							console.log('MeetNearMe Embed: Tailwind CSS is ready');
+							resolve();
+						});
+					});
+				}).catch(function(error) {
+					failedDependencies.push('Tailwind CSS');
+					throw error;
+				})
+			);
+		}
+
+		// Load Alpine.js Focus plugin BEFORE Alpine.js (if both need to be loaded)
+		// The Focus plugin must be loaded before Alpine.js initializes to work properly
+		// If Alpine is already loaded, the plugin will auto-register when the script loads
+		if (!dependencies.focusPlugin && !dependencies.alpine) {
+			// Both need to be loaded: load Focus plugin first, then Alpine.js
+			loadPromises.push(
+				loadScript('https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js', 'Alpine.js Focus Plugin').then(function() {
+					// Focus plugin loaded, now load Alpine.js
+					return loadScript('https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js', 'Alpine.js').catch(function(error) {
+						failedDependencies.push('Alpine.js');
+						throw error;
+					});
+				}).catch(function(error) {
+					failedDependencies.push('Alpine.js Focus Plugin');
+					// Don't throw - Focus plugin is important but we can continue without it (with warnings)
+					console.warn('MeetNearMe Embed: Alpine.js Focus plugin failed to load, x-trap directives will not work');
+					// Still try to load Alpine.js even if Focus plugin failed
+					if (!dependencies.alpine) {
+						return loadScript('https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js', 'Alpine.js').catch(function(error) {
+							failedDependencies.push('Alpine.js');
+							throw error;
+						});
+					}
+				})
+			);
+		} else if (!dependencies.focusPlugin) {
+			// Only Focus plugin needs to be loaded (Alpine is already loaded)
+			loadPromises.push(
+				loadScript('https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js', 'Alpine.js Focus Plugin').catch(function(error) {
+					failedDependencies.push('Alpine.js Focus Plugin');
+					console.warn('MeetNearMe Embed: Alpine.js Focus plugin failed to load, x-trap directives will not work');
+				})
+			);
+		} else if (!dependencies.alpine) {
+			// Only Alpine.js needs to be loaded (Focus plugin is already loaded)
+			loadPromises.push(
+				loadScript('https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js', 'Alpine.js').catch(function(error) {
+					failedDependencies.push('Alpine.js');
+					throw error;
+				})
+			);
+		}
+
+		// Load HTMX if needed
+		if (!dependencies.htmx) {
+			loadPromises.push(
+				loadScript('https://unpkg.com/htmx.org@1.9.10', 'HTMX').catch(function(error) {
+					failedDependencies.push('HTMX');
+					throw error;
+				})
+			);
+		}
+
+		Promise.all(loadPromises).then(function() {
+			console.log('MeetNearMe Embed: All dependencies loaded successfully');
+			if (failedDependencies.length > 0) {
+				console.warn('MeetNearMe Embed: Some non-critical dependencies failed to load: ' + failedDependencies.join(', '));
+			}
+			var embedUrl = baseUrl + '/api/html/embed?userId=' + encodeURIComponent(userId);
+			console.log('MeetNearMe Embed: Fetching widget HTML from: ' + embedUrl);
+
+			fetch(embedUrl, {
+				method: 'GET',
+				headers: {
+					'Accept': 'text/html'
+				},
+				credentials: 'omit'
+			})
+			.then(function(response) {
+				if (!response.ok) {
+					throw new Error('Failed to load widget: HTTP ' + response.status + ' ' + response.statusText);
+				}
+				return response.text();
+			})
+			.then(function(html) {
+				console.log('MeetNearMe Embed: Received HTML, length: ' + html.length);
+
+				// Step 6: HTML Injection & Script Execution
+				// CRITICAL: innerHTML does NOT execute <script> tags, so we must handle them manually
+				// Also, we need to inject HTML FIRST so #alpine-state exists when scripts execute
+
+				// Parse HTML to extract scripts before injection
+				var parser = new DOMParser();
+				var doc = parser.parseFromString(html, 'text/html');
+				var scripts = doc.querySelectorAll('script');
+				console.log('MeetNearMe Embed: Found ' + scripts.length + ' script tag(s) in HTML');
+
+				// CRITICAL: #alpine-state is a <script> tag, so we need to keep it in the DOM
+				// Extract #alpine-state script separately
+				var alpineStateScript = null;
+				var scriptsToExecute = [];
+				scripts.forEach(function(script) {
+					if (script.id === 'alpine-state') {
+						alpineStateScript = script;
+						console.log('MeetNearMe Embed: Found #alpine-state script tag');
+					} else {
+						scriptsToExecute.push(script);
+					}
+				});
+
+				// Remove ALL scripts from HTML before injecting (we'll add #alpine-state back and execute others separately)
+				var htmlWithoutScripts = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+
+				// Inject HTML into container (without scripts)
+				container.innerHTML = htmlWithoutScripts;
+				console.log('MeetNearMe Embed: HTML injected into container');
+
+				// CRITICAL: Add #alpine-state script back to the container so it exists in DOM
+				// This script tag needs to exist for functions to access its data attributes
+				if (alpineStateScript) {
+					var alpineStateElement = document.createElement('script');
+					alpineStateElement.id = 'alpine-state';
+					// Copy all data attributes
+					Array.from(alpineStateScript.attributes).forEach(function(attr) {
+						if (attr.name !== 'id') { // id is already set
+							alpineStateElement.setAttribute(attr.name, attr.value);
+						}
+					});
+					// Add empty text content (the actual script content will be executed separately)
+					alpineStateElement.textContent = '';
+					container.appendChild(alpineStateElement);
+					console.log('MeetNearMe Embed: #alpine-state script tag added back to container');
+				}
+
+				// Verify #alpine-state exists (needed for store registration)
+				var alpineState = document.querySelector('#alpine-state');
+				if (!alpineState) {
+					console.error('MeetNearMe Embed: #alpine-state not found after adding it back!');
+				} else {
+					console.log('MeetNearMe Embed: #alpine-state found');
+				}
+
+				// DIAGNOSTIC: Check for elements with x-data="getLocationSearchState()"
+				var locationSearchElements = container.querySelectorAll('[x-data*="getLocationSearchState"]');
+				console.log('MeetNearMe Embed: Found ' + locationSearchElements.length + ' element(s) with x-data containing getLocationSearchState');
+				if (locationSearchElements.length > 0) {
+					locationSearchElements.forEach(function(el, idx) {
+						console.log('MeetNearMe Embed: Element ' + (idx + 1) + ' x-data attribute:', el.getAttribute('x-data'));
+						console.log('MeetNearMe Embed: Element ' + (idx + 1) + ' in container:', container.contains(el));
+					});
+				} else {
+					console.warn('MeetNearMe Embed: No elements found with x-data="getLocationSearchState()" in container!');
+					// Check if any x-data exists at all
+					var allXDataElements = container.querySelectorAll('[x-data]');
+					console.log('MeetNearMe Embed: Total elements with x-data in container:', allXDataElements.length);
+					if (allXDataElements.length > 0) {
+						allXDataElements.forEach(function(el, idx) {
+							console.log('MeetNearMe Embed: x-data element ' + (idx + 1) + ':', el.getAttribute('x-data'));
+						});
+					}
+				}
+
+				// Execute scripts manually (innerHTML doesn't execute them)
+				// Execute them sequentially and verify functions are available
+				// Note: We execute alpineStateScript first (if it exists), then other scripts
+				var executeScripts = function(scriptIndex) {
+					// First execute #alpine-state script if it exists
+					if (scriptIndex === 0 && alpineStateScript) {
+						console.log('MeetNearMe Embed: Executing #alpine-state script first');
+						var alpineStateScriptElement = document.createElement('script');
+						alpineStateScriptElement.id = 'alpine-state-exec';
+						Array.from(alpineStateScript.attributes).forEach(function(attr) {
+							alpineStateScriptElement.setAttribute(attr.name, attr.value);
+						});
+						alpineStateScriptElement.textContent = alpineStateScript.textContent;
+						document.head.appendChild(alpineStateScriptElement);
+						// Wait a bit for it to execute, then continue
+						setTimeout(function() {
+							executeScripts(1);
+						}, 10);
+						return;
+					}
+
+					// Adjust index for other scripts (skip alpineStateScript in scriptsToExecute)
+					var actualIndex = alpineStateScript ? scriptIndex - 1 : scriptIndex;
+					if (actualIndex >= scriptsToExecute.length) {
+						console.log('MeetNearMe Embed: All scripts executed');
+						// Wait a bit more to ensure scripts are fully processed
+						setTimeout(function() {
+							// Verify all required functions are available in global scope
+							var requiredFunctions = ['getHomeState', 'getFilterFormState', 'getLocationSearchState'];
+							var allAvailable = requiredFunctions.every(function(funcName) {
+								return typeof window[funcName] === 'function';
+							});
+
+							if (allAvailable) {
+								console.log('MeetNearMe Embed: All required functions verified in global scope after script execution');
+								// Note: Functions may access Alpine stores, but stores aren't registered yet
+								// The functions have defensive checks to handle missing stores during initialization
+								// Proceed to store registration
+								setTimeout(registerStores, 50);
+							} else {
+								console.warn('MeetNearMe Embed: Some functions not yet available in global scope, waiting...');
+								requiredFunctions.forEach(function(funcName) {
+									console.log('MeetNearMe Embed: ' + funcName + ':', typeof window[funcName]);
+								});
+								setTimeout(function() {
+									allAvailable = requiredFunctions.every(function(funcName) {
+										return typeof window[funcName] === 'function';
+									});
+									if (allAvailable) {
+										console.log('MeetNearMe Embed: All functions now available in global scope');
+										setTimeout(registerStores, 50);
+									} else {
+										console.error('MeetNearMe Embed: Some functions still not available after wait');
+										requiredFunctions.forEach(function(funcName) {
+											console.log('MeetNearMe Embed: ' + funcName + ':', typeof window[funcName]);
+										});
+										// Try to execute scripts again using eval to ensure they're in global scope
+										console.log('MeetNearMe Embed: Attempting to re-execute scripts using eval for global scope...');
+										scripts.forEach(function(script) {
+											if (script.textContent && !script.hasAttribute('src')) {
+												try {
+													eval(script.textContent);
+												} catch (e) {
+													console.error('MeetNearMe Embed: Error re-executing script:', e);
+												}
+											}
+										});
+										// Check again after re-execution
+										setTimeout(function() {
+											allAvailable = requiredFunctions.every(function(funcName) {
+												return typeof window[funcName] === 'function';
+											});
+											if (allAvailable) {
+												console.log('MeetNearMe Embed: All functions available after re-execution');
+												setTimeout(registerStores, 50);
+											} else {
+												console.error('MeetNearMe Embed: Some functions still not available, proceeding anyway');
+												requiredFunctions.forEach(function(funcName) {
+													console.log('MeetNearMe Embed: ' + funcName + ':', typeof window[funcName]);
+												});
+												setTimeout(registerStores, 50);
+											}
+										}, 50);
+									}
+								}, 100);
+							}
+						}, 50);
+						return;
+					}
+
+					var script = scriptsToExecute[actualIndex];
+					console.log('MeetNearMe Embed: Executing script ' + (actualIndex + 1) + ' of ' + scriptsToExecute.length);
+					var newScript = document.createElement('script');
+
+					// Copy all attributes from original script
+					Array.from(script.attributes).forEach(function(attr) {
+						newScript.setAttribute(attr.name, attr.value);
+					});
+
+					// Copy script content
+					if (script.textContent) {
+						newScript.textContent = script.textContent;
+					}
+
+					// For inline scripts (no src), execute immediately
+					if (!script.hasAttribute('src')) {
+						// Append to document.head to execute in global scope
+						document.head.appendChild(newScript);
+						// Inline scripts execute synchronously when appended
+						// Use setTimeout to ensure execution completes before next script
+						setTimeout(function() {
+							executeScripts(scriptIndex + 1);
+						}, 0);
+					} else {
+						// For external scripts, wait for onload
+						newScript.onload = function() {
+							executeScripts(scriptIndex + 1);
+						};
+						document.head.appendChild(newScript);
+					}
+				};
+
+				// CRITICAL: Prevent Alpine from auto-processing the container until we're ready
+				// Temporarily remove x-data attributes to prevent Alpine from processing
+				var xDataElements = container.querySelectorAll('[x-data]');
+				var xDataBackup = [];
+				xDataElements.forEach(function(el) {
+					var xDataValue = el.getAttribute('x-data');
+					if (xDataValue) {
+						xDataBackup.push({ element: el, value: xDataValue });
+						el.removeAttribute('x-data');
+						el.setAttribute('data-x-data-backup', xDataValue);
+					}
+				});
+				console.log('MeetNearMe Embed: Temporarily removed x-data from ' + xDataBackup.length + ' element(s) to prevent auto-processing');
+
+				// Start executing scripts
+				executeScripts(0);
+
+				// Step 7: Alpine Store Registration
+				// CRITICAL: Stores must be registered BEFORE Alpine processes HTML
+				// Also need to ensure functions like getHomeState() are available
+				// Wait for scripts to finish executing, then trigger alpine:init
+				function registerStores() {
+					if (!window.Alpine) {
+						console.error('MeetNearMe Embed: Alpine.js not available for store registration');
+						return;
+					}
+
+					// Verify that all required functions are available in global scope
+					var requiredFunctions = ['getHomeState', 'getFilterFormState', 'getLocationSearchState'];
+					var allAvailable = requiredFunctions.every(function(funcName) {
+						return typeof window[funcName] === 'function';
+					});
+
+					if (!allAvailable) {
+						var missing = requiredFunctions.filter(function(funcName) {
+							return typeof window[funcName] !== 'function';
+						});
+						var missingStr = missing.length > 0 ? missing.join(', ') : 'unknown';
+						console.warn('MeetNearMe Embed: Some functions not yet available in global scope:', missingStr);
+						// Wait a bit more for scripts to fully execute
+						setTimeout(registerStores, 50);
+						return;
+					}
+					console.log('MeetNearMe Embed: All required functions (getHomeState, getFilterFormState, getLocationSearchState) are available in global scope');
+
+					console.log('MeetNearMe Embed: Triggering alpine:init event to register stores');
+					document.dispatchEvent(new CustomEvent('alpine:init', { bubbles: true }));
+
+					// Step 8: Alpine Initialization function (define before use)
+					function initializeAlpine() {
+						if (!window.Alpine) {
+							console.error('MeetNearMe Embed: Alpine.js not available for initialization');
+							return;
+						}
+
+						// Verify stores are accessible before initializing
+						var urlState = window.Alpine.store('urlState');
+						if (!urlState) {
+							console.error('MeetNearMe Embed: urlState store not found before Alpine initialization!');
+							return;
+						}
+
+						// CRITICAL: Restore x-data attributes before Alpine processes
+						var xDataElements = container.querySelectorAll('[data-x-data-backup]');
+						xDataElements.forEach(function(el) {
+							var xDataValue = el.getAttribute('data-x-data-backup');
+							if (xDataValue) {
+								el.setAttribute('x-data', xDataValue);
+								el.removeAttribute('data-x-data-backup');
+							}
+						});
+						console.log('MeetNearMe Embed: Restored x-data attributes to ' + xDataElements.length + ' element(s)');
+
+						// DIAGNOSTIC: Before Alpine initialization, check function availability
+						console.log('MeetNearMe Embed: === PRE-ALPINE INITIALIZATION DIAGNOSTICS ===');
+						console.log('MeetNearMe Embed: window.getLocationSearchState type:', typeof window.getLocationSearchState);
+						console.log('MeetNearMe Embed: window.getLocationSearchState === getLocationSearchState:', window.getLocationSearchState === getLocationSearchState);
+						console.log('MeetNearMe Embed: getLocationSearchState in global scope:', typeof getLocationSearchState);
+
+						// Check if function can be called
+						try {
+							var testCall = window.getLocationSearchState();
+							console.log('MeetNearMe Embed: Successfully called window.getLocationSearchState(), returned:', typeof testCall, testCall);
+						} catch (e) {
+							console.error('MeetNearMe Embed: Error calling window.getLocationSearchState():', e);
+						}
+
+						// Check for elements with x-data before Alpine processes
+						var locationSearchElements = container.querySelectorAll('[x-data*="getLocationSearchState"]');
+						console.log('MeetNearMe Embed: Elements with x-data="getLocationSearchState()" before Alpine init:', locationSearchElements.length);
+						if (locationSearchElements.length > 0) {
+							locationSearchElements.forEach(function(el, idx) {
+								console.log('MeetNearMe Embed: Element ' + (idx + 1) + ' exists in DOM:', el.isConnected);
+								console.log('MeetNearMe Embed: Element ' + (idx + 1) + ' parent:', el.parentElement ? el.parentElement.tagName : 'none');
+							});
+						}
+
+						// Check if Alpine is already initialized on host page
+						var isAlreadyInit = window.Alpine._initialized ||
+							(window.Alpine.version && document.body.querySelector('[x-data]'));
+
+						console.log('MeetNearMe Embed: Alpine already initialized on host page:', isAlreadyInit);
+
+						if (isAlreadyInit) {
+							// Alpine already running - use initTree to process only new HTML
+							console.log('MeetNearMe Embed: Alpine already initialized, using Alpine.initTree() to process widget');
+							if (typeof window.Alpine.initTree === 'function') {
+								console.log('MeetNearMe Embed: Calling Alpine.initTree(container)...');
+
+								// Before calling initTree, verify the function will be accessible
+								var testElement = container.querySelector('[x-data*="getLocationSearchState"]');
+								if (testElement) {
+									console.log('MeetNearMe Embed: Found element with x-data="getLocationSearchState()"');
+									console.log('MeetNearMe Embed: Testing if function is accessible from element context...');
+									try {
+										// Try to evaluate the expression in the element's context
+										var xDataValue = testElement.getAttribute('x-data');
+										console.log('MeetNearMe Embed: x-data value:', xDataValue);
+										// Check if we can access the function
+										var func = new Function('return ' + xDataValue);
+										var result = func.call(window);
+										console.log('MeetNearMe Embed: Function evaluation result:', result);
+										console.log('MeetNearMe Embed: Result has isLoading:', 'isLoading' in result);
+									} catch (e) {
+										console.error('MeetNearMe Embed: Error evaluating function:', e);
+									}
+								}
+
+								// Before calling initTree, verify the element that will be processed
+								var locationElement = container.querySelector('[x-data*="getLocationSearchState"]');
+								if (locationElement) {
+									console.log('MeetNearMe Embed: About to process element with x-data="getLocationSearchState()"');
+									console.log('MeetNearMe Embed: Element before initTree:', locationElement);
+
+									// Check if Alpine has already processed this element
+									if (locationElement._x_dataStack) {
+										console.log('MeetNearMe Embed: Element already has Alpine data stack!', locationElement._x_dataStack);
+									}
+								}
+
+								// CRITICAL: Alpine.initTree() might not be processing child elements correctly
+								// The issue is that child elements need to inherit the parent's scope
+								// In Alpine.js, child elements access parent scope through Alpine's internal scope resolution
+								// The problem: When initTree() is called, child elements might be evaluated before
+								// the parent's component data is fully set up, or the scope chain isn't established
+
+								// Solution: The issue is that Alpine.initTree() might not be setting up scope inheritance
+								// correctly. In Alpine.js, when a child element evaluates an expression, it should
+								// look up the parent chain to find the nearest element with x-data and use its scope.
+								//
+								// The problem: initTree() might be processing elements in a way that doesn't
+								// establish the scope chain correctly, or child elements are being evaluated
+								// before the parent's component data is available.
+								//
+								// Let's try processing the root element with x-data first, then the container
+								var rootElementWithXData = container.querySelector('[x-data*="getLocationSearchState"]');
+								if (rootElementWithXData) {
+									// Process the root element first to ensure its component data is set up
+									// This should establish the scope that child elements can inherit from
+									window.Alpine.initTree(rootElementWithXData);
+									console.log('MeetNearMe Embed: Processed root element with x-data="getLocationSearchState()"');
+								}
+
+								// Also process the container to catch any other elements
+								window.Alpine.initTree(container);
+
+								console.log('MeetNearMe Embed: Alpine tree initialized successfully');
+								console.log('MeetNearMe Embed: [NEW CODE v2] About to start time filter button diagnostics in 150ms...');
+								console.log('MeetNearMe Embed: [DEBUG] Setting up setTimeout for button diagnostics...');
+
+								// DIAGNOSTIC: Check if time filter buttons are processed by Alpine
+								setTimeout(function() {
+									console.log('MeetNearMe Embed: [DEBUG] setTimeout callback executing now...');
+									console.log('MeetNearMe Embed: ============================================');
+									console.log('MeetNearMe Embed: === TIME FILTER BUTTONS DIAGNOSTICS v2 ===');
+									console.log('MeetNearMe Embed: ============================================');
+									console.log('MeetNearMe Embed: [NEW CODE] This is the updated diagnostic code');
+
+									// Find buttons with @click handlers for time filters
+									var timeFilterButtons = container.querySelectorAll('button[type="button"]');
+									console.log('MeetNearMe Embed: Found ' + timeFilterButtons.length + ' button(s) in container');
+
+									var buttonsWithClick = [];
+									timeFilterButtons.forEach(function(btn, idx) {
+										var clickAttr = btn.getAttribute('@click') || btn.getAttribute('x-on:click');
+										var text = btn.textContent.trim();
+
+										// Check if this is a time filter button (TODAY, TOMORROW, etc.)
+										if (text === 'TODAY' || text === 'TOMORROW' || text === 'THIS WEEK' || text === 'THIS MONTH') {
+											try {
+												console.log('MeetNearMe Embed: Found time filter button: "' + text + '"');
+												console.log('MeetNearMe Embed:   - Button element:', btn);
+												console.log('MeetNearMe Embed:   - Button textContent:', btn.textContent);
+
+												// Check for click attribute (Alpine uses x-on:click, not @click in the DOM)
+												var clickAttr = btn.getAttribute('x-on:click') || btn.getAttribute('@click');
+												console.log('MeetNearMe Embed:   - Has x-on:click attribute:', !!btn.getAttribute('x-on:click'));
+												console.log('MeetNearMe Embed:   - Has @click attribute:', !!btn.getAttribute('@click'));
+												if (clickAttr) {
+													console.log('MeetNearMe Embed:   - Click attribute value:', clickAttr);
+												} else {
+													console.warn('MeetNearMe Embed:   - WARNING: No click attribute found on button!');
+												}
+
+												// Check if Alpine has processed this button
+												var hasAlpineData = !!(btn._x_dataStack || btn.__x);
+												console.log('MeetNearMe Embed:   - Has Alpine data stack (_x_dataStack):', !!btn._x_dataStack);
+												console.log('MeetNearMe Embed:   - Has Alpine data (__x):', !!btn.__x);
+												console.log('MeetNearMe Embed:   - Has Alpine data (either):', hasAlpineData);
+
+												// Check if button has Alpine event listeners
+												var hasAlpineListeners = !!(btn._x_attributeCleanups || btn.__x_attributeCleanups);
+												console.log('MeetNearMe Embed:   - Has Alpine listeners (_x_attributeCleanups):', !!btn._x_attributeCleanups);
+												console.log('MeetNearMe Embed:   - Has Alpine listeners (__x_attributeCleanups):', !!btn.__x_attributeCleanups);
+												console.log('MeetNearMe Embed:   - Has Alpine listeners (either):', hasAlpineListeners);
+
+												// Check if button is in an Alpine context (has parent with x-data)
+												var parentWithXData = btn.closest('[x-data]');
+												console.log('MeetNearMe Embed:   - Has parent with x-data:', !!parentWithXData);
+												if (parentWithXData) {
+													console.log('MeetNearMe Embed:   - Parent x-data:', parentWithXData.getAttribute('x-data'));
+												} else {
+													console.warn('MeetNearMe Embed:   - WARNING: Button is not inside an element with x-data!');
+												}
+
+												// Check if $store is accessible (test by trying to read it)
+												try {
+													// We can't directly test $store without Alpine context, but we can check if Alpine.store exists
+													var storeExists = window.Alpine && window.Alpine.store && typeof window.Alpine.store('urlState') !== 'undefined';
+													console.log('MeetNearMe Embed:   - urlState store exists:', storeExists);
+													if (storeExists) {
+														var urlState = window.Alpine.store('urlState');
+														console.log('MeetNearMe Embed:   - urlState store object:', urlState);
+													}
+												} catch (e) {
+													console.error('MeetNearMe Embed:   - Error checking store:', e);
+												}
+
+												buttonsWithClick.push({
+													button: btn,
+													text: text,
+													hasClickAttr: !!clickAttr,
+													hasAlpineData: hasAlpineData,
+													hasAlpineListeners: hasAlpineListeners
+												});
+											} catch (e) {
+												console.error('MeetNearMe Embed:   - ERROR processing button "' + text + '":', e);
+												console.error('MeetNearMe Embed:   - Error stack:', e.stack);
+											}
+										}
+									});
+
+
+									console.log('MeetNearMe Embed: [CRITICAL] After forEach loop, buttonsWithClick.length:', buttonsWithClick.length);
+									console.log('MeetNearMe Embed: Summary - Found ' + buttonsWithClick.length + ' time filter button(s) **');
+									console.log('MeetNearMe Embed: [CRITICAL] About to check buttonsWithClick.length === 0');
+
+									if (buttonsWithClick.length === 0) {
+										console.warn('MeetNearMe Embed: WARNING - No time filter buttons found!');
+									} else {
+										console.log('MeetNearMe Embed: [DEBUG] Entering else block, buttonsWithClick.length:', buttonsWithClick.length);
+										try {
+											var processedCount = buttonsWithClick.filter(function(b) { return b.hasAlpineData || b.hasAlpineListeners; }).length;
+											console.log('MeetNearMe Embed: [DEBUG] processedCount calculated:', processedCount);
+											console.log('MeetNearMe Embed: ' + processedCount + ' of ' + buttonsWithClick.length + ' button(s) appear to be processed by Alpine');
+											console.log('MeetNearMe Embed: [DEBUG] About to check if buttonsWithClick.length > 0, length is:', buttonsWithClick.length);
+										} catch (e) {
+											console.error('MeetNearMe Embed: [ERROR] Error calculating processedCount:', e);
+											console.error('MeetNearMe Embed: [ERROR] Error stack:', e.stack);
+										}
+
+										// DIAGNOSTIC: Add manual click listener to ALL buttons to test if clicks are received
+										try {
+											if (buttonsWithClick.length > 0) {
+												console.log('MeetNearMe Embed: [DEBUG] Entering buttonsWithClick.length > 0 block');
+												console.log('MeetNearMe Embed: === CLICK HANDLER ANALYSIS ===');
+												console.log('MeetNearMe Embed: Adding manual click listeners to all ' + buttonsWithClick.length + ' time filter button(s)');
+
+												// Add manual click listener to each button
+												buttonsWithClick.forEach(function(buttonInfo, idx) {
+													var btn = buttonInfo.button;
+													var btnText = buttonInfo.text;
+													var clickAttr = btn.getAttribute('@click') || btn.getAttribute('x-on:click');
+
+													console.log('MeetNearMe Embed: Adding listener to button ' + (idx + 1) + ': "' + btnText + '"');
+
+													// Add a manual click listener to see if clicks are being received
+													btn.addEventListener('click', function(e) {
+														console.log('MeetNearMe Embed: [MANUAL LISTENER] Button "' + btnText + '" clicked!');
+														console.log('MeetNearMe Embed: [MANUAL LISTENER] Event:', e);
+														console.log('MeetNearMe Embed: [MANUAL LISTENER] Alpine listeners exist:', !!btn._x_attributeCleanups);
+
+														// Check if Alpine's click handler would have access to $store
+														if (window.Alpine && window.Alpine.store) {
+															var urlState = window.Alpine.store('urlState');
+															console.log('MeetNearMe Embed: [MANUAL LISTENER] urlState accessible:', !!urlState);
+
+															// Try to manually evaluate the expression
+															try {
+																// Get parent scope
+																var parentWithXData = btn.closest('[x-data]');
+																if (parentWithXData && parentWithXData._x_dataStack && parentWithXData._x_dataStack.length > 0) {
+																	var parentData = parentWithXData._x_dataStack[0];
+																	console.log('MeetNearMe Embed: [MANUAL LISTENER] Parent data available:', !!parentData);
+
+																	// Try to manually execute the expression
+																	console.log('MeetNearMe Embed: [MANUAL LISTENER] Expression would be:', clickAttr);
+																	console.log('MeetNearMe Embed: [MANUAL LISTENER] Attempting to manually call setParam...');
+
+																	// Check what value Alpine would pass to setParam
+																	// The expression is: $store.urlState.setParam('start_time', 'this_month')
+																	// But Alpine might not be evaluating it correctly
+																	console.log('MeetNearMe Embed: [MANUAL LISTENER] Checking current store state...');
+																	console.log('MeetNearMe Embed: [MANUAL LISTENER] urlState.start_time:', urlState.start_time);
+																	console.log('MeetNearMe Embed: [MANUAL LISTENER] urlState object keys:', Object.keys(urlState));
+
+																	// Check the hidden form inputs to see what values they have
+																	var form = document.getElementById('event-search-form');
+																	if (form) {
+																		var startTimeInput = form.querySelector('#start_time');
+																		var endTimeInput = form.querySelector('#end_time');
+																		var qInput = form.querySelector('#q');
+																		console.log('MeetNearMe Embed: [MANUAL LISTENER] Form found:', !!form);
+																		console.log('MeetNearMe Embed: [MANUAL LISTENER] start_time input value:', startTimeInput ? startTimeInput.value : 'not found');
+																		console.log('MeetNearMe Embed: [MANUAL LISTENER] end_time input value:', endTimeInput ? endTimeInput.value : 'not found');
+																		console.log('MeetNearMe Embed: [MANUAL LISTENER] q input value:', qInput ? qInput.value : 'not found');
+																	} else {
+																		console.warn('MeetNearMe Embed: [MANUAL LISTENER] Form not found!');
+																	}
+
+																	// Extract the value from the click attribute
+																	// The expression is: $store.urlState.setParam('start_time', 'this_month')
+																	// We need to extract 'this_month' from the string
+																	var match = clickAttr.match(/setParam\(['"]start_time['"],\s*['"]([^'"]+)['"]\)/);
+																	if (match && match[1]) {
+																		var extractedValue = match[1];
+																		console.log('MeetNearMe Embed: [MANUAL LISTENER] Extracted value from expression:', extractedValue);
+
+																		// Check store state BEFORE calling setParam
+																		console.log('MeetNearMe Embed: [MANUAL LISTENER] Store start_time BEFORE setParam:', urlState.start_time);
+
+																		// Call setParam
+																		console.log('MeetNearMe Embed: [MANUAL LISTENER] Calling setParam with extracted value...');
+																		try {
+																			urlState.setParam('start_time', extractedValue);
+																			console.log('MeetNearMe Embed: [MANUAL LISTENER] setParam call succeeded with value:', extractedValue);
+
+																			// Check store state AFTER calling setParam
+																			console.log('MeetNearMe Embed: [MANUAL LISTENER] Store start_time AFTER setParam:', urlState.start_time);
+
+																			// Check hidden input value AFTER setParam
+																			var form = document.getElementById('event-search-form');
+																			if (form) {
+																				var startTimeInput = form.querySelector('#start_time');
+																				console.log('MeetNearMe Embed: [MANUAL LISTENER] Hidden input value AFTER setParam:', startTimeInput ? startTimeInput.value : 'not found');
+
+																				// If the input is still empty, manually set it
+																				if (startTimeInput && !startTimeInput.value && urlState.start_time) {
+																					console.log('MeetNearMe Embed: [MANUAL LISTENER] Input is empty but store has value - manually setting input value');
+																					startTimeInput.value = urlState.start_time;
+																					console.log('MeetNearMe Embed: [MANUAL LISTENER] Manually set input value to:', startTimeInput.value);
+																				}
+																			}
+																		} catch (setParamError) {
+																			console.error('MeetNearMe Embed: [MANUAL LISTENER] setParam call failed:', setParamError);
+																		}
+																	} else {
+																		console.warn('MeetNearMe Embed: [MANUAL LISTENER] Could not extract value from expression:', clickAttr);
+																	}
+																}
+															} catch (err) {
+																console.error('MeetNearMe Embed: [MANUAL LISTENER] Error:', err);
+															}
+														}
+													}, true); // Use capture phase to see if it fires before Alpine's handler
+
+													console.log('MeetNearMe Embed: Added manual click listener to button "' + btnText + '"');
+
+													// DIAGNOSTIC: Check store state and form inputs BEFORE any clicks (only once, not per button)
+													if (idx === 0) {
+														console.log('MeetNearMe Embed: === PRE-CLICK STATE CHECK ===');
+														if (window.Alpine && window.Alpine.store) {
+															var urlState = window.Alpine.store('urlState');
+															console.log('MeetNearMe Embed: [PRE-CLICK] urlState.start_time:', urlState.start_time);
+															console.log('MeetNearMe Embed: [PRE-CLICK] urlState object:', urlState);
+
+															// Check hidden form inputs
+															var form = document.getElementById('event-search-form');
+															if (form) {
+																var startTimeInput = form.querySelector('#start_time');
+																var endTimeInput = form.querySelector('#end_time');
+																var qInput = form.querySelector('#q');
+																console.log('MeetNearMe Embed: [PRE-CLICK] Form found');
+																console.log('MeetNearMe Embed: [PRE-CLICK] start_time input value:', startTimeInput ? startTimeInput.value : 'not found');
+																console.log('MeetNearMe Embed: [PRE-CLICK] start_time input :value binding:', startTimeInput ? startTimeInput.getAttribute(':value') : 'not found');
+																console.log('MeetNearMe Embed: [PRE-CLICK] end_time input value:', endTimeInput ? endTimeInput.value : 'not found');
+																console.log('MeetNearMe Embed: [PRE-CLICK] q input value:', qInput ? qInput.value : 'not found');
+															} else {
+																console.warn('MeetNearMe Embed: [PRE-CLICK] Form not found!');
+															}
+														}
+														console.log('MeetNearMe Embed: === END PRE-CLICK CHECK ===');
+														console.log('MeetNearMe Embed: Now you can click any time filter button - logs will appear above');
+													}
+												});
+										} else {
+											console.log('MeetNearMe Embed: [DEBUG] buttonsWithClick.length is 0, skipping click listener setup');
+										}
+										} catch (e) {
+											console.error('MeetNearMe Embed: [ERROR] Error in click handler analysis:', e);
+											console.error('MeetNearMe Embed: [ERROR] Error stack:', e.stack);
+										}
+
+										// MANUAL EVENT LISTENER: Search form submit handler
+										// This is a workaround for Alpine scope inheritance issues
+										// The form's @submit.prevent handler uses $store which isn't accessible in embed context
+										try {
+											var searchInput = container.querySelector('#search-input');
+											var searchForm = searchInput ? searchInput.closest('form') : null;
+
+											if (searchForm && searchInput) {
+												console.log('MeetNearMe Embed: Found search form, adding manual submit listener');
+												console.log('MeetNearMe Embed: [SEARCH FORM] Form element:', searchForm);
+												console.log('MeetNearMe Embed: [SEARCH FORM] Form has @submit.prevent:', searchForm.hasAttribute('@submit') || searchForm.getAttribute('x-on:submit'));
+
+												// Add listener in capture phase (before Alpine's handler)
+												searchForm.addEventListener('submit', function(e) {
+													console.log('MeetNearMe Embed: [SEARCH FORM] ===== FORM SUBMIT EVENT FIRED =====');
+													console.log('MeetNearMe Embed: [SEARCH FORM] Event type:', e.type);
+													console.log('MeetNearMe Embed: [SEARCH FORM] Event defaultPrevented:', e.defaultPrevented);
+													console.log('MeetNearMe Embed: [SEARCH FORM] Event target:', e.target);
+													console.log('MeetNearMe Embed: [SEARCH FORM] Event currentTarget:', e.currentTarget);
+
+													// Always prevent default to stop normal form submission
+													e.preventDefault();
+													e.stopPropagation();
+													e.stopImmediatePropagation();
+
+													console.log('MeetNearMe Embed: [SEARCH FORM] Prevented default form submission');
+
+													var searchValue = searchInput.value;
+													console.log('MeetNearMe Embed: [SEARCH FORM] Search input value:', searchValue);
+
+													if (window.Alpine && window.Alpine.store) {
+														var urlState = window.Alpine.store('urlState');
+														if (urlState && urlState.setParam) {
+															console.log('MeetNearMe Embed: [SEARCH FORM] Calling setParam with q:', searchValue);
+															console.log('MeetNearMe Embed: [SEARCH FORM] Store q BEFORE setParam:', urlState.q);
+															try {
+																urlState.setParam('q', searchValue);
+																console.log('MeetNearMe Embed: [SEARCH FORM] setParam call succeeded');
+																console.log('MeetNearMe Embed: [SEARCH FORM] Store q AFTER setParam:', urlState.q);
+																console.log('MeetNearMe Embed: [SEARCH FORM] Current URL:', window.location.href);
+															} catch (setParamError) {
+																console.error('MeetNearMe Embed: [SEARCH FORM] setParam call failed:', setParamError);
+															}
+														} else {
+															console.error('MeetNearMe Embed: [SEARCH FORM] urlState or setParam not available');
+														}
+													} else {
+														console.error('MeetNearMe Embed: [SEARCH FORM] Alpine or store not available');
+													}
+
+													return false;
+												}, true); // Use capture phase to intercept before Alpine's handler
+
+												// Also check if form has action attribute (which would cause navigation)
+												if (searchForm.hasAttribute('action')) {
+													console.warn('MeetNearMe Embed: [SEARCH FORM] WARNING: Form has action attribute:', searchForm.getAttribute('action'));
+												} else {
+													console.log('MeetNearMe Embed: [SEARCH FORM] Form has no action attribute (good)');
+												}
+
+												console.log('MeetNearMe Embed: Added manual submit listener to search form');
+											} else {
+												console.warn('MeetNearMe Embed: Search form or input not found');
+											}
+										} catch (searchFormError) {
+											console.error('MeetNearMe Embed: [ERROR] Error setting up search form listener:', searchFormError);
+										}
+									}
+								}, 150);
+
+								// After initTree, check if component data was set correctly
+								if (locationElement) {
+									setTimeout(function() {
+											console.log('MeetNearMe Embed: === POST-INITTREE ELEMENT CHECK ===');
+											console.log('MeetNearMe Embed: Element after initTree:', locationElement);
+											if (locationElement._x_dataStack && locationElement._x_dataStack.length > 0) {
+												var componentData = locationElement._x_dataStack[0];
+												console.log('MeetNearMe Embed: Component data object:', componentData);
+												console.log('MeetNearMe Embed: Component has isLoading:', 'isLoading' in componentData);
+												console.log('MeetNearMe Embed: Component has isOpen:', 'isOpen' in componentData);
+												console.log('MeetNearMe Embed: Component has options:', 'options' in componentData);
+												console.log('MeetNearMe Embed: isLoading value:', componentData.isLoading);
+												console.log('MeetNearMe Embed: isOpen value:', componentData.isOpen);
+
+												// Check child elements
+												var childWithIsLoading = locationElement.querySelector('[x-bind\\:disabled*="isLoading"]');
+												if (childWithIsLoading) {
+													console.log('MeetNearMe Embed: Found child element trying to use isLoading:', childWithIsLoading);
+													console.log('MeetNearMe Embed: Child element parent:', childWithIsLoading.parentElement);
+													console.log('MeetNearMe Embed: Child element has Alpine data:', childWithIsLoading._x_dataStack ? 'yes' : 'no');
+
+													// Check if parent has data stack
+													var parent = childWithIsLoading.parentElement;
+													while (parent && parent !== locationElement) {
+														if (parent._x_dataStack) {
+															console.log('MeetNearMe Embed: Found parent with data stack:', parent);
+															break;
+														}
+														parent = parent.parentElement;
+													}
+													if (parent === locationElement && locationElement._x_dataStack) {
+														console.log('MeetNearMe Embed: Child should inherit from locationElement which has data stack');
+													}
+												}
+								} else {
+									console.error('MeetNearMe Embed: Element does not have Alpine data stack after initTree!');
+								}
+							}, 100);
+						}
+
+						// DIAGNOSTIC: After initTree, check if elements were processed
+								setTimeout(function() {
+									console.log('MeetNearMe Embed: === POST-ALPINE INITIALIZATION DIAGNOSTICS ===');
+									var processedElements = container.querySelectorAll('[x-data*="getLocationSearchState"]');
+									console.log('MeetNearMe Embed: Elements with x-data after Alpine.initTree():', processedElements.length);
+									// Check if Alpine has processed these elements
+									if (processedElements.length > 0) {
+										processedElements.forEach(function(el, idx) {
+											var hasAlpineData = el._x_dataStack || el.__x;
+											console.log('MeetNearMe Embed: Element ' + (idx + 1) + ' has Alpine data:', !!hasAlpineData);
+										});
+									}
+								}, 100);
+							} else {
+								console.warn('MeetNearMe Embed: Alpine.initTree() not available, Alpine should auto-process new HTML');
+							}
+						} else {
+							// Alpine not initialized - start it
+							console.log('MeetNearMe Embed: Starting Alpine.js');
+							if (typeof window.Alpine.start === 'function') {
+								console.log('MeetNearMe Embed: Calling Alpine.start()...');
+								window.Alpine.start();
+								console.log('MeetNearMe Embed: Alpine.js started successfully');
+
+								// DIAGNOSTIC: After start, check if elements were processed
+								setTimeout(function() {
+									console.log('MeetNearMe Embed: === POST-ALPINE INITIALIZATION DIAGNOSTICS ===');
+									var processedElements = container.querySelectorAll('[x-data*="getLocationSearchState"]');
+									console.log('MeetNearMe Embed: Elements with x-data after Alpine.start():', processedElements.length);
+									if (processedElements.length > 0) {
+										processedElements.forEach(function(el, idx) {
+											var hasAlpineData = el._x_dataStack || el.__x;
+											console.log('MeetNearMe Embed: Element ' + (idx + 1) + ' has Alpine data:', !!hasAlpineData);
+										});
+									}
+								}, 100);
+							} else {
+								console.warn('MeetNearMe Embed: Alpine.start() not available');
+							}
+						}
+
+						// TODO: Proceed to Step 9 (Form Submission Handling) and Step 10 (HTMX Initialization) in next implementation
+					}
+
+					// Wait for stores to register, then verify
+					setTimeout(function() {
+						var urlState = window.Alpine && window.Alpine.store ? window.Alpine.store('urlState') : null;
+						var filters = window.Alpine && window.Alpine.store ? window.Alpine.store('filters') : null;
+						var location = window.Alpine && window.Alpine.store ? window.Alpine.store('location') : null;
+
+						console.log('MeetNearMe Embed: Store check - urlState:', !!urlState, 'filters:', !!filters, 'location:', !!location);
+
+						if (!urlState || !filters || !location) {
+							console.warn('MeetNearMe Embed: Some stores not registered, retrying alpine:init...');
+							// Retry alpine:init event
+							document.dispatchEvent(new CustomEvent('alpine:init', { bubbles: true }));
+
+							// Wait again and verify
+							setTimeout(function() {
+								urlState = window.Alpine && window.Alpine.store ? window.Alpine.store('urlState') : null;
+								filters = window.Alpine && window.Alpine.store ? window.Alpine.store('filters') : null;
+								location = window.Alpine && window.Alpine.store ? window.Alpine.store('location') : null;
+
+								console.log('MeetNearMe Embed: After retry - urlState:', !!urlState, 'filters:', !!filters, 'location:', !!location);
+
+								if (!urlState || !filters || !location) {
+									console.error('MeetNearMe Embed: Stores still not registered after retry');
+									// Proceed to Step 8 anyway - Alpine might still work
+									initializeAlpine();
+								} else {
+									console.log('MeetNearMe Embed: All stores registered successfully');
+									initializeAlpine();
+								}
+							}, 100);
+						} else {
+							console.log('MeetNearMe Embed: All stores registered successfully');
+							initializeAlpine();
+						}
+					}, 100);
+				}
+			})
+			.catch(function(error) {
+				console.error('MeetNearMe Embed: Error fetching widget HTML', error);
+				var errorMsg = '<div style="padding: 1rem; background-color: #fee; border: 1px solid #fcc; border-radius: 0.5rem; color: #c33;">MeetNearMe Embed Error: Failed to load widget. ' + error.message + ' Please check the console for details.</div>';
+				container.innerHTML = errorMsg;
+			});
+		}).catch(function(error) {
+			console.error('MeetNearMe Embed: Error loading dependencies', error);
+			if (failedDependencies.length > 0) {
+				console.error('MeetNearMe Embed: Failed to load the following dependencies: ' + failedDependencies.join(', '));
+			}
+			// Show error in container
+			container.innerHTML = '<div style="padding: 1rem; background-color: #fee; border: 1px solid #fcc; border-radius: 0.5rem; color: #c33;">MeetNearMe Embed Error: Failed to load required dependencies. Please check the console for details.</div>';
+		});
+	})();`, staticBaseUrl)
+
+	// Return handler function that sets headers and writes the script
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers for cross-origin script loading
+		transport.SetCORSHeaders(w, r)
+
+		// Set content type for JavaScript
+		w.Header().Set("Content-Type", "application/javascript")
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(script))
+	}
 }

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>MeetNearMe Embed - Styled Test</title>
+  <!-- Load CSS from static server -->
+  <link rel="stylesheet" href="http://localhost:8001/static/assets/styles.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap"
+    rel="stylesheet">
+  <!-- Load Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Load Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Load HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <style>
+    body {
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>MeetNearMe Widget Test (with CSS)</h1>
+  <p>This page loads the widget HTML and all CSS/JS to verify styling works.</p>
+  <hr>
+
+  <!-- The embed script will create its own container -->
+  <!-- You can also create one manually if you want: -->
+  <!-- <div id="mnm-embed-container"></div> -->
+
+  <!-- Load the embed script -->
+  <script src="http://localhost:8000/api/embed.js" data-user-id="335400135800462220"></script>
+</body>
+
+</html>

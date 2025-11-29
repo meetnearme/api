@@ -168,3 +168,25 @@ func SendServerRes(w http.ResponseWriter, body []byte, status int, err error) ht
 
 	return http.HandlerFunc(nil)
 }
+
+// This is used for embed endpoints that need to be accessible from external websites
+func SetCORSHeaders(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	// For development, allow all origins. In production, this should be restricted
+	// to specific domains or use environment variable to control allowed origins
+	if origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+	} else {
+		// If no Origin header, allow all (for development/testing)
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+	}
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+	// Handle preflight OPTIONS request
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+}

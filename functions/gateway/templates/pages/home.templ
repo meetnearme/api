@@ -464,7 +464,7 @@ func GetDefaultRadius(cfLocation constants.CdnLocation) string {
 	return strconv.FormatFloat(constants.DEFAULT_SEARCH_RADIUS, 'f', -1, 64)
 }
 
-templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation constants.CdnLocation, cityStr, latStr, lonStr, origLat, origLong, origQueryLocation string) {
+templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation constants.CdnLocation, cityStr, latStr, lonStr, origLat, origLong, origQueryLocation string, isEmbed bool, embedBaseUrl string) {
 	{{
 	roleClaims := []constants.RoleClaim{}
 	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
@@ -482,82 +482,85 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 	}
 	}}
 	// we assume this is "home" and not a community / user profile page
-	if pageUser == nil {
-		<div class="header-hero">
-			<h1 class="text-xl md:text-4xl text-center mb-5">
-				<span class="opener">People Over Screens!</span>
-				<br/>
-				<span>Find Connection at Local Events.</span>
-				// <span class="opener">Journey to exotic realms <br/> unreachable by AI bots 🚀</span>
-			</h1>
-		</div>
-	} else {
-		<div class="space-y-10" x-data="getCompetitionsState()">
-			<h1 class="text-5xl alt-title font-bold text-center uppercase">{ pageUser.DisplayName }</h1>
-			if pageUser.Metadata != nil && pageUser.Metadata[constants.META_ABOUT_KEY] != "" {
-				<h2 class="text-3xl font-bold uppercase my-10">About</h2>
-				<div class="prose prose-invert max-w-none">
-					@templ.Raw(pageUser.Metadata[constants.META_ABOUT_KEY])
-				</div>
-			}
-			<template x-if="competitions?.length">
-				<div>
-					<h2 class="text-3xl font-bold uppercase my-10">Competitions</h2>
-					<template x-for="competition in competitions">
-						<div>
-							<h3 x-text="competition.name" class="text-2xl font-bold my-10"></h3>
-							<h4 class="text-xl font-bold my-2 uppercase">Schedule</h4>
-							<template x-if="rounds && rounds[competition.id]">
-								<div>
-									<template x-for="(eventRounds, eventId) in rounds[competition.id]">
-										<div>
-											<template x-if="eventId !== fakeEventId">
-												<h3 class="text-xl font-bold my-2">
-													<a class="link link-text" :href="`/event/${eventId}`">
-														Event #<span x-text="Object.keys(rounds[competition.id]).indexOf(eventId) + 1"></span>
-													</a>
-												</h3>
-											</template>
-											<template x-if="eventId === fakeEventId">
-												<h3 class="text-xl font-bold my-2">Upcoming</h3>
-											</template>
-											<template x-for="round in eventRounds">
-												<div class="flex justify-between">
-													<template x-if="round?.isVotingOpen">
-														<div>
-															<div class="tooltip tooltip-right w-6 mr-2" data-tip="Voting Open">
-																<span aria-label="Voting Open" class="loading loading-ring loading-xs text-primary"></span>
+	// Hide branding when embedded
+	if !isEmbed {
+		if pageUser == nil {
+			<div class="header-hero">
+				<h1 class="text-xl md:text-4xl text-center mb-5">
+					<span class="opener">People Over Screens!</span>
+					<br/>
+					<span>Find Connection at Local Events.</span>
+					// <span class="opener">Journey to exotic realms <br/> unreachable by AI bots 🚀</span>
+				</h1>
+			</div>
+		} else {
+			<div class="space-y-10" x-data="getCompetitionsState()">
+				<h1 class="text-5xl alt-title font-bold text-center uppercase">{ pageUser.DisplayName }</h1>
+				if pageUser.Metadata != nil && pageUser.Metadata[constants.META_ABOUT_KEY] != "" {
+					<h2 class="text-3xl font-bold uppercase my-10">About</h2>
+					<div class="prose prose-invert max-w-none">
+						@templ.Raw(pageUser.Metadata[constants.META_ABOUT_KEY])
+					</div>
+				}
+				<template x-if="competitions?.length">
+					<div>
+						<h2 class="text-3xl font-bold uppercase my-10">Competitions</h2>
+						<template x-for="competition in competitions">
+							<div>
+								<h3 x-text="competition.name" class="text-2xl font-bold my-10"></h3>
+								<h4 class="text-xl font-bold my-2 uppercase">Schedule</h4>
+								<template x-if="rounds && rounds[competition.id]">
+									<div>
+										<template x-for="(eventRounds, eventId) in rounds[competition.id]">
+											<div>
+												<template x-if="eventId !== fakeEventId">
+													<h3 class="text-xl font-bold my-2">
+														<a class="link link-text" :href="`/event/${eventId}`">
+															Event #<span x-text="Object.keys(rounds[competition.id]).indexOf(eventId) + 1"></span>
+														</a>
+													</h3>
+												</template>
+												<template x-if="eventId === fakeEventId">
+													<h3 class="text-xl font-bold my-2">Upcoming</h3>
+												</template>
+												<template x-for="round in eventRounds">
+													<div class="flex justify-between">
+														<template x-if="round?.isVotingOpen">
+															<div>
+																<div class="tooltip tooltip-right w-6 mr-2" data-tip="Voting Open">
+																	<span aria-label="Voting Open" class="loading loading-ring loading-xs text-primary"></span>
+																</div>
+																<span class="badge badge-primary mr-2">Voting Open</span>
 															</div>
-															<span class="badge badge-primary mr-2">Voting Open</span>
-														</div>
-													</template>
-													<template x-if="!round?.isVotingOpen">
-														<div class="w-6 mr-2"></div>
-													</template>
-													<div class="grow" x-text="round?.roundName"></div>
-												</div>
-											</template>
-										</div>
-									</template>
-								</div>
-							</template>
-							<div class="divider my-10"></div>
-							<template x-if="leaderboards && leaderboards[competition.id]">
-								<div>
-									<h3 class="text-xl font-bold my-2 uppercase">Standings</h3>
-									<template x-for="[teamId, score] in Object.entries(leaderboards[competition.id])">
-										<div class="flex justify-between border-b border-gray-700">
-											<div x-text="users?.find?.(user => user?.userId === teamId)?.displayName"></div>
-											<div x-text="'Score: ' + score"></div>
-										</div>
-									</template>
-								</div>
-							</template>
-						</div>
-					</template>
-				</div>
-			</template>
-		</div>
+														</template>
+														<template x-if="!round?.isVotingOpen">
+															<div class="w-6 mr-2"></div>
+														</template>
+														<div class="grow" x-text="round?.roundName"></div>
+													</div>
+												</template>
+											</div>
+										</template>
+									</div>
+								</template>
+								<div class="divider my-10"></div>
+								<template x-if="leaderboards && leaderboards[competition.id]">
+									<div>
+										<h3 class="text-xl font-bold my-2 uppercase">Standings</h3>
+										<template x-for="[teamId, score] in Object.entries(leaderboards[competition.id])">
+											<div class="flex justify-between border-b border-gray-700">
+												<div x-text="users?.find?.(user => user?.userId === teamId)?.displayName"></div>
+												<div x-text="'Score: ' + score"></div>
+											</div>
+										</template>
+									</div>
+								</template>
+							</div>
+						</template>
+					</div>
+				</template>
+			</div>
+		}
 	}
 	<div class="mb-4">
 		<div x-data="getHomeState()">
@@ -617,29 +620,31 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					&nbsp;
 					<button @click="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" class="btn btn-xs bg-base-300">Modify</button>
 				</div>
-				// event link import form
-				<div class="w-full md:w-5/6 mx-auto mt-4">
-					<form onsubmit="const v=document.getElementById('event-link-input').value; if(!v) return; window.location.replace(`${window.location.origin}/admin/add-event-source/?import_from=${encodeURIComponent(v)}`); return false;">
-						<p class="text-sm md:text-base mb-2 text-center">Know of a cool event or community? Drop a link below. We'll scan the page for events!</p>
-						<div class="join w-full rainbow-box z-[1]">
-							<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
-								<input
-									id="event-link-input"
-									class="w-full grow"
-									type="text"
-									placeholder="Add events via link"
-									autocomplete="off"
-									type="url"
-									inputmode="url"
-								/>
-							</label>
-							<button
-								class="btn btn-outline join-item"
-								type="submit"
-							>Add</button>
-						</div>
-					</form>
-				</div>
+				// event link import form - hide when embedded
+				if !isEmbed {
+					<div class="w-full md:w-5/6 mx-auto mt-4">
+						<form onsubmit="const v=document.getElementById('event-link-input').value; if(!v) return; window.location.replace(`${window.location.origin}/admin/add-event-source/?import_from=${encodeURIComponent(v)}`); return false;">
+							<p class="text-sm md:text-base mb-2 text-center">Know of a cool event or community? Drop a link below. We'll scan the page for events!</p>
+							<div class="join w-full rainbow-box z-[1]">
+								<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
+									<input
+										id="event-link-input"
+										class="w-full grow"
+										type="text"
+										placeholder="Add events via link"
+										autocomplete="off"
+										type="url"
+										inputmode="url"
+									/>
+								</label>
+								<button
+									class="btn btn-outline join-item"
+									type="submit"
+								>Add</button>
+							</div>
+						</form>
+					</div>
+				}
 			</div>
 			<div class="pb-4">
 				<form
@@ -736,12 +741,12 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						<span class="loading loading-spinner loading-lg text-primary"></span>
 					</div>
 					<div id="events-container-inner">
-						@EventsInner(events, "", roleClaims, userId, pageUser, false, "")
+						@EventsInner(events, "", roleClaims, userId, pageUser, isEmbed, embedBaseUrl)
 					</div>
 				} else {
 					<div class="relative">
-						// share / export buttons for users viewing their own events
-						if pageUser.UserID == userId {
+						// share / export buttons for users viewing their own events - hide when embedded
+						if !isEmbed && pageUser.UserID == userId {
 							// shim for preventing floating buttons from covering the content
 							<div class="flex md:hidden leading-5">
 								<br/>
@@ -781,7 +786,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 									<span class="loading loading-spinner loading-lg text-primary"></span>
 								</div>
 								<div id="events-container-inner">
-									@EventsInner(events, constants.EV_MODE_LIST, roleClaims, userId, pageUser, false, "")
+									@EventsInner(events, constants.EV_MODE_LIST, roleClaims, userId, pageUser, isEmbed, embedBaseUrl)
 								</div>
 							</div>
 							<input
@@ -980,11 +985,18 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 		});
 
 		// NOTE: this is used by htmx to get the data-attributes
+		// Read from window.location.href (not window.location.search) because
+		// pushState() updates the URL but window.location.search is read-only
+		// and doesn't reflect pushState() changes
 		// eslint-disable-next-line no-unused-vars
 		function sendParmsFromQs() {
-			const urlParams = new URLSearchParams(window.location.search);
+			// Use window.location.href instead of window.location.search
+			// because pushState() updates the URL but window.location.search doesn't update
+			const url = new URL(window.location.href);
+			const urlParams = url.searchParams;
+
 			return {
-				...(document.querySelector('#alpine-state').getAttribute('data-page-user-id') !== "") ? { owners: document.querySelector('#alpine-state').getAttribute('data-page-user-id') } : {},
+				...(document.querySelector('#alpine-state')?.getAttribute('data-page-user-id') !== "") ? { owners: document.querySelector('#alpine-state').getAttribute('data-page-user-id') } : {},
 				...(urlParams.get('start_time')?.length > 1) ? { start_time: urlParams.get('start_time') } : {},
 				...(urlParams.get('end_time')?.length > 1) ? { end_time: urlParams.get('end_time') } : {},
 				...(urlParams.get('q')?.length > 1) ? { q: urlParams.get('q') } : {},
@@ -997,6 +1009,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 		}
 
 		function getLocationSearchState() {
+			console.log("🔵 getLocationSearchState() CALLED - Stack trace:");
+			console.trace();
+			console.log("🔵 location store:", Alpine.store('location'));
 			return {
 				allOptions: JSON.parse(
 					document.querySelector('#alpine-state').getAttribute('data-cities-default-list')
@@ -1209,6 +1224,10 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				},
 			}
 		}
+
+		// Explicitly attach to window for embed widget compatibility
+		// Alpine.initTree() needs functions to be explicitly on window to find them
+		window.getLocationSearchState = getLocationSearchState;
 
 		function getHomeState() {
 			return {
@@ -1437,6 +1456,10 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 			}
 		}
 
+		// Explicitly attach to window for embed widget compatibility
+		// Alpine.initTree() needs functions to be explicitly on window to find them
+		window.getHomeState = getHomeState;
+
 		// NOTE: this maintains an intentionally independent state for sidebar draft state
 		// that is committed to URL params via Alpine.store('urlState') when "Apply Filters" is clicked
 		function getFilterFormState() {
@@ -1649,5 +1672,9 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				apexUrl: document.querySelector('#alpine-state').getAttribute('data-apex-url'),
 			}
 		}
+
+		// Explicitly attach to window for embed widget compatibility
+		// Alpine.initTree() needs functions to be explicitly on window to find them
+		window.getFilterFormState = getFilterFormState;
 	</script>
 }
