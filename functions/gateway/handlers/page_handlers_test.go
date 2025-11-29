@@ -574,7 +574,7 @@ func TestGetHomeOrUserPage_SubdomainLogic(t *testing.T) {
 }
 
 func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
-	// This test ensures that clicking "Apply Filters" doesn't cause duplicate Weaviate API calls
+	// This test ensures that clicking "Apply Filters" doesn't cause duplicate /api/html/events requests
 	// The regression: if handleFilterSubmit calls setParam() multiple times instead of setParams() once,
 	// each setParam() call triggers a form submission, causing duplicate API calls
 
@@ -592,19 +592,19 @@ func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
 	// Set IS_LOCAL_ACT for proxy scenario testing
 	os.Setenv("IS_LOCAL_ACT", "true")
 
-	// Set up mock Weaviate server with request counting
-	weaviateCallCount := 0
+	// Set up mock Weaviate server
 	hostAndPort := test_helpers.GetNextPort()
 	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/":
+			// Handle root path requests (from BindToPort connection test or health checks)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
 		case "/v1/meta":
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"version":"1.0"}`))
 		case "/v1/graphql":
-			weaviateCallCount++
-			t.Logf("📊 Weaviate call #%d received at %s", weaviateCallCount, time.Now().Format("15:04:05.000"))
-
 			// Mock response for home page search
 			mockResponse := models.GraphQLResponse{
 				Data: map[string]models.JSONObject{
@@ -678,8 +678,14 @@ func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
 	}
 	defer page.Close()
 
-	// Reset counter before navigation
-	weaviateCallCount = 0
+	// Set up HTTP request listener BEFORE navigation to catch all requests
+	requestCount := 0
+	page.OnRequest(func(request playwright.Request) {
+		if strings.Contains(request.URL(), "/api/html/events") {
+			requestCount++
+			t.Logf("🌐 HTTP Request #%d to /api/html/events at %s", requestCount, time.Now().Format("15:04:05.000"))
+		}
+	})
 
 	// Navigate to the page
 	fullURL := fmt.Sprintf("%s/", testServer.URL)
@@ -691,9 +697,9 @@ func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
 	// Wait a bit for initial page load and any async requests to complete
 	time.Sleep(100 * time.Millisecond)
 
-	// Record initial call count
-	initialCallCount := weaviateCallCount
-	t.Logf("Initial Weaviate calls after page load: %d", initialCallCount)
+	// Record initial request count (should be 1 from initial page load)
+	initialRequestCount := requestCount
+	t.Logf("Initial HTTP requests to /api/html/events after page load: %d", initialRequestCount)
 
 	// Open the drawer/sidebar if it's not already open (click the hamburger menu)
 	drawerToggle := page.Locator("#main-drawer")
@@ -756,15 +762,6 @@ func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
 		t.Logf("Changed radius to 25 mi")
 	}
 
-	// Monitor HTTP requests to see if duplicate form submissions are happening
-	requestCount := 0
-	page.OnRequest(func(request playwright.Request) {
-		if strings.Contains(request.URL(), "/api/html/events") {
-			requestCount++
-			t.Logf("🌐 HTTP Request #%d to /api/html/events at %s", requestCount, time.Now().Format("15:04:05.000"))
-		}
-	})
-
 	// Click the "Apply Filters" button
 	applyFiltersLocator := page.Locator("button:has-text('Apply Filters')")
 	if err := applyFiltersLocator.Click(playwright.LocatorClickOptions{
@@ -778,9 +775,8 @@ func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
 	// The bug causes multiple form submissions. Each setParam() has a 50ms setTimeout,
 	// and duplicates fire within ~100ms. We'll wait 200ms total (with 50ms intervals)
 	// to catch duplicates while keeping the test fast when the bug is fixed.
-	callCountBeforeWait := weaviateCallCount
 	requestCountBeforeWait := requestCount
-	t.Logf("Call count before wait: %d, HTTP request count: %d", callCountBeforeWait, requestCountBeforeWait)
+	t.Logf("HTTP request count before wait: %d", requestCountBeforeWait)
 
 	// Poll every 50ms for up to 200ms total (4 iterations)
 	// This is sufficient to catch duplicates (which fire within ~100ms) while
@@ -789,14 +785,9 @@ func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
 	maxIterations := 4 // 4 * 50ms = 200ms max wait
 	for i := 0; i < maxIterations; i++ {
 		time.Sleep(50 * time.Millisecond)
-		currentCount := weaviateCallCount
 		currentRequestCount := requestCount
 
 		// Check if we've detected duplicates
-		if currentCount > callCountBeforeWait+1 {
-			t.Logf("⚠️  DUPLICATE WEAVIATE CALL DETECTED after %dms! Total calls: %d", (i+1)*50, currentCount)
-			duplicateDetected = true
-		}
 		if currentRequestCount > requestCountBeforeWait+1 {
 			t.Logf("⚠️  DUPLICATE HTTP REQUEST DETECTED after %dms! Total requests: %d", (i+1)*50, currentRequestCount)
 			duplicateDetected = true
@@ -809,39 +800,26 @@ func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
 		}
 
 		// Log progress for first few iterations
-		if i < 3 {
-			if currentCount > callCountBeforeWait {
-				t.Logf("After %dms: Weaviate call count: %d", (i+1)*50, currentCount)
-			}
-			if currentRequestCount > requestCountBeforeWait {
-				t.Logf("After %dms: HTTP request count: %d", (i+1)*50, currentRequestCount)
-			}
+		if i < 3 && currentRequestCount > requestCountBeforeWait {
+			t.Logf("After %dms: HTTP request count: %d", (i+1)*50, currentRequestCount)
 		}
 	}
 
 	// Final snapshot
-	finalCallCount := weaviateCallCount
 	finalRequestCount := requestCount
-	t.Logf("Final call count: Weaviate=%d, HTTP requests=%d", finalCallCount, finalRequestCount)
+	requestsAfterFilter := finalRequestCount - requestCountBeforeWait
+	t.Logf("Final HTTP request count: %d (initial: %d, after filter: %d)", finalRequestCount, initialRequestCount, requestsAfterFilter)
 
-	// Verify Weaviate call count - should still be 1 (no duplicate calls)
-	// If the bug is present, we would see 2+ calls here
-	if finalCallCount != 1 {
-		t.Errorf("Expected exactly 1 Weaviate API call total, but got %d. Initial: %d, After filter: %d. This indicates duplicate API calls when applying filters (the bug is present - handleFilterSubmit is calling setParam() multiple times instead of setParams() once).",
-			finalCallCount, initialCallCount, finalCallCount-initialCallCount)
+	// Verify that clicking "Apply Filters" triggers exactly 1 request to /api/html/events
+	// If we see more than 1, it indicates duplicate form submissions
+	expectedRequestsAfterFilter := 1
+	if requestsAfterFilter != expectedRequestsAfterFilter {
+		t.Errorf("Expected exactly %d HTTP request(s) to /api/html/events after clicking Apply Filters, but got %d. This indicates duplicate form submissions (the bug is present - handleFilterSubmit is calling setParam() multiple times instead of setParams() once).",
+			expectedRequestsAfterFilter, requestsAfterFilter)
 	}
 
-	// Also check for duplicate HTTP requests to /api/html/events
-	// This is a more direct indicator of the bug - multiple form submissions
-	expectedRequests := 1 // Only 1 request should be made when applying filters
-	actualRequests := finalRequestCount - requestCountBeforeWait
-	if actualRequests > expectedRequests {
-		t.Errorf("Expected exactly %d HTTP request(s) to /api/html/events after applying filters, but got %d. This indicates duplicate form submissions (the bug is present - handleFilterSubmit is calling setParam() multiple times instead of setParams() once).",
-			expectedRequests, actualRequests)
-	}
-
-	if finalCallCount == 1 && actualRequests == expectedRequests {
-		t.Logf("✅ Page load and filter application resulted in exactly %d Weaviate call(s) and %d HTTP request(s)", finalCallCount, actualRequests)
+	if requestsAfterFilter == expectedRequestsAfterFilter {
+		t.Logf("✅ Clicking Apply Filters resulted in exactly %d HTTP request(s) to /api/html/events (as expected)", requestsAfterFilter)
 	}
 }
 
