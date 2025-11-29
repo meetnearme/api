@@ -233,7 +233,7 @@ func TestAddEventSource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := Navbar(mockUserInfo, tt.subnavItems, tt.event, context.Background())
+			component := Navbar(mockUserInfo, tt.subnavItems, tt.event, context.Background(), false)
 			// Render the template
 			var buf bytes.Buffer
 			err := component.Render(context.Background(), &buf)
