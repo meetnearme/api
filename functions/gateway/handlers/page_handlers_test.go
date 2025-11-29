@@ -596,6 +596,10 @@ func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
 	hostAndPort := test_helpers.GetNextPort()
 	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/":
+			// Handle root path requests (from BindToPort connection test or health checks)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
 		case "/v1/meta":
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
