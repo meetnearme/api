@@ -81,12 +81,6 @@ func TestPostEventHandler(t *testing.T) {
 		t.Logf("🎯 MOCK SERVER HIT: %s %s", r.Method, r.URL.Path)
 
 		switch r.URL.Path {
-		case "/":
-			// Handle root path requests (from BindToPort connection test or health checks)
-			t.Logf("   └─ Handling / (connection test or health check)")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
-
 		case "/v1/meta":
 			t.Logf("   └─ Handling /v1/meta")
 			metaResponse := `{"version":"1.23.4"}`
@@ -365,12 +359,6 @@ func TestPostBatchEvents(t *testing.T) {
 		t.Logf("🎯 MOCK SERVER HIT: %s %s", r.Method, r.URL.Path)
 
 		switch r.URL.Path {
-		case "/":
-			// Handle root path requests (from BindToPort connection test or health checks)
-			t.Logf("   └─ Handling / (connection test or health check)")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
-
 		case "/v1/meta":
 			t.Logf("   └─ Handling /v1/meta")
 			metaResponse := `{"version":"1.23.4"}`
@@ -607,12 +595,6 @@ func TestSearchEvents(t *testing.T) {
 		t.Logf("🎯 MOCK SERVER HIT: %s %s", r.Method, r.URL.Path)
 
 		switch r.URL.Path {
-		case "/":
-			// Handle root path requests (from BindToPort connection test or health checks)
-			t.Logf("   └─ Handling / (connection test or health check)")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
-
 		case "/v1/meta":
 			t.Logf("   └─ Handling /v1/meta")
 			metaResponse := `{"version":"1.23.4"}`

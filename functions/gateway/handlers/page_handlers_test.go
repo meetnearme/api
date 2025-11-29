@@ -596,10 +596,6 @@ func TestGetHomeOrUserPage_NoDuplicateAPICalls(t *testing.T) {
 	hostAndPort := test_helpers.GetNextPort()
 	mockWeaviateServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/":
-			// Handle root path requests (from BindToPort connection test or health checks)
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
 		case "/v1/meta":
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
@@ -1239,12 +1235,6 @@ func TestGetEventDetailsPage(t *testing.T) {
 		t.Logf("🎯 MOCK WEAVIATE SERVER HIT: %s %s", r.Method, r.URL.Path)
 
 		switch r.URL.Path {
-		case "/":
-			// Handle root path requests (from BindToPort connection test or health checks)
-			t.Logf("   └─ Handling / (connection test or health check)")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
-
 		case "/v1/meta":
 			t.Logf("   └─ Handling /v1/meta")
 			metaResponse := `{"version":"1.23.4"}`
