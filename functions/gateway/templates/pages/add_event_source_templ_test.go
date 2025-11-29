@@ -17,7 +17,7 @@ func TestAddEventSource(t *testing.T) {
 	// Add MNM_OPTIONS_CTX_KEY to context
 	fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
 	// Create a layout template
-	layoutTemplate := Layout(constants.SitePages["add-event-source"], constants.UserInfo{}, component, types.Event{}, false, fakeContext, []string{})
+	layoutTemplate := Layout(constants.SitePages["add-event-source"], constants.UserInfo{}, component, types.Event{}, false, fakeContext, []string{}, false)
 
 	// Render the template using the same context
 	var buf bytes.Buffer
