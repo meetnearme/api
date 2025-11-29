@@ -309,7 +309,7 @@ func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
 	return nil
 }
 
-templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageContent templ.Component, event types.Event, narrowLayout bool, ctx context.Context, scripts []string) {
+templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageContent templ.Component, event types.Event, narrowLayout bool, ctx context.Context, scripts []string, isFullWidth bool) {
 	<!DOCTYPE html>
 	<html data-theme="auto">
 		<head>
@@ -348,19 +348,28 @@ templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageConte
 		<body class="h-[calc(100vh)] overflow-y-auto">
 			<div id="top-loading-bar" class="hidden fixed top-0 left-0 w-0 h-[3px] bg-[#00ff00] transition-[width] duration-300 ease-out z-[9999]"></div>
 			@components.Navbar(userInfo, sitePage.SubnavItems, event, ctx) {
-				<div class="container mx-auto">
-					<div id="content" class="p-4 relative">
-						if narrowLayout {
-							<div class="max-w-prose mx-auto">
-								@pageContent
-								@components.Footer(userInfo.Email != "")
-							</div>
-						} else {
+				if isFullWidth {
+					<div class="w-full">
+						<div id="content" class="relative">
 							@pageContent
 							@components.Footer(userInfo.Email != "")
-						}
+						</div>
 					</div>
-				</div>
+				} else {
+					<div class="container mx-auto">
+						<div id="content" class="p-4 relative">
+							if narrowLayout {
+								<div class="max-w-prose mx-auto">
+									@pageContent
+									@components.Footer(userInfo.Email != "")
+								</div>
+							} else {
+								@pageContent
+								@components.Footer(userInfo.Email != "")
+							}
+						</div>
+					</div>
+				}
 			}
 		</body>
 		// <img class="main-bg" alt="Illustration: A diverse group of whimsical-looking people" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/meet_near_me_home_bg_full.webp") }/>
