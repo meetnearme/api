@@ -9,7 +9,7 @@ import (
 
 templ AdminLeftNavContents(ctx context.Context) {
 	<li>
-		<h3 class="font-bold menu-title my-2">Admin</h3>
+		<h3 class="font-bold menu-title mt-0 mb-2">Admin</h3>
 		<ul>
 			<li><a href="/admin">Home</a></li>
 			<li>
@@ -83,8 +83,8 @@ templ AdminLeftNavContents(ctx context.Context) {
 }
 
 templ AdminNav(ctx context.Context) {
-	<div class="self-start sticky top-0 col-span-2 md:mr-5 mb-5 card border border-base-300 bg-base-200 rounded-box md:place-items-center ">
-		<ul class="menu bg-base-200 rounded-box w-56">
+	<div class="self-start sticky top-0 col-span-2 card border border-base-300 bg-base-100 rounded-box">
+		<ul class="menu bg-base-100 rounded-box w-full p-2">
 			@AdminLeftNavContents(ctx)
 		</ul>
 	</div>
