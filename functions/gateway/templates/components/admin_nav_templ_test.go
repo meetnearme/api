@@ -124,7 +124,7 @@ func TestAdminLeftNavContents(t *testing.T) {
 
 			// Check for proper section headers
 			expectedHeaders := []string{
-				"<h3 class=\"font-bold menu-title my-2\">Admin</h3>",
+				"<h3 class=\"font-bold menu-title mt-0 mb-2\">Admin</h3>",
 				"<h3 class=\"font-bold menu-title my-2\">Events</h3>",
 				"<h3 class=\"font-bold menu-title my-2\">Competitions</h3>",
 			}
@@ -168,19 +168,19 @@ func TestAdminNav(t *testing.T) {
 	renderedContent := buf.String()
 
 	// Check for proper container structure
-	expectedContainer := `<div class="self-start sticky top-0 col-span-2 md:mr-5 mb-5 card border border-base-300 bg-base-200 rounded-box md:place-items-center ">`
+	expectedContainer := `<div class="self-start sticky top-0 col-span-2 card border border-base-300 bg-base-100 rounded-box">`
 	if !strings.Contains(renderedContent, expectedContainer) {
 		t.Error("Expected proper container structure with correct classes")
 	}
 
 	// Check for proper menu structure
-	expectedMenu := `<ul class="menu bg-base-200 rounded-box w-56">`
+	expectedMenu := `<ul class="menu bg-base-100 rounded-box w-full p-2">`
 	if !strings.Contains(renderedContent, expectedMenu) {
 		t.Error("Expected proper menu structure with correct classes")
 	}
 
 	// Check that the nav content is included
-	if !strings.Contains(renderedContent, "<h3 class=\"font-bold menu-title my-2\">Admin</h3>") {
+	if !strings.Contains(renderedContent, "<h3 class=\"font-bold menu-title mt-0 mb-2\">Admin</h3>") {
 		t.Error("Expected nav content to be included in the rendered output")
 	}
 }
