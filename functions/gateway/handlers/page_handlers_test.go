@@ -1377,10 +1377,33 @@ func TestGetEventDetailsPage(t *testing.T) {
 	ctx = context.WithValue(req.Context(), "userInfo", mockUserInfo)
 	ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
 	ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
-	_ = req.WithContext(ctx)
+	req = req.WithContext(ctx)
 
 	// Set up router to extract variables
 	router := test_helpers.SetupStaticTestRouter(t, "./assets")
+
+	// Add middleware to inject context values into all requests (for Playwright requests)
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Inject context values into the request
+			ctx := r.Context()
+			ctx = context.WithValue(ctx, "userInfo", mockUserInfo)
+			ctx = context.WithValue(ctx, "roleClaims", mockRoleClaims)
+			ctx = context.WithValue(ctx, constants.MNM_OPTIONS_CTX_KEY, map[string]string{"userId": "123"})
+			// Also add APIGatewayV2HTTPRequest context for path parameters
+			if vars := mux.Vars(r); vars != nil {
+				if eventID, ok := vars[constants.EVENT_ID_KEY]; ok {
+					ctx = context.WithValue(ctx, constants.ApiGwV2ReqKey, events.APIGatewayV2HTTPRequest{
+						PathParameters: map[string]string{
+							constants.EVENT_ID_KEY: eventID,
+						},
+					})
+				}
+			}
+			r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	router.HandleFunc("/event/{"+constants.EVENT_ID_KEY+"}", func(w http.ResponseWriter, r *http.Request) {
 		GetEventDetailsPage(w, r).ServeHTTP(w, r)
