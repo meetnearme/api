@@ -385,19 +385,64 @@ The generated JavaScript must be an immediately-invoked function expression
   - `credentials: 'omit'` (no cookies needed)
 - Handle fetch errors gracefully with user-friendly error message in container
 
-#### 6. HTML Injection & Script Execution
+#### 6. HTML Parsing & Script Extraction
 
-- **Critical Issue**: `innerHTML` does NOT execute `<script>` tags
-- Parse fetched HTML using `DOMParser` to extract scripts
-- Execute scripts manually:
-  - Create new `<script>` elements
-  - Copy attributes and content from extracted scripts
-  - Append to `document.head` to execute them
-- Inject HTML into container (without scripts, since they're already executed)
-- **Important**: HTML must be injected BEFORE scripts execute so `#alpine-state`
-  element exists when stores try to access it
+- **Critical Issue**: `innerHTML` does NOT execute `<script>` tags, so scripts
+  must be extracted and executed manually
+- Parse fetched HTML using `DOMParser` to create a document fragment
+- Extract all `<script>` tags from the parsed HTML:
+  - Iterate through all script elements in the parsed document
+  - For each script, create a unique marker comment in the HTML
+  - Marker format: `<!-- MNM_SCRIPT_MARKER:{index}:{scriptId} -->` where:
+    - `{index}` is the sequential index of the script (0, 1, 2, etc.)
+    - `{scriptId}` is the script's `id` attribute if present, or
+      `inline-{index}` for inline scripts
+  - Store script metadata (attributes, content, original position) in an array
+- Replace each `<script>` tag in the HTML with its corresponding marker comment
+- This preserves the exact DOM structure and script execution order
+- **Important**: Scripts must maintain their original position in the DOM
+  hierarchy for proper execution context
 
-#### 7. Alpine Store Registration
+#### 7. HTML Injection & Script Execution
+
+- Inject the modified HTML (with script markers) into the container using
+  `innerHTML`
+- **Critical**: HTML must be injected BEFORE scripts execute so elements like
+  `#alpine-state` exist when stores try to access them
+- After HTML injection, locate each script marker comment in the DOM:
+  - Query for all marker comments: `container.querySelectorAll('*')` and filter
+    for comment nodes, or use `TreeWalker` to find comment nodes
+  - For each marker comment found:
+    - Extract the script index and ID from the marker
+    - Retrieve the corresponding script data from the stored array
+    - Create a new `<script>` element
+    - Copy all attributes from the original script (id, src, type, defer, async,
+      etc.)
+    - Copy script content (for inline scripts) or set `src` attribute (for
+      external scripts)
+- Insert each script element at the exact position of its marker comment:
+  - Use `markerComment.parentNode.insertBefore(newScript, markerComment)`
+  - Remove the marker comment after insertion
+  - This ensures scripts execute in their original order and DOM context
+- **Execution Order**: Scripts execute synchronously as they are inserted
+  (inline scripts) or asynchronously when loaded (external scripts with `src`)
+- **Error Handling**:
+  - Wrap script insertion in try/catch blocks to catch execution errors
+  - For inline scripts: Wrap script content execution in try/catch to catch
+    runtime errors without blocking other scripts
+  - For external scripts: Add `onerror` handlers to catch load failures
+  - Log errors with script index/ID for debugging
+  - Continue with remaining scripts even if one fails
+- **Execution Verification**:
+  - After inserting inline scripts, verify they executed by checking for
+    expected side effects (e.g., functions defined, event listeners added,
+    console logs appearing)
+  - If a script should define functions or add event listeners, verify they
+    exist after insertion
+  - Add timeout-based verification for scripts that should execute immediately
+  - Log verification results (success/fail) for debugging
+
+#### 8. Alpine Store Registration
 
 - **Critical Timing Issue**: Stores must be registered BEFORE Alpine processes
   HTML
@@ -412,7 +457,7 @@ The generated JavaScript must be an immediately-invoked function expression
 - If stores not registered, retry `alpine:init` event
 - Log store registration status for debugging
 
-#### 8. Alpine Initialization
+#### 9. Alpine Initialization
 
 - Check if Alpine is already initialized on host page:
   - Check `window.Alpine._initialized` flag
@@ -425,7 +470,7 @@ The generated JavaScript must be an immediately-invoked function expression
 - Verify stores are accessible before initializing Alpine
 - Log initialization method used
 
-#### 9. Form Submission Handling
+<!-- #### 10. Form Submission Handling
 
 - Prevent default form submissions (sandbox protection for iframes):
   - Remove `action` attributes from all forms
@@ -433,15 +478,15 @@ The generated JavaScript must be an immediately-invoked function expression
   - Manually trigger Alpine/HTMX handlers:
     - Search forms: Call `Alpine.store('urlState').setParam('q', value)`
     - HTMX forms: Call `htmx.trigger(form, 'submit')`
-- Log form submission handling for debugging
+- Log form submission handling for debugging -->
 
-#### 10. HTMX Initialization
+#### 11. HTMX Initialization
 
 - After Alpine is initialized, process HTMX elements:
   - Call `htmx.process(container)` to initialize HTMX on new HTML
   - This enables HTMX form submissions and dynamic updates
 
-#### 11. Error Handling
+#### 12. Error Handling
 
 - Catch and log all errors to console with "MeetNearMe Embed:" prefix
 - Display user-friendly error messages in container if critical errors occur
@@ -467,12 +512,13 @@ The function should:
   // 3. Base URL detection
   // 4. Dependency loading (with promises)
   // 5. Widget HTML fetching
-  // 6. HTML injection & script execution
-  // 7. Alpine store registration
-  // 8. Alpine initialization
-  // 9. Form submission handling
-  // 10. HTMX initialization
-  // 11. Error handling (try/catch around critical sections)
+  // 6. HTML parsing & script extraction (with comment markers)
+  // 7. HTML injection & script execution (in original positions)
+  // 8. Alpine store registration
+  // 9. Alpine initialization
+  // 10. Form submission handling
+  // 11. HTMX initialization
+  // 12. Error handling (try/catch around critical sections)
 })();
 ```
 
@@ -480,15 +526,17 @@ The function should:
 
 1. **Script Execution**: `innerHTML` doesn't execute scripts, so we must
    manually extract and execute them
-2. **Store Registration Timing**: Stores must exist before Alpine processes HTML
+2. **Script Positioning**: Scripts must execute in their original DOM positions
+   to maintain proper execution context and order
+3. **Store Registration Timing**: Stores must exist before Alpine processes HTML
    expressions
-3. **Alpine Double Initialization**: Host page may already have Alpine
+4. **Alpine Double Initialization**: Host page may already have Alpine
    initialized
-4. **Cross-Origin Loading**: All dependencies and API calls must work
+5. **Cross-Origin Loading**: All dependencies and API calls must work
    cross-origin
-5. **Form Submission in Sandboxed Contexts**: Prevent browser form submission,
+6. **Form Submission in Sandboxed Contexts**: Prevent browser form submission,
    use JavaScript handlers
-6. **Dependency Detection**: Check if dependencies already exist before loading
+7. **Dependency Detection**: Check if dependencies already exist before loading
    duplicates
 
 ### Testing Considerations
