@@ -272,6 +272,15 @@ func BulkUpdateEventsHandler(w http.ResponseWriter, r *http.Request) http.Handle
 
 func SearchLocationsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Handle OPTIONS preflight request
+		if r.Method == "OPTIONS" {
+			transport.SetCORSHeaders(w, r)
+			return
+		}
+
+		// Set CORS headers for the response
+		transport.SetCORSHeaders(w, r)
+
 		query := r.URL.Query().Get("q")
 
 		// URL decode the query

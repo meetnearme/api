@@ -534,6 +534,15 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Handle OPTIONS preflight request
+		if r.Method == "OPTIONS" {
+			transport.SetCORSHeaders(w, r)
+			return
+		}
+
+		// Set CORS headers for the response
+		transport.SetCORSHeaders(w, r)
+
 		latStr := r.URL.Query().Get("lat")
 		lonStr := r.URL.Query().Get("lon")
 		w.Header().Set("Content-Type", "application/json")
@@ -1844,7 +1853,6 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				var doc = parser.parseFromString(html, 'text/html');
 
 					if (!doc || !doc.body) {
-						console.log('MeetNearMe Embed Step #6: Fail');
 						throw new Error('Failed to parse HTML');
 					}
 
@@ -1856,11 +1864,21 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 						var scriptId = script.id || 'inline-' + i;
 						var marker = '<!-- MNM_SCRIPT_MARKER:' + i + ':' + scriptId + ' -->';
 
+						var scriptContent = script.textContent || '';
+						// Convert relative URLs in fetch calls to absolute URLs
+						if (scriptContent) {
+							var templateLiteralPattern = 'fetch(' + String.fromCharCode(96) + '/api/';
+							var templateLiteralReplacement = 'fetch(' + String.fromCharCode(96) + baseUrl + '/api/';
+							scriptContent = scriptContent.split(templateLiteralPattern).join(templateLiteralReplacement);
+							scriptContent = scriptContent.split('fetch("/api/').join('fetch("' + baseUrl + '/api/');
+							scriptContent = scriptContent.split("fetch('/api/").join("fetch('" + baseUrl + "/api/");
+						}
+
 						var scriptData = {
 							index: i,
 							id: scriptId,
 							attributes: {},
-							content: script.textContent || '',
+							content: scriptContent,
 							src: script.src || ''
 						};
 
@@ -1892,11 +1910,10 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 						}
 					}
 
-					if (scripts.length === 0) {
-						console.log('MeetNearMe Embed Step #6: Success');
-				} else {
-						console.log('MeetNearMe Embed Step #6: Success');
-					}
+					// Set global baseUrl variable for scripts to use
+					var baseUrlScript = document.createElement('script');
+					baseUrlScript.textContent = 'window.MNM_BASE_URL = "' + baseUrl + '";';
+					container.insertBefore(baseUrlScript, container.firstChild);
 
 					// Step #7: HTML Injection & Script Execution
 					try {
@@ -1908,9 +1925,7 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 							}
 						}
 
-						console.log('MeetNearMe Embed Step #7: Found ' + scriptsData.length + ' script(s) in scriptsData');
 						if (alpineStateScript) {
-							console.log('MeetNearMe Embed Step #7: Found alpine-state script, executing first');
 						var alpineStateScriptElement = document.createElement('script');
 						alpineStateScriptElement.id = 'alpine-state-exec';
 							for (var attrName in alpineStateScript.attributes) {
@@ -1935,7 +1950,6 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 								}
 
 								findComments(container);
-								console.log('MeetNearMe Embed Step #7: Found ' + markerComments.length + ' marker(s) in DOM');
 
 								for (var k = 0; k < markerComments.length; k++) {
 									var marker = markerComments[k];
@@ -1947,14 +1961,12 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 										var scriptId = match[2].trim();
 
 										if (scriptId === 'alpine-state') {
-											console.log('MeetNearMe Embed Step #7: Skipping alpine-state marker (already executed)');
 											marker.parentNode.removeChild(marker);
 											continue;
 										}
 
 										if (scriptIndex >= 0 && scriptIndex < scriptsData.length) {
 											var scriptData = scriptsData[scriptIndex];
-											console.log('MeetNearMe Embed Step #7: Inserting script at marker (index: ' + scriptIndex + ', id: ' + scriptId + ', has src: ' + !!scriptData.src + ')');
 
 											try {
 												var newScript = document.createElement('script');
@@ -1973,17 +1985,12 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 												marker.parentNode.insertBefore(newScript, marker);
 												marker.parentNode.removeChild(marker);
-											} catch (insertError) {
-												console.log('MeetNearMe Embed Step #7: Fail');
-											}
+											} catch {}
 										}
 									}
 								}
-
-								console.log('MeetNearMe Embed Step #7: Success');
 							}, 10);
-						} else {
-							console.log('MeetNearMe Embed Step #7: alpine-state script not found, processing all scripts normally');
+									} else {
 							function findComments(element) {
 								for (var i = 0; i < element.childNodes.length; i++) {
 									var node = element.childNodes[i];
@@ -1997,7 +2004,6 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 							}
 
 							findComments(container);
-							console.log('MeetNearMe Embed Step #7: Found ' + markerComments.length + ' marker(s) in DOM');
 
 							for (var k = 0; k < markerComments.length; k++) {
 								var marker = markerComments[k];
@@ -2010,7 +2016,6 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 									if (scriptIndex >= 0 && scriptIndex < scriptsData.length) {
 										var scriptData = scriptsData[scriptIndex];
-										console.log('MeetNearMe Embed Step #7: Inserting script at marker (index: ' + scriptIndex + ', id: ' + scriptId + ', has src: ' + !!scriptData.src + ')');
 
 										try {
 											var newScript = document.createElement('script');
@@ -2023,25 +2028,18 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 											if (scriptData.src) {
 												newScript.src = scriptData.src;
-												} else {
+											} else {
 												newScript.textContent = scriptData.content;
 											}
 
 											marker.parentNode.insertBefore(newScript, marker);
 											marker.parentNode.removeChild(marker);
-										} catch (insertError) {
-											console.log('MeetNearMe Embed Step #7: Fail');
-										}
+										} catch {}
 									}
 								}
 							}
-
-							console.log('MeetNearMe Embed Step #7: Success');
 						}
-
-					} catch (error) {
-						console.log('MeetNearMe Embed Step #7: Fail');
-					}
+					} catch {}
 
 					// Step #8: Alpine Store Registration
 					try {
@@ -2054,8 +2052,7 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 								if (retryCount < maxRetries) {
 									retryCount++;
 									setTimeout(checkStores, 50);
-																	} else {
-									console.log('MeetNearMe Embed Step #8: Fail - Alpine.js not loaded');
+															} else {
 								}
 								return;
 							}
@@ -2065,33 +2062,24 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 							});
 
 							if (allRegistered) {
-								console.log('MeetNearMe Embed Step #8: Success');
-
 								// Step #9: Alpine Initialization
 								try {
 									var isInitialized = window.Alpine._initialized || document.body.querySelector('[x-data]') !== null;
 
 									if (isInitialized) {
 										window.Alpine.initTree(container);
-										console.log('MeetNearMe Embed Step #9: Success - Used initTree()');
 												} else {
 										window.Alpine.start();
-										console.log('MeetNearMe Embed Step #9: Success - Used start()');
 									}
 								} catch (error) {
-									console.log('MeetNearMe Embed Step #9: Fail');
 								}
 
 								// Step #11: HTMX Initialization
 								try {
 									if (window.htmx) {
 										window.htmx.process(container);
-										console.log('MeetNearMe Embed Step #11: Success');
-								} else {
-										console.log('MeetNearMe Embed Step #11: Fail - HTMX not loaded');
 									}
 								} catch (error) {
-									console.log('MeetNearMe Embed Step #11: Fail');
 								}
 
 								return;
@@ -2105,7 +2093,6 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 								var missing = requiredStores.filter(function(storeName) {
 									return !window.Alpine.store || typeof window.Alpine.store(storeName) === 'undefined';
 								});
-								console.log('MeetNearMe Embed Step #8: Fail - Missing stores: ' + missing.join(', '));
 							}
 						}
 
@@ -2113,11 +2100,9 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 						setTimeout(checkStores, 50);
 
 					} catch (error) {
-						console.log('MeetNearMe Embed Step #8: Fail:', error);
 					}
 
 				} catch (error) {
-					console.log('MeetNearMe Embed Step #6: Fail:', error);
 					throw error;
 				}
 			})

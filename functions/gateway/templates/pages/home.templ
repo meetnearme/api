@@ -1009,9 +1009,6 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 		}
 
 		function getLocationSearchState() {
-			console.log("🔵 getLocationSearchState() CALLED - Stack trace:");
-			console.trace();
-			console.log("🔵 location store:", Alpine.store('location'));
 			return {
 				allOptions: JSON.parse(
 					document.querySelector('#alpine-state').getAttribute('data-cities-default-list')
@@ -1114,7 +1111,6 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 							geolocationOptions
 						);
 					});
-
 					getPositionPromise
 						.then(async position => {
 							this.isLoading = true;
@@ -1123,7 +1119,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 								const latitude = position.coords.latitude.toFixed(2);
 								const longitude = position.coords.longitude.toFixed(2);
 								const query = `lat=${latitude}&lon=${longitude}`;
-
+                console.log("ABOUT TO FETCH CITY from /api/location/city")
 								const response = await fetch(`/api/location/city?${query}`, {
 									signal: AbortSignal.timeout(15000),
 								});
