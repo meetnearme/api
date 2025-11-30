@@ -531,7 +531,13 @@ func (app *App) addRoute(route Route) {
 		}
 	}
 
-	app.Router.HandleFunc(route.Path, handler).Methods(route.Method).Name(route.Path)
+	// For CORS support, also allow OPTIONS method for routes that need it
+	methods := []string{route.Method}
+	if route.Auth == None {
+		// Public routes need OPTIONS for CORS preflight
+		methods = append(methods, "OPTIONS")
+	}
+	app.Router.HandleFunc(route.Path, handler).Methods(methods...).Name(route.Path)
 }
 
 func (app *App) SetupNotFoundHandler() {

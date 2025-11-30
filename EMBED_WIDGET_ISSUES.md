@@ -5,293 +5,188 @@
 ### 1. CORS Error: Main CSS Files Blocked
 
 **Status:** ✅ Fixed
-`Access to CSS stylesheet at 'http://localhost:8000/assets/styles.82a6336e.css' from origin 'https://app.beehiiv.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.`
-
-**Problem:**
-
-- The embed script tries to load CSS from `localhost:8000` when embedded on
-  `https://app.beehiiv.com`
-- The Go server is not sending CORS headers for static asset requests
-- Both hashed (`styles.82a6336e.css`) and fallback (`styles.css`) versions fail
-
-**Impact:**
-
-- Main compiled CSS is not loading
-- Widget has "limited styling" as warned in console
-- Missing all custom styles, DaisyUI components, and theme variables
 
 ### 2. Missing DaisyUI
 
 **Status:** ✅ Fixed
 
-- DaisyUI component library is not being loaded
-- DaisyUI provides the drawer, modal, and other component styles
-- Without it, components like the filter drawer won't display correctly
-
-**Current State:**
-
-- Only Tailwind CDN is loaded (runtime processor)
-- DaisyUI styles are likely in the main CSS file that's blocked by CORS
-
 ### 3. Filter Drawer Not Visible
 
 **Status:** ✅ Fixed
 
-- Checkbox mechanism works (can be checked/unchecked)
-- Drawer does not fly in/out visually
-- Checkbox should be invisible, drawer should animate
-
-**Root Causes:**
-
-1. Missing CSS (DaisyUI drawer styles blocked by CORS)
-2. Missing Alpine.js Focus plugin (required for `x-trap` directive)
-3. Drawer component may need specific classes that aren't loading
-
-**Console Evidence:**
-
-- `Alpine Warning: You can't use [x-trap] without first installing the "Focus" plugin`
-- Drawer uses `x-trap="modalIsOpen"` and `x-trap="openedWithKeyboard"`
-
----
-
 ### 4. Alpine.js Double Initialization
 
 **Status:** ✅ Fixed
-`Alpine Warning: Alpine has already been initialized on this page. Calling Alpine.start() more than once can cause problems.`
-
-**Problem:**
-
-- Embed script calls `Alpine.start()` but Alpine is already initialized on the
-  host page
-- This can cause conflicts with stores and event handlers
-
----
 
 ### 5. Missing Alpine.js Focus Plugin
 
 **Status:** ✅ Fixed
 
-**Previous Error:**
-`Alpine Warning: You can't use [x-trap] without first installing the "Focus" plugin`
-
-**Problem (Resolved):**
-
-- The drawer and modal components use `x-trap` directive
-- Focus plugin is loaded on regular site (`@alpinejs/focus@3.x.x`) but was not
-  in embed
-- Without it, focus trapping (accessibility feature) doesn't work
-
-**Solution Implemented:**
-
-- Added Focus plugin detection to dependency checking
-- Added Focus plugin loading logic to embed script
-- Ensures Focus plugin loads BEFORE Alpine.js when both need to be loaded
-- If Alpine is already loaded on host page, Focus plugin will auto-register when
-  loaded
-- Loads from:
-  `https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js`
-
----
-
 ### 6. Location Dropdown Not Working
 
-**Status:** 🔴 Critical **Problem:**
-
-**Symptoms:**
-
-1. **Initial state is blank/empty**: The location dropdown shows empty/blank
-   instead of displaying the selected location
-2. **Dropdown doesn't open**: When clicking the location dropdown button,
-   nothing happens - no console errors, dropdown doesn't open at all
-
-**Root Cause:**
-
-- **Initial state issue**: `selectedOption` in `getLocationSearchState()` is
-  initialized by accessing `Alpine.store('location').selected.label`, which can
-  fail if the store isn't ready or doesn't have the expected structure
-- **Click handler issue**: The button has
-  `x-on:click="!isLoading && (isOpen = ! isOpen)"` but child elements cannot
-  access parent scope properties (`isLoading`, `isOpen`) due to Alpine scope
-  inheritance problems
-- This is related to the broader issue where `Alpine.initTree()` doesn't
-  properly set up scope inheritance for child elements to access parent
-  component data
-
-**Console Evidence:**
-
-- Sometimes errors like cdn.min.js:5 Uncaught ReferenceError: isLoading is not
-  defined
-- `cdn.min.js:5 Uncaught TypeError: Cannot read properties of undefined (reading '_x_refs')` -
-  Alpine internal error when processing elements
-- Diagnostic logs show parent element has data stack, but child elements don't
-  inherit scope
-- `isLoading is not defined` errors when Alpine tries to evaluate expressions on
-  child elements
-
-**Current State:**
-
-- Parent element (`x-data="getLocationSearchState()"`) has component data with
-  `isLoading` and `isOpen` properties
-- Child elements (button, dropdown content) cannot access these properties
-- Click handler expression fails because `isLoading` and `isOpen` are undefined
-  in child scope
-
-**Solution Needed:**
-
-- Fix Alpine scope inheritance so child elements can access parent component
-  data
-- May require different initialization approach than `Alpine.initTree()`
-- Consider using Alpine's internal scope resolution mechanisms
-- Or restructure the component to avoid scope inheritance issues
-- The `_x_refs` error suggests Alpine is processing elements before they're
-  fully initialized - may need to ensure proper initialization order
-
-**Related Errors:**
-
-- `Cannot read properties of undefined (reading '_x_refs')` - Alpine internal
-  error indicating elements aren't fully initialized when processed
-- This is likely a symptom of the same scope inheritance/timing issue
-
----
+**Status:** ✅ Fixed
 
 ### 7. Time Filter Buttons (TODAY, TOMORROW, etc.) Not Working
 
-**Status:** 🔴 Critical **Problem:**
-
-**Symptoms:**
-
-- Clicking "TODAY", "TOMORROW", "THIS WEEK", "THIS MONTH" buttons does nothing
-- Buttons should trigger a form submission to reload events filtered by the
-  selected time period
-- No console errors, buttons appear clickable but don't update the event list
-
-**Root Cause:**
-
-- Buttons use `@click="$store.urlState.setParam('start_time', 'today')"` to
-  update the URL state
-- The `setParam()` method should:
-  1. Update the Alpine store
-  2. Update the URL with `window.history.pushState()`
-  3. Find the form `#event-search-form` and call `form.requestSubmit()`
-  4. HTMX should then fetch new events and update `#events-container-inner`
-- **Note**: Unlike the location dropdown, these buttons use `$store` (Alpine
-  magic property) directly, not component scope - this is a **different issue**
-- Likely issues (different from location dropdown):
-  1. **Alpine not processing `@click` directive**: Button might not be in an
-     Alpine context when processed
-  2. **`$store` magic property not available**: Alpine might not have
-     initialized the magic properties on the button
-  3. **Form not found**: `document.getElementById('event-search-form')` might
-     not find the form in embed context
-  4. **HTMX not processing**: Form submission might not trigger HTMX request
-     properly
-  5. **Button not processed by Alpine.initTree()**: The button might not be
-     getting processed when `Alpine.initTree()` is called
-
-**Console Evidence:**
-
-- No errors when clicking buttons (handler fails silently)
-- Stores are verified as registered in console logs
-- This is a **different issue** from the location dropdown scope inheritance
-  problem
-
-**Current State:**
-
-- Buttons are visible and clickable
-- **ROOT CAUSE IDENTIFIED**: Alpine's `@click` handlers are attached
-  (`_x_attributeCleanups` exists), but they're not executing because `$store`
-  magic property cannot be resolved in the button's context
-- Manual click listeners work perfectly (calling
-  `window.Alpine.store('urlState').setParam(...)` directly)
-- This confirms: **Alpine scope inheritance is broken** - child elements cannot
-  access parent's Alpine context, including magic properties like `$store`
-
-**What We Learned:**
-
-1. ✅ Stores are registered and accessible via `window.Alpine.store('urlState')`
-2. ✅ `setParam()` function works correctly when called manually
-3. ✅ Buttons have Alpine listeners attached (`_x_attributeCleanups: true`)
-4. ❌ Buttons don't have Alpine data stack (`_x_dataStack: false`)
-5. ❌ Parent has `x-data="getHomeState()"` but child buttons can't inherit scope
-6. ❌ Alpine's `@click` handlers fail silently because `$store` resolves to
-   `undefined` in button context
-
-**Solution Needed:**
-
-- **Primary Fix**: Ensure Alpine properly inherits parent scope for child
-  elements when using `Alpine.initTree()`
-- This is the same root cause as Issue #6 (Location Dropdown) - **Alpine scope
-  inheritance is broken in dynamically injected HTML**
-- Options:
-  1. Fix Alpine scope inheritance (may require Alpine plugin or different
-     initialization approach)
-  2. Use manual event listeners as workaround (current temporary solution)
-  3. Ensure buttons are explicitly within an Alpine context that has access to
-     stores
-  4. Consider using `Alpine.data()` components instead of `x-data` functions for
-     better scope management
-
----
+**Status:** ✅ Fixed
 
 ### 8. Search Form Submit Not Working in Embed
 
+**Status:** ✅ Fixed
+
+### 9. CORS Error: Preflight Works But Actual GET Request Fails
+
 **Status:** 🔴 Critical **Problem:**
 
 **Symptoms:**
 
-- Clicking the search button (or pressing Enter) in the search form doesn't set
-  the `q` parameter
-- The form has
-  `@submit.prevent="$store.urlState.setParam('q', document.getElementById('search-input').value)"`
-- Works perfectly on the actual website, but fails silently in the embed
-- No console errors, the form just doesn't submit/update the query parameter
+- OPTIONS preflight requests succeed (return 200 OK with CORS headers)
+- Actual GET requests to `/api/html/events` fail with CORS error
+- Browser Network tab shows:
+  - ✅ OPTIONS request: Status 200, Type: `preflight`
+  - ❌ GET request: Status: `CORS error`, Type: `xhr`
+- Both requests go to the same URL with the same query parameters
 
-**Root Cause:**
+**Root Cause (Under Investigation):**
 
-This is the same Alpine scope inheritance issue as Issues #6 and #7. The form's
-`@submit.prevent` handler uses `$store.urlState.setParam()`, but `$store` cannot
-be resolved in the form's context because:
+The preflight OPTIONS request is handled correctly and returns proper CORS
+headers, but the actual GET request response is missing or has incorrect CORS
+headers, causing the browser to reject it.
 
-1. The form is a child element within the widget
-2. Alpine scope inheritance is broken when using `Alpine.initTree()` on
-   dynamically injected HTML
-3. `$store` magic property resolves to `undefined` in the form's context
-4. The handler fails silently, so the form doesn't submit
+**What We've Tried:**
 
-**Console Evidence:**
+1. **Moved CORS headers to start of handler function**
 
-- No errors when clicking search button
-- Form submission handler doesn't execute
-- `$store` is undefined in the form's Alpine context
+   - Set CORS headers at the beginning of `GetEventsPartial` before any
+     processing
+   - Ensures headers are set even on early returns
+   - **Result:** Still fails
 
-**Current State:**
+2. **Added OPTIONS method support to route registration**
 
-- Search input field is visible and typeable
-- Search button is clickable
-- But `@submit.prevent` handler doesn't execute because `$store` is undefined
-- This prevents the `q` parameter from being set and the form from submitting
+   - Modified `addRoute()` to include OPTIONS method for public routes
+   - Ensures OPTIONS requests match the route
+   - **Result:** Preflight works, but GET still fails
 
-**Solution Needed:**
+3. **Fixed CORS credentials conflict**
 
-- **Same fix as Issues #6 and #7**: Fix Alpine scope inheritance for dynamically
-  injected HTML
-- **Temporary workaround**: Add a manual event listener to the search form
-  (similar to what we did for time filter buttons)
-- The manual listener would:
-  1. Listen for form submit events
-  2. Get the search input value
-  3. Call `window.Alpine.store('urlState').setParam('q', value)` directly
-  4. Prevent default form submission
+   - Removed `Access-Control-Allow-Credentials: true` when using
+     `Access-Control-Allow-Origin: *`
+   - Only set credentials when we have a specific origin
+   - **Result:** Still fails
 
-**Related Issues:**
+4. **Set CORS headers in SendHtmlRes**
 
-- Issue #6: Location Dropdown Not Working (same root cause)
-- Issue #7: Time Filter Buttons Not Working (same root cause)
-- All three issues stem from Alpine scope inheritance problems in embed context
+   - Added CORS header setting inside `SendHtmlRes` handler function
+   - Ensures headers are on the actual response writer that writes the response
+   - **Result:** Still fails
+
+5. **Set CORS headers in error handlers**
+
+   - Added CORS headers to `SendHtmlErrorPartial` for error responses
+   - **Result:** Still fails
+
+6. **Set CORS headers before calling SendHtmlRes**
+   - Call `SetCORSHeaders()` in `GetEventsPartial` before calling `SendHtmlRes`
+   - Ensures headers are on the response writer before any processing
+   - **Result:** Still fails
+
+**Current CORS Header Implementation:**
+
+```go
+func SetCORSHeaders(w http.ResponseWriter, r *http.Request) {
+    origin := r.Header.Get("Origin")
+    if origin != "" {
+        w.Header().Set("Access-Control-Allow-Origin", origin)
+        w.Header().Set("Access-Control-Allow-Credentials", "true")
+    } else {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        // Cannot use credentials with *
+    }
+    w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
+}
+```
+
+**Possible Issues to Investigate:**
+
+1. **Header order/timing**: Headers might need to be set in a specific order or
+   before `WriteHeader()` is called
+2. **Response writer wrapping**: The response writer might be wrapped by
+   middleware, causing headers to be lost
+3. **Header overwriting**: Something might be overwriting CORS headers after
+   they're set
+4. **Browser caching**: Browser might be caching a previous failed response
+5. **HTMX-specific headers**: HTMX might be sending additional headers that need
+   to be allowed
+6. **Content-Type header conflict**: Setting `Content-Type: text/html` might
+   conflict with CORS headers
+7. **Multiple header setting**: Headers might be getting set multiple times,
+   causing conflicts
+
+**Next Steps to Debug:**
+
+1. **Check actual response headers**: Use browser DevTools Network tab to
+   inspect the actual GET response headers
+
+   - Compare OPTIONS response headers vs GET response headers
+   - Verify all CORS headers are present in GET response
+   - Check for any conflicting headers
+   - **UPDATE**: Browser shows "no data found" for GET request headers - this
+     suggests the browser is blocking the response before it can be inspected,
+     or the request is failing at a network level before headers are received
+
+2. **Add logging**: Add server-side logging to verify CORS headers are being set
+
+   - Log headers before and after `SendHtmlRes` call
+   - Log headers in `SendHtmlRes` handler function
+   - Verify headers are on the response writer
+
+3. **Test with curl**: Use curl to make requests and inspect headers
+
+   - `curl -H "Origin: https://example.com" -v http://localhost:8001/api/html/events`
+   - Compare OPTIONS vs GET response headers
+
+4. **Check middleware**: Verify no middleware is interfering with CORS headers
+
+   - Check if middleware wraps the response writer
+   - Check if middleware modifies headers
+
+5. **Test simple endpoint**: Create a minimal test endpoint to isolate the issue
+
+   - Simple handler that just sets CORS headers and returns HTML
+   - Verify if the issue is specific to `GetEventsPartial` or general
+
+6. **Check HTMX request headers**: Verify what headers HTMX is sending
+
+   - Check `Access-Control-Request-Headers` in OPTIONS request
+   - Ensure all requested headers are in `Access-Control-Allow-Headers`
+
+7. **Investigate "no data found" issue**: Since browser shows "no data found"
+   for GET response headers
+   - This suggests the browser is blocking the response before headers are
+     received
+   - Could indicate the request is being rejected at the CORS preflight stage
+     even though OPTIONS returns 200
+   - Check if there's a mismatch between what OPTIONS promises and what GET
+     delivers
+   - Verify the actual HTTP response is being sent (not just headers)
+   - Test with a simple curl request to see if server is actually responding:
+     `curl -H "Origin: https://example.com" -v http://localhost:8001/api/html/events?q=test`
+   - Check server logs to see if GET request is actually reaching the handler
+   - Verify the response is not empty or malformed
+
+**Related Code Locations:**
+
+- `functions/gateway/handlers/partial_handlers.go`: `GetEventsPartial()`
+  function
+- `functions/gateway/transport/http.go`: `SetCORSHeaders()` and `SendHtmlRes()`
+  functions
+- `functions/gateway/main.go`: Route registration and OPTIONS method handling
 
 ---
 
-### 9. Event Filtering Not Working (Query Params Update But Events Don't Filter)
+### 10. Event Filtering Not Working (Query Params Update But Events Don't Filter)
 
 **Status:** 🔴 Critical **Problem:**
 
@@ -432,7 +327,7 @@ function sendParmsFromQs() {
 
 ## Medium Priority Issues
 
-### 10. Theme CSS Variables Missing
+### 11. Theme CSS Variables Missing
 
 **Status:** ✅ Fixed
 
@@ -448,7 +343,7 @@ function sendParmsFromQs() {
 
 ---
 
-### 11. Mixed Content Warning
+### 12. Mixed Content Warning
 
 **Status:** 🟢 Low (Auto-upgraded) **Warning:**
 `Mixed Content: The page at 'about:srcdoc' was loaded over HTTPS, but requested an insecure element`
@@ -469,15 +364,17 @@ function sendParmsFromQs() {
 
 ## Action Plan Priority
 
-1. **Fix CORS for CSS files** (Blocks all styling) ✅ Fixed
-2. **Fix event filtering** (Query params update but events don't filter -
+1. **Fix CORS for GET requests** (Preflight works but actual request fails -
+   CRITICAL) 🔴
+2. **Fix CORS for CSS files** (Blocks all styling) ✅ Fixed
+3. **Fix event filtering** (Query params update but events don't filter -
    CRITICAL) ✅ Fixed (sendParmsFromQs updated)
-3. **Fix Alpine scope inheritance** (Location dropdown, time filter buttons,
+4. **Fix Alpine scope inheritance** (Location dropdown, time filter buttons,
    search form not working - CRITICAL)
-4. **Verify DaisyUI loading** (Required for drawer components) ✅ Fixed
-5. **Fix Alpine double initialization** (Prevents conflicts)
-6. **Add theme CSS variables** (Completes styling) ✅ Fixed
-7. **Handle mixed content** (Production concern)
+5. **Verify DaisyUI loading** (Required for drawer components) ✅ Fixed
+6. **Fix Alpine double initialization** (Prevents conflicts)
+7. **Add theme CSS variables** (Completes styling) ✅ Fixed
+8. **Handle mixed content** (Production concern)
 
 ---
 

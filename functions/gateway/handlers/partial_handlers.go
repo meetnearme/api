@@ -148,69 +148,82 @@ func DeleteMnmSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 }
 
 func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	// Extract parameter values from the request query parameters
-	ctx := r.Context()
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Handle OPTIONS preflight request
+		if r.Method == "OPTIONS" {
+			transport.SetCORSHeaders(w, r)
+			return
+		}
 
-	q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+		// Extract parameter values from the request query parameters
+		ctx := r.Context()
 
-	weaviateClient, err := services.GetWeaviateClient()
-	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
+		q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+
+		weaviateClient, err := services.GetWeaviateClient()
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
+			return
+		}
+
+		mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
+		mnmUserId := mnmOptions["userId"]
+
+		// we override the `owners` query param here, because subdomains should always show only
+		// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
+		if mnmUserId != "" {
+			ownerIds = []string{mnmUserId}
+		}
+
+		res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
+			return
+		}
+
+		events := res.Events
+		listMode := r.URL.Query().Get("list_mode")
+
+		// Only sort by StartTime if there's no search query (preserve Weaviate's relevance order)
+		if q == "" {
+			sort.Slice(events, func(i, j int) bool {
+				return events[i].StartTime < events[j].StartTime
+			})
+		}
+
+		roleClaims := []constants.RoleClaim{}
+		if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+			roleClaims = claims
+		}
+
+		userInfo := constants.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(constants.UserInfo)
+		}
+		userId := ""
+		if userInfo.Sub != "" {
+			userId = userInfo.Sub
+		}
+		pageUser := &internal_types.UserSearchResult{
+			UserID: userId,
+		}
+
+		eventListPartial := pages.EventsInner(events, listMode, roleClaims, userId, pageUser, false, "")
+
+		var buf bytes.Buffer
+		err = eventListPartial.Render(ctx, &buf)
+		if err != nil {
+			// Set CORS headers before sending error response
+			transport.SetCORSHeaders(w, r)
+			transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err).ServeHTTP(w, r)
+			return
+		}
+
+		// Set CORS headers before sending success response
+		// This ensures headers are on the actual response writer, not just in SendHtmlRes
+		transport.SetCORSHeaders(w, r)
+		transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil).ServeHTTP(w, r)
 	}
-
-	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
-	mnmUserId := mnmOptions["userId"]
-
-	// we override the `owners` query param here, because subdomains should always show only
-	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
-	if mnmUserId != "" {
-		ownerIds = []string{mnmUserId}
-	}
-
-	res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
-	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
-	}
-
-	events := res.Events
-	listMode := r.URL.Query().Get("list_mode")
-
-	// Only sort by StartTime if there's no search query (preserve Weaviate's relevance order)
-	if q == "" {
-		sort.Slice(events, func(i, j int) bool {
-			return events[i].StartTime < events[j].StartTime
-		})
-	}
-
-	roleClaims := []constants.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
-		roleClaims = claims
-	}
-
-	userInfo := constants.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(constants.UserInfo)
-	}
-	userId := ""
-	if userInfo.Sub != "" {
-		userId = userInfo.Sub
-	}
-	pageUser := &internal_types.UserSearchResult{
-		UserID: userId,
-	}
-
-	eventListPartial := pages.EventsInner(events, listMode, roleClaims, userId, pageUser, false, "")
-
-	var buf bytes.Buffer
-	err = eventListPartial.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
-	}
-
-	// Set CORS headers for embed support
-	transport.SetCORSHeaders(w, r)
-
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
 func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -1827,15 +1840,15 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				var markerComments = [];
 
 				try {
-					var parser = new DOMParser();
-					var doc = parser.parseFromString(html, 'text/html');
+				var parser = new DOMParser();
+				var doc = parser.parseFromString(html, 'text/html');
 
 					if (!doc || !doc.body) {
 						console.log('MeetNearMe Embed Step #6: Fail');
 						throw new Error('Failed to parse HTML');
 					}
 
-					var scripts = doc.querySelectorAll('script');
+				var scripts = doc.querySelectorAll('script');
 					var htmlWithMarkers = html;
 
 					for (var i = scripts.length - 1; i >= 0; i--) {
@@ -1865,9 +1878,23 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 					container.innerHTML = htmlWithMarkers;
 
+					// Convert relative HTMX URLs to absolute URLs
+					var htmxElements = container.querySelectorAll('[hx-get], [hx-post], [hx-put], [hx-patch], [hx-delete]');
+					for (var h = 0; h < htmxElements.length; h++) {
+						var el = htmxElements[h];
+						var attrs = ['hx-get', 'hx-post', 'hx-put', 'hx-patch', 'hx-delete'];
+						for (var a = 0; a < attrs.length; a++) {
+							var attr = attrs[a];
+							var url = el.getAttribute(attr);
+							if (url && url.startsWith('/')) {
+								el.setAttribute(attr, baseUrl + url);
+							}
+						}
+					}
+
 					if (scripts.length === 0) {
 						console.log('MeetNearMe Embed Step #6: Success');
-					} else {
+				} else {
 						console.log('MeetNearMe Embed Step #6: Success');
 					}
 
@@ -1884,8 +1911,8 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 						console.log('MeetNearMe Embed Step #7: Found ' + scriptsData.length + ' script(s) in scriptsData');
 						if (alpineStateScript) {
 							console.log('MeetNearMe Embed Step #7: Found alpine-state script, executing first');
-							var alpineStateScriptElement = document.createElement('script');
-							alpineStateScriptElement.id = 'alpine-state-exec';
+						var alpineStateScriptElement = document.createElement('script');
+						alpineStateScriptElement.id = 'alpine-state-exec';
 							for (var attrName in alpineStateScript.attributes) {
 								if (alpineStateScript.attributes.hasOwnProperty(attrName)) {
 									alpineStateScriptElement.setAttribute(attrName, alpineStateScript.attributes[attrName]);
@@ -1894,7 +1921,7 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 							alpineStateScriptElement.textContent = alpineStateScript.content;
 							document.head.appendChild(alpineStateScriptElement);
 
-							setTimeout(function() {
+						setTimeout(function() {
 								function findComments(element) {
 									for (var i = 0; i < element.childNodes.length; i++) {
 										var node = element.childNodes[i];
@@ -1996,7 +2023,7 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 											if (scriptData.src) {
 												newScript.src = scriptData.src;
-											} else {
+												} else {
 												newScript.textContent = scriptData.content;
 											}
 
@@ -2027,7 +2054,7 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 								if (retryCount < maxRetries) {
 									retryCount++;
 									setTimeout(checkStores, 50);
-								} else {
+																	} else {
 									console.log('MeetNearMe Embed Step #8: Fail - Alpine.js not loaded');
 								}
 								return;
@@ -2039,6 +2066,34 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 							if (allRegistered) {
 								console.log('MeetNearMe Embed Step #8: Success');
+
+								// Step #9: Alpine Initialization
+								try {
+									var isInitialized = window.Alpine._initialized || document.body.querySelector('[x-data]') !== null;
+
+									if (isInitialized) {
+										window.Alpine.initTree(container);
+										console.log('MeetNearMe Embed Step #9: Success - Used initTree()');
+												} else {
+										window.Alpine.start();
+										console.log('MeetNearMe Embed Step #9: Success - Used start()');
+									}
+								} catch (error) {
+									console.log('MeetNearMe Embed Step #9: Fail');
+								}
+
+								// Step #11: HTMX Initialization
+								try {
+									if (window.htmx) {
+										window.htmx.process(container);
+										console.log('MeetNearMe Embed Step #11: Success');
+								} else {
+										console.log('MeetNearMe Embed Step #11: Fail - HTMX not loaded');
+									}
+								} catch (error) {
+									console.log('MeetNearMe Embed Step #11: Fail');
+								}
+
 								return;
 							}
 
@@ -2054,7 +2109,7 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 							}
 						}
 
-						document.dispatchEvent(new CustomEvent('alpine:init', { bubbles: true }));
+							document.dispatchEvent(new CustomEvent('alpine:init', { bubbles: true }));
 						setTimeout(checkStores, 50);
 
 					} catch (error) {
