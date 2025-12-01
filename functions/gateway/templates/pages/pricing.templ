@@ -149,7 +149,7 @@ templ PricingPage(isLoggedIn bool, hasSeedSubscription bool, hasGrowthSubscripti
 							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
 								@components.Icon("check")
 							</span>
-							<span class="font-semibold">Everything in Seed tier</span>
+							<span class="font-semibold">Everything in Basic tier</span>
 						</li>
 						<li class="flex items-start gap-3">
 							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
@@ -174,6 +174,12 @@ templ PricingPage(isLoggedIn bool, hasSeedSubscription bool, hasGrowthSubscripti
 								@components.Icon("check")
 							</span>
 							<span>API Access for your app / website</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+								@components.Icon("check")
+							</span>
+							<span>Import and update events daily from external sources</span>
 						</li>
 					</ul>
 					if hasGrowthSubscription {
