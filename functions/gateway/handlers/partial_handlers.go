@@ -1805,10 +1805,6 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			);
 		}
 
-		if (!dependencies.tailwind) {
-			loadPromises.push(loadScript('https://cdn.tailwindcss.com').catch(function() {}));
-		}
-
 		if (!dependencies.focusPlugin && !dependencies.alpine) {
 			loadPromises.push(
 				loadScript('https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js').then(function() {

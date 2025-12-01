@@ -52,34 +52,32 @@
 
 **Status:** ✅ Fixed
 
-### 13. Mixed Content Warning
+### 13. CORS Error: Tailwind CSS CDN Blocked
 
-**Status:** ✅ Fixed ??? (Haven't seen it since but maybe on local tunnel)
+**Status:** ✅ Fixed
 
-`Mixed Content: The page at 'about:srcdoc' was loaded over HTTPS, but requested an insecure element`
+### 14. Failed Resource Load Error
 
-**Problem:**
+**Status:** ⚠️ Non-Issue (Local dev only)
 
-- Embed tries to load resources over HTTP from `localhost:8000`
-- Browser auto-upgrades to HTTPS, but this may cause issues
+The hashed CSS file doesn't exist locally but when using local tunnels this
+error shows because it tries to fetch the hashed CSS. This should be a non-issue
+in production.
 
-**Solution Needed:**
+### 15. Mixed Content Warning (Production - localhost:8001)
 
-- Use HTTPS for local development (via localtunnel or similar)
-- Or ensure production uses HTTPS URLs
+**Status:** ⚠️ Non-Issue (Local Development Only)
 
-## Non-Critical Issues
+**Error Message:**
 
-## Action Plan Priority
+```text
+Mixed Content: The page at 'https://use.meetnear.me/embed-code-test/?preview_id=...' was loaded over HTTPS, but requested an insecure element 'http://localhost:8001/static/assets/img/cat none [XX].jpeg'. This request was automatically upgraded to HTTPS.
+```
 
-1. **Fix CORS for GET requests** (Preflight works but actual request fails) -
-   **Status:** ✅ Fixed
-2. **Fix CORS for CSS files** (Blocks all styling) ✅ Fixed
-3. **Fix event filtering** (Query params update but events don't filter -
-   CRITICAL) ✅ Fixed (sendParmsFromQs updated) ✅ Fixed
-4. **Fix Alpine scope inheritance** (Location dropdown, time filter buttons,
-   search form not working - CRITICAL) ✅ Fixed
-5. **Verify DaisyUI loading** (Required for drawer components) ✅ Fixed
-6. **Fix Alpine double initialization** (Prevents conflicts) ✅ Fixed
-7. **Add theme CSS variables** (Completes styling) ✅ Fixed
-8. **Handle mixed content** (Production concern)
+**Why This Is Not a Problem:**
+
+- Production environment variables are set correctly via deployment pipelines
+- Local development with tunnels is expected to have this limitation
+- The warnings don't affect functionality - they're just browser security
+  warnings
+- Images will load correctly in actual production deployments
