@@ -167,12 +167,12 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 						</div>
 						<br/>
 						if embedMode {
-							<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL(embedBaseUrl + "/event/" + ev[0].Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+							<a data-details-btn data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL(embedBaseUrl + "/event/" + ev[0].Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 								LEARN MORE
 								&rarr;
 							</a>
 						} else {
-							<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL("/event/" + ev[0].Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
+							<a data-details-btn data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL("/event/" + ev[0].Id) } class="btn btn-primary btn-block mb-2 md:mb-3">
 								LEARN MORE
 								&rarr;
 							</a>
@@ -199,7 +199,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 					<div class="carousel rounded-box max-w-full relative mb-4">
 						<input type="hidden" id={ "current-slide-index-" + evGroup[0].Id } value="0"/> <!-- Hidden input to track current slide -->
 						for idx, ev := range evGroup {
-							<div id={ "slide-" + evGroup[0].Id + "-" + strconv.Itoa(idx) } class="carousel-item bg-base-200 flex-shrink-0 w-48 snap-start mr-4 last:mr-0 whitespace-nowrap">
+							<div id={ "slide-" + evGroup[0].Id + "-" + strconv.Itoa(idx) } class="carousel-item bg-base-200 flex-shrink-0 snap-start mr-4 last:mr-0 whitespace-nowrap">
 								if embedMode {
 									<a href={ templ.URL(embedBaseUrl + "/event/" + ev.Id) } class="block p-4 rounded-lg">
 										<div class="text-lg font-semibold">{ helpers.GetDateOrShowNone(ev.StartTime, ev.Timezone) }</div>
@@ -299,7 +299,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 							}
 						</div>
 						if embedMode {
-							<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL(embedBaseUrl + "/event/" + ev[0].Id) } class="btn btn-primary mb-2 md:mb-3">
+							<a data-details-btn data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL(embedBaseUrl + "/event/" + ev[0].Id) } class="btn btn-primary mb-2 md:mb-3">
 								if ev[0].HasPurchasable {
 									BUY TICKETS
 									&rarr;
@@ -309,7 +309,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 								}
 							</a>
 						} else {
-							<a data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL("/event/" + ev[0].Id) } class="btn btn-primary mb-2 md:mb-3">
+							<a data-details-btn data-id={ eventUrlDataId } data-umami-event={ "event-list-clk" } data-umami-event-event-id={ ev[0].Id } href={ templ.URL("/event/" + ev[0].Id) } class="btn btn-primary mb-2 md:mb-3">
 								if ev[0].HasPurchasable {
 									BUY TICKETS
 									&rarr;
@@ -445,7 +445,7 @@ func GetCitiesAsJsonStr() string {
 }
 
 templ FilterButton() {
-	<button type="button" onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
+	<button data-filter-btn type="button" onclick="document.getElementById('flyout-tab-filters').click(); document.getElementById('main-drawer').click();" style="display: inline-block;" class="btn btn-ghost">
 		@components.Icon("filter")
 	</button>
 }
@@ -569,7 +569,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 				<h2 class="text-xl md:text-2xl body-font font-bold mb-4 uppercase text-center">What type of local events are you looking to find?</h2>
 				<form class="show-on-focus-parent" @submit.prevent="$store.urlState.setParam('q', document.getElementById('search-input').value)">
 					<div class="join w-full">
-						<label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
+						<label data-search-input-label class="input input-bordered rounded-full flex join-item items-center gap-2 w-full">
 							<input
 								id="search-input"
 								class="w-full grow"
@@ -588,7 +588,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					</div>
 					<div class="mb-4 relative show-on-focus-child">
 						// search examples
-						<div class="flex gap-2 items-center overflow-x-auto pb-3 pt-4">
+						<div data-suggestion-container class="flex gap-2 items-center overflow-x-auto pb-3 pt-4">
 							<template x-for="(example, index) in $store.filters.getSearchExamples()" :key="index">
 								<button
 									type="button"
@@ -699,7 +699,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 						type="hidden"
 						name="lon"
 					/>
-					<div class="flex flex-auto space-x-2">
+					<div data-time-filter-container class="flex flex-auto space-x-2">
 						<button
 							type="button"
 							:class="{ 'btn-primary': $store.urlState.start_time === 'this_month' }"
@@ -757,7 +757,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 										<span x-text="Object.keys(selectedEvents).length" class="indicator-item badge badge-primary"></span>
 										<div class="dropdown dropdown-end">
 											<div tabindex="0" role="button" class="btn">Export</div>
-											<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-48 p-2 shadow">
+											<ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] p-2 shadow">
 												<li><a @click="exportSelectedEvents('rich')">Rich Text</a></li>
 												<li><a @click="exportSelectedEvents('html')">HTML</a></li>
 											</ul>

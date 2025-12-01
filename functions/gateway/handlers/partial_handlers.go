@@ -1697,6 +1697,8 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			document.body.appendChild(container);
 		}
 
+		container.innerHTML = '<div style="padding: 1rem; background-color: #ccc; border: 1px solid #eee; border-radius: 0.5rem;"><h2>Loading Events ...</h2></div>';
+
 		// Step #2: User ID Detection
 		var userId = null;
 
