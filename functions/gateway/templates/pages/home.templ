@@ -403,16 +403,6 @@ func GetCityCountryFromLocation(cfLocation constants.CdnLocation, cityStr, latSt
 	} else if cfLocation.City != "" && cfLocation.CCA2 != "" {
 		return cfLocation.City + ", " + cfLocation.CCA2
 	} else if latStr != "" && lonStr != "" {
-		lat, latErr := strconv.ParseFloat(latStr, 64)
-		lon, lonErr := strconv.ParseFloat(lonStr, 64)
-		if latErr == nil && lonErr == nil {
-			cityService := services.GetCityService()
-			locationQuery := fmt.Sprintf("%.2f+%.2f", lat, lon)
-			city, err := cityService.GetCity(locationQuery)
-			if err == nil && city != "" {
-				return city
-			}
-		}
 		return latStr + ", " + lonStr
 	} else if cfLocation.City == "" && origLat != "" && origLon != "" {
 		return origLat + ", " + origLon
