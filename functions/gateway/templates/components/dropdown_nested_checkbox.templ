@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	constants "github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 )
 
@@ -15,15 +16,15 @@ templ NestedCheckboxList(isInDropdown bool, interests []string) {
 	if isInDropdown {
 		<summary class="m-1 btn">Categories</summary>
 	}
-	<div class="collapse-content bg-base-200 peer-checked:bg-base-200">
+	<div class="collapse-content p-0 bg-base-200 peer-checked:bg-base-200">
 		<ul
 			if isInDropdown {
-				class="shadow menu dropdown-content z-[1] bg-base-100 rounded-box"
+				class="shadow dropdown-content z-[1] bg-base-100 rounded-box"
 			} else {
-				class="p-2 shadow menu bg-base-100 rounded-box"
+				class="p-2 shadow bg-base-100 rounded-box"
 			}
 		>
-			for idx, cat := range helpers.Categories {
+			for idx, cat := range constants.Categories {
 				<li>
 					<div class="collapse bg-base-200">
 						<input
