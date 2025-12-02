@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -476,6 +477,96 @@ func TestGetUserPageURL(t *testing.T) {
 				// Exact match
 				if result != tt.expectedURL {
 					t.Errorf("getUserPageURL() = %q, want %q", result, tt.expectedURL)
+				}
+			}
+		})
+	}
+}
+
+func TestNavbar(t *testing.T) {
+	ctx := context.Background()
+
+	userInfo := constants.UserInfo{
+		Email:             "testuser@gmail.com",
+		EmailVerified:     true,
+		FamilyName:        "User",
+		GivenName:         "Test",
+		Locale:            "en-US",
+		Name:              "Test User",
+		PreferredUsername: "Test User",
+		Sub:               "123456789",
+		UpdatedAt:         123456789,
+		Metadata:          "",
+	}
+
+	loc, _ := time.LoadLocation("America/New_York")
+	event := types.Event{
+		Id:              "123",
+		Name:            "Test Event 1",
+		Description:     "Description for Test Event 1",
+		Address:         "123 Test St",
+		Lat:             40.7128,
+		Long:            -74.0060,
+		StartTime:       1704067200,
+		Timezone:        *loc,
+		EventSourceType: constants.ES_SINGLE_EVENT,
+	}
+
+	tests := []struct {
+		name            string
+		pageUser        *types.UserSearchResult
+		subnavItems     []string
+		expectedItems   []string
+		unexpectedItems []string
+		isEmbed         bool
+	}{
+		{
+			name:        "Not in Embed",
+			pageUser:    nil,
+			subnavItems: constants.SitePages["home"].SubnavItems,
+			expectedItems: []string{
+				"Filters",
+				"Main Nav",
+			},
+			unexpectedItems: []string{},
+			isEmbed:         false,
+		},
+		{
+			name:        "In Embed",
+			pageUser:    nil,
+			subnavItems: constants.SitePages["home"].SubnavItems,
+			expectedItems: []string{
+				"Filters",
+			},
+			unexpectedItems: []string{
+				"Main Nav",
+			},
+			isEmbed: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("Navbar displays tabs", func(t *testing.T) {
+			navbar := Navbar(userInfo, tt.subnavItems, event, ctx, tt.isEmbed)
+
+			var buf bytes.Buffer
+			err := navbar.Render(ctx, &buf)
+
+			if err != nil {
+				t.Fatalf("Failed to render template: %v", err)
+			}
+
+			renderedContent := buf.String()
+
+			for _, element := range tt.expectedItems {
+				if !strings.Contains(renderedContent, element) {
+					t.Errorf("Expected rendered content to contain '%s', but it didn't", element)
+				}
+
+				for _, element := range tt.unexpectedItems {
+					if strings.Contains(renderedContent, element) {
+						t.Errorf("Did not expected rendered content to contain %s but it did", element)
+					}
 				}
 			}
 		})
