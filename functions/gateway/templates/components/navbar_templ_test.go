@@ -566,11 +566,11 @@ func TestNavbar(t *testing.T) {
 				if !strings.Contains(renderedContent, element) {
 					t.Errorf("Expected rendered content to contain '%s', but it didn't", element)
 				}
+			}
 
-				for _, element := range tt.unexpectedItems {
-					if strings.Contains(renderedContent, element) {
-						t.Errorf("Did not expected rendered content to contain %s but it did", element)
-					}
+			for _, element := range tt.unexpectedItems {
+				if strings.Contains(renderedContent, element) {
+					t.Errorf("Did not expected rendered content to contain %s but it did", element)
 				}
 			}
 		})
