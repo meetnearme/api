@@ -499,7 +499,11 @@ func TestNavbar(t *testing.T) {
 		Metadata:          "",
 	}
 
-	loc, _ := time.LoadLocation("America/New_York")
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatalf("failed to load time zone America/New_York: %v", err)
+	}
+
 	event := types.Event{
 		Id:              "123",
 		Name:            "Test Event 1",
@@ -521,7 +525,7 @@ func TestNavbar(t *testing.T) {
 		isEmbed         bool
 	}{
 		{
-			name:        "Not in Embed",
+			name:        "Not in Embed shows Main Nav tab",
 			pageUser:    nil,
 			subnavItems: constants.SitePages["home"].SubnavItems,
 			expectedItems: []string{
@@ -532,7 +536,7 @@ func TestNavbar(t *testing.T) {
 			isEmbed:         false,
 		},
 		{
-			name:        "In Embed",
+			name:        "In Embed does not show Main Nav tab",
 			pageUser:    nil,
 			subnavItems: constants.SitePages["home"].SubnavItems,
 			expectedItems: []string{
@@ -546,7 +550,7 @@ func TestNavbar(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("Navbar displays tabs", func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			navbar := Navbar(userInfo, tt.subnavItems, event, ctx, tt.isEmbed)
 
 			var buf bytes.Buffer

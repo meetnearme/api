@@ -14,7 +14,10 @@ import (
 func TestWidget(t *testing.T) {
 	ctx := context.Background()
 
-	loc, _ := time.LoadLocation("America/New_York")
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatalf("failed to load time zone America/New_York: %v", err)
+	}
 	events := []types.Event{
 		{
 			Id:              "123",
@@ -93,7 +96,7 @@ func TestWidget(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run("widget loads and displays content", func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			widget := Widget(ctx, events, tt.pageUser, tt.cfLocation, tt.cityStr, tt.latStr, tt.lonStr, origLatStr, origLonStr, tt.origQueryLocation, "test")
 
 			var buf bytes.Buffer
