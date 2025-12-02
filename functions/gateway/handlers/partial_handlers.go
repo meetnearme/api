@@ -1789,40 +1789,58 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			});
 		}
 
+		function createErrorPartial(message) {
+			return '<div role="alert" class="alert alert-error"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-10 w-10" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><div>' + message;
+		}
+
+		function insertErrorPartial(message) {
+			var errorHtml = createErrorPartial(message);
+			var tempDiv = document.createElement('div');
+			tempDiv.innerHTML = errorHtml;
+			var errorElement = tempDiv.firstChild;
+			if (container.firstChild) {
+				container.insertBefore(errorElement, container.firstChild);
+			} else {
+				container.appendChild(errorElement);
+			}
+		}
+
 		var loadPromises = [];
 
 		if (!dependencies.fonts) {
-			loadPromises.push(loadStylesheet('https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap').catch(function() {}));
+			loadPromises.push(loadStylesheet('https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap').catch(function(error) {
+				console.log('MeetNearMe Embed: Failed to load Google Fonts', error);
+			}));
 		}
 
 		if (!dependencies.mainCss) {
 			var cssBasePath = staticBaseUrl.endsWith('/static') ? '/assets/styles.css' : '/static/assets/styles.css';
 			var cssHashedPath = staticBaseUrl.endsWith('/static') ? '/assets/styles.82a6336e.css' : '/static/assets/styles.82a6336e.css';
 			loadPromises.push(
-				loadStylesheet(staticBaseUrl + cssHashedPath).catch(function() {
-					return loadStylesheet(staticBaseUrl + cssBasePath).catch(function() {});
+				loadStylesheet(staticBaseUrl + cssHashedPath).catch(function(error) {
+					return loadStylesheet(staticBaseUrl + cssBasePath).catch(function(error) {
+						console.log('MeetNearMe Embed: Failed to load hashed CSS and fallback', error);
+					});
 				})
 			);
 		}
 
-		if (!dependencies.focusPlugin && !dependencies.alpine) {
-			loadPromises.push(
-				loadScript('https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js').then(function() {
-					return loadScript('https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js');
-				}).catch(function() {
-					if (!dependencies.alpine) {
-						return loadScript('https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js');
-					}
-				})
-			);
-		} else if (!dependencies.focusPlugin) {
-			loadPromises.push(loadScript('https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js').catch(function() {}));
-		} else if (!dependencies.alpine) {
-			loadPromises.push(loadScript('https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js').catch(function() {}));
+		if (!dependencies.focusPlugin) {
+			loadPromises.push(loadScript('https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js').catch(function(error) {
+				console.log('MeetNearMe Embed: Failed to load Alpine focus plugin', error);
+			}));
+		}
+
+		if (!dependencies.alpine) {
+			loadPromises.push(loadScript('https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js').catch(function(error) {
+				console.log('MeetNearMe Embed: Failed to load Alpine.js', error);
+			}));
 		}
 
 		if (!dependencies.htmx) {
-			loadPromises.push(loadScript('https://unpkg.com/htmx.org@1.9.10').catch(function() {}));
+			loadPromises.push(loadScript('https://unpkg.com/htmx.org@1.9.10').catch(function(error) {
+				console.log('MeetNearMe Embed: Failed to load HTMX', error);
+			}));
 		}
 
 		// Step #5: Widget HTML Fetching
@@ -1924,8 +1942,8 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 						}
 
 						if (alpineStateScript) {
-						var alpineStateScriptElement = document.createElement('script');
-						alpineStateScriptElement.id = 'alpine-state-exec';
+							var alpineStateScriptElement = document.createElement('script');
+							alpineStateScriptElement.id = 'alpine-state-exec';
 							for (var attrName in alpineStateScript.attributes) {
 								if (alpineStateScript.attributes.hasOwnProperty(attrName)) {
 									alpineStateScriptElement.setAttribute(attrName, alpineStateScript.attributes[attrName]);
@@ -1933,111 +1951,67 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 							}
 							alpineStateScriptElement.textContent = alpineStateScript.content;
 							document.head.appendChild(alpineStateScriptElement);
+						}
 
-						setTimeout(function() {
-								function findComments(element) {
-									for (var i = 0; i < element.childNodes.length; i++) {
-										var node = element.childNodes[i];
-										if (node.nodeType === 8 && node.nodeValue && node.nodeValue.trim().indexOf('MNM_SCRIPT_MARKER:') === 0) {
-											markerComments.push(node);
-										}
-										if (node.nodeType === 1) {
-											findComments(node);
-										}
-									}
+						function findComments(element) {
+							for (var i = 0; i < element.childNodes.length; i++) {
+								var node = element.childNodes[i];
+								if (node.nodeType === 8 && node.nodeValue && node.nodeValue.trim().indexOf('MNM_SCRIPT_MARKER:') === 0) {
+									markerComments.push(node);
 								}
-
-								findComments(container);
-
-								for (var k = 0; k < markerComments.length; k++) {
-									var marker = markerComments[k];
-									var markerText = marker.nodeValue.trim();
-									var match = markerText.match(/MNM_SCRIPT_MARKER:(\d+):(.+)/);
-
-									if (match && match.length === 3) {
-										var scriptIndex = parseInt(match[1], 10);
-										var scriptId = match[2].trim();
-
-										if (scriptId === 'alpine-state') {
-											marker.parentNode.removeChild(marker);
-											continue;
-										}
-
-										if (scriptIndex >= 0 && scriptIndex < scriptsData.length) {
-											var scriptData = scriptsData[scriptIndex];
-
-											try {
-												var newScript = document.createElement('script');
-
-												for (var attrName in scriptData.attributes) {
-													if (scriptData.attributes.hasOwnProperty(attrName)) {
-														newScript.setAttribute(attrName, scriptData.attributes[attrName]);
-													}
-												}
-
-												if (scriptData.src) {
-													newScript.src = scriptData.src;
-												} else {
-													newScript.textContent = scriptData.content;
-												}
-
-												marker.parentNode.insertBefore(newScript, marker);
-												marker.parentNode.removeChild(marker);
-											} catch {}
-										}
-									}
-								}
-							}, 10);
-									} else {
-							function findComments(element) {
-								for (var i = 0; i < element.childNodes.length; i++) {
-									var node = element.childNodes[i];
-									if (node.nodeType === 8 && node.nodeValue && node.nodeValue.trim().indexOf('MNM_SCRIPT_MARKER:') === 0) {
-										markerComments.push(node);
-									}
-									if (node.nodeType === 1) {
-										findComments(node);
-									}
+								if (node.nodeType === 1) {
+									findComments(node);
 								}
 							}
+						}
 
-							findComments(container);
+						findComments(container);
 
-							for (var k = 0; k < markerComments.length; k++) {
-								var marker = markerComments[k];
-								var markerText = marker.nodeValue.trim();
-								var match = markerText.match(/MNM_SCRIPT_MARKER:(\d+):(.+)/);
+						for (var k = 0; k < markerComments.length; k++) {
+							var marker = markerComments[k];
+							var markerText = marker.nodeValue.trim();
+							var match = markerText.match(/MNM_SCRIPT_MARKER:(\d+):(.+)/);
 
-								if (match && match.length === 3) {
-									var scriptIndex = parseInt(match[1], 10);
-									var scriptId = match[2].trim();
+							if (match && match.length === 3) {
+								var scriptIndex = parseInt(match[1], 10);
+								var scriptId = match[2].trim();
 
-									if (scriptIndex >= 0 && scriptIndex < scriptsData.length) {
-										var scriptData = scriptsData[scriptIndex];
+								// Skip alpine-state if we already processed it
+								if (scriptId === 'alpine-state' && alpineStateScript) {
+									marker.parentNode.removeChild(marker);
+									continue;
+								}
 
-										try {
-											var newScript = document.createElement('script');
+								if (scriptIndex >= 0 && scriptIndex < scriptsData.length) {
+									var scriptData = scriptsData[scriptIndex];
 
-											for (var attrName in scriptData.attributes) {
-												if (scriptData.attributes.hasOwnProperty(attrName)) {
-													newScript.setAttribute(attrName, scriptData.attributes[attrName]);
-												}
+									try {
+										var newScript = document.createElement('script');
+
+										for (var attrName in scriptData.attributes) {
+											if (scriptData.attributes.hasOwnProperty(attrName)) {
+												newScript.setAttribute(attrName, scriptData.attributes[attrName]);
 											}
+										}
 
-											if (scriptData.src) {
-												newScript.src = scriptData.src;
-											} else {
-												newScript.textContent = scriptData.content;
-											}
+										if (scriptData.src) {
+											newScript.src = scriptData.src;
+										} else {
+											newScript.textContent = scriptData.content;
+										}
 
-											marker.parentNode.insertBefore(newScript, marker);
-											marker.parentNode.removeChild(marker);
-										} catch {}
+										marker.parentNode.insertBefore(newScript, marker);
+										marker.parentNode.removeChild(marker);
+									} catch (error) {
+										console.log('MeetNearMe Embed: Error inserting script into DOM', error);
 									}
 								}
 							}
 						}
-					} catch {}
+					} catch (error) {
+						console.log('MeetNearMe Embed: Error during HTML parsing and script extraction', error);
+						insertErrorPartial('MeetNearMe Embed: Error during HTML parsing and script extraction: ' + error.message);
+					}
 
 					// Step #8: Alpine Store Registration
 					try {
@@ -2070,6 +2044,8 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 										window.Alpine.start();
 									}
 								} catch (error) {
+									console.log('MeetNearMe Embed: Error initializing Alpine.js', error);
+									insertErrorPartial('MeetNearMe Embed: Error initializing Alpine.js: ' + error.message);
 								}
 
 								// Step #11: HTMX Initialization
@@ -2078,6 +2054,8 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 										window.htmx.process(container);
 									}
 								} catch (error) {
+									console.log('MeetNearMe Embed: Error initializing HTMX', error);
+									insertErrorPartial('MeetNearMe Embed: Error initializing HTMX: ' + error.message);
 								}
 
 								return;
@@ -2098,6 +2076,8 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 						setTimeout(checkStores, 50);
 
 					} catch (error) {
+						console.log('MeetNearMe Embed: Error during Alpine store registration', error);
+						insertErrorPartial('MeetNearMe Embed: Error during Alpine store registration: ' + error.message);
 					}
 
 				} catch (error) {
@@ -2105,8 +2085,8 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 				}
 			})
 			.catch(function(error) {
-				var errorMsg = '<div style="padding: 1rem; background-color: #fee; border: 1px solid #fcc; border-radius: 0.5rem; color: #c33;">MeetNearMe Embed Error: Failed to load widget. Please try again later.</div>';
-				container.innerHTML = errorMsg;
+				console.log('MeetNearMe Embed: Failed to load widget', error);
+				insertErrorPartial('MeetNearMe Embed: Failed to load widget. ' + error.message + ' Please try again later.');
 			});
 		});
 	})();`, staticBaseUrl)
