@@ -46,6 +46,17 @@
 
 **Status:** ✅ Fixed
 
+### 12. No Events show on initial load
+
+**Status:** ✅ Fixed
+
+If query params are set to settings that should show events, no events show on
+initial load. In the network tab, you can see the api call to /events is never
+called. As soon as you set any filter, events appear (as long as they exist with
+those filters)
+
+It magically fixed itself as I was refactoring GetEmbedScript
+
 ## Medium Priority Issues
 
 ### 12. Theme CSS Variables Missing

@@ -518,7 +518,6 @@ func TestNavbar(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		pageUser        *types.UserSearchResult
 		subnavItems     []string
 		expectedItems   []string
 		unexpectedItems []string
@@ -526,7 +525,6 @@ func TestNavbar(t *testing.T) {
 	}{
 		{
 			name:        "Not in Embed shows Main Nav tab",
-			pageUser:    nil,
 			subnavItems: constants.SitePages["home"].SubnavItems,
 			expectedItems: []string{
 				"Filters",
@@ -537,7 +535,6 @@ func TestNavbar(t *testing.T) {
 		},
 		{
 			name:        "In Embed does not show Main Nav tab",
-			pageUser:    nil,
 			subnavItems: constants.SitePages["home"].SubnavItems,
 			expectedItems: []string{
 				"Filters",
@@ -570,7 +567,7 @@ func TestNavbar(t *testing.T) {
 
 			for _, element := range tt.unexpectedItems {
 				if strings.Contains(renderedContent, element) {
-					t.Errorf("Did not expected rendered content to contain %s but it did", element)
+					t.Errorf("Expected rendered content to NOT contain '%s', but it did", element)
 				}
 			}
 		})

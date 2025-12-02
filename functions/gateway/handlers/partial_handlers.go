@@ -1677,77 +1677,89 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	script := fmt.Sprintf(`(function() {
 		'use strict';
 
-		// Step #1: Container Setup
-		var containerId = 'mnm-embed-container';
-		var container = document.getElementById(containerId);
+		const currentScript = document.currentScript;
 
-		var scripts = document.getElementsByTagName('script');
-		for (var i = 0; i < scripts.length; i++) {
-			var customContainerId = scripts[i].getAttribute('data-mnm-container');
-			if (customContainerId) {
-				containerId = customContainerId;
-				container = document.getElementById(containerId);
-				break;
-			}
+		// Step #1: Container Setup
+		let containerId = 'mnm-embed-container';
+		let container = null;
+		// Gets container with id "mnm-embed-container" if it already exists in the DOM
+		container = document.getElementById(containerId);
+
+		let customContainerId = null;
+		if (currentScript) {
+			customContainerId = currentScript.getAttribute('data-mnm-container');
+		}
+
+		if (customContainerId) {
+			containerId = customContainerId;
+			container = document.getElementById(containerId);
 		}
 
 		if (!container) {
 			container = document.createElement('div');
-			container.id = containerId;
+			container.setAttribute("id", containerId);
 			document.body.appendChild(container);
 		}
 
-		container.innerHTML = '<div style="padding: 1rem; background-color: #ccc; border: 1px solid #eee; border-radius: 0.5rem;"><h2>Loading Events ...</h2></div>';
+		container.innerHTML = '<div class="p-3 bg-base-100 border-2 border-base-300 rounded-md"><h2>Loading Events ...</h2></div>';
 
 		// Step #2: User ID Detection
-		var userId = null;
+		let userId = null;
+		if (currentScript) {
+			// First check data attribute
+			userId = currentScript.getAttribute('data-user-id');
 
-		for (var i = 0; i < scripts.length; i++) {
-			var scriptUserId = scripts[i].getAttribute('data-user-id');
-			if (scriptUserId) {
-				userId = scriptUserId;
-				break;
-			}
-		}
-
-		if (!userId) {
-			var currentScript = scripts[scripts.length - 1];
-			if (currentScript && currentScript.src) {
-				var url = new URL(currentScript.src);
-				var urlUserId = url.searchParams.get('userId');
-				if (urlUserId) {
-					userId = urlUserId;
+			// Then check script URL parameters
+			if (!userId && currentScript.src) {
+				try {
+					// Handle both absolute and relative URLs
+					const scriptUrl = currentScript.src.startsWith('http')
+						? currentScript.src
+						: new URL(currentScript.src, window.location.href).href;
+					const url = new URL(scriptUrl);
+					userId = url.searchParams.get('userId');
+				} catch (e) {
+					console.warn('MeetNearMe Embed: Failed to parse script URL', e);
 				}
 			}
 		}
 
+		// Fallback: check current page URL for userId (works for both script tag and dynamic loading)
 		if (!userId) {
-			var errorMsg = '<div style="padding: 1rem; background-color: #fee; border: 1px solid #fcc; border-radius: 0.5rem; color: #c33;">MeetNearMe Embed Error: userId is required. Please add data-user-id="YOUR_USER_ID" to the script tag or include ?userId=YOUR_USER_ID in the script URL.</div>';
+			try {
+				const url = new URL(window.location.href);
+				userId = url.searchParams.get('userId');
+			} catch (e) {
+				console.warn('MeetNearMe Embed: Failed to parse page URL', e);
+			}
+		}
+
+		if (!userId) {
+			var errorMsg = '<div class="p-1 bg-red-100 border-2 border-red-500 rounded-md">MeetNearMe Embed Error: userId is required. Please add data-user-id="YOUR_USER_ID" to the script tag or include ?userId=YOUR_USER_ID in the script URL.</div>';
 			container.innerHTML = errorMsg;
 			return;
 		}
 
 		// Step #3: Base URL Detection
-		var staticBaseUrlFromEnv = '%s';
-		var staticBaseUrl;
-		var baseUrl;
+		const staticBaseUrlFromEnv = '%s';
+		let staticBaseUrl;
+		let baseUrl;
 
-		if (staticBaseUrlFromEnv && staticBaseUrlFromEnv !== '') {
+		if (staticBaseUrlFromEnv !== '') {
 			staticBaseUrl = staticBaseUrlFromEnv;
 		} else {
 			staticBaseUrl = 'http://localhost:8001';
 		}
 
-		var currentScript = scripts[scripts.length - 1];
 		if (currentScript && currentScript.src) {
-			var scriptUrl = new URL(currentScript.src);
+			const scriptUrl = new URL(currentScript.src);
 			baseUrl = scriptUrl.origin;
 		} else {
 			baseUrl = window.location.origin;
 		}
 
 		// Step #4: Dependency Loading
-		var dependencies = {
+		const dependencies = {
 			alpine: !!window.Alpine,
 			htmx: !!window.htmx,
 			tailwind: !!(document.querySelector('script[src*="tailwindcss.com"]') || (window.tailwind && window.tailwind.config)),
@@ -1763,7 +1775,7 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 					resolve();
 					return;
 				}
-				var script = document.createElement('script');
+				const script = document.createElement('script');
 				script.src = src;
 				script.crossOrigin = 'anonymous';
 				script.onload = resolve;
@@ -1774,12 +1786,12 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 		function loadStylesheet(href) {
 			return new Promise(function(resolve, reject) {
-				var existing = document.querySelector('link[href="' + href + '"]');
+				const existing = document.querySelector('link[href="' + href + '"]');
 				if (existing) {
 					resolve();
 					return;
 				}
-				var link = document.createElement('link');
+				const link = document.createElement('link');
 				link.rel = 'stylesheet';
 				link.href = href;
 				link.crossOrigin = 'anonymous';
@@ -1794,10 +1806,10 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 
 		function insertErrorPartial(message) {
-			var errorHtml = createErrorPartial(message);
-			var tempDiv = document.createElement('div');
+			const errorHtml = createErrorPartial(message);
+			const tempDiv = document.createElement('div');
 			tempDiv.innerHTML = errorHtml;
-			var errorElement = tempDiv.firstChild;
+			const errorElement = tempDiv.firstChild;
 			if (container.firstChild) {
 				container.insertBefore(errorElement, container.firstChild);
 			} else {
@@ -1805,7 +1817,7 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			}
 		}
 
-		var loadPromises = [];
+		let loadPromises = [];
 
 		if (!dependencies.fonts) {
 			loadPromises.push(loadStylesheet('https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap').catch(function(error) {
@@ -1843,9 +1855,9 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			}));
 		}
 
-		// Step #5: Widget HTML Fetching
 		Promise.all(loadPromises).then(function() {
-			var embedUrl = baseUrl + '/api/html/embed?userId=' + encodeURIComponent(userId);
+			// Step #5: Widget HTML Fetching
+			const embedUrl = baseUrl + '/api/html/embed?userId=' + encodeURIComponent(userId);
 			fetch(embedUrl, {
 				method: 'GET',
 				headers: {
@@ -1861,36 +1873,36 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			})
 			.then(function(html) {
 				// Step #6: HTML Parsing & Script Extraction
-				var scriptsData = [];
-				var markerComments = [];
+				let scriptsData = [];
+
 
 				try {
-				var parser = new DOMParser();
-				var doc = parser.parseFromString(html, 'text/html');
+					const parser = new DOMParser();
+					const doc = parser.parseFromString(html, 'text/html');
 
 					if (!doc || !doc.body) {
 						throw new Error('Failed to parse HTML');
 					}
 
-				var scripts = doc.querySelectorAll('script');
-					var htmlWithMarkers = html;
+					const scripts = doc.querySelectorAll('script');
+					let htmlWithMarkers = html;
 
 					for (var i = scripts.length - 1; i >= 0; i--) {
-						var script = scripts[i];
-						var scriptId = script.id || 'inline-' + i;
-						var marker = '<!-- MNM_SCRIPT_MARKER:' + i + ':' + scriptId + ' -->';
+						const script = scripts[i];
+						const scriptId = script.id || 'inline-' + i;
+						const marker = '<!-- MNM_SCRIPT_MARKER:' + i + ':' + scriptId + ' -->';
 
-						var scriptContent = script.textContent || '';
+						let scriptContent = script.textContent || '';
 						// Convert relative URLs in fetch calls to absolute URLs
 						if (scriptContent) {
-							var templateLiteralPattern = 'fetch(' + String.fromCharCode(96) + '/api/';
-							var templateLiteralReplacement = 'fetch(' + String.fromCharCode(96) + baseUrl + '/api/';
+							const templateLiteralPattern = 'fetch(' + String.fromCharCode(96) + '/api/';
+							const templateLiteralReplacement = 'fetch(' + String.fromCharCode(96) + baseUrl + '/api/';
 							scriptContent = scriptContent.split(templateLiteralPattern).join(templateLiteralReplacement);
 							scriptContent = scriptContent.split('fetch("/api/').join('fetch("' + baseUrl + '/api/');
 							scriptContent = scriptContent.split("fetch('/api/").join("fetch('" + baseUrl + "/api/");
 						}
 
-						var scriptData = {
+						const scriptData = {
 							index: i,
 							id: scriptId,
 							attributes: {},
@@ -1898,62 +1910,49 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 							src: script.src || ''
 						};
 
-						for (var j = 0; j < script.attributes.length; j++) {
-							var attr = script.attributes[j];
+						for (let j = 0; j < script.attributes.length; j++) {
+							const attr = script.attributes[j];
 							scriptData.attributes[attr.name] = attr.value;
 						}
 
 						scriptsData.unshift(scriptData);
 
-						var scriptOuterHTML = script.outerHTML;
-						var regex = new RegExp(scriptOuterHTML.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+						const regex = new RegExp(script.outerHTML.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
 						htmlWithMarkers = htmlWithMarkers.replace(regex, marker);
 					}
 
 					container.innerHTML = htmlWithMarkers;
 
 					// Convert relative HTMX URLs to absolute URLs
-					var htmxElements = container.querySelectorAll('[hx-get], [hx-post], [hx-put], [hx-patch], [hx-delete]');
-					for (var h = 0; h < htmxElements.length; h++) {
-						var el = htmxElements[h];
-						var attrs = ['hx-get', 'hx-post', 'hx-put', 'hx-patch', 'hx-delete'];
-						for (var a = 0; a < attrs.length; a++) {
-							var attr = attrs[a];
-							var url = el.getAttribute(attr);
+					const htmxElements = container.querySelectorAll('[hx-get], [hx-post], [hx-put], [hx-patch], [hx-delete]');
+					const attrs = ['hx-get', 'hx-post', 'hx-put', 'hx-patch', 'hx-delete'];
+					htmxElements.forEach(function(el) {
+						attrs.forEach(function(attr) {
+							const url = el.getAttribute(attr);
 							if (url && url.startsWith('/')) {
 								el.setAttribute(attr, baseUrl + url);
 							}
-						}
-					}
-
-					// Set global baseUrl variable for scripts to use
-					var baseUrlScript = document.createElement('script');
-					baseUrlScript.textContent = 'window.MNM_BASE_URL = "' + baseUrl + '";';
-					container.insertBefore(baseUrlScript, container.firstChild);
+						});
+					});
 
 					// Step #7: HTML Injection & Script Execution
 					try {
-						var alpineStateScript = null;
 						for (var i = 0; i < scriptsData.length; i++) {
 							if (scriptsData[i].id === 'alpine-state') {
-								alpineStateScript = scriptsData[i];
+								const alpineStateScript = scriptsData[i];
+								const alpineStateScriptElement = document.createElement('script');
+								alpineStateScriptElement.id = 'alpine-state-exec';
+								Object.keys(alpineStateScript.attributes).forEach(function(attrName) {
+									alpineStateScriptElement.setAttribute(attrName, alpineStateScript.attributes[attrName]);
+								});
+								alpineStateScriptElement.textContent = alpineStateScript.content;
+								document.head.appendChild(alpineStateScriptElement);
 								break;
 							}
 						}
 
-						if (alpineStateScript) {
-							var alpineStateScriptElement = document.createElement('script');
-							alpineStateScriptElement.id = 'alpine-state-exec';
-							for (var attrName in alpineStateScript.attributes) {
-								if (alpineStateScript.attributes.hasOwnProperty(attrName)) {
-									alpineStateScriptElement.setAttribute(attrName, alpineStateScript.attributes[attrName]);
-								}
-							}
-							alpineStateScriptElement.textContent = alpineStateScript.content;
-							document.head.appendChild(alpineStateScriptElement);
-						}
-
 						function findComments(element) {
+							let markerComments = [];
 							for (var i = 0; i < element.childNodes.length; i++) {
 								var node = element.childNodes[i];
 								if (node.nodeType === 8 && node.nodeValue && node.nodeValue.trim().indexOf('MNM_SCRIPT_MARKER:') === 0) {
@@ -1963,18 +1962,19 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 									findComments(node);
 								}
 							}
+							return markerComments;
 						}
 
-						findComments(container);
+						const markerComments = findComments(container);
 
 						for (var k = 0; k < markerComments.length; k++) {
-							var marker = markerComments[k];
-							var markerText = marker.nodeValue.trim();
-							var match = markerText.match(/MNM_SCRIPT_MARKER:(\d+):(.+)/);
+							const marker = markerComments[k];
+							const markerText = marker.nodeValue.trim();
+							const match = markerText.match(/MNM_SCRIPT_MARKER:(\d+):(.+)/);
 
 							if (match && match.length === 3) {
-								var scriptIndex = parseInt(match[1], 10);
-								var scriptId = match[2].trim();
+								const scriptIndex = parseInt(match[1], 10);
+								const scriptId = match[2].trim();
 
 								// Skip alpine-state if we already processed it
 								if (scriptId === 'alpine-state' && alpineStateScript) {
@@ -1986,13 +1986,11 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 									var scriptData = scriptsData[scriptIndex];
 
 									try {
-										var newScript = document.createElement('script');
+										const newScript = document.createElement('script');
 
-										for (var attrName in scriptData.attributes) {
-											if (scriptData.attributes.hasOwnProperty(attrName)) {
-												newScript.setAttribute(attrName, scriptData.attributes[attrName]);
-											}
-										}
+										Object.keys(scriptData.attributes).forEach(function(attrName) {
+											newScript.setAttribute(attrName, scriptData.attributes[attrName]);
+										});
 
 										if (scriptData.src) {
 											newScript.src = scriptData.src;
@@ -2015,32 +2013,31 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 					// Step #8: Alpine Store Registration
 					try {
-						var requiredStores = ['urlState', 'filters', 'location'];
-						var maxRetries = 5;
-						var retryCount = 0;
+						const requiredStores = ['urlState', 'filters', 'location'];
+						const maxRetries = 20; // ~1 second total wait time (20 * 50ms)
+						let retryCount = 0;
 
 						function checkStores() {
 							if (!window.Alpine) {
 								if (retryCount < maxRetries) {
 									retryCount++;
 									setTimeout(checkStores, 50);
-															} else {
 								}
 								return;
 							}
 
-							var allRegistered = requiredStores.every(function(storeName) {
+							const allRegistered = requiredStores.every(function(storeName) {
 								return window.Alpine.store && typeof window.Alpine.store(storeName) !== 'undefined';
 							});
 
 							if (allRegistered) {
 								// Step #9: Alpine Initialization
 								try {
-									var isInitialized = window.Alpine._initialized || document.body.querySelector('[x-data]') !== null;
+									const isInitialized = window.Alpine._initialized || document.body.querySelector('[x-data]') !== null;
 
 									if (isInitialized) {
 										window.Alpine.initTree(container);
-												} else {
+									} else {
 										window.Alpine.start();
 									}
 								} catch (error) {
@@ -2061,18 +2058,16 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 								return;
 							}
 
+							// Retry: dispatch event to trigger store registration, then check again
 							if (retryCount < maxRetries) {
 								retryCount++;
 								document.dispatchEvent(new CustomEvent('alpine:init', { bubbles: true }));
 								setTimeout(checkStores, 50);
-							} else {
-								var missing = requiredStores.filter(function(storeName) {
-									return !window.Alpine.store || typeof window.Alpine.store(storeName) === 'undefined';
-								});
 							}
 						}
 
-							document.dispatchEvent(new CustomEvent('alpine:init', { bubbles: true }));
+						// Initial call: trigger Alpine initialization and start checking
+						document.dispatchEvent(new CustomEvent('alpine:init', { bubbles: true }));
 						setTimeout(checkStores, 50);
 
 					} catch (error) {
