@@ -256,7 +256,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Create a modified request with userId in the path for DeriveEventsFromRequest
 	// Actually, DeriveEventsFromRequest gets userId from mux.Vars, so we need to set it differently
 	// Let's use the same approach as GetEventsPartial but get all the data we need
-	q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, _, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+	q, city, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, _, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
 	// Override ownerIds to use the userId from query parameter
 	ownerIds := []string{userId}

@@ -21,16 +21,11 @@ func SendHtmlRes(w http.ResponseWriter, body []byte, status int, mode string, er
 		origin := r.Header.Get("Origin")
 		if origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			// Only set credentials if we have a specific origin (not *)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		} else {
-			// No origin means same-origin request, no CORS needed
-			// But set it anyway for cross-origin cases where Origin might be missing
 			w.Header().Set("Access-Control-Allow-Origin", "*")
-			// Cannot use credentials with *, so don't set it
 		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		// Include all headers that HTMX/json-enc might send
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, HX-Request, HX-Trigger, HX-Trigger-Name, HX-Target, HX-Current-URL")
 
 		msg := string(body)
@@ -94,7 +89,6 @@ func SendHtmlErrorPage(body []byte, status int, hideError bool) http.HandlerFunc
 
 func SendHtmlErrorPartial(body []byte, status int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers for error responses too
 		origin := r.Header.Get("Origin")
 		if origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -204,12 +198,9 @@ func SetCORSHeaders(w http.ResponseWriter, r *http.Request) {
 	// to specific domains or use environment variable to control allowed origins
 	if origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
-		// Only set credentials if we have a specific origin (not *)
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 	} else {
-		// If no Origin header, allow all (for development/testing)
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		// Cannot use credentials with *, so don't set it
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 	// Include all headers that HTMX/json-enc might send
