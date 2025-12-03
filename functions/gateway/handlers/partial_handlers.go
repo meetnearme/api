@@ -256,7 +256,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// Create a modified request with userId in the path for DeriveEventsFromRequest
 	// Actually, DeriveEventsFromRequest gets userId from mux.Vars, so we need to set it differently
 	// Let's use the same approach as GetEventsPartial but get all the data we need
-	q, city, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, _, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+	q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, _, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
 	// Override ownerIds to use the userId from query parameter
 	ownerIds := []string{userId}
@@ -1761,11 +1761,22 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 
 		// Step #4: Dependency Loading
+		// Check if our CSS is already loaded by verifying it's from our domain and matches our paths
+		const cssLinks = document.querySelectorAll('link[rel="stylesheet"]');
+		let ourCssLoaded = false;
+		for (let i = 0; i < cssLinks.length; i++) {
+			const href = cssLinks[i].href || cssLinks[i].getAttribute('href') || '';
+			if (href.includes(staticBaseUrl) && (href.includes('styles.82a6336e.css') || href.includes('/assets/styles.css') || href.includes('/static/assets/styles.css'))) {
+				ourCssLoaded = true;
+				break;
+			}
+		}
+
 		const dependencies = {
 			alpine: !!window.Alpine,
 			htmx: !!window.htmx,
 			tailwind: !!(document.querySelector('script[src*="tailwindcss.com"]') || (window.tailwind && window.tailwind.config)),
-			mainCss: !!document.querySelector('link[href*="styles"]'),
+			mainCss: ourCssLoaded,
 			fonts: !!document.querySelector('link[href*="fonts.googleapis.com"]'),
 			focusPlugin: !!document.querySelector('script[src*="@alpinejs/focus"]')
 		};
@@ -1858,6 +1869,12 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 
 		Promise.all(loadPromises).then(function() {
+			if (!window.Alpine) {
+				throw new Error('Alpine.js failed to load');
+			}
+			if (!window.htmx) {
+				throw new Error('HTMX failed to load');
+			}
 			// Step #5: Widget HTML Fetching
 			const embedUrl = baseUrl + '/api/html/embed?userId=' + encodeURIComponent(userId);
 			fetch(embedUrl, {
