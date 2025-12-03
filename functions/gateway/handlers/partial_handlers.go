@@ -162,6 +162,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
+			transport.SetCORSHeaders(w, r)
 			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
 			return
 		}
@@ -177,6 +178,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 		res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 		if err != nil {
+			transport.SetCORSHeaders(w, r)
 			transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
 			return
 		}
@@ -1936,10 +1938,11 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 					});
 
 					// Step #7: HTML Injection & Script Execution
+					let alpineStateScript;
 					try {
 						for (var i = 0; i < scriptsData.length; i++) {
 							if (scriptsData[i].id === 'alpine-state') {
-								const alpineStateScript = scriptsData[i];
+								alpineStateScript = scriptsData[i];
 								const alpineStateScriptElement = document.createElement('script');
 								alpineStateScriptElement.id = 'alpine-state-exec';
 								Object.keys(alpineStateScript.attributes).forEach(function(attrName) {
