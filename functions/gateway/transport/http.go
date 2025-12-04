@@ -17,17 +17,6 @@ import (
 // NOTE: `err` is passed in and logged if status is 400 or greater, but msg
 func SendHtmlRes(w http.ResponseWriter, body []byte, status int, mode string, err error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers BEFORE any other headers or WriteHeader calls
-		origin := r.Header.Get("Origin")
-		if origin != "" {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-		} else {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-		}
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, HX-Request, HX-Trigger, HX-Trigger-Name, HX-Target, HX-Current-URL")
-
 		msg := string(body)
 		if status >= 400 {
 			internalMsg := "ERR: " + msg
@@ -89,17 +78,6 @@ func SendHtmlErrorPage(body []byte, status int, hideError bool) http.HandlerFunc
 
 func SendHtmlErrorPartial(body []byte, status int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-		if origin != "" {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-		} else {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-		}
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		// Include all headers that HTMX/json-enc might send
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, HX-Request, HX-Trigger, HX-Trigger-Name, HX-Target, HX-Current-URL")
-
 		var buf bytes.Buffer
 		ctx := r.Context()
 		requestID := ""
@@ -191,18 +169,17 @@ func SendServerRes(w http.ResponseWriter, body []byte, status int, err error) ht
 	return http.HandlerFunc(nil)
 }
 
-// This is used for embed endpoints that need to be accessible from external websites
-func SetCORSHeaders(w http.ResponseWriter, r *http.Request) {
+func SetCORSAllowAll(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
-	// For development, allow all origins. In production, this should be restricted
-	// to specific domains or use environment variable to control allowed origins
-	if origin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-	} else {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+	// For cross-origin requests (embed endpoints), Origin header is always present.
+	// If Origin is missing, it's likely same-origin and doesn't need CORS headers.
+	if origin == "" {
+		return
 	}
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+
+	w.Header().Set("Access-Control-Allow-Origin", origin)
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	// Include all headers that HTMX/json-enc might send
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, HX-Request, HX-Trigger, HX-Trigger-Name, HX-Target, HX-Current-URL")
 

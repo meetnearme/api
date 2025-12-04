@@ -151,9 +151,12 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Handle OPTIONS preflight request
 		if r.Method == "OPTIONS" {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			return
 		}
+
+		// Set CORS headers once for embed endpoints
+		transport.SetCORSAllowAll(w, r)
 
 		// Extract parameter values from the request query parameters
 		ctx := r.Context()
@@ -162,7 +165,6 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
-			transport.SetCORSHeaders(w, r)
 			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
 			return
 		}
@@ -178,7 +180,6 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 		res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 		if err != nil {
-			transport.SetCORSHeaders(w, r)
 			transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
 			return
 		}
@@ -215,15 +216,10 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		var buf bytes.Buffer
 		err = eventListPartial.Render(ctx, &buf)
 		if err != nil {
-			// Set CORS headers before sending error response
-			transport.SetCORSHeaders(w, r)
 			transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err).ServeHTTP(w, r)
 			return
 		}
 
-		// Set CORS headers before sending success response
-		// This ensures headers are on the actual response writer, not just in SendHtmlRes
-		transport.SetCORSHeaders(w, r)
 		transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil).ServeHTTP(w, r)
 	}
 }
@@ -235,7 +231,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userId := r.URL.Query().Get("userId")
 	if userId == "" {
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			transport.SendServerRes(w, []byte("userId query parameter is required"), http.StatusBadRequest, errors.New("userId query parameter is required"))
 		}
 	}
@@ -264,7 +260,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		}
 	}
@@ -273,7 +269,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 		}
 	}
@@ -314,14 +310,14 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	err = widget.Render(ctx, &buf)
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			transport.SendServerRes(w, []byte("Failed to render widget: "+err.Error()), http.StatusInternalServerError, err)
 		}
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers for embed support
-		transport.SetCORSHeaders(w, r)
+		transport.SetCORSAllowAll(w, r)
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
 		w.Write(buf.Bytes())
@@ -538,12 +534,12 @@ func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Handle OPTIONS preflight request
 		if r.Method == "OPTIONS" {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			return
 		}
 
-		// Set CORS headers for the response
-		transport.SetCORSHeaders(w, r)
+		// Set CORS headers once for embed endpoints
+		transport.SetCORSAllowAll(w, r)
 
 		latStr := r.URL.Query().Get("lat")
 		lonStr := r.URL.Query().Get("lon")
@@ -2107,7 +2103,7 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	})();`, staticBaseUrl)
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		transport.SetCORSHeaders(w, r)
+		transport.SetCORSAllowAll(w, r)
 		w.Header().Set("Content-Type", "application/javascript")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(script))
