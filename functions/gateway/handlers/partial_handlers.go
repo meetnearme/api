@@ -149,16 +149,13 @@ func DeleteMnmSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Handle OPTIONS preflight request
 		if r.Method == "OPTIONS" {
 			transport.SetCORSAllowAll(w, r)
 			return
 		}
 
-		// Set CORS headers once for embed endpoints
 		transport.SetCORSAllowAll(w, r)
 
-		// Extract parameter values from the request query parameters
 		ctx := r.Context()
 
 		q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
@@ -1811,7 +1808,12 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 
 		function createErrorPartial(message) {
-			return '<div role="alert" class="alert alert-error"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-10 w-10" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><div>' + message;
+			return '<div role="alert" class="alert alert-error">' +
+				'<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-10 w-10" fill="none" viewBox="0 0 24 24">' +
+					'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>' +
+				'</svg>' +
+				'<div>' + message + '</div>' +
+			'</div>';
 		}
 
 		function insertErrorPartial(message) {
