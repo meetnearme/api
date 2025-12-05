@@ -168,3 +168,24 @@ func SendServerRes(w http.ResponseWriter, body []byte, status int, err error) ht
 
 	return http.HandlerFunc(nil)
 }
+
+func SetCORSAllowAll(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	// For cross-origin requests (embed endpoints), Origin header is always present.
+	// If Origin is missing, it's likely same-origin and doesn't need CORS headers.
+	if origin == "" {
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", origin)
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	// Include all headers that HTMX/json-enc might send
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, HX-Request, HX-Trigger, HX-Trigger-Name, HX-Target, HX-Current-URL")
+
+	// Handle preflight OPTIONS request
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+}
