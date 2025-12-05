@@ -1977,8 +1977,8 @@ func TestSubmitSeshuSession(t *testing.T) {
 				},
 			},
 			mockPostgres: &test_helpers.MockPostgresService{
-				GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) {
-					return []types.SeshuJob{}, nil // No existing jobs
+				GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]types.SeshuJob, int64, error) {
+					return []types.SeshuJob{}, 0, nil // No existing jobs
 				},
 				CreateSeshuJobFunc: func(ctx context.Context, job types.SeshuJob) error {
 					return nil
@@ -2056,14 +2056,14 @@ func TestSubmitSeshuSession(t *testing.T) {
 				},
 			},
 			mockPostgres: &test_helpers.MockPostgresService{
-				GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) {
+				GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]types.SeshuJob, int64, error) {
 					// Return existing job to trigger conflict
 					return []types.SeshuJob{
 						{
 							NormalizedUrlKey: "https://example.com/events",
 							OwnerID:          "user123",
 						},
-					}, nil
+					}, 1, nil
 				},
 			},
 			expectedStatus: http.StatusOK, // HTML error responses return 200
@@ -2111,8 +2111,8 @@ func TestSubmitSeshuSession(t *testing.T) {
 				},
 			},
 			mockPostgres: &test_helpers.MockPostgresService{
-				GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) {
-					return nil, fmt.Errorf("database connection failed")
+				GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]types.SeshuJob, int64, error) {
+					return nil, 0, fmt.Errorf("database connection failed")
 				},
 			},
 			expectedStatus: http.StatusOK, // HTML error responses return 200
@@ -2190,8 +2190,8 @@ func TestSubmitSeshuSession(t *testing.T) {
 				},
 			},
 			mockPostgres: &test_helpers.MockPostgresService{
-				GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) {
-					return []types.SeshuJob{}, nil // No existing jobs
+				GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]types.SeshuJob, int64, error) {
+					return []types.SeshuJob{}, 0, nil // No existing jobs
 				},
 				CreateSeshuJobFunc: func(ctx context.Context, job types.SeshuJob) error {
 					return nil // Should succeed - timezone derived from event locations
@@ -2372,7 +2372,9 @@ func TestSubmitSeshuSession_Onboarding_RandomURL_and_Facebook(t *testing.T) {
 		// Capture CreateSeshuJob invocation
 		var createdJobs []types.SeshuJob
 		mockPG := &test_helpers.MockPostgresService{
-			GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) { return []types.SeshuJob{}, nil },
+			GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]types.SeshuJob, int64, error) {
+				return []types.SeshuJob{}, 0, nil
+			},
 			CreateSeshuJobFunc: func(ctx context.Context, job types.SeshuJob) error {
 				createdJobs = append(createdJobs, job)
 				return nil
@@ -2474,7 +2476,9 @@ func TestSubmitSeshuSession_Onboarding_RandomURL_and_Facebook(t *testing.T) {
 
 		var createdJobs []types.SeshuJob
 		mockPG := &test_helpers.MockPostgresService{
-			GetSeshuJobsFunc: func(ctx context.Context) ([]types.SeshuJob, error) { return []types.SeshuJob{}, nil },
+			GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]types.SeshuJob, int64, error) {
+				return []types.SeshuJob{}, 0, nil
+			},
 			CreateSeshuJobFunc: func(ctx context.Context, job types.SeshuJob) error {
 				createdJobs = append(createdJobs, job)
 				return nil
