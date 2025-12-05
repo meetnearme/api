@@ -27,7 +27,7 @@ type TriggerRequest struct {
 func GetSeshuJobs(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	db, _ := services.GetPostgresService(ctx)
-	jobs, err := db.GetSeshuJobs(ctx)
+	jobs, _, err := db.GetSeshuJobs(ctx, 0, 0) // No pagination for this endpoint
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to retrieve jobs: "+err.Error()), http.StatusInternalServerError)
 	}
@@ -59,21 +59,45 @@ func GetSeshuJobsAdmin(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		return transport.SendHtmlErrorPartial([]byte("Failed to initialize services: "+err.Error()), http.StatusInternalServerError)
 	}
 
+	// Parse pagination parameters
+	page := 1
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := fmt.Sscanf(pageStr, "%d", &page); err == nil && p == 1 && page > 0 {
+			// page is valid
+		} else {
+			page = 1
+		}
+	}
+
+	perPage := 10 // Default items per page
+	if perPageStr := r.URL.Query().Get("per_page"); perPageStr != "" {
+		if pp, err := fmt.Sscanf(perPageStr, "%d", &perPage); err == nil && pp == 1 && perPage > 0 && perPage <= 100 {
+			// perPage is valid
+		} else {
+			perPage = 10
+		}
+	}
+
+	offset := (page - 1) * perPage
+
 	var jobs []internal_types.SeshuJob
+	var totalCount int64
 	if isSuperAdmin {
 		// Super admins can see all jobs
-		jobs, err = db.GetSeshuJobs(ctx)
+		jobs, totalCount, err = db.GetSeshuJobs(ctx, perPage, offset)
 	} else {
 		// Regular users only see their own jobs
 		ctxWithUserId := context.WithValue(ctx, "ownerId", userId)
-		jobs, err = db.GetSeshuJobs(ctxWithUserId)
+		jobs, totalCount, err = db.GetSeshuJobs(ctxWithUserId, perPage, offset)
 	}
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to retrieve jobs: "+err.Error()), http.StatusInternalServerError)
 	}
 
+	totalPages := int((totalCount + int64(perPage) - 1) / int64(perPage))
+
 	var buf bytes.Buffer
-	err = pages.AdminSeshuJobsPage(jobs).Render(ctx, &buf)
+	err = pages.AdminSeshuJobsPage(jobs, page, perPage, totalPages, int(totalCount)).Render(ctx, &buf)
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to render template: "+err.Error()), http.StatusInternalServerError)
 	}
@@ -194,7 +218,7 @@ func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	ctxWithTargetUrl := context.WithValue(ctx, "targetUrl", key)
-	job, err := db.GetSeshuJobs(ctxWithTargetUrl)
+	job, _, err := db.GetSeshuJobs(ctxWithTargetUrl, 0, 0)
 	if err != nil {
 		log.Printf("Failed to retrieve event source URL with key %s: %v", key, err)
 		return transport.SendHtmlErrorPartial([]byte("Internal server error"), http.StatusInternalServerError)

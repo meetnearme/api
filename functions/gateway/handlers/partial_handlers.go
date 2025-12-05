@@ -840,7 +840,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	// set context value for url
 	ctx = context.WithValue(ctx, "targetUrl", inputPayload.Url)
 
-	jobs, err := postgresDB.GetSeshuJobs(ctx)
+	jobs, _, err := postgresDB.GetSeshuJobs(ctx, 0, 0)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to get SeshuJobs"), http.StatusInternalServerError, "partial", err)
 	}
@@ -1273,6 +1273,8 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// }
 
 		go func() {
+			// Use background context since HTTP request context will be canceled after response
+			bgCtx := context.Background()
 
 			if jobAborted {
 				return
@@ -1292,8 +1294,15 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			err = services.PushExtractedEventsToDB(extractedEvents, seshuJob, make(map[string]string))
 			if err != nil {
 				log.Println("Error pushing ingested events to DB:", err)
+				seshuJob.Status = "FAILING"
+			} else {
+				seshuJob.Status = "HEALTHY"
 			}
 
+			err = pgDb.UpdateSeshuJob(bgCtx, seshuJob)
+			if err != nil {
+				log.Printf("Failed to update SeshuJob after event insertion: %v", err)
+			}
 		}()
 
 	}()
