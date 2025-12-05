@@ -84,7 +84,7 @@ func getStatusBadgeClass(status string) string {
 	}
 }
 
-templ AdminSeshuJobsPage(jobs []types.SeshuJob) {
+templ AdminSeshuJobsPage(jobs []types.SeshuJob, currentPage, perPage, totalPages, totalCount int) {
 	<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
 		<h2 class="text-2xl font-bold">Event Source URLs (Seshu Jobs)</h2>
 		<a href="/admin/add-event-source" class="btn btn-primary btn-sm w-full md:w-auto">
@@ -97,7 +97,7 @@ templ AdminSeshuJobsPage(jobs []types.SeshuJob) {
 	if len(jobs) == 0 {
 		@adminSeshuJobsEmptyState()
 	} else {
-		@adminSeshuJobsContent(jobs)
+		@adminSeshuJobsContent(jobs, currentPage, perPage, totalPages, totalCount)
 	}
 }
 
@@ -110,7 +110,7 @@ templ adminSeshuJobsEmptyState() {
 	</div>
 }
 
-templ adminSeshuJobsContent(jobs []types.SeshuJob) {
+templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPages, totalCount int) {
 	<div id="seshu-jobs-content" class="space-y-4" hx-get="/api/html/seshu-jobs" hx-trigger="reloadSeshuJobs from:body" hx-select="#seshu-jobs-content" hx-target="#seshu-jobs-content" hx-swap="outerHTML">
 		<div class="grid grid-cols-2 gap-2 md:grid-cols-4">
 			<div class="rounded-lg border border-base-300/40 bg-base-100/40 p-2">
@@ -152,6 +152,9 @@ templ adminSeshuJobsContent(jobs []types.SeshuJob) {
 				</tbody>
 			</table>
 		</div>
+		if totalPages > 1 {
+			@paginationControls(currentPage, perPage, totalPages, totalCount)
+		}
 	</div>
 	for _, job := range jobs {
 		@JobDetailsModal(job)
@@ -451,6 +454,74 @@ templ DeleteConfirmModal(job types.SeshuJob) {
 	</dialog>
 }
 
+templ paginationControls(currentPage, perPage, totalPages, totalCount int) {
+	<div class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-base-300">
+		<div class="text-sm text-base-content/70">
+			Showing { fmt.Sprintf("%d", (currentPage-1)*perPage+1) } to { fmt.Sprintf("%d", min(currentPage*perPage, totalCount)) } of { fmt.Sprintf("%d", totalCount) } results
+		</div>
+		<div class="join">
+			if currentPage > 1 {
+				<button
+					class="join-item btn btn-sm"
+					hx-get={ fmt.Sprintf("/api/html/seshu-jobs?page=%d&per_page=%d", currentPage-1, perPage) }
+					hx-target="#seshu-jobs-content"
+					hx-select="#seshu-jobs-content"
+					hx-swap="outerHTML"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+					</svg>
+					Previous
+				</button>
+			} else {
+				<button class="join-item btn btn-sm btn-disabled">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+					</svg>
+					Previous
+				</button>
+			}
+			// Show page numbers
+			for i := max(1, currentPage-2); i <= min(totalPages, currentPage+2); i++ {
+				if i == currentPage {
+					<button class="join-item btn btn-sm btn-active">{ fmt.Sprintf("%d", i) }</button>
+				} else {
+					<button
+						class="join-item btn btn-sm"
+						hx-get={ fmt.Sprintf("/api/html/seshu-jobs?page=%d&per_page=%d", i, perPage) }
+						hx-target="#seshu-jobs-content"
+						hx-select="#seshu-jobs-content"
+						hx-swap="outerHTML"
+					>
+						{ fmt.Sprintf("%d", i) }
+					</button>
+				}
+			}
+			if currentPage < totalPages {
+				<button
+					class="join-item btn btn-sm"
+					hx-get={ fmt.Sprintf("/api/html/seshu-jobs?page=%d&per_page=%d", currentPage+1, perPage) }
+					hx-target="#seshu-jobs-content"
+					hx-select="#seshu-jobs-content"
+					hx-swap="outerHTML"
+				>
+					Next
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+					</svg>
+				</button>
+			} else {
+				<button class="join-item btn btn-sm btn-disabled">
+					Next
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+					</svg>
+				</button>
+			}
+		</div>
+	</div>
+}
+
 func countByStatus(jobs []types.SeshuJob, status string) int {
 	count := 0
 	for _, job := range jobs {
@@ -459,4 +530,18 @@ func countByStatus(jobs []types.SeshuJob, status string) int {
 		}
 	}
 	return count
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
