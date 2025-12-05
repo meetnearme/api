@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
@@ -161,69 +160,9 @@ func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	isSuperAdmin := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin]})
 
 	db, _ := services.GetPostgresService(ctx)
-	id := r.URL.Query().Get("id")
-	if id == "" {
-		return transport.SendHtmlErrorPartial([]byte("Missing 'id' query parameter"), http.StatusBadRequest)
-	}
-	ctxWithTargetUrl := context.WithValue(ctx, "targetUrl", id)
-	job, err := db.GetSeshuJobs(ctxWithTargetUrl)
-	if err != nil {
-		// Log the error server-side with details (including the id)
-		log.Printf("Failed to retrieve event source URL with id %s: %v", id, err)
-		// Return generic error message to client without exposing the id or error details
-		return transport.SendHtmlErrorPartial([]byte("Internal server error"), http.StatusInternalServerError)
-	}
-	if len(job) == 0 {
-		// Job not found - return 404 with generic message
-		return transport.SendHtmlErrorPartial([]byte("Event source URL not found"), http.StatusNotFound)
-	}
 
-	// only super admins can delete jobs that are not owned by them
-	if !isSuperAdmin && job[0].OwnerID != userId {
-		return transport.SendHtmlErrorPartial([]byte("You are not the owner of this event source URL"), http.StatusForbidden)
-	}
-
-	err = db.DeleteSeshuJob(ctx, id)
-	if err != nil {
-		// NOTE: this should never leak error messages as they can be leveraged to know the underlying
-		// database schema / structure
-		return transport.SendHtmlErrorPartial([]byte("Failed to delete event source URL: "+id), http.StatusInternalServerError)
-	}
-
-	successPartial := partials.SuccessBannerHTML("Job deleted successfully")
-	var buf bytes.Buffer
-
-	err = successPartial.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to render html template"), http.StatusInternalServerError)
-	}
-
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
-}
-
-func DeleteSeshuJobByKey(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-	userInfo := constants.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(constants.UserInfo)
-	}
-	userId := userInfo.Sub
-	if userId == "" {
-		return transport.SendHtmlErrorPartial([]byte("Missing user ID"), http.StatusUnauthorized)
-	}
-
-	roleClaims := []constants.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
-		roleClaims = claims
-	}
-
-	isSuperAdmin := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin]})
-
-	db, _ := services.GetPostgresService(ctx)
-
-	// Get the key from the URL path parameter
-	vars := mux.Vars(r)
-	key := vars["key"]
+	// Get the key from the query parameter
+	key := r.URL.Query().Get("key")
 
 	if key == "" {
 		return transport.SendHtmlErrorPartial([]byte("Missing job key"), http.StatusBadRequest)
@@ -235,6 +174,7 @@ func DeleteSeshuJobByKey(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		log.Printf("Failed to retrieve event source URL with key %s: %v", key, err)
 		return transport.SendHtmlErrorPartial([]byte("Internal server error"), http.StatusInternalServerError)
 	}
+
 	if len(job) == 0 {
 		return transport.SendHtmlErrorPartial([]byte("Event source URL not found"), http.StatusNotFound)
 	}
@@ -250,7 +190,8 @@ func DeleteSeshuJobByKey(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		return transport.SendHtmlErrorPartial([]byte("Failed to delete event source URL"), http.StatusInternalServerError)
 	}
 
-	// Return empty response to remove the table row via hx-swap="outerHTML"
+	// Trigger a reload of the job list by setting HX-Trigger header
+	w.Header().Set("HX-Trigger", "reloadSeshuJobs")
 	return transport.SendHtmlRes(w, []byte(""), http.StatusOK, "partial", nil)
 }
 
