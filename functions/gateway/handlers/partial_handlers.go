@@ -1054,7 +1054,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				TargetEndTimeCSSPath:     endTag,         // optional
 				TargetDescriptionCSSPath: descriptionTag, // optional
 				TargetHrefCSSPath:        eventURLTag,
-				Status:                   "HEALTHY", // assume healthy if parse succeeded
+				Status:                   "SCANNING", // assume scanning if parse succeeded
 				IsRecursive:              false,
 				LastScrapeSuccess:        time.Now().Unix(),
 				LastScrapeFailure:        0,
@@ -1236,7 +1236,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 					TargetEndTimeCSSPath:     endTag,         // optional
 					TargetDescriptionCSSPath: descriptionTag, // optional
 					TargetHrefCSSPath:        eventURLTag,
-					Status:                   "HEALTHY", // assume healthy if parse succeeded
+					Status:                   "SCANNING",
 					IsRecursive:              true,
 					LastScrapeSuccess:        time.Now().Unix(),
 					LastScrapeFailure:        0,
@@ -1317,7 +1317,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		}
 	}
 
-	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added. We will put it in the queue and let you know when it's imported.`)
+	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added. Check your dashboard for updates.`)
 
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
