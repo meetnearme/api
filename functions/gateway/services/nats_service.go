@@ -152,6 +152,12 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 		return fmt.Errorf("failed to get iterator: %w", err)
 	}
 
+	// Open PostgresService for DB operations
+	db, err := GetPostgresService(ctx)
+	if err != nil {
+		log.Printf("Failed to get PostgresService: %v", err)
+	}
+
 	sem := make(chan struct{}, workers)
 
 	for {
@@ -185,6 +191,14 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 				return
 			}
 
+			if seshuJob.Status != "SCANNING" {
+				seshuJob.Status = "SCANNING"
+				err = db.UpdateSeshuJob(ctx, seshuJob)
+				if err != nil {
+					log.Printf("Failed to update SeshuJob after scrape failure: %v", err)
+				}
+			}
+
 			log.Printf("Processing scraping job for URL: %s", seshuJob.NormalizedUrlKey)
 
 			var scrapeMode string
@@ -197,7 +211,14 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 			events, _, err := ExtractEventsFromHTML(seshuJob, constants.SESHU_MODE_SCRAPE, scrapeMode, &RealScrapingService{})
 			if err != nil {
 				log.Printf("Failed to extract events from %s: %v", seshuJob.NormalizedUrlKey, err)
-				// TODO: Update job status to reflect failure in database
+				// Update job status to reflect failure in database
+				seshuJob.LastScrapeFailureCount++
+				seshuJob.LastScrapeFailure = time.Now().Unix()
+				seshuJob.Status = "FAILING"
+				err = db.UpdateSeshuJob(ctx, seshuJob)
+				if err != nil {
+					log.Printf("Failed to update SeshuJob after scrape failure: %v", err)
+				}
 				msg.Ack()
 				return
 			}
@@ -212,11 +233,17 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 				weaviateClient, err := GetWeaviateClient()
 				if err != nil {
 					log.Printf("Failed to get Weaviate client for %s: %v", seshuJob.NormalizedUrlKey, err)
+					// Update job status to reflect failure in database
+					seshuJob.LastScrapeFailureCount++
+					seshuJob.LastScrapeFailure = time.Now().Unix()
+					seshuJob.Status = "FAILING"
+					err = db.UpdateSeshuJob(ctx, seshuJob)
+					if err != nil {
+						log.Printf("Failed to update SeshuJob after Weaviate client failure: %v", err)
+					}
 					msg.Ack()
 					return
-				}
-
-				// Step 1: Gather all existing events in DB using EventSourceId
+				} // Step 1: Gather all existing events in DB using EventSourceId
 				currentTime := time.Now().Unix()
 				eventSourceId := seshuJob.NormalizedUrlKey
 
@@ -242,6 +269,14 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 
 					if err != nil {
 						log.Printf("Failed to search for existing future events with EventSourceId %s: %v", eventSourceId, err)
+						// Update job status to reflect failure in database
+						seshuJob.LastScrapeFailureCount++
+						seshuJob.LastScrapeFailure = time.Now().Unix()
+						seshuJob.Status = "FAILING"
+						err = db.UpdateSeshuJob(ctx, seshuJob)
+						if err != nil {
+							log.Printf("Failed to update SeshuJob after Weaviate search failure: %v", err)
+						}
 						// Continue with processing even if search fails
 						msg.Nak() // Requeue for retry
 						return
@@ -344,23 +379,35 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 					err = PushExtractedEventsToDB(eventsToInsert, seshuJob, make(map[string]string))
 					if err != nil {
 						log.Println("Error pushing new events to DB:", err)
+						// Update job status to reflect failure in database
+						seshuJob.LastScrapeFailureCount++
+						seshuJob.LastScrapeFailure = time.Now().Unix()
+						seshuJob.Status = "FAILING"
+						err = db.UpdateSeshuJob(ctx, seshuJob)
+						if err != nil {
+							log.Printf("Failed to update SeshuJob after event insertion failure: %v", err)
+						}
+						msg.Ack()
+						return
 					}
 				}
 
 				log.Printf("Successfully processed %d events for %s (%d preserved, %d deleted, %d inserted)",
 					len(events), seshuJob.NormalizedUrlKey, len(preservedEventIds), len(allIdsToDelete), len(eventsToInsert))
 				msg.Ack()
-				return
+			} else {
+				log.Printf("No events scraped from %s, skipping DB update", seshuJob.NormalizedUrlKey)
+				msg.Ack()
 			}
 
-			// TODO: Update the SeshuJob status and timestamps in database
-			// - Set LastScrapeSuccess to current timestamp
-			// - Update Status to "HEALTHY" if successful
-			// - Update to other status if not successful
-			// - Reset LastScrapeFailureCount to 0
-
-			log.Printf("Successfully processed scraping job for URL: %s", seshuJob.NormalizedUrlKey)
-			msg.Ack()
+			// update job status accordingly
+			seshuJob.LastScrapeFailureCount = 0
+			seshuJob.Status = "HEALTHY"
+			seshuJob.LastScrapeSuccess = time.Now().Unix()
+			err = db.UpdateSeshuJob(ctx, seshuJob)
+			if err != nil {
+				log.Printf("Failed to update SeshuJob after scrape failure: %v", err)
+			}
 		}()
 	}
 }
