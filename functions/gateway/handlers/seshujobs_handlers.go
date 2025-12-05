@@ -37,12 +37,37 @@ func GetSeshuJobs(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 func GetSeshuJobsAdmin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
+
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+	userId := userInfo.Sub
+	if userId == "" {
+		return transport.SendHtmlErrorPartial([]byte("Missing user ID"), http.StatusUnauthorized)
+	}
+
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	isSuperAdmin := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin]})
+
 	db, err := services.GetPostgresService(ctx)
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to initialize services: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	jobs, err := db.GetSeshuJobs(ctx)
+	var jobs []internal_types.SeshuJob
+	if isSuperAdmin {
+		// Super admins can see all jobs
+		jobs, err = db.GetSeshuJobs(ctx)
+	} else {
+		// Regular users only see their own jobs
+		ctxWithUserId := context.WithValue(ctx, "ownerId", userId)
+		jobs, err = db.GetSeshuJobs(ctxWithUserId)
+	}
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to retrieve jobs: "+err.Error()), http.StatusInternalServerError)
 	}
