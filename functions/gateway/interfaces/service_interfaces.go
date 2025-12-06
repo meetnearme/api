@@ -24,7 +24,7 @@ type SeshuServiceInterface interface {
 }
 
 type PostgresServiceInterface interface {
-	GetSeshuJobs(ctx context.Context) ([]types.SeshuJob, error)
+	GetSeshuJobs(ctx context.Context, limit, offset int) ([]types.SeshuJob, int64, error)
 	CreateSeshuJob(ctx context.Context, job types.SeshuJob) error
 	UpdateSeshuJob(ctx context.Context, job types.SeshuJob) error
 	DeleteSeshuJob(ctx context.Context, id string) error

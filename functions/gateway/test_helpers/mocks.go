@@ -119,7 +119,7 @@ func (m *MockSeshuService) GetSeshuSession(ctx context.Context, db types.DynamoD
 		LocationLatitude:  9e+10, // INITIAL_EMPTY_LAT_LONG
 		LocationLongitude: 9e+10, // INITIAL_EMPTY_LAT_LONG
 		// Provide minimal HTML that contains common markers; non-FB path may try DOM searches
-		Html:              "<html><body><div>AI Event</div><div>AI Hall</div><time>2025-05-01T10:00:00Z</time></body></html>",
+		Html: "<html><body><div>AI Event</div><div>AI Hall</div><time>2025-05-01T10:00:00Z</time></body></html>",
 		EventCandidates: []types.EventInfo{
 			{
 				EventTitle:       "AI Event",
@@ -419,18 +419,18 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 }
 
 type MockPostgresService struct {
-	GetSeshuJobsFunc            func(ctx context.Context) ([]types.SeshuJob, error)
+	GetSeshuJobsFunc            func(ctx context.Context, limit, offset int) ([]types.SeshuJob, int64, error)
 	CreateSeshuJobFunc          func(ctx context.Context, job types.SeshuJob) error
 	UpdateSeshuJobFunc          func(ctx context.Context, job types.SeshuJob) error
 	DeleteSeshuJobFunc          func(ctx context.Context, id string) error
 	ScanSeshuJobsWithInHourFunc func(ctx context.Context, hours int) ([]types.SeshuJob, error)
 }
 
-func (m *MockPostgresService) GetSeshuJobs(ctx context.Context) ([]types.SeshuJob, error) {
+func (m *MockPostgresService) GetSeshuJobs(ctx context.Context, limit, offset int) ([]types.SeshuJob, int64, error) {
 	if m.GetSeshuJobsFunc != nil {
-		return m.GetSeshuJobsFunc(ctx)
+		return m.GetSeshuJobsFunc(ctx, limit, offset)
 	}
-	return []types.SeshuJob{}, nil
+	return []types.SeshuJob{}, 0, nil
 }
 
 func (m *MockPostgresService) CreateSeshuJob(ctx context.Context, job types.SeshuJob) error {
