@@ -396,7 +396,7 @@ func (s *NatsService) ConsumeMsg(ctx context.Context, workers int) error {
 					len(events), seshuJob.NormalizedUrlKey, len(preservedEventIds), len(allIdsToDelete), len(eventsToInsert))
 				msg.Ack()
 			} else {
-				log.Printf("No events scraped from %s, skipping DB update", seshuJob.NormalizedUrlKey)
+				log.Printf("No events scraped from %s", seshuJob.NormalizedUrlKey)
 				msg.Ack()
 			}
 
