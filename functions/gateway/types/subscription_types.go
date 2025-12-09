@@ -177,6 +177,8 @@ func (s *CustomerSubscription) GetZitadelRole() string {
 		return constants.Roles[constants.SubGrowth]
 	case "Seed Community":
 		return constants.Roles[constants.SubSeed]
+	case "Enterprise Community":
+		return constants.Roles[constants.SubEnterprise]
 	default:
 		return constants.Roles[constants.SubGrowth] // Default to Growth role
 	}

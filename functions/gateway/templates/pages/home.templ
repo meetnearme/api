@@ -133,7 +133,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 			for _, key := range sortedKeys {
 				{{ ev := groupedEvents[key] }}
 				<div class="flex w-full relative pb-24 md:pb-4">
-					if !embedMode && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth]}) {
+					if !embedMode && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth], constants.Roles[constants.SubEnterprise]}) {
 						@ReShareButton(ev[0])
 					}
 					if embedMode {
@@ -248,7 +248,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 			for _, key := range sortedKeys {
 				{{ ev := groupedEvents[key] }}
 				<div class="flex w-full relative pb-12 md:pb-4">
-					if !embedMode && userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth]}) {
+					if !embedMode && userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth], constants.Roles[constants.SubEnterprise]}) {
 						@ReShareButton(ev[0])
 					}
 					if !embedMode && userId == pageUser.UserID {

@@ -2127,17 +2127,20 @@ func TestGetPricingPage(t *testing.T) {
 	// Save original environment variables
 	originalStripeGrowth := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 	originalStripeSeed := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalStripeEnterprise := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
 	originalApexURL := os.Getenv("APEX_URL")
 
 	defer func() {
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalStripeGrowth)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalStripeSeed)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", originalStripeEnterprise)
 		os.Setenv("APEX_URL", originalApexURL)
 	}()
 
 	// Set up test environment variables
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", "price_enterprise_test")
 	os.Setenv("APEX_URL", "https://test.example.com")
 
 	tests := []struct {
@@ -2158,11 +2161,13 @@ func TestGetPricingPage(t *testing.T) {
 			shouldContain: []string{
 				"Plans and Pricing",
 				"Basic Community",
-				"Seed Community",
+				// "Seed Community", // Seed tier is currently commented out in pricing.templ
 				"Growth Community",
+				"Enterprise Community",
 				"Free",
-				"$15",
-				"$50",
+				// "$15", // Seed tier price - currently hidden
+				"$85",  // Growth tier price
+				"$385", // Enterprise tier price
 				"Get Started",
 			},
 			shouldNotContain: []string{},
@@ -2174,11 +2179,13 @@ func TestGetPricingPage(t *testing.T) {
 			shouldContain: []string{
 				"Plans and Pricing",
 				"Basic Community",
-				"Seed Community",
+				// "Seed Community", // Seed tier is currently commented out in pricing.templ
 				"Growth Community",
+				"Enterprise Community",
 				"Free",
-				"$15",
-				"$50",
+				// "$15", // Seed tier price - currently hidden
+				"$85",  // Growth tier price
+				"$385", // Enterprise tier price
 				"Get Started",
 			},
 			shouldNotContain: []string{},
@@ -2194,7 +2201,7 @@ func TestGetPricingPage(t *testing.T) {
 				"Custom subdomain",
 				"Host Events",
 				"Custom registration forms",
-				"Custom theme and branding",
+				// "Custom theme and branding", // This was a Seed tier feature - currently hidden
 				"Syndicate and re-publish events",
 				"API Access",
 			},
@@ -2254,16 +2261,19 @@ func TestGetPricingPage_WithQueryParams(t *testing.T) {
 	// Save original environment variables
 	originalStripeGrowth := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 	originalStripeSeed := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalStripeEnterprise := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
 	originalApexURL := os.Getenv("APEX_URL")
 
 	defer func() {
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalStripeGrowth)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalStripeSeed)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", originalStripeEnterprise)
 		os.Setenv("APEX_URL", originalApexURL)
 	}()
 
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", "price_enterprise_test")
 	os.Setenv("APEX_URL", "https://test.example.com")
 
 	tests := []struct {
@@ -2338,19 +2348,23 @@ func TestGetPricingPage_RendersCorrectPlanIDs(t *testing.T) {
 	// This test verifies that the correct Stripe plan IDs are embedded in the page
 	originalStripeGrowth := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 	originalStripeSeed := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalStripeEnterprise := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
 	originalApexURL := os.Getenv("APEX_URL")
 
 	defer func() {
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalStripeGrowth)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalStripeSeed)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", originalStripeEnterprise)
 		os.Setenv("APEX_URL", originalApexURL)
 	}()
 
 	testGrowthPlan := "price_1234567890growth"
 	testSeedPlan := "price_1234567890seed"
+	testEnterprisePlan := "price_1234567890enterprise"
 
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", testGrowthPlan)
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", testSeedPlan)
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", testEnterprisePlan)
 	os.Setenv("APEX_URL", "https://test.example.com")
 
 	req := httptest.NewRequest("GET", "/pricing", nil)
@@ -2369,6 +2383,9 @@ func TestGetPricingPage_RendersCorrectPlanIDs(t *testing.T) {
 	if !strings.Contains(body, testSeedPlan) {
 		t.Errorf("Expected response to contain Seed plan ID '%s'", testSeedPlan)
 	}
+	if !strings.Contains(body, testEnterprisePlan) {
+		t.Errorf("Expected response to contain Enterprise plan ID '%s'", testEnterprisePlan)
+	}
 
 	// Verify data attributes are set correctly
 	if !strings.Contains(body, `data-growth-plan-id="`+testGrowthPlan+`"`) {
@@ -2376,5 +2393,8 @@ func TestGetPricingPage_RendersCorrectPlanIDs(t *testing.T) {
 	}
 	if !strings.Contains(body, `data-seed-plan-id="`+testSeedPlan+`"`) {
 		t.Error("Expected response to contain data-seed-plan-id attribute with correct value")
+	}
+	if !strings.Contains(body, `data-enterprise-plan-id="`+testEnterprisePlan+`"`) {
+		t.Error("Expected response to contain data-enterprise-plan-id attribute with correct value")
 	}
 }
