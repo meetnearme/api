@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -149,12 +150,11 @@ func DeleteMnmSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		transport.SetCORSAllowAll(w, r)
+
 		if r.Method == "OPTIONS" {
-			transport.SetCORSAllowAll(w, r)
 			return
 		}
-
-		transport.SetCORSAllowAll(w, r)
 
 		ctx := r.Context()
 
@@ -1663,12 +1663,27 @@ func findTagByPartialText(doc *goquery.Document, targetSubstring string) string 
 	return ""
 }
 
+//go:embed scripts/embed.js
+var embedScriptTemplate string
+
 func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	staticBaseUrl := os.Getenv("STATIC_BASE_URL")
 	if staticBaseUrl == "" {
 		staticBaseUrl = "http://localhost:8001"
 	}
 
+	script := strings.Replace(embedScriptTemplate, "{{STATIC_BASE_URL}}", staticBaseUrl, -1)
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		transport.SetCORSAllowAll(w, r)
+		w.Header().Set("Content-Type", "application/javascript")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(script))
+	}
+}
+
+// Old code removed - JavaScript now in scripts/embed.js
+/*
 	script := fmt.Sprintf(`(function() {
 		'use strict';
 
@@ -1990,10 +2005,10 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 							const markerText = marker.nodeValue.trim();
 							const match = markerText.match(/MNM_SCRIPT_MARKER:(\d+):(.+)/);
 
+							console.log(marker);
 							if (match && match.length === 3) {
 								const scriptIndex = parseInt(match[1], 10);
 								const scriptId = match[2].trim();
-
 								// Skip alpine-state if we already processed it
 								if (scriptId === 'alpine-state' && alpineStateScript) {
 									marker.parentNode.removeChild(marker);
@@ -2103,11 +2118,4 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			});
 		});
 	})();`, staticBaseUrl)
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		transport.SetCORSAllowAll(w, r)
-		w.Header().Set("Content-Type", "application/javascript")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(script))
-	}
-}
+*/

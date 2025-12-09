@@ -272,12 +272,11 @@ func BulkUpdateEventsHandler(w http.ResponseWriter, r *http.Request) http.Handle
 
 func SearchLocationsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		transport.SetCORSAllowAll(w, r)
+
 		if r.Method == "OPTIONS" {
-			transport.SetCORSAllowAll(w, r)
 			return
 		}
-
-		transport.SetCORSAllowAll(w, r)
 
 		query := r.URL.Query().Get("q")
 
