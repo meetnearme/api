@@ -198,6 +198,8 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 								Growth Community
 							} else if roleClaim.Role == string(constants.SubSeed) {
 								Seed Community
+							} else if roleClaim.Role == string(constants.SubEnterprise) {
+								Enterprise Community
 							} else {
 								{ roleClaim.Role }
 							}
