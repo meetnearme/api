@@ -725,9 +725,18 @@ func SearchWeaviateEvents(
 
 	// Define Response Fields
 	fields := []graphql.Field{
-		{Name: "name"}, {Name: "description"}, {Name: "eventOwners"}, {Name: "eventOwnerName"},
-		{Name: "eventSourceType"}, {Name: "startTime"}, {Name: "endTime"}, {Name: "address"},
-		{Name: "lat"}, {Name: "long"}, {Name: "eventSourceId"}, {Name: "timezone"},
+		{Name: "name"},
+		{Name: "description"},
+		{Name: "eventOwners"},
+		{Name: "eventOwnerName"},
+		{Name: "eventSourceType"},
+		{Name: "startTime"},
+		{Name: "endTime"},
+		{Name: "address"},
+		{Name: "lat"},
+		{Name: "long"},
+		{Name: "eventSourceId"},
+		{Name: "timezone"},
 		{Name: "shadowOwners"},
 		{Name: "_additional", Fields: []graphql.Field{
 			{Name: "id"},
