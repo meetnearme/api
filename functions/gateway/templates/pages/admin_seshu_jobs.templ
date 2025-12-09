@@ -162,11 +162,11 @@ templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPa
 		if totalPages > 1 {
 			@paginationControls(currentPage, perPage, totalPages, totalCount)
 		}
+		for _, job := range jobs {
+			@JobDetailsModal(job)
+			@DeleteConfirmModal(job)
+		}
 	</div>
-	for _, job := range jobs {
-		@JobDetailsModal(job)
-		@DeleteConfirmModal(job)
-	}
 }
 
 templ jobTableRow(job types.SeshuJob) {
