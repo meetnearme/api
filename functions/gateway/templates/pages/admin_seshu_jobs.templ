@@ -142,6 +142,7 @@ templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPa
 			<thead>
 				<tr class="text-xs uppercase tracking-wide text-base-content/60">
 					<th>Status</th>
+					<th colspan="1">URL</th>
 					<th>Type</th>
 					<th>Location</th>
 					<th>Last Scan</th>
@@ -173,17 +174,19 @@ templ jobTableRow(job types.SeshuJob) {
 				{ job.Status }
 			</div>
 		</td>
-		<td>
-			<div class="text-xs whitespace-nowrap font-semibold">
-				{ formatSourceType(job.KnownScrapeSource) }
-			</div>
-			<div class="font-medium max-w-20vw text-overflow-ellipsis text-xs text-base-content/60" title={ job.NormalizedUrlKey }>
+		<td colspan="1">
+			<div class="font-medium max-w-20vw text-overflow-ellipsis text-xs" title={ job.NormalizedUrlKey }>
 				{ job.NormalizedUrlKey }
 			</div>
 			<div class="flex gap-1 mt-1">
 				if job.IsRecursive {
 					<div class="badge badge-xs badge-info">Recursive</div>
 				}
+			</div>
+		</td>
+		<td>
+			<div class="text-xs whitespace-nowrap">
+				{ formatSourceType(job.KnownScrapeSource) }
 			</div>
 		</td>
 		<td>
