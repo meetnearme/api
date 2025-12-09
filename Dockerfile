@@ -21,9 +21,9 @@ COPY functions/ ./functions/
 RUN set -e && \
 # Fetch Cloudflare locations data
   cf_locations=$(curl -s -f -X GET \
-      -H "Accept: application/json" \
-      -H "Referer: https://speed.cloudflare.com/" \
-       https://speed.cloudflare.com/locations) && \
+        -H "Accept: application/json" \
+        -H "Referer: https://speed.cloudflare.com/" \
+         https://speed.cloudflare.com/locations) && \
   \
   if [ $? -ne 0 ] || [ -z "$cf_locations" ]; then \
     echo "Failed to fetch Cloudflare locations or received empty response" && \

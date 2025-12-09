@@ -679,8 +679,9 @@ func GetPricingPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 	hasSeedSubscription := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubSeed]})
 	hasGrowthSubscription := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubGrowth]})
+	hasEnterpriseSubscription := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubEnterprise]})
 
-	pricingPage := pages.PricingPage(isLoggedIn, hasSeedSubscription, hasGrowthSubscription)
+	pricingPage := pages.PricingPage(isLoggedIn, hasSeedSubscription, hasGrowthSubscription, hasEnterpriseSubscription)
 	layoutTemplate := pages.Layout(constants.SitePages["pricing"], userInfo, pricingPage, types.Event{}, false, ctx, []string{}, false)
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
