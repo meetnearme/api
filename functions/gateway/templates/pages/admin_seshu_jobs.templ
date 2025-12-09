@@ -77,12 +77,10 @@ func getStatusBadgeClass(status string) string {
 	switch status {
 	case "HEALTHY":
 		return "badge-success"
-	case "WARNING":
+	case "SCANNING":
 		return "badge-warning"
 	case "FAILING":
 		return "badge-error"
-	case "SCANNING":
-		return "badge-info"
 	default:
 		return "badge-ghost"
 	}
@@ -131,8 +129,8 @@ templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPa
 				<div class="text-xl font-semibold text-success">{ fmt.Sprintf("%d", countByStatus(jobs, "HEALTHY")) }</div>
 			</div>
 			<div class="rounded-lg border border-base-300/40 bg-base-100/40 p-2">
-				<div class="text-xs text-base-content/70">Warnings</div>
-				<div class="text-xl font-semibold text-warning">{ fmt.Sprintf("%d", countByStatus(jobs, "WARNING")) }</div>
+				<div class="text-xs text-base-content/70">Scanning</div>
+				<div class="text-xl font-semibold text-warning">{ fmt.Sprintf("%d", countByStatus(jobs, "SCANNING")) }</div>
 			</div>
 			<div class="rounded-lg border border-base-300/40 bg-base-100/40 p-2">
 				<div class="text-xs text-base-content/70">Failing</div>
@@ -144,7 +142,6 @@ templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPa
 			<thead>
 				<tr class="text-xs uppercase tracking-wide text-base-content/60">
 					<th>Status</th>
-					<th colspan="1">URL</th>
 					<th>Type</th>
 					<th>Location</th>
 					<th>Last Scan</th>
@@ -176,19 +173,17 @@ templ jobTableRow(job types.SeshuJob) {
 				{ job.Status }
 			</div>
 		</td>
-		<td colspan="1">
-			<div class="font-medium max-w-20vw text-overflow-ellipsis text-xs" title={ job.NormalizedUrlKey }>
+		<td>
+			<div class="text-xs whitespace-nowrap font-semibold">
+				{ formatSourceType(job.KnownScrapeSource) }
+			</div>
+			<div class="font-medium max-w-20vw text-overflow-ellipsis text-xs text-base-content/60" title={ job.NormalizedUrlKey }>
 				{ job.NormalizedUrlKey }
 			</div>
 			<div class="flex gap-1 mt-1">
 				if job.IsRecursive {
 					<div class="badge badge-xs badge-info">Recursive</div>
 				}
-			</div>
-		</td>
-		<td>
-			<div class="text-xs whitespace-nowrap">
-				{ formatSourceType(job.KnownScrapeSource) }
 			</div>
 		</td>
 		<td>
