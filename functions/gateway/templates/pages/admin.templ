@@ -37,6 +37,10 @@ func getSubscriptionsAdminUrl() string {
 	return "/api/html/subscriptions"
 }
 
+func getEventSourceAdminUrl() string {
+	return "/api/html/seshu-jobs"
+}
+
 templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, interests []string, subdomainFromMetadata, mnmOptions, userAbout string, ctx context.Context) {
 	<h1 class="text-3xl mb-8">Admin</h1>
 	<div id="admin-content-container" class="md:grid md:grid-cols-7 gap-6" x-data="getAdminState()">
@@ -417,7 +421,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			</form>
 			<div id="about-result" class="margins-when-children my-8"></div>
 		</div>
-		<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled } data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() } data-subscriptions-url={ getSubscriptionsAdminUrl() }>
+		<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled } data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() } data-subscriptions-url={ getSubscriptionsAdminUrl() } data-event-source-url={ getEventSourceAdminUrl() }>
 		// Admin sub-routing with Navigation API
 		(function() {
 			const adminStateEl = document.querySelector('#admin-state');
@@ -440,6 +444,10 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 				'/admin/subscriptions': {
 					url: adminStateEl.getAttribute('data-subscriptions-url'),
 					title: 'Admin - Subscriptions'
+				},
+				'/admin/event-sources': {
+					url: adminStateEl.getAttribute('data-event-source-url'),
+					title: 'Admin - Event Sources'
 				}
 			};
 
