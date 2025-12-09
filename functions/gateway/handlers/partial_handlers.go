@@ -149,13 +149,13 @@ func DeleteMnmSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 
 func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Handle OPTIONS preflight request
 		if r.Method == "OPTIONS" {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			return
 		}
 
-		// Extract parameter values from the request query parameters
+		transport.SetCORSAllowAll(w, r)
+
 		ctx := r.Context()
 
 		q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
@@ -213,15 +213,10 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		var buf bytes.Buffer
 		err = eventListPartial.Render(ctx, &buf)
 		if err != nil {
-			// Set CORS headers before sending error response
-			transport.SetCORSHeaders(w, r)
 			transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err).ServeHTTP(w, r)
 			return
 		}
 
-		// Set CORS headers before sending success response
-		// This ensures headers are on the actual response writer, not just in SendHtmlRes
-		transport.SetCORSHeaders(w, r)
 		transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil).ServeHTTP(w, r)
 	}
 }
@@ -233,7 +228,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	userId := r.URL.Query().Get("userId")
 	if userId == "" {
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			transport.SendServerRes(w, []byte("userId query parameter is required"), http.StatusBadRequest, errors.New("userId query parameter is required"))
 		}
 	}
@@ -262,7 +257,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		}
 	}
@@ -271,7 +266,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
 		}
 	}
@@ -312,14 +307,14 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	err = widget.Render(ctx, &buf)
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			transport.SendServerRes(w, []byte("Failed to render widget: "+err.Error()), http.StatusInternalServerError, err)
 		}
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers for embed support
-		transport.SetCORSHeaders(w, r)
+		transport.SetCORSAllowAll(w, r)
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
 		w.Write(buf.Bytes())
@@ -536,12 +531,12 @@ func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Handle OPTIONS preflight request
 		if r.Method == "OPTIONS" {
-			transport.SetCORSHeaders(w, r)
+			transport.SetCORSAllowAll(w, r)
 			return
 		}
 
-		// Set CORS headers for the response
-		transport.SetCORSHeaders(w, r)
+		// Set CORS headers once for embed endpoints
+		transport.SetCORSAllowAll(w, r)
 
 		latStr := r.URL.Query().Get("lat")
 		lonStr := r.URL.Query().Get("lon")
@@ -1759,11 +1754,22 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 
 		// Step #4: Dependency Loading
+		// Check if our CSS is already loaded by verifying it's from our domain and matches our paths
+		const cssLinks = document.querySelectorAll('link[rel="stylesheet"]');
+		let ourCssLoaded = false;
+		for (let i = 0; i < cssLinks.length; i++) {
+			const href = cssLinks[i].href || cssLinks[i].getAttribute('href') || '';
+			if (href.includes(staticBaseUrl) && (href.includes('styles.82a6336e.css') || href.includes('/assets/styles.css') || href.includes('/static/assets/styles.css'))) {
+				ourCssLoaded = true;
+				break;
+			}
+		}
+
 		const dependencies = {
 			alpine: !!window.Alpine,
 			htmx: !!window.htmx,
 			tailwind: !!(document.querySelector('script[src*="tailwindcss.com"]') || (window.tailwind && window.tailwind.config)),
-			mainCss: !!document.querySelector('link[href*="styles"]'),
+			mainCss: ourCssLoaded,
 			fonts: !!document.querySelector('link[href*="fonts.googleapis.com"]'),
 			focusPlugin: !!document.querySelector('script[src*="@alpinejs/focus"]')
 		};
@@ -1802,7 +1808,12 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 
 		function createErrorPartial(message) {
-			return '<div role="alert" class="alert alert-error"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-10 w-10" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><div>' + message;
+			return '<div role="alert" class="alert alert-error">' +
+				'<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-10 w-10" fill="none" viewBox="0 0 24 24">' +
+					'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>' +
+				'</svg>' +
+				'<div>' + message + '</div>' +
+			'</div>';
 		}
 
 		function insertErrorPartial(message) {
@@ -1856,6 +1867,12 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		}
 
 		Promise.all(loadPromises).then(function() {
+			if (!window.Alpine) {
+				throw new Error('Alpine.js failed to load');
+			}
+			if (!window.htmx) {
+				throw new Error('HTMX failed to load');
+			}
 			// Step #5: Widget HTML Fetching
 			const embedUrl = baseUrl + '/api/html/embed?userId=' + encodeURIComponent(userId);
 			fetch(embedUrl, {
@@ -1936,10 +1953,11 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 					});
 
 					// Step #7: HTML Injection & Script Execution
+					let alpineStateScript;
 					try {
 						for (var i = 0; i < scriptsData.length; i++) {
 							if (scriptsData[i].id === 'alpine-state') {
-								const alpineStateScript = scriptsData[i];
+								alpineStateScript = scriptsData[i];
 								const alpineStateScriptElement = document.createElement('script');
 								alpineStateScriptElement.id = 'alpine-state-exec';
 								Object.keys(alpineStateScript.attributes).forEach(function(attrName) {
@@ -2087,7 +2105,7 @@ func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	})();`, staticBaseUrl)
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		transport.SetCORSHeaders(w, r)
+		transport.SetCORSAllowAll(w, r)
 		w.Header().Set("Content-Type", "application/javascript")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(script))

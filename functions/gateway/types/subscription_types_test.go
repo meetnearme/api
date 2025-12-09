@@ -351,6 +351,7 @@ func TestStripeAPIContractValidation(t *testing.T) {
 		}{
 			{"Growth", constants.Roles[constants.SubGrowth]},
 			{"Seed Community", constants.Roles[constants.SubSeed]},
+			{"Enterprise Community", constants.Roles[constants.SubEnterprise]},
 			{"Unknown Plan", constants.Roles[constants.SubGrowth]}, // Default fallback
 		}
 

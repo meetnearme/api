@@ -14,6 +14,15 @@
     2. The `*.templ` template file watcher and a trigger to compile new Go builds
     3. local npm static asset server
 
+## Simulating Subdomains
+
+1. run `npm dev:worker` in a new terminal session
+2. navigate to `brians-pub.localhost:8787
+
+## Forwarding Local Stripe Webhook Events
+
+1. run `stripe listen --forward-to localhost:8000/api/webhook/subscription` in a new terminal session
+
 ## (⚠️ Deprecated) Running the Lambda Project
 
 ### Prerequisites
