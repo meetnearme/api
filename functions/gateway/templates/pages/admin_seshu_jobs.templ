@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"net/url"
 	"time"
 )
 
@@ -441,8 +442,8 @@ templ DeleteConfirmModal(job types.SeshuJob) {
 					<button class="btn btn-ghost">Cancel</button>
 					<button
 						class="btn btn-error"
-						hx-delete={ fmt.Sprintf("/api/seshu-job?key=%s", job.NormalizedUrlKey) }
-						hx-target={ fmt.Sprintf("closest dialog") }
+						hx-delete={ fmt.Sprintf("/api/seshu-job?key=%s", url.QueryEscape(job.NormalizedUrlKey)) }
+						hx-target="closest dialog"
 						hx-swap="outerHTML swap:0.5s"
 						onclick="this.closest('dialog').close()"
 					>
