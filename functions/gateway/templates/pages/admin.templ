@@ -388,6 +388,32 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					</div>
 				</div>
 			</div>
+			<div id="theme-result" class="margins-when-children my-8"></div>
+			<h3 class="text-2xl font-bold mb-4 mt-4">About / Bio</h3>
+			<form
+				class="group"
+				novalidate
+				hx-post="/api/auth/users/update-about"
+				hx-ext="json-enc"
+				hx-target="#about-result"
+				hx-disabled-elt="button[type='submit']"
+				@submit.prevent=""
+			>
+				<div class="form-control">
+					<label class="label" for="description">Description</label>
+					<textarea
+						name="about"
+						class="textarea textarea-bordered w-full"
+						maxlength="750"
+						id="about"
+						placeholder="Personal bio or organization description on your profile"
+					>
+						{ userAbout }
+					</textarea>
+				</div>
+				<button type="submit" class="btn btn-primary mt-4">Update About<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+			</form>
+			<div id="about-result" class="margins-when-children my-8"></div>
 		</div>
 		<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled } data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() } data-subscriptions-url={ getSubscriptionsAdminUrl() }>
 		// Admin sub-routing with Navigation API
