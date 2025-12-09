@@ -321,6 +321,70 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 }
 
+func GetEmbedEventDetails(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "OPTIONS" {
+			transport.SetCORSAllowAll(w, r)
+			return
+		}
+
+		transport.SetCORSAllowAll(w, r)
+
+		ctx := r.Context()
+
+		eventId := r.URL.Query().Get("eventId")
+		if eventId == "" {
+			transport.SendServerRes(w, []byte("eventId query parameter is required"), http.StatusBadRequest, errors.New("eventId query parameter is required")).ServeHTTP(w, r)
+			return
+		}
+
+		userId := r.URL.Query().Get("userId")
+		if userId == "" {
+			transport.SendServerRes(w, []byte("userId query parameter is required"), http.StatusBadRequest, errors.New("userId query parameter is required")).ServeHTTP(w, r)
+			return
+		}
+
+		embedBaseUrl := r.URL.Query().Get("embedBaseUrl")
+		if embedBaseUrl == "" {
+			embedBaseUrl = os.Getenv("APEX_URL")
+		}
+
+		parseDates := r.URL.Query().Get("parse_dates")
+
+		weaviateClient, err := services.GetWeaviateClient()
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
+			return
+		}
+
+		event, err := services.GetWeaviateEventByID(ctx, weaviateClient, eventId, parseDates)
+		if err != nil || event == nil || event.Id == "" {
+			// If event not found or error, return empty event (component will show 404)
+			emptyEvent := internal_types.Event{}
+			eventDetailsEmbed := pages.EventDetailsEmbed(emptyEvent, embedBaseUrl, userId)
+			var buf bytes.Buffer
+			err := eventDetailsEmbed.Render(ctx, &buf)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to render event details: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
+				return
+			}
+			transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil).ServeHTTP(w, r)
+			return
+		}
+
+		eventDetailsEmbed := pages.EventDetailsEmbed(*event, embedBaseUrl, userId)
+
+		var buf bytes.Buffer
+		err = eventDetailsEmbed.Render(ctx, &buf)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to render event details: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
+			return
+		}
+
+		transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil).ServeHTTP(w, r)
+	}
+}
+
 func GetProfileInterestsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 

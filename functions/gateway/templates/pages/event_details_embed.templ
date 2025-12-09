@@ -1,0 +1,133 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/meetnearme/api/functions/gateway/constants"
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
+	"net/url"
+	"os"
+	"strconv"
+)
+
+templ EventDetailsEmbed(event types.Event, embedBaseUrl string, userId string) {
+	<div>
+		if event.Id == "" {
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<h1 class="text-3xl mt-2 text-center">404 - Can't Find That Event</h1>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+		} else {
+			// Back button to return to events list
+			<button
+				class="btn btn-sm btn-ghost mb-4"
+				hx-get={ fmt.Sprintf("/api/html/embed?userId=%s&embedBaseUrl=%s", url.QueryEscape(userId), url.QueryEscape(embedBaseUrl)) }
+				hx-target="closest .mnm-embed-widget"
+				hx-swap="innerHTML"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+				</svg>
+				Back to Events
+			</button>
+			<h1 class="text-3xl mt-2">{ event.Name }</h1>
+			if event.EventSourceType == constants.ES_SERIES_PARENT || event.EventSourceType == constants.ES_SERIES_PARENT_UNPUB {
+				<h3 class="text-xl mt-2">Event Series</h3>
+				<div
+					hx-get={ "/api/html/events?list_mode=" + constants.EV_MODE_CAROUSEL + "&radius=" + strconv.Itoa(constants.DEFAULT_MAX_RADIUS) + "&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.Id + "&event_source_types=" + constants.ES_EVENT_SERIES + "," + constants.ES_EVENT_SERIES_UNPUB }
+					hx-trigger="load"
+					hx-swap="outerHTML"
+				>
+					<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+				</div>
+			}
+			<br/>
+			<p>
+				if event.EventSourceId == "" && event.EventOwnerName != "" {
+					@IconLeftSection("Host", event.EventOwnerName, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				} else if event.EventSourceId != "" {
+					@IconLeftSection("Curator", event.EventSourceId, "community", `/?owners=`+event.EventOwners[0], "OWNER_NAME", event)
+				}
+				if event.SourceUrl != "" {
+					@IconLeftSection("Source", event.SourceUrl, "link", event.SourceUrl, "SOURCE_URL", event)
+				}
+				<br/>
+				@IconLeftSection("Venue", event.Address, "location", "/?address="+event.Address, "VENUE", event)
+				<br/>
+				if event.EventSourceType != "SLF_EVS" {
+					if helpers.GetDateOrShowNone(event.StartTime, event.Timezone) != "" {
+						@IconLeftSection("Date", helpers.GetDateOrShowNone(event.StartTime, event.Timezone), "calendar", "", "", event)
+					}
+					<br/>
+					if helpers.GetTimeOrShowNone(event.StartTime, event.Timezone) != "" {
+						@IconLeftSection("Time", helpers.GetTimeOrShowNone(event.StartTime, event.Timezone), "clock", "", "", event)
+					}
+					<br/>
+				}
+				if event.StartingPrice > 0 {
+					// TODO: handle basecurrency
+					@IconLeftSection("Price", "$"+fmt.Sprint(event.StartingPrice/100), "price", "", "", event)
+				}
+				if (event.EventSourceType == constants.ES_EVENT_SERIES || event.EventSourceType == constants.ES_EVENT_SERIES_UNPUB) && event.EventSourceId != "" {
+					<div class="divider my-3"></div>
+					<h3 class="text-xl mt-2 mb-2">All Events in this Series</h3>
+					<div
+						hx-get={ "/api/html/events?list_mode=" + constants.EV_MODE_CAROUSEL + "&radius=500000&end_time=2099-10-18T10:00:00Z&event_source_ids=" + event.EventSourceId + "&event_source_types=" + constants.ES_EVENT_SERIES + "," + constants.ES_EVENT_SERIES_UNPUB }
+						hx-trigger="load"
+						hx-swap="outerHTML"
+					>
+						<div class="mt-2"><span class="loading loading-spinner loading-md text-primary"></span></div>
+					</div>
+				}
+				<br/>
+				<h3 class="text-xl">EVENT DESCRIPTION</h3>
+				<br/>
+				<div class="whitespace-pre-wrap">
+					@templ.Raw(event.Description)
+				</div>
+				<br/>
+				<br/>
+				<h3 class="text-xl">EVENT LOCATION</h3>
+				<br/>
+				<iframe
+					src={ "https://www.google.com/maps/embed/v1/place?key=" + os.Getenv("GOOGLE_API_KEY") + "&q=" + url.QueryEscape(event.Address) }
+					width="100%"
+					height="300px"
+					style="border:0;"
+					allowfullscreen=""
+					loading="lazy"
+				></iframe>
+				<br/>
+				<br/>
+				<br/>
+			</p>
+			<div class="bottom-drawer">
+				<div class="container mx-auto">
+					<a
+						href={ templ.URL(fmt.Sprintf("%s/event/%s", embedBaseUrl, event.Id)) }
+						target="_blank"
+						class="btn btn-block btn-primary"
+					>
+						Register on Meet Near Me
+					</a>
+				</div>
+			</div>
+		}
+	</div>
+	// this div is only to shim the main-bg against the parent space-y-4 class
+	// so that it doesn't inherit the margin-top
+	<div>
+		<img class="main-bg top" alt="event featured image" src={ templ.EscapeString(helpers.GetImgUrlFromHash(event)) }/>
+	</div>
+}

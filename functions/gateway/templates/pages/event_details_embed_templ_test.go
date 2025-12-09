@@ -1,0 +1,177 @@
+package pages
+
+import (
+	"bytes"
+	"context"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/meetnearme/api/functions/gateway/constants"
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/types"
+)
+
+func TestEventDetailsEmbed(t *testing.T) {
+	dstTm := "2099-05-02T00:00:00Z"
+	loc, _ := time.LoadLocation("America/Los_Angeles")
+	validEventDSTStartTime, err := helpers.UtcToUnix64(dstTm, loc)
+	if err != nil || validEventDSTStartTime == 0 {
+		t.Fatalf("Failed to convert UTC to unix: %v", err)
+	}
+	nonDstTm := "2099-01-31T00:00:00Z"
+	validEventNonDSTStartTime, err := helpers.UtcToUnix64(nonDstTm, loc)
+	if err != nil || validEventNonDSTStartTime == 0 {
+		t.Fatalf("Failed to convert UTC to unix: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		event       types.Event
+		expected    []string
+		notExpected []string
+	}{
+		{
+			name: "Valid DST event",
+			event: types.Event{
+				Id:              "123",
+				Name:            "Test Event",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventDSTStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: constants.ES_SINGLE_EVENT,
+				Lat:             38.896305,
+				Long:            -77.023289,
+				Timezone:        *loc,
+			},
+			expected: []string{
+				"Test Event",
+				"This is a test event",
+				"123 Test St",
+				"May 2, 2099",
+				"12:00am",
+				"abc-uuid",
+				"Brians Pub",
+			},
+		},
+		{
+			name: "Valid Non-DST event",
+			event: types.Event{
+				Id:              "123",
+				Name:            "Test Event",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventNonDSTStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: constants.ES_SINGLE_EVENT,
+				Lat:             38.896305,
+				Long:            -77.023289,
+				Timezone:        *loc,
+			},
+			expected: []string{
+				"Test Event",
+				"This is a test event",
+				"123 Test St",
+				"Jan 31, 2099",
+				"12:00am",
+				"abc-uuid",
+				"Brians Pub",
+			},
+		},
+		{
+			name: "Valid single event",
+			event: types.Event{
+				Id:              "123",
+				Name:            "Karaoke Nationals",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventNonDSTStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: constants.ES_SINGLE_EVENT,
+				Lat:             38.896305,
+				Long:            -77.023289,
+				Timezone:        *loc,
+			},
+			expected: []string{
+				"Karaoke Nationals",
+				"This is a test event",
+				"123 Test St",
+				"Jan 31, 2099",
+				"12:00am",
+				"abc-uuid",
+				"Brians Pub",
+				"<title>Meet Near Me - Karaoke Nationals</title>",
+			},
+		},
+		{
+			name: "Valid series event",
+			event: types.Event{
+				Id:              "123",
+				Name:            "Weekly Karaoke at Buddys",
+				Description:     "This is a test event",
+				Address:         "123 Test St",
+				StartTime:       validEventNonDSTStartTime,
+				EventOwners:     []string{"abc-uuid"},
+				EventOwnerName:  "Brians Pub",
+				EventSourceType: constants.ES_EVENT_SERIES,
+				Lat:             38.896305,
+				Long:            -77.023289,
+				Timezone:        *loc,
+			},
+			expected: []string{
+				"Weekly Karaoke at Buddys",
+				"This is a test event",
+				"123 Test St",
+				"Jan 31, 2099",
+				"12:00am",
+				"abc-uuid",
+				"Brians Pub",
+				"<title>Meet Near Me - Weekly Karaoke at Buddys</title>",
+			},
+		},
+		{
+			name:  "Empty event",
+			event: types.Event{},
+			expected: []string{
+				"404 - Can't Find That Event",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			baseURL := "https://meetnearme.com"
+			userId := "test-user-id"
+			component := EventDetailsEmbed(tt.event, baseURL, userId)
+			fakeContext := context.Background()
+			fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
+			// Wrap the component with Layout
+			layoutTemplate := Layout(constants.SitePages["event-detail"], constants.UserInfo{}, component, tt.event, true, fakeContext, []string{})
+
+			// Render the component to a string using the same context
+			var buf bytes.Buffer
+			err := layoutTemplate.Render(fakeContext, &buf)
+			if err != nil {
+				t.Fatalf("Error rendering component: %v", err)
+			}
+			result := buf.String()
+			// Check if all expected strings are in the result
+			for _, exp := range tt.expected {
+				if !strings.Contains(result, exp) {
+					t.Errorf("Expected string not found: %s", exp)
+					t.Logf("Result: %s", result)
+				}
+			}
+			for _, notExp := range tt.notExpected {
+				if strings.Contains(result, notExp) {
+					t.Errorf("Unexpected string found: %s", notExp)
+					t.Logf("Result: %s", result)
+				}
+			}
+		})
+	}
+}
