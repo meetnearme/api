@@ -34,8 +34,10 @@ func formatTimeUntil(hour int) string {
 	currentHour := now.Hour()
 
 	var hoursUntil int
-	if hour >= currentHour {
+	if hour > currentHour {
 		hoursUntil = hour - currentHour
+	} else if hour == currentHour && now.Minute() == 0 {
+		hoursUntil = 0
 	} else {
 		hoursUntil = 24 - currentHour + hour
 	}
@@ -246,7 +248,7 @@ templ jobTableRow(job types.SeshuJob) {
 }
 
 templ JobDetailsModal(job types.SeshuJob) {
-	<dialog id={ fmt.Sprintf("job-details-%s", job.NormalizedUrlKey) } class="modal">
+	<dialog id={ fmt.Sprintf("job-details-%s", slugifyKey(job.NormalizedUrlKey)) } class="modal">
 		<div class="modal-box max-w-4xl">
 			<form method="dialog">
 				<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
@@ -416,7 +418,7 @@ templ JobDetailsModal(job types.SeshuJob) {
 }
 
 templ DeleteConfirmModal(job types.SeshuJob) {
-	<dialog id={ fmt.Sprintf("delete-confirm-%s", job.NormalizedUrlKey) } class="modal">
+	<dialog id={ fmt.Sprintf("delete-confirm-%s", slugifyKey(job.NormalizedUrlKey)) } class="modal">
 		<div class="modal-box">
 			<h3 class="font-bold text-lg mb-4">Delete Event Source</h3>
 			<div class="alert alert-warning mb-4">
