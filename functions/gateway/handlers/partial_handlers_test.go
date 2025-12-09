@@ -2835,7 +2835,7 @@ func TestGetSubscriptionsPartial(t *testing.T) {
 					"object":               "subscription",
 					"status":               "active",
 					"customer":             "cus_test_customer",
-					"cancel_at_period_end": false,
+					"cancel_at_period_end": true, // Match the Growth subscription to test "Canceling at period end"
 					"created":              1234567890,
 					"canceled_at":          nil,
 					"items": map[string]interface{}{
@@ -2853,11 +2853,11 @@ func TestGetSubscriptionsPartial(t *testing.T) {
 										"id":   "prod_enterprise",
 										"name": "Enterprise Community",
 									},
-								},
-								"unit_amount": 38500,
-								"currency":    "usd",
-								"recurring": map[string]interface{}{
-									"interval": "month",
+									"unit_amount": 38500,
+									"currency":    "usd",
+									"recurring": map[string]interface{}{
+										"interval": "month",
+									},
 								},
 							},
 						},
