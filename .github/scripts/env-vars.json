@@ -132,6 +132,14 @@
       "description": "Stripe (dev) subscription webhook signing secret",
       "required": true
     },
+    "_DEV_STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE": {
+      "description": "Stripe (dev) Enterprise tier product/price ID",
+      "required": true
+    },
+    "_PROD_STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE": {
+      "description": "Stripe (prod) Enterprise tier product/price ID",
+      "required": true
+    },
     "_PROD_STRIPE_SUBSCRIPTION_WEBHOOK_SECRET": {
       "description": "Stripe (prod) subscription webhook signing secret",
       "required": true

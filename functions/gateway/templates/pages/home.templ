@@ -132,7 +132,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 			for _, key := range sortedKeys {
 				{{ ev := groupedEvents[key] }}
 				<div class="flex w-full relative pb-24 md:pb-4">
-					if !embedMode && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth]}) {
+					if !embedMode && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth], constants.Roles[constants.SubEnterprise]}) {
 						@ReShareButton(ev[0])
 					}
 					if embedMode {
@@ -247,7 +247,7 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 			for _, key := range sortedKeys {
 				{{ ev := groupedEvents[key] }}
 				<div class="flex w-full relative pb-12 md:pb-4">
-					if !embedMode && userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth]}) {
+					if !embedMode && userId != pageUser.UserID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.SubGrowth], constants.Roles[constants.SubEnterprise]}) {
 						@ReShareButton(ev[0])
 					}
 					if !embedMode && userId == pageUser.UserID {
@@ -790,7 +790,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 					<div :class="() => { switch (toastContent.type) { case 'error': return 'alert-error'; case 'info': return 'alert-info'; case 'success': return 'alert-success'; default: return 'alert'; } }" class="alert border border-base-300">
 						<span x-text="toastContent.message"></span>
 						<template x-if="toastContent.link">
-							<span><a class="link link-text" :href="toastContent.link" x-text="toastContent.linkText"></a></span>
+							<span><a class="link" :href="toastContent.link" x-text="toastContent.linkText"></a></span>
 						</template>
 						<div class="block justify-end">
 							<button class="btn btn-circle btn-ghost text-2xl float-end" @click="showToast = false">
