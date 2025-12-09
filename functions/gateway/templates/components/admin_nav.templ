@@ -51,11 +51,11 @@ templ AdminLeftNavContents(ctx context.Context) {
 				</li>
 				<li>
 					<a
-						hx-get="/api/html/seshu-jobs"
+						hx-get="/api/html/event-sources"
 						hx-target="#admin-content"
 						hx-indicator="#admin-content-container"
 						hx-swap="innerHTML"
-						hx-push-url="/admin/seshu-jobs"
+						hx-push-url="/admin/event-sources"
 					>Event Sources</a>
 				</li>
 			} else {

@@ -118,7 +118,7 @@ templ adminSeshuJobsEmptyState() {
 }
 
 templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPages, totalCount int) {
-	<div id="seshu-jobs-content" class="space-y-4 overflow-scroll" hx-get="/api/html/seshu-jobs" hx-trigger="reloadSeshuJobs from:body" hx-select="#seshu-jobs-content" hx-target="#seshu-jobs-content" hx-swap="outerHTML">
+	<div id="seshu-jobs-content" class="space-y-4 overflow-scroll" hx-get="/admin/event-sources" hx-trigger="reloadSeshuJobs from:body" hx-select="#seshu-jobs-content" hx-target="#seshu-jobs-content" hx-swap="outerHTML">
 		<div class="grid grid-cols-2 gap-2 md:grid-cols-4">
 			<div class="rounded-lg border border-base-300/40 bg-base-100/40 p-2">
 				<div class="text-xs text-base-content/70">Total Sources</div>
@@ -466,7 +466,7 @@ templ paginationControls(currentPage, perPage, totalPages, totalCount int) {
 			if currentPage > 1 {
 				<button
 					class="join-item btn btn-sm"
-					hx-get={ fmt.Sprintf("/api/html/seshu-jobs?page=%d&per_page=%d", currentPage-1, perPage) }
+					hx-get={ fmt.Sprintf("/api/html/event-sources?page=%d&per_page=%d", currentPage-1, perPage) }
 					hx-target="#seshu-jobs-content"
 					hx-select="#seshu-jobs-content"
 					hx-swap="outerHTML"
@@ -491,7 +491,7 @@ templ paginationControls(currentPage, perPage, totalPages, totalCount int) {
 				} else {
 					<button
 						class="join-item btn btn-sm"
-						hx-get={ fmt.Sprintf("/api/html/seshu-jobs?page=%d&per_page=%d", i, perPage) }
+						hx-get={ fmt.Sprintf("/api/html/event-sources?page=%d&per_page=%d", i, perPage) }
 						hx-target="#seshu-jobs-content"
 						hx-select="#seshu-jobs-content"
 						hx-swap="outerHTML"
@@ -503,7 +503,7 @@ templ paginationControls(currentPage, perPage, totalPages, totalCount int) {
 			if currentPage < totalPages {
 				<button
 					class="join-item btn btn-sm"
-					hx-get={ fmt.Sprintf("/api/html/seshu-jobs?page=%d&per_page=%d", currentPage+1, perPage) }
+					hx-get={ fmt.Sprintf("/api/html/event-sources?page=%d&per_page=%d", currentPage+1, perPage) }
 					hx-target="#seshu-jobs-content"
 					hx-select="#seshu-jobs-content"
 					hx-swap="outerHTML"
