@@ -8,7 +8,7 @@ import (
 )
 
 templ Widget(ctx context.Context, events []types.Event, pageUser *types.UserSearchResult, cfLocation constants.CdnLocation, cityStr, latStr, lonStr, origLat, origLong, origQueryLocation string, embedBaseUrl string) {
-	<div class="mnm-embed-widget">
+	<div id="mnm-embed-widget">
 		@components.Navbar(constants.UserInfo{}, []string{constants.SubnavItems[constants.NvFilters]}, types.Event{}, ctx, true) {
 			@HomePage(ctx, events, pageUser, cfLocation, cityStr, latStr, lonStr, origLat, origLong, origQueryLocation, true, embedBaseUrl)
 		}

@@ -3,7 +3,7 @@
 
   const currentScript = document.currentScript;
 
-  // Step #1: Container Setup
+  // Container Setup
   let containerId = 'mnm-embed-container';
   let container = null;
   // Gets container with id "mnm-embed-container" if it already exists in the DOM
@@ -28,7 +28,7 @@
   container.innerHTML =
     '<div class="p-3 bg-base-100 border-2 border-base-300 rounded-md"><h2>Loading Events ...</h2></div>';
 
-  // Step #2: User ID Detection
+  // User ID Detection
   let userId = null;
   if (currentScript) {
     // First check data attribute
@@ -66,11 +66,10 @@
     return;
   }
 
-  // Step #3: Base URL Detection
-  const staticBaseUrlFromEnv = '%s';
+  // Base URL Detection
+  const staticBaseUrlFromEnv = '{{STATIC_BASE_URL}}';
   let staticBaseUrl;
   let baseUrl;
-
   if (staticBaseUrlFromEnv !== '') {
     staticBaseUrl = staticBaseUrlFromEnv;
   } else {
@@ -84,7 +83,7 @@
     baseUrl = window.location.origin;
   }
 
-  // Step #4: Dependency Loading
+  // Dependency Loading
   // Check if our CSS is already loaded by verifying it's from our domain and matches our paths
   const cssLinks = document.querySelectorAll('link[rel="stylesheet"]');
   let ourCssLoaded = false;
@@ -195,7 +194,7 @@
       ? '/assets/styles.82a6336e.css'
       : '/static/assets/styles.82a6336e.css';
     loadPromises.push(
-      loadStylesheet(staticBaseUrl + cssHashedPath).catch(function (error) {
+      loadStylesheet(staticBaseUrl + cssHashedPath).catch(function () {
         return loadStylesheet(staticBaseUrl + cssBasePath).catch(function (
           error,
         ) {
@@ -239,61 +238,204 @@
     );
   }
 
-  Promise.all(loadPromises).then(function () {
-    if (!window.Alpine) {
-      throw new Error('Alpine.js failed to load');
-    }
-    if (!window.htmx) {
-      throw new Error('HTMX failed to load');
-    }
-    // Step #5: Widget HTML Fetching
-    const embedUrl =
-      baseUrl + '/api/html/embed?userId=' + encodeURIComponent(userId);
-    fetch(embedUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'text/html',
-      },
-      credentials: 'omit',
-    })
-      .then(function (response) {
-        if (!response.ok) {
-          throw new Error('Failed to load widget: HTTP ' + response.status);
-        }
-        return response.text();
+  Promise.all(loadPromises)
+    .then(function () {
+      if (!window.Alpine) {
+        throw new Error('Alpine.js failed to load');
+      }
+      if (!window.htmx) {
+        throw new Error('HTMX failed to load');
+      }
+      // Widget HTML Fetching
+      const embedUrl =
+        baseUrl + '/api/html/embed?userId=' + encodeURIComponent(userId);
+      fetch(embedUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'text/html',
+        },
+        credentials: 'omit',
       })
-      .then(function (html) {
-        // Step #6: HTML Parsing & Script Extraction
-        let scriptsData = [];
-
-        function findComments(element) {
-          let markerComments = [];
-          for (var j = 0; j < element.childNodes.length; j++) {
-            var node = element.childNodes[j];
-            if (
-              node.nodeType === 8 &&
-              node.nodeValue &&
-              node.nodeValue.trim().indexOf('MNM_SCRIPT_MARKER:') === 0
-            ) {
-              markerComments.push(node);
-            }
-            if (node.nodeType === 1) {
-              findComments(node);
-            }
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error('Failed to load widget: HTTP ' + response.status);
           }
-          return markerComments;
-        }
+          return response.text();
+        })
+        .then(function (html) {
+          // HTML Parsing & Script Extraction
+          let scriptsData = [];
 
-        function checkStores() {
+          // Converts the string into a document object so we can call document methods like querySelectorAll to find and replace scripts with markers
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+
+          if (!doc || !doc.body) {
+            throw new Error('Failed to parse HTML');
+          }
+
+          const scripts = doc.querySelectorAll('script');
+          let htmlWithMarkers = html;
+
+          for (var i = scripts.length - 1; i >= 0; i--) {
+            const script = scripts[i];
+            const scriptId = script.id || 'inline-' + i;
+            const marker =
+              '<!-- MNM_SCRIPT_MARKER:' + i + ':' + scriptId + ' -->';
+
+            let scriptContent = script.textContent || '';
+            // Convert relative URLs in fetch calls to absolute URLs
+            if (scriptContent) {
+              const templateLiteralPattern =
+                'fetch(' + String.fromCharCode(96) + '/api/';
+              const templateLiteralReplacement =
+                'fetch(' + String.fromCharCode(96) + baseUrl + '/api/';
+              scriptContent = scriptContent
+                .split(templateLiteralPattern)
+                .join(templateLiteralReplacement);
+              scriptContent = scriptContent
+                .split('fetch("/api/')
+                .join('fetch("' + baseUrl + '/api/');
+              scriptContent = scriptContent
+                .split("fetch('/api/")
+                .join("fetch('" + baseUrl + '/api/');
+            }
+
+            const scriptData = {
+              index: i,
+              id: scriptId,
+              attributes: {},
+              content: scriptContent,
+              src: script.src || '',
+            };
+
+            for (let j = 0; j < script.attributes.length; j++) {
+              const attr = script.attributes[j];
+              scriptData.attributes[attr.name] = attr.value;
+            }
+
+            scriptsData.unshift(scriptData);
+
+            // This finds script tags to replace with markers
+            const scriptTagRegex = new RegExp(
+              script.outerHTML.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+              'g',
+            );
+            htmlWithMarkers = htmlWithMarkers.replace(scriptTagRegex, marker);
+          }
+
+          container.innerHTML = htmlWithMarkers;
+
+          function findComments(element) {
+            let markerComments = [];
+            for (var j = 0; j < element.childNodes.length; j++) {
+              var node = element.childNodes[j];
+              if (
+                node.nodeType === 8 &&
+                node.nodeValue &&
+                node.nodeValue.trim().indexOf('MNM_SCRIPT_MARKER:') === 0
+              ) {
+                markerComments.push(node);
+              }
+              if (node.nodeType === 1) {
+                markerComments = markerComments.concat(findComments(node));
+              }
+            }
+            return markerComments;
+          }
+
+          let alpineStateScript;
+          try {
+            for (let i = 0; i < scriptsData.length; i++) {
+              if (scriptsData[i].id === 'alpine-state') {
+                alpineStateScript = scriptsData[i];
+                const alpineStateScriptElement =
+                  document.createElement('script');
+                Object.keys(alpineStateScript.attributes).forEach(function (
+                  attrName,
+                ) {
+                  // This will include setting the id back to 'alpine-state'
+                  alpineStateScriptElement.setAttribute(
+                    attrName,
+                    alpineStateScript.attributes[attrName],
+                  );
+                });
+                alpineStateScriptElement.textContent =
+                  alpineStateScript.content;
+                document.head.appendChild(alpineStateScriptElement);
+                break;
+              }
+            }
+
+            const markerComments = findComments(container);
+
+            for (var k = 0; k < markerComments.length; k++) {
+              const marker = markerComments[k];
+              const markerText = marker.nodeValue.trim();
+              const match = markerText.match(/MNM_SCRIPT_MARKER:(\d+):(.+)/);
+
+              if (match && match.length === 3) {
+                const scriptIndex = parseInt(match[1], 10);
+                const scriptId = match[2].trim();
+                // Skip alpine-state if we already processed it
+                if (scriptId === 'alpine-state' && alpineStateScript) {
+                  marker.parentNode.removeChild(marker);
+                  continue;
+                }
+
+                if (scriptIndex >= 0 && scriptIndex < scriptsData.length) {
+                  var scriptData = scriptsData[scriptIndex];
+
+                  try {
+                    const newScript = document.createElement('script');
+
+                    Object.keys(scriptData.attributes).forEach(function (
+                      attrName,
+                    ) {
+                      newScript.setAttribute(
+                        attrName,
+                        scriptData.attributes[attrName],
+                      );
+                    });
+
+                    if (scriptData.src) {
+                      newScript.src = scriptData.src;
+                    } else {
+                      newScript.textContent = scriptData.content;
+                    }
+
+                    marker.parentNode.insertBefore(newScript, marker);
+                    marker.parentNode.removeChild(marker);
+                  } catch (error) {
+                    console.log(
+                      'MeetNearMe Embed: Error inserting script into DOM',
+                      error,
+                    );
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.log(
+              'MeetNearMe Embed: Error during HTML parsing and script extraction',
+              error,
+            );
+            insertErrorPartial(
+              'MeetNearMe Embed: Error during HTML parsing and script extraction: ' +
+                error.message,
+            );
+          }
+
+          // Alpine Store Registration
           const requiredStores = ['urlState', 'filters', 'location'];
           const maxRetries = 20; // ~1 second total wait time (20 * 50ms)
           let retryCount = 0;
 
-          function checkStoresInner() {
+          function checkStores() {
             if (!window.Alpine) {
               if (retryCount < maxRetries) {
                 retryCount++;
-                setTimeout(checkStoresInner, 50);
+                setTimeout(checkStores, 50);
               }
               return;
             }
@@ -306,7 +448,7 @@
             });
 
             if (allRegistered) {
-              // Step #9: Alpine Initialization
+              // Alpine Initialization
               try {
                 const isInitialized =
                   window.Alpine._initialized ||
@@ -328,7 +470,7 @@
                 );
               }
 
-              // Step #11: HTMX Initialization
+              // HTMX Initialization
               try {
                 if (window.htmx) {
                   window.htmx.process(container);
@@ -349,192 +491,40 @@
               document.dispatchEvent(
                 new CustomEvent('alpine:init', { bubbles: true }),
               );
-              setTimeout(checkStoresInner, 50);
+              setTimeout(checkStores, 50);
             }
           }
 
-          // Initial call: trigger Alpine initialization and start checking
-          document.dispatchEvent(
-            new CustomEvent('alpine:init', { bubbles: true }),
-          );
-          setTimeout(checkStoresInner, 50);
-        }
-
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-
-        if (!doc || !doc.body) {
-          throw new Error('Failed to parse HTML');
-        }
-
-        const scripts = doc.querySelectorAll('script');
-        let htmlWithMarkers = html;
-
-        for (var i = scripts.length - 1; i >= 0; i--) {
-          const script = scripts[i];
-          const scriptId = script.id || 'inline-' + i;
-          const marker =
-            '<!-- MNM_SCRIPT_MARKER:' + i + ':' + scriptId + ' -->';
-
-          let scriptContent = script.textContent || '';
-          // Convert relative URLs in fetch calls to absolute URLs
-          if (scriptContent) {
-            const templateLiteralPattern =
-              'fetch(' + String.fromCharCode(96) + '/api/';
-            const templateLiteralReplacement =
-              'fetch(' + String.fromCharCode(96) + baseUrl + '/api/';
-            scriptContent = scriptContent
-              .split(templateLiteralPattern)
-              .join(templateLiteralReplacement);
-            scriptContent = scriptContent
-              .split('fetch("/api/')
-              .join('fetch("' + baseUrl + '/api/');
-            scriptContent = scriptContent
-              .split("fetch('/api/")
-              .join("fetch('" + baseUrl + '/api/');
+          try {
+            // Initial call: trigger Alpine initialization and start checking
+            document.dispatchEvent(
+              new CustomEvent('alpine:init', { bubbles: true }),
+            );
+            setTimeout(checkStores, 50);
+          } catch (error) {
+            console.log(
+              'MeetNearMe Embed: Error during Alpine store registration',
+              error,
+            );
+            insertErrorPartial(
+              'MeetNearMe Embed: Error during Alpine store registration: ' +
+                error.message,
+            );
           }
-
-          const scriptData = {
-            index: i,
-            id: scriptId,
-            attributes: {},
-            content: scriptContent,
-            src: script.src || '',
-          };
-
-          for (let j = 0; j < script.attributes.length; j++) {
-            const attr = script.attributes[j];
-            scriptData.attributes[attr.name] = attr.value;
-          }
-
-          scriptsData.unshift(scriptData);
-
-          const regex = new RegExp(
-            script.outerHTML.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-            'g',
+        })
+        .catch(function (error) {
+          console.log('MeetNearMe Embed: Failed to load widget', error);
+          insertErrorPartial(
+            'MeetNearMe Embed: Failed to load widget. ' +
+              error.message +
+              ' Please try again later.',
           );
-          htmlWithMarkers = htmlWithMarkers.replace(regex, marker);
-        }
-
-        container.innerHTML = htmlWithMarkers;
-
-        // Convert relative HTMX URLs to absolute URLs
-        const htmxElements = container.querySelectorAll(
-          '[hx-get], [hx-post], [hx-put], [hx-patch], [hx-delete]',
-        );
-        const attrs = ['hx-get', 'hx-post', 'hx-put', 'hx-patch', 'hx-delete'];
-        htmxElements.forEach(function (el) {
-          attrs.forEach(function (attr) {
-            const url = el.getAttribute(attr);
-            if (url && url.startsWith('/')) {
-              el.setAttribute(attr, baseUrl + url);
-            }
-          });
         });
-
-        // Step #7: HTML Injection & Script Execution
-        let alpineStateScript;
-        try {
-          for (let scriptIdx = 0; scriptIdx < scriptsData.length; scriptIdx++) {
-            if (scriptsData[scriptIdx].id === 'alpine-state') {
-              alpineStateScript = scriptsData[scriptIdx];
-              const alpineStateScriptElement = document.createElement('script');
-              alpineStateScriptElement.id = 'alpine-state-exec';
-              Object.keys(alpineStateScript.attributes).forEach(function (
-                attrName,
-              ) {
-                alpineStateScriptElement.setAttribute(
-                  attrName,
-                  alpineStateScript.attributes[attrName],
-                );
-              });
-              alpineStateScriptElement.textContent = alpineStateScript.content;
-              document.head.appendChild(alpineStateScriptElement);
-              break;
-            }
-          }
-
-          const markerComments = findComments(container);
-
-          for (var k = 0; k < markerComments.length; k++) {
-            const marker = markerComments[k];
-            const markerText = marker.nodeValue.trim();
-            const match = markerText.match(/MNM_SCRIPT_MARKER:(\d+):(.+)/);
-
-            console.log(marker);
-            if (match && match.length === 3) {
-              const scriptIndex = parseInt(match[1], 10);
-              const scriptId = match[2].trim();
-              // Skip alpine-state if we already processed it
-              if (scriptId === 'alpine-state' && alpineStateScript) {
-                marker.parentNode.removeChild(marker);
-                continue;
-              }
-
-              if (scriptIndex >= 0 && scriptIndex < scriptsData.length) {
-                var scriptData = scriptsData[scriptIndex];
-
-                try {
-                  const newScript = document.createElement('script');
-
-                  Object.keys(scriptData.attributes).forEach(function (
-                    attrName,
-                  ) {
-                    newScript.setAttribute(
-                      attrName,
-                      scriptData.attributes[attrName],
-                    );
-                  });
-
-                  if (scriptData.src) {
-                    newScript.src = scriptData.src;
-                  } else {
-                    newScript.textContent = scriptData.content;
-                  }
-
-                  marker.parentNode.insertBefore(newScript, marker);
-                  marker.parentNode.removeChild(marker);
-                } catch (error) {
-                  console.log(
-                    'MeetNearMe Embed: Error inserting script into DOM',
-                    error,
-                  );
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.log(
-            'MeetNearMe Embed: Error during HTML parsing and script extraction',
-            error,
-          );
-          insertErrorPartial(
-            'MeetNearMe Embed: Error during HTML parsing and script extraction: ' +
-              error.message,
-          );
-        }
-
-        // Step #8: Alpine Store Registration
-        try {
-          checkStores();
-        } catch (error) {
-          console.log(
-            'MeetNearMe Embed: Error during Alpine store registration',
-            error,
-          );
-          insertErrorPartial(
-            'MeetNearMe Embed: Error during Alpine store registration: ' +
-              error.message,
-          );
-        }
-      })
-      .catch(function (error) {
-        console.log('MeetNearMe Embed: Failed to load widget', error);
-        insertErrorPartial(
-          'MeetNearMe Embed: Failed to load widget. ' +
-            error.message +
-            ' Please try again later.',
-        );
-      });
-  });
+    })
+    .catch(function (error) {
+      console.log('Promise.all rejected:', error);
+      insertErrorPartial(
+        'MeetNearMe Embed: Failed to load dependencies. ' + error.message,
+      );
+    });
 })();

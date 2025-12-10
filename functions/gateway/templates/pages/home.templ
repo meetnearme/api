@@ -471,7 +471,7 @@ templ HomePage(ctx context.Context, events []types.Event, pageUser *types.UserSe
 	}
 	}}
 	// we assume this is "home" and not a community / user profile page
-	// Hide branding when embedded
+	// Hide non-essential content when embedded (branding, hero, user profile, competitions)
 	if !isEmbed {
 		if pageUser == nil {
 			<div class="header-hero">
