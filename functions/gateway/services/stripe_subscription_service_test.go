@@ -35,19 +35,23 @@ func (c *customRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 func TestGetStripeSubscriptionPlanIDs(t *testing.T) {
 	var testGrowthPlanID = "test_growth_plan_id"
 	var testSeedPlanID = "test_seed_plan_id"
+	var testEnterprisePlanID = "test_enterprise_plan_id"
 
 	var originalGrowthPlanID = os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 	var originalSeedPlanID = os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	var originalEnterprisePlanID = os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
 
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", testGrowthPlanID)
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", testSeedPlanID)
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", testEnterprisePlanID)
 
 	defer func() {
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlanID)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlanID)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", originalEnterprisePlanID)
 	}()
 
-	growthPlanID, seedPlanID := GetStripeSubscriptionPlanIDs()
+	growthPlanID, seedPlanID, enterprisePlanID := GetStripeSubscriptionPlanIDs()
 
 	// In a real test, you might want to verify specific values
 	if growthPlanID != testGrowthPlanID {
@@ -55,6 +59,9 @@ func TestGetStripeSubscriptionPlanIDs(t *testing.T) {
 	}
 	if seedPlanID != testSeedPlanID {
 		t.Errorf("Expected seed plan ID %s, got '%s'", testSeedPlanID, seedPlanID)
+	}
+	if enterprisePlanID != testEnterprisePlanID {
+		t.Errorf("Expected enterprise plan ID %s, got '%s'", testEnterprisePlanID, enterprisePlanID)
 	}
 }
 
@@ -73,6 +80,11 @@ func TestStripeSubscriptionService_GetZitadelRole(t *testing.T) {
 			name:         "Seed Community plan maps to subSeed",
 			planName:     "Seed Community",
 			expectedRole: constants.Roles[constants.SubSeed],
+		},
+		{
+			name:         "Enterprise Community plan maps to subEnterprise",
+			planName:     "Enterprise Community",
+			expectedRole: constants.Roles[constants.SubEnterprise],
 		},
 		{
 			name:         "Unknown plan defaults to subGrowth",
@@ -206,15 +218,18 @@ func TestStripeSubscriptionService_GetSubscriptionPlans(t *testing.T) {
 	originalStripeKey := os.Getenv("STRIPE_SECRET_KEY")
 	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	originalEnterprisePlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
 
 	os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", "price_enterprise_test")
 
 	defer func() {
 		os.Setenv("STRIPE_SECRET_KEY", originalStripeKey)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlan)
+		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", originalEnterprisePlan)
 	}()
 
 	// Set up logging transport for debugging
@@ -293,6 +308,38 @@ func TestStripeSubscriptionService_GetSubscriptionPlans(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			w.Write(responseBytes)
 
+		case "/v1/prices/price_enterprise_test":
+			t.Logf("   └─ Handling Enterprise plan price request")
+			mockPriceResponse := map[string]interface{}{
+				"id":          "price_enterprise_test",
+				"object":      "price",
+				"active":      true,
+				"currency":    "usd",
+				"unit_amount": 38500,
+				"recurring": map[string]interface{}{
+					"interval": "month",
+				},
+				"product": "prod_enterprise_test",
+			}
+			responseBytes, _ := json.Marshal(mockPriceResponse)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+
+		case "/v1/products/prod_enterprise_test":
+			t.Logf("   └─ Handling Enterprise product request")
+			mockProductResponse := map[string]interface{}{
+				"id":          "prod_enterprise_test",
+				"object":      "product",
+				"name":        "Enterprise Community",
+				"description": "Enterprise Community subscription plan",
+				"active":      true,
+			}
+			responseBytes, _ := json.Marshal(mockProductResponse)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(responseBytes)
+
 		default:
 			t.Logf("   └─ ⚠️  UNHANDLED STRIPE PATH: %s", r.URL.Path)
 			t.Errorf("mock Stripe server received request to unhandled path: %s", r.URL.Path)
@@ -305,6 +352,7 @@ func TestStripeSubscriptionService_GetSubscriptionPlans(t *testing.T) {
 	os.Setenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "price_growth_test")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "price_seed_test")
+	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", "price_enterprise_test")
 
 	// Create a custom RoundTripper that intercepts Stripe API calls and redirects them to our mock server
 	customTransport := &http.Transport{
@@ -341,8 +389,8 @@ func TestStripeSubscriptionService_GetSubscriptionPlans(t *testing.T) {
 	}
 
 	// Verify we got the expected number of plans
-	if len(plans) != 2 {
-		t.Errorf("Expected 2 plans, got %d", len(plans))
+	if len(plans) != 3 {
+		t.Errorf("Expected 3 plans, got %d", len(plans))
 		return
 	}
 
@@ -382,6 +430,22 @@ func TestStripeSubscriptionService_GetSubscriptionPlans(t *testing.T) {
 		t.Logf("✅ Seed plan: ID=%s, PriceID=%s, Name=%s, Amount=%d", seedPlan.ID, seedPlan.PriceID, seedPlan.Name, seedPlan.Amount)
 	} else {
 		t.Error("Seed Community plan not found in results")
+	}
+
+	// Check Enterprise plan
+	if enterprisePlan, exists := planMap["Enterprise Community"]; exists {
+		if enterprisePlan.ID != "prod_enterprise_test" {
+			t.Errorf("Expected Enterprise plan ID 'prod_enterprise_test', got '%s'", enterprisePlan.ID)
+		}
+		if enterprisePlan.PriceID != "price_enterprise_test" {
+			t.Errorf("Expected Enterprise plan PriceID 'price_enterprise_test', got '%s'", enterprisePlan.PriceID)
+		}
+		if enterprisePlan.Amount != 38500 {
+			t.Errorf("Expected Enterprise plan amount 38500, got %d", enterprisePlan.Amount)
+		}
+		t.Logf("✅ Enterprise plan: ID=%s, PriceID=%s, Name=%s, Amount=%d", enterprisePlan.ID, enterprisePlan.PriceID, enterprisePlan.Name, enterprisePlan.Amount)
+	} else {
+		t.Error("Enterprise Community plan not found in results")
 	}
 
 	t.Logf("✅ Successfully retrieved %d subscription plans in parallel", len(plans))

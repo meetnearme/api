@@ -228,6 +228,7 @@ const (
 	EventAdmin       Role = "eventAdmin"
 	SubGrowth        Role = "subGrowth"
 	SubSeed          Role = "subSeed"
+	SubEnterprise    Role = "subEnterprise"
 )
 
 var Roles = map[Role]string{
@@ -237,6 +238,7 @@ var Roles = map[Role]string{
 	EventAdmin:       string(EventAdmin),
 	SubGrowth:        string(SubGrowth),
 	SubSeed:          string(SubSeed),
+	SubEnterprise:    string(SubEnterprise),
 }
 
 const BASIC_SUBSCRIPTION_PLAN_ID = "basic"
