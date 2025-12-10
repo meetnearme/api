@@ -38,7 +38,7 @@ func TestAdminLeftNavContents(t *testing.T) {
 				">Interests<",
 				"hx-push-url=\"/admin/interests\"",
 				">Add Event (Soon)<",
-				">Host a Competition (Soon)<",
+				// ">Host a Competition (Soon)<",
 			},
 			notExpectedLinks: []string{
 				">Event Admin<",
@@ -59,7 +59,7 @@ func TestAdminLeftNavContents(t *testing.T) {
 				">Event Admin<",
 				"hx-push-url=\"/admin/events\"",
 				">Create Event<",
-				">Host a Competition (Soon)<",
+				// ">Host a Competition (Soon)<",
 			},
 			notExpectedLinks: []string{
 				">Competition Admin<",
@@ -77,14 +77,18 @@ func TestAdminLeftNavContents(t *testing.T) {
 				"hx-push-url=\"/admin/interests\"",
 				">Event Admin<",
 				"hx-push-url=\"/admin/events\"",
-				">Competition Admin<",
-				"hx-push-url=\"/admin/competitions\"",
 				">Create Event<",
-				">Create Competition<",
+				// Competitions disabled for now:
+				// ">Competition Admin<",
+				// "hx-push-url=\"/admin/competitions\"",
+				// ">Create Competition<",
 			},
 			notExpectedLinks: []string{
 				">Add Event (Soon)<",
-				">Host a Competition (Soon)<",
+				// Competitions disabled for now - these should not appear:
+				">Competition Admin<",
+				">Create Competition<",
+				// ">Host a Competition (Soon)<",
 			},
 		},
 	}
@@ -123,10 +127,10 @@ func TestAdminLeftNavContents(t *testing.T) {
 			}
 
 			// Check for proper section headers
+			// Note: Competitions header is disabled for now
 			expectedHeaders := []string{
 				"<h3 class=\"font-bold menu-title mt-0 mb-2\">Admin</h3>",
 				"<h3 class=\"font-bold menu-title my-2\">Events</h3>",
-				"<h3 class=\"font-bold menu-title my-2\">Competitions</h3>",
 			}
 			for _, header := range expectedHeaders {
 				if !strings.Contains(renderedContent, header) {

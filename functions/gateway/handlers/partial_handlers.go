@@ -295,6 +295,25 @@ func GetSubscriptionsPartial(w http.ResponseWriter, r *http.Request) http.Handle
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
+func GetPurchasesAdminPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+
+	userInfo, ok := ctx.Value("userInfo").(constants.UserInfo)
+	if !ok || userInfo.Sub == "" {
+		return transport.SendHtmlErrorPartial([]byte("Unauthorized: Missing user ID"), http.StatusUnauthorized)
+	}
+
+	purchasesPartial := partials.PurchasesAdminPartial(userInfo)
+
+	var buf bytes.Buffer
+	err := purchasesPartial.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
+	}
+
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
 func GetEventAdminChildrenPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 

@@ -126,6 +126,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/html/profile-interests{trailingslash:\\/?}", "GET", handlers.GetProfileInterestsPartial, Require},
 		{"/api/html/subscriptions{trailingslash:\\/?}", "GET", handlers.GetSubscriptionsPartial, Require},
 		{"/api/html/event-sources{trailingslash:\\/?}", "GET", handlers.GetSeshuJobsAdmin, Require},
+		{"/api/html/purchases{trailingslash:\\/?}", "GET", handlers.GetPurchasesAdminPartial, Require},
 
 		// // Purchasables routes
 		{"/api/purchasables/{" + constants.EVENT_ID_KEY + ":[0-9a-fA-F-]+}", "POST", dynamodb_handlers.CreatePurchasableHandler, Require},   // Create a new purchasable
