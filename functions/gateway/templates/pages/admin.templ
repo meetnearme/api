@@ -333,7 +333,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			<div id="about-result" class="margins-when-children my-8"></div>
 		</div>
 	</div>
-	<script id="admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled } data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() } data-subscriptions-url={ getSubscriptionsAdminUrl() } data-purchases-url={ getPurchasesAdminUrl() }>
+	<script id="admin-state" data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() } data-subscriptions-url={ getSubscriptionsAdminUrl() } data-purchases-url={ getPurchasesAdminUrl() }>
 		// Admin sub-routing with Navigation API
 		(function() {
 			const adminStateEl = document.querySelector('#admin-state');
@@ -522,7 +522,6 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						if (!window.location.href.match('#')) {
 							searchQuery = window.location.search
 						}
-						this.newKeyId = new URLSearchParams(searchQuery).get('new_purch_key');
 						this.newRole = new URLSearchParams(searchQuery).get('new_role');
 						const promises = [];
 
@@ -535,6 +534,68 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 							this.roleResolved = true;
 							this.roleFound = true;
 						}
+					})()
+				},
+				newKeyId: null,
+				newRole: null,
+				roleResolved: false,
+				roleFound: false,
+				roleNotFoundMessage: document.querySelector('#admin-state').getAttribute('data-role-not-found-message'),
+				async pollForRole() {
+					const delays = [500, 1500, 5000]; // Poll at 500ms, 1.5s, and 5s
+
+					for (const delay of delays) {
+						await new Promise(resolve => setTimeout(resolve, delay));
+
+						try {
+							// First refresh the auth token to get latest claims
+							await fetch('/auth/refresh');
+
+							// Then check if role is present
+							const response = await fetch(`/api/auth/check-role?role=${encodeURIComponent(this.newRole)}`);
+							const jsonResponse = await response.json();
+							// Check if the HTML content indicates role not found
+							if (jsonResponse.error && jsonResponse.error.message.includes(this.roleNotFoundMessage)) {
+								// Role not found yet, continue polling - this is expected
+								// eslint-disable-next-line no-console
+								console.log(`Role ${this.newRole} not found yet, continuing to poll...`);
+								continue;
+							}
+
+							// Role found! Display the success message
+							const rolesSection = document.querySelector('#roles-section');
+							rolesSection.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
+							// Role found, stop polling
+							this.roleResolved = true;
+							this.roleFound = true;
+							return;
+						} catch (error) {
+							// eslint-disable-next-line no-console
+							console.error('Failed to check role:', error);
+							this.roleResolved = true;
+							this.roleFound = false;
+						}
+					}
+
+					// If we've exhausted all retries, show a message to refresh manually
+					this.roleResolved = true;
+					this.roleFound = false;
+				}
+			}
+		}
+	</script>
+	<script id="purchases-admin-state" data-user-id={ userInfo.Sub } data-status-pending={ constants.PurchaseStatus.Pending } data-status-settled={ constants.PurchaseStatus.Settled }>
+		function getPurchasesAdminState() {
+			return {
+				init() {
+					(async () => {
+						window.location.href.match('#')
+						let searchQuery = window.location.hash.split('?')[1] || '';
+						if (!window.location.href.match('#')) {
+							searchQuery = window.location.search
+						}
+						this.newKeyId = new URLSearchParams(searchQuery).get('new_purch_key');
+						const promises = [];
 
 						const fetchPurchases = async () => {
 							const startKey = new URLSearchParams(window.location.search).get('purch_start_key') ?? '';
@@ -582,56 +643,15 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					})()
 				},
 				newKeyId: null,
-				newRole: null,
 				purchases: [],
 				hasPurchasesResults: false,
 				roleResolved: false,
 				roleFound: false,
 				purchasesNextCursor: null,
-				userId: document.querySelector('#admin-state').getAttribute('data-user-id'),
-				statusPending: document.querySelector('#admin-state').getAttribute('data-status-pending'),
-				statusSettled: document.querySelector('#admin-state').getAttribute('data-status-settled'),
-				roleNotFoundMessage: document.querySelector('#admin-state').getAttribute('data-role-not-found-message'),
-				async pollForRole() {
-					const delays = [500, 1500, 5000]; // Poll at 500ms, 1.5s, and 5s
-
-					for (const delay of delays) {
-						await new Promise(resolve => setTimeout(resolve, delay));
-
-						try {
-							// First refresh the auth token to get latest claims
-							await fetch('/auth/refresh');
-
-							// Then check if role is present
-							const response = await fetch(`/api/auth/check-role?role=${encodeURIComponent(this.newRole)}`);
-							const jsonResponse = await response.json();
-							// Check if the HTML content indicates role not found
-							if (jsonResponse.error && jsonResponse.error.message.includes(this.roleNotFoundMessage)) {
-								// Role not found yet, continue polling - this is expected
-								// eslint-disable-next-line no-console
-								console.log(`Role ${this.newRole} not found yet, continuing to poll...`);
-								continue;
-							}
-
-							// Role found! Display the success message
-							const rolesSection = document.querySelector('#roles-section');
-							rolesSection.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
-							// Role found, stop polling
-							this.roleResolved = true;
-							this.roleFound = true;
-							return;
-						} catch (error) {
-							// eslint-disable-next-line no-console
-							console.error('Failed to check role:', error);
-							this.roleResolved = true;
-							this.roleFound = false;
-						}
-					}
-
-					// If we've exhausted all retries, show a message to refresh manually
-					this.roleResolved = true;
-					this.roleFound = false;
-				},
+				userId: document.querySelector('#purchases-admin-state').getAttribute('data-user-id'),
+				statusPending: document.querySelector('#purchases-admin-state').getAttribute('data-status-pending'),
+				statusSettled: document.querySelector('#purchases-admin-state').getAttribute('data-status-settled'),
+				roleNotFoundMessage: document.querySelector('#purchases-admin-state').getAttribute('data-role-not-found-message'),
 				getPurchasesNextLink() {
 					return window.location.href + '?purch_start_key=' + this.purchasesNextCursor + '_' + this.userId;
 				},

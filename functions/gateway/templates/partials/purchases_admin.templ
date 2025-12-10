@@ -1,8 +1,10 @@
 package partials
 
-templ PurchasesAdminPartial() {
+import "github.com/meetnearme/api/functions/gateway/constants"
+
+templ PurchasesAdminPartial(userInfo constants.UserInfo) {
 	<h2 id="registration-history" class="text-2xl font-bold mt-4">Event Purchases &amp; Registrations</h2>
-	<div>
+	<div x-data="getPurchasesAdminState()">
 		<template x-if="purchasesNextCursor">
 			<a class="btn btn-sm float-end" :href=" window.location.pathname + '?purch_start_key=' + purchasesNextCursor">Show Next &rarr;</a>
 		</template>
