@@ -156,6 +156,7 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			return
 		}
 
+		// Extract parameter values from the request query parameters
 		ctx := r.Context()
 
 		q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
@@ -229,7 +230,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if userId == "" {
 		return func(w http.ResponseWriter, r *http.Request) {
 			transport.SetCORSAllowAll(w, r)
-			transport.SendServerRes(w, []byte("userId query parameter is required"), http.StatusBadRequest, errors.New("userId query parameter is required"))
+			transport.SendServerRes(w, []byte("userId query parameter is required"), http.StatusBadRequest, errors.New("userId query parameter is required")).ServeHTTP(w, r)
 		}
 	}
 
@@ -258,7 +259,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
 			transport.SetCORSAllowAll(w, r)
-			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
+			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
 		}
 	}
 
@@ -267,7 +268,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
 			transport.SetCORSAllowAll(w, r)
-			transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
+			transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
 		}
 	}
 
@@ -308,7 +309,7 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) {
 			transport.SetCORSAllowAll(w, r)
-			transport.SendServerRes(w, []byte("Failed to render widget: "+err.Error()), http.StatusInternalServerError, err)
+			transport.SendServerRes(w, []byte("Failed to render widget: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
 		}
 	}
 
