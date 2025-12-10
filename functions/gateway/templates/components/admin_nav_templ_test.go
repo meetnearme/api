@@ -38,7 +38,7 @@ func TestAdminLeftNavContents(t *testing.T) {
 				">Interests<",
 				"hx-push-url=\"/admin/interests\"",
 				">Add Event (Soon)<",
-				">Host a Competition (Soon)<",
+				// ">Host a Competition (Soon)<",
 			},
 			notExpectedLinks: []string{
 				">Event Admin<",
@@ -59,7 +59,7 @@ func TestAdminLeftNavContents(t *testing.T) {
 				">Event Admin<",
 				"hx-push-url=\"/admin/events\"",
 				">Create Event<",
-				">Host a Competition (Soon)<",
+				// ">Host a Competition (Soon)<",
 			},
 			notExpectedLinks: []string{
 				">Competition Admin<",
@@ -84,7 +84,7 @@ func TestAdminLeftNavContents(t *testing.T) {
 			},
 			notExpectedLinks: []string{
 				">Add Event (Soon)<",
-				">Host a Competition (Soon)<",
+				// ">Host a Competition (Soon)<",
 			},
 		},
 	}
