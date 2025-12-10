@@ -2496,7 +2496,7 @@ func TestCreateSubscriptionCheckoutSession(t *testing.T) {
 
 func TestHandleSubscriptionWebhook(t *testing.T) {
 	// Save original environment variables
-	originalWebhookSecret := os.Getenv("STRIPE_CHECKOUT_WEBHOOK_SECRET")
+	originalWebhookSecret := os.Getenv("STRIPE_SUBSCRIPTION_WEBHOOK_SECRET")
 	originalGrowthPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
 	originalSeedPlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
 	originalEnterprisePlan := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
@@ -2504,7 +2504,7 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 	originalZitadelToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
 
 	defer func() {
-		os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", originalWebhookSecret)
+		os.Setenv("STRIPE_SUBSCRIPTION_WEBHOOK_SECRET", originalWebhookSecret)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", originalGrowthPlan)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", originalSeedPlan)
 		os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", originalEnterprisePlan)
@@ -2514,7 +2514,7 @@ func TestHandleSubscriptionWebhook(t *testing.T) {
 
 	// Set up test environment
 	testWebhookSecret := "whsec_test_secret"
-	os.Setenv("STRIPE_CHECKOUT_WEBHOOK_SECRET", testWebhookSecret)
+	os.Setenv("STRIPE_SUBSCRIPTION_WEBHOOK_SECRET", testWebhookSecret)
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH", "prod_growth_test")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_SEED", "prod_seed_test")
 	os.Setenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE", "prod_enterprise_test")

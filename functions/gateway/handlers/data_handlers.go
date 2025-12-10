@@ -1193,7 +1193,7 @@ func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWr
 		return err
 	}
 
-	endpointSecret := services.GetStripeCheckoutWebhookSecret()
+	endpointSecret := services.GetStripeSubscriptionWebhookSecret()
 	stripeHeader := r.Header.Get("stripe-signature")
 	event, err := webhook.ConstructEvent(payload, stripeHeader,
 		endpointSecret)
