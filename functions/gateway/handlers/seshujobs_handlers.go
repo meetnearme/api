@@ -97,7 +97,7 @@ func GetSeshuJobsAdmin(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 	totalPages := int((totalCount + int64(perPage) - 1) / int64(perPage))
 
 	var buf bytes.Buffer
-	err = pages.AdminSeshuJobsPage(jobs, page, perPage, totalPages, int(totalCount)).Render(ctx, &buf)
+	err = pages.AdminSeshuJobsPage(jobs, page, perPage, totalPages, int(totalCount), isSuperAdmin).Render(ctx, &buf)
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to render template: "+err.Error()), http.StatusInternalServerError)
 	}

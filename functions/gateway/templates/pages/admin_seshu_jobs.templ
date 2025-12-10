@@ -3,6 +3,7 @@ package pages
 import (
 	"encoding/base64"
 	"fmt"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"net/url"
 	"time"
@@ -91,7 +92,11 @@ func slugifyKey(key string) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(key))
 }
 
-templ AdminSeshuJobsPage(jobs []types.SeshuJob, currentPage, perPage, totalPages, totalCount int) {
+func hasValidCoordinates(lat, lng float64) bool {
+	return lat != constants.INITIAL_EMPTY_LAT_LONG && lng != constants.INITIAL_EMPTY_LAT_LONG
+}
+
+templ AdminSeshuJobsPage(jobs []types.SeshuJob, currentPage, perPage, totalPages, totalCount int, isSuperAdmin bool) {
 	<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
 		<h2 class="text-2xl font-bold">Event Source URLs</h2>
 		<a href="/admin/add-event-source" class="btn btn-primary btn-sm w-full md:w-auto">
@@ -104,7 +109,7 @@ templ AdminSeshuJobsPage(jobs []types.SeshuJob, currentPage, perPage, totalPages
 	if len(jobs) == 0 {
 		@adminSeshuJobsEmptyState()
 	} else {
-		@adminSeshuJobsContent(jobs, currentPage, perPage, totalPages, totalCount)
+		@adminSeshuJobsContent(jobs, currentPage, perPage, totalPages, totalCount, isSuperAdmin)
 	}
 }
 
@@ -117,7 +122,7 @@ templ adminSeshuJobsEmptyState() {
 	</div>
 }
 
-templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPages, totalCount int) {
+templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPages, totalCount int, isSuperAdmin bool) {
 	<div id="seshu-jobs-content" class="space-y-4 overflow-scroll" hx-get="/admin/event-sources" hx-trigger="reloadSeshuJobs from:body" hx-select="#seshu-jobs-content" hx-target="#seshu-jobs-content" hx-swap="outerHTML">
 		<div class="grid grid-cols-2 gap-2 md:grid-cols-4">
 			<div class="rounded-lg border border-base-300/40 bg-base-100/40 p-2">
@@ -161,7 +166,7 @@ templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPa
 			@paginationControls(currentPage, perPage, totalPages, totalCount)
 		}
 		for _, job := range jobs {
-			@JobDetailsModal(job)
+			@JobDetailsModal(job, isSuperAdmin)
 			@DeleteConfirmModal(job)
 		}
 	</div>
@@ -245,7 +250,7 @@ templ jobTableRow(job types.SeshuJob) {
 	</tr>
 }
 
-templ JobDetailsModal(job types.SeshuJob) {
+templ JobDetailsModal(job types.SeshuJob, isSuperAdmin bool) {
 	<dialog id={ fmt.Sprintf("job-details-%s", slugifyKey(job.NormalizedUrlKey)) } class="modal">
 		<div class="modal-box max-w-4xl">
 			<form method="dialog">
@@ -256,7 +261,7 @@ templ JobDetailsModal(job types.SeshuJob) {
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div class="form-control">
 						<label class="label">
-							<span class="label-text font-semibold">URL Key</span>
+							<span class="label-text font-semibold">URL</span>
 						</label>
 						<div class="text-sm break-all">{ job.NormalizedUrlKey }</div>
 					</div>
@@ -273,84 +278,53 @@ templ JobDetailsModal(job types.SeshuJob) {
 						<label class="label">
 							<span class="label-text font-semibold">Address</span>
 						</label>
-						<div class="text-sm">{ job.LocationAddress }</div>
-					</div>
-					<div class="form-control">
-						<label class="label">
-							<span class="label-text font-semibold">Coordinates</span>
-						</label>
 						<div class="text-sm">
-							Lat: { fmt.Sprintf("%.6f", job.LocationLatitude) }
-							<br/>
-							Lng: { fmt.Sprintf("%.6f", job.LocationLongitude) }
+							if job.LocationAddress != "" {
+								{ job.LocationAddress }
+							} else {
+								<span class="text-base-content/40">Not specified</span>
+							}
 						</div>
 					</div>
-					<div class="form-control">
-						<label class="label">
-							<span class="label-text font-semibold">Timezone</span>
-						</label>
-						<div class="text-sm">{ job.LocationTimezone }</div>
-					</div>
-					<div class="form-control">
-						<label class="label">
-							<span class="label-text font-semibold">Scheduled Hour</span>
-						</label>
-						<div class="text-sm">{ fmt.Sprintf("%02d:00", job.ScheduledHour) }</div>
-					</div>
-				</div>
-				<div class="divider">CSS Selectors</div>
-				<div class="space-y-2">
-					<div class="collapse collapse-arrow bg-base-200">
-						<input type="checkbox"/>
-						<div class="collapse-title font-medium">
-							Parent Event Selectors
-						</div>
-						<div class="collapse-content">
-							<div class="space-y-2 text-sm">
-								<div><strong>Name:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetNameCSSPath }</code></div>
-								<div><strong>Location:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetLocationCSSPath }</code></div>
-								<div><strong>Start Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetStartTimeCSSPath }</code></div>
-								if job.TargetEndTimeCSSPath != "" {
-									<div><strong>End Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetEndTimeCSSPath }</code></div>
-								}
-								if job.TargetDescriptionCSSPath != "" {
-									<div><strong>Description:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetDescriptionCSSPath }</code></div>
-								}
-								if job.TargetHrefCSSPath != "" {
-									<div><strong>Href:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetHrefCSSPath }</code></div>
-								}
+					if hasValidCoordinates(job.LocationLatitude, job.LocationLongitude) {
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text font-semibold">Coordinates</span>
+							</label>
+							<div class="text-sm">
+								Lat: { fmt.Sprintf("%.6f", job.LocationLatitude) }
+								<br/>
+								Lng: { fmt.Sprintf("%.6f", job.LocationLongitude) }
 							</div>
 						</div>
-					</div>
-					if job.IsRecursive {
-						<div class="collapse collapse-arrow bg-base-200">
-							<input type="checkbox"/>
-							<div class="collapse-title font-medium">
-								Child Event Selectors (Recursive)
-							</div>
-							<div class="collapse-content">
-								<div class="space-y-2 text-sm">
-									if job.TargetChildNameCSSPath != "" {
-										<div><strong>Name:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildNameCSSPath }</code></div>
-									}
-									if job.TargetChildLocationCSSPath != "" {
-										<div><strong>Location:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildLocationCSSPath }</code></div>
-									}
-									if job.TargetChildStartTimeCSSPath != "" {
-										<div><strong>Start Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildStartTimeCSSPath }</code></div>
-									}
-									if job.TargetChildEndTimeCSSPath != "" {
-										<div><strong>End Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildEndTimeCSSPath }</code></div>
-									}
-									if job.TargetChildDescriptionCSSPath != "" {
-										<div><strong>Description:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildDescriptionCSSPath }</code></div>
-									}
-								</div>
+					} else {
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text font-semibold">Coordinates</span>
+							</label>
+							<div class="text-sm">
+								Lat: <span class="text-base-content/40">Not specified</span>
+								<br/>
+								Lng: <span class="text-base-content/40">Not specified</span>
 							</div>
 						</div>
 					}
+					if job.LocationTimezone != "" {
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text font-semibold">Timezone</span>
+							</label>
+							<div class="text-sm">{ job.LocationTimezone }</div>
+						</div>
+					}
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text font-semibold">Next Scan</span>
+						</label>
+						<div class="text-sm">{ formatTimeUntil(job.ScheduledHour) }</div>
+					</div>
 				</div>
-				<div class="divider">Scanning Status</div>
+				<div class="divider">Scanning History</div>
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div class="form-control">
 						<label class="label">
@@ -366,7 +340,7 @@ templ JobDetailsModal(job types.SeshuJob) {
 					</div>
 					<div class="form-control">
 						<label class="label">
-							<span class="label-text font-semibold">Failure Count</span>
+							<span class="label-text font-semibold">Recent Failures</span>
 						</label>
 						<div class={ "text-sm", templ.KV("text-error font-bold", job.LastScrapeFailureCount > 0) }>
 							{ fmt.Sprintf("%d", job.LastScrapeFailureCount) }
@@ -381,27 +355,87 @@ templ JobDetailsModal(job types.SeshuJob) {
 						</div>
 					}
 				</div>
-				<div class="divider">Metadata</div>
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<div class="form-control">
-						<label class="label">
-							<span class="label-text font-semibold">Owner ID</span>
-						</label>
-						<div class="text-sm font-mono">{ job.OwnerID }</div>
+				if isSuperAdmin {
+					<div class="divider">Technical Details (Admin Only)</div>
+					<div class="space-y-2">
+						<div class="collapse collapse-arrow bg-base-200">
+							<input type="checkbox"/>
+							<div class="collapse-title font-medium">
+								Parent Event Selectors
+							</div>
+							<div class="collapse-content">
+								<div class="space-y-2 text-sm">
+									<div><strong>Name:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetNameCSSPath }</code></div>
+									<div><strong>Location:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetLocationCSSPath }</code></div>
+									<div><strong>Start Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetStartTimeCSSPath }</code></div>
+									if job.TargetEndTimeCSSPath != "" {
+										<div><strong>End Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetEndTimeCSSPath }</code></div>
+									}
+									if job.TargetDescriptionCSSPath != "" {
+										<div><strong>Description:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetDescriptionCSSPath }</code></div>
+									}
+									if job.TargetHrefCSSPath != "" {
+										<div><strong>Href:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetHrefCSSPath }</code></div>
+									}
+								</div>
+							</div>
+						</div>
+						if job.IsRecursive {
+							<div class="collapse collapse-arrow bg-base-200">
+								<input type="checkbox"/>
+								<div class="collapse-title font-medium">
+									Child Event Selectors (Recursive)
+								</div>
+								<div class="collapse-content">
+									<div class="space-y-2 text-sm">
+										if job.TargetChildNameCSSPath != "" {
+											<div><strong>Name:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildNameCSSPath }</code></div>
+										}
+										if job.TargetChildLocationCSSPath != "" {
+											<div><strong>Location:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildLocationCSSPath }</code></div>
+										}
+										if job.TargetChildStartTimeCSSPath != "" {
+											<div><strong>Start Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildStartTimeCSSPath }</code></div>
+										}
+										if job.TargetChildEndTimeCSSPath != "" {
+											<div><strong>End Time:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildEndTimeCSSPath }</code></div>
+										}
+										if job.TargetChildDescriptionCSSPath != "" {
+											<div><strong>Description:</strong> <code class="bg-base-300 px-2 py-1 rounded">{ job.TargetChildDescriptionCSSPath }</code></div>
+										}
+									</div>
+								</div>
+							</div>
+						}
 					</div>
-					<div class="form-control">
-						<label class="label">
-							<span class="label-text font-semibold">Is Recursive</span>
-						</label>
-						<div class="text-sm">
-							if job.IsRecursive {
-								<span class="badge badge-info">Yes</span>
-							} else {
-								<span class="badge badge-ghost">No</span>
-							}
+					<div class="divider">System Information (Admin Only)</div>
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text font-semibold">Owner ID</span>
+							</label>
+							<div class="text-sm font-mono">{ job.OwnerID }</div>
+						</div>
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text font-semibold">Scheduled Hour (UTC)</span>
+							</label>
+							<div class="text-sm">{ fmt.Sprintf("%02d:00", job.ScheduledHour) }</div>
+						</div>
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text font-semibold">Is Recursive</span>
+							</label>
+							<div class="text-sm">
+								if job.IsRecursive {
+									<span class="badge badge-info">Yes</span>
+								} else {
+									<span class="badge badge-ghost">No</span>
+								}
+							</div>
 						</div>
 					</div>
-				</div>
+				}
 			</div>
 			<div class="modal-action">
 				<form method="dialog">
