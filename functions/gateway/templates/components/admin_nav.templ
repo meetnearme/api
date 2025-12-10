@@ -28,15 +28,24 @@ templ AdminLeftNavContents(ctx context.Context) {
 					hx-indicator="#admin-content-container"
 					hx-swap="innerHTML"
 					hx-push-url="/admin/subscriptions"
-				>Subscriptions</a>
+				>Billing</a>
 			</li>
 		</ul>
 	</li>
 	<li>
 		<h3 class="font-bold menu-title my-2">Events</h3>
 		{{ roleClaims, roleOk := ctx.Value("roleClaims").([]constants.RoleClaim) }}
-		{{ userInfo, infoOk := ctx.Value("userInfo").(constants.UserInfo) }}
+		{{ userInfo, _ := ctx.Value("userInfo").(constants.UserInfo) }}
 		<ul>
+			<li>
+				<a
+					hx-get={ "/api/html/purchases" }
+					hx-target="#admin-content"
+					hx-indicator="#admin-content-container"
+					hx-swap="innerHTML"
+					hx-push-url="/api/html/purchases"
+				>Purchases &amp; Registrations</a>
+			</li>
 			// <li><a href="/admin/add-event-source">Add an Event</a></li>
 			if roleOk && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.EventAdmin], constants.Roles[constants.SuperAdmin]}) {
 				<li><a href="/admin/event/new">Create Event</a></li>
@@ -53,8 +62,8 @@ templ AdminLeftNavContents(ctx context.Context) {
 				<li><a>Add Event (Soon)</a></li>
 			}
 		</ul>
-		<h3 class="font-bold menu-title my-2">Competitions</h3>
 		// Competitions functionality is disabled for now
+		// <h3 class="font-bold menu-title my-2">Competitions</h3>
 		// <ul>
 		// 	if infoOk && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.CompetitionAdmin], constants.Roles[constants.SuperAdmin]}) {
 		// 		<li><a href="/admin/competition/new">Create Competition</a></li>
