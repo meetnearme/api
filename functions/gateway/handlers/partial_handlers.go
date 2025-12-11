@@ -240,16 +240,11 @@ func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		embedBaseUrl = os.Getenv("APEX_URL")
 	}
 
-	// Use DeriveEventsFromRequest to get events (similar to GetHomeOrUserPage)
-	// We need to set the userId in the request context or modify the request
-	// For now, let's use GetSearchParamsFromReq and search events directly
+	// Extract search parameters and location data from request
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
 	originalQueryLocation := r.URL.Query().Get("location")
 
-	// Create a modified request with userId in the path for DeriveEventsFromRequest
-	// Actually, DeriveEventsFromRequest gets userId from mux.Vars, so we need to set it differently
-	// Let's use the same approach as GetEventsPartial but get all the data we need
 	q, city, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, _, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
 	// Override ownerIds to use the userId from query parameter
