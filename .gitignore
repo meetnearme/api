@@ -15,3 +15,4 @@ screenshots/*
 docker_build/**
 tmp/**
 last_update.txt
+.DS_Store

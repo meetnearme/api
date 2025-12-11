@@ -118,6 +118,8 @@ func (app *App) InitRoutes() []Route {
 		{"/api/user-search{trailingslash:\\/?}", "GET", handlers.SearchUsersHandler, Require},
 		{"/api/users{trailingslash:\\/?}", "GET", handlers.GetUsersHandler, None},
 		{"/api/html/events{trailingslash:\\/?}", "GET", handlers.GetEventsPartial, None},
+		{"/api/html/embed{trailingslash:\\/?}", "GET", handlers.GetEmbedHtml, None},
+		{"/api/embed.js", "GET", handlers.GetEmbedScript, None},
 		{"/api/html/event-series-form/{" + constants.EVENT_ID_KEY + "}", "GET", handlers.GetEventAdminChildrenPartial, None},
 		{"/api/html/seshu/session/submit{trailingslash:\\/?}", "POST", handlers.SubmitSeshuSession, Require},
 		{"/api/html/seshu/session/location{trailingslash:\\/?}", "PUT", handlers.GeoThenPatchSeshuSession, Require},
@@ -530,7 +532,13 @@ func (app *App) addRoute(route Route) {
 		}
 	}
 
-	app.Router.HandleFunc(route.Path, handler).Methods(route.Method).Name(route.Path)
+	// For CORS support, also allow OPTIONS method for routes that need it
+	methods := []string{route.Method}
+	if route.Auth == None {
+		// Public routes need OPTIONS for CORS preflight
+		methods = append(methods, "OPTIONS")
+	}
+	app.Router.HandleFunc(route.Path, handler).Methods(methods...).Name(route.Path)
 }
 
 func (app *App) SetupNotFoundHandler() {
