@@ -36,6 +36,13 @@ templ PurchasesAdminPartial(userInfo constants.UserInfo) {
 				</template>
 			</template>
 			<tbody>
+				<template x-if="hasPurchasesResults && purchases.length === 0">
+					<tr class="w-full">
+						<td colspan="9" class="text-center py-8">
+							You don't have any purchases yet. <a class="link link-primary" href="/">View events in your area to buy tickets</a>.
+						</td>
+					</tr>
+				</template>
 				<template x-if="hasPurchasesResults && purchases.length > 0">
 					<template x-for="purchase in purchases" :key="purchase.composite_key">
 						<tr
