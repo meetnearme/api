@@ -114,12 +114,33 @@ templ AdminSeshuJobsPage(jobs []types.SeshuJob, currentPage, perPage, totalPages
 }
 
 templ adminSeshuJobsEmptyState() {
-	<div class="alert alert-info">
-		<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-		</svg>
-		<span>You don't have any event sources yet. Click "Add New Source" to get started.</span>
-	</div>
+	<table class="table table-zebra table-xs">
+		@tableHeader()
+		<tbody>
+			<tr>
+				<td colspan="7" class="text-center py-8">
+					You don't have any event sources yet.
+					<a class="link link-primary" href="/admin/add-event-source">
+						Add a new source
+					</a> to get started.
+				</td>
+			</tr>
+		</tbody>
+	</table>
+}
+
+templ tableHeader() {
+	<thead>
+		<tr class="text-xs uppercase tracking-wide text-base-content/60">
+			<th>Status</th>
+			<th colspan="1">URL</th>
+			<th>Type</th>
+			<th>Location</th>
+			<th>Scan</th>
+			<th class="text-center">Failures</th>
+			<th class="text-center">Actions</th>
+		</tr>
+	</thead>
 }
 
 templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPages, totalCount int, isSuperAdmin bool) {
@@ -143,22 +164,11 @@ templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPa
 			</div>
 		</div>
 		<div class="divider my-2"></div>
-		<table class="table table-zebra table-xs table-pin-cols">
-			<thead>
-				<tr class="text-xs uppercase tracking-wide text-base-content/60">
-					<th>Status</th>
-					<th colspan="1">URL</th>
-					<th>Type</th>
-					<th>Location</th>
-					<th>Last Scan</th>
-					<th>Next Scan</th>
-					<th class="text-center">Failures</th>
-					<th class="text-center">Actions</th>
-				</tr>
-			</thead>
+		<table class="table table-zebra table-xs">
+			@tableHeader()
 			<tbody>
 				for _, job := range jobs {
-					@jobTableRow(job)
+					@jobTableRow(job, isSuperAdmin)
 				}
 			</tbody>
 		</table>
@@ -172,7 +182,7 @@ templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPa
 	</div>
 }
 
-templ jobTableRow(job types.SeshuJob) {
+templ jobTableRow(job types.SeshuJob, isSuperAdmin bool) {
 	<tr class="hover">
 		<td>
 			<div class={ "badge badge-sm", getStatusBadgeClass(job.Status) }>
@@ -181,7 +191,19 @@ templ jobTableRow(job types.SeshuJob) {
 		</td>
 		<td colspan="1">
 			<div class="font-medium max-w-20vw text-overflow-ellipsis text-xs" title={ job.NormalizedUrlKey }>
-				{ job.NormalizedUrlKey }
+				if isSuperAdmin {
+					<strong>URL</strong>
+					<br/>
+					{ job.NormalizedUrlKey }
+					<br/>
+					<strong>Owner</strong>
+					<br/>
+					<a href={ templ.URL(fmt.Sprintf("/user/%s", job.OwnerID)) } class="link link-text">
+						{ job.OwnerID }
+					</a>
+				} else {
+					{ job.NormalizedUrlKey }
+				}
 			</div>
 			<div class="flex gap-1 mt-1">
 				if job.IsRecursive {
@@ -206,11 +228,13 @@ templ jobTableRow(job types.SeshuJob) {
 			</div>
 		</td>
 		<td>
+			<strong>Last Scan</strong>
+			<br/>
 			<div class="text-xs whitespace-nowrap">
 				{ formatTimeAgo(job.LastScrapeSuccess) }
 			</div>
-		</td>
-		<td>
+			<strong>Next Scan</strong>
+			<br/>
 			<div class="text-xs whitespace-nowrap">
 				{ formatTimeUntil(job.ScheduledHour) }
 			</div>

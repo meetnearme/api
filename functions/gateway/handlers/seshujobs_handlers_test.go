@@ -703,6 +703,115 @@ func TestDeleteSeshuJob_Unauthorized(t *testing.T) {
 	}
 }
 
+// TestGetSeshuJobsAdmin_SuperAdmin verifies that superAdmin users see ALL jobs
+// regardless of owner_id (the skipOwnerFilter flag is passed to the service)
+func TestGetSeshuJobsAdmin_SuperAdmin_SeesAllJobs(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	superAdminUserId := "super-admin-123"
+	otherUserId := "other-user-456"
+
+	// Create jobs owned by different users
+	allJobs := []internal_types.SeshuJob{
+		{NormalizedUrlKey: "job1", OwnerID: superAdminUserId, Status: "active"},
+		{NormalizedUrlKey: "job2", OwnerID: otherUserId, Status: "active"},
+		{NormalizedUrlKey: "job3", OwnerID: otherUserId, Status: "active"},
+	}
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
+			// Verify that skipOwnerFilter is true for superAdmin
+			skipOwnerFilter, ok := ctx.Value("skipOwnerFilter").(bool)
+			if !ok || !skipOwnerFilter {
+				t.Errorf("expected skipOwnerFilter=true in context for superAdmin, got ok=%v, value=%v", ok, skipOwnerFilter)
+			}
+			// Return all jobs since superAdmin should see everything
+			return allJobs, int64(len(allJobs)), nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: superAdminUserId})
+	ctx = context.WithValue(ctx, "roleClaims", []constants.RoleClaim{
+		{Role: constants.Roles[constants.SuperAdmin], ProjectID: "test-project"},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/html/event-sources", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.GetSeshuJobsAdmin(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	// Verify all jobs are present in the response
+	for _, job := range allJobs {
+		if !strings.Contains(bodyStr, job.NormalizedUrlKey) {
+			t.Errorf("expected response to contain job key '%s' for superAdmin", job.NormalizedUrlKey)
+		}
+	}
+}
+
+// TestGetSeshuJobsAdmin_RegularUser verifies that regular users only see their own jobs
+// (the skipOwnerFilter flag is NOT passed to the service)
+func TestGetSeshuJobsAdmin_RegularUser_SeesOnlyOwnJobs(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	regularUserId := "regular-user-123"
+
+	// Only return jobs owned by the regular user
+	ownedJobs := []internal_types.SeshuJob{
+		{NormalizedUrlKey: "my-job-1", OwnerID: regularUserId, Status: "active"},
+	}
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
+			// Verify that skipOwnerFilter is NOT set for regular users
+			skipOwnerFilter, ok := ctx.Value("skipOwnerFilter").(bool)
+			if ok && skipOwnerFilter {
+				t.Errorf("expected skipOwnerFilter to NOT be true for regular user, got %v", skipOwnerFilter)
+			}
+			// Return only the user's own jobs
+			return ownedJobs, int64(len(ownedJobs)), nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: regularUserId})
+	ctx = context.WithValue(ctx, "roleClaims", []constants.RoleClaim{
+		{Role: constants.Roles[constants.EventAdmin], ProjectID: "test-project"}, // Not superAdmin
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/html/event-sources", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.GetSeshuJobsAdmin(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	// Verify only owned jobs are present
+	if !strings.Contains(bodyStr, "my-job-1") {
+		t.Errorf("expected response to contain owned job 'my-job-1'")
+	}
+}
+
 func TestDeleteSeshuJob_SuperAdmin(t *testing.T) {
 	os.Setenv("GO_ENV", "test")
 

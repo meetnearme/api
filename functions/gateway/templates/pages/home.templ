@@ -337,57 +337,68 @@ templ EventsInner(events []types.Event, mode string, roleClaims []constants.Role
 				</tr>
 			</thead>
 			<tbody>
-				{{ groupIdx := 0 }}
-				for _, key := range sortedKeys {
-					{{ evGroup := groupedEvents[key] }}
-					{{ ev := evGroup[0] }}
-					{{ groupIdx++ }}
-					<tr class="border-t-2 border-base-300">
-						<td>
-							if ( ev.EventSourceId != "") {
-								// <div class="tooltip tooltip-top" data-tip="Re Shared">
-								<svg
-									class="w-6 h-6 flex-none shrink-0 grow-0 fill-current"
-									xmlns="http://www.w3.org/2000/svg"
-									height="24px"
-									viewBox="0 -960 960 960"
-									width="24px"
-									fill="#currentColor"
-								><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"></path></svg>
-								// </div>
-							}
-						</td>
-						<td colspan="6">
-							<a class="link link-primary" href={ templ.URL("/admin/event/" + ev.Id + "/edit") }>{ ev.Name }</a>
-							if len(evGroup) > 1 {
-								<br/>
-								<strong>{ strconv.Itoa(len(evGroup)) } occurrences</strong>
-							}
-							if ev.EventSourceType == constants.ES_SERIES_PARENT || ev.EventSourceType == constants.ES_SERIES_PARENT_UNPUB {
-								<br/>
-								<strong>Event Series</strong>
-							}
-							<br/>
-							Created: { helpers.FormatTimeMMDDYYYY(ev.CreatedAt) }
-							<br/>
-							Updated: { helpers.FormatTimeMMDDYYYY(ev.UpdatedAt) }
-						</td>
-						<td colspan="2">
-							if strings.HasPrefix(ev.EventSourceType, constants.UNPUB_SUFFIX) {
-								Unpublished
-							} else {
-								Published
-							}
-						</td>
-						<td colspan="2">
-							{ helpers.FormatTimeMMDDYYYY(ev.StartTime) }
-						</td>
-						<td colspan="2">
-							if ev.EndTime > 0 {
-								{ helpers.FormatTimeMMDDYYYY(ev.EndTime) }
-							}
+				if len(events) == 0 {
+					<tr>
+						<td colspan="12" class="text-center py-8">
+							You don't have any events yet.
+							<a class="link link-primary" href="/admin/event/new">
+								Create a new event
+							</a> to get started.
 						</td>
 					</tr>
+				} else {
+					{{ groupIdx := 0 }}
+					for _, key := range sortedKeys {
+						{{ evGroup := groupedEvents[key] }}
+						{{ ev := evGroup[0] }}
+						{{ groupIdx++ }}
+						<tr class="border-t-2 border-base-300">
+							<td>
+								if ( ev.EventSourceId != "") {
+									// <div class="tooltip tooltip-top" data-tip="Re Shared">
+									<svg
+										class="w-6 h-6 flex-none shrink-0 grow-0 fill-current"
+										xmlns="http://www.w3.org/2000/svg"
+										height="24px"
+										viewBox="0 -960 960 960"
+										width="24px"
+										fill="#currentColor"
+									><path d="M482-160q-134 0-228-93t-94-227v-7l-64 64-56-56 160-160 160 160-56 56-64-64v7q0 100 70.5 170T482-240q26 0 51-6t49-18l60 60q-38 22-78 33t-82 11Zm278-161L600-481l56-56 64 64v-7q0-100-70.5-170T478-720q-26 0-51 6t-49 18l-60-60q38-22 78-33t82-11q134 0 228 93t94 227v7l64-64 56 56-160 160Z"></path></svg>
+									// </div>
+								}
+							</td>
+							<td colspan="6">
+								<a class="link link-primary" href={ templ.URL("/admin/event/" + ev.Id + "/edit") }>{ ev.Name }</a>
+								if len(evGroup) > 1 {
+									<br/>
+									<strong>{ strconv.Itoa(len(evGroup)) } occurrences</strong>
+								}
+								if ev.EventSourceType == constants.ES_SERIES_PARENT || ev.EventSourceType == constants.ES_SERIES_PARENT_UNPUB {
+									<br/>
+									<strong>Event Series</strong>
+								}
+								<br/>
+								Created: { helpers.FormatTimeMMDDYYYY(ev.CreatedAt) }
+								<br/>
+								Updated: { helpers.FormatTimeMMDDYYYY(ev.UpdatedAt) }
+							</td>
+							<td colspan="2">
+								if strings.HasPrefix(ev.EventSourceType, constants.UNPUB_SUFFIX) {
+									Unpublished
+								} else {
+									Published
+								}
+							</td>
+							<td colspan="2">
+								{ helpers.FormatTimeMMDDYYYY(ev.StartTime) }
+							</td>
+							<td colspan="2">
+								if ev.EndTime > 0 {
+									{ helpers.FormatTimeMMDDYYYY(ev.EndTime) }
+								}
+							</td>
+						</tr>
+					}
 				}
 			</tbody>
 		</table>

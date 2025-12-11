@@ -53,6 +53,14 @@ func (s *PostgresService) GetSeshuJobs(ctx context.Context, limit, offset int) (
 	userInfo := ctx.Value("userInfo").(constants.UserInfo)
 	userId := userInfo.Sub
 
+	// Check if we should skip owner filtering (for superAdmin)
+	skipOwnerFilter := false
+	if v := ctx.Value("skipOwnerFilter"); v != nil {
+		if b, ok := v.(bool); ok {
+			skipOwnerFilter = b
+		}
+	}
+
 	var targetUrl string
 	if v := ctx.Value("targetUrl"); v != nil {
 		if s, ok := v.(string); ok {
@@ -65,7 +73,7 @@ func (s *PostgresService) GetSeshuJobs(ctx context.Context, limit, offset int) (
 
 	if targetUrl != "" {
 		query = query.Where("normalized_url_key = ?", targetUrl)
-	} else {
+	} else if !skipOwnerFilter {
 		query = query.Where("owner_id = ?", userId)
 	}
 
@@ -81,7 +89,7 @@ func (s *PostgresService) GetSeshuJobs(ctx context.Context, limit, offset int) (
 	}
 
 	// Order by last scrape failure (most recent first) then by key
-	query = query.Order("normalized_url_key ASC")
+	query = query.Order("last_scrape_failure DESC, normalized_url_key ASC")
 
 	if err := query.Find(&jobs).Error; err != nil {
 		return nil, 0, err

@@ -82,14 +82,14 @@ func GetSeshuJobsAdmin(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 
 	var jobs []internal_types.SeshuJob
 	var totalCount int64
-	// if isSuperAdmin {
-	// 	// Super admins can see all jobs
-	// 	jobs, totalCount, err = db.GetSeshuJobs(ctx, perPage, offset)
-	// } else {
-	// Regular users only see their own jobs
-	ctxWithUserId := context.WithValue(ctx, "ownerId", userId)
-	jobs, totalCount, err = db.GetSeshuJobs(ctxWithUserId, perPage, offset)
-	// }
+	if isSuperAdmin {
+		// Super admins can see all jobs - pass flag to skip owner filtering
+		ctxWithSuperAdmin := context.WithValue(ctx, "skipOwnerFilter", true)
+		jobs, totalCount, err = db.GetSeshuJobs(ctxWithSuperAdmin, perPage, offset)
+	} else {
+		// Regular users only see their own jobs
+		jobs, totalCount, err = db.GetSeshuJobs(ctx, perPage, offset)
+	}
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to retrieve jobs: "+err.Error()), http.StatusInternalServerError)
 	}
