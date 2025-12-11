@@ -524,9 +524,9 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			return {
 
 			init() {
-         // NOTE: this needs to be fixed in a more robust way, right now, this was
-         // added because non-root subroutes show a flash of root `/admin` content
-         // before the subroute content is loaded
+					// NOTE: this needs to be fixed in a more robust way, right now, this was
+					// added because non-root subroutes show a flash of root `/admin` content
+					// before the subroute content is loaded
 
 					// Update isAdminApex based on current location
 					const updateIsAdminApex = () => {
