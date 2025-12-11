@@ -335,7 +335,7 @@ func TestEventDetailsPage(t *testing.T) {
 			fakeContext := context.Background()
 			fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
 			// Wrap the component with Layout
-			layoutTemplate := Layout(constants.SitePages["event-detail"], constants.UserInfo{}, component, tt.event, true, fakeContext, []string{}, false)
+			layoutTemplate := Layout(constants.SitePages["event-detail"], constants.UserInfo{}, component, tt.event, true, fakeContext, []string{})
 
 			// Render the component to a string using the same context
 			var buf bytes.Buffer

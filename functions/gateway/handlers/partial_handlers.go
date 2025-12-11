@@ -114,9 +114,9 @@ func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	var buf bytes.Buffer
 	var successPartial templ.Component
 	if r.URL.Query().Has("theme") {
-		successPartial = partials.SuccessBannerHTML(`Theme updated successfully`)
+		successPartial = partials.SuccessBannerHTML(`Theme updated successfully`, "", "")
 	} else {
-		successPartial = partials.SuccessHTMLText(`Subdomain set successfully`)
+		successPartial = partials.SuccessBannerHTML(`Subdomain set successfully`, "", "")
 	}
 
 	err = successPartial.Render(r.Context(), &buf)
@@ -817,7 +817,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		}
 	}
 
-	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`)
+	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`, "", "")
 
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
@@ -1482,7 +1482,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		}
 	}
 
-	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added. Check your dashboard for updates.`)
+	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added`, "/admin/event-sources", "Check your dashboard for updates.")
 
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
@@ -1529,7 +1529,7 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		return transport.SendHtmlErrorPartial([]byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`)
+	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`, "", "")
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
 	if err != nil {
@@ -1560,7 +1560,7 @@ func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	var buf bytes.Buffer
-	successPartial := partials.SuccessBannerHTML(`About section successfully saved`)
+	successPartial := partials.SuccessBannerHTML(`About section successfully saved`, "", "")
 
 	err = successPartial.Render(r.Context(), &buf)
 	if err != nil {

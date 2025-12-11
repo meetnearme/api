@@ -170,7 +170,7 @@ func TestPricingPage(t *testing.T) {
 			}
 
 			// Wrap with Layout template
-			layoutTemplate := Layout(constants.SitePages["pricing"], mockUserInfo, pricingPage, types.Event{}, false, fakeContext, []string{}, false)
+			layoutTemplate := Layout(constants.SitePages["pricing"], mockUserInfo, pricingPage, types.Event{}, false, fakeContext, []string{})
 
 			// Render the template
 			var buf bytes.Buffer
@@ -345,7 +345,7 @@ func TestPricingPage_ButtonStates(t *testing.T) {
 			fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
 
 			mockUserInfo := constants.UserInfo{Sub: "user123"}
-			layoutTemplate := Layout(constants.SitePages["pricing"], mockUserInfo, pricingPage, types.Event{}, false, fakeContext, []string{}, false)
+			layoutTemplate := Layout(constants.SitePages["pricing"], mockUserInfo, pricingPage, types.Event{}, false, fakeContext, []string{})
 
 			var buf bytes.Buffer
 			err := layoutTemplate.Render(fakeContext, &buf)
@@ -418,7 +418,7 @@ func TestPricingPage_RendersPlanIDs(t *testing.T) {
 	fakeContext = context.WithValue(fakeContext, constants.MNM_OPTIONS_CTX_KEY, map[string]string{})
 
 	mockUserInfo := constants.UserInfo{}
-	layoutTemplate := Layout(constants.SitePages["pricing"], mockUserInfo, pricingPage, types.Event{}, false, fakeContext, []string{}, false)
+	layoutTemplate := Layout(constants.SitePages["pricing"], mockUserInfo, pricingPage, types.Event{}, false, fakeContext, []string{})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(fakeContext, &buf)

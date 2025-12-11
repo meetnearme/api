@@ -234,7 +234,7 @@ func TestAddEventSource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := Navbar(mockUserInfo, tt.subnavItems, tt.event, context.Background(), false, false)
+			component := Navbar(mockUserInfo, tt.subnavItems, tt.event, context.Background(), false)
 			// Render the template
 			var buf bytes.Buffer
 			err := component.Render(context.Background(), &buf)
@@ -548,7 +548,7 @@ func TestNavbar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			navbar := Navbar(userInfo, tt.subnavItems, event, ctx, false, tt.isEmbed)
+			navbar := Navbar(userInfo, tt.subnavItems, event, ctx, tt.isEmbed)
 
 			var buf bytes.Buffer
 			err := navbar.Render(ctx, &buf)

@@ -82,14 +82,14 @@ func GetSeshuJobsAdmin(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 
 	var jobs []internal_types.SeshuJob
 	var totalCount int64
-	if isSuperAdmin {
-		// Super admins can see all jobs
-		jobs, totalCount, err = db.GetSeshuJobs(ctx, perPage, offset)
-	} else {
-		// Regular users only see their own jobs
-		ctxWithUserId := context.WithValue(ctx, "ownerId", userId)
-		jobs, totalCount, err = db.GetSeshuJobs(ctxWithUserId, perPage, offset)
-	}
+	// if isSuperAdmin {
+	// 	// Super admins can see all jobs
+	// 	jobs, totalCount, err = db.GetSeshuJobs(ctx, perPage, offset)
+	// } else {
+	// Regular users only see their own jobs
+	ctxWithUserId := context.WithValue(ctx, "ownerId", userId)
+	jobs, totalCount, err = db.GetSeshuJobs(ctxWithUserId, perPage, offset)
+	// }
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to retrieve jobs: "+err.Error()), http.StatusInternalServerError)
 	}
@@ -140,7 +140,7 @@ func CreateSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlErrorPartial([]byte("Failed to insert job: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	successPartial := partials.SuccessBannerHTML("Job created successfully")
+	successPartial := partials.SuccessBannerHTML("Job created successfully", "", "")
 	var buf bytes.Buffer
 
 	err = successPartial.Render(ctx, &buf)
@@ -179,7 +179,7 @@ func UpdateSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlErrorPartial([]byte("Failed to update job: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	successPartial := partials.SuccessBannerHTML("Job updated successfully")
+	successPartial := partials.SuccessBannerHTML("Job updated successfully", "", "")
 	var buf bytes.Buffer
 
 	err = successPartial.Render(ctx, &buf)

@@ -81,7 +81,7 @@ func (s *PostgresService) GetSeshuJobs(ctx context.Context, limit, offset int) (
 	}
 
 	// Order by last scrape failure (most recent first) then by key
-	query = query.Order("last_scrape_failure DESC, normalized_url_key ASC")
+	query = query.Order("normalized_url_key ASC")
 
 	if err := query.Find(&jobs).Error; err != nil {
 		return nil, 0, err

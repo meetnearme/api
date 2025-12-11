@@ -188,11 +188,11 @@ func (app *App) InitRoutes() []Route {
 		{"/api/customer-portal/session{trailingslash:\\/?}", "POST", handlers.CreateCustomerPortalSessionHandler, Require},
 
 		// Webhooks
-		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
-		{"/api/webhook/subscription", "POST", handlers.HandleSubscriptionWebhookHandler, None},
+		{"/api/webhook/checkout{trailingslash:\\/?}", "POST", handlers.HandleCheckoutWebhookHandler, None},
+		{"/api/webhook/subscription{trailingslash:\\/?}", "POST", handlers.HandleSubscriptionWebhookHandler, None},
 
 		//SeshuSession
-		{"/api/html/session/submit/", "POST", handlers.HandleSeshuSessionSubmit, Require},
+		{"/api/html/session/submit{trailingslash:\\/?}", "POST", handlers.HandleSeshuSessionSubmit, Require},
 
 		// SeshuJobs
 		{"/api/seshujob", "GET", handlers.GetSeshuJobs, Require},
