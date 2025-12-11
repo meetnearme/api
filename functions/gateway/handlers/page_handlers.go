@@ -394,6 +394,8 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		fmt.Sprint(originalQueryLat),
 		fmt.Sprint(originalQueryLong),
 		originalQueryLocation,
+		false, // isEmbed
+		"",    // embedBaseUrl
 	)
 
 	layoutTemplate := pages.Layout(constants.SitePages["home"], userInfo, homePage, types.Event{}, false, ctx, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"}, false)

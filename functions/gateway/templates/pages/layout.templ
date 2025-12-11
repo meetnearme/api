@@ -358,12 +358,19 @@ templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageConte
 		</head>
 		<body class="h-[calc(100vh)] overflow-y-auto">
 			<div id="top-loading-bar" class="hidden fixed top-0 left-0 w-0 h-[3px] bg-[#00ff00] transition-[width] duration-300 ease-out z-[9999]"></div>
-			@components.Navbar(userInfo, sitePage.SubnavItems, event, ctx, isFullWidth) {
+			@components.Navbar(userInfo, sitePage.SubnavItems, event, ctx, isFullWidth, false) {
 				if isFullWidth {
 					<div class="w-full">
 						<div id="content" class="relative px-4 py-6 md:px-6 md:py-8">
-							@pageContent
-							@components.Footer(userInfo.Email != "")
+							if narrowLayout {
+								<div class="max-w-prose mx-auto">
+									@pageContent
+									@components.Footer(userInfo.Email != "")
+								</div>
+							} else {
+								@pageContent
+								@components.Footer(userInfo.Email != "")
+							}
 						</div>
 					</div>
 				} else {
