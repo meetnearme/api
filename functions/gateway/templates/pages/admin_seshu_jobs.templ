@@ -144,7 +144,7 @@ templ tableHeader() {
 }
 
 templ adminSeshuJobsContent(jobs []types.SeshuJob, currentPage, perPage, totalPages, totalCount int, isSuperAdmin bool) {
-	<div id="seshu-jobs-content" class="space-y-4 overflow-scroll" hx-get="/admin/event-sources" hx-trigger="reloadSeshuJobs from:body" hx-select="#seshu-jobs-content" hx-target="#seshu-jobs-content" hx-swap="outerHTML">
+	<div id="seshu-jobs-content" class="space-y-4 overflow-scroll" hx-get="/api/html/event-sources" hx-trigger="reloadSeshuJobs from:body" hx-select="#seshu-jobs-content" hx-target="#seshu-jobs-content" hx-swap="outerHTML">
 		<div class="grid grid-cols-2 gap-2 md:grid-cols-4">
 			<div class="rounded-lg border border-base-300/40 bg-base-100/40 p-2">
 				<div class="text-xs text-base-content/70">Total Sources</div>
