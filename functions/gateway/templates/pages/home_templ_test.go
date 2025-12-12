@@ -186,7 +186,7 @@ func TestHomePage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Call the HomePage function
-			component := HomePage(context.Background(), events, tt.pageUser, tt.cfLocation, tt.cityStr, tt.latStr, tt.lonStr, origLatStr, origLonStr, tt.origQueryLocation)
+			component := HomePage(context.Background(), events, tt.pageUser, tt.cfLocation, tt.cityStr, tt.latStr, tt.lonStr, origLatStr, origLonStr, tt.origQueryLocation, false, "")
 
 			// Render the component
 			var buf bytes.Buffer
@@ -252,7 +252,7 @@ func TestHomeWithReShareButton(t *testing.T) {
 		City: "New York",
 		CCA2: "US",
 	}
-	component := HomePage(context.Background(), events, pageUser, cfLocation, "New York", "40.7128", "-74.0060", "", "", "")
+	component := HomePage(context.Background(), events, pageUser, cfLocation, "New York", "40.7128", "-74.0060", "", "", "", false, "")
 
 	var buf bytes.Buffer
 	err := component.Render(context.Background(), &buf)
@@ -826,6 +826,17 @@ func TestEventsInnerEdgeCases(t *testing.T) {
 			events: []types.Event{},
 			expectedItems: []string{
 				"No events found",
+			},
+		},
+		{
+			name:   "EV_MODE_ADMIN_LIST with empty events shows empty state",
+			mode:   constants.EV_MODE_ADMIN_LIST,
+			events: []types.Event{},
+			expectedItems: []string{
+				"Event Admin",
+				"You don't have any events yet.",
+				"Create a new event",
+				"/admin/event/new",
 			},
 		},
 		{

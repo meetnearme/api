@@ -3,10 +3,13 @@ package handlers
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -26,6 +29,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
 
+	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
@@ -110,9 +114,9 @@ func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	var buf bytes.Buffer
 	var successPartial templ.Component
 	if r.URL.Query().Has("theme") {
-		successPartial = partials.SuccessBannerHTML(`Theme updated successfully`)
+		successPartial = partials.SuccessBannerHTML(`Theme updated successfully`, "", "")
 	} else {
-		successPartial = partials.SuccessHTMLText(`Subdomain set successfully`)
+		successPartial = partials.SuccessBannerHTML(`Subdomain set successfully`, "", "")
 	}
 
 	err = successPartial.Render(r.Context(), &buf)
@@ -145,32 +149,125 @@ func DeleteMnmSubdomain(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 }
 
 func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	// Extract parameter values from the request query parameters
+	return func(w http.ResponseWriter, r *http.Request) {
+		transport.SetCORSAllowAll(w, r)
+
+		if r.Method == "OPTIONS" {
+			return
+		}
+
+		// Extract parameter values from the request query parameters
+		ctx := r.Context()
+
+		q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+
+		weaviateClient, err := services.GetWeaviateClient()
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
+			return
+		}
+
+		mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
+		mnmUserId := mnmOptions["userId"]
+
+		// we override the `owners` query param here, because subdomains should always show only
+		// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
+		if mnmUserId != "" {
+			ownerIds = []string{mnmUserId}
+		}
+
+		res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
+			return
+		}
+
+		events := res.Events
+		listMode := r.URL.Query().Get("list_mode")
+
+		// Only sort by StartTime if there's no search query (preserve Weaviate's relevance order)
+		if q == "" {
+			sort.Slice(events, func(i, j int) bool {
+				return events[i].StartTime < events[j].StartTime
+			})
+		}
+
+		roleClaims := []constants.RoleClaim{}
+		if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+			roleClaims = claims
+		}
+
+		userInfo := constants.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(constants.UserInfo)
+		}
+		userId := ""
+		if userInfo.Sub != "" {
+			userId = userInfo.Sub
+		}
+		pageUser := &internal_types.UserSearchResult{
+			UserID: userId,
+		}
+
+		eventListPartial := pages.EventsInner(events, listMode, roleClaims, userId, pageUser, false, "")
+
+		var buf bytes.Buffer
+		err = eventListPartial.Render(ctx, &buf)
+		if err != nil {
+			transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err).ServeHTTP(w, r)
+			return
+		}
+
+		transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil).ServeHTTP(w, r)
+	}
+}
+
+func GetEmbedHtml(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-	q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+	// Get userId from query parameter
+	userId := r.URL.Query().Get("userId")
+	if userId == "" {
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SetCORSAllowAll(w, r)
+			transport.SendServerRes(w, []byte("userId query parameter is required"), http.StatusBadRequest, errors.New("userId query parameter is required")).ServeHTTP(w, r)
+		}
+	}
+
+	// Get embedBaseUrl from query parameter (optional, defaults to APEX_URL)
+	embedBaseUrl := r.URL.Query().Get("embedBaseUrl")
+	if embedBaseUrl == "" {
+		embedBaseUrl = os.Getenv("APEX_URL")
+	}
+
+	// Extract search parameters and location data from request
+	originalQueryLat := r.URL.Query().Get("lat")
+	originalQueryLong := r.URL.Query().Get("lon")
+	originalQueryLocation := r.URL.Query().Get("location")
+
+	q, city, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, _, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+
+	// Override ownerIds to use the userId from query parameter
+	ownerIds := []string{userId}
 
 	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SetCORSAllowAll(w, r)
+			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
+		}
 	}
 
-	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
-	mnmUserId := mnmOptions["userId"]
-
-	// we override the `owners` query param here, because subdomains should always show only
-	// the owner as declared authoritatively by the subdomain ID lookup in Cloudflare KV
-	if mnmUserId != "" {
-		ownerIds = []string{mnmUserId}
-	}
-
+	// Search for events
 	res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SetCORSAllowAll(w, r)
+			transport.SendServerRes(w, []byte("Failed to get events via search: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
+		}
 	}
 
 	events := res.Events
-	listMode := r.URL.Query().Get("list_mode")
 
 	// Only sort by StartTime if there's no search query (preserve Weaviate's relevance order)
 	if q == "" {
@@ -179,32 +276,65 @@ func GetEventsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		})
 	}
 
-	roleClaims := []constants.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
-		roleClaims = claims
+	// Get user info for pageUser
+	var pageUser *types.UserSearchResult
+	userResult, err := helpers.GetOtherUserByID(userId)
+	if err == nil && userResult.UserID != "" {
+		pageUser = &userResult
+		pageUser.UserID = userId
 	}
 
-	userInfo := constants.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(constants.UserInfo)
-	}
-	userId := ""
-	if userInfo.Sub != "" {
-		userId = userInfo.Sub
-	}
-	pageUser := &internal_types.UserSearchResult{
-		UserID: userId,
-	}
-
-	eventListPartial := pages.EventsInner(events, listMode, roleClaims, userId, pageUser, false, "")
+	// Render widget component (reuses HomePage with isEmbed=true)
+	widget := pages.Widget(
+		ctx,
+		events,
+		pageUser,
+		cfLocation,
+		city,
+		fmt.Sprint(userLocation[0]),
+		fmt.Sprint(userLocation[1]),
+		fmt.Sprint(originalQueryLat),
+		fmt.Sprint(originalQueryLong),
+		originalQueryLocation,
+		embedBaseUrl,
+	)
 
 	var buf bytes.Buffer
-	err = eventListPartial.Render(ctx, &buf)
+	err = widget.Render(ctx, &buf)
 	if err != nil {
-		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "partial", err)
+		return func(w http.ResponseWriter, r *http.Request) {
+			transport.SetCORSAllowAll(w, r)
+			transport.SendServerRes(w, []byte("Failed to render widget: "+err.Error()), http.StatusInternalServerError, err).ServeHTTP(w, r)
+		}
 	}
 
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+	// TODO: Test that each of these work with Playwright
+	// Convert relative HTMX URLs to absolute URLs
+	htmlBytes := buf.Bytes()
+	if embedBaseUrl != "" {
+		doc, err := goquery.NewDocumentFromReader(bytes.NewReader(htmlBytes))
+		if err == nil {
+			htmxAttrs := []string{"hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete"}
+			for _, attr := range htmxAttrs {
+				doc.Find("[" + attr + "]").Each(func(i int, s *goquery.Selection) {
+					url, exists := s.Attr(attr)
+					if exists && strings.HasPrefix(url, "/") {
+						s.SetAttr(attr, embedBaseUrl+url)
+					}
+				})
+			}
+			htmlStr, _ := doc.Html()
+			htmlBytes = []byte(htmlStr)
+		}
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers for embed support
+		transport.SetCORSAllowAll(w, r)
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write(htmlBytes)
+	}
 }
 
 func GetProfileInterestsPartial(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
@@ -434,6 +564,13 @@ func GeoLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 
 func CityLookup(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		transport.SetCORSAllowAll(w, r)
+
+		// Handle OPTIONS preflight request
+		if r.Method == "OPTIONS" {
+			return
+		}
+
 		latStr := r.URL.Query().Get("lat")
 		lonStr := r.URL.Query().Get("lon")
 		w.Header().Set("Content-Type", "application/json")
@@ -680,7 +817,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		}
 	}
 
-	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`)
+	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`, "", "")
 
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
@@ -859,7 +996,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	// set context value for url
 	ctx = context.WithValue(ctx, "targetUrl", inputPayload.Url)
 
-	jobs, err := postgresDB.GetSeshuJobs(ctx)
+	jobs, _, err := postgresDB.GetSeshuJobs(ctx, 0, 0)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to get SeshuJobs"), http.StatusInternalServerError, "partial", err)
 	}
@@ -1073,7 +1210,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				TargetEndTimeCSSPath:     endTag,         // optional
 				TargetDescriptionCSSPath: descriptionTag, // optional
 				TargetHrefCSSPath:        eventURLTag,
-				Status:                   "HEALTHY", // assume healthy if parse succeeded
+				Status:                   "SCANNING", // assume scanning if parse succeeded
 				IsRecursive:              false,
 				LastScrapeSuccess:        time.Now().Unix(),
 				LastScrapeFailure:        0,
@@ -1255,7 +1392,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 					TargetEndTimeCSSPath:     endTag,         // optional
 					TargetDescriptionCSSPath: descriptionTag, // optional
 					TargetHrefCSSPath:        eventURLTag,
-					Status:                   "HEALTHY", // assume healthy if parse succeeded
+					Status:                   "SCANNING",
 					IsRecursive:              true,
 					LastScrapeSuccess:        time.Now().Unix(),
 					LastScrapeFailure:        0,
@@ -1292,6 +1429,8 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// }
 
 		go func() {
+			// Use background context since HTTP request context will be canceled after response
+			bgCtx := context.Background()
 
 			if jobAborted {
 				return
@@ -1311,8 +1450,15 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			err = services.PushExtractedEventsToDB(extractedEvents, seshuJob, make(map[string]string))
 			if err != nil {
 				log.Println("Error pushing ingested events to DB:", err)
+				seshuJob.Status = "FAILING"
+			} else {
+				seshuJob.Status = "HEALTHY"
 			}
 
+			err = pgDb.UpdateSeshuJob(bgCtx, seshuJob)
+			if err != nil {
+				log.Printf("Failed to update SeshuJob after event insertion: %v", err)
+			}
 		}()
 
 	}()
@@ -1336,7 +1482,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		}
 	}
 
-	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added. We will put it in the queue and let you know when it's imported.`)
+	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added`, "/admin/event-sources", "Check your dashboard for updates.")
 
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
@@ -1383,7 +1529,7 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		return transport.SendHtmlErrorPartial([]byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`)
+	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`, "", "")
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
 	if err != nil {
@@ -1414,7 +1560,7 @@ func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	var buf bytes.Buffer
-	successPartial := partials.SuccessBannerHTML(`About section successfully saved`)
+	successPartial := partials.SuccessBannerHTML(`About section successfully saved`, "", "")
 
 	err = successPartial.Render(r.Context(), &buf)
 	if err != nil {
@@ -1557,4 +1703,23 @@ func findTagByPartialText(doc *goquery.Document, targetSubstring string) string 
 		return getFullDomPath(bestMatch)
 	}
 	return ""
+}
+
+//go:embed scripts/embed.js
+var embedScriptTemplate string
+
+func GetEmbedScript(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	staticBaseUrl := os.Getenv("STATIC_BASE_URL")
+	if staticBaseUrl == "" {
+		staticBaseUrl = "http://localhost:8001"
+	}
+
+	script := strings.Replace(embedScriptTemplate, "{{STATIC_BASE_URL}}", staticBaseUrl, -1)
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		transport.SetCORSAllowAll(w, r)
+		w.Header().Set("Content-Type", "application/javascript")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(script))
+	}
 }

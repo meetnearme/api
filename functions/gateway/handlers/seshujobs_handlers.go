@@ -14,6 +14,7 @@ import (
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
@@ -26,11 +27,81 @@ type TriggerRequest struct {
 func GetSeshuJobs(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	db, _ := services.GetPostgresService(ctx)
-	jobs, err := db.GetSeshuJobs(ctx)
+	jobs, _, err := db.GetSeshuJobs(ctx, 0, 0) // No pagination for this endpoint
 	if err != nil {
 		return transport.SendHtmlErrorPartial([]byte("Failed to retrieve jobs: "+err.Error()), http.StatusInternalServerError)
 	}
 	buf := SeshuJobList(jobs)
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+}
+
+func GetSeshuJobsAdmin(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+	userId := userInfo.Sub
+	if userId == "" {
+		return transport.SendHtmlErrorPartial([]byte("Missing user ID"), http.StatusUnauthorized)
+	}
+
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	isSuperAdmin := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin]})
+
+	db, err := services.GetPostgresService(ctx)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to initialize services: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	// Parse pagination parameters
+	page := 1
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := fmt.Sscanf(pageStr, "%d", &page); err == nil && p == 1 && page > 0 {
+			// page is valid
+		} else {
+			page = 1
+		}
+	}
+
+	perPage := 10 // Default items per page
+	if perPageStr := r.URL.Query().Get("per_page"); perPageStr != "" {
+		if pp, err := fmt.Sscanf(perPageStr, "%d", &perPage); err == nil && pp == 1 && perPage > 0 && perPage <= 100 {
+			// perPage is valid
+		} else {
+			perPage = 10
+		}
+	}
+
+	offset := (page - 1) * perPage
+
+	var jobs []internal_types.SeshuJob
+	var totalCount int64
+	if isSuperAdmin {
+		// Super admins can see all jobs - pass flag to skip owner filtering
+		ctxWithSuperAdmin := context.WithValue(ctx, "skipOwnerFilter", true)
+		jobs, totalCount, err = db.GetSeshuJobs(ctxWithSuperAdmin, perPage, offset)
+	} else {
+		// Regular users only see their own jobs
+		jobs, totalCount, err = db.GetSeshuJobs(ctx, perPage, offset)
+	}
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to retrieve jobs: "+err.Error()), http.StatusInternalServerError)
+	}
+
+	totalPages := int((totalCount + int64(perPage) - 1) / int64(perPage))
+
+	var buf bytes.Buffer
+	err = pages.AdminSeshuJobsPage(jobs, page, perPage, totalPages, int(totalCount), isSuperAdmin).Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlErrorPartial([]byte("Failed to render template: "+err.Error()), http.StatusInternalServerError)
+	}
+
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
 }
 
@@ -69,7 +140,7 @@ func CreateSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlErrorPartial([]byte("Failed to insert job: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	successPartial := partials.SuccessBannerHTML("Job created successfully")
+	successPartial := partials.SuccessBannerHTML("Job created successfully", "", "")
 	var buf bytes.Buffer
 
 	err = successPartial.Render(ctx, &buf)
@@ -108,7 +179,7 @@ func UpdateSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 		return transport.SendHtmlErrorPartial([]byte("Failed to update job: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	successPartial := partials.SuccessBannerHTML("Job updated successfully")
+	successPartial := partials.SuccessBannerHTML("Job updated successfully", "", "")
 	var buf bytes.Buffer
 
 	err = successPartial.Render(ctx, &buf)
@@ -138,44 +209,39 @@ func DeleteSeshuJob(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	isSuperAdmin := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SuperAdmin]})
 
 	db, _ := services.GetPostgresService(ctx)
-	id := r.URL.Query().Get("id")
-	if id == "" {
-		return transport.SendHtmlErrorPartial([]byte("Missing 'id' query parameter"), http.StatusBadRequest)
+
+	// Get the key from the query parameter
+	key := r.URL.Query().Get("key")
+
+	if key == "" {
+		return transport.SendHtmlErrorPartial([]byte("Missing job key"), http.StatusBadRequest)
 	}
-	ctxWithTargetUrl := context.WithValue(ctx, "targetUrl", id)
-	job, err := db.GetSeshuJobs(ctxWithTargetUrl)
+
+	ctxWithTargetUrl := context.WithValue(ctx, "targetUrl", key)
+	job, _, err := db.GetSeshuJobs(ctxWithTargetUrl, 0, 0)
 	if err != nil {
-		// Log the error server-side with details (including the id)
-		log.Printf("Failed to retrieve event source URL with id %s: %v", id, err)
-		// Return generic error message to client without exposing the id or error details
+		log.Printf("Failed to retrieve event source URL with key %s: %v", key, err)
 		return transport.SendHtmlErrorPartial([]byte("Internal server error"), http.StatusInternalServerError)
 	}
+
 	if len(job) == 0 {
-		// Job not found - return 404 with generic message
 		return transport.SendHtmlErrorPartial([]byte("Event source URL not found"), http.StatusNotFound)
 	}
 
-	// only super admins can delete jobs that are not owned by them
+	// Only super admins can delete jobs that are not owned by them
 	if !isSuperAdmin && job[0].OwnerID != userId {
 		return transport.SendHtmlErrorPartial([]byte("You are not the owner of this event source URL"), http.StatusForbidden)
 	}
 
-	err = db.DeleteSeshuJob(ctx, id)
+	err = db.DeleteSeshuJob(ctx, key)
 	if err != nil {
-		// NOTE: this should never leak error messages as they can be leveraged to know the underlying
-		// database schema / structure
-		return transport.SendHtmlErrorPartial([]byte("Failed to delete event source URL: "+id), http.StatusInternalServerError)
+		log.Printf("Failed to delete event source URL: %s", key)
+		return transport.SendHtmlErrorPartial([]byte("Failed to delete event source URL"), http.StatusInternalServerError)
 	}
 
-	successPartial := partials.SuccessBannerHTML("Job deleted successfully")
-	var buf bytes.Buffer
-
-	err = successPartial.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendHtmlErrorPartial([]byte("Failed to render html template"), http.StatusInternalServerError)
-	}
-
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "partial", nil)
+	// Trigger a reload of the job list by setting HX-Trigger header
+	w.Header().Set("HX-Trigger", "reloadSeshuJobs")
+	return transport.SendHtmlRes(w, []byte(""), http.StatusOK, "partial", nil)
 }
 
 func ProcessGatherSeshuJobs(ctx context.Context, nowUnix, lastFileUnix int64) (int, bool, int, error) {

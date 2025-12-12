@@ -49,9 +49,17 @@ func GetPostgresClient(ctx context.Context) (*gorm.DB, error) {
 	return gormDB, nil
 }
 
-func (s *PostgresService) GetSeshuJobs(ctx context.Context) ([]internal_types.SeshuJob, error) {
+func (s *PostgresService) GetSeshuJobs(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
 	userInfo := ctx.Value("userInfo").(constants.UserInfo)
 	userId := userInfo.Sub
+
+	// Check if we should skip owner filtering (for superAdmin)
+	skipOwnerFilter := false
+	if v := ctx.Value("skipOwnerFilter"); v != nil {
+		if b, ok := v.(bool); ok {
+			skipOwnerFilter = b
+		}
+	}
 
 	var targetUrl string
 	if v := ctx.Value("targetUrl"); v != nil {
@@ -65,15 +73,29 @@ func (s *PostgresService) GetSeshuJobs(ctx context.Context) ([]internal_types.Se
 
 	if targetUrl != "" {
 		query = query.Where("normalized_url_key = ?", targetUrl)
-	} else {
+	} else if !skipOwnerFilter {
 		query = query.Where("owner_id = ?", userId)
 	}
 
-	if err := query.Find(&jobs).Error; err != nil {
-		return nil, err
+	// Get total count before pagination
+	var totalCount int64
+	if err := query.Count(&totalCount).Error; err != nil {
+		return nil, 0, err
 	}
 
-	return jobs, nil
+	// Apply pagination - only if limit > 0
+	if limit > 0 {
+		query = query.Limit(limit).Offset(offset)
+	}
+
+	// Order by last scrape failure (most recent first) then by key
+	query = query.Order("last_scrape_failure DESC, normalized_url_key ASC")
+
+	if err := query.Find(&jobs).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return jobs, totalCount, nil
 }
 
 func (s *PostgresService) CreateSeshuJob(ctx context.Context, job internal_types.SeshuJob) error {

@@ -40,8 +40,8 @@ func GetPostgresService(ctx context.Context) (interfaces.PostgresServiceInterfac
 
 type MockPostgresService struct{}
 
-func (m *MockPostgresService) GetSeshuJobs(ctx context.Context) ([]types.SeshuJob, error) {
-	return []types.SeshuJob{}, nil
+func (m *MockPostgresService) GetSeshuJobs(ctx context.Context, limit, offset int) ([]types.SeshuJob, int64, error) {
+	return []types.SeshuJob{}, 0, nil
 }
 
 func (m *MockPostgresService) CreateSeshuJob(ctx context.Context, job types.SeshuJob) error {

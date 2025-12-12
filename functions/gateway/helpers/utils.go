@@ -889,8 +889,9 @@ func CreateUserAuthorization(userID string, roleKeys []string) (string, error) {
 
 	payload := strings.NewReader(fmt.Sprintf(`{
 		"userId": "%s",
+		"projectId": "%s",
 		"roleKeys": %s
-	}`, userID, string(roleKeysJSON)))
+	}`, userID, os.Getenv("ZITADEL_PROJECT_ID"), string(roleKeysJSON)))
 
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, payload)

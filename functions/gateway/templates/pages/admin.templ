@@ -37,15 +37,16 @@ func getSubscriptionsAdminUrl() string {
 	return "/api/html/subscriptions"
 }
 
+func getEventSourceAdminUrl() string {
+	return "/api/html/event-sources"
+}
 func getPurchasesAdminUrl() string {
 	return "/api/html/purchases"
 }
 
 templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, interests []string, subdomainFromMetadata, mnmOptions, userAbout string, ctx context.Context) {
-	<h1 class="text-3xl">Admin</h1>
-	<br/>
-	<br/>
-	<div id="admin-content-container" class="md:grid md:grid-cols-7" x-data="getAdminState()">
+	<h1 class="text-3xl mb-8">Admin</h1>
+	<div id="admin-content-container" class="md:grid md:grid-cols-7 gap-6" x-data="getAdminState()">
 		@components.AdminNav(ctx)
 		<div class="htmx-show-in-flight col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box">
 			<template x-for="i in Array.from({length: 3}, (_, i) => i)" :key="i">
@@ -71,75 +72,76 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 			id="admin-content"
 			class="htmx-hide-in-flight col-span-5 card border-2 border-base-300 bg-base-100 p-10 rounded-box"
 		>
-			<template x-if="newRole && !roleResolved">
-				<div class="alert alert-info mb-4">
-					<span class="candidates-loading-visible loading loading-ball loading-lg h-auto"></span>
-					<span>Checking your subscription status...</span>
-				</div>
-			</template>
-			<h2 class="text-2xl font-bold ">User Info</h2>
-			Name: { userInfo.Name }
-			<br/>
-			Email: { userInfo.Email }
-			<br/>
-			Email Verified:
-			if userInfo.EmailVerified {
-				Yes
-			} else {
-				No
-			}
-			<br/>
-			User ID: { userInfo.Sub }
-			<br/>
-			<br/>
-			<h3 id="roles-section" class="text-2xl font-bold scroll-margin-top">Billing</h3>
-			<template x-if="newRole && roleResolved && !roleFound">
-				<div class="alert alert-warning mb-4">
-					@components.Icon("triangle-alert")
-					<span>Your subscription is being processed. If you need assistance, please reach out via <a class="link link-primary" href="https://discord.gg/zfXWhGHs8T">Discord</a> or <a class="link link-primary" href="mailto:info@meetnear.me">email</a>.</span>
-				</div>
-			</template>
-			<template x-if="newRole && roleResolved && roleFound">
-				<div class="alert alert-success mb-4">
-					@components.Icon("check-circle")
-					<span>Your subscription is now active!</span>
-				</div>
-			</template>
-			<template x-if="roleResolved && roleFound">
-				<div class="flex flex-wrap space-x-4 mb-4 gap-2">
-					for _, roleClaim := range roleClaims {
-						<span class="badge badge-lg badge-primary whitespace-nowrap">
-							if roleClaim.Role == string(constants.SubGrowth) {
-								Growth Community
-							} else if roleClaim.Role == string(constants.SubSeed) {
-								Seed Community
-							} else if roleClaim.Role == string(constants.SubEnterprise) {
-								Enterprise Community
-							} else {
-								{ roleClaim.Role }
-							}
-						</span>
-						<br/>
-					}
-				</div>
-			</template>
-			<h3 class="text-2xl font-bold">Interests</h3>
-			if len(interests) > 1 {
-				<div class="mb-4">
-					<ul>
-						for _, interest := range interests {
-							<li>
-								- { interest }
-							</li>
+			<div class="opacity-0" :class="{ 'opacity-100': isAdminApex, 'opacity-0': !isAdminApex }">
+				<template x-if="newRole && !roleResolved">
+					<div class="alert alert-info mb-4">
+						<span class="candidates-loading-visible loading loading-ball loading-lg h-auto"></span>
+						<span>Checking your subscription status...</span>
+					</div>
+				</template>
+				<h2 class="text-2xl font-bold ">User Info</h2>
+				Name: { userInfo.Name }
+				<br/>
+				Email: { userInfo.Email }
+				<br/>
+				Email Verified:
+				if userInfo.EmailVerified {
+					Yes
+				} else {
+					No
+				}
+				<br/>
+				User ID: { userInfo.Sub }
+				<br/>
+				<br/>
+				<h3 id="roles-section" class="text-2xl font-bold scroll-margin-top">Billing</h3>
+				<template x-if="newRole && roleResolved && !roleFound">
+					<div class="alert alert-warning mb-4">
+						@components.Icon("triangle-alert")
+						<span>Your subscription is being processed. If you need assistance, please reach out via <a class="link link-primary" href="https://discord.gg/zfXWhGHs8T">Discord</a> or <a class="link link-primary" href="mailto:info@meetnear.me">email</a>.</span>
+					</div>
+				</template>
+				<template x-if="newRole && roleResolved && roleFound">
+					<div class="alert alert-success mb-4">
+						@components.Icon("check-circle")
+						<span>Your subscription is now active!</span>
+					</div>
+				</template>
+				<template x-if="roleResolved && roleFound">
+					<div class="flex flex-wrap space-x-4 mb-4 gap-2">
+						for _, roleClaim := range roleClaims {
+							<span class="badge badge-lg badge-primary whitespace-nowrap">
+								if roleClaim.Role == string(constants.SubGrowth) {
+									Growth Community
+								} else if roleClaim.Role == string(constants.SubSeed) {
+									Seed Community
+								} else if roleClaim.Role == string(constants.SubEnterprise) {
+									Enterprise Community
+								} else {
+									{ roleClaim.Role }
+								}
+							</span>
+							<br/>
 						}
-					</ul>
-				</div>
-			}
-			<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/interests">interests page</a>.</p>
-			<h3 class="text-2xl font-bold mb-4">Subdomain</h3>
-			{{ baseDomain := strings.TrimPrefix(os.Getenv("APEX_URL"), "https://") }}
-			<div
-				x-data={ `{
+					</div>
+				</template>
+				<h3 class="text-2xl font-bold">Interests</h3>
+				if len(interests) > 1 {
+					<div class="mb-4">
+						<ul>
+							for _, interest := range interests {
+								<li>
+									- { interest }
+								</li>
+							}
+						</ul>
+					</div>
+				}
+				<p class="mb-4">Set your interests on the <a class="text-primary" href="/admin/interests">interests page</a>.</p>
+				<h3 class="text-2xl font-bold mb-4">Subdomain</h3>
+				{{ baseDomain := strings.TrimPrefix(os.Getenv("APEX_URL"), "https://") }}
+				<div
+					x-data={ `{
 				currentValidSubdomain: '` + subdomainFromMetadata + `',
 				subdomain: '` + subdomainFromMetadata + `',
 				baseDomain: '` + baseDomain + `',
@@ -158,82 +160,82 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					// On error, do nothing - keep showing the previous valid subdomain
 				}
 			}` }
-			>
-				<div
-					class="mb-4 rounded-xl border px-4 py-3 flex flex-col gap-1"
 				>
-					<div class="flex items-center gap-2 font-semibold">
-						<span>Current Subdomain</span>
-					</div>
-					<a
-						class="link"
-						x-show="subdomainValid"
-						x-bind:href=" 'https://' + currentValidSubdomain + '.' + baseDomain "
-						x-text=" 'https://' + currentValidSubdomain + '.' + baseDomain "
-					></a>
-					<span x-show="!subdomainValid">No subdomain set</span>
-					<div class="flex items-center gap-2 font-semibold mt-6">
-						<span>Update Subdomain</span>
-					</div>
-					<form
-						class="group"
-						novalidate
-						hx-post="/api/auth/users/update-mnm-options"
-						hx-ext="json-enc"
-						hx-target="#subdomain-set-result"
-						hx-disabled-elt="button[type='submit']"
-						@submit.prevent=""
-						@htmx:after-request="handleSubdomainPostRes(event)"
-						hx-vals="js:{...getMnmOptionsPayload()}"
+					<div
+						class="mb-4 rounded-xl border px-4 py-3 flex flex-col gap-1"
 					>
-						<div class="w-full flex-col gap-8">
-							<label class="input input-bordered rounded-full flex items-center gap-2">
-								<input
-									id="subdomain"
-									if subdomainFromMetadata != "" {
-										value={ subdomainFromMetadata }
-									}
-									name="subdomain"
-									x-model="subdomain"
-									@input="subdomain = $event.target.value.toLowerCase()"
-									pattern="[a-z0-9\-]+"
-									:class="{ 'input-error': subdomain && !subdomain.match(/^[a-z0-9\-]+$/) }"
-									class="w-full grow"
-									type="text"
-									autocomplete="off"
-								/>
-								<span>.meetnear.me</span>
-							</label>
-							<div id="subdomain-set-result" class="margins-when-children my-4"></div>
-							<button
-								type="submit"
-								class="btn btn-primary w-full mt-6"
-							>Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+						<div class="flex items-center gap-2 font-semibold">
+							<span>Current Subdomain</span>
 						</div>
-						<div x-show="subdomain && !subdomain.match(/^[a-z0-9\-]+$/)" class="text-error text-sm mt-1">
-							Subdomain must contain only lowercase letters and numbers and/or hyphens
+						<a
+							class="link"
+							x-show="subdomainValid"
+							x-bind:href=" 'https://' + currentValidSubdomain + '.' + baseDomain "
+							x-text=" 'https://' + currentValidSubdomain + '.' + baseDomain "
+						></a>
+						<span x-show="!subdomainValid">No subdomain set</span>
+						<div class="flex items-center gap-2 font-semibold mt-6">
+							<span>Update Subdomain</span>
 						</div>
-					</form>
-				</div>
-				<div
-					class="mt-6 rounded-xl border border-error bg-error/20 px-4 py-5 flex flex-col items-start gap-3"
-					x-show="subdomainValid && currentValidSubdomain"
-				>
-					<div class="flex items-center gap-2 font-semibold">
-						<span>Danger Zone</span>
+						<form
+							class="group"
+							novalidate
+							hx-post="/api/auth/users/update-mnm-options"
+							hx-ext="json-enc"
+							hx-target="#subdomain-set-result"
+							hx-disabled-elt="button[type='submit']"
+							@submit.prevent=""
+							@htmx:after-request="handleSubdomainPostRes(event)"
+							hx-vals="js:{...getMnmOptionsPayload()}"
+						>
+							<div class="w-full flex-col gap-8">
+								<label class="input input-bordered rounded-full flex items-center gap-2">
+									<input
+										id="subdomain"
+										if subdomainFromMetadata != "" {
+											value={ subdomainFromMetadata }
+										}
+										name="subdomain"
+										x-model="subdomain"
+										@input="subdomain = $event.target.value.toLowerCase()"
+										pattern="[a-z0-9\-]+"
+										:class="{ 'input-error': subdomain && !subdomain.match(/^[a-z0-9\-]+$/) }"
+										class="w-full grow"
+										type="text"
+										autocomplete="off"
+									/>
+									<span>.meetnear.me</span>
+								</label>
+								<div id="subdomain-set-result" class="margins-when-children my-4"></div>
+								<button
+									type="submit"
+									class="btn btn-primary w-full mt-6"
+								>Update Subdomain<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+							</div>
+							<div x-show="subdomain && !subdomain.match(/^[a-z0-9\-]+$/)" class="text-error text-sm mt-1">
+								Subdomain must contain only lowercase letters and numbers and/or hyphens
+							</div>
+						</form>
 					</div>
-					<p class="">
-						Deleting your subdomain will permanently disable your custom website and theme. This action cannot be undone.
-					</p>
-					<div id="subdomain-delete-result" class="margins-when-children my-4"></div>
-					<button
-						type="button"
-						class="btn btn-error w-full"
-						hx-post="/api/auth/users/delete-subdomain"
-						hx-target="#subdomain-delete-result"
-						hx-disabled-elt="button"
-						@htmx:before-request="isDeleting = true"
-						@htmx:after-request="
+					<div
+						class="mt-6 rounded-xl border border-error bg-error/20 px-4 py-5 flex flex-col items-start gap-3"
+						x-show="subdomainValid && currentValidSubdomain"
+					>
+						<div class="flex items-center gap-2 font-semibold">
+							<span>Danger Zone</span>
+						</div>
+						<p class="">
+							Deleting your subdomain will permanently disable your custom website and theme. This action cannot be undone.
+						</p>
+						<div id="subdomain-delete-result" class="margins-when-children my-4"></div>
+						<button
+							type="button"
+							class="btn btn-error w-full"
+							hx-post="/api/auth/users/delete-subdomain"
+							hx-target="#subdomain-delete-result"
+							hx-disabled-elt="button"
+							@htmx:before-request="isDeleting = true"
+							@htmx:after-request="
 							isDeleting = false;
 							const responseText = event.detail.xhr?.responseText || '';
 							const isSuccessful = responseText.includes('successfully');
@@ -243,97 +245,98 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 								subdomain = '';
 							}
 						"
-					>
-						Delete Subdomain
-						<span x-cloak x-show="isDeleting" class="loading loading-spinner loading-sm ml-2"></span>
-					</button>
-				</div>
-				<h3 class="text-2xl font-bold mb-4 mt-4">Custom Theme</h3>
-				<div class="alert alert-warning mb-4" x-cloak x-show="!subdomainValid">
-					@components.Icon("triangle-alert")
-					<div>
-						<strong>Subdomain Required</strong>
-						<br/>
-						Please set a subdomain above to customize your theme. Theme customization is only available for custom subdomains.
-					</div>
-				</div>
-				<p class="mb-4" x-cloak x-show="subdomainValid">
-					Your subdomain will use the theme colors you choose below.
-				</p>
-				<div class="mx-auto w-full max-w-xl">
-					<div class="relative border-2 border-base-300 rounded-lg p-4 bg-base-200/50" :class="{ 'opacity-60': !subdomainValid }">
-						<div
-							x-cloak
-							x-show="!subdomainValid"
-							class="absolute inset-0 z-10 bg-base-200/40 backdrop-blur-[1px] cursor-not-allowed rounded-lg transition-opacity"
-							title="Set a subdomain to customize your theme"
-						></div>
-						<form
-							class="group relative z-0"
-							novalidate
-							hx-post="/api/auth/users/update-mnm-options?theme=1"
-							hx-ext="json-enc"
-							hx-target="#theme-result"
-							hx-disabled-elt="button[type='submit']"
-							@submit.prevent=""
-							@htmx:after-request="handleSubdomainPostRes(event)"
-							hx-vals="js:{...getMnmOptionsPayload()}"
 						>
-							{{ primaryColor := extractMnmOptions(mnmOptions)["--p"] }}
-							@components.ColorPicker(primaryColor, "Primary Brand Color", "primary-color-picker-input")
-							<h4 class="text-lg font-bold mt-2">Theme Mode</h4>
-							<!-- END Input -->
-							// switch toggle for light / vs dark theme
-							{{ themeModeLight := extractMnmOptions(mnmOptions)["themeMode"] == "light" }}
-							<div x-data={ `{ themeModeLight: ` + strconv.FormatBool(themeModeLight) + ` }` } class="form-control">
-								<label class="label cursor-pointer">
-									<span class="label-text" x-text="themeModeLight ? 'Light Theme' : 'Dark Theme' "></span>
-									<input
-										id="theme-mode"
-										type="checkbox"
-										class="toggle toggle-primary"
-										x-model="themeModeLight"
-									/>
-								</label>
-							</div>
-							<button
-								type="submit"
-								class="btn btn-primary mt-4"
-								:disabled="!subdomainValid"
-							>Update Theme<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
-						</form>
+							Delete Subdomain
+							<span x-cloak x-show="isDeleting" class="loading loading-spinner loading-sm ml-2"></span>
+						</button>
+					</div>
+					<h3 class="text-2xl font-bold mb-4 mt-4">Custom Theme</h3>
+					<div class="alert alert-warning mb-4" x-cloak x-show="!subdomainValid">
+						@components.Icon("triangle-alert")
+						<div>
+							<strong>Subdomain Required</strong>
+							<br/>
+							Please set a subdomain above to customize your theme. Theme customization is only available for custom subdomains.
+						</div>
+					</div>
+					<p class="mb-4" x-cloak x-show="subdomainValid">
+						Your subdomain will use the theme colors you choose below.
+					</p>
+					<div class="mx-auto w-full max-w-xl">
+						<div class="relative border-2 border-base-300 rounded-lg p-4 bg-base-200/50" :class="{ 'opacity-60': !subdomainValid }">
+							<div
+								x-cloak
+								x-show="!subdomainValid"
+								class="absolute inset-0 z-10 bg-base-200/40 backdrop-blur-[1px] cursor-not-allowed rounded-lg transition-opacity"
+								title="Set a subdomain to customize your theme"
+							></div>
+							<form
+								class="group relative z-0"
+								novalidate
+								hx-post="/api/auth/users/update-mnm-options?theme=1"
+								hx-ext="json-enc"
+								hx-target="#theme-result"
+								hx-disabled-elt="button[type='submit']"
+								@submit.prevent=""
+								@htmx:after-request="handleSubdomainPostRes(event)"
+								hx-vals="js:{...getMnmOptionsPayload()}"
+							>
+								{{ primaryColor := extractMnmOptions(mnmOptions)["--p"] }}
+								@components.ColorPicker(primaryColor, "Primary Brand Color", "primary-color-picker-input")
+								<h4 class="text-lg font-bold mt-2">Theme Mode</h4>
+								<!-- END Input -->
+								// switch toggle for light / vs dark theme
+								{{ themeModeLight := extractMnmOptions(mnmOptions)["themeMode"] == "light" }}
+								<div x-data={ `{ themeModeLight: ` + strconv.FormatBool(themeModeLight) + ` }` } class="form-control">
+									<label class="label cursor-pointer">
+										<span class="label-text" x-text="themeModeLight ? 'Light Theme' : 'Dark Theme' "></span>
+										<input
+											id="theme-mode"
+											type="checkbox"
+											class="toggle toggle-primary"
+											x-model="themeModeLight"
+										/>
+									</label>
+								</div>
+								<button
+									type="submit"
+									class="btn btn-primary mt-4"
+									:disabled="!subdomainValid"
+								>Update Theme<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+							</form>
+						</div>
 					</div>
 				</div>
+				<div id="theme-result" class="margins-when-children my-8"></div>
+				<h3 class="text-2xl font-bold mb-4 mt-4">About / Bio</h3>
+				<form
+					class="group"
+					novalidate
+					hx-post="/api/auth/users/update-about"
+					hx-ext="json-enc"
+					hx-target="#about-result"
+					hx-disabled-elt="button[type='submit']"
+					@submit.prevent=""
+				>
+					<div class="form-control">
+						<label class="label" for="description">Description</label>
+						<textarea
+							name="about"
+							class="textarea textarea-bordered w-full"
+							maxlength="750"
+							id="about"
+							placeholder="Personal bio or organization description on your profile"
+						>
+							{ userAbout }
+						</textarea>
+					</div>
+					<button type="submit" class="btn btn-primary mt-4">Update About<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
+				</form>
+				<div id="about-result" class="margins-when-children my-8"></div>
 			</div>
-			<div id="theme-result" class="margins-when-children my-8"></div>
-			<h3 class="text-2xl font-bold mb-4 mt-4">About / Bio</h3>
-			<form
-				class="group"
-				novalidate
-				hx-post="/api/auth/users/update-about"
-				hx-ext="json-enc"
-				hx-target="#about-result"
-				hx-disabled-elt="button[type='submit']"
-				@submit.prevent=""
-			>
-				<div class="form-control">
-					<label class="label" for="description">Description</label>
-					<textarea
-						name="about"
-						class="textarea textarea-bordered w-full"
-						maxlength="750"
-						id="about"
-						placeholder="Personal bio or organization description on your profile"
-					>
-						{ userAbout }
-					</textarea>
-				</div>
-				<button type="submit" class="btn btn-primary mt-4">Update About<span class="htmx-indicator loading loading-spinner loading-sm"></span></button>
-			</form>
-			<div id="about-result" class="margins-when-children my-8"></div>
 		</div>
 	</div>
-	<script id="admin-state" data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() } data-subscriptions-url={ getSubscriptionsAdminUrl() } data-purchases-url={ getPurchasesAdminUrl() }>
+	<script id="admin-state" data-role-not-found-message={ constants.ROLE_NOT_FOUND_MESSAGE } data-events-url={ getEventsAdminUrl(userInfo) } data-competitions-url={ getCompetitionsAdminUrl(userInfo) } data-profile-interests-url={ getProfileInterestsAdminUrl() } data-subscriptions-url={ getSubscriptionsAdminUrl() } data-purchases-url={ getPurchasesAdminUrl() } data-event-sources-url={ getEventSourceAdminUrl() }>
 		// Admin sub-routing with Navigation API
 		(function() {
 			const adminStateEl = document.querySelector('#admin-state');
@@ -357,10 +360,14 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 					url: adminStateEl.getAttribute('data-subscriptions-url'),
 					title: 'Admin - Subscriptions'
 				},
+				'/admin/event-sources': {
+					url: adminStateEl.getAttribute('data-event-sources-url'),
+					title: 'Admin - Event Sources'
+				},
 				'/admin/purchases': {
 					url: adminStateEl.getAttribute('data-purchases-url'),
 					title: 'Admin - Purchases & Registrations'
-				},
+				}
 			};
 
 			// Handle direct navigation (browser back/forward or direct URL access)
@@ -515,13 +522,31 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 		}
 		function getAdminState() {
 			return {
-				init() {
+
+			init() {
+					// NOTE: this needs to be fixed in a more robust way, right now, this was
+					// added because non-root subroutes show a flash of root `/admin` content
+					// before the subroute content is loaded
+
+					// Update isAdminApex based on current location
+					const updateIsAdminApex = () => {
+						this.isAdminApex = window.location.pathname === "/admin" || window.location.pathname === "/admin/";
+					};
+
+					// Listen for browser back/forward navigation
+					window.addEventListener('popstate', () => updateIsAdminApex());
+
+					// Listen for HTMX navigation events
+					document.body.addEventListener('htmx:afterSettle', () => updateIsAdminApex());
+					document.body.addEventListener('htmx:pushedIntoHistory', () => updateIsAdminApex());
+
 					(async () => {
 						window.location.href.match('#')
 						let searchQuery = window.location.hash.split('?')[1] || '';
 						if (!window.location.href.match('#')) {
 							searchQuery = window.location.search
 						}
+						updateIsAdminApex();
 						this.newRole = new URLSearchParams(searchQuery).get('new_role');
 						const promises = [];
 
@@ -536,6 +561,7 @@ templ AdminPage(userInfo constants.UserInfo, roleClaims []constants.RoleClaim, i
 						}
 					})()
 				},
+				isAdminApex: false,
 				newKeyId: null,
 				newRole: null,
 				roleResolved: false,
