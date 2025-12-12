@@ -114,9 +114,9 @@ func SetMnmOptions(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	var buf bytes.Buffer
 	var successPartial templ.Component
 	if r.URL.Query().Has("theme") {
-		successPartial = partials.SuccessBannerHTML(`Theme updated successfully`)
+		successPartial = partials.SuccessBannerHTML(`Theme updated successfully`, "", "")
 	} else {
-		successPartial = partials.SuccessHTMLText(`Subdomain set successfully`)
+		successPartial = partials.SuccessBannerHTML(`Subdomain set successfully`, "", "")
 	}
 
 	err = successPartial.Render(r.Context(), &buf)
@@ -817,7 +817,7 @@ func SubmitSeshuEvents(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 		}
 	}
 
-	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`)
+	successPartial := partials.SuccessBannerHTML(`We've noted the events you've confirmed as accurate`, "", "")
 
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
@@ -996,7 +996,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	// set context value for url
 	ctx = context.WithValue(ctx, "targetUrl", inputPayload.Url)
 
-	jobs, err := postgresDB.GetSeshuJobs(ctx)
+	jobs, _, err := postgresDB.GetSeshuJobs(ctx, 0, 0)
 	if err != nil {
 		return transport.SendHtmlRes(w, []byte("Failed to get SeshuJobs"), http.StatusInternalServerError, "partial", err)
 	}
@@ -1210,7 +1210,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 				TargetEndTimeCSSPath:     endTag,         // optional
 				TargetDescriptionCSSPath: descriptionTag, // optional
 				TargetHrefCSSPath:        eventURLTag,
-				Status:                   "HEALTHY", // assume healthy if parse succeeded
+				Status:                   "SCANNING", // assume scanning if parse succeeded
 				IsRecursive:              false,
 				LastScrapeSuccess:        time.Now().Unix(),
 				LastScrapeFailure:        0,
@@ -1392,7 +1392,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 					TargetEndTimeCSSPath:     endTag,         // optional
 					TargetDescriptionCSSPath: descriptionTag, // optional
 					TargetHrefCSSPath:        eventURLTag,
-					Status:                   "HEALTHY", // assume healthy if parse succeeded
+					Status:                   "SCANNING",
 					IsRecursive:              true,
 					LastScrapeSuccess:        time.Now().Unix(),
 					LastScrapeFailure:        0,
@@ -1429,6 +1429,8 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		// }
 
 		go func() {
+			// Use background context since HTTP request context will be canceled after response
+			bgCtx := context.Background()
 
 			if jobAborted {
 				return
@@ -1448,8 +1450,15 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 			err = services.PushExtractedEventsToDB(extractedEvents, seshuJob, make(map[string]string))
 			if err != nil {
 				log.Println("Error pushing ingested events to DB:", err)
+				seshuJob.Status = "FAILING"
+			} else {
+				seshuJob.Status = "HEALTHY"
 			}
 
+			err = pgDb.UpdateSeshuJob(bgCtx, seshuJob)
+			if err != nil {
+				log.Printf("Failed to update SeshuJob after event insertion: %v", err)
+			}
 		}()
 
 	}()
@@ -1473,7 +1482,7 @@ func SubmitSeshuSession(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 		}
 	}
 
-	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added. We will put it in the queue and let you know when it's imported.`)
+	successPartial := partials.SuccessBannerHTML(`Your Event Source has been added`, "/admin/event-sources", "Check your dashboard for updates.")
 
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
@@ -1520,7 +1529,7 @@ func UpdateUserInterests(w http.ResponseWriter, r *http.Request) http.HandlerFun
 		return transport.SendHtmlErrorPartial([]byte("Failed to save interests: "+err.Error()), http.StatusInternalServerError)
 	}
 
-	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`)
+	successPartial := partials.SuccessBannerHTML(`Your interests have been updated successfully.`, "", "")
 	var buf bytes.Buffer
 	err = successPartial.Render(ctx, &buf)
 	if err != nil {
@@ -1551,7 +1560,7 @@ func UpdateUserAbout(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	}
 
 	var buf bytes.Buffer
-	successPartial := partials.SuccessBannerHTML(`About section successfully saved`)
+	successPartial := partials.SuccessBannerHTML(`About section successfully saved`, "", "")
 
 	err = successPartial.Render(r.Context(), &buf)
 	if err != nil {

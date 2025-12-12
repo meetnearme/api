@@ -829,6 +829,17 @@ func TestEventsInnerEdgeCases(t *testing.T) {
 			},
 		},
 		{
+			name:   "EV_MODE_ADMIN_LIST with empty events shows empty state",
+			mode:   constants.EV_MODE_ADMIN_LIST,
+			events: []types.Event{},
+			expectedItems: []string{
+				"Event Admin",
+				"You don't have any events yet.",
+				"Create a new event",
+				"/admin/event/new",
+			},
+		},
+		{
 			name: "EV_MODE_UPCOMING with event without location data",
 			mode: constants.EV_MODE_UPCOMING,
 			events: []types.Event{

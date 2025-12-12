@@ -127,6 +127,7 @@ func (app *App) InitRoutes() []Route {
 		{"/api/html/competition-config/owner/{" + constants.USER_ID_KEY + "}", "GET", dynamodb_handlers.GetCompetitionConfigsHtmlByPrimaryOwnerHandler, None},
 		{"/api/html/profile-interests{trailingslash:\\/?}", "GET", handlers.GetProfileInterestsPartial, Require},
 		{"/api/html/subscriptions{trailingslash:\\/?}", "GET", handlers.GetSubscriptionsPartial, Require},
+		{"/api/html/event-sources{trailingslash:\\/?}", "GET", handlers.GetSeshuJobsAdmin, Require},
 		{"/api/html/purchases{trailingslash:\\/?}", "GET", handlers.GetPurchasesAdminPartial, Require},
 
 		// // Purchasables routes
@@ -187,18 +188,18 @@ func (app *App) InitRoutes() []Route {
 		{"/api/customer-portal/session{trailingslash:\\/?}", "POST", handlers.CreateCustomerPortalSessionHandler, Require},
 
 		// Webhooks
-		{"/api/webhook/checkout", "POST", handlers.HandleCheckoutWebhookHandler, None},
-		{"/api/webhook/subscription", "POST", handlers.HandleSubscriptionWebhookHandler, None},
+		{"/api/webhook/checkout{trailingslash:\\/?}", "POST", handlers.HandleCheckoutWebhookHandler, None},
+		{"/api/webhook/subscription{trailingslash:\\/?}", "POST", handlers.HandleSubscriptionWebhookHandler, None},
 
 		//SeshuSession
-		{"/api/html/session/submit/", "POST", handlers.HandleSeshuSessionSubmit, Require},
+		{"/api/html/session/submit{trailingslash:\\/?}", "POST", handlers.HandleSeshuSessionSubmit, Require},
 
 		// SeshuJobs
 		{"/api/seshujob", "GET", handlers.GetSeshuJobs, Require},
 		// DISABLED to prevent abuse
 		// {"/api/seshujob", "POST", handlers.CreateSeshuJob, Require},
 		// {"/api/seshujob/{key}", "PUT", handlers.UpdateSeshuJob, Require},
-		{"/api/seshujob{trailingslash:\\/?}", "DELETE", handlers.DeleteSeshuJob, Require},
+		{"/api/seshu-job", "DELETE", handlers.DeleteSeshuJob, Require},
 		// {"/api/gather-seshu-jobs", "POST", handlers.GatherSeshuJobsHandler, Require},
 
 		// Re-share
