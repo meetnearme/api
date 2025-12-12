@@ -25,18 +25,18 @@ import (
 // --- Mock Services ---
 
 type MockPostgresService struct {
-	GetSeshuJobsFunc       func(ctx context.Context) ([]internal_types.SeshuJob, error)
+	GetSeshuJobsFunc       func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error)
 	CreateJobFunc          func(ctx context.Context, job internal_types.SeshuJob) error
 	UpdateJobFunc          func(ctx context.Context, job internal_types.SeshuJob) error
 	DeleteJobFunc          func(ctx context.Context, id string) error
 	ScanJobsWithInHourFunc func(ctx context.Context, hour int) ([]internal_types.SeshuJob, error)
 }
 
-func (m *MockPostgresService) GetSeshuJobs(ctx context.Context) ([]internal_types.SeshuJob, error) {
+func (m *MockPostgresService) GetSeshuJobs(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
 	if m.GetSeshuJobsFunc != nil {
-		return m.GetSeshuJobsFunc(ctx)
+		return m.GetSeshuJobsFunc(ctx, limit, offset)
 	}
-	return []internal_types.SeshuJob{}, nil
+	return []internal_types.SeshuJob{}, 0, nil
 }
 
 func (m *MockPostgresService) CreateSeshuJob(ctx context.Context, job internal_types.SeshuJob) error {
@@ -121,14 +121,14 @@ func TestGetSeshuJobs_Success(t *testing.T) {
 
 	// Mock implementation for GetSeshuJobs
 	mockService := &MockPostgresService{
-		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
 			return []internal_types.SeshuJob{
 				{
 					NormalizedUrlKey: "test-key",
 					Status:           "active",
 					OwnerID:          "user123",
 				},
-			}, nil
+			}, 0, nil
 		},
 	}
 
@@ -161,8 +161,8 @@ func TestGetSeshuJobs_DBError(t *testing.T) {
 	os.Setenv("GO_ENV", "test")
 
 	mockService := &MockPostgresService{
-		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
-			return nil, errors.New("DB connection failed")
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
+			return nil, 0, errors.New("DB connection failed")
 		},
 	}
 
@@ -193,8 +193,8 @@ func TestGetSeshuJobs_EmptyList(t *testing.T) {
 	os.Setenv("GO_ENV", "test")
 
 	mockService := &MockPostgresService{
-		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
-			return []internal_types.SeshuJob{}, nil
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
+			return []internal_types.SeshuJob{}, 1, nil
 		},
 	}
 
@@ -447,13 +447,13 @@ func TestDeleteSeshuJob_Success(t *testing.T) {
 	}
 
 	mockService := &MockPostgresService{
-		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
 			// Verify that targetUrl is in the context
 			ctxTargetUrl, ok := ctx.Value("targetUrl").(string)
 			if !ok || ctxTargetUrl != targetUrl {
 				t.Errorf("expected targetUrl=%s in context, got %v", targetUrl, ctxTargetUrl)
 			}
-			return []internal_types.SeshuJob{mockJob}, nil
+			return []internal_types.SeshuJob{mockJob}, 1, nil
 		},
 		DeleteJobFunc: func(ctx context.Context, id string) error {
 			if id != targetUrl {
@@ -465,7 +465,7 @@ func TestDeleteSeshuJob_Success(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
 	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: userId})
-	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?key="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	handler := handlers.DeleteSeshuJob(w, req)
@@ -481,8 +481,9 @@ func TestDeleteSeshuJob_Success(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
-	if !strings.Contains(bodyStr, "Job deleted successfully") {
-		t.Errorf("expected success message, got: %s", bodyStr)
+	// Handler returns empty body with HX-Trigger header on success
+	if resp.Header.Get("HX-Trigger") != "reloadSeshuJobs" {
+		t.Errorf("expected HX-Trigger header with 'reloadSeshuJobs', got: %s", resp.Header.Get("HX-Trigger"))
 	}
 }
 
@@ -509,8 +510,8 @@ func TestDeleteSeshuJob_InvalidID(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200 (HTML error), got %d", resp.StatusCode)
 	}
-	if !strings.Contains(bodyStr, "Missing 'id' query parameter") {
-		t.Errorf("expected 'Missing 'id' query parameter' message, got: %s", bodyStr)
+	if !strings.Contains(bodyStr, "Missing job key") {
+		t.Errorf("expected 'Missing job key' message, got: %s", bodyStr)
 	}
 }
 
@@ -525,8 +526,8 @@ func TestDeleteSeshuJob_DBError(t *testing.T) {
 	}
 
 	mockService := &MockPostgresService{
-		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
-			return []internal_types.SeshuJob{mockJob}, nil
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
+			return []internal_types.SeshuJob{mockJob}, 1, nil
 		},
 		DeleteJobFunc: func(ctx context.Context, id string) error {
 			return errors.New("delete failed")
@@ -535,7 +536,7 @@ func TestDeleteSeshuJob_DBError(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
 	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: userId})
-	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?key="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	handler := handlers.DeleteSeshuJob(w, req)
@@ -563,7 +564,7 @@ func TestDeleteSeshuJob_MissingUserID(t *testing.T) {
 
 	targetUrl := "https://example.com/events/123"
 	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
-	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?key="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	handler := handlers.DeleteSeshuJob(w, req)
@@ -589,14 +590,14 @@ func TestDeleteSeshuJob_JobNotFound(t *testing.T) {
 
 	targetUrl := "https://example.com/events/999"
 	mockService := &MockPostgresService{
-		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
-			return []internal_types.SeshuJob{}, nil
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
+			return []internal_types.SeshuJob{}, 1, nil
 		},
 	}
 
 	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
 	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: "user123"})
-	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?key="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	handler := handlers.DeleteSeshuJob(w, req)
@@ -615,9 +616,9 @@ func TestDeleteSeshuJob_JobNotFound(t *testing.T) {
 	if !strings.Contains(bodyStr, "Event source URL not found") {
 		t.Errorf("expected 'Event source URL not found' message, got: %s", bodyStr)
 	}
-	// Verify the ID is not exposed in the error message
+	// Verify the key is not exposed in the error message
 	if strings.Contains(bodyStr, targetUrl) {
-		t.Errorf("expected ID to not be exposed in error message, but found: %s", targetUrl)
+		t.Errorf("expected key to not be exposed in error message, but found: %s", targetUrl)
 	}
 }
 
@@ -626,14 +627,14 @@ func TestDeleteSeshuJob_GetSeshuJobsError(t *testing.T) {
 
 	targetUrl := "https://example.com/events/999"
 	mockService := &MockPostgresService{
-		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
-			return nil, errors.New("failed to get jobs")
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
+			return nil, 0, errors.New("failed to get jobs")
 		},
 	}
 
 	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
 	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: "user123"})
-	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?key="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	handler := handlers.DeleteSeshuJob(w, req)
@@ -652,9 +653,9 @@ func TestDeleteSeshuJob_GetSeshuJobsError(t *testing.T) {
 	if !strings.Contains(bodyStr, "Internal server error") {
 		t.Errorf("expected 'Internal server error' message, got: %s", bodyStr)
 	}
-	// Verify the ID and error details are not exposed in the error message
+	// Verify the key and error details are not exposed in the error message
 	if strings.Contains(bodyStr, targetUrl) {
-		t.Errorf("expected ID to not be exposed in error message, but found: %s", targetUrl)
+		t.Errorf("expected key to not be exposed in error message, but found: %s", targetUrl)
 	}
 	if strings.Contains(bodyStr, "failed to get jobs") {
 		t.Errorf("expected error details to not be exposed in error message")
@@ -673,15 +674,15 @@ func TestDeleteSeshuJob_Unauthorized(t *testing.T) {
 	}
 
 	mockService := &MockPostgresService{
-		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
-			return []internal_types.SeshuJob{mockJob}, nil
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
+			return []internal_types.SeshuJob{mockJob}, 1, nil
 		},
 	}
 
 	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
 	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: userId})
 	ctx = context.WithValue(ctx, "roleClaims", []constants.RoleClaim{}) // No super admin role
-	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?key="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	handler := handlers.DeleteSeshuJob(w, req)
@@ -702,6 +703,115 @@ func TestDeleteSeshuJob_Unauthorized(t *testing.T) {
 	}
 }
 
+// TestGetSeshuJobsAdmin_SuperAdmin verifies that superAdmin users see ALL jobs
+// regardless of owner_id (the skipOwnerFilter flag is passed to the service)
+func TestGetSeshuJobsAdmin_SuperAdmin_SeesAllJobs(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	superAdminUserId := "super-admin-123"
+	otherUserId := "other-user-456"
+
+	// Create jobs owned by different users
+	allJobs := []internal_types.SeshuJob{
+		{NormalizedUrlKey: "job1", OwnerID: superAdminUserId, Status: "active"},
+		{NormalizedUrlKey: "job2", OwnerID: otherUserId, Status: "active"},
+		{NormalizedUrlKey: "job3", OwnerID: otherUserId, Status: "active"},
+	}
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
+			// Verify that skipOwnerFilter is true for superAdmin
+			skipOwnerFilter, ok := ctx.Value("skipOwnerFilter").(bool)
+			if !ok || !skipOwnerFilter {
+				t.Errorf("expected skipOwnerFilter=true in context for superAdmin, got ok=%v, value=%v", ok, skipOwnerFilter)
+			}
+			// Return all jobs since superAdmin should see everything
+			return allJobs, int64(len(allJobs)), nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: superAdminUserId})
+	ctx = context.WithValue(ctx, "roleClaims", []constants.RoleClaim{
+		{Role: constants.Roles[constants.SuperAdmin], ProjectID: "test-project"},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/html/event-sources", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.GetSeshuJobsAdmin(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	// Verify all jobs are present in the response
+	for _, job := range allJobs {
+		if !strings.Contains(bodyStr, job.NormalizedUrlKey) {
+			t.Errorf("expected response to contain job key '%s' for superAdmin", job.NormalizedUrlKey)
+		}
+	}
+}
+
+// TestGetSeshuJobsAdmin_RegularUser verifies that regular users only see their own jobs
+// (the skipOwnerFilter flag is NOT passed to the service)
+func TestGetSeshuJobsAdmin_RegularUser_SeesOnlyOwnJobs(t *testing.T) {
+	os.Setenv("GO_ENV", "test")
+
+	regularUserId := "regular-user-123"
+
+	// Only return jobs owned by the regular user
+	ownedJobs := []internal_types.SeshuJob{
+		{NormalizedUrlKey: "my-job-1", OwnerID: regularUserId, Status: "active"},
+	}
+
+	mockService := &MockPostgresService{
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
+			// Verify that skipOwnerFilter is NOT set for regular users
+			skipOwnerFilter, ok := ctx.Value("skipOwnerFilter").(bool)
+			if ok && skipOwnerFilter {
+				t.Errorf("expected skipOwnerFilter to NOT be true for regular user, got %v", skipOwnerFilter)
+			}
+			// Return only the user's own jobs
+			return ownedJobs, int64(len(ownedJobs)), nil
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "mockPostgresService", interfaces.PostgresServiceInterface(mockService))
+	ctx = context.WithValue(ctx, "userInfo", constants.UserInfo{Sub: regularUserId})
+	ctx = context.WithValue(ctx, "roleClaims", []constants.RoleClaim{
+		{Role: constants.Roles[constants.EventAdmin], ProjectID: "test-project"}, // Not superAdmin
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/html/event-sources", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	handler := handlers.GetSeshuJobsAdmin(w, req)
+	handler(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	// Verify only owned jobs are present
+	if !strings.Contains(bodyStr, "my-job-1") {
+		t.Errorf("expected response to contain owned job 'my-job-1'")
+	}
+}
+
 func TestDeleteSeshuJob_SuperAdmin(t *testing.T) {
 	os.Setenv("GO_ENV", "test")
 
@@ -714,8 +824,8 @@ func TestDeleteSeshuJob_SuperAdmin(t *testing.T) {
 	}
 
 	mockService := &MockPostgresService{
-		GetSeshuJobsFunc: func(ctx context.Context) ([]internal_types.SeshuJob, error) {
-			return []internal_types.SeshuJob{mockJob}, nil
+		GetSeshuJobsFunc: func(ctx context.Context, limit, offset int) ([]internal_types.SeshuJob, int64, error) {
+			return []internal_types.SeshuJob{mockJob}, 1, nil
 		},
 		DeleteJobFunc: func(ctx context.Context, id string) error {
 			if id != targetUrl {
@@ -730,7 +840,7 @@ func TestDeleteSeshuJob_SuperAdmin(t *testing.T) {
 	ctx = context.WithValue(ctx, "roleClaims", []constants.RoleClaim{
 		{Role: constants.Roles[constants.SuperAdmin]},
 	})
-	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?id="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodDelete, "/seshu-jobs/delete?key="+url.QueryEscape(targetUrl), nil).WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	handler := handlers.DeleteSeshuJob(w, req)
@@ -746,8 +856,9 @@ func TestDeleteSeshuJob_SuperAdmin(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
-	if !strings.Contains(bodyStr, "Job deleted successfully") {
-		t.Errorf("expected success message, got: %s", bodyStr)
+	// Handler returns empty body with HX-Trigger header on success
+	if resp.Header.Get("HX-Trigger") != "reloadSeshuJobs" {
+		t.Errorf("expected HX-Trigger header with 'reloadSeshuJobs', got: %s", resp.Header.Get("HX-Trigger"))
 	}
 }
 

@@ -358,7 +358,7 @@ templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageConte
 		</head>
 		<body class="h-[calc(100vh)] overflow-y-auto">
 			<div id="top-loading-bar" class="hidden fixed top-0 left-0 w-0 h-[3px] bg-[#00ff00] transition-[width] duration-300 ease-out z-[9999]"></div>
-			@components.Navbar(userInfo, sitePage.SubnavItems, event, ctx) {
+			@components.Navbar(userInfo, sitePage.SubnavItems, event, ctx, false) {
 				<div class="container mx-auto">
 					<div id="content" class="p-4 relative">
 						if narrowLayout {

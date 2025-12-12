@@ -50,9 +50,27 @@ async function updateCSSFiles(finalCSS, result) {
     } else {
       console.log('>> No layout.templ update needed');
     }
+
+    // Also update the Go file where the hash is embedded in the GetEmbedScript for the embed code.
+    const goHandlerPath = './functions/gateway/handlers/partial_handlers.go';
+    const goHandlerContent = await readFile(goHandlerPath, 'utf8');
+
+    const updatedGoContent = goHandlerContent.replace(
+      /styles\.[a-f0-9]{8}\.css/g,
+      hashedFilename,
+    );
+
+    if (updatedGoContent !== goHandlerContent) {
+      await writeFile(goHandlerPath, updatedGoContent);
+      console.log(
+        `✅ Updated partial_handlers.go with new CSS filename: ${hashedFilename}`,
+      );
+    } else {
+      console.log('>> No partial_handlers.go update needed');
+    }
   } catch (error) {
     console.warn(
-      'Warning: Could not update CSS filename in layout.templ:',
+      'Warning: Could not update CSS filename in layout.templ or partial_handlers.go:',
       error.message,
     );
   }

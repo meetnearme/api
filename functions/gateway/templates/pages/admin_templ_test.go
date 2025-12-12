@@ -71,7 +71,6 @@ func TestAdminPage(t *testing.T) {
 		mockUserInfo.Name,
 		mockUserInfo.Sub,
 		"Yes", // mockUserInfo.EmailVerified yields a value "Yes" or "No"
-		"Test about me text",
 		"#000000",
 	}
 

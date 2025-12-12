@@ -1673,13 +1673,17 @@ func TestGetUserAuthorizationID(t *testing.T) {
 }
 
 func TestCreateUserAuthorization(t *testing.T) {
+	InitDefaultProtocol() // Ensure protocol is set for test environment
+
 	originalHost := os.Getenv("ZITADEL_INSTANCE_HOST")
 	originalToken := os.Getenv("ZITADEL_BOT_ADMIN_TOKEN")
+	originalProjectID := os.Getenv("ZITADEL_PROJECT_ID")
 	originalTransport := http.DefaultTransport
 
 	defer func() {
 		os.Setenv("ZITADEL_INSTANCE_HOST", originalHost)
 		os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", originalToken)
+		os.Setenv("ZITADEL_PROJECT_ID", originalProjectID)
 		http.DefaultTransport = originalTransport
 	}()
 
@@ -1772,6 +1776,9 @@ func TestCreateUserAuthorization(t *testing.T) {
 				if !strings.Contains(bodyStr, tt.userID) {
 					t.Errorf("Request body should contain user ID %s", tt.userID)
 				}
+				if !strings.Contains(bodyStr, "test-project-id") {
+					t.Errorf("Request body should contain projectId")
+				}
 				for _, role := range tt.roleKeys {
 					if !strings.Contains(bodyStr, role) {
 						t.Errorf("Request body should contain role %s", role)
@@ -1788,6 +1795,7 @@ func TestCreateUserAuthorization(t *testing.T) {
 			zitadelURL = strings.TrimPrefix(zitadelURL, "https://")
 			os.Setenv("ZITADEL_INSTANCE_HOST", zitadelURL)
 			os.Setenv("ZITADEL_BOT_ADMIN_TOKEN", "test-token")
+			os.Setenv("ZITADEL_PROJECT_ID", "test-project-id")
 
 			authID, err := CreateUserAuthorization(tt.userID, tt.roleKeys)
 
