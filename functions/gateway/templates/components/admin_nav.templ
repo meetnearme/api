@@ -1,0 +1,101 @@
+package components
+
+import (
+	"context"
+	"github.com/meetnearme/api/functions/gateway/constants"
+	"github.com/meetnearme/api/functions/gateway/helpers"
+	"strconv"
+)
+
+templ AdminLeftNavContents(ctx context.Context) {
+	<li>
+		<h3 class="font-bold menu-title mt-0 mb-2">Admin</h3>
+		<ul>
+			<li><a href="/admin">Home</a></li>
+			<li>
+				<a
+					hx-get="/api/html/profile-interests"
+					hx-target="#admin-content"
+					hx-indicator="#admin-content-container"
+					hx-swap="innerHTML"
+					hx-push-url="/admin/interests"
+				>Interests</a>
+			</li>
+			<li>
+				<a
+					hx-get="/api/html/subscriptions"
+					hx-target="#admin-content"
+					hx-indicator="#admin-content-container"
+					hx-swap="innerHTML"
+					hx-push-url="/admin/subscriptions"
+				>Billing</a>
+			</li>
+		</ul>
+	</li>
+	<li>
+		<h3 class="font-bold menu-title my-2">Events</h3>
+		{{ roleClaims, roleOk := ctx.Value("roleClaims").([]constants.RoleClaim) }}
+		{{ userInfo, _ := ctx.Value("userInfo").(constants.UserInfo) }}
+		<ul>
+			<li>
+				<a
+					hx-get={ "/api/html/purchases" }
+					hx-target="#admin-content"
+					hx-indicator="#admin-content-container"
+					hx-swap="innerHTML"
+					hx-push-url="/admin/purchases"
+				>Purchases &amp; Registrations</a>
+			</li>
+			// <li><a href="/admin/add-event-source">Add an Event</a></li>
+			if roleOk && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.EventAdmin], constants.Roles[constants.SuperAdmin]}) {
+				<li><a href="/admin/event/new">Create Event</a></li>
+				<li>
+					<a
+						hx-get={ "/api/html/events?list_mode=" + constants.EV_MODE_ADMIN_LIST + "&radius=" + strconv.Itoa(constants.DEFAULT_MAX_RADIUS) + "&start_time=1971-01-01T10:00:00Z&end_time=2099-10-18T10:00:00Z&owners=" + userInfo.Sub + "&event_source_types=" + constants.ES_SINGLE_EVENT + "," + constants.ES_SINGLE_EVENT_UNPUB + "," + constants.ES_SERIES_PARENT + "," + constants.ES_SERIES_PARENT_UNPUB }
+						hx-target="#admin-content"
+						hx-indicator="#admin-content-container"
+						hx-swap="innerHTML"
+						hx-push-url="/admin/events"
+					>Event Admin</a>
+				</li>
+				<li>
+					<a
+						hx-get="/api/html/event-sources"
+						hx-target="#admin-content"
+						hx-indicator="#admin-content-container"
+						hx-swap="innerHTML"
+						hx-push-url="/admin/event-sources"
+					>Event Sources</a>
+				</li>
+			} else {
+				<li><a>Add Event (Soon)</a></li>
+			}
+		</ul>
+		// Competitions functionality is disabled for now
+		// <h3 class="font-bold menu-title my-2">Competitions</h3>
+		// <ul>
+		// 	if infoOk && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.CompetitionAdmin], constants.Roles[constants.SuperAdmin]}) {
+		// 		<li><a href="/admin/competition/new">Create Competition</a></li>
+		// 		<li>
+		// 			<a
+		// 				hx-get={ "/api/html/competition-config/owner/" + userInfo.Sub }
+		// 				hx-target="#admin-content"
+		// 				hx-indicator="#admin-content-container"
+		// 				hx-swap="innerHTML"
+		// 				hx-push-url="/admin/competitions"
+		// 			>Competition Admin</a>
+		// 		</li>
+		// 	} else {
+		// 		<li><a>Host a Competition (Soon)</a></li>
+		// 	}
+		// </ul>
+	</li>
+}
+
+templ AdminNav(ctx context.Context) {
+	<div class="self-start sticky top-0 col-span-2 card border border-base-300 bg-base-100 rounded-box">
+		<ul class="menu bg-base-100 rounded-box w-full p-2">
+			@AdminLeftNavContents(ctx)
+		</ul>
+	</div>
+}

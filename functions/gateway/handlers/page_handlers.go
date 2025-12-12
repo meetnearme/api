@@ -7,22 +7,25 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
 
-	"github.com/aws/aws-lambda-go/events"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/services"
+	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
+	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-const US_GEO_CENTER_LAT = float64(39.8283)
-const US_GEO_CENTER_LONG = float64(-98.5795)
+var US_GEO_DEFAULT_LAT = float64(helpers.Cities[0].Latitude)
+var US_GEO_DEFAULT_LONG = float64(helpers.Cities[0].Longitude)
 
 func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTimeUnix int64) {
 	var startTime time.Time
@@ -33,9 +36,10 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 
 	// NOTE: This assumes the UI home page default is "THIS MONTH" and the absence
 	// of an explicit start_time query param ...
-	if (startTimeStr == "" && endTimeStr == "") || strings.ToLower(startTimeStr) == "this_year" {
+	if startTimeStr == "" && endTimeStr == "" {
 		startTime = time.Now()
-		endTime = startTime.AddDate(1, 0, 0)
+		// NOTE: default to 3 months
+		endTime = startTime.AddDate(0, 3, 0)
 	} else if strings.ToLower(startTimeStr) == "this_month" {
 		startTime = time.Now()
 		endTime = startTime.AddDate(0, 1, 0)
@@ -73,9 +77,9 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 
 	// convert endTime either UTC / time.RFC3339 or integer
 	// string (presumed unix) to int64
-	if _, err = time.Parse(time.RFC3339, endTimeStr); err == nil {
+	if _, err := time.Parse(time.RFC3339, endTimeStr); err == nil {
 		endTime, _ = time.Parse(time.RFC3339, endTimeStr)
-	} else if endTimeUnix, err = strconv.ParseInt(endTimeStr, 10, 64); err == nil {
+	} else if endTimeUnix, err := strconv.ParseInt(endTimeStr, 10, 64); err == nil {
 		endTime = time.Unix(endTimeUnix, 0)
 		// Set end time to 24 hours after start time
 		// default wrong query string usage to PLUS ONE MONTH for endTime
@@ -89,7 +93,7 @@ func ParseStartEndTime(startTimeStr, endTimeStr string) (_startTimeUnix, _endTim
 	return startTimeUnix, endTimeUnix
 }
 
-func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation helpers.CdnLocation, ownerIds []string, categories string, address string, parseDatesBool string, eventSourceTypes []string, eventSourceIds []string) {
+func GetSearchParamsFromReq(r *http.Request) (query, city string, userLocation []float64, maxDistance float64, startTime int64, endTime int64, cfLocation constants.CdnLocation, ownerIds []string, categories string, address string, parseDatesBool string, eventSourceTypes []string, eventSourceIds []string) {
 	startTimeStr := r.URL.Query().Get("start_time")
 	endTimeStr := r.URL.Query().Get("end_time")
 	latStr := r.URL.Query().Get("lat")
@@ -99,14 +103,14 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	owners := r.URL.Query().Get("owners")
 	categoriesStr := r.URL.Query().Get("categories")
 	address = r.URL.Query().Get("address")
+	location := r.URL.Query().Get("location")
 	parseDates := r.URL.Query().Get("parse_dates")
 	eventSourceTypesStr := r.URL.Query().Get("event_source_types")
 	eventSourceIdsStr := r.URL.Query().Get("event_source_ids")
 	cfRay := GetCfRay(r)
 	rayCode := ""
-
-	cfLocationLat := services.InitialEmptyLatLong
-	cfLocationLon := services.InitialEmptyLatLong
+	cfLocationLat := constants.INITIAL_EMPTY_LAT_LONG
+	cfLocationLon := constants.INITIAL_EMPTY_LAT_LONG
 
 	if len(cfRay) > 2 {
 		rayCode = cfRay[len(cfRay)-3:]
@@ -115,21 +119,40 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 		cfLocationLon = cfLocation.Lon
 	}
 
+	userMetaCity := ""
+	userMetaLat := 0.0
+	userMetaLon := 0.0
+	hasUserMetaLocation := false
+	if userMetaClaims, ok := r.Context().Value("userMetaClaims").(map[string]interface{}); ok {
+		metaCity, lat, lon, ok := helpers.GetUserLocationFromMap(userMetaClaims)
+		metaCity = strings.TrimSpace(metaCity)
+		if ok && metaCity != "" {
+			userMetaCity = metaCity
+			userMetaLat = lat
+			userMetaLon = lon
+			hasUserMetaLocation = true
+		}
+	}
+
 	// default lat / lon to geographic center of US
-	lat := US_GEO_CENTER_LAT
-	long := US_GEO_CENTER_LONG
+	city = location
+	lat := US_GEO_DEFAULT_LAT
+	long := US_GEO_DEFAULT_LONG
 
 	// Parse parameter values if provided
-	if latStr != "" {
+	// Priority: 1. Query params, 2. JWT metadata, 3. CF location
+	if latStr != "" && longStr != "" {
 		lat64, _ := strconv.ParseFloat(latStr, 32)
 		lat = float64(lat64)
-	} else if cfLocationLat != services.InitialEmptyLatLong {
-		lat = float64(cfLocationLat)
-	}
-	if longStr != "" {
 		long64, _ := strconv.ParseFloat(longStr, 32)
 		long = float64(long64)
-	} else if cfLocationLon != services.InitialEmptyLatLong {
+	} else if hasUserMetaLocation {
+		city = userMetaCity
+		lat = userMetaLat
+		long = userMetaLon
+	} else if cfLocationLat != constants.INITIAL_EMPTY_LAT_LONG && cfLocationLon != constants.INITIAL_EMPTY_LAT_LONG {
+		// city = cfLocation.City
+		lat = float64(cfLocationLat)
 		long = float64(cfLocationLon)
 	}
 
@@ -147,17 +170,21 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 	// is not the initial empty value (can't use 0.0, a valid lat/lon) we assume
 	// cfLocation has given us a reasonable local guess
 
-	if radius < 0.0001 && (cfLocationLat != services.InitialEmptyLatLong && cfLocationLon != services.InitialEmptyLatLong ||
-		lat != US_GEO_CENTER_LAT && long != US_GEO_CENTER_LONG) {
-		radius = float64(150.0)
+	if radius < 0.0001 && (cfLocationLat != constants.INITIAL_EMPTY_LAT_LONG && cfLocationLon != constants.INITIAL_EMPTY_LAT_LONG ||
+		lat != US_GEO_DEFAULT_LAT && long != US_GEO_DEFAULT_LONG) {
+		radius = constants.DEFAULT_SEARCH_RADIUS
 		// we still don't have lat/lon, which means we'll be using "geographic center of US"
 		// which is in the middle of nowhere. Expand the radius to show all of the country
 		// showing events from anywhere
 	} else if radius == 0.0 {
-		radius = float64(2500.0)
+		radius = constants.DEFAULT_EXPANDED_SEARCH_RADIUS
 	}
 
 	startTimeUnix, endTimeUnix := ParseStartEndTime(startTimeStr, endTimeStr)
+
+	if startTimeUnix < time.Now().Unix() && endTimeStr == "" {
+		endTimeUnix = time.Now().Unix()
+	}
 
 	// Handle owners query parameter
 	ownerIds = []string{}
@@ -180,17 +207,18 @@ func GetSearchParamsFromReq(r *http.Request) (query string, userLocation []float
 		eventSourceIds = strings.Split(eventSourceIdsStr, ",")
 	}
 
-	return q, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, address, parseDates, eventSourceTypes, eventSourceIds
+	return q, city, []float64{lat, long}, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, decodedCategories, address, parseDates, eventSourceTypes, eventSourceIds
 }
 
-func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocation, []float64, *helpers.UserSearchResult, int, error) {
+func DeriveEventsFromRequest(r *http.Request) ([]types.Event, constants.CdnLocation, string, []float64, *types.UserSearchResult, int, error) {
 	// Extract parameter values from the request query parameters
-	q, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
-	userId := mux.Vars(r)[helpers.USER_ID_KEY]
+	q, city, userLocation, radius, startTimeUnix, endTimeUnix, cfLocation, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+	userId := mux.Vars(r)[constants.USER_ID_KEY]
+	ctx := r.Context()
 
 	// Setup channels for concurrent operations
 	type userResult struct {
-		user helpers.UserSearchResult
+		user types.UserSearchResult
 		err  error
 	}
 	type searchResult struct {
@@ -206,37 +234,57 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 	searchChan := make(chan searchResult, 1)
 	aboutChan := make(chan aboutResult, 1)
 
-	var pageUser *helpers.UserSearchResult
-	subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
-	if subdomainValue != "" {
-		userId = subdomainValue
+	var pageUser *types.UserSearchResult
+
+	// ctx := r.Context()
+	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
+	mnmUserId := mnmOptions["userId"]
+	if mnmUserId != "" {
+		userId = mnmUserId
 	}
 	// Start concurrent operations if userId exists
 	if userId != "" {
 		// Single goroutine for all three requests when userId exists
 		go func() {
-			// Get user data
+			// Get user data - hard fail if this errors
 			user, err := helpers.GetOtherUserByID(userId)
-			userChan <- userResult{user, err}
+			if err != nil {
+				userChan <- userResult{user, err}
+				// Early return since user data is required
+				searchChan <- searchResult{types.EventSearchResponse{}, err}
+				aboutChan <- aboutResult{"", err} // Close about channel
+				return
+			}
+			// user resolved successfully, push to channel
+			userChan <- userResult{user, nil}
 
-			// Get about data
-			aboutData, err := helpers.GetOtherUserMetaByID(userId, helpers.META_ABOUT_KEY)
-			aboutChan <- aboutResult{aboutData, err}
+			// Get about data - soft fail if this errors
+			aboutData, err := helpers.GetOtherUserMetaByID(userId, constants.META_ABOUT_KEY)
+			if err != nil {
+				// Check if it's a 4xx error (we can soft fail)
+				if strings.HasPrefix(err.Error(), "4") {
+					aboutChan <- aboutResult{"", nil} // Ignore 4xx errors
+				} else {
+					aboutChan <- aboutResult{"", err} // Propagate other errors
+				}
+			} else {
+				aboutChan <- aboutResult{aboutData, nil}
+			}
 
 			// Get search results
-			marqoClient, err := services.GetMarqoClient()
+			weaviateClient, err := services.GetWeaviateClient()
 			if err != nil {
-				searchChan <- searchResult{types.EventSearchResponse{}, errors.New("failed to get marqo client: " + err.Error())}
+				searchChan <- searchResult{types.EventSearchResponse{}, errors.New("failed to get weaviate client: " + err.Error())}
 				return
 			}
 
-			if subdomainValue != "" {
-				ownerIds = []string{subdomainValue}
+			if mnmUserId != "" {
+				ownerIds = []string{mnmUserId}
 			} else {
 				ownerIds = []string{userId}
 			}
 
-			res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+			res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 			searchChan <- searchResult{res, err}
 		}()
 	} else {
@@ -244,38 +292,41 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 		close(userChan)
 		close(aboutChan)
 
-		marqoClient, err := services.GetMarqoClient()
+		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
-			searchChan <- searchResult{types.EventSearchResponse{}, errors.New("failed to get marqo client: " + err.Error())}
-			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, err
+			searchChan <- searchResult{types.EventSearchResponse{}, errors.New("failed to get weaviate client: " + err.Error())}
+			return []types.Event{}, cfLocation, city, []float64{}, nil, http.StatusInternalServerError, err
 		}
 
-		subdomainValue := r.Header.Get("X-Mnm-Subdomain-Value")
-		if subdomainValue != "" {
-			ownerIds = []string{subdomainValue}
+		ctx := r.Context()
+		mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
+		mnmUserId := mnmOptions["userId"]
+		if mnmUserId != "" {
+			ownerIds = []string{mnmUserId}
 		}
 
-		res, err := services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+		res, err := services.SearchWeaviateEvents(ctx, weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 		searchChan <- searchResult{res, err}
 	}
 
 	// fetch the `about` metadata for the user
 	var aboutData string
 	if userId != "" {
-		// here we ignore the error because we allow the page/user to not have an about section
-		aboutData, _ = helpers.GetOtherUserMetaByID(userId, helpers.META_ABOUT_KEY)
+		// NOTE: here we ignore the error because we allow the page/user to not have an about section
+		aboutData, _ = helpers.GetOtherUserMetaByID(userId, constants.META_ABOUT_KEY)
 		// Get user result from channel
 		userResult := <-userChan
 		if userResult.err != nil {
-			return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, userResult.err
+			return []types.Event{}, cfLocation, "", []float64{}, nil, http.StatusInternalServerError, userResult.err
 		}
 		pageUser = &userResult.user
+		pageUser.UserID = userId
 	}
 
 	// Get search results from channel
 	result := <-searchChan
 	if result.err != nil {
-		return []types.Event{}, cfLocation, []float64{}, nil, http.StatusInternalServerError, result.err
+		return []types.Event{}, cfLocation, "", []float64{}, nil, http.StatusInternalServerError, result.err
 	}
 
 	events := result.res.Events
@@ -283,38 +334,71 @@ func DeriveEventsFromRequest(r *http.Request) ([]types.Event, helpers.CdnLocatio
 		// Initialize the metadata map if it's nil
 		if aboutData != "" && pageUser.Metadata == nil {
 			pageUser.Metadata = make(map[string]string)
-			pageUser.Metadata[helpers.META_ABOUT_KEY] = aboutData
+			pageUser.Metadata[constants.META_ABOUT_KEY] = aboutData
 		}
 	}
 
-	return events, cfLocation, userLocation, pageUser, http.StatusOK, nil
+	return events, cfLocation, city, userLocation, pageUser, http.StatusOK, nil
 }
 
 func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
+	mnmOptions := helpers.GetMnmOptionsFromContext(ctx)
+	hostParts := strings.Split(r.Host, ".")
+	// Check if we have a subdomain (more than 2 parts, e.g., "subdomain.example.com")
+	// and mnmOptions is empty. Apex domains (2 parts, e.g., "example.com") are allowed
+	// to have empty mnmOptions.
+	if os.Getenv("IS_LOCAL_ACT") != "true" && len(hostParts) > 2 && len(mnmOptions) == 0 {
+		return transport.SendHtmlErrorPage([]byte("User Not Found, <br /> but you can <a class=\"link link-text\" href=\"/admin\">claim this subdomain</a>"), 200, true)
+	}
+	// the OTHER CASE is when we are on local ACT docker container and we want to use a proxy like
+	// Cloudflare workers to get the X-Mnm-Options header set, with the subdomain userId value
+	// When proxied from Wrangler, r.Host is always 127.0.0.1:8000, but the worker sets X-Original-Host header
+	// with the subdomain (e.g., "test.localhost") so we can detect subdomains in the proxy scenario
+	if os.Getenv("IS_LOCAL_ACT") == "true" && strings.Contains(r.Host, "127.0.0.1") && len(mnmOptions) == 0 {
+		// Try to get the original host from X-Original-Host header (set by worker)
+		// Fall back to Host header if X-Original-Host is not available
+		originalHost := r.Header.Get("X-Original-Host")
+		if originalHost != "" {
+			hostParts = strings.Split(originalHost, ".")
+			if len(hostParts) > 1 && hostParts[0] != "localhost" {
+				return transport.SendHtmlErrorPage([]byte("User Not Found, <br /> but you can <a class=\"link link-text\" href=\"/admin\">claim this subdomain</a>"), 200, true)
+			}
+		}
+	}
 	originalQueryLat := r.URL.Query().Get("lat")
 	originalQueryLong := r.URL.Query().Get("lon")
-	events, cfLocation, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
+	originalQueryLocation := r.URL.Query().Get("location")
+	events, cfLocation, city, userLocation, pageUser, status, err := DeriveEventsFromRequest(r)
 	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), status, err)
+		mnmUserId := mnmOptions["userId"]
+		if mnmUserId != "" || strings.Contains(r.URL.Path, "/user") {
+			return transport.SendHtmlErrorPage([]byte("User Not Found"), 200, true)
+		}
+		return transport.SendHtmlRes(w, []byte(err.Error()), status, "page", err)
+	}
+
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 
 	homePage := pages.HomePage(
+		ctx,
 		events,
 		pageUser,
 		cfLocation,
+		city,
 		fmt.Sprint(userLocation[0]),
 		fmt.Sprint(userLocation[1]),
 		fmt.Sprint(originalQueryLat),
 		fmt.Sprint(originalQueryLong),
+		originalQueryLocation,
+		false, // isEmbed
+		"",    // embedBaseUrl
 	)
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
-	}
-
-	layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, homePage, types.Event{})
+	layoutTemplate := pages.Layout(constants.SitePages["home"], userInfo, homePage, types.Event{}, false, ctx, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
 
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
@@ -326,29 +410,34 @@ func GetHomeOrUserPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc 
 }
 
 func GetAboutPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	aboutPage := pages.AboutPage()
 	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
 
-	layoutTemplate := pages.Layout(helpers.SitePages["about"], helpers.UserInfo{}, aboutPage, types.Event{})
+	aboutPage := pages.AboutPage()
+
+	layoutTemplate := pages.Layout(constants.SitePages["about"], userInfo, aboutPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
+	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
-func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+func GetAdminPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 	// TODO: add a unit test that verifies each page handler works both WITH and also
 	// WITHOUT a user present in context
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 		roleClaims = claims
 	}
 
@@ -356,35 +445,18 @@ func GetProfilePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
 		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
 	}
-	userInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
-	userSubdomain := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.SUBDOMAIN_KEY)
-	userAbout := helpers.GetBase64ValueFromMap(userMetaClaims, helpers.META_ABOUT_KEY)
-	adminPage := pages.ProfilePage(userInfo, roleClaims, userInterests, userSubdomain, userAbout)
-	layoutTemplate := pages.Layout(helpers.SitePages["profile"], userInfo, adminPage, types.Event{})
-	var buf bytes.Buffer
-	err = layoutTemplate.Render(ctx, &buf)
-	if err != nil {
-		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
-	}
-	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
-}
+	userInterests := helpers.GetUserInterestFromMap(userMetaClaims, constants.INTERESTS_KEY)
+	userSubdomain := helpers.GetBase64ValueFromMap(userMetaClaims, constants.SUBDOMAIN_KEY)
+	userAboutData, err := helpers.GetOtherUserMetaByID(userInfo.Sub, constants.META_ABOUT_KEY)
 
-func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	ctx := r.Context()
-
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	mnmOptions := ""
+	if userSubdomain != "" {
+		mnmOptions, err = helpers.GetCloudflareMnmOptions(userSubdomain)
+		// NOTE: we don't care about an error here
 	}
 
-	userMetaClaims := map[string]interface{}{}
-	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
-		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
-	}
-	parsedInterests := helpers.GetUserInterestFromMap(userMetaClaims, helpers.INTERESTS_KEY)
-	settingsPage := pages.ProfileSettingsPage(parsedInterests)
-	layoutTemplate := pages.Layout(helpers.SitePages["settings"], userInfo, settingsPage, types.Event{})
-
+	adminPage := pages.AdminPage(userInfo, roleClaims, userInterests, userSubdomain, mnmOptions, userAboutData, ctx)
+	layoutTemplate := pages.Layout(constants.SitePages["admin"], userInfo, adminPage, types.Event{}, false, ctx, []string{"https://cdn.jsdelivr.net/npm/navigation-polyfill@0.0.2/lib/index.min.js"})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -396,34 +468,34 @@ func GetProfileSettingsPage(w http.ResponseWriter, r *http.Request) http.Handler
 func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 		roleClaims = claims
 	}
 
-	validRoles := []string{"superAdmin", "eventEditor"}
+	validRoles := []string{constants.Roles[constants.SuperAdmin], constants.Roles[constants.EventAdmin]}
 	if !helpers.HasRequiredRole(roleClaims, validRoles) {
 		err := errors.New("Only event editors can add or edit events")
 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
 	}
 
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
-	var pageObj helpers.SitePage
-	var event types.Event
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
+	var pageObj constants.SitePage
+	var event internal_types.Event
 	var isEditor bool = false
 	if eventId == "" {
-		pageObj = helpers.SitePages["add-event"]
+		pageObj = constants.SitePages["add-event"]
 	} else {
-		pageObj = helpers.SitePages["edit-event"]
-		marqoClient, err := services.GetMarqoClient()
+		pageObj = constants.SitePages["edit-event"]
+		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
-			return transport.SendHtmlRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, "page", err)
+			return transport.SendHtmlRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, "page", err)
 		}
-		eventPtr, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+		eventPtr, err := services.GetWeaviateEventByID(ctx, weaviateClient, eventId, "")
 		if err != nil {
 			return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, "page", err)
 		}
@@ -438,13 +510,14 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 			err := errors.New("You are not authorized to edit this event")
 			return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, "page", err)
 		}
+		isEditor = canEdit
 	}
 
 	cfRay := GetCfRay(r)
 	rayCode := ""
-	cfLocation := helpers.CdnLocation{}
-	cfLocationLat := services.InitialEmptyLatLong
-	cfLocationLon := services.InitialEmptyLatLong
+	cfLocation := constants.CdnLocation{}
+	cfLocationLat := constants.INITIAL_EMPTY_LAT_LONG
+	cfLocationLon := constants.INITIAL_EMPTY_LAT_LONG
 
 	if len(cfRay) > 2 {
 		rayCode = cfRay[len(cfRay)-3:]
@@ -452,9 +525,12 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 		cfLocationLat = cfLocation.Lat
 		cfLocationLon = cfLocation.Lon
 	}
-	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, event, isEditor, cfLocationLat, cfLocationLon)
 
-	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event)
+	isCompetitionAdmin := helpers.HasRequiredRole(roleClaims, []string{"superAdmin", "competitionAdmin"})
+
+	addOrEditEventPage := pages.AddOrEditEventPage(pageObj, userInfo, event, isEditor, cfLocationLat, cfLocationLon, isCompetitionAdmin)
+
+	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event, false, ctx, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js", "https://cdn.jsdelivr.net/npm/@alpinejs/mask@3.x.x/dist/cdn.min.js"})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
@@ -467,32 +543,32 @@ func GetAddOrEditEventPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 func GetEventAttendeesPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
 		roleClaims = claims
 	}
 
-	validRoles := []string{"superAdmin", "eventEditor"}
+	validRoles := []string{"superAdmin", "eventAdmin"}
 	if !helpers.HasRequiredRole(roleClaims, validRoles) {
 		err := errors.New("Only event editors can add or edit events")
 		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
 	}
 
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
-	var pageObj helpers.SitePage
-	pageObj = helpers.SitePages["attendees-event"]
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
+	var pageObj constants.SitePage
+	pageObj = constants.SitePages["attendees-event"]
 	var event types.Event
 	var isEditor bool = false
 	if eventId != "" {
-		marqoClient, err := services.GetMarqoClient()
+		weaviateClient, err := services.GetWeaviateClient()
 		if err != nil {
-			return transport.SendHtmlRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, "page", err)
+			return transport.SendHtmlRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, "page", err)
 		}
-		eventPtr, err := services.GetMarqoEventByID(marqoClient, eventId, "")
+		eventPtr, err := services.GetWeaviateEventByID(ctx, weaviateClient, eventId, "")
 		if err != nil {
 			return transport.SendHtmlRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, "page", err)
 		}
@@ -507,10 +583,12 @@ func GetEventAttendeesPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 			err := errors.New("You are not authorized to edit this event")
 			return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusNotFound, "page", err)
 		}
+		isEditor = canEdit
 	}
+
 	addOrEditEventPage := pages.EventAttendeesPage(pageObj, event, isEditor)
 
-	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event)
+	layoutTemplate := pages.Layout(pageObj, userInfo, addOrEditEventPage, event, false, ctx, []string{})
 
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
@@ -522,18 +600,96 @@ func GetEventAttendeesPage(w http.ResponseWriter, r *http.Request) http.HandlerF
 
 func GetMapEmbedPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	// apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
+	queryParameters := r.URL.Query()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
 
-	queryParameters := apiGwV2Req.QueryStringParameters
-
-	mapEmbedPage := pages.MapEmbedPage(queryParameters["address"])
-	layoutTemplate := pages.Layout(helpers.SitePages["embed"], helpers.UserInfo{}, mapEmbedPage, types.Event{})
+	mapEmbedPage := pages.MapEmbedPage(queryParameters["address"][0])
+	layoutTemplate := pages.Layout(constants.SitePages["map-embed"], userInfo, mapEmbedPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
 	}
 
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
+}
+
+func GetPrivacyPolicyPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+	privacyPolicyPage := pages.PrivacyPolicyPage(constants.SitePages["privacy-policy"])
+	layoutTemplate := pages.Layout(constants.SitePages["privacy-policy"], userInfo, privacyPolicyPage, types.Event{}, false, ctx, []string{})
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
+}
+
+func GetDataRequestPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+	dataRequestPage := pages.DataRequestPage(constants.SitePages["data-request"])
+	layoutTemplate := pages.Layout(constants.SitePages["data-request"], userInfo, dataRequestPage, types.Event{}, false, ctx, []string{})
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
+}
+
+func GetTermsOfServicePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+	termsOfServicePage := pages.TermsOfServicePage(constants.SitePages["terms-of-service"], userInfo)
+	layoutTemplate := pages.Layout(constants.SitePages["terms-of-service"], userInfo, termsOfServicePage, types.Event{}, false, ctx, []string{})
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
+}
+
+func GetPricingPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+	isLoggedIn := userInfo.Sub != ""
+
+	// Check for existing subscription roles
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = claims
+	}
+	hasSeedSubscription := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubSeed]})
+	hasGrowthSubscription := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubGrowth]})
+	hasEnterpriseSubscription := helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubEnterprise]})
+
+	pricingPage := pages.PricingPage(isLoggedIn, hasSeedSubscription, hasGrowthSubscription, hasEnterpriseSubscription)
+	layoutTemplate := pages.Layout(constants.SitePages["pricing"], userInfo, pricingPage, types.Event{}, false, ctx, []string{})
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendServerRes(w, []byte("Failed to render template: "+err.Error()), http.StatusInternalServerError, err)
+	}
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }
 
@@ -547,28 +703,27 @@ func GetCfRay(r *http.Request) string {
 func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	// TODO: Extract reading param values into a helper method.
 	ctx := r.Context()
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
 	parseDates := r.URL.Query().Get("parse_dates")
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		return transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		return transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 	}
-	event, err := services.GetMarqoEventByID(marqoClient, eventId, parseDates)
+	event, err := services.GetWeaviateEventByID(ctx, weaviateClient, eventId, parseDates)
 	if err != nil || event.Id == "" {
-		event = &types.Event{}
+		event = &internal_types.Event{}
 	}
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
-	roleClaims := []helpers.RoleClaim{}
-	if _, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
-		roleClaims = ctx.Value("roleClaims").([]helpers.RoleClaim)
+	roleClaims := []constants.RoleClaim{}
+	if _, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = ctx.Value("roleClaims").([]constants.RoleClaim)
 	}
 	canEdit := helpers.CanEditEvent(event, &userInfo, roleClaims)
-
 	eventDetailsPage := pages.EventDetailsPage(*event, userInfo, canEdit)
-	layoutTemplate := pages.Layout(helpers.SitePages["event-detail"], userInfo, eventDetailsPage, *event)
+	layoutTemplate := pages.Layout(constants.SitePages["event-detail"], userInfo, eventDetailsPage, *event, false, ctx, []string{})
 	var buf bytes.Buffer
 	err = layoutTemplate.Render(ctx, &buf)
 	if err != nil {
@@ -580,16 +735,85 @@ func GetEventDetailsPage(w http.ResponseWriter, r *http.Request) http.HandlerFun
 
 func GetAddEventSourcePage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	ctx := r.Context()
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 	adminPage := pages.AddEventSource()
-	layoutTemplate := pages.Layout(helpers.SitePages["add-event-source"], userInfo, adminPage, types.Event{})
+	layoutTemplate := pages.Layout(constants.SitePages["add-event-source"], userInfo, adminPage, types.Event{}, false, ctx, []string{})
 	var buf bytes.Buffer
 	err := layoutTemplate.Render(ctx, &buf)
 	if err != nil {
 		return transport.SendServerRes(w, []byte(err.Error()), http.StatusNotFound, err)
 	}
+	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
+}
+
+func GetAddOrEditCompetitionPage(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	ctx := r.Context()
+	db := transport.GetDB()
+	// Get user info from context
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+
+	// Get role claims from context
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	// Check if user has required roles
+	validRoles := []string{"superAdmin", "competitionAdmin"}
+	if !helpers.HasRequiredRole(roleClaims, validRoles) {
+		err := errors.New("You are not authorized to edit competitions.")
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusForbidden, "page", err)
+	}
+
+	// Get competition ID and event ID from URL
+	vars := mux.Vars(r)
+	competitionId := vars[constants.COMPETITIONS_ID_KEY]
+
+	var pageObj constants.SitePage
+	var competitionConfig internal_types.CompetitionConfig
+	var users []types.UserSearchResultDangerous
+	pageObj = constants.SitePages["add-competition"]
+	// Check if we are editing or adding
+	if competitionId == "" {
+		pageObj = constants.SitePages["competition-new"]
+		// Set default values for new competition
+		competitionConfig = internal_types.CompetitionConfig{
+			EventIds:     []string{},
+			Status:       "DRAFT",
+			PrimaryOwner: userInfo.Sub,
+		}
+
+	} else {
+		eventCompetitionRoundService := dynamodb_service.NewCompetitionConfigService()
+		pageObj = constants.SitePages["competition-edit"]
+		competitionConfigResponse, err := eventCompetitionRoundService.GetCompetitionConfigById(ctx, db, competitionId)
+		if err != nil {
+			return transport.SendHtmlRes(w, []byte("Failed to get competition: "+err.Error()),
+				http.StatusInternalServerError, "page", err)
+		}
+
+		if competitionConfigResponse.CompetitionConfig.Id == "" {
+			return transport.SendHtmlRes(w, []byte("Competition not found"),
+				http.StatusNotFound, "page", errors.New("empty competition ID"))
+		}
+		competitionConfig = competitionConfigResponse.CompetitionConfig
+		users = competitionConfigResponse.Owners
+	}
+
+	competitionPage := pages.AddOrEditCompetitionPage(pageObj, userInfo, competitionConfig, users)
+	layoutTemplate := pages.Layout(pageObj, userInfo, competitionPage, internal_types.Event{}, false, ctx, []string{"https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"})
+
+	var buf bytes.Buffer
+	err := layoutTemplate.Render(ctx, &buf)
+	if err != nil {
+		return transport.SendHtmlRes(w, []byte(err.Error()), http.StatusInternalServerError, "page", err)
+	}
+
 	return transport.SendHtmlRes(w, buf.Bytes(), http.StatusOK, "page", nil)
 }

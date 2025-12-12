@@ -10,9 +10,11 @@ import (
 func TestSuccessBannerHTML(t *testing.T) {
 	// Sample input for the template
 	msg := "Operation completed successfully"
+	link := "/admin/event-sources"
+	linkText := "Check your dashboard for updates."
 
 	// Call the SuccessBannerHTML function to render the template
-	component := SuccessBannerHTML(msg)
+	component := SuccessBannerHTML(msg, link, linkText)
 
 	// Create a buffer to store the rendered output
 	var buf bytes.Buffer
@@ -28,9 +30,10 @@ func TestSuccessBannerHTML(t *testing.T) {
 
 	// Define the expected content that should appear in the rendered HTML
 	expectedContent := []string{
-		"Operation completed successfully",    // The success message
-		"alert alert-success",                 // The alert class
-		"svg",                                 // The SVG tag for the icon
+		"Operation completed successfully", // The success message
+		"alert alert-success",              // The alert class
+		"svg",                              // The SVG tag for the icon
+		"<a class=\"link link-text\" href=\"/admin/event-sources\">Check your dashboard for updates.</a>", // The link
 	}
 
 	// Check if each expected string is present in the rendered content
@@ -40,4 +43,3 @@ func TestSuccessBannerHTML(t *testing.T) {
 		}
 	}
 }
-

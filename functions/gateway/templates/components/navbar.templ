@@ -1,14 +1,40 @@
 package components
 
 import (
+	"context"
 	"fmt"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
 	"os"
-	"time"
+	"strconv"
+	"strings"
+	"unicode"
 )
 
-templ MiniProfileInNav(userInfo helpers.UserInfo) {
+func getSubdomain(ctx context.Context) string {
+	userSubdomain := ""
+	userMetaClaims := map[string]interface{}{}
+	if _, ok := ctx.Value("userMetaClaims").(map[string]interface{}); ok {
+		userMetaClaims = ctx.Value("userMetaClaims").(map[string]interface{})
+	}
+	userSubdomain = helpers.GetBase64ValueFromMap(userMetaClaims, constants.SUBDOMAIN_KEY)
+	return userSubdomain
+}
+
+func GetUserPageURL(userInfo constants.UserInfo, ctx context.Context) string {
+	subdomain := getSubdomain(ctx)
+	url := os.Getenv("APEX_URL")
+	if subdomain != "" && strings.Contains(url, ".") && strings.HasPrefix(url, "https://") {
+		// inject the subdomain between the protocol and the domain
+		url = strings.Replace(url, "https://", "https://"+subdomain+".", 1)
+		return url
+	}
+	return "/user/" + userInfo.Sub
+}
+
+templ MiniProfileInNav(userInfo constants.UserInfo, ctx context.Context) {
+	{{ roleClaims, ok := ctx.Value("roleClaims").([]constants.RoleClaim) }}
 	<strong>{ string(userInfo.Name) }</strong>
 	<br/>
 	{ string(userInfo.Email) }
@@ -17,21 +43,58 @@ templ MiniProfileInNav(userInfo helpers.UserInfo) {
 		class="menu menu-sm"
 	>
 		<li>
-			<a href="/admin/profile" class="justify-between">
-				Profile
+			<a href="/admin" class="justify-between">
+				Admin
 				// <span class="badge">New</span>
 			</a>
 		</li>
-		<li><a href="/auth/logout">Logout</a></li>
+		<li>
+			<a href={ templ.SafeURL(GetUserPageURL(userInfo, ctx)) } class="justify-between">
+				Event Collection
+				// <span class="badge">New</span>
+			</a>
+		</li>
+		if ok && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.EventAdmin], constants.Roles[constants.SuperAdmin]}) {
+			<li>
+				<a href="/admin/event/new">
+					Create Event
+				</a>
+			</li>
+		}
+		if ok && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.CompetitionAdmin], constants.Roles[constants.SuperAdmin]}) {
+			<li>
+				<a href="/admin/competition/new">
+					Create Competition
+				</a>
+			</li>
+		}
+		<li class="border-t-2 mt-2 pt-2 border-base-300">
+			<a x-data="" :href={ " '/auth/logout?" + constants.POST_LOGOUT_REDIRECT_URI_KEY + "=' + window.location.href " }>
+				Logout
+			</a>
+		</li>
 	</ul>
 }
 
-templ NavListItems(userInfo helpers.UserInfo) {
-	<li><a href="/about" class="px-5 py-3">About</a></li>
+templ NavListItems(userInfo constants.UserInfo) {
 	if userInfo.Email == "" {
-		<li><a href="/auth/login" class="px-5 py-3">Login</a></li>
-		<li><a href="/auth/login" class="btn btn-primary update-text-if-cookie">Signup</a></li>
+		<li>
+			<a
+				x-data=""
+				:href="'/auth/login?redirect=' + window.location.href"
+				class="btn btn-outline btn-primary mr-2 mb-2"
+			>Sign In</a>
+		</li>
+		<li>
+			<a
+				x-data=""
+				:href="'/auth/login?redirect=' + window.location.href"
+				class="btn btn-primary update-text-if-cookie"
+			>Sign Up</a>
+		</li>
 	}
+	<li><a href="/about" class="px-5 py-3">About</a></li>
+	<li><a href="/pricing" class="px-5 py-3">Pricing</a></li>
 	// Change back to "Add an Event" when we release Seshu
 	// if userInfo.Email != "" {
 	// 	<li><a href="/admin/add-event-source" class="btn btn-primary">Add an Event</a></li>
@@ -192,101 +255,77 @@ templ RegistrationFieldsByType(nestedInPurchasable bool) {
 	</template>
 }
 
-templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) {
+func getFirstChar(userInfo constants.UserInfo) string {
+	name := strings.TrimSpace(userInfo.Name)
+	if name == "" {
+		return "?"
+	}
+
+	// Get the first rune (Unicode character) in the string
+	var firstRune rune
+	for _, r := range name {
+		firstRune = r
+		break
+	}
+
+	// Convert to uppercase for consistency
+	firstChar := string(unicode.ToUpper(firstRune))
+	return firstChar
+}
+
+templ Navbar(userInfo constants.UserInfo, subnavTabs []string, event types.Event, ctx context.Context, isEmbed bool) {
 	<div class="drawer drawer-end">
 		<input id="main-drawer" type="checkbox" class="drawer-toggle"/>
 		<div class="drawer-content flex flex-col">
-			<!-- Navbar -->
-			<div class="navbar fixed z-50 top-0 w-full bg-base-100 bg-opacity-75 shadow-md mb-5">
-				<div class="container mx-auto flex items-center">
-					<div class="flex flex-1">
-						<a href="/" class="brand btn btn-ghost pl-2 text-xl flex flex-col">
-							<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
-							<img class="brand-type" style="width: 8.2rem" alt="Meet Near Me" class="brand" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
-						</a>
-					</div>
-					<div class="navbar-end flex">
-						<div class="items-center lg:flex">
-							<ul class="menu menu-horizontal px-1 hidden lg:inline-flex">
-								@NavListItems(userInfo)
-							</ul>
-							if userInfo.Email != "" {
-								<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
-									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
-										<div class="border-2 w-24 rounded-full">
-											<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+			if !isEmbed {
+				<div id="main-nav" class="navbar fixed z-50 top-0 w-full bg-base-100 shadow-md mb-5">
+					<div class="container mx-auto flex items-center">
+						<div class="flex flex-1">
+							<a href="/" class="btn pl-2 text-xl bg-black rounded-lg">
+								<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
+								<img class="brand-type" alt="Meet Near Me" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logotype.svg") }/>
+							</a>
+						</div>
+						<div class="navbar-end flex">
+							<div class="items-center lg:flex">
+								<ul class="menu menu-horizontal px-1 hidden lg:inline-flex">
+									@NavListItems(userInfo)
+								</ul>
+								if userInfo.Email != "" {
+									<div class="dropdown dropdown-end px-3 hidden lg:inline-block">
+										<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
+											<div class="border w-24 rounded-full">
+												<span class="text-3xl">{ getFirstChar(userInfo) }</span>
+											</div>
+										</div>
+										<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-4 shadow-lg border border-base-300">
+											@MiniProfileInNav(userInfo, ctx)
 										</div>
 									</div>
-									<div class="dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
-										@MiniProfileInNav(userInfo)
-									</div>
+								}
+								<div class="flex-none" onclick="document.getElementById('flyout-tab-main').click();">
+									<label for="main-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
+										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current fill-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+									</label>
 								</div>
-							}
-							<div class="flex-none" onclick="document.getElementById('flyout-tab-main').click();">
-								<label for="main-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-								</label>
 							</div>
 						</div>
 					</div>
 				</div>
-			</div>
+			}
 			{ children... }
-			<footer class="footer footer-center p-10 mt-20 bg-primary text-primary-content">
-				<aside>
-					<a href="/" class="btn h-auto text-xl bg-base-200 hover:bg-opacity-80">
-						<img class="brand-logo" alt="Meet Near Me Logo: 4 faces laughing, looking inward at a location pin" src={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/logo.svg") }/>
-					</a>
-					<p>
-						<br/>
-						<em>I saw a friend of mine the other day</em>
-						<br/>
-						<em>And he told me that my eyes were gleaming</em>
-						<br/>
-						<em>I said I had been away</em>
-						<br/>
-						<em>And he knew, oh, he knew the depths I was meaning</em>
-						<br/>
-						<em>It felt so good to see his face</em>
-						<br/>
-						<em>The comfort invested in my soul</em>
-						<br/>
-						<em>To feel the warmth of his smile</em>
-						<br/>
-						<em>When he said &lsquo;I'm happy to have you home&rsquo;</em>
-						<br/>
-						<br/>
-						~ <a href="https://open.spotify.com/track/5fpEDGQX0Ah3utGnFYulQZ?si=608b29dece2c4e74&nd=1&dlsi=4e5280a68a5544b7" target="_blank">Ben Howard</a>
-					</p>
-					<br/>
-					<br/>
-					<p>
-						&copy; { time.Now().Format("2006") }
-						<span class="font-bold">
-							Meet Near Me LLC.
-						</span> All rights reserved.
-					</p>
-				</aside>
-				<nav>
-					<div class="grid grid-flow-col gap-4">
-						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path></svg></a>
-						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"></path></svg></a>
-						<a><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="fill-current"><path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"></path></svg></a>
-					</div>
-				</nav>
-			</footer>
 		</div>
 		<div class="drawer-side">
 			<label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-			<div class="menu border-2 border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
+			<div class="border border-base-200 p-4 w-10/12 md:w-1/2 lg:w-1/3 min-h-full bg-base-100">
 				<div class="block justify-end pb-5">
 					<button class="btn btn-circle btn-ghost text-3xl float-end" onclick="document.getElementById('main-drawer').click();"><svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M777.856 280.192l-33.92-33.952-231.872 231.872-231.84-231.872-33.984 33.888 231.872 231.904-231.84 231.84 33.888 33.984 231.904-231.904 231.84 231.872 33.952-33.888-231.872-231.904z"></path></svg></button>
 				</div>
 				if userInfo.Email != "" {
 					<div class="p-2 m-1 card bg-base-200 lg:hidden">
 						<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
-							<div class="border-2 w-24 rounded-full">
-								<span class="text-3xl">{ string(userInfo.Name[:1]) }</span>
+							<div class="border w-24 rounded-full">
+								<span class="text-3xl">{ string(getFirstChar(userInfo)) }</span>
 							</div>
 							// <div class="w-10 rounded-full">
 							// 	<img
@@ -298,19 +337,21 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							tabindex="0"
 							class="menu menu-sm"
 						>
-							@MiniProfileInNav(userInfo)
+							@MiniProfileInNav(userInfo, ctx)
 						</ul>
 					</div>
 				}
-				<div role="tablist" class="tabs tabs-bordered">
-					<input id="flyout-tab-main" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
+				<div role="tablist" class="tabs tabs-bordered w-full">
+					if !isEmbed {
+						<input id="flyout-tab-main" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Main Nav"/>
+					}
 					<div role="tabpanel" class="tab-content p-2">
-						<ul class="">
+						<ul class="menu">
 							<!-- Sidebar content here -->
 							@NavListItems(userInfo)
 						</ul>
 					</div>
-					if helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvFilters]}) != "" {
+					if helpers.ArrFindFirst(subnavTabs, []string{constants.SubnavItems[constants.NvFilters]}) != "" {
 						<input
 							id="flyout-tab-filters"
 							type="radio"
@@ -320,7 +361,12 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							aria-label="Filters"
 							checked="checked"
 						/>
-						<div x-data="getHomeState()" role="tabpanel" class="tab-content">
+						<div
+							x-data="getFilterFormState()"
+							role="tabpanel"
+							class="tab-content pt-4 relative"
+							@location-dropdown.window="locationDropdown = $event.detail.option;"
+						>
 							<form
 								id="category-search-form"
 								novalidate
@@ -331,18 +377,205 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								// @click function call is a global shared from home_details.templ
 								<button
 									type="submit"
-									class="btn btn-primary w-full self-start sticky top-0 z-[10]"
-									@click="sendCategoriesToQueryParams(); document.getElementById('main-drawer').click();"
+									class="btn btn-primary w-full sticky top-0 z-[10]"
+									@click.prevent="handleFilterSubmit"
 								>
 									Apply Filters
 								</button>
-								<br/>
-								<br/>
+								<dialog
+									id="update-location-modal"
+									x-init="
+										modalIsOpen = $el.open;
+										const observer = new MutationObserver(() => {
+											modalIsOpen = $el.open;
+										});
+										observer.observe($el, { attributes: true, attributeFilter: ['open'] });
+									"
+									x-trap="modalIsOpen"
+									@close="modalIsOpen = false"
+									class="modal modal-bottom md:modal-middle bg-base-100 bg-opacity-90"
+								>
+									<div class="modal-box border-2 border-secondary relative">
+										<span x-show="!savingLocation">
+											Do you want to save <span x-text="Alpine.store('location').selected.label"></span> as your default location?
+										</span>
+										<div class="modal-action gap-4" x-show="!savingLocation">
+											<button
+												class="btn btn-primary w-1/5"
+												hx-post="/api/auth/users/update-location"
+												hx-ext="json-enc"
+												hx-vals='js:{"latitude": Alpine.store("location").selected.latitude, "longitude": Alpine.store("location").selected.longitude, "city": Alpine.store("location").selected.label}'
+												@click="savingLocation = true; defaultCity = locationDropdown ? locationDropdown.label : Alpine.store('location').selected.label;"
+												hx-swap="none"
+											>Yes</button>
+											<button
+												class="btn btn-secondary btn-outline w-1/5"
+												onclick="document.getElementById('update-location-modal').close()"
+											>No</button>
+										</div>
+										<div x-show="savingLocation" class="mt-4 text-center">
+											<span class="loading loading-spinner loading-md text-primary"></span>
+											<p class="text-sm text-base-content mt-2">Saving <span x-text="Alpine.store('location').selected.label"></span> as your default location...</p>
+										</div>
+										<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick="document.getElementById('update-location-modal').close()">
+											@Icon("close")
+										</button>
+									</div>
+								</dialog>
+								// Source: https://www.penguinui.com/components/combobox
+								<div x-data="getLocationSearchState()" class="flex w-full max-w-xs flex-col gap-1" x-on:keydown="handleKeydownOnOptions($event)" x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false" x-init="options = allOptions">
+									<h3 class="text-xl my-3">
+										Location <span x-text="selectedOption?.label?.match?.(/^[0-9]|\-/)?.length > 0 ? '(Geocoordinates)' : '' "></span>
+									</h3>
+									<span
+										x-show="hasError()"
+										class="badge badge-error !h-auto text-sm mb-2"
+										x-text="getErrorMessage()"
+									></span>
+									<span
+										x-show="locationTimeout"
+										class="badge badge-warning text-sm mb-2"
+										x-text="getWarningMessage()"
+									></span>
+									<div class="relative">
+										<!-- trigger button  -->
+										<button
+											type="button"
+											class="inline-flex w-full items-center justify-between gap-2 border rounded-md mt-2 p-3 text-sm font-medium tracking-wide  transition input-bordered focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 dark:focus-visible:outline-green-600 disabled:cursor-not-allowed disabled:opacity-75"
+											role="combobox"
+											aria-controls="makesList"
+											aria-haspopup="listbox"
+											x-bind:disabled="isLoading"
+											x-on:click="!isLoading && (isOpen = ! isOpen)"
+											x-on:keydown.down.prevent="!isLoading && (openedWithKeyboard = true)"
+											x-on:keydown.enter.prevent="!isLoading && (openedWithKeyboard = true)"
+											x-on:keydown.space.prevent="!isLoading && (openedWithKeyboard = true)"
+											x-bind:aria-expanded="isOpen || openedWithKeyboard"
+											x-bind:aria-label="selectedOption.label ? '' : ''"
+										>
+											<span
+												class="text-sm font-normal"
+												x-text="selectedOption?.label ? selectedOption.label : 'Location: Please Select'"
+											></span>
+											<span
+												class="sr-only"
+												x-text="selectedOption?.label ? selectedOption.label : 'Location: Please Select'"
+											></span>
+											<!-- Chevron  -->
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true">
+												<path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"></path>
+											</svg>
+										</button>
+										<!-- Hidden Input To Grab The Selected Value  -->
+										<input id="make" name="make" x-ref="hiddenTextField" hidden=""/>
+										<div
+											x-show="isOpen || openedWithKeyboard"
+											:class="{'opacity-100': isOpen || openedWithKeyboard}"
+											class="w-full opacity-0 transition-all absolute left-0 top-12 z-10 overflow-hidden rounded-md border bg-base-200"
+											id="makesList"
+											role="listbox"
+											aria-label="locations list"
+											x-on:click.outside="!isLoading && (isOpen = false, openedWithKeyboard = false)"
+											x-on:keydown.down.prevent="$focus.wrap().next()"
+											x-on:keydown.up.prevent="$focus.wrap().previous()"
+											x-transition
+											x-trap="openedWithKeyboard"
+										>
+											<!-- Search  -->
+											<div class="relative">
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+													fill="none"
+													stroke-width="1.5"
+													class="absolute left-4 top-1/2 size-5 -translate-y-1/2"
+													aria-hidden="true"
+												>
+													<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"></path>
+												</svg>
+												<input
+													type="text"
+													class="w-full border-b py-2.5 pl-11 pr-4 text-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-75"
+													name="loc_search"
+													aria-label="Search Locations"
+													x-bind:disabled="isLoading"
+													@input.throttle="!isLoading && fetchLocations($event.target.value)"
+													x-ref="loc_search"
+													placeholder="Search"
+												/>
+											</div>
+											<progress :class="{ 'opacity-0': !isLoading }" class="progress absolute input-bottom h-2 w-full -m-[5px]"></progress>
+											<!-- Options  -->
+											<ul class="flex max-h-44 flex-col overflow-y-auto">
+												<li class="hidden px-4 py-2 text-sm" x-ref="noResultsMessage">
+													<span>No matches found</span>
+												</li>
+												<li
+													class="px-4 py-2 text-sm cursor-pointer bg-primary text-primary-content focus-visible:bg-secondary focus-visible:outline-none focus-visible:text-secondary-content hover:bg-secondary hover:text-secondary-content"
+													x-bind:tabindex="isLoading ? '-1' : '0'"
+													role="option"
+													x-bind:aria-disabled="isLoading"
+													x-bind:class="isLoading ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''"
+													@click="!isLoading && findAndSetLocation()"
+													@keydown.enter="!isLoading && findAndSetLocation()"
+													:id="'option-locateme'"
+												>
+													<span class="flex gap-2">
+														@Icon("location-outline")
+														Locate Me
+													</span>
+												</li>
+												<template x-for="(item, index) in options" :key="index">
+													<li
+														class="combobox-option inline-flex cursor-pointer justify-between gap-6 bg-base-200 px-4 py-2 text-sm hover:text-secondary focus-visible:bg-slate-800/5 focus-visible:text-primary focus-visible:outline-none"
+														role="option"
+														x-bind:aria-disabled="isLoading"
+														x-bind:tabindex="isLoading ? '-1' : '0'"
+														x-bind:class="isLoading ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''"
+														@click="!isLoading && setSelectedOption(item)"
+														@keydown.enter="!isLoading && setSelectedOption(item)"
+														:id="'option-' + index"
+													>
+														<!-- Label  -->
+														<span :class="selectedOption && selectedOption.value == item.value ? 'font-bold' : null" x-text="item.label"></span>
+														<!-- Screen reader 'selected' indicator  -->
+														<span class="sr-only" x-text="selectedOption && selectedOption.value == item.value ? 'selected' : null"></span>
+														<!-- Checkmark  -->
+														<svg x-cloak x-show="selectedOption && selectedOption.value == item.value" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" class="size-4" aria-hidden="true">
+															<path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"></path>
+														</svg>
+													</li>
+												</template>
+											</ul>
+										</div>
+									</div>
+								</div>
+								<h3 class="text-xl my-3">Distance</h3>
+								<div class="flex items-center">
+									<label class="form-control w-full max-w-xs">
+										<select
+											x-model="radius"
+											class="select select-bordered w-full max-w-xs"
+										>
+											<option :selected="radius === '10'" value="10">10 mi</option>
+											<option :selected="radius === '25'" value="25">25 mi</option>
+											<option :selected="radius === '50'" value="50">50 mi</option>
+											<option :selected="radius === '100'" value="100">100 mi</option>
+											<option :selected="radius === '250'" value="250">250 mi</option>
+											<option :selected="radius === '500'" value="500">500 mi</option>
+											<option :selected="radius === '1000'" value="1000">1,000 mi</option>
+											<option :selected="radius === '2500'" value="2500">2,500 mi</option>
+											<option :selected="radius === '25000'" value="25000">Everywhere</option>
+										</select>
+									</label>
+								</div>
+								<h3 class="text-xl my-3">Categories</h3>
 								@NestedCheckboxList(false, []string{})
 							</form>
 						</div>
 					}
-					if (event.HasPurchasable || event.HasRegistrationFields) && helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvCart]}) != "" {
+					if (event.HasPurchasable || event.HasRegistrationFields) && helpers.ArrFindFirst(subnavTabs, []string{constants.SubnavItems[constants.NvCart]}) != "" {
 						<input id="flyout-tab-cart" type="radio" name="flyout-nav-tabs" role="tab" class="tab" aria-label="Cart"/>
 						<div x-data="getCartRegistrationState()" role="tabpanel" class="tab-content p-2">
 							<template x-if="registrationFields?.length">
@@ -424,8 +657,8 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 			</div>
 		</div>
 	</div>
-	if helpers.ArrFindFirst(subnavTabs, []string{helpers.SubnavItems[helpers.NvCart]}) != "" {
-		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub }>
+	if helpers.ArrFindFirst(subnavTabs, []string{constants.SubnavItems[constants.NvCart]}) != "" {
+		<script id="registration-purchasables" data-has-registration={ fmt.Sprint(event.HasRegistrationFields) } data-has-purchasables={ fmt.Sprint(event.HasPurchasable) } data-event-id={ event.Id } data-event-source-id={ event.EventSourceId } data-event-source-type={ event.EventSourceType } data-event-name={ event.Name } data-event-timezone={ event.Timezone.String() } data-user-id={ userInfo.Sub } data-default-radius={ strconv.FormatFloat(constants.DEFAULT_SEARCH_RADIUS, 'f', -1, 64) }>
 			function getCartRegistrationState() {
 				return {
 					registrationFields: null,
@@ -532,7 +765,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 								})
 							});
 							if (response.status === 401) {
-								this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=/event/${this.eventId}">Register or Login now</a>`;
+								this.errors['checkout'] = `You must be logged in to purchase tickets. <br /><a class="btn mt-4 btn-sm" href="/auth/login?redirect=${window.location.href}">Register or Login now</a>`;
 								this.reqInFlight = false;
 								return
 							}
@@ -550,7 +783,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							} else if (total <= 0) {
 								// `?new_purch_key` is received by the profile page to both highlight, scroll to, and poll in
 								// wait for the new event because of dynamo's eventual consistency.
-								window.location.href = window.location.origin + `/admin/profile#registration-history${this.userId ? `?new_purch_key=${json?.composite_key}` : ''}`;
+								window.location.href = window.location.origin + `/admin#registration-history${this.userId ? `?new_purch_key=${json?.composite_key}` : ''}`;
 							} else {
 								if (json?.error?.message) {
 									this.errors['checkout'] = json.error.message;
@@ -595,7 +828,7 @@ templ Navbar(userInfo helpers.UserInfo, subnavTabs []string, event types.Event) 
 							});
 
 							// Remove the copied fields from the main registration fields
-							this.registrationFields = this.registrationFields.filter(field => !fieldsToRemove.has(field.name));
+							this.registrationFields = this.registrationFields?.filter?.(field => !fieldsToRemove.has(field.name));
 						}
 					},
 					validateOneField(field, fieldName, includeIdx) {

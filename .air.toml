@@ -1,0 +1,45 @@
+# The root directory of your project.
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+  args_bin = []
+  bin = "./tmp/main"
+  # command that generates templ files also
+  # cmd = "templ generate && go build -o ./tmp/main ./functions/gateway/main.go"
+  cmd = "go build -o ./tmp/main ./functions/gateway/main.go"
+  delay = 1000  # Increased delay to prevent rapid rebuilds
+  exclude_dir = ["assets", "tmp", "vendor", "testdata", ".git", ".sst", "docker_build"]
+  exclude_file = []
+  exclude_regex = ["_test.go"]  # Exclude generated templ files
+  exclude_unchanged = false
+  follow_symlink = false
+  full_bin = ""
+  include_dir = ["functions"]
+  include_ext = ["go", "js"]  # Watch both .go and .js files
+  include_file = []
+  kill_delay = "0.5s"
+  log = "build-errors.log"
+  poll = false
+  poll_interval = 0
+  rerun = false
+  rerun_delay = 500
+  send_interrupt = true
+  stop_on_error = true  # Stop Air when build fails
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false
+  time = true
+
+[misc]
+  clean_on_exit = true
+
+

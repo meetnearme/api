@@ -6,9 +6,13 @@ import (
 )
 
 var getMockGeoService = func() interfaces.GeoServiceInterface {
-    return  &test_helpers.MockGeoService{}
+	return &test_helpers.MockGeoService{}
+}
+
+var getMockCityService = func() interfaces.CityServiceInterface {
+	return &test_helpers.MockCityService{}
 }
 
 func getMockSeshuService() interfaces.SeshuServiceInterface {
-    return &test_helpers.MockSeshuService{}
+	return &test_helpers.MockSeshuService{}
 }

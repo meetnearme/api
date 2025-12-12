@@ -1,15 +1,317 @@
 package pages
 
 import (
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"context"
+	"fmt"
+	"github.com/lucasb-eyer/go-colorful"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/templates/components"
 	"github.com/meetnearme/api/functions/gateway/types"
+	"io"
+	"log"
+	"math"
 	"os"
 )
 
-templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent templ.Component, event types.Event) {
+// Returns "#000000" or "#ffffff" depending on which has higher contrast with the input HEX color
+func maxContrastColor(hex string) (string, error) {
+	c, err := colorful.Hex(hex)
+	if err != nil {
+		return "", err
+	}
+	// Calculate luminance (per ITU-R BT.709)
+	luminance := 0.2126*c.R + 0.7152*c.G + 0.0722*c.B
+	if luminance > 0.5 {
+		return "#000000", nil // dark text on light background
+	}
+	return "#ffffff", nil // light text on dark background
+}
+
+// returns 1-21, where 21 is maximum contrast
+func calculateContrast(color1, color2 string) (float64, error) {
+	c1, err := colorful.Hex(color1)
+	if err != nil {
+		return 0, err
+	}
+	c2, err := colorful.Hex(color2)
+	if err != nil {
+		return 0, err
+	}
+
+	relLum1 := relativeLuminance(c1.R, c1.G, c1.B)
+	relLum2 := relativeLuminance(c2.R, c2.G, c2.B)
+
+	// calculate ratio as higher / lower
+	if relLum1 > relLum2 {
+		return (relLum1 + 0.05) / (relLum2 + 0.05), nil
+	}
+	return (relLum2 + 0.05) / (relLum1 + 0.05), nil
+}
+
+func relativeLuminance(r, g, b float64) float64 {
+	toLinear := func(c float64) float64 {
+		if c <= 0.04045 {
+			return c / 12.92
+		}
+		return math.Pow((c+0.055)/1.055, 2.4)
+	}
+
+	rLin := toLinear(r)
+	gLin := toLinear(g)
+	bLin := toLinear(b)
+
+	return 0.2126*rLin + 0.7152*gLin + 0.0722*bLin
+}
+
+func generateSecondaryColor(primaryHex, colorScheme string) (string, error) {
+	primaryColor, err := colorful.Hex(primaryHex)
+	if err != nil {
+		return primaryHex, err
+	}
+
+	// this is only used for contrast calculations, not actually setting the background.
+	var backgroundHex string
+	if colorScheme == "light" {
+		backgroundHex = "#ffffff" // Light theme base-100 as hex
+	} else {
+		backgroundHex = "#121216" // Dark theme base-100 as hex
+	}
+
+	contrast, err := calculateContrast(primaryHex, backgroundHex)
+	if err != nil {
+		log.Printf("warning: could not calculate contrast, using basic secondary generation: %s", err)
+		return primaryHex, err // make secondary same as primary if there's an error
+	}
+
+	// If contrast is good enough (>= 4.5 for AA accessibility), use same as primary.
+	// This means for some custom colors with good contrast, there won't be a hover state that's different from the primary since primary and secondary will be the same.
+	if contrast >= 4.5 {
+		return primaryHex, nil
+	}
+
+	h, s, l := primaryColor.Hsl()
+	if colorScheme == "dark" {
+		newL := math.Min(0.9, l+0.15) // Add 15% luminance, cap at 90%
+		secondaryColor := colorful.Hsl(h, s, newL)
+		return secondaryColor.Hex(), nil
+	} else {
+		newL := math.Max(0.1, l-0.15) // Subtract 15% luminance, cap at 10%
+		secondaryColor := colorful.Hsl(h, s, newL)
+		return secondaryColor.Hex(), nil
+	}
+}
+
+func hexToSrgb(hex string) (r, g, b float64) {
+	// Remove # if present
+	if hex[0] == '#' {
+		hex = hex[1:]
+	}
+
+	// Parse hex values
+	r = float64(hexToInt(hex[0:2])) / 255.0
+	g = float64(hexToInt(hex[2:4])) / 255.0
+	b = float64(hexToInt(hex[4:6])) / 255.0
+	return r, g, b
+}
+
+func hexToInt(hex string) int {
+	var result int
+	fmt.Sscanf(hex, "%x", &result)
+	return result
+}
+
+func hexToOklch(hex string) (oklch string) {
+	L_ := 0.0
+	C := 0.0
+	H := 0.0
+	// Convert hex to sRGB
+	r, g, b := hexToSrgb(hex)
+
+	// Convert sRGB to linear RGB
+	// 1. Convert sRGB to linear RGB
+	toLinear := func(c float64) float64 {
+		if c <= 0.04045 {
+			return c / 12.92
+		}
+		return math.Pow((c+0.055)/1.055, 2.4)
+	}
+	rLin, gLin, bLin := toLinear(r), toLinear(g), toLinear(b)
+
+	// 2. Linear RGB to Oklab
+	l := 0.4122214708*rLin + 0.5363325363*gLin + 0.0514459929*bLin
+	m := 0.2119034982*rLin + 0.6806995451*gLin + 0.1073969566*bLin
+	s := 0.0883024619*rLin + 0.2817188376*gLin + 0.6299787005*bLin
+
+	l_ := math.Cbrt(l)
+	m_ := math.Cbrt(m)
+	s_ := math.Cbrt(s)
+
+	L_ = 0.2104542553*l_ + 0.7936177850*m_ - 0.0040720468*s_
+	a_ := 1.9779984951*l_ - 2.4285922050*m_ + 0.4505937099*s_
+	b_ := 0.0259040371*l_ + 0.7827717662*m_ - 0.8086757660*s_
+
+	// 3. Oklab to OKLCH
+	C = math.Sqrt(a_*a_ + b_*b_)
+	H = math.Atan2(b_, a_) * 180 / math.Pi
+	if H < 0 {
+		H += 360
+	}
+	return fmt.Sprintf("%.4f %.4f %.3f", L_, C, H)
+}
+
+type themeStyleTag struct{}
+
+func (s themeStyleTag) Render(ctx context.Context, w io.Writer) error {
+	// Safely get the MNM_OPTIONS from context
+	mnmOptionsValue := ctx.Value(constants.MNM_OPTIONS_CTX_KEY)
+
+	if mnmOptionsValue == nil {
+		// If no options are set, return without error
+		return nil
+	}
+
+	mnmOptions, ok := mnmOptionsValue.(map[string]string)
+	if !ok {
+		// If type assertion fails, return without error
+		return nil
+	}
+
+	// Get the primary color with a default value
+	hexPrimaryColor := mnmOptions["--p"]
+	if hexPrimaryColor == "" {
+		// If no primary color is set, return without error
+		return nil
+	}
+
+	colorScheme := mnmOptions["themeMode"]
+	if colorScheme == "" {
+		colorScheme = "dark"
+	}
+
+	// Convert colors
+	oklchPrimaryColor := hexToOklch(hexPrimaryColor)
+
+	primaryLinkColor := hexPrimaryColor
+
+	// Calculate adjusted color with modified luminance for link-text
+	c, err := colorful.Hex(hexPrimaryColor)
+	if err == nil {
+		// Convert to HSL to modify luminance
+		h, s, l := c.Hsl()
+
+		// Adjust luminance based on color scheme
+		if colorScheme == "dark" {
+			// For dark mode, increase luminance to 75%
+			l = 0.75
+		} else {
+			// For light mode, decrease luminance to 30%
+			l = 0.30
+		}
+
+		// Convert back to RGB and then to hex
+		adjustedColor := colorful.Hsl(h, s, l)
+		primaryLinkColor = adjustedColor.Hex()
+	}
+
+	maxContrastColorHex, err := maxContrastColor(hexPrimaryColor)
+	if err != nil {
+		// Log error but continue with default contrast color
+		log.Printf("error calculating max contrast color: %s", err)
+		maxContrastColorHex = "#000000" // Default to black
+	}
+
+	maxContrastColorOklch := hexToOklch(maxContrastColorHex)
+
+	hexSecondaryColor, err := generateSecondaryColor(hexPrimaryColor, colorScheme)
+	if err != nil {
+		log.Printf("error generating secondary color: %s", err)
+		hexSecondaryColor = hexPrimaryColor
+	}
+
+	oklchSecondaryColor := hexToOklch(hexSecondaryColor)
+	hexSecondaryContrastColor, err := maxContrastColor(hexSecondaryColor)
+	if err != nil {
+		log.Printf("error calculating secondary contrast color: %s", err)
+		hexSecondaryContrastColor = maxContrastColorHex
+	}
+	oklchSecondaryContrastColor := hexToOklch(hexSecondaryContrastColor)
+
+	rootLightThemeStyles := ""
+	lightThemeExtraStyles := ""
+	if colorScheme == "light" {
+		colorScheme = "color-scheme: light;"
+		rootLightThemeStyles = `
+				--b1: 100% 0 0;
+				--fallback-b1: #ffffff;
+				--b2: 90% 0 0;
+				--fallback-b2: #eeeeee;
+				--b3: 80% 0 0;
+				--fallback-b3: #cccccc;
+				--bc: 0% 0 0;
+				--fallback-bc: #000000;
+				--n: 85% 0 0;
+				--fallback-n: #eeeeee;
+				--nc: 100% 0 0;
+				--fallback-nc: #ffffff;
+				`
+
+		lightThemeExtraStyles = `
+		@supports (color: oklch(0% 0 0)) {
+				:where(.menu li:not(.menu-title, .disabled) > *:not(ul, details, .menu-title)):not(.active, .btn):hover, :where(.menu li:not(.menu-title, .disabled) > details > summary:not(.menu-title)):not(.active, .btn):hover {
+					color: #ffffff;
+				}
+		}
+		@supports (color: oklch(0% 0 0)) {
+			.btn-ghost:hover {
+				background-color: oklch(var(--bc));
+				color: oklch(var(--b1));
+			}
+		}
+		`
+	} else {
+		colorScheme = "color-scheme: dark;"
+	}
+	// Write the style tag
+	fmt.Fprintf(w,
+		`<style type="text/css">
+			:root {
+				%s
+				--p: %s;
+				--fallback-p: %s;
+				--pc: %s;
+				--fallback-pc: %s;
+				--s: %s;
+				--fallback-s: %s;
+				--sc: %s;
+				--fallback-sc: %s;
+				--link-text: %s;
+				%s
+			}
+			%s
+			.link-text {
+				color: var(--link-text);
+			}
+		</style>`,
+		colorScheme,
+		oklchPrimaryColor,
+		hexPrimaryColor,
+		maxContrastColorOklch,
+		maxContrastColorHex,
+		oklchSecondaryColor,
+		hexSecondaryColor,
+		oklchSecondaryContrastColor,
+		hexSecondaryContrastColor,
+		primaryLinkColor, // not currently used
+		rootLightThemeStyles,
+		lightThemeExtraStyles,
+	)
+
+	return nil
+}
+
+templ Layout(sitePage constants.SitePage, userInfo constants.UserInfo, pageContent templ.Component, event types.Event, narrowLayout bool, ctx context.Context, scripts []string) {
 	<!DOCTYPE html>
-	<html data-theme="cyberpunk">
+	<html data-theme="auto">
 		<head>
 			if event.Id != "" && sitePage.Key == "event-detail" {
 				<title>Meet Near Me - { event.Name }</title>
@@ -23,13 +325,32 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 			<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Anton&family=Unbounded:wght@900&display=swap" rel="stylesheet"/>
 			// 🚨 WARNING 🚨 This filename is automatically updated by PostCSS
 			// ✅ DO commit it to version control whenever you see it change
-			<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.28d1fff7.css") }/>
+			if os.Getenv("IS_LOCAL_ACT") != "true" {
+				<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.82a6336e.css") }/>
+			} else {
+				<link rel="stylesheet" href={ templ.EscapeString(os.Getenv("STATIC_BASE_URL") + "/assets/styles.css") }/>
+			}
+			{{ styleTag := themeStyleTag{} }}
+			@themeStyleTag(styleTag)
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
-			<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
+			<script>
+				// Shim for CommonJS exports and require to prevent errors from navigation-polyfill
+				if (typeof exports === 'undefined') {
+					var exports = {};
+				}
+				if (typeof require === 'undefined') {
+					var require = function() {
+						return {};
+					};
+				}
+			</script>
+			for _, script := range scripts {
+				<script defer src={ script }></script>
+			}
 			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-			if os.Getenv("SST_STAGE") == "prod" {
+			if os.Getenv("ACT_STAGE") == "prod" {
 				<script defer src="https://cloud.umami.is/script.js" data-website-id="63a857ef-7639-4db5-b627-99621b1a38ec"></script>
 			} else {
 				<script defer src="https://cloud.umami.is/script.js" data-website-id="bdab8c3c-5643-4045-95af-0ce95c104ab9"></script>
@@ -37,10 +358,18 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 		</head>
 		<body class="h-[calc(100vh)] overflow-y-auto">
 			<div id="top-loading-bar" class="hidden fixed top-0 left-0 w-0 h-[3px] bg-[#00ff00] transition-[width] duration-300 ease-out z-[9999]"></div>
-			@components.Navbar(userInfo, sitePage.SubnavItems, event) {
+			@components.Navbar(userInfo, sitePage.SubnavItems, event, ctx, false) {
 				<div class="container mx-auto">
-					<div id="content" class="p-4 space-y-4 relative">
-						@pageContent
+					<div id="content" class="p-4 relative">
+						if narrowLayout {
+							<div class="max-w-prose mx-auto">
+								@pageContent
+								@components.Footer(userInfo.Email != "")
+							</div>
+						} else {
+							@pageContent
+							@components.Footer(userInfo.Email != "")
+						}
 					</div>
 				</div>
 			}
@@ -92,3 +421,5 @@ templ Layout(sitePage helpers.SitePage, userInfo helpers.UserInfo, pageContent t
 		</script>
 	</html>
 }
+
+// test

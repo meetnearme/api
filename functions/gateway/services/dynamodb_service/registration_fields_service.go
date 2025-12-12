@@ -13,14 +13,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodb_types "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
 )
 
-var registrationFieldsTableName = helpers.GetDbTableName(helpers.RegistrationFieldsTablePrefix)
+var registrationFieldsTableName = helpers.GetDbTableName(constants.RegistrationFieldsTablePrefix)
 
 func init() {
-	registrationFieldsTableName = helpers.GetDbTableName(helpers.RegistrationFieldsTablePrefix)
+	registrationFieldsTableName = helpers.GetDbTableName(constants.RegistrationFieldsTablePrefix)
 }
 
 // Validator instance for struct validation
@@ -64,11 +65,9 @@ func (s *RegistrationFieldsService) InsertRegistrationFields(ctx context.Context
 
 	res, err := dynamodbClient.PutItem(ctx, input)
 	if err != nil {
-		log.Print("htting error in put item dynamo")
+		log.Print("hitting error in put item dynamo")
 		return nil, err
 	}
-
-	log.Printf("res form put item: %v", res)
 
 	var insertedRegistrationFields internal_types.RegistrationFields
 
@@ -76,8 +75,6 @@ func (s *RegistrationFieldsService) InsertRegistrationFields(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-
-	log.Printf("inserted reg fields after creation: %v", insertedRegistrationFields)
 
 	// return registrationFields, nil
 	return &insertedRegistrationFields, nil
@@ -165,7 +162,6 @@ func (s *RegistrationFieldsService) DeleteRegistrationFields(ctx context.Context
 		return err
 	}
 
-	log.Printf("registration fields successfully deleted")
 	return nil
 }
 

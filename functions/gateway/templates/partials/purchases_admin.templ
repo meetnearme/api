@@ -1,0 +1,104 @@
+package partials
+
+import "github.com/meetnearme/api/functions/gateway/constants"
+
+templ PurchasesAdminPartial(userInfo constants.UserInfo) {
+	<h2 id="registration-history" class="text-2xl font-bold mt-4">Event Purchases &amp; Registrations</h2>
+	<div x-data="getPurchasesAdminState()">
+		<template x-if="purchasesNextCursor">
+			<a class="btn btn-sm float-end" :href=" window.location.pathname + '?purch_start_key=' + purchasesNextCursor">Show Next &rarr;</a>
+		</template>
+		<table class="table top-align bg-base-100 table-pin-rows table-pin-cols table-zebra">
+			<thead>
+				<tr>
+					<th>Status</th>
+					<th colspan="6">Purchase Type(s)</th>
+					<th>Total</th>
+					<th>Signup Time</th>
+				</tr>
+			</thead>
+			<template x-if="!hasPurchasesResults">
+				<template x-for="i in Array.from({length: 3}, (_, i) => i)" :key="i">
+					<tr class="border-t-2 border-base-300">
+						<td><div class="skeleton h-4 w-full"></div></td>
+						<td colspan="6">
+							<div class="flex w-full flex-col gap-4">
+								<div class="skeleton h-4 w-full"></div>
+								<div class="skeleton h-4 w-1/2"></div>
+								<div class="skeleton h-4 w-full"></div>
+							</div>
+						</td>
+						<td><div class="skeleton h-4 w-full"></div></td>
+						<td>
+							<div class="skeleton h-4 w-full"></div>
+						</td>
+					</tr>
+				</template>
+			</template>
+			<tbody>
+				<template x-if="hasPurchasesResults && purchases.length === 0">
+					<tr class="w-full">
+						<td colspan="9" class="text-center py-8">
+							You don't have any purchases yet. <a class="link link-primary" href="/">View events in your area to buy tickets</a>.
+						</td>
+					</tr>
+				</template>
+				<template x-if="hasPurchasesResults && purchases.length > 0">
+					<template x-for="purchase in purchases" :key="purchase.composite_key">
+						<tr
+							class="border-t-2 border-base-300"
+							:class="{ 'border-l-2 border-primary': newKeyId === purchase.composite_key }"
+							:data-purch-key="purchase.composite_key"
+						>
+							<td x-text="getPurchaseStatus(purchase)"></td>
+							<td colspan="6">
+								<a class="link link-primary" :href="`/event/${purchase.event_id}`" x-text="purchase.event_name"></a>
+								<template x-for="(item, idx) in purchase.purchased_items" :key="item.name">
+									<div>
+										<template x-if="idx >= 1">
+											<div class="divider"></div>
+										</template>
+										<div x-text="item.name"></div>
+										<div x-text="'Quantity: ' + item.quantity"></div>
+										<div>
+											<td x-text="`${item.cost > 0 ? '$' + (item.cost / 100).toFixed(2) : 'Free'}`"></td>
+											<span x-text="item.currency"></span>
+										</div>
+										<div x-show="item.reg_responses && item.reg_responses.length > 0">
+											<h2 class="text-md mt-2">Registration Responses</h2>
+											<div class="card bg-base-100 px-4 py-2 my-2">
+												<template x-for="(response, index) in item.reg_responses" :key="index">
+													<div>
+														<template x-if="index >= 1">
+															<div class="divider my-1"></div>
+														</template>
+														<template x-for="(value, key) in response" :key="key">
+															<div>
+																<span class="font-medium font-bold" x-text="key + ': '"></span>
+																<span x-text="value"></span>
+															</div>
+														</template>
+													</div>
+												</template>
+											</div>
+										</div>
+									</div>
+								</template>
+							</td>
+							<td x-text="`${purchase.total > 0 ? '$' + (purchase.total / 100).toFixed(2) : 'Free'}`"></td>
+							<td x-text="new Date(purchase.created_at * 1000).toLocaleString()"></td>
+						</tr>
+					</template>
+				</template>
+			</tbody>
+			<tfoot>
+				<tr>
+					<th>Status</th>
+					<th colspan="6">Purchase Type(s)</th>
+					<th>Total</th>
+					<th>Time</th>
+				</tr>
+			</tfoot>
+		</table>
+	</div>
+}

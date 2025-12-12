@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/templates/pages"
 	"github.com/meetnearme/api/functions/gateway/templates/partials"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -20,13 +20,17 @@ func SendHtmlRes(w http.ResponseWriter, body []byte, status int, mode string, er
 		msg := string(body)
 		if status >= 400 {
 			internalMsg := "ERR: " + msg
-			log.Println(internalMsg + " || Internal error msg: " + err.Error())
+			if err != nil {
+				log.Println(internalMsg + " || Internal error msg: " + err.Error())
+			} else {
+				log.Println(internalMsg + " || Internal error msg: <nil>")
+			}
 			body = []byte(msg)
 			if mode == "partial" {
 				handler := SendHtmlErrorPartial(body, status)
 				handler.ServeHTTP(w, r)
 			} else {
-				handler := SendHtmlErrorPage(body, status)
+				handler := SendHtmlErrorPage(body, status, false)
 				handler.ServeHTTP(w, r)
 			}
 			return
@@ -40,16 +44,16 @@ func SendHtmlRes(w http.ResponseWriter, body []byte, status int, mode string, er
 	}
 }
 
-func SendHtmlErrorPage(body []byte, status int) http.HandlerFunc {
+func SendHtmlErrorPage(body []byte, status int, hideError bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userInfo := helpers.UserInfo{}
+		userInfo := constants.UserInfo{}
 		ctx := r.Context()
-		if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-			userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+		if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(constants.UserInfo)
 		}
 
 		requestID := ""
-		if apiGwV2ReqRaw := ctx.Value(helpers.ApiGwV2ReqKey); apiGwV2ReqRaw != nil {
+		if apiGwV2ReqRaw := ctx.Value(constants.ApiGwV2ReqKey); apiGwV2ReqRaw != nil {
 			if apiGwV2Req, ok := apiGwV2ReqRaw.(events.APIGatewayV2HTTPRequest); ok {
 				requestID = apiGwV2Req.RequestContext.RequestID
 			} else {
@@ -59,8 +63,8 @@ func SendHtmlErrorPage(body []byte, status int) http.HandlerFunc {
 			log.Println("Warning: No ApiGwV2ReqKey found in context")
 		}
 
-		errorPartial := pages.ErrorPage(body, requestID)
-		layoutTemplate := pages.Layout(helpers.SitePages["home"], userInfo, errorPartial, types.Event{})
+		errorPartial := pages.ErrorPage(body, requestID, hideError)
+		layoutTemplate := pages.Layout(constants.SitePages["home"], userInfo, errorPartial, types.Event{}, false, ctx, []string{})
 		var buf bytes.Buffer
 		err := layoutTemplate.Render(ctx, &buf)
 		if err != nil {
@@ -76,9 +80,43 @@ func SendHtmlErrorPartial(body []byte, status int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var buf bytes.Buffer
 		ctx := r.Context()
-		apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest).RequestContext
-		requestID := apiGwV2Req.RequestID
-		errorPartial := partials.ErrorHTML(body, fmt.Sprint(requestID))
+		requestID := ""
+		if raw := ctx.Value(constants.ApiGwV2ReqKey); raw != nil {
+			if req, ok := raw.(events.APIGatewayV2HTTPRequest); ok {
+				requestID = req.RequestContext.RequestID
+			} else {
+				log.Println("Warning: ApiGwV2ReqKey value is not of expected type")
+			}
+		} else {
+			log.Println("Warning: No ApiGwV2ReqKey found in context")
+		}
+		errorPartial := partials.ErrorHTMLAlert(body, fmt.Sprint(requestID))
+		err := errorPartial.Render(r.Context(), &buf)
+		if err != nil {
+			log.Println("Error rendering error partial:", err)
+		}
+		log.Println("ERR ("+fmt.Sprint(status)+"): ", string(body))
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write(buf.Bytes())
+	}
+}
+
+func SendHtmlErrorText(body []byte, status int) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var buf bytes.Buffer
+		ctx := r.Context()
+		requestID := ""
+		if raw := ctx.Value(constants.ApiGwV2ReqKey); raw != nil {
+			if req, ok := raw.(events.APIGatewayV2HTTPRequest); ok {
+				requestID = req.RequestContext.RequestID
+			} else {
+				log.Println("Warning: ApiGwV2ReqKey value is not of expected type")
+			}
+		} else {
+			log.Println("Warning: No ApiGwV2ReqKey found in context")
+		}
+		errorPartial := partials.ErrorHTMLText(body, fmt.Sprint(requestID))
 		err := errorPartial.Render(r.Context(), &buf)
 		if err != nil {
 			log.Println("Error rendering error partial:", err)
@@ -125,5 +163,29 @@ func SendServerRes(w http.ResponseWriter, body []byte, status int, err error) ht
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 
+	// NOTE: we don't want to return `nil` to a handler function in general, but we need to clean
+	// up a bunch of other code connected to this
+
 	return http.HandlerFunc(nil)
+}
+
+func SetCORSAllowAll(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	// For cross-origin requests (embed endpoints), Origin header is always present.
+	// If Origin is missing, it's likely same-origin and doesn't need CORS headers.
+	if origin == "" {
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", origin)
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	// Include all headers that HTMX/json-enc might send
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, HX-Request, HX-Trigger, HX-Trigger-Name, HX-Target, HX-Current-URL")
+
+	// Handle preflight OPTIONS request
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 }

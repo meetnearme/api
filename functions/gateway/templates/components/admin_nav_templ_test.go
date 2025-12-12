@@ -1,0 +1,190 @@
+package components
+
+import (
+	"bytes"
+	"context"
+	"strings"
+	"testing"
+
+	"github.com/meetnearme/api/functions/gateway/constants"
+)
+
+func TestAdminLeftNavContents(t *testing.T) {
+	// Create mock user info
+	mockUserInfo := constants.UserInfo{
+		Email:             "test@example.com",
+		EmailVerified:     true,
+		FamilyName:        "Doe",
+		GivenName:         "John",
+		Locale:            "en-US",
+		Name:              "John Doe",
+		PreferredUsername: "johndoe",
+		Sub:               "user123",
+		UpdatedAt:         1234567890,
+	}
+
+	// Test cases for different role scenarios
+	tests := []struct {
+		name             string
+		roleClaims       []constants.RoleClaim
+		expectedLinks    []string
+		notExpectedLinks []string
+	}{
+		{
+			name:       "User with no special roles",
+			roleClaims: []constants.RoleClaim{},
+			expectedLinks: []string{
+				">Home<",
+				">Interests<",
+				"hx-push-url=\"/admin/interests\"",
+				">Add Event (Soon)<",
+				// ">Host a Competition (Soon)<",
+			},
+			notExpectedLinks: []string{
+				">Event Admin<",
+				">Competition Admin<",
+				">Create Event<",
+				">Create Competition<",
+			},
+		},
+		{
+			name: "User with event admin role",
+			roleClaims: []constants.RoleClaim{
+				{Role: constants.Roles[constants.EventAdmin], ProjectID: "project-id"},
+			},
+			expectedLinks: []string{
+				">Home<",
+				">Interests<",
+				"hx-push-url=\"/admin/interests\"",
+				">Event Admin<",
+				"hx-push-url=\"/admin/events\"",
+				">Create Event<",
+				// ">Host a Competition (Soon)<",
+			},
+			notExpectedLinks: []string{
+				">Competition Admin<",
+				">Create Competition<",
+			},
+		},
+		{
+			name: "User with super admin role",
+			roleClaims: []constants.RoleClaim{
+				{Role: constants.Roles[constants.SuperAdmin], ProjectID: "project-id"},
+			},
+			expectedLinks: []string{
+				">Home<",
+				">Interests<",
+				"hx-push-url=\"/admin/interests\"",
+				">Event Admin<",
+				"hx-push-url=\"/admin/events\"",
+				">Create Event<",
+				// Competitions disabled for now:
+				// ">Competition Admin<",
+				// "hx-push-url=\"/admin/competitions\"",
+				// ">Create Competition<",
+			},
+			notExpectedLinks: []string{
+				">Add Event (Soon)<",
+				// Competitions disabled for now - these should not appear:
+				">Competition Admin<",
+				">Create Competition<",
+				// ">Host a Competition (Soon)<",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create context with user info and role claims
+			ctx := context.WithValue(context.Background(), "userInfo", mockUserInfo)
+			ctx = context.WithValue(ctx, "roleClaims", tt.roleClaims)
+
+			// Call the actual template function
+			navContent := AdminLeftNavContents(ctx)
+
+			// Render the template
+			var buf bytes.Buffer
+			err := navContent.Render(ctx, &buf)
+			if err != nil {
+				t.Fatalf("Failed to render template: %v", err)
+			}
+
+			// Get the rendered content
+			renderedContent := buf.String()
+
+			// Check for expected links
+			for _, link := range tt.expectedLinks {
+				if !strings.Contains(renderedContent, link) {
+					t.Errorf("Expected rendered content to contain '%s', but it didn't", link)
+				}
+			}
+
+			// Check for links that should not be present
+			for _, link := range tt.notExpectedLinks {
+				if strings.Contains(renderedContent, link) {
+					t.Errorf("Expected rendered content to NOT contain '%s', but it did", link)
+				}
+			}
+
+			// Check for proper section headers
+			// Note: Competitions header is disabled for now
+			expectedHeaders := []string{
+				"<h3 class=\"font-bold menu-title mt-0 mb-2\">Admin</h3>",
+				"<h3 class=\"font-bold menu-title my-2\">Events</h3>",
+			}
+			for _, header := range expectedHeaders {
+				if !strings.Contains(renderedContent, header) {
+					t.Errorf("Expected rendered content to contain header '%s', but it didn't", header)
+				}
+			}
+		})
+	}
+}
+
+func TestAdminNav(t *testing.T) {
+	// Create mock user info
+	mockUserInfo := constants.UserInfo{
+		Email:             "test@example.com",
+		EmailVerified:     true,
+		FamilyName:        "Doe",
+		GivenName:         "John",
+		Locale:            "en-US",
+		Name:              "John Doe",
+		PreferredUsername: "johndoe",
+		Sub:               "user123",
+		UpdatedAt:         1234567890,
+	}
+
+	// Create context with user info
+	ctx := context.WithValue(context.Background(), "userInfo", mockUserInfo)
+
+	// Call the actual template function
+	navContent := AdminNav(ctx)
+
+	// Render the template
+	var buf bytes.Buffer
+	err := navContent.Render(ctx, &buf)
+	if err != nil {
+		t.Fatalf("Failed to render template: %v", err)
+	}
+
+	// Get the rendered content
+	renderedContent := buf.String()
+
+	// Check for proper container structure
+	expectedContainer := `<div class="self-start sticky top-0 col-span-2 card border border-base-300 bg-base-100 rounded-box">`
+	if !strings.Contains(renderedContent, expectedContainer) {
+		t.Error("Expected proper container structure with correct classes")
+	}
+
+	// Check for proper menu structure
+	expectedMenu := `<ul class="menu bg-base-100 rounded-box w-full p-2">`
+	if !strings.Contains(renderedContent, expectedMenu) {
+		t.Error("Expected proper menu structure with correct classes")
+	}
+
+	// Check that the nav content is included
+	if !strings.Contains(renderedContent, "<h3 class=\"font-bold menu-title mt-0 mb-2\">Admin</h3>") {
+		t.Error("Expected nav content to be included in the rendered output")
+	}
+}

@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/test_helpers"
 	"github.com/meetnearme/api/functions/gateway/transport"
@@ -17,8 +19,36 @@ import (
 func TestMain(m *testing.M) {
 	log.Println("Setting up test environment for handlers package")
 
-	// Set GO_ENV to "test" to trigger test-specific behavior
-	os.Setenv("GO_ENV", helpers.GO_TEST_ENV)
+	originalEnv := map[string]string{
+		"APEX_URL":              os.Getenv("APEX_URL"),
+		"ZITADEL_INSTANCE_HOST": os.Getenv("ZITADEL_INSTANCE_HOST"),
+		"ZITADEL_CLIENT_ID":     os.Getenv("ZITADEL_CLIENT_ID"),
+		"ZITADEL_CLIENT_SECRET": os.Getenv("ZITADEL_CLIENT_SECRET"),
+	}
+
+	originalFlags := map[string]string{}
+	for _, name := range []string{"authorizeURI", "tokenURI", "jwksURI", "redirectURI", "loginPageURI", "endSessionURI", "clientID", "clientSecret"} {
+		if f := flag.Lookup(name); f != nil {
+			originalFlags[name] = f.Value.String()
+		}
+	}
+
+	// Set GO_ENV first to prevent any init() functions from running
+	os.Setenv("GO_ENV", constants.GO_TEST_ENV)
+	helpers.InitDefaultProtocol() // Re-initialize protocol after setting GO_ENV
+	os.Setenv("APEX_URL", "https://test.example.com")
+	os.Setenv("ZITADEL_INSTANCE_HOST", "test.zitadel.cloud")
+	os.Setenv("ZITADEL_CLIENT_ID", "test-client-id")
+	os.Setenv("ZITADEL_CLIENT_SECRET", "test-client-secret")
+
+	flag.Set("authorizeURI", "https://test.zitadel.cloud/oauth/v2/authorize")
+	flag.Set("tokenURI", "https://test.zitadel.cloud/oauth/v2/token")
+	flag.Set("jwksURI", "https://test.zitadel.cloud/oauth/v2/keys")
+	flag.Set("endSessionURI", "https://test.zitadel.cloud/oauth/v2/end_session")
+	flag.Set("redirectURI", "https://test.example.com/auth/callback")
+	flag.Set("loginPageURI", "https://test.example.com")
+	flag.Set("clientID", "test-client-id")
+	flag.Set("clientSecret", "test-client-secret")
 
 	mockDB := &test_helpers.MockDynamoDBClient{
 		ScanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
@@ -34,8 +64,8 @@ func TestMain(m *testing.M) {
 							"address":     &types.AttributeValueMemberS{Value: "123 Test St"},
 							"zip_code":    &types.AttributeValueMemberS{Value: "12345"},
 							"country":     &types.AttributeValueMemberS{Value: "Test Country"},
-							"lat":    &types.AttributeValueMemberN{Value: "51.5074"},
-							"long":   &types.AttributeValueMemberN{Value: "-0.1278"},
+							"lat":         &types.AttributeValueMemberN{Value: "51.5074"},
+							"long":        &types.AttributeValueMemberN{Value: "-0.1278"},
 						},
 					},
 				}, nil
@@ -56,6 +86,12 @@ func TestMain(m *testing.M) {
 
 	log.Println("Cleaning up test environment for handlers package")
 	// Perform any necessary cleanup here
+	for key, value := range originalEnv {
+		os.Setenv(key, value)
+	}
+	for name, value := range originalFlags {
+		flag.Set(name, value)
+	}
 
 	os.Exit(exitCode)
 }

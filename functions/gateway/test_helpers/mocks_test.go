@@ -90,6 +90,7 @@ func TestMockDynamoDBClient_UpdateItem(t *testing.T) {
 }
 
 func TestMockGeoService_GetGeo(t *testing.T) {
+
 	mockGeoService := &MockGeoService{}
 
 	lat, long, address, err := mockGeoService.GetGeo("New York", "http://example.com")
@@ -173,5 +174,3 @@ func TestNewMockRdsDataClientWithJSONRecords(t *testing.T) {
 		t.Error("expected formatted records to be returned, got nil")
 	}
 }
-
-

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,30 +14,30 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/go-playground/validator"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/handlers/dynamodb_handlers"
 	"github.com/meetnearme/api/functions/gateway/helpers"
+	"github.com/meetnearme/api/functions/gateway/interfaces"
 	"github.com/meetnearme/api/functions/gateway/services"
 	"github.com/meetnearme/api/functions/gateway/services/dynamodb_service"
 	"github.com/meetnearme/api/functions/gateway/transport"
 	"github.com/meetnearme/api/functions/gateway/types"
 	internal_types "github.com/meetnearme/api/functions/gateway/types"
-	"github.com/stripe/stripe-go/v80"
-	"github.com/stripe/stripe-go/v80/checkout/session"
-	"github.com/stripe/stripe-go/v80/webhook"
+	"github.com/stripe/stripe-go/v83"
+	"github.com/stripe/stripe-go/v83/webhook"
 )
 
 var validate *validator.Validate = validator.New()
 
-type MarqoHandler struct {
-	MarqoService services.MarqoServiceInterface
+type WeaviateHandler struct {
+	WeaviateService services.WeaviateServiceInterface
 }
 
-func NewMarqoHandler(marqoService services.MarqoServiceInterface) *MarqoHandler {
-	return &MarqoHandler{MarqoService: marqoService}
+func NewWeaviateHandler(weaviateService services.WeaviateServiceInterface) *WeaviateHandler {
+	return &WeaviateHandler{WeaviateService: weaviateService}
 }
 
 type PurchasableWebhookHandler struct {
@@ -48,37 +49,12 @@ func NewPurchasableWebhookHandler(purchasableService internal_types.PurchasableS
 	return &PurchasableWebhookHandler{PurchasableService: purchasableService, PurchaseService: purchaseService}
 }
 
-// Create a new struct for raw JSON operations
-type rawEventData struct {
-	Id              string   `json:"id"`
-	EventOwners     []string `json:"eventOwners" validate:"required,min=1"`
-	EventOwnerName  string   `json:"eventOwnerName" validate:"required"`
-	EventSourceType string   `json:"eventSourceType" validate:"required"`
-	Name            string   `json:"name" validate:"required"`
-	Description     string   `json:"description" validate:"required"`
-	Address         string   `json:"address" validate:"required"`
-	Lat             float64  `json:"lat" validate:"required"`
-	Long            float64  `json:"long" validate:"required"`
-	Timezone        string   `json:"timezone" validate:"required"`
+type SubscriptionWebhookHandler struct {
+	SubscriptionService interfaces.StripeSubscriptionServiceInterface
 }
 
-type rawEvent struct {
-	rawEventData
-	EventSourceId         *string     `json:"eventSourceId,omitempty"`
-	StartTime             interface{} `json:"startTime" validate:"required"`
-	EndTime               interface{} `json:"endTime,omitempty"`
-	StartingPrice         *int32      `json:"startingPrice,omitempty"`
-	Currency              *string     `json:"currency,omitempty"`
-	PayeeId               *string     `json:"payeeId,omitempty"`
-	HasRegistrationFields *bool       `json:"hasRegistrationFields,omitempty"`
-	HasPurchasable        *bool       `json:"hasPurchasable,omitempty"`
-	ImageUrl              *string     `json:"imageUrl,omitempty"`
-	Categories            *[]string   `json:"categories,omitempty"`
-	Tags                  *[]string   `json:"tags,omitempty"`
-	CreatedAt             *int64      `json:"createdAt,omitempty"`
-	UpdatedAt             *int64      `json:"updatedAt,omitempty"`
-	UpdatedBy             *string     `json:"updatedBy,omitempty"`
-	HideCrossPromo        *bool       `json:"hideCrossPromo,omitempty"`
+func NewSubscriptionWebhookHandler(subscriptionService interfaces.StripeSubscriptionServiceInterface) *SubscriptionWebhookHandler {
+	return &SubscriptionWebhookHandler{SubscriptionService: subscriptionService}
 }
 
 // Create a new struct that includes the createPurchase fields and the Stripe checkout URL
@@ -87,101 +63,23 @@ type PurchaseResponse struct {
 	StripeCheckoutURL string `json:"stripe_checkout_url"`
 }
 
-func ConvertRawEventToEvent(raw rawEvent, requireId bool) (types.Event, error) {
-	loc, err := time.LoadLocation(raw.Timezone)
-	if err != nil {
-		return types.Event{}, fmt.Errorf("invalid timezone: %w", err)
-	}
-	event := types.Event{
-		Id:              raw.Id,
-		EventOwners:     raw.EventOwners,
-		EventOwnerName:  raw.EventOwnerName,
-		EventSourceType: raw.EventSourceType,
-		Name:            raw.Name,
-		Description:     raw.Description,
-		Address:         raw.Address,
-		Lat:             raw.Lat,
-		Long:            raw.Long,
-		Timezone:        *loc,
-	}
+type BulkDeleteEventsPayload struct {
+	Events []string `json:"events" validate:"required,min=1"`
+}
 
-	// Safely assign pointer values
-	if raw.StartingPrice != nil {
-		event.StartingPrice = *raw.StartingPrice
-	}
-	if raw.Currency != nil {
-		event.Currency = *raw.Currency
-	}
-	if raw.PayeeId != nil {
-		event.PayeeId = *raw.PayeeId
-	}
-	if raw.HasRegistrationFields != nil {
-		event.HasRegistrationFields = *raw.HasRegistrationFields
-	}
-	if raw.HasPurchasable != nil {
-		event.HasPurchasable = *raw.HasPurchasable
-	}
-	if raw.ImageUrl != nil {
-		event.ImageUrl = *raw.ImageUrl
-	}
-	if raw.Categories != nil {
-		event.Categories = *raw.Categories
-	}
-	if raw.Tags != nil {
-		event.Tags = *raw.Tags
-	}
-	if raw.CreatedAt != nil {
-		event.CreatedAt = *raw.CreatedAt
-	}
-	if raw.UpdatedAt != nil {
-		event.UpdatedAt = *raw.UpdatedAt
-	}
-	if raw.UpdatedBy != nil {
-		event.UpdatedBy = *raw.UpdatedBy
-	}
-	if raw.HideCrossPromo != nil {
-		event.HideCrossPromo = *raw.HideCrossPromo
-	}
-	if raw.EventSourceId != nil {
-		event.EventSourceId = *raw.EventSourceId
-	}
-	if raw.StartTime == nil {
-		return types.Event{}, fmt.Errorf("startTime is required")
-	}
-	startTime, err := helpers.UtcToUnix64(raw.StartTime, loc)
-	if err != nil || startTime == 0 {
-		return types.Event{}, fmt.Errorf("invalid StartTime: %w", err)
-	}
-	event.StartTime = startTime
+type userMetaResult struct {
+	id      string
+	members []string
+	err     error
+}
 
-	if raw.EndTime != nil {
-		endTime, err := helpers.UtcToUnix64(raw.EndTime, loc)
-		if err != nil || endTime == 0 {
-			return types.Event{}, fmt.Errorf("invalid EndTime: %w", err)
-		}
-		event.EndTime = endTime
-	}
-	if raw.PayeeId != nil || raw.StartingPrice != nil || raw.Currency != nil {
-
-		if raw.PayeeId == nil || raw.StartingPrice == nil || raw.Currency == nil {
-			return types.Event{}, fmt.Errorf("all of 'PayeeId', 'StartingPrice', and 'Currency' are required if any are present")
-		}
-
-		if raw.PayeeId != nil {
-			event.PayeeId = *raw.PayeeId
-		}
-		if raw.Currency != nil {
-			event.Currency = *raw.Currency
-		}
-		if raw.StartingPrice != nil {
-			event.StartingPrice = *raw.StartingPrice
-		}
-	}
-	return event, nil
+type searchResult struct {
+	foundUsers []internal_types.UserSearchResultDangerous
+	err        error
 }
 
 func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId bool) (event types.Event, status int, err error) {
-	var raw rawEvent
+	var raw services.RawEvent
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -193,7 +91,7 @@ func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId
 		return types.Event{}, http.StatusUnprocessableEntity, fmt.Errorf("invalid JSON payload: %w", err)
 	}
 
-	event, status, err = HandleSingleEventValidation(raw, requireId)
+	event, status, err = services.SingleValidateEvent(raw, requireId)
 	if err != nil {
 		return types.Event{}, status, fmt.Errorf("invalid body: %w", err)
 	}
@@ -201,22 +99,22 @@ func ValidateSingleEventPaylod(w http.ResponseWriter, r *http.Request, requireId
 	return event, status, nil
 }
 
-func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
+func (h *WeaviateHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
 	createEvent, status, err := ValidateSingleEventPaylod(w, r, false)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to extract event from payload: "+err.Error()), status, err)
 		return
 	}
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
 	createEvents := []types.Event{createEvent}
-
-	res, err := services.BulkUpsertEventToMarqo(marqoClient, createEvents)
+	ctx := r.Context()
+	res, err := services.BulkUpsertEventsToWeaviate(ctx, weaviateClient, createEvents)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -232,59 +130,16 @@ func (h *MarqoHandler) PostEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.PostEvent(w, r)
 	}
 }
 
-func HandleSingleEventValidation(rawEvent rawEvent, requireId bool) (types.Event, int, error) {
-	if err := validate.Struct(rawEvent); err != nil {
-		// Type assert to get validation errors
-		if validationErrors, ok := err.(validator.ValidationErrors); ok {
-			// Get just the first validation error
-			firstErr := validationErrors[0]
-			// Extract just the field name and error
-			return types.Event{}, http.StatusBadRequest,
-				fmt.Errorf("Field validation for '%s' failed on the '%s' tag",
-					firstErr.Field(), firstErr.Tag())
-		}
-		return types.Event{}, http.StatusBadRequest, err
-	}
-	if requireId && rawEvent.Id == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event has no id")
-	}
-	if len(rawEvent.EventOwners) == 0 {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwners")
-	}
-	if requireId && rawEvent.Id == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event has no id")
-	}
-	if len(rawEvent.EventOwners) == 0 {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwners")
-	}
-
-	if rawEvent.EventOwnerName == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing eventOwnerName")
-	}
-
-	if rawEvent.Timezone == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("event is missing timezone")
-	}
-	if helpers.ArrFindFirst([]string{rawEvent.EventSourceType}, helpers.ALL_EVENT_SOURCE_TYPES) == "" {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid eventSourceType: %s", rawEvent.EventSourceType)
-	}
-	event, err := ConvertRawEventToEvent(rawEvent, requireId)
-	if err != nil {
-		return types.Event{}, http.StatusBadRequest, fmt.Errorf("invalid event : %s", err.Error())
-	}
-	return event, http.StatusOK, nil
-}
-
 func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireIds bool) ([]types.Event, int, error) {
 	var payload struct {
-		Events []rawEvent `json:"events"`
+		Events []services.RawEvent `json:"events" validate:"required,min=1"`
 	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -301,19 +156,20 @@ func HandleBatchEventValidation(w http.ResponseWriter, r *http.Request, requireI
 		return nil, http.StatusBadRequest, fmt.Errorf("invalid body: %w", err)
 	}
 
-	events := make([]types.Event, len(payload.Events))
-	for i, rawEvent := range payload.Events {
-		event, statusCode, err := HandleSingleEventValidation(rawEvent, requireIds)
-		if err != nil {
-			return nil, statusCode, fmt.Errorf("invalid body: invalid event at index %d: %w", i, err)
-		}
-		events[i] = event
+	// Additional check with custom message
+	if len(payload.Events) == 0 {
+		return nil, http.StatusBadRequest, fmt.Errorf("events array must contain at least one event")
+	}
+
+	events, statusCode, err := services.BulkValidateEvents(payload.Events, requireIds)
+	if err != nil {
+		return nil, statusCode, fmt.Errorf("invalid body: %w", err)
 	}
 
 	return events, http.StatusOK, nil
 }
 
-func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
+func (h *WeaviateHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 	events, status, err := HandleBatchEventValidation(w, r, false)
 
 	if err != nil {
@@ -321,13 +177,13 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	res, err := services.BulkUpsertEventToMarqo(marqoClient, events)
+	res, err := services.BulkUpsertEventsToWeaviate(r.Context(), weaviateClient, events)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert events: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -342,23 +198,23 @@ func (h *MarqoHandler) PostBatchEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostBatchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.PostBatchEvents(w, r)
 	}
 }
 
-func (h *MarqoHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
-	marqoClient, err := services.GetMarqoClient()
+func (h *WeaviateHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
 	parseDates := r.URL.Query().Get("parse_dates")
 	var event *types.Event
-	event, err = services.GetMarqoEventByID(marqoClient, eventId, parseDates)
+	event, err = services.GetWeaviateEventByID(r.Context(), weaviateClient, eventId, parseDates)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to get event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -373,17 +229,17 @@ func (h *MarqoHandler) GetOneEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.GetOneEvent(w, r)
 	}
 }
 
-func (h *MarqoHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) {
-	marqoClient, err := services.GetMarqoClient()
+func (h *WeaviateHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) {
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
@@ -392,7 +248,7 @@ func (h *MarqoHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) 
 		transport.SendServerRes(w, []byte("Failed to extract event from payload: "+err.Error()), status, err)
 		return
 	}
-	res, err := services.BulkUpdateMarqoEventByID(marqoClient, events)
+	res, err := services.BulkUpdateWeaviateEventsByID(r.Context(), weaviateClient, events)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -407,8 +263,8 @@ func (h *MarqoHandler) BulkUpdateEvents(w http.ResponseWriter, r *http.Request) 
 }
 
 func BulkUpdateEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.BulkUpdateEvents(w, r)
 	}
@@ -416,6 +272,12 @@ func BulkUpdateEventsHandler(w http.ResponseWriter, r *http.Request) http.Handle
 
 func SearchLocationsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		transport.SetCORSAllowAll(w, r)
+
+		if r.Method == "OPTIONS" {
+			return
+		}
+
 		query := r.URL.Query().Get("q")
 
 		// URL decode the query
@@ -456,13 +318,27 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			return
 		}
 
+		throwOnMissing := r.URL.Query().Get("throw") == "1"
+
 		// Parse the comma-separated ids
 		ids := strings.Split(idsParam, ",")
 
 		// Validate each ID
 		for _, id := range ids {
+			if strings.HasPrefix(id, "tm_") {
+				err := helpers.ValidateTeamUUID(id)
+				if err != nil {
+					transport.SendServerRes(w,
+						// []byte(fmt.Sprintf(err.Error())),
+						[]byte(err.Error()),
+						http.StatusBadRequest,
+						nil)
+					return
+				}
+				continue // Skip the numeric validation below for tm_ prefixed IDs
+			}
 			// Check if ID is exactly 18 characters
-			if len(id) != 18 {
+			if len(id) != constants.ZITADEL_USER_ID_LEN {
 				transport.SendServerRes(w,
 					[]byte(fmt.Sprintf("Invalid ID length: %s. Must be exactly 18 characters", id)),
 					http.StatusBadRequest,
@@ -480,23 +356,81 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 			}
 		}
 
-		// Search for matching users
-		matches, err := helpers.SearchUsersByIDs(ids)
-		log.Println("matches: ", matches)
-		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to search users: "+err.Error()), http.StatusInternalServerError, err)
-			return
+		metaChan := make(chan userMetaResult)
+		searchChan := make(chan searchResult)
+
+		// Launch goroutine for SearchUsersByIDs
+		go func() {
+			matches, err := helpers.SearchUsersByIDs(ids, false)
+			searchChan <- searchResult{foundUsers: matches, err: err}
+		}()
+
+		// Launch goroutines for each team ID
+		activeRequests := 0
+		for _, id := range ids {
+			if strings.HasPrefix(id, "tm_") {
+				activeRequests++
+				go func(id string) {
+					membersString, err := helpers.GetOtherUserMetaByID(id, "members")
+					if throwOnMissing && err != nil {
+						metaChan <- userMetaResult{id: id, members: nil, err: err}
+						return
+					}
+					members := []string{}
+					if membersString != "" {
+						members = strings.Split(membersString, ",")
+					}
+					metaChan <- userMetaResult{id: id, members: members, err: nil}
+				}(id)
+			}
+		}
+
+		// Collect results
+		allUserMeta := make(map[string][]string)
+		var foundUsers []internal_types.UserSearchResultDangerous
+		// Handle all responses
+		for i := 0; i <= activeRequests; i++ {
+			select {
+			case metaRes := <-metaChan:
+				if metaRes.err != nil {
+					if throwOnMissing {
+						transport.SendServerRes(w, []byte("Failed to get user meta: "+metaRes.err.Error()), http.StatusInternalServerError, metaRes.err)
+						return
+					}
+					allUserMeta[metaRes.id] = []string{}
+				}
+				allUserMeta[metaRes.id] = metaRes.members
+			case res := <-searchChan:
+				if res.err != nil {
+					transport.SendServerRes(w, []byte("Failed to search users: "+res.err.Error()), http.StatusInternalServerError, res.err)
+					return
+				}
+				foundUsers = res.foundUsers
+			}
+		}
+
+		// Merge the metadata with foundUsers
+		for i, user := range foundUsers {
+			if members, exists := allUserMeta[user.UserID]; exists {
+				// Initialize the Metadata map if it's nil
+				if foundUsers[i].Metadata == nil {
+					foundUsers[i].Metadata = make(map[string]interface{})
+				}
+				// Add the members to the metadata as a comma-separated string
+				foundUsers[i].Metadata["members"] = members
+			}
 		}
 
 		var jsonResponse []byte
-		if len(matches) < 1 {
+		if len(foundUsers) < 1 {
 			jsonResponse = []byte("[]")
 		} else {
-			jsonResponse, err = json.Marshal(matches)
+			_jsonResponse, err := json.Marshal(foundUsers)
 			if err != nil {
 				transport.SendServerRes(w, []byte("Failed to create JSON response"), http.StatusInternalServerError, err)
 				return
 			}
+			jsonResponse = _jsonResponse
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -539,14 +473,14 @@ func SearchUsersHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc
 	}
 }
 
-func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
-	marqoClient, err := services.GetMarqoClient()
+func (h *WeaviateHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	eventId := mux.Vars(r)[helpers.EVENT_ID_KEY]
+	eventId := mux.Vars(r)[constants.EVENT_ID_KEY]
 	if eventId == "" {
 		transport.SendServerRes(w, []byte("Event must have an id "), http.StatusInternalServerError, err)
 		return
@@ -561,7 +495,7 @@ func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
 	updateEvent.Id = eventId
 	updateEvents := []types.Event{updateEvent}
 
-	res, err := services.BulkUpdateMarqoEventByID(marqoClient, updateEvents)
+	res, err := services.BulkUpdateWeaviateEventsByID(r.Context(), weaviateClient, updateEvents)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to upsert event: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -576,25 +510,25 @@ func (h *MarqoHandler) UpdateOneEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateOneEventHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.UpdateOneEvent(w, r)
 	}
 }
 
-func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
+func (h *WeaviateHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
 	// Extract parameter values from the request query parameters
-	q, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
+	q, _, userLocation, radius, startTimeUnix, endTimeUnix, _, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds := GetSearchParamsFromReq(r)
 
-	marqoClient, err := services.GetMarqoClient()
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
 	var res types.EventSearchResponse
-	res, err = services.SearchMarqoEvents(marqoClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
+	res, err = services.SearchWeaviateEvents(r.Context(), weaviateClient, q, userLocation, radius, startTimeUnix, endTimeUnix, ownerIds, categories, address, parseDates, eventSourceTypes, eventSourceIds)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to search events: "+err.Error()), http.StatusInternalServerError, err)
 		return
@@ -608,20 +542,153 @@ func (h *MarqoHandler) SearchEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func SearchEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
-	marqoService := services.NewMarqoService()
-	handler := NewMarqoHandler(marqoService)
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.SearchEvents(w, r)
+	}
+}
+
+func CreateSubscriptionCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
+	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+	userId := userInfo.Sub
+	if userId == "" {
+		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
+		return
+	}
+
+	subscriptionPlanID := r.URL.Query().Get("subscription_plan_id")
+	growthPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH")
+	seedPlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED")
+	enterprisePlanID := os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE")
+	if subscriptionPlanID == "" || (subscriptionPlanID != growthPlanID && subscriptionPlanID != seedPlanID && subscriptionPlanID != enterprisePlanID) {
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=checkout_failed", http.StatusSeeOther)
+		return nil
+	}
+
+	// Check if user already has this subscription by checking roleClaims
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	// Prevent checkout if user already has this subscription
+	if subscriptionPlanID == growthPlanID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubGrowth]}) {
+		log.Printf("User %s already has Growth subscription, preventing duplicate checkout", userId)
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=already_subscribed", http.StatusSeeOther)
+		return nil
+	}
+	if subscriptionPlanID == seedPlanID && (helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubSeed]}) || helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubGrowth]})) {
+		// Prevent Seed checkout if user has Seed OR Growth subscription (Growth includes Seed features)
+		log.Printf("User %s already has Seed subscription (or Growth which includes Seed), preventing duplicate checkout", userId)
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=already_subscribed", http.StatusSeeOther)
+		return nil
+	}
+	if subscriptionPlanID == enterprisePlanID && helpers.HasRequiredRole(roleClaims, []string{constants.Roles[constants.SubEnterprise]}) {
+		log.Printf("User %s already has Enterprise subscription, preventing duplicate checkout", userId)
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=already_subscribed", http.StatusSeeOther)
+		return nil
+	}
+	subscriptionService := services.NewStripeSubscriptionService()
+	subscriptions, err := subscriptionService.GetSubscriptionPlans()
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get subscription plans: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	var subscriptionPlan *types.SubscriptionPlan
+	for _, subscription := range subscriptions {
+		if subscription.ID == subscriptionPlanID {
+			subscriptionPlan = subscription
+			break
+		}
+	}
+
+	if subscriptionPlan == nil {
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=checkout_failed", http.StatusSeeOther)
+		return nil
+	}
+
+	// Continue with existing Stripe checkout logic for paid items
+	stripeClient := services.GetStripeClient()
+
+	// Search for existing Stripe customer by Zitadel user ID in metadata
+	stripeCustomer, searchErr := subscriptionService.SearchCustomerByExternalID(userInfo.Sub)
+	if searchErr != nil {
+		log.Printf("Error searching for Stripe customer: %v", searchErr)
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=checkout_failed", http.StatusSeeOther)
+		return nil
+	}
+
+	// If customer doesn't exist, create it
+	var createErr error
+	if stripeCustomer == nil {
+		log.Printf("Stripe customer not found, creating new customer for Zitadel user %s", userInfo.Sub)
+		stripeCustomer, createErr = subscriptionService.CreateCustomer(userInfo.Sub, userInfo.Email, userInfo.Name)
+		if createErr != nil {
+			log.Printf("Error creating Stripe customer: %v", createErr)
+			http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=checkout_failed", http.StatusSeeOther)
+			return nil
+		}
+		log.Printf("Created Stripe customer %s for Zitadel user %s", stripeCustomer.ID, userInfo.Sub)
+	} else {
+		log.Printf("Found existing Stripe customer %s for Zitadel user %s", stripeCustomer.ID, userInfo.Sub)
+	}
+
+	lineItems := make([]*stripe.CheckoutSessionCreateLineItemParams, 0)
+
+	lineItems = append(lineItems, &stripe.CheckoutSessionCreateLineItemParams{
+		Quantity: stripe.Int64(1),
+		Price:    stripe.String(subscriptionPlan.PriceID),
+	})
+
+	// Map subscription plan ID to role name
+	roleMap := map[string]string{
+		os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED"):       constants.Roles[constants.SubSeed],
+		os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH"):     constants.Roles[constants.SubGrowth],
+		os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE"): constants.Roles[constants.SubEnterprise],
+	}
+	roleName := roleMap[subscriptionPlanID]
+
+	params := &stripe.CheckoutSessionCreateParams{
+		SuccessURL: stripe.String(constants.CUSTOMER_PORTAL_RETURN_URL_PATH + "?new_role=" + roleName),
+		CancelURL:  stripe.String(os.Getenv("APEX_URL") + strings.Replace(constants.SitePages["pricing"].Slug, "{trailingslash:\\/?}", "", 1)),
+		Customer:   stripe.String(stripeCustomer.ID),
+		LineItems:  lineItems,
+		// NOTE: `mode` needs to be "subscription" if there's a subscription / recurring item,
+		// use `add_invoice_item` to then append the one-time payment items:
+		// https://stackoverflow.com/questions/64011643/how-to-combine-a-subscription-and-single-payments-in-one-charge-stripe-ap
+		Mode: stripe.String(string(stripe.CheckoutSessionModeSubscription)),
+	}
+	stripeCheckoutResult, err := stripeClient.V1CheckoutSessions.Create(context.Background(), params)
+	if err != nil {
+		log.Printf("Error creating Stripe checkout session: %v", err)
+		http.Redirect(w, r, os.Getenv("APEX_URL")+"/pricing?error=checkout_failed", http.StatusSeeOther)
+		return nil
+	}
+
+	// Send the response - redirect to Stripe checkout URL
+	http.Redirect(w, r, stripeCheckoutResult.URL, http.StatusSeeOther)
+	return nil
+}
+
+func CreateSubscriptionCheckoutSessionHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		CreateSubscriptionCheckoutSession(w, r)
 	}
 }
 
 func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
-	eventId := vars[helpers.EVENT_ID_KEY]
+	eventId := vars[constants.EVENT_ID_KEY]
 	eventSourceId := r.URL.Query().Get("event_source_id")
 	eventSourceType := r.URL.Query().Get("event_source_type")
-	if eventSourceId != "" && eventSourceType == helpers.ES_EVENT_SERIES {
+	if eventSourceId != "" && eventSourceType == constants.ES_EVENT_SERIES {
 		eventId = eventSourceId
 	}
 	if eventId == "" {
@@ -629,9 +696,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		return
 	}
 
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
 	}
 	userId := userInfo.Sub
 	if userId == "" {
@@ -689,7 +756,6 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// is an event that does not have `RegistrationFields` or `PurchasableItems`
 	if len(createPurchase.PurchasedItems) == 0 {
 		db := transport.GetDB()
-		log.Printf("createPurchase: %+v", createPurchase)
 		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to insert free purchase into database: "+err.Error()), http.StatusInternalServerError, err)
@@ -771,10 +837,9 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// need to create a Stripe checkout session
 	if createPurchase.Total == 0 {
 		// Skip Stripe checkout for free items
-		createPurchase.Status = helpers.PurchaseStatus.Registered // Mark as registered immediately since it's free
+		createPurchase.Status = constants.PurchaseStatus.Registered // Mark as registered immediately since it's free
 
 		db := transport.GetDB()
-		log.Printf("createPurchase: %+v", createPurchase)
 		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
 			needsRevert = true
@@ -794,24 +859,50 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 			transport.SendServerRes(w, []byte("Failed to marshal purchase response: "+err.Error()), http.StatusInternalServerError, err)
 			return err
 		}
-		log.Printf("purchaseJSON: %s", string(purchaseJSON)) // Conve
 		transport.SendServerRes(w, purchaseJSON, http.StatusOK, nil)
 		return nil
 	}
 
 	// Continue with existing Stripe checkout logic for paid items
-	_, stripePrivKey := services.GetStripeKeyPair()
-	stripe.Key = stripePrivKey
+	stripeClient := services.GetStripeClient()
 
-	lineItems := make([]*stripe.CheckoutSessionLineItemParams, len(createPurchase.PurchasedItems))
+	// Search for existing Stripe customer by Zitadel user ID in metadata
+	subscriptionService := services.NewStripeSubscriptionService()
+	stripeCustomer, searchErr := subscriptionService.SearchCustomerByExternalID(userInfo.Sub)
+	if searchErr != nil {
+		log.Printf("Error searching for Stripe customer: %v", searchErr)
+		var errMsg = []byte("ERR: Failed to search for Stripe customer: " + searchErr.Error())
+		log.Println(string(errMsg))
+		transport.SendServerRes(w, errMsg, http.StatusInternalServerError, searchErr)
+		return nil
+	}
+
+	// If customer doesn't exist, create it
+	var createErr error
+	if stripeCustomer == nil {
+		log.Printf("Stripe customer not found, creating new customer for Zitadel user %s", userInfo.Sub)
+		stripeCustomer, createErr = subscriptionService.CreateCustomer(userInfo.Sub, userInfo.Email, userInfo.Name)
+		if createErr != nil {
+			log.Printf("Error creating Stripe customer: %v", createErr)
+			var errMsg = []byte("ERR: Failed to create Stripe customer: " + createErr.Error())
+			log.Println(string(errMsg))
+			transport.SendServerRes(w, errMsg, http.StatusInternalServerError, createErr)
+			return nil
+		}
+		log.Printf("Created Stripe customer %s for Zitadel user %s", stripeCustomer.ID, userInfo.Sub)
+	} else {
+		log.Printf("Found existing Stripe customer %s for Zitadel user %s", stripeCustomer.ID, userInfo.Sub)
+	}
+
+	lineItems := make([]*stripe.CheckoutSessionCreateLineItemParams, len(createPurchase.PurchasedItems))
 
 	for i, item := range createPurchase.PurchasedItems {
-		lineItems[i] = &stripe.CheckoutSessionLineItemParams{
+		lineItems[i] = &stripe.CheckoutSessionCreateLineItemParams{
 			Quantity: stripe.Int64(int64(item.Quantity)),
-			PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
+			PriceData: &stripe.CheckoutSessionCreateLineItemPriceDataParams{
 				Currency:   stripe.String("USD"),
 				UnitAmount: stripe.Int64(int64(item.Cost)), // Convert to cents
-				ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
+				ProductData: &stripe.CheckoutSessionCreateLineItemPriceDataProductDataParams{
 					Name: stripe.String(item.Name + " (" + createPurchase.EventName + ")"),
 					Metadata: map[string]string{
 						"EventId":       eventId,
@@ -823,10 +914,11 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		}
 	}
 
-	params := &stripe.CheckoutSessionParams{
+	params := &stripe.CheckoutSessionCreateParams{
 		ClientReferenceID: stripe.String(referenceId), // Store purchase
-		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin/profile?new_purch_key=" + createPurchase.CompositeKey),
+		SuccessURL:        stripe.String(os.Getenv("APEX_URL") + "/admin?new_purch_key=" + createPurchase.CompositeKey),
 		CancelURL:         stripe.String(os.Getenv("APEX_URL") + "/event/" + eventId + "?checkout=cancel"),
+		Customer:          stripe.String(stripeCustomer.ID),
 		LineItems:         lineItems,
 		// NOTE: `mode` needs to be "subscription" if there's a subscription / recurring item,
 		// use `add_invoice_item` to then append the one-time payment items:
@@ -835,7 +927,7 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 		ExpiresAt: stripe.Int64(time.Now().Add(30 * time.Minute).Unix()),
 	}
 
-	stripeCheckoutResult, err := session.New(params)
+	stripeCheckoutResult, err := stripeClient.V1CheckoutSessions.Create(context.Background(), params)
 
 	if err != nil {
 		needsRevert = true
@@ -850,17 +942,22 @@ func CreateCheckoutSession(w http.ResponseWriter, r *http.Request) (err error) {
 	// Now that the checks are in place, we defer the transaction creation in the database
 	// to respond to the client as quickly as possible
 	defer func() {
-		createPurchase.Status = helpers.PurchaseStatus.Pending
+		purchaseService := dynamodb_service.NewPurchaseService()
+		h := dynamodb_handlers.NewPurchaseHandler(purchaseService)
+		createPurchase.Status = constants.PurchaseStatus.Pending
 
-		log.Printf("db payload `createPurchase`: %+v", createPurchase)
+		// Create the composite key
+		compositeKey := fmt.Sprintf("%s_%s_%s", createPurchase.EventID, createPurchase.UserID, createPurchase.CreatedAtString)
+
+		// Add the composite key and createdAt to the purchase object
+		createPurchase.CompositeKey = compositeKey
+
 		db := transport.GetDB()
-		_, err := purchaseHandler.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
+		_, err := h.PurchaseService.InsertPurchase(r.Context(), db, createPurchase)
 		if err != nil {
 			log.Printf("ERR: failed to insert purchase into purchases database for stripe session ID: %+v, err: %+v", stripeCheckoutResult.ID, err)
 		}
 	}()
-
-	log.Printf("\nstripe result: %+v", stripeCheckoutResult)
 
 	// Create the response object
 	response := PurchaseResponse{
@@ -929,9 +1026,7 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 	// in the Developer Dashboard
 
 	endpointSecret := services.GetStripeCheckoutWebhookSecret()
-	ctx := r.Context()
-	apiGwV2Req := ctx.Value(helpers.ApiGwV2ReqKey).(events.APIGatewayV2HTTPRequest)
-	stripeHeader := apiGwV2Req.Headers["stripe-signature"]
+	stripeHeader := r.Header.Get("stripe-signature")
 	event, err := webhook.ConstructEvent(payload, stripeHeader,
 		endpointSecret)
 	if err != nil {
@@ -967,12 +1062,12 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			return err
 		}
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
-		purchaseUpdate.Status = helpers.PurchaseStatus.Settled
+		purchaseUpdate.Status = constants.PurchaseStatus.Settled
 		if checkoutSession.PaymentIntent != nil {
 			purchaseUpdate.StripeTransactionId = checkoutSession.PaymentIntent.ID
 		}
 
-		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, createdAt, purchaseUpdate)
 		if err != nil {
 			transport.SendServerRes(w, []byte("Failed to update purchase status to SETTLED: "), http.StatusInternalServerError, err)
 			return err
@@ -1027,7 +1122,6 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			transport.SendServerRes(w, []byte("Failed to get purchase for event id: "+eventID+" by clientReferenceID: "+clientReferenceID+" | error: "+err.Error()), http.StatusInternalServerError, err)
 			return err
 		}
-		log.Printf("purchase: %+v", purchase)
 		// Create a map of updates to restore the previously decremented inventory
 		incrementUpdates := make([]internal_types.PurchasableInventoryUpdate, len(purchase.PurchasedItems))
 		for i, item := range purchase.PurchasedItems {
@@ -1052,9 +1146,9 @@ func (h *PurchasableWebhookHandler) HandleCheckoutWebhook(w http.ResponseWriter,
 			return err
 		}
 		purchaseUpdate := TransformPurchaseToUpdate(*purchase)
-		purchaseUpdate.Status = helpers.PurchaseStatus.Canceled
+		purchaseUpdate.Status = constants.PurchaseStatus.Canceled
 
-		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, purchase.CreatedAtString, purchaseUpdate)
+		_, err = h.PurchaseService.UpdatePurchase(r.Context(), db, eventID, userID, createdAt, purchaseUpdate)
 		if err != nil {
 			msg := fmt.Sprintf("ERR: Failed to update purchase status to CANCELED: %v", err)
 			transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, err)
@@ -1085,6 +1179,529 @@ func HandleCheckoutWebhookHandler(w http.ResponseWriter, r *http.Request) http.H
 	handler := NewPurchasableWebhookHandler(purchasableService, purchaseService)
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler.HandleCheckoutWebhook(w, r)
+	}
+}
+
+func (h *SubscriptionWebhookHandler) HandleSubscriptionWebhook(w http.ResponseWriter, r *http.Request) (err error) {
+	const MaxBodyBytes = int64(65536)
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+	payload, err := io.ReadAll(r.Body)
+	if err != nil {
+		msg := fmt.Sprintf("ERR: Error reading request body: %v\n", err)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusInternalServerError, nil)
+		return err
+	}
+
+	endpointSecret := services.GetStripeSubscriptionWebhookSecret()
+	stripeHeader := r.Header.Get("stripe-signature")
+	event, err := webhook.ConstructEvent(payload, stripeHeader,
+		endpointSecret)
+	if err != nil {
+		msg := fmt.Sprintf("ERR: Error verifying webhook signature: %v\n", err)
+		transport.SendServerRes(w, []byte(msg), http.StatusBadRequest, nil)
+		return err
+	}
+
+	switch event.Type {
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_CREATED:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		addedGrowthPlan := false
+		addedSeedPlan := false
+		addedEnterprisePlan := false
+		for _, item := range subscription.Items.Data {
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
+				addedGrowthPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
+				addedSeedPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE") {
+				addedEnterprisePlan = true
+			}
+		}
+
+		// Get the Stripe customer
+		s := services.GetStripeClient()
+		customer, err := s.V1Customers.Retrieve(context.Background(), subscription.Customer.ID, nil)
+		if err != nil {
+			log.Printf("Error retrieving customer: %v", err)
+			transport.SendServerRes(w, []byte("Error retrieving customer"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Extract the Zitadel user ID from metadata
+		var zitadelUserID string
+		if customer.Metadata != nil {
+			if extID, exists := customer.Metadata["zitadel_user_id"]; exists {
+				zitadelUserID = extID
+			}
+		}
+
+		log.Printf("Subscription created for Zitadel user: %s, Customer: %s, Growth: %v, Seed: %v, Enterprise: %v", zitadelUserID, subscription.Customer.ID, addedGrowthPlan, addedSeedPlan, addedEnterprisePlan)
+
+		roles, err := helpers.GetUserRoles(zitadelUserID)
+		if err != nil {
+			log.Printf("Error getting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error getting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		if addedGrowthPlan && helpers.ArrFindFirst(roles, []string{constants.Roles[constants.SubGrowth]}) == "" {
+			roles = append(roles, constants.Roles[constants.SubGrowth])
+		}
+		if addedSeedPlan && helpers.ArrFindFirst(roles, []string{constants.Roles[constants.SubSeed]}) == "" {
+			roles = append(roles, constants.Roles[constants.SubSeed])
+		}
+		if addedEnterprisePlan && helpers.ArrFindFirst(roles, []string{constants.Roles[constants.SubEnterprise]}) == "" {
+			roles = append(roles, constants.Roles[constants.SubEnterprise])
+		}
+
+		err = helpers.SetUserRoles(zitadelUserID, roles)
+		if err != nil {
+			log.Printf("Error setting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error setting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription: %s created for customer: %s", subscription.ID, subscription.Customer.ID)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_UPDATED:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Determine which plans are active in the subscription
+		hasGrowthPlan := false
+		hasSeedPlan := false
+		hasEnterprisePlan := false
+		for _, item := range subscription.Items.Data {
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
+				hasGrowthPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
+				hasSeedPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE") {
+				hasEnterprisePlan = true
+			}
+		}
+
+		// Get the Stripe customer
+		s := services.GetStripeClient()
+		customer, err := s.V1Customers.Retrieve(context.Background(), subscription.Customer.ID, nil)
+		if err != nil {
+			log.Printf("Error retrieving customer: %v", err)
+			transport.SendServerRes(w, []byte("Error retrieving customer"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Extract the Zitadel user ID from metadata
+		var zitadelUserID string
+		if customer.Metadata != nil {
+			if extID, exists := customer.Metadata["zitadel_user_id"]; exists {
+				zitadelUserID = extID
+			}
+		}
+
+		if zitadelUserID == "" {
+			log.Printf("Warning: No zitadel_user_id found in customer metadata for subscription %s", subscription.ID)
+			msg := fmt.Sprintf("Customer subscription updated: %s (no user ID found)", subscription.ID)
+			transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+			return nil
+		}
+
+		log.Printf("Subscription updated for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v, Enterprise: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, hasGrowthPlan, hasSeedPlan, hasEnterprisePlan)
+
+		// Get current user roles
+		roles, err := helpers.GetUserRoles(zitadelUserID)
+		if err != nil {
+			log.Printf("Error getting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error getting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Build desired roles list (preserve non-subscription roles)
+		var updatedRoles []string
+		subGrowthRole := constants.Roles[constants.SubGrowth]
+		subSeedRole := constants.Roles[constants.SubSeed]
+		subEnterpriseRole := constants.Roles[constants.SubEnterprise]
+		// Keep all non-subscription roles
+		for _, role := range roles {
+			if role != subGrowthRole && role != subSeedRole && role != subEnterpriseRole {
+				updatedRoles = append(updatedRoles, role)
+			}
+		}
+
+		// Add subscription roles based on current subscription items
+		if hasGrowthPlan && helpers.ArrFindFirst(updatedRoles, []string{subGrowthRole}) == "" {
+			updatedRoles = append(updatedRoles, subGrowthRole)
+		}
+		if hasSeedPlan && helpers.ArrFindFirst(updatedRoles, []string{subSeedRole}) == "" {
+			updatedRoles = append(updatedRoles, subSeedRole)
+		}
+		if hasEnterprisePlan && helpers.ArrFindFirst(updatedRoles, []string{subEnterpriseRole}) == "" {
+			updatedRoles = append(updatedRoles, subEnterpriseRole)
+		}
+
+		// Update roles in Zitadel
+		err = helpers.SetUserRoles(zitadelUserID, updatedRoles)
+		if err != nil {
+			log.Printf("Error setting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error setting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		msg := fmt.Sprintf("Customer subscription updated: %s for customer: %s", subscription.ID, subscription.Customer.ID)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_DELETED:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Determine which plans were in the deleted subscription (from webhook payload)
+		deletedGrowthPlan := false
+		deletedSeedPlan := false
+		deletedEnterprisePlan := false
+		for _, item := range subscription.Items.Data {
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
+				deletedGrowthPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
+				deletedSeedPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE") {
+				deletedEnterprisePlan = true
+			}
+		}
+
+		// Get the Stripe customer
+		s := services.GetStripeClient()
+		customer, err := s.V1Customers.Retrieve(context.Background(), subscription.Customer.ID, nil)
+		if err != nil {
+			log.Printf("Error retrieving customer: %v", err)
+			transport.SendServerRes(w, []byte("Error retrieving customer"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Extract the Zitadel user ID from metadata
+		var zitadelUserID string
+		if customer.Metadata != nil {
+			if extID, exists := customer.Metadata["zitadel_user_id"]; exists {
+				zitadelUserID = extID
+			}
+		}
+
+		if zitadelUserID == "" {
+			log.Printf("Warning: No zitadel_user_id found in customer metadata for deleted subscription %s", subscription.ID)
+			msg := fmt.Sprintf("Customer subscription deleted: %s (no user ID found)", subscription.ID)
+			transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+			return nil
+		}
+
+		log.Printf("Subscription deleted for Zitadel user: %s, Customer: %s, Subscription: %s, Deleted Growth: %v, Deleted Seed: %v, Deleted Enterprise: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, deletedGrowthPlan, deletedSeedPlan, deletedEnterprisePlan)
+
+		// Since we prevent duplicate subscriptions at checkout, we can simply remove roles
+		// Get current user roles
+		roles, err := helpers.GetUserRoles(zitadelUserID)
+		if err != nil {
+			log.Printf("Error getting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error getting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Remove subscription roles that were in the deleted subscription (keep all other roles)
+		var updatedRoles []string
+		subGrowthRole := constants.Roles[constants.SubGrowth]
+		subSeedRole := constants.Roles[constants.SubSeed]
+		subEnterpriseRole := constants.Roles[constants.SubEnterprise]
+		for _, role := range roles {
+			// Remove role if it was in the deleted subscription
+			shouldKeep := true
+			if role == subGrowthRole && deletedGrowthPlan {
+				shouldKeep = false
+			}
+			if role == subSeedRole && deletedSeedPlan {
+				shouldKeep = false
+			}
+			if role == subEnterpriseRole && deletedEnterprisePlan {
+				shouldKeep = false
+			}
+			if shouldKeep {
+				updatedRoles = append(updatedRoles, role)
+			}
+		}
+
+		// Update roles in Zitadel (remove subscription roles)
+		err = helpers.SetUserRoles(zitadelUserID, updatedRoles)
+		if err != nil {
+			log.Printf("Error setting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error setting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		log.Printf("Removed subscription roles for Zitadel user: %s after subscription deletion (Growth: %v, Seed: %v, Enterprise: %v)", zitadelUserID, deletedGrowthPlan, deletedSeedPlan, deletedEnterprisePlan)
+		msg := fmt.Sprintf("Customer subscription deleted: %s for customer: %s", subscription.ID, subscription.Customer.ID)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PAUSED:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Determine which plans are in the paused subscription
+		pausedGrowthPlan := false
+		pausedSeedPlan := false
+		pausedEnterprisePlan := false
+		for _, item := range subscription.Items.Data {
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
+				pausedGrowthPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
+				pausedSeedPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE") {
+				pausedEnterprisePlan = true
+			}
+		}
+
+		// Get the Stripe customer
+		s := services.GetStripeClient()
+		customer, err := s.V1Customers.Retrieve(context.Background(), subscription.Customer.ID, nil)
+		if err != nil {
+			log.Printf("Error retrieving customer: %v", err)
+			transport.SendServerRes(w, []byte("Error retrieving customer"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Extract the Zitadel user ID from metadata
+		var zitadelUserID string
+		if customer.Metadata != nil {
+			if extID, exists := customer.Metadata["zitadel_user_id"]; exists {
+				zitadelUserID = extID
+			}
+		}
+
+		if zitadelUserID == "" {
+			log.Printf("Warning: No zitadel_user_id found in customer metadata for paused subscription %s", subscription.ID)
+			msg := fmt.Sprintf("Customer subscription paused: %s (no user ID found)", subscription.ID)
+			transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+			return nil
+		}
+
+		log.Printf("Subscription paused for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v, Enterprise: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, pausedGrowthPlan, pausedSeedPlan, pausedEnterprisePlan)
+
+		// Since we prevent duplicate subscriptions at checkout, we can simply remove roles
+		// Get current user roles
+		roles, err := helpers.GetUserRoles(zitadelUserID)
+		if err != nil {
+			log.Printf("Error getting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error getting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Remove subscription roles from paused subscription (keep all other roles)
+		var updatedRoles []string
+		subGrowthRole := constants.Roles[constants.SubGrowth]
+		subSeedRole := constants.Roles[constants.SubSeed]
+		subEnterpriseRole := constants.Roles[constants.SubEnterprise]
+		for _, role := range roles {
+			// Remove role if it was in the paused subscription
+			shouldKeep := true
+			if role == subGrowthRole && pausedGrowthPlan {
+				shouldKeep = false
+			}
+			if role == subSeedRole && pausedSeedPlan {
+				shouldKeep = false
+			}
+			if role == subEnterpriseRole && pausedEnterprisePlan {
+				shouldKeep = false
+			}
+
+			if shouldKeep {
+				updatedRoles = append(updatedRoles, role)
+			}
+		}
+
+		// Update roles in Zitadel (remove roles from paused subscription)
+		err = helpers.SetUserRoles(zitadelUserID, updatedRoles)
+		if err != nil {
+			log.Printf("Error setting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error setting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		msg := fmt.Sprintf("Customer subscription paused: %s for customer: %s", subscription.ID, subscription.Customer.ID)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PENDING_UPDATE_APPLIED:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription pending update applied: %s", subscription.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_PENDING_UPDATE_EXPIRED:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription pending update expired: %s", subscription.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_RESUMED:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Determine which plans are in the resumed subscription
+		resumedGrowthPlan := false
+		resumedSeedPlan := false
+		resumedEnterprisePlan := false
+		for _, item := range subscription.Items.Data {
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_GROWTH") {
+				resumedGrowthPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_SEED") {
+				resumedSeedPlan = true
+			}
+			if item.Price.Product.ID == os.Getenv("STRIPE_SUBSCRIPTION_PLAN_ENTERPRISE") {
+				resumedEnterprisePlan = true
+			}
+		}
+
+		// Get the Stripe customer
+		s := services.GetStripeClient()
+		customer, err := s.V1Customers.Retrieve(context.Background(), subscription.Customer.ID, nil)
+		if err != nil {
+			log.Printf("Error retrieving customer: %v", err)
+			transport.SendServerRes(w, []byte("Error retrieving customer"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Extract the Zitadel user ID from metadata
+		var zitadelUserID string
+		if customer.Metadata != nil {
+			if extID, exists := customer.Metadata["zitadel_user_id"]; exists {
+				zitadelUserID = extID
+			}
+		}
+
+		if zitadelUserID == "" {
+			log.Printf("Warning: No zitadel_user_id found in customer metadata for resumed subscription %s", subscription.ID)
+			msg := fmt.Sprintf("Customer subscription resumed: %s (no user ID found)", subscription.ID)
+			transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+			return nil
+		}
+
+		log.Printf("Subscription resumed for Zitadel user: %s, Customer: %s, Subscription: %s, Growth: %v, Seed: %v, Enterprise: %v", zitadelUserID, subscription.Customer.ID, subscription.ID, resumedGrowthPlan, resumedSeedPlan, resumedEnterprisePlan)
+
+		// Get current user roles
+		roles, err := helpers.GetUserRoles(zitadelUserID)
+		if err != nil {
+			log.Printf("Error getting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error getting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		// Add subscription roles back (if not already present)
+		subGrowthRole := constants.Roles[constants.SubGrowth]
+		subSeedRole := constants.Roles[constants.SubSeed]
+		subEnterpriseRole := constants.Roles[constants.SubEnterprise]
+		if resumedGrowthPlan && helpers.ArrFindFirst(roles, []string{subGrowthRole}) == "" {
+			roles = append(roles, subGrowthRole)
+		}
+		if resumedSeedPlan && helpers.ArrFindFirst(roles, []string{subSeedRole}) == "" {
+			roles = append(roles, subSeedRole)
+		}
+		if resumedEnterprisePlan && helpers.ArrFindFirst(roles, []string{subEnterpriseRole}) == "" {
+			roles = append(roles, subEnterpriseRole)
+		}
+		// Update roles in Zitadel (restore roles from resumed subscription)
+		err = helpers.SetUserRoles(zitadelUserID, roles)
+		if err != nil {
+			log.Printf("Error setting user roles: %v", err)
+			transport.SendServerRes(w, []byte("Error setting user roles"), http.StatusInternalServerError, nil)
+			return err
+		}
+
+		msg := fmt.Sprintf("Customer subscription resumed: %s for customer: %s", subscription.ID, subscription.Customer.ID)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_SUBSCRIPTION_TRIAL_WILL_END:
+		var subscription stripe.Subscription
+		err := json.Unmarshal(event.Data.Raw, &subscription)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer subscription trial will end: %s", subscription.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+		return nil
+	case constants.STRIPE_WEBHOOK_EVENT_CUSTOMER_UPDATED:
+		var customer stripe.Customer
+		err := json.Unmarshal(event.Data.Raw, &customer)
+		if err != nil {
+			log.Printf("Error parsing webhook JSON: %v\n", err)
+			transport.SendServerRes(w, []byte("Error parsing webhook JSON"), http.StatusInternalServerError, nil)
+			return err
+		}
+		msg := fmt.Sprintf("Customer updated: %s", customer.ID)
+		log.Println(msg)
+		transport.SendServerRes(w, []byte(msg), http.StatusOK, nil)
+		return nil
+	default:
+		// log.Printf("Unhandled event type: %s\n", event.Type)
+		transport.SendServerRes(w, []byte("Unhandled event type"), http.StatusOK, nil)
+		return nil
+	}
+}
+
+func HandleSubscriptionWebhookHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	subscriptionService := services.NewStripeSubscriptionService()
+
+	handler := NewSubscriptionWebhookHandler(subscriptionService)
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := handler.HandleSubscriptionWebhook(w, r)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to handle subscription webhook: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
 	}
 }
 
@@ -1142,131 +1759,423 @@ func validatePurchase(purchasable *internal_types.Purchasable, createPurchase in
 }
 
 type UpdateEventRegPurchPayload struct {
-	Events                   []rawEvent                              `json:"events" validate:"required"`
-	RegistrationFieldsUpdate internal_types.RegistrationFieldsUpdate `json:"registration_fields"`
-	PurchasableUpdate        internal_types.PurchasableUpdate        `json:"purchasables"`
+	Events                   []services.RawEvent                     `json:"events" validate:"required"`
+	RegistrationFieldsUpdate internal_types.RegistrationFieldsUpdate `json:"registrationFieldsUpdate"`
+	PurchasableUpdate        internal_types.PurchasableUpdate        `json:"purchasableUpdate"`
+	Rounds                   []internal_types.CompetitionRoundUpdate `json:"rounds"`
 }
 
 func UpdateEventRegPurchHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		UpdateEventRegPurch(w, r)
+		ctx := r.Context()
+		vars := mux.Vars(r)
+		eventId := vars[constants.EVENT_ID_KEY]
+
+		userInfo := constants.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(constants.UserInfo)
+		}
+		roleClaims := []constants.RoleClaim{}
+		if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+			roleClaims = claims
+		}
+
+		validRoles := []string{"superAdmin", "eventAdmin"}
+		userId := userInfo.Sub
+		if userId == "" {
+			transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
+			return
+		}
+		if !helpers.HasRequiredRole(roleClaims, validRoles) {
+			err := errors.New("only event editors can add or edit events")
+			transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)
+			return
+		}
+
+		var updateEventRegPurchPayload UpdateEventRegPurchPayload
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
+			return
+		}
+
+		err = json.Unmarshal(body, &updateEventRegPurchPayload)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
+			return
+		}
+
+		// we should use goroutines to parallelize the three distinct database update operations here
+		db := transport.GetDB()
+
+		var createdAt int64
+		updatedAt := time.Now().Unix()
+		if updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.Unix() > 0 {
+			createdAt = updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.Unix()
+		} else {
+			createdAt = time.Now().Unix()
+		}
+
+		if eventId == "" {
+			eventId = uuid.NewString()
+			updateEventRegPurchPayload.Events[0].Id = eventId
+			updateEventRegPurchPayload.RegistrationFieldsUpdate.EventId = eventId
+			updateEventRegPurchPayload.PurchasableUpdate.EventId = eventId
+			if constants.ES_SERIES_PARENT == updateEventRegPurchPayload.Events[0].EventSourceType {
+				updateEventRegPurchPayload.Events[0].EventSourceId = nil
+				for i, event := range updateEventRegPurchPayload.Events {
+					if i == 0 {
+						event.EventSourceId = nil
+						updateEventRegPurchPayload.Events[i] = event
+					} else {
+						event.EventSourceId = &eventId
+						event.EventSourceType = constants.ES_SINGLE_EVENT
+					}
+				}
+			}
+		}
+
+		// Call patch on rounds for eventId only
+		if len(updateEventRegPurchPayload.Rounds) > 0 {
+			// Define which fields to update (excluding eventId)
+			keysToUpdate := []string{
+				"eventId",
+			}
+
+			service := dynamodb_service.NewCompetitionRoundService()
+			err = service.BatchPatchCompetitionRounds(ctx, db, updateEventRegPurchPayload.Rounds, keysToUpdate)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to update existing competition rounds: "+err.Error()), http.StatusInternalServerError, err)
+				return
+			}
+		}
+
+		// Update purchasable
+		if updateEventRegPurchPayload.PurchasableUpdate.CreatedAt.IsZero() {
+			updateEventRegPurchPayload.PurchasableUpdate.CreatedAt = time.Unix(createdAt, 0)
+		}
+		updateEventRegPurchPayload.PurchasableUpdate.UpdatedAt = time.Unix(updatedAt, 0)
+
+		purchService := dynamodb_service.NewPurchasableService()
+		purchHandler := dynamodb_handlers.NewPurchasableHandler(purchService)
+		purchRes, err := purchHandler.PurchasableService.UpdatePurchasable(r.Context(), db, updateEventRegPurchPayload.PurchasableUpdate)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to update purchasable: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		// Update registration fields
+		updateEventRegPurchPayload.RegistrationFieldsUpdate.UpdatedBy = userId
+		if updateEventRegPurchPayload.RegistrationFieldsUpdate.CreatedAt.IsZero() {
+			updateEventRegPurchPayload.RegistrationFieldsUpdate.CreatedAt = time.Unix(createdAt, 0)
+		}
+		updateEventRegPurchPayload.RegistrationFieldsUpdate.UpdatedAt = time.Unix(updatedAt, 0)
+		regFieldsService := dynamodb_service.NewRegistrationFieldsService()
+		regFieldsHandler := dynamodb_handlers.NewRegistrationFieldsHandler(regFieldsService)
+		regFieldsRes, err := regFieldsHandler.RegistrationFieldsService.UpdateRegistrationFields(r.Context(), db, eventId, updateEventRegPurchPayload.RegistrationFieldsUpdate)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to update registration fields: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		// Update events
+		weaviateClient, err := services.GetWeaviateClient()
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		events := make([]types.Event, len(updateEventRegPurchPayload.Events))
+		if updateEventRegPurchPayload.Events[0].Id == "" {
+			events[0].Id = eventId
+		}
+		for i, rawEvent := range updateEventRegPurchPayload.Events {
+			rawEvent.Description = updateEventRegPurchPayload.Events[0].Description
+			if updateEventRegPurchPayload.Events[0].EventSourceType == constants.ES_SERIES_PARENT {
+				rawEvent.EventSourceId = &eventId
+			}
+
+			event, statusCode, err := services.SingleValidateEvent(rawEvent, false)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to validate events: "+err.Error()), statusCode, err)
+				return
+			}
+			events[i] = event
+		}
+
+		// Before pushing the new events, check for outdated child events, we need to search them prior to
+		// the new event upsert because the new events will have unkown IDs and would get deleted by the
+		// delete "sweeper" we do in the `defer` function below
+
+		farFutureTime, _ := time.Parse(time.RFC3339, "2099-05-01T12:00:00Z")
+		childEventsToDelete, err := services.SearchWeaviateEvents(ctx, weaviateClient, "", []float64{0, 0}, 1000000, 0, farFutureTime.Unix(), []string{}, "", "", "", []string{constants.ES_EVENT_SERIES, constants.ES_EVENT_SERIES_UNPUB}, []string{eventId})
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to search for existing child events: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		// If events being upserted have an ID, they are known and we deny-list them here so they
+		// are NOT deleted by the delete "sweeper" we do in the `defer` function below
+		deleteDenyList := make(map[string]bool)
+		for _, event := range events {
+			deleteDenyList[event.Id] = true
+		}
+
+		// Filter out events we want to keep
+		var eventsToDelete []types.Event
+		for _, event := range childEventsToDelete.Events {
+			if !deleteDenyList[event.Id] {
+				eventsToDelete = append(eventsToDelete, event)
+			}
+		}
+
+		// After pushing the new events, check for outdated child events, we need to search them
+		defer func() {
+			if len(eventsToDelete) > 0 {
+				deleteEventsArr := make([]string, len(eventsToDelete))
+				for i, event := range eventsToDelete {
+					deleteEventsArr[i] = event.Id
+				}
+
+				_, err = services.BulkDeleteEventsFromWeaviate(ctx, weaviateClient, deleteEventsArr)
+				if err != nil {
+					transport.SendServerRes(w, []byte("Failed to delete old child events: "+err.Error()), http.StatusInternalServerError, err)
+					return
+				}
+			}
+		}()
+
+		eventsRes, err := services.BulkUpsertEventsToWeaviate(ctx, weaviateClient, events)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to upsert events to weaviate: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+
+		var parentEventData types.Event
+		if len(events) > 0 {
+			parentEventData = events[0]
+		} else {
+			transport.SendServerRes(w, []byte("No event data was processed."), http.StatusInternalServerError, errors.New("no event data processed"))
+		}
+
+		// Create response object
+		response := map[string]interface{}{
+			"status":  "success",
+			"message": "Event(s), registration fields, and purchasable(s) updated successfully",
+			"data": map[string]interface{}{
+				"parentEvent": parentEventData,
+				"events":      eventsRes,
+				"regFields":   regFieldsRes,
+				"purchasable": purchRes,
+			},
+		}
+
+		// Marshal the response
+		jsonResponse, err := json.Marshal(response)
+		if err != nil {
+			transport.SendServerRes(w, []byte(`{"error": "Failed to create response"}`), http.StatusInternalServerError, err)
+			return
+		}
+
+		transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
 	}
 }
 
-func UpdateEventRegPurch(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	vars := mux.Vars(r)
-	eventId := vars[helpers.EVENT_ID_KEY]
-
-	userInfo := helpers.UserInfo{}
-	if _, ok := ctx.Value("userInfo").(helpers.UserInfo); ok {
-		userInfo = ctx.Value("userInfo").(helpers.UserInfo)
+func BulkDeleteEventsHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		BulkDeleteEvents(w, r)
 	}
-	roleClaims := []helpers.RoleClaim{}
-	if claims, ok := ctx.Value("roleClaims").([]helpers.RoleClaim); ok {
-		roleClaims = claims
-	}
+}
 
-	validRoles := []string{"superAdmin", "eventEditor"}
-	userId := userInfo.Sub
-	if userId == "" {
-		transport.SendServerRes(w, []byte("Missing user ID"), http.StatusUnauthorized, nil)
-		return
-	}
+func BulkDeleteEvents(w http.ResponseWriter, r *http.Request) {
+	var bulkDeleteEventsPayload BulkDeleteEventsPayload
 
-	if !helpers.HasRequiredRole(roleClaims, validRoles) {
-		err := errors.New("only event editors can add or edit events")
-		transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)
-		return
-	}
-
-	if eventId == "" {
-		eventId = uuid.NewString()
-	}
-
-	var updateEventRegPurchPayload UpdateEventRegPurchPayload
-	updateEventRegPurchPayload.RegistrationFieldsUpdate.UpdatedBy = userId
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Failed to read request body: "+err.Error()), http.StatusBadRequest, err)
 		return
 	}
 
-	err = json.Unmarshal(body, &updateEventRegPurchPayload)
+	err = json.Unmarshal(body, &bulkDeleteEventsPayload)
 	if err != nil {
 		transport.SendServerRes(w, []byte("Invalid JSON payload: "+err.Error()), http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	// we should use goroutines to parallelize the three distinct database update operations here
-	db := transport.GetDB()
-
-	// Update purchasable
-	var updatePurchasable internal_types.PurchasableUpdate
-	updatePurchasable.EventId = eventId
-	updatePurchasable.PurchasableItems = updateEventRegPurchPayload.PurchasableUpdate.PurchasableItems
-
-	purchService := dynamodb_service.NewPurchasableService()
-	purchHandler := dynamodb_handlers.NewPurchasableHandler(purchService)
-	purchRes, err := purchHandler.PurchasableService.UpdatePurchasable(r.Context(), db, updatePurchasable)
+	weaviateClient, err := services.GetWeaviateClient()
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to update purchasable: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	// Update registration fields
-	updateEventRegPurchPayload.RegistrationFieldsUpdate.EventId = eventId
-	regFieldsService := dynamodb_service.NewRegistrationFieldsService()
-	regFieldsHandler := dynamodb_handlers.NewRegistrationFieldsHandler(regFieldsService)
-	regFieldsRes, err := regFieldsHandler.RegistrationFieldsService.UpdateRegistrationFields(r.Context(), db, eventId, updateEventRegPurchPayload.RegistrationFieldsUpdate)
+	// TODO: check that the event user has permission to delete via `eventOwners` array
+
+	_, err = services.BulkDeleteEventsFromWeaviate(r.Context(), weaviateClient, bulkDeleteEventsPayload.Events)
 	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to update registration fields: "+err.Error()), http.StatusInternalServerError, err)
+		transport.SendServerRes(w, []byte("Failed to delete events from weaviate: "+err.Error()), http.StatusInternalServerError, err)
 		return
 	}
 
-	// Update events
-	marqoClient, err := services.GetMarqoClient()
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to get marqo client: "+err.Error()), http.StatusInternalServerError, err)
+	transport.SendServerRes(w, []byte("Events deleted successfully"), http.StatusOK, nil)
+}
+
+func (h *WeaviateHandler) PostReShare(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userInfo := constants.UserInfo{}
+	if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+		userInfo = ctx.Value("userInfo").(constants.UserInfo)
+	}
+
+	roleClaims := []constants.RoleClaim{}
+	if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+		roleClaims = claims
+	}
+
+	validRoles := []string{string(constants.SubGrowth), string(constants.SubSeed), string(constants.SuperAdmin)}
+	if !helpers.HasRequiredRole(roleClaims, validRoles) {
+		err := errors.New("only Growth tier subscribers can re share events")
+		transport.SendServerRes(w, []byte(err.Error()), http.StatusForbidden, err)
 		return
 	}
 
-	// events, status, err := HandleBatchEventValidation(w, r, false)
+	userId := ""
+	if userInfo.Sub != "" {
+		userId = userInfo.Sub
+	}
 
-	events := make([]types.Event, len(updateEventRegPurchPayload.Events))
-	for i, rawEvent := range updateEventRegPurchPayload.Events {
-		event, statusCode, err := HandleSingleEventValidation(rawEvent, false)
-		if err != nil {
-			transport.SendServerRes(w, []byte("Failed to validate events: "+err.Error()), statusCode, err)
+	eventId := r.URL.Query().Get("event_id")
+
+	weaviateClient, err := services.GetWeaviateClient()
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to get weaviate client: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	resp, err := weaviateClient.Data().ObjectsGetter().
+		WithID(eventId).
+		WithClassName(constants.WeaviateEventClassName).
+		Do(ctx)
+
+	var existingShadowOwners []string
+	if resp != nil && len(resp) > 0 && resp[0] != nil {
+		if props, ok := resp[0].Properties.(map[string]interface{}); ok {
+			if shadowOwners, exists := props["shadowOwners"]; exists {
+				if shadowOwnersSlice, ok := shadowOwners.([]interface{}); ok {
+					for _, owner := range shadowOwnersSlice {
+						if ownerStr, ok := owner.(string); ok {
+							existingShadowOwners = append(existingShadowOwners, ownerStr)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Always append the current userId
+	existingShadowOwners = append(existingShadowOwners, userId)
+
+	// Remove duplicates
+	seen := make(map[string]bool)
+	unique := []string{}
+	for _, owner := range existingShadowOwners {
+		if !seen[owner] {
+			seen[owner] = true
+			unique = append(unique, owner)
+		}
+	}
+	existingShadowOwners = unique
+
+	err = weaviateClient.Data().Updater().
+		WithMerge(). // merges properties into the object
+		WithID(eventId).
+		WithClassName(constants.WeaviateEventClassName).
+		WithProperties(map[string]interface{}{
+			"shadowOwners": existingShadowOwners, // Only the 'points' property is updated
+		}).
+		Do(ctx)
+
+	if err != nil {
+		transport.SendServerRes(w, []byte("Failed to re share event: "+err.Error()), http.StatusInternalServerError, err)
+		return
+	}
+
+	transport.SendServerRes(w, []byte("Event re-shared successfully"), http.StatusOK, nil)
+}
+
+func PostReShareHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	weaviateService := services.NewWeaviateService()
+	handler := NewWeaviateHandler(weaviateService)
+	return func(w http.ResponseWriter, r *http.Request) {
+		handler.PostReShare(w, r)
+	}
+}
+
+func CheckRole(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		userInfo := constants.UserInfo{}
+		if _, ok := ctx.Value("userInfo").(constants.UserInfo); ok {
+			userInfo = ctx.Value("userInfo").(constants.UserInfo)
+		}
+
+		if userInfo.Sub == "" {
+			transport.SendServerRes(w, []byte("Unauthorized"), http.StatusUnauthorized, nil)
 			return
 		}
-		events[i] = event
-	}
 
-	eventsRes, err := services.BulkUpsertEventToMarqo(marqoClient, events)
-	if err != nil {
-		transport.SendServerRes(w, []byte("Failed to upsert events to marqo: "+err.Error()), http.StatusInternalServerError, err)
-		return
-	}
+		expectedRole := r.URL.Query().Get("role")
+		if expectedRole == "" {
+			transport.SendServerRes(w, []byte("Missing role parameter"), http.StatusBadRequest, nil)
+			return
+		}
 
-	// Create response object
-	response := map[string]interface{}{
-		"status":  "success",
-		"message": "Event(s), registration fields, and purchasable(s) updated successfully",
-		"data": map[string]interface{}{
-			"parentEvent": eventsRes.Items[0],
-			"events":      eventsRes,
-			"regFields":   regFieldsRes,
-			"purchasable": purchRes,
-		},
-	}
+		// Get role claims from context
+		roleClaims := []constants.RoleClaim{}
+		if claims, ok := ctx.Value("roleClaims").([]constants.RoleClaim); ok {
+			roleClaims = claims
+		}
 
-	// Marshal the response
-	jsonResponse, err := json.Marshal(response)
-	if err != nil {
-		transport.SendServerRes(w, []byte(`{"error": "Failed to create response"}`), http.StatusInternalServerError, err)
-		return
-	}
+		// Check if user has the expected role
+		hasRole := false
+		for _, roleClaim := range roleClaims {
+			if roleClaim.Role == expectedRole {
+				hasRole = true
+				break
+			}
+		}
 
-	transport.SendServerRes(w, jsonResponse, http.StatusOK, nil)
+		if !hasRole {
+			jsonResponse := map[string]interface{}{
+				"status":  "error",
+				"message": constants.ROLE_NOT_FOUND_MESSAGE,
+			}
+			bytes, err := json.Marshal(jsonResponse)
+			if err != nil {
+				transport.SendServerRes(w, []byte("Failed to marshal JSON: "+err.Error()), http.StatusInternalServerError, err)
+				return
+			}
+			// Role not found yet, return 404 so client can retry
+			transport.SendServerRes(w, bytes, http.StatusNotFound, nil)
+			return
+		}
+
+		// Role found! Return success response
+		jsonResponse := map[string]interface{}{
+			"status":  "success",
+			"message": constants.ROLE_ACTIVE_MESSAGE,
+		}
+		bytes, err := json.Marshal(jsonResponse)
+		if err != nil {
+			transport.SendServerRes(w, []byte("Failed to marshal JSON: "+err.Error()), http.StatusInternalServerError, err)
+			return
+		}
+		transport.SendServerRes(w, bytes, http.StatusOK, nil)
+	}
+}
+
+func CheckRoleHandler(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		CheckRole(w, r)
+	}
 }

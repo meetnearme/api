@@ -1,15 +1,20 @@
 package pages
 
-templ ErrorPage(body []byte, requestID string) {
-	<header class="page-header bg-base-100 shadow-md py-4">
-		<h1 class="text-3xl mb-4">{ string(body) }</h1>
+templ ErrorPage(body []byte, requestID string, hideError bool) {
+	{{ bodyStr := string(body) }}
+	<header class="page-header bg-base-100 py-4">
+		<h1 class="text-3xl mb-4 text-center w-full">
+			@templ.Raw(bodyStr)
+		</h1>
 	</header>
-	<div role="alert" class="alert alert-error">
-		<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-10 w-10" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-		<div>
-			This error has been logged with Request ID: <strong>{ requestID }</strong>
+	if !hideError {
+		<div role="alert" class="alert alert-error">
+			<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-10 w-10" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+			<div>
+				This error has been logged with Request ID: <strong>{ requestID }</strong>
+			</div>
 		</div>
-	</div>
+	}
 	<br/>
 	<br/>
 	<br/>
