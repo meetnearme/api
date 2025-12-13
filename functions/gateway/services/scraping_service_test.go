@@ -29,6 +29,24 @@ func (m *mockScraper) GetHTMLFromURLWithRetries(seshuJob types.SeshuJob, waitMs 
 	return m.htmlRetries, nil
 }
 
+const (
+	facebookListHTMLTemplate  = `<html><head></head><body><script data-sjs data-content-len>{"data":{"edges":[{"node":{"__typename":"Event","name":"List Event","url":"https://www.facebook.com/events/123","day_time_sentence":"2025-09-11T10:00:00Z","contextual_name":"","description":"","event_creator":{"name":"List Host"}}}]}}</script></body></html>`
+	facebookChildHTMLTemplate = `<html><head><meta property="og:title" content="Child Title" /></head><body><script data-sjs data-content-len>{"__typename":"Event","url":"https://www.facebook.com/events/123","day_time_sentence":"2025-09-11T12:00:00Z","event_description":{"text":"Child Description"},"one_line_address":"Child Venue","event_creator":{"__typename":"User","name":"Child Host"}}</script></body></html>`
+)
+
+type mockScrapingService struct {
+	responses map[string]string
+	calls     []mockScrapeCall
+}
+
+type mockScrapeCall struct {
+	job        types.SeshuJob
+	waitMs     int
+	jsRender   bool
+	waitFor    string
+	maxRetries int
+}
+
 func TestGetHTMLFromURL(t *testing.T) {
 	testCases := []struct {
 		name         string
@@ -592,24 +610,6 @@ func TestDeriveTimezoneFromCoordinatesEmptyResult(t *testing.T) {
 	if result != "" {
 		t.Fatalf("Expected empty string when tzf returns empty value, got %q", result)
 	}
-}
-
-const (
-	facebookListHTMLTemplate  = `<html><head></head><body><script data-sjs data-content-len>{"data":{"edges":[{"node":{"__typename":"Event","name":"List Event","url":"https://www.facebook.com/events/123","day_time_sentence":"2025-09-11T10:00:00Z","contextual_name":"","description":"","event_creator":{"name":"List Host"}}}]}}</script></body></html>`
-	facebookChildHTMLTemplate = `<html><head><meta property="og:title" content="Child Title" /></head><body><script data-sjs data-content-len>{"__typename":"Event","url":"https://www.facebook.com/events/123","day_time_sentence":"2025-09-11T12:00:00Z","event_description":{"text":"Child Description"},"one_line_address":"Child Venue","event_creator":{"__typename":"User","name":"Child Host"}}</script></body></html>`
-)
-
-type mockScrapingService struct {
-	responses map[string]string
-	calls     []mockScrapeCall
-}
-
-type mockScrapeCall struct {
-	job        types.SeshuJob
-	waitMs     int
-	jsRender   bool
-	waitFor    string
-	maxRetries int
 }
 
 func (m *mockScrapingService) GetHTMLFromURL(job types.SeshuJob, waitMs int, jsRender bool, waitFor string) (string, error) {

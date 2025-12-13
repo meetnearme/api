@@ -15,7 +15,6 @@ import (
 	"time"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
-	"github.com/PuerkitoBio/goquery"
 	"github.com/meetnearme/api/functions/gateway/constants"
 	"github.com/meetnearme/api/functions/gateway/helpers"
 	"github.com/meetnearme/api/functions/gateway/types"
@@ -401,167 +400,16 @@ func CreateChatSession(markdownLinesAsArr string, localPrompt string) (string, s
 }
 
 func ExtractEventsFromHTML(seshuJob types.SeshuJob, mode string, action string, scraper ScrapingService) (eventsFound []types.EventInfo, htmlContent string, err error) {
-	knownScrapeSource := ""
-	isFacebook := IsFacebookEventsURL(seshuJob.NormalizedUrlKey)
 
-	if isFacebook {
-		validate := func(content string) bool {
-			return strings.Contains(content, `"__typename":"Event"`)
-		}
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "MODE", mode)
+	ctx = context.WithValue(ctx, "ACTION", action)
 
-		html, err := scraper.GetHTMLFromURLWithRetries(seshuJob, 7500, true, "script[data-sjs][data-content-len]", 7, validate)
-		if err != nil {
-			log.Printf("ERR: Failed to get HTML from Facebook URL: %v", err)
-			return nil, "", err
-		}
+	registry := NewExtractorRegistry()
 
-		if mode != constants.SESHU_MODE_ONBOARD {
-			childScrapeQueue := []types.EventInfo{}
-			urlToIndex := make(map[string]int)
+	extractor := registry.GetExtractor(seshuJob.NormalizedUrlKey)
 
-			// Use the list mode function for the main page
-			eventsFound, err = FindFacebookEventListData(html, seshuJob.NormalizedUrlKey, seshuJob.LocationTimezone)
-			if err != nil {
-				log.Printf("ERR: Failed to extract Facebook event list data: %v", err)
-				return nil, "", err
-			}
-
-			for i, event := range eventsFound {
-				eventsFound[i].KnownScrapeSource = knownScrapeSource
-				// TODO: we could arguably this any time we have a URL,
-				// searching even for things like Title, StartTime, etc.
-				// but for now we're only assuming these missing fields have a
-				// chance of triggering a child scrape
-				if event.EventDescription == "" || event.EventLocation == "" || event.EventTimezone == "" {
-					childScrapeQueue = append(childScrapeQueue, event)
-					urlToIndex[event.EventURL] = i
-				}
-
-				// If existing seshujobs has location data, means seshujob used "all events at the target URL located in the same geography?"
-				if seshuJob.LocationLatitude != constants.INITIAL_EMPTY_LAT_LONG {
-					eventsFound[i].EventLatitude = seshuJob.LocationLatitude
-				}
-
-				if seshuJob.LocationLongitude != constants.INITIAL_EMPTY_LAT_LONG {
-					eventsFound[i].EventLongitude = seshuJob.LocationLongitude
-				}
-
-				if seshuJob.LocationAddress != "" {
-					eventsFound[i].EventLocation = seshuJob.LocationAddress
-				}
-			}
-
-			if len(childScrapeQueue) <= 0 {
-				return eventsFound, html, err
-			}
-
-			for _, event := range childScrapeQueue {
-				childHtml, err := scraper.GetHTMLFromURLWithRetries(types.SeshuJob{NormalizedUrlKey: event.EventURL}, 7500, true, "script[data-sjs][data-content-len]", 7, validate)
-				if err != nil {
-					log.Printf("ERR: Failed to get child HTML from %s: %v", event.EventURL, err)
-					continue
-				}
-				// Use the single event mode function for child pages
-				childEvArrayOfOne, err := FindFacebookSingleEventData(childHtml, seshuJob.NormalizedUrlKey, seshuJob.LocationTimezone)
-				if err != nil {
-					log.Printf("ERR: Failed to extract single event data from child page: %v", err)
-					continue
-				}
-
-				// Look up the original index using the URL
-				originalIndex := urlToIndex[event.EventURL]
-				if eventsFound[originalIndex].EventDescription == "" {
-					eventsFound[originalIndex].EventDescription = childEvArrayOfOne[0].EventDescription
-				}
-				if eventsFound[originalIndex].EventLocation == "" {
-					eventsFound[originalIndex].EventLocation = childEvArrayOfOne[0].EventLocation
-				}
-
-				// Store the event URL as the source URL for the child event
-				childEvArrayOfOne[0].SourceUrl = event.EventURL
-
-				// derive timezone from coordinates, without it all time data is unstable
-				if eventsFound[originalIndex].EventTimezone == "" &&
-					childEvArrayOfOne[0].EventLatitude != 0 &&
-					childEvArrayOfOne[0].EventLongitude != 0 {
-					derivedTimezone := DeriveTimezoneFromCoordinates(
-						childEvArrayOfOne[0].EventLatitude,
-						childEvArrayOfOne[0].EventLongitude,
-					)
-					if derivedTimezone != "" {
-						eventsFound[originalIndex].EventTimezone = derivedTimezone
-					}
-				}
-			}
-
-			return eventsFound, html, err
-
-		} else {
-			// For validate mode, we still need to extract events to return them
-			// Use the list mode function to get events from the main page
-			eventsFound, err = FindFacebookEventListData(html, seshuJob.NormalizedUrlKey, seshuJob.LocationTimezone)
-			if err != nil {
-				log.Printf("ERR: Failed to extract Facebook event list data in %s mode: %v", mode, err)
-				return nil, "", err
-			}
-
-			return eventsFound, html, err
-
-		}
-	}
-
-	html, err := scraper.GetHTMLFromURL(seshuJob, 4500, true, "")
-	if err != nil {
-		return nil, "", err
-	}
-
-	var response string
-
-	if mode == constants.SESHU_MODE_ONBOARD {
-
-		// Set system prompt based on action
-		var localPrompt string
-		if action == "init" {
-			localPrompt = GetSystemPrompt(false)
-		} else if action == "rs" {
-			localPrompt = GetSystemPrompt(true)
-		}
-
-		doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-		if err != nil {
-			return nil, "", err
-		}
-		bodyHtml, err := doc.Find("body").Html()
-		if err != nil {
-			return nil, "", err
-		}
-
-		markdown, err := converter.ConvertString(bodyHtml)
-		if err != nil {
-			return nil, "", err
-		}
-
-		lines := strings.Split(markdown, "\n")
-		var filtered []string
-		for i, line := range lines {
-			if line != "" && i < 1500 {
-				filtered = append(filtered, line)
-			}
-		}
-
-		jsonPayload, err := json.Marshal(filtered)
-		if err != nil {
-			return nil, "", err
-		}
-
-		_, response, err = CreateChatSession(string(jsonPayload), localPrompt)
-		if err != nil {
-			return nil, "", err
-		}
-	}
-
-	var events []types.EventInfo
-	err = json.Unmarshal([]byte(response), &events)
+	events, html, err := extractor.Extract(ctx, seshuJob, scraper)
 	if err != nil {
 		return nil, "", err
 	}
