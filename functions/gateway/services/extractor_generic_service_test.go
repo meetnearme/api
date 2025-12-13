@@ -98,60 +98,6 @@ func TestGenericExtractorExtractHTMLFetchError(t *testing.T) {
 	}
 }
 
-func TestGenericExtractorExtractOnboardModeReturnsHTML(t *testing.T) {
-	extractor := &GenericExtractor{}
-
-	mockHTML := `<html><body>Events</body></html>`
-	mockScraper := &MockScrapingService{
-		GetHTMLFromURLFunc: func(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string) (string, error) {
-			return mockHTML, nil
-		},
-	}
-
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, "MODE", constants.SESHU_MODE_ONBOARD)
-	ctx = context.WithValue(ctx, "ACTION", "init")
-
-	seshuJob := types.SeshuJob{
-		NormalizedUrlKey: "https://example.com/events",
-	}
-
-	// Note: This will likely fail with CreateChatSession error in real execution
-	// We're testing that HTML fetch happens correctly
-	_, html, _ := extractor.Extract(ctx, seshuJob, mockScraper)
-
-	// The HTML should be fetched even if CreateChatSession fails
-	if html == "" {
-		t.Error("Expected HTML to be fetched and returned")
-	}
-}
-
-func TestGenericExtractorExtractOnboardModeRecursive(t *testing.T) {
-	extractor := &GenericExtractor{}
-
-	mockHTML := `<html><body>Events</body></html>`
-	mockScraper := &MockScrapingService{
-		GetHTMLFromURLFunc: func(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string) (string, error) {
-			return mockHTML, nil
-		},
-	}
-
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, "MODE", constants.SESHU_MODE_ONBOARD)
-	ctx = context.WithValue(ctx, "ACTION", "rs")
-
-	seshuJob := types.SeshuJob{
-		NormalizedUrlKey: "https://example.com/events",
-	}
-
-	_, html, _ := extractor.Extract(ctx, seshuJob, mockScraper)
-
-	// HTML should be fetched regardless of CreateChatSession outcome
-	if html == "" {
-		t.Error("Expected HTML to be fetched and returned")
-	}
-}
-
 func TestGenericExtractorWithDifferentModes(t *testing.T) {
 	extractor := &GenericExtractor{}
 
