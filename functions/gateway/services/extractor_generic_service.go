@@ -19,8 +19,8 @@ func (g *GenericExtractor) CanHandle(url string) bool {
 func (g *GenericExtractor) Extract(ctx context.Context, seshuJob types.SeshuJob, scraper ScrapingService) ([]types.EventInfo, string, error) {
 
 	var localPrompt string
-	mode := ctx.Value("MODE")
-	action := ctx.Value("ACTION")
+	mode := ctx.Value("MODE").(string)
+	action := ctx.Value("ACTION").(string)
 
 	html, err := scraper.GetHTMLFromURL(seshuJob, 4500, true, "")
 	if err != nil {

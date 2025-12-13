@@ -18,7 +18,7 @@ func (f *FacebookExtractor) CanHandle(url string) bool {
 
 func (f *FacebookExtractor) Extract(ctx context.Context, seshuJob types.SeshuJob, scraper ScrapingService) ([]types.EventInfo, string, error) {
 
-	mode := ctx.Value("MODE")
+	mode := ctx.Value("MODE").(string)
 	knownScrapeSource := ""
 
 	validate := func(content string) bool {
