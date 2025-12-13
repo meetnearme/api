@@ -61,7 +61,7 @@ func TestFacebookExtractorExtractHTMLFetchError(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "MODE", "default")
+	ctx = context.WithValue(ctx, "MODE", constants.SESHU_MODE_SCRAPE)
 
 	seshuJob := types.SeshuJob{
 		NormalizedUrlKey: "https://www.facebook.com/events/123",
@@ -155,7 +155,7 @@ func TestFacebookExtractorExtractValidatesRetry(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "MODE", "default")
+	ctx = context.WithValue(ctx, "MODE", constants.SESHU_MODE_SCRAPE)
 
 	seshuJob := types.SeshuJob{
 		NormalizedUrlKey: "https://www.facebook.com/events/123",
@@ -189,7 +189,7 @@ func TestFacebookExtractorHTMLFetchParameters(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "MODE", "default")
+	ctx = context.WithValue(ctx, "MODE", constants.SESHU_MODE_SCRAPE)
 
 	seshuJob := types.SeshuJob{
 		NormalizedUrlKey: "https://www.facebook.com/events/123",
