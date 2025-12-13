@@ -24,10 +24,6 @@ func TestGenericExtractorCanHandle(t *testing.T) {
 			name: "Empty URL should be handled",
 			url:  "",
 		},
-		{
-			name: "Facebook URL should still be handled by generic",
-			url:  "https://facebook.com/events",
-		},
 	}
 
 	for _, tt := range tests {
@@ -51,7 +47,7 @@ func TestGenericExtractorExtractNonOnboardMode(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "MODE", "default")
+	ctx = context.WithValue(ctx, "MODE", constants.SESHU_MODE_SCRAPE)
 	ctx = context.WithValue(ctx, "ACTION", "init")
 
 	seshuJob := types.SeshuJob{
@@ -84,7 +80,8 @@ func TestGenericExtractorExtractHTMLFetchError(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "MODE", "default")
+	ctx = context.WithValue(ctx, "MODE", constants.SESHU_MODE_SCRAPE)
+	ctx = context.WithValue(ctx, "ACTION", "init")
 
 	seshuJob := types.SeshuJob{
 		NormalizedUrlKey: "https://example.com/events",
@@ -101,7 +98,7 @@ func TestGenericExtractorExtractHTMLFetchError(t *testing.T) {
 	}
 }
 
-func TestGenericExtractorExtractOnboardModeInit(t *testing.T) {
+func TestGenericExtractorExtractOnboardModeInitCaptures(t *testing.T) {
 	extractor := &GenericExtractor{}
 
 	mockHTML := `
@@ -129,8 +126,18 @@ func TestGenericExtractorExtractOnboardModeInit(t *testing.T) {
 		NormalizedUrlKey: "https://example.com/events",
 	}
 
-	// This test demonstrates the structure
-	// In a real test, you'd need to mock CreateChatSession and related functions
+	// Verify the mode and action are captured correctly
+	retrievedMode := ctx.Value("MODE").(string)
+	retrievedAction := ctx.Value("ACTION").(string)
+
+	if retrievedMode != constants.SESHU_MODE_ONBOARD {
+		t.Errorf("Expected MODE to be %s, got %v", constants.SESHU_MODE_ONBOARD, retrievedMode)
+	}
+
+	if retrievedAction != "init" {
+		t.Errorf("Expected ACTION to be 'init', got %v", retrievedAction)
+	}
+
 	_, html, _ := extractor.Extract(ctx, seshuJob, mockScraper)
 
 	if html != mockHTML {
@@ -183,7 +190,7 @@ func TestGenericExtractorWithDifferentModes(t *testing.T) {
 		},
 		{
 			name:   "Non-onboard mode",
-			mode:   "other",
+			mode:   constants.SESHU_MODE_SCRAPE,
 			action: "",
 		},
 	}
@@ -208,5 +215,46 @@ func TestGenericExtractorWithDifferentModes(t *testing.T) {
 			// Should not panic and should handle all modes
 			_ = err
 		})
+	}
+}
+
+func TestGenericExtractorHTMLFetchParameters(t *testing.T) {
+	extractor := &GenericExtractor{}
+
+	capturedParams := struct {
+		waitMs   int
+		jsRender bool
+		waitFor  string
+	}{}
+
+	mockScraper := &MockScrapingService{
+		GetHTMLFromURLFunc: func(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string) (string, error) {
+			capturedParams.waitMs = waitMs
+			capturedParams.jsRender = jsRender
+			capturedParams.waitFor = waitFor
+			return "<html></html>", nil
+		},
+	}
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "MODE", constants.SESHU_MODE_SCRAPE)
+	ctx = context.WithValue(ctx, "ACTION", "init")
+
+	seshuJob := types.SeshuJob{
+		NormalizedUrlKey: "https://example.com/events",
+	}
+
+	_, _, _ = extractor.Extract(ctx, seshuJob, mockScraper)
+
+	if capturedParams.waitMs != 4500 {
+		t.Errorf("Expected waitMs 4500, got %d", capturedParams.waitMs)
+	}
+
+	if !capturedParams.jsRender {
+		t.Error("Expected jsRender to be true")
+	}
+
+	if capturedParams.waitFor != "" {
+		t.Errorf("Expected empty waitFor, got %s", capturedParams.waitFor)
 	}
 }

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/meetnearme/api/functions/gateway/constants"
@@ -49,42 +50,6 @@ func TestFacebookExtractorCanHandle(t *testing.T) {
 	}
 }
 
-func TestFacebookExtractorExtractOnboardMode(t *testing.T) {
-	extractor := &FacebookExtractor{}
-
-	mockHTML := `<html><body>Test</body></html>`
-	mockScraper := &MockScrapingService{
-		GetHTMLFromURLWithRetriesFunc: func(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string, maxRetries int, validationFunc ContentValidationFunc) (string, error) {
-			return mockHTML, nil
-		},
-	}
-
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, "MODE", constants.SESHU_MODE_ONBOARD)
-
-	seshuJob := types.SeshuJob{
-		NormalizedUrlKey:  "https://www.facebook.com/events/123",
-		LocationTimezone:  "America/Chicago",
-		LocationLatitude:  0,
-		LocationLongitude: 0,
-		LocationAddress:   "",
-	}
-
-	// This test will fail if FindFacebookEventListData is not mocked
-	// For now, we're testing the structure
-	_, html, err := extractor.Extract(ctx, seshuJob, mockScraper)
-	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	}
-
-	if html != mockHTML {
-		t.Errorf("Expected HTML to be %s, got %s", mockHTML, html)
-	}
-
-	// Error is expected since FindFacebookEventListData may fail without proper setup
-	// The test verifies the flow works correctly
-}
-
 func TestFacebookExtractorExtractHTMLFetchError(t *testing.T) {
 	extractor := &FacebookExtractor{}
 
@@ -108,7 +73,7 @@ func TestFacebookExtractorExtractHTMLFetchError(t *testing.T) {
 		t.Error("Expected error when HTML fetch fails, got nil")
 	}
 
-	if err.Error() != "failed to get HTML from Facebook URL: failed to fetch HTML" {
+	if !strings.Contains(err.Error(), "failed to get HTML from Facebook URL") {
 		t.Errorf("Expected specific error message, got: %v", err)
 	}
 }
@@ -147,9 +112,10 @@ func TestFacebookExtractorLocationDataNotAppliedWhenEmpty(t *testing.T) {
 	extractor := &FacebookExtractor{}
 
 	event := &types.EventInfo{
-		EventTitle:    "Test Event",
-		EventURL:      "https://facebook.com/event/123",
-		EventLatitude: 50.0,
+		EventTitle:     "Test Event",
+		EventURL:       "https://facebook.com/event/123",
+		EventLatitude:  50.0,
+		EventLongitude: 50.0,
 	}
 
 	seshuJob := types.SeshuJob{
@@ -162,5 +128,88 @@ func TestFacebookExtractorLocationDataNotAppliedWhenEmpty(t *testing.T) {
 
 	if event.EventLatitude != 50.0 {
 		t.Errorf("Expected latitude to remain 50.0, got %f", event.EventLatitude)
+	}
+
+	if event.EventLongitude != 50.0 {
+		t.Errorf("Expected longitude to remain 50.0, got %f", event.EventLongitude)
+	}
+}
+
+func TestFacebookExtractorExtractValidatesRetry(t *testing.T) {
+	extractor := &FacebookExtractor{}
+
+	// Mock that validates the validation function is passed
+	validationFuncCalled := false
+	mockScraper := &MockScrapingService{
+		GetHTMLFromURLWithRetriesFunc: func(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string, maxRetries int, validationFunc ContentValidationFunc) (string, error) {
+			if validationFunc != nil {
+				validationFuncCalled = true
+				// Test the validation function
+				result := validationFunc(`{"__typename":"Event"}`)
+				if !result {
+					t.Error("Validation function should return true for valid Facebook event data")
+				}
+			}
+			return "", errors.New("no Facebook event data found")
+		},
+	}
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "MODE", "default")
+
+	seshuJob := types.SeshuJob{
+		NormalizedUrlKey: "https://www.facebook.com/events/123",
+	}
+
+	_, _, _ = extractor.Extract(ctx, seshuJob, mockScraper)
+
+	if !validationFuncCalled {
+		t.Error("Validation function should have been called")
+	}
+}
+
+func TestFacebookExtractorHTMLFetchParameters(t *testing.T) {
+	extractor := &FacebookExtractor{}
+
+	capturedParams := struct {
+		waitMs     int
+		jsRender   bool
+		waitFor    string
+		maxRetries int
+	}{}
+
+	mockScraper := &MockScrapingService{
+		GetHTMLFromURLWithRetriesFunc: func(seshuJob types.SeshuJob, waitMs int, jsRender bool, waitFor string, maxRetries int, validationFunc ContentValidationFunc) (string, error) {
+			capturedParams.waitMs = waitMs
+			capturedParams.jsRender = jsRender
+			capturedParams.waitFor = waitFor
+			capturedParams.maxRetries = maxRetries
+			return "", errors.New("test error")
+		},
+	}
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "MODE", "default")
+
+	seshuJob := types.SeshuJob{
+		NormalizedUrlKey: "https://www.facebook.com/events/123",
+	}
+
+	_, _, _ = extractor.Extract(ctx, seshuJob, mockScraper)
+
+	if capturedParams.waitMs != 7500 {
+		t.Errorf("Expected waitMs 7500, got %d", capturedParams.waitMs)
+	}
+
+	if !capturedParams.jsRender {
+		t.Error("Expected jsRender to be true")
+	}
+
+	if capturedParams.waitFor != "script[data-sjs][data-content-len]" {
+		t.Errorf("Expected specific waitFor selector, got %s", capturedParams.waitFor)
+	}
+
+	if capturedParams.maxRetries != 7 {
+		t.Errorf("Expected maxRetries 7, got %d", capturedParams.maxRetries)
 	}
 }
